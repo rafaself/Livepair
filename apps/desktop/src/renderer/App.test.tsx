@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 import { App } from './App';
 
 describe('App', () => {
-  it('opens the assistant shell, renders the panel layout, and supports close/settings actions', () => {
+  it('opens the assistant shell, renders static assistant sections, and supports placeholder actions', () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {
       return undefined;
     });
@@ -33,16 +33,25 @@ describe('App', () => {
         screen.getByRole('button', { name: /close assistant panel/i }),
       ).toBeVisible();
 
-      expect(screen.getByText('Assistant Status')).toBeVisible();
+      expect(screen.getByRole('heading', { name: 'Status' })).toBeVisible();
+      expect(screen.getByText('Assistant')).toBeVisible();
       expect(screen.getByText('Disconnected')).toBeVisible();
-      expect(screen.getByText('Connection')).toBeVisible();
+      expect(screen.getByText('Backend')).toBeVisible();
       expect(screen.getByText('Not connected')).toBeVisible();
 
-      expect(screen.getByText('Assistant will appear here.')).toBeVisible();
-      expect(screen.getByText('Future controls:')).toBeVisible();
-      expect(screen.getByText('microphone')).toBeVisible();
-      expect(screen.getByText('transcript')).toBeVisible();
-      expect(screen.getByText('actions')).toBeVisible();
+      expect(screen.getByRole('heading', { name: 'Session' })).toBeVisible();
+      expect(screen.getByText('Mode')).toBeVisible();
+      expect(screen.getByText('Fast')).toBeVisible();
+      expect(screen.getByText('Goal')).toBeVisible();
+      expect(screen.getByText('Assist with desktop tasks')).toBeVisible();
+      expect(screen.getByText('Transcript')).toBeVisible();
+      expect(screen.getByText('(No conversation yet)')).toBeVisible();
+
+      expect(screen.getByRole('heading', { name: 'Actions' })).toBeVisible();
+      fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Start Listening' }));
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('action triggered');
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
       expect(consoleLogSpy).toHaveBeenCalledWith('open settings');
