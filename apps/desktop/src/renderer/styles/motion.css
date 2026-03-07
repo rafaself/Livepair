@@ -1,0 +1,33 @@
+:root {
+  --motion-fast: 120ms;
+  --motion-normal: 200ms;
+  --motion-slow: 320ms;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-normal: 0ms;
+    --motion-slow: 0ms;
+  }
+}
+
+.transition-colors {
+  transition-property: color, background-color, border-color;
+  transition-duration: var(--motion-normal);
+  transition-timing-function: var(--ease-out);
+}
+
+.transition-transform {
+  transition-property: transform;
+  transition-duration: var(--motion-normal);
+  transition-timing-function: var(--ease-out);
+}
+
+.transition-all {
+  transition-property: all;
+  transition-duration: var(--motion-normal);
+  transition-timing-function: var(--ease-out);
+}
