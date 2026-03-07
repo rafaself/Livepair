@@ -98,16 +98,13 @@ describe('main process runtime', () => {
     await expect(healthHandler()).rejects.toThrow('Health check failed: 503');
   });
 
-  it('token IPC handler posts JSON and throws on non-ok response', async () => {
+  it('token IPC handler posts JSON with a valid request payload', async () => {
     const okResponse = {
       ok: true,
       status: 200,
       json: vi.fn(async () => ({ token: 'x', expiresAt: 't', isStub: true })),
     };
-    const badResponse = { ok: false, status: 401 };
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(okResponse)
-      .mockResolvedValueOnce(badResponse);
+    const fetchMock = vi.fn().mockResolvedValueOnce(okResponse);
     vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
 
     await import('./main');
@@ -132,22 +129,49 @@ describe('main process runtime', () => {
         body: JSON.stringify({ sessionId: 'abc' }),
       },
     );
+  });
 
-    await expect(
-      tokenHandler({}, undefined as unknown as { sessionId?: string }),
-    ).rejects.toThrow('Token request failed: 401');
-    expect(fetchMock).toHaveBeenLastCalledWith(
+  it('token IPC handler rejects invalid payloads before fetch', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+
+    await import('./main');
+    const tokenHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'session:requestToken',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<unknown>;
+
+    await expect(tokenHandler({}, undefined)).rejects.toThrow(
+      'Invalid token request payload',
+    );
+    await expect(tokenHandler({}, 'bad')).rejects.toThrow(
+      'Invalid token request payload',
+    );
+    await expect(tokenHandler({}, { sessionId: 123 })).rejects.toThrow(
+      'Invalid token request payload',
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('token IPC handler throws on non-ok response for a valid payload', async () => {
+    const badResponse = { ok: false, status: 401 };
+    const fetchMock = vi.fn().mockResolvedValueOnce(badResponse);
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+
+    await import('./main');
+    const tokenHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'session:requestToken',
+    )?.[1] as (_event: unknown, req: { sessionId?: string }) => Promise<unknown>;
+
+    await expect(tokenHandler({}, {})).rejects.toThrow('Token request failed: 401');
+
+    expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3000/session/token',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       },
-    );
-
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 401 });
-    await expect(tokenHandler({}, {})).rejects.toThrow(
-      'Token request failed: 401',
     );
   });
 

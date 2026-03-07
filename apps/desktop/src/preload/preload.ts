@@ -8,7 +8,7 @@ import type {
 export interface DesktopBridge {
   checkHealth: () => Promise<HealthResponse>;
   requestSessionToken: (
-    req?: CreateEphemeralTokenRequest,
+    req: CreateEphemeralTokenRequest,
   ) => Promise<CreateEphemeralTokenResponse>;
 }
 

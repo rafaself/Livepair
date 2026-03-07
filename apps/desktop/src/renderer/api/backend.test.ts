@@ -43,9 +43,9 @@ describe('renderer backend api helper', () => {
       requestSessionToken: requestToken,
     };
 
-    await expect(requestSessionToken()).resolves.toEqual(tokenResponse);
+    await expect(requestSessionToken({})).resolves.toEqual(tokenResponse);
     expect(requestToken).toHaveBeenCalledTimes(1);
-    expect(requestToken).toHaveBeenCalledWith();
+    expect(requestToken).toHaveBeenCalledWith({});
   });
 
   it('propagates token request failures', async () => {
@@ -56,6 +56,6 @@ describe('renderer backend api helper', () => {
       requestSessionToken: requestToken,
     };
 
-    await expect(requestSessionToken()).rejects.toThrow('token failed');
+    await expect(requestSessionToken({})).rejects.toThrow('token failed');
   });
 });

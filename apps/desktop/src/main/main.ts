@@ -8,6 +8,21 @@ import type {
 
 export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:3000';
 
+function isCreateEphemeralTokenRequest(
+  req: unknown,
+): req is CreateEphemeralTokenRequest {
+  if (typeof req !== 'object' || req === null || Array.isArray(req)) {
+    return false;
+  }
+
+  if (!('sessionId' in req)) {
+    return true;
+  }
+
+  const sessionId = (req as { sessionId?: unknown }).sessionId;
+  return typeof sessionId === 'string' || typeof sessionId === 'undefined';
+}
+
 export function createWindow(): void {
   const win = new BrowserWindow({
     width: 900,
@@ -50,12 +65,16 @@ ipcMain.handle(
   'session:requestToken',
   async (
     _event,
-    req: CreateEphemeralTokenRequest,
+    req: unknown,
   ): Promise<CreateEphemeralTokenResponse> => {
+    if (!isCreateEphemeralTokenRequest(req)) {
+      throw new Error('Invalid token request payload');
+    }
+
     const res = await fetch(`${API_BASE_URL}/session/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req ?? {}),
+      body: JSON.stringify(req),
     });
     if (!res.ok) throw new Error(`Token request failed: ${res.status}`);
     return res.json() as Promise<CreateEphemeralTokenResponse>;

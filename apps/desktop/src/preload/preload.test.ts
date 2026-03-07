@@ -49,4 +49,13 @@ describe('preload bridge', () => {
       sessionId: 'session-1',
     });
   });
+
+  it('passes explicit empty payload when request has no fields', async () => {
+    const { bridge } = await import('./preload');
+
+    mockInvoke.mockResolvedValueOnce({ token: 't', expiresAt: 'later', isStub: true });
+    await bridge.requestSessionToken({});
+
+    expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {});
+  });
 });

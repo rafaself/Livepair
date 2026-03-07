@@ -47,12 +47,12 @@ describe('main bootstrap', () => {
     expect(logSpy).toHaveBeenCalledWith('API listening on port 3000');
   });
 
-  it('uses explicit PORT value during bootstrap', async () => {
+  it('uses explicit PORT value during bootstrap as a parsed number', async () => {
     process.env['PORT'] = '4050';
     await import('./main');
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(listen).toHaveBeenCalledWith('4050');
+    expect(listen).toHaveBeenCalledWith(4050);
     expect(logSpy).toHaveBeenCalledWith('API listening on port 4050');
   });
 });

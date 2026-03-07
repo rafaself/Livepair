@@ -1,4 +1,7 @@
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type {
+  CreateEphemeralTokenRequest,
+  CreateEphemeralTokenResponse,
+} from '@livepair/shared-types';
 
 export async function checkBackendHealth(): Promise<boolean> {
   try {
@@ -9,6 +12,8 @@ export async function checkBackendHealth(): Promise<boolean> {
   }
 }
 
-export function requestSessionToken(): Promise<CreateEphemeralTokenResponse> {
-  return window.bridge.requestSessionToken();
+export function requestSessionToken(
+  req: CreateEphemeralTokenRequest,
+): Promise<CreateEphemeralTokenResponse> {
+  return window.bridge.requestSessionToken(req);
 }
