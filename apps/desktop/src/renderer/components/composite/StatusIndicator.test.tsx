@@ -6,9 +6,9 @@ describe('StatusIndicator', () => {
   it('renders all runtime states with matching classes and labels', () => {
     const runtimeStates = [
       { value: 'disconnected', label: 'Disconnected' },
-      { value: 'connecting', label: 'Connecting' },
       { value: 'ready', label: 'Ready' },
       { value: 'listening', label: 'Listening' },
+      { value: 'thinking', label: 'Thinking' },
       { value: 'speaking', label: 'Speaking' },
       { value: 'error', label: 'Error' },
     ] as const;

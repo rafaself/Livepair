@@ -10,9 +10,12 @@ export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
   isPanelOpen: boolean;
   isSettingsOpen: boolean;
+  isDebugOpen: boolean;
   closePanel: () => void;
   openSettings: () => void;
   closeSettings: () => void;
+  openDebug: () => void;
+  closeDebug: () => void;
   setAssistantState: (state: AssistantRuntimeState) => void;
   backendState: BackendConnectionState;
   backendIndicatorState: AssistantRuntimeState;
@@ -20,7 +23,7 @@ export type AssistantPanelController = {
   tokenRequestState: TokenRequestState;
   tokenFeedback: string | null;
   handleCheckBackendHealth: () => Promise<void>;
-  handleConnect: () => Promise<void>;
+  handleStartTalking: () => Promise<void>;
 };
 
 export function useAssistantPanelController(): AssistantPanelController {
@@ -33,12 +36,19 @@ export function useAssistantPanelController(): AssistantPanelController {
   } = useUiStore();
   const [backendState, setBackendState] = useState<BackendConnectionState>('idle');
   const [tokenRequestState, setTokenRequestState] = useState<TokenRequestState>('idle');
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
 
   const handleCheckBackendHealth = useCallback(async (): Promise<void> => {
     setBackendState('checking');
-    const isHealthy = await checkBackendHealth();
-    setBackendState(isHealthy ? 'connected' : 'failed');
-  }, []);
+    try {
+      const isHealthy = await checkBackendHealth();
+      setBackendState(isHealthy ? 'connected' : 'failed');
+      setAssistantState(isHealthy ? 'ready' : 'error');
+    } catch {
+      setBackendState('failed');
+      setAssistantState('error');
+    }
+  }, [setAssistantState]);
 
   useEffect(() => {
     if (!isPanelOpen) {
@@ -48,22 +58,33 @@ export function useAssistantPanelController(): AssistantPanelController {
     void handleCheckBackendHealth();
   }, [handleCheckBackendHealth, isPanelOpen]);
 
-  const handleConnect = useCallback(async (): Promise<void> => {
+  useEffect(() => {
+    if (!isPanelOpen) {
+      setIsDebugOpen(false);
+    }
+  }, [isPanelOpen]);
+
+  const handleStartTalking = useCallback(async (): Promise<void> => {
     setTokenRequestState('loading');
+    setAssistantState('thinking');
     try {
       await requestSessionToken({});
       setTokenRequestState('success');
+      setAssistantState('ready');
     } catch {
       setTokenRequestState('error');
+      setAssistantState('error');
     }
-  }, []);
+  }, [setAssistantState]);
 
   const backendIndicatorState: AssistantRuntimeState =
     backendState === 'connected'
       ? 'ready'
       : backendState === 'checking'
-        ? 'connecting'
-        : 'disconnected';
+        ? 'thinking'
+        : backendState === 'failed'
+          ? 'error'
+          : 'disconnected';
 
   const backendLabel =
     backendState === 'connected'
@@ -85,9 +106,12 @@ export function useAssistantPanelController(): AssistantPanelController {
     assistantState,
     isPanelOpen,
     isSettingsOpen,
+    isDebugOpen,
     closePanel,
     openSettings,
     closeSettings,
+    openDebug: () => setIsDebugOpen(true),
+    closeDebug: () => setIsDebugOpen(false),
     setAssistantState,
     backendState,
     backendIndicatorState,
@@ -95,6 +119,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     tokenRequestState,
     tokenFeedback,
     handleCheckBackendHealth,
-    handleConnect,
+    handleStartTalking,
   };
 }

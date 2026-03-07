@@ -18,7 +18,7 @@
   background: var(--color-text-secondary);
 }
 
-.status-indicator--connecting {
+.status-indicator--thinking {
   background: var(--color-text-secondary);
   animation: status-pulse var(--motion-slow) ease-in-out infinite;
 }

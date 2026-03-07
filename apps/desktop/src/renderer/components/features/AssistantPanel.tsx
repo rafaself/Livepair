@@ -1,15 +1,24 @@
-import { Settings } from 'lucide-react';
+import { Bug, Settings } from 'lucide-react';
+import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { OverlayContainer, Panel, PanelHeader } from '../layout';
 import { Button } from '../primitives';
-import { AssistantPanelActionsSection } from './AssistantPanelActionsSection';
-import { AssistantPanelSessionSection } from './AssistantPanelSessionSection';
+import { AssistantPanelDebugModal } from './AssistantPanelDebugModal';
 import { AssistantPanelSettingsModal } from './AssistantPanelSettingsModal';
-import { AssistantPanelStatusSection } from './AssistantPanelStatusSection';
+import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import './AssistantPanel.css';
 
 export type AssistantPanelProps = {
   showStateDevControls?: boolean;
+};
+
+const CONVERSATION_HINTS: Record<AssistantRuntimeState, string> = {
+  disconnected: 'Open a voice session when you are ready to talk.',
+  ready: 'Livepair is ready when you are.',
+  listening: 'Speak naturally. Your latest exchange will appear here.',
+  thinking: 'Livepair is preparing the conversation.',
+  speaking: 'Livepair is responding out loud.',
+  error: 'The last attempt did not start cleanly. Try again when ready.',
 };
 
 export function AssistantPanel({
@@ -20,22 +29,20 @@ export function AssistantPanel({
     assistantState,
     isPanelOpen,
     isSettingsOpen,
-    closePanel,
+    isDebugOpen,
     openSettings,
     closeSettings,
+    openDebug,
+    closeDebug,
     backendState,
     backendIndicatorState,
     backendLabel,
     tokenRequestState,
     tokenFeedback,
     handleCheckBackendHealth,
-    handleConnect,
+    handleStartTalking,
     setAssistantState,
   } = panel;
-
-  function handleActionTriggered(): void {
-    console.log('action triggered');
-  }
 
   return (
     <OverlayContainer>
@@ -48,34 +55,61 @@ export function AssistantPanel({
         className="assistant-panel"
       >
         <PanelHeader title="Livepair">
+          {showStateDevControls ? (
+            <Button variant="secondary" size="sm" onClick={openDebug} aria-label="Developer tools">
+              <Bug size={16} />
+            </Button>
+          ) : null}
           <Button variant="secondary" size="sm" onClick={openSettings} aria-label="Settings">
             <Settings size={16} />
           </Button>
         </PanelHeader>
 
-        <AssistantPanelStatusSection
-          assistantState={assistantState}
-          isPanelOpen={isPanelOpen}
-          backendState={backendState}
-          backendIndicatorState={backendIndicatorState}
-          backendLabel={backendLabel}
-          showStateDevControls={showStateDevControls}
-          onRetryBackendHealth={handleCheckBackendHealth}
-          onSetAssistantState={setAssistantState}
-        />
+        <AssistantPanelStateHero state={assistantState} />
 
-        <AssistantPanelSessionSection />
+        <section className="assistant-panel__conversation" aria-labelledby="assistant-panel-conversation-title">
+          <div className="assistant-panel__conversation-header">
+            <h3 id="assistant-panel-conversation-title" className="assistant-panel__conversation-title">
+              Conversation
+            </h3>
+            <p className="assistant-panel__conversation-hint">{CONVERSATION_HINTS[assistantState]}</p>
+          </div>
 
-        <AssistantPanelActionsSection
-          tokenRequestState={tokenRequestState}
-          tokenFeedback={tokenFeedback}
-          onConnect={handleConnect}
-          onStartListening={handleActionTriggered}
-        />
+          <div className="assistant-panel__conversation-card">
+            <p className="assistant-panel__conversation-empty-title">No conversation yet</p>
+            <p className="assistant-panel__conversation-empty-body">
+              When you start talking, Livepair will keep the latest exchange here so you can stay oriented in the flow.
+            </p>
+          </div>
+        </section>
 
+        <div className="assistant-panel__primary-action">
+          <Button
+            variant="primary"
+            size="lg"
+            className="assistant-panel__start-button"
+            onClick={() => void handleStartTalking()}
+            disabled={tokenRequestState === 'loading'}
+          >
+            Start talking
+          </Button>
+        </div>
       </Panel>
 
       <AssistantPanelSettingsModal isOpen={isSettingsOpen} onClose={closeSettings} />
+      {showStateDevControls ? (
+        <AssistantPanelDebugModal
+          isOpen={isDebugOpen}
+          assistantState={assistantState}
+          backendState={backendState}
+          backendIndicatorState={backendIndicatorState}
+          backendLabel={backendLabel}
+          tokenFeedback={tokenFeedback}
+          onClose={closeDebug}
+          onRetryBackendHealth={handleCheckBackendHealth}
+          onSetAssistantState={setAssistantState}
+        />
+      ) : null}
     </OverlayContainer>
   );
 }

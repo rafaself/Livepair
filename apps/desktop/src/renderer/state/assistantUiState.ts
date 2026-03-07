@@ -2,9 +2,9 @@ export type AssistantPanelState = 'collapsed' | 'expanded';
 
 export type AssistantRuntimeState =
   | 'disconnected'
-  | 'connecting'
   | 'ready'
   | 'listening'
+  | 'thinking'
   | 'speaking'
   | 'error';
 
@@ -20,9 +20,9 @@ export const ASSISTANT_PANEL_STATES: readonly AssistantPanelState[] = [
 
 export const ASSISTANT_RUNTIME_STATES: readonly AssistantRuntimeState[] = [
   'disconnected',
-  'connecting',
   'ready',
   'listening',
+  'thinking',
   'speaking',
   'error',
 ];
@@ -34,9 +34,9 @@ export const ASSISTANT_PANEL_STATE_LABELS: Record<AssistantPanelState, string> =
 
 export const ASSISTANT_RUNTIME_STATE_LABELS: Record<AssistantRuntimeState, string> = {
   disconnected: 'Disconnected',
-  connecting: 'Connecting',
   ready: 'Ready',
   listening: 'Listening',
+  thinking: 'Thinking',
   speaking: 'Speaking',
   error: 'Error',
 };

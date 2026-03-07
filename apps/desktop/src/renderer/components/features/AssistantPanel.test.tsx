@@ -57,10 +57,9 @@ describe('AssistantPanel', () => {
         selector: '[role="complementary"]',
       }),
     ).toHaveAttribute('aria-hidden', 'true');
-    expect(screen.getByText('Closed')).toBeVisible();
   });
 
-  it('renders core sections and settings in a full panel flow', async () => {
+  it('renders a voice-first hierarchy and keeps developer details out of the main panel', async () => {
     renderAssistantPanel({ showStateDevControls: true });
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
 
@@ -68,37 +67,108 @@ describe('AssistantPanel', () => {
     const panelScope = within(panel);
 
     expect(panel).toHaveAttribute('aria-hidden', 'false');
-    expect(panelScope.getByRole('heading', { name: 'Status' })).toBeVisible();
-    expect(panelScope.getByRole('heading', { name: 'Session' })).toBeVisible();
-    expect(panelScope.getByRole('heading', { name: 'Actions' })).toBeVisible();
-    expect(await panelScope.findByText('Connected')).toBeVisible();
+    expect(panelScope.getByRole('heading', { name: 'Livepair' })).toBeVisible();
 
-    const statusHeading = panelScope.getByRole('heading', {
-      name: 'Status',
-      level: 3,
-    });
-    const sessionHeading = panelScope.getByRole('heading', {
-      name: 'Session',
-      level: 3,
-    });
-    const actionsHeading = panelScope.getByRole('heading', {
-      name: 'Actions',
-      level: 3,
-    });
+    const hero = await panelScope.findByRole('status', { name: 'Ready' });
+    const conversationHeading = panelScope.getByRole('heading', { name: 'Conversation' });
+    const startTalkingButton = panelScope.getByRole('button', { name: 'Start talking' });
 
-    expect(statusHeading.compareDocumentPosition(sessionHeading)).toBe(
+    expect(panelScope.getByRole('button', { name: 'Developer tools' })).toBeVisible();
+    expect(panelScope.getByRole('button', { name: 'Settings' })).toBeVisible();
+    expect(panelScope.getByText('No conversation yet')).toBeVisible();
+    expect(hero.compareDocumentPosition(conversationHeading)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(sessionHeading.compareDocumentPosition(actionsHeading)).toBe(
+    expect(conversationHeading.compareDocumentPosition(startTalkingButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
+    expect(panelScope.queryByText('Backend status')).toBeNull();
+    expect(panelScope.queryByText('Token request')).toBeNull();
+    expect(panelScope.queryByText('Mode')).toBeNull();
+    expect(panelScope.queryByText('Set assistant state')).toBeNull();
+  });
 
-    fireEvent.click(panelScope.getByRole('button', { name: 'speaking' }));
-    expect(screen.getByRole('status', { name: 'Speaking' })).toBeVisible();
+  it('shows backend failures as an error state and supports retry inside developer tools', async () => {
+    vi.mocked(checkBackendHealth)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
 
-    fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+    renderAssistantPanel({ showStateDevControls: true });
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    expect(await panelScope.findByRole('status', { name: 'Error' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Developer tools' }));
+    const dialog = screen.getByRole('dialog', { name: 'Developer tools' });
+    const modal = within(dialog);
+
+    expect(modal.getByText('Backend status')).toBeVisible();
+    expect(modal.getByText('Not connected')).toBeVisible();
+
+    fireEvent.click(modal.getByRole('button', { name: 'Retry backend' }));
+
+    expect(await panelScope.findByRole('status', { name: 'Ready' })).toBeVisible();
+    expect(checkBackendHealth).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses one primary talking action and maps token request outcomes to assistant states', async () => {
+    let resolveToken: (() => void) | undefined;
+    vi.mocked(requestSessionToken)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveToken = () =>
+              resolve({
+                token: 'stub-token',
+                expiresAt: 'later',
+                isStub: true,
+              });
+          }),
+      )
+      .mockRejectedValueOnce(new Error('token failed'));
+
+    renderAssistantPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    await screen.findByRole('status', { name: 'Ready' });
+
+    const startTalking = screen.getByRole('button', { name: 'Start talking' });
+    fireEvent.click(startTalking);
+    expect(screen.getByRole('status', { name: 'Thinking' })).toBeVisible();
+    expect(startTalking).toBeDisabled();
+
+    resolveToken?.();
+    expect(await screen.findByRole('status', { name: 'Ready' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start talking' }));
+    expect(screen.getByRole('status', { name: 'Thinking' })).toBeVisible();
+    expect(await screen.findByRole('status', { name: 'Error' })).toBeVisible();
+
+    expect(requestSessionToken).toHaveBeenCalledTimes(2);
+    expect(requestSessionToken).toHaveBeenNthCalledWith(1, {});
+    expect(requestSessionToken).toHaveBeenNthCalledWith(2, {});
+    expect(screen.queryByText('Token received')).toBeNull();
+    expect(screen.queryByText('Connection failed')).toBeNull();
+  });
+
+  it('omits developer tools when showStateDevControls is false', async () => {
+    renderAssistantPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    await screen.findByRole('status', { name: 'Ready' });
+
+    expect(screen.queryByRole('button', { name: 'Developer tools' })).toBeNull();
+  });
+
+  it('opens settings from the header', async () => {
+    renderAssistantPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    await screen.findByRole('status', { name: 'Ready' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     const dialog = screen.getByRole('dialog', { name: 'Settings' });
     const modal = within(dialog);
+
     expect(dialog).toBeVisible();
     expect(modal.getByRole('heading', { name: 'General' })).toBeVisible();
     expect(modal.getByRole('heading', { name: 'Audio' })).toBeVisible();
@@ -106,59 +176,10 @@ describe('AssistantPanel', () => {
     expect(modal.getByRole('heading', { name: 'Advanced' })).toBeVisible();
   });
 
-  it('checks backend on panel open and supports retry after failure', async () => {
-    vi.mocked(checkBackendHealth)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true);
-
-    renderAssistantPanel();
+  it('closes settings and developer dialogs via close button, Escape and panel close', async () => {
+    renderAssistantPanel({ showStateDevControls: true });
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-
-    expect(await screen.findByText('Not connected')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByText('Connected')).toBeVisible();
-    expect(checkBackendHealth).toHaveBeenCalledTimes(2);
-  });
-
-  it('shows token loading, success and failure feedback and sends explicit request payload', async () => {
-    vi.mocked(requestSessionToken)
-      .mockResolvedValueOnce({
-        token: 'stub-token',
-        expiresAt: 'later',
-        isStub: true,
-      })
-      .mockRejectedValueOnce(new Error('token failed'));
-
-    renderAssistantPanel();
-    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-
-    const connect = screen.getByRole('button', { name: 'Connect' });
-    fireEvent.click(connect);
-    expect(screen.getByText('Requesting token...')).toBeVisible();
-    expect(await screen.findByText('Token received')).toBeVisible();
-
-    fireEvent.click(connect);
-    expect(screen.getByText('Requesting token...')).toBeVisible();
-    expect(await screen.findByText('Connection failed')).toBeVisible();
-
-    expect(requestSessionToken).toHaveBeenCalledTimes(2);
-    expect(requestSessionToken).toHaveBeenNthCalledWith(1, {});
-    expect(requestSessionToken).toHaveBeenNthCalledWith(2, {});
-  });
-
-  it('hides dev controls when showStateDevControls is false', async () => {
-    renderAssistantPanel();
-    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-    await screen.findByText('Connected');
-
-    expect(screen.queryByRole('button', { name: 'disconnected' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'error' })).toBeNull();
-  });
-
-  it('closes settings modal via close button, Escape and panel close', async () => {
-    renderAssistantPanel();
-    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-    await screen.findByText('Connected');
+    await screen.findByRole('status', { name: 'Ready' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeVisible();
@@ -170,12 +191,23 @@ describe('AssistantPanel', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Developer tools' }));
+    expect(screen.getByRole('dialog', { name: 'Developer tools' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close developer tools' }));
+    expect(screen.queryByRole('dialog', { name: 'Developer tools' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Developer tools' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Developer tools' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Developer tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     expect(screen.getByRole('complementary', { hidden: true })).toHaveAttribute(
       'aria-hidden',
       'true',
     );
     expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Developer tools' })).toBeNull();
   });
 });

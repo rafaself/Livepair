@@ -1,6 +1,7 @@
 import {
   createElement,
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useReducer,
@@ -93,18 +94,26 @@ export type UiStoreProviderProps = {
 
 export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element {
   const [state, dispatch] = useReducer(uiReducer, initialUiState);
+  const togglePanel = useCallback(() => dispatch({ type: 'togglePanel' }), []);
+  const closePanel = useCallback(() => dispatch({ type: 'closePanel' }), []);
+  const openSettings = useCallback(() => dispatch({ type: 'openSettings' }), []);
+  const closeSettings = useCallback(() => dispatch({ type: 'closeSettings' }), []);
+  const setAssistantState = useCallback(
+    (assistantState: AssistantState) =>
+      dispatch({ type: 'setAssistantState', payload: assistantState }),
+    [],
+  );
 
   const value = useMemo<UiStoreValue>(
     () => ({
       state,
-      togglePanel: () => dispatch({ type: 'togglePanel' }),
-      closePanel: () => dispatch({ type: 'closePanel' }),
-      openSettings: () => dispatch({ type: 'openSettings' }),
-      closeSettings: () => dispatch({ type: 'closeSettings' }),
-      setAssistantState: (assistantState) =>
-        dispatch({ type: 'setAssistantState', payload: assistantState }),
+      togglePanel,
+      closePanel,
+      openSettings,
+      closeSettings,
+      setAssistantState,
     }),
-    [state],
+    [closePanel, closeSettings, openSettings, setAssistantState, state, togglePanel],
   );
 
   return createElement(UiStoreContext.Provider, { value }, children);

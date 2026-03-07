@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkBackendHealth, requestSessionToken } from '../../api/backend';
 import { UiStoreProvider, useUiStore } from '../../store/uiStore';
@@ -15,14 +15,22 @@ function HookHarness(): JSX.Element {
 
   return (
     <div>
+      <output aria-label="assistant-state">{controller.assistantState}</output>
       <output aria-label="backend-label">{controller.backendLabel}</output>
       <output aria-label="token-feedback">{controller.tokenFeedback ?? 'none'}</output>
+      <output aria-label="debug-open">{String(controller.isDebugOpen)}</output>
 
       <button type="button" onClick={togglePanel}>
         toggle panel
       </button>
-      <button type="button" onClick={() => void controller.handleConnect()}>
-        connect
+      <button type="button" onClick={() => void controller.handleStartTalking()}>
+        start talking
+      </button>
+      <button type="button" onClick={controller.openDebug}>
+        open debug
+      </button>
+      <button type="button" onClick={controller.closeDebug}>
+        close debug
       </button>
     </div>
   );
@@ -39,7 +47,7 @@ describe('useAssistantPanelController', () => {
     });
   });
 
-  it('checks backend health when panel is opened', async () => {
+  it('checks backend health when the panel is opened and maps success to ready', async () => {
     render(
       <UiStoreProvider>
         <HookHarness />
@@ -49,19 +57,97 @@ describe('useAssistantPanelController', () => {
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
 
     expect(checkBackendHealth).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText('Connected')).toBeVisible();
+    await waitFor(() => {
+      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
+    });
+    expect(screen.getByLabelText('backend-label')).toHaveTextContent('Connected');
   });
 
-  it('requests token with explicit empty payload and updates feedback', async () => {
+  it('maps backend health failures to the error state', async () => {
+    vi.mocked(checkBackendHealth).mockResolvedValue(false);
+
     render(
       <UiStoreProvider>
         <HookHarness />
       </UiStoreProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'connect' }));
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
+    });
+    expect(screen.getByLabelText('backend-label')).toHaveTextContent('Not connected');
+  });
+
+  it('maps start talking to thinking while the token request is pending and returns to ready on success', async () => {
+    let resolveToken: (() => void) | undefined;
+    vi.mocked(requestSessionToken).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveToken = () =>
+            resolve({
+              token: 'stub-token',
+              expiresAt: 'later',
+              isStub: true,
+            });
+        }),
+    );
+
+    render(
+      <UiStoreProvider>
+        <HookHarness />
+      </UiStoreProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
 
     expect(requestSessionToken).toHaveBeenCalledWith({});
-    expect(await screen.findByText('Token received')).toBeVisible();
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('thinking');
+    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Requesting token...');
+
+    resolveToken?.();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
+    });
+    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Token received');
+  });
+
+  it('maps token request failures to the error state', async () => {
+    vi.mocked(requestSessionToken).mockRejectedValueOnce(new Error('token failed'));
+
+    render(
+      <UiStoreProvider>
+        <HookHarness />
+      </UiStoreProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
+    });
+    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Connection failed');
+  });
+
+  it('closes the debug modal when the panel closes', async () => {
+    render(
+      <UiStoreProvider>
+        <HookHarness />
+      </UiStoreProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'open debug' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('debug-open')).toHaveTextContent('true');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('debug-open')).toHaveTextContent('false');
+    });
   });
 });
