@@ -1,0 +1,24 @@
+.view-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.view-section__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.view-section__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.view-section__rule {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}

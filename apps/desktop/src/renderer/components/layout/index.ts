@@ -8,3 +8,5 @@ export { PanelFooter } from './PanelFooter';
 export type { PanelFooterProps } from './PanelFooter';
 export { OverlayContainer } from './OverlayContainer';
 export type { OverlayContainerProps } from './OverlayContainer';
+export { ViewSection } from './ViewSection';
+export type { ViewSectionProps } from './ViewSection';

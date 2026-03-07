@@ -187,63 +187,6 @@
   font-size: 0.875rem;
 }
 
-.assistant-panel__debug-section,
-.assistant-panel__settings-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.assistant-panel__section-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.assistant-panel__section-header-rule {
-  flex: 1;
-  height: 1px;
-  background: var(--color-border);
-}
-
-.assistant-panel__debug-section-title,
-.assistant-panel__settings-section-title {
-  margin: 0;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.assistant-panel__debug-list,
-.assistant-panel__settings-list {
-  margin: 0;
-}
-
-.assistant-panel__debug-item,
-.assistant-panel__settings-item {
-  margin: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.assistant-panel__debug-label,
-.assistant-panel__settings-label {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-}
-
-.assistant-panel__debug-value,
-.assistant-panel__settings-value {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--color-text-primary);
-  font-size: 0.875rem;
-}
 
 .assistant-panel__debug-state-buttons {
   display: flex;

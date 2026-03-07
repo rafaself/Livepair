@@ -4,7 +4,8 @@ import {
   ASSISTANT_RUNTIME_STATE_LABELS,
   type AssistantRuntimeState,
 } from '../../state/assistantUiState';
-import { StatusIndicator } from '../composite';
+import { FieldList, StatusIndicator } from '../composite';
+import { ViewSection } from '../layout';
 import { Button } from '../primitives';
 import type { BackendConnectionState } from './useAssistantPanelController';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
@@ -32,63 +33,44 @@ export function AssistantPanelDebugView({
     <div className="assistant-panel__debug-modal">
       <h2 className="assistant-panel__debug-title">Developer tools</h2>
 
-      <section className="assistant-panel__debug-section" aria-label="Connection">
-        <div className="assistant-panel__section-header">
-          <Wifi size={13} color="var(--color-text-primary)" aria-hidden="true" />
-          <h3 className="assistant-panel__debug-section-title">Connection</h3>
-          <div className="assistant-panel__section-header-rule" />
-        </div>
-        <dl className="assistant-panel__debug-list">
-          <div className="assistant-panel__debug-item">
-            <dt className="assistant-panel__debug-label">Backend status</dt>
-            <dd className="assistant-panel__debug-value">
-              <StatusIndicator state={backendIndicatorState} size="sm" />
-              <span>{backendLabel}</span>
-            </dd>
-          </div>
-          <div className="assistant-panel__debug-item">
-            <dt className="assistant-panel__debug-label">Backend lifecycle</dt>
-            <dd className="assistant-panel__debug-value">{backendState}</dd>
-          </div>
-          <div className="assistant-panel__debug-item">
-            <dt className="assistant-panel__debug-label">Token request</dt>
-            <dd className="assistant-panel__debug-value">{tokenFeedback ?? 'Idle'}</dd>
-          </div>
-          <div className="assistant-panel__debug-item">
-            <dt className="assistant-panel__debug-label">Mode</dt>
-            <dd className="assistant-panel__debug-value">Fast</dd>
-          </div>
-          <div className="assistant-panel__debug-item">
-            <dt className="assistant-panel__debug-label">Assistant state</dt>
-            <dd className="assistant-panel__debug-value">
-              <StatusIndicator state={assistantState} size="sm" />
-              <span>{ASSISTANT_RUNTIME_STATE_LABELS[assistantState]}</span>
-            </dd>
-          </div>
-        </dl>
-
+      <ViewSection icon={Wifi} title="Connection">
+        <FieldList
+          items={[
+            {
+              label: 'Backend status',
+              value: (
+                <>
+                  <StatusIndicator state={backendIndicatorState} size="sm" />
+                  <span>{backendLabel}</span>
+                </>
+              ),
+            },
+            { label: 'Backend lifecycle', value: backendState },
+            { label: 'Token request', value: tokenFeedback ?? 'Idle' },
+            { label: 'Mode', value: 'Fast' },
+            {
+              label: 'Assistant state',
+              value: (
+                <>
+                  <StatusIndicator state={assistantState} size="sm" />
+                  <span>{ASSISTANT_RUNTIME_STATE_LABELS[assistantState]}</span>
+                </>
+              ),
+            },
+          ]}
+        />
         {backendState === 'failed' ? (
           <Button variant="secondary" size="sm" onClick={() => void onRetryBackendHealth()}>
             Retry backend
           </Button>
         ) : null}
-      </section>
+      </ViewSection>
 
-      <section className="assistant-panel__debug-section" aria-label="Preview">
-        <div className="assistant-panel__section-header">
-          <Eye size={13} color="var(--color-text-primary)" aria-hidden="true" />
-          <h3 className="assistant-panel__debug-section-title">Preview</h3>
-          <div className="assistant-panel__section-header-rule" />
-        </div>
+      <ViewSection icon={Eye} title="Preview">
         <AssistantPanelStateHero state={assistantState} />
-      </section>
+      </ViewSection>
 
-      <section className="assistant-panel__debug-section" aria-label="State overrides">
-        <div className="assistant-panel__section-header">
-          <SlidersHorizontal size={13} color="var(--color-text-primary)" aria-hidden="true" />
-          <h3 className="assistant-panel__debug-section-title">Set assistant state</h3>
-          <div className="assistant-panel__section-header-rule" />
-        </div>
+      <ViewSection icon={SlidersHorizontal} title="Set assistant state">
         <div className="assistant-panel__debug-state-buttons">
           {ASSISTANT_RUNTIME_STATES.map((state) => (
             <Button
@@ -101,7 +83,7 @@ export function AssistantPanelDebugView({
             </Button>
           ))}
         </div>
-      </section>
+      </ViewSection>
     </div>
   );
 }
