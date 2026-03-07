@@ -9,7 +9,9 @@
     "test": "pnpm -r --filter !livepair test"
   },
   "devDependencies": {
-    "typescript": "^5.4.5"
+    "eslint": "^10.0.3",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.56.1"
   },
   "packageManager": "pnpm@9.0.0"
 }
