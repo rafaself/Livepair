@@ -9,10 +9,6 @@ export function App(): JSX.Element {
     setIsPanelOpen((current) => !current);
   }
 
-  function closePanel(): void {
-    setIsPanelOpen(false);
-  }
-
   return (
     <div className="app-shell">
       <AssistantPanel isOpen={isPanelOpen} />

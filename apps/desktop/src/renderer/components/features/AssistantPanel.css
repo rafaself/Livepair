@@ -69,3 +69,71 @@
 .assistant-panel__actions .btn {
   width: 100%;
 }
+
+.assistant-panel__settings-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.assistant-panel__settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.assistant-panel__settings-title {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text-primary);
+}
+
+.assistant-panel__settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.assistant-panel__settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.assistant-panel__settings-section-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.assistant-panel__settings-list {
+  margin: 0;
+}
+
+.assistant-panel__settings-item {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.assistant-panel__settings-label {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.assistant-panel__settings-value {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+}

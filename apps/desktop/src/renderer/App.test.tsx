@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
@@ -33,28 +33,31 @@ describe('App', () => {
         screen.getByRole('button', { name: /close assistant panel/i }),
       ).toBeVisible();
 
-      expect(screen.getByRole('heading', { name: 'Status' })).toBeVisible();
-      expect(screen.getByText('Assistant')).toBeVisible();
-      expect(screen.getByText('Disconnected')).toBeVisible();
-      expect(screen.getByText('Backend')).toBeVisible();
-      expect(screen.getByText('Not connected')).toBeVisible();
+      const panelScope = within(panel);
+      expect(panelScope.getByRole('heading', { name: 'Status' })).toBeVisible();
+      expect(panelScope.getByText('Assistant')).toBeVisible();
+      expect(panelScope.getByText('Disconnected')).toBeVisible();
+      expect(panelScope.getByText('Backend')).toBeVisible();
+      expect(panelScope.getByText('Not connected')).toBeVisible();
 
-      expect(screen.getByRole('heading', { name: 'Session' })).toBeVisible();
-      expect(screen.getByText('Mode')).toBeVisible();
-      expect(screen.getByText('Fast')).toBeVisible();
-      expect(screen.getByText('Goal')).toBeVisible();
-      expect(screen.getByText('Assist with desktop tasks')).toBeVisible();
-      expect(screen.getByText('Transcript')).toBeVisible();
-      expect(screen.getByText('(No conversation yet)')).toBeVisible();
+      expect(panelScope.getByRole('heading', { name: 'Session' })).toBeVisible();
+      expect(panelScope.getByText('Mode')).toBeVisible();
+      expect(panelScope.getByText('Fast')).toBeVisible();
+      expect(panelScope.getByText('Goal')).toBeVisible();
+      expect(panelScope.getByText('Assist with desktop tasks')).toBeVisible();
+      expect(panelScope.getByText('Transcript')).toBeVisible();
+      expect(panelScope.getByText('(No conversation yet)')).toBeVisible();
 
-      expect(screen.getByRole('heading', { name: 'Actions' })).toBeVisible();
-      fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Start Listening' }));
+      expect(panelScope.getByRole('heading', { name: 'Actions' })).toBeVisible();
+      fireEvent.click(panelScope.getByRole('button', { name: 'Connect' }));
+      fireEvent.click(panelScope.getByRole('button', { name: 'Start Listening' }));
 
       expect(consoleLogSpy).toHaveBeenCalledWith('action triggered');
 
-      fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-      expect(consoleLogSpy).toHaveBeenCalledWith('open settings');
+      fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+      expect(screen.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
 
       fireEvent.click(
         screen.getByRole('button', { name: /close assistant panel/i }),
