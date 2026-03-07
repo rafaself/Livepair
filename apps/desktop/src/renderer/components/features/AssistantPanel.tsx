@@ -1,4 +1,5 @@
-import { OverlayContainer, Panel, PanelFooter, PanelHeader } from '../layout';
+import { Settings } from 'lucide-react';
+import { OverlayContainer, Panel, PanelHeader } from '../layout';
 import { Button } from '../primitives';
 import { AssistantPanelActionsSection } from './AssistantPanelActionsSection';
 import { AssistantPanelSessionSection } from './AssistantPanelSessionSection';
@@ -47,8 +48,8 @@ export function AssistantPanel({
         className="assistant-panel"
       >
         <PanelHeader title="Livepair">
-          <Button variant="secondary" size="sm" onClick={closePanel}>
-            Close panel
+          <Button variant="secondary" size="sm" onClick={openSettings} aria-label="Settings">
+            <Settings size={16} />
           </Button>
         </PanelHeader>
 
@@ -72,11 +73,6 @@ export function AssistantPanel({
           onStartListening={handleActionTriggered}
         />
 
-        <PanelFooter>
-          <Button variant="secondary" onClick={openSettings}>
-            Settings
-          </Button>
-        </PanelFooter>
       </Panel>
 
       <AssistantPanelSettingsModal isOpen={isSettingsOpen} onClose={closeSettings} />

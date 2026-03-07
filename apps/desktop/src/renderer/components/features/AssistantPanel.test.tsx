@@ -171,7 +171,7 @@ describe('AssistantPanel', () => {
     expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Close panel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     expect(screen.getByRole('complementary', { hidden: true })).toHaveAttribute(
       'aria-hidden',
       'true',

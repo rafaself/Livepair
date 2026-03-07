@@ -29,7 +29,7 @@ export function Launcher(_props: LauncherProps): JSX.Element {
         strokeLinejoin="round"
         className="launcher__icon"
       >
-        <polyline points={isPanelOpen ? '9 18 15 12 9 6' : '15 18 9 12 15 6'} />
+        <polyline points={isPanelOpen ? '18 15 12 9 6 15' : '15 18 9 12 15 6'} />
       </svg>
     </button>
   );
