@@ -12,8 +12,7 @@ describe('PanelSection', () => {
 
     const section = document.querySelector('.panel-section');
     expect(section).toHaveClass('section-custom');
-    expect(screen.getByRole('heading', { name: 'Section' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Section', level: 3 })).toBeVisible();
     expect(screen.getByText('Section body')).toBeVisible();
   });
 });
-

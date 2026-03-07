@@ -8,9 +8,14 @@
 
   --color-text-primary: #E6EDF3;
   --color-text-secondary: #9DA7B3;
+  --color-text-inverse: #FFFFFF;
 
   --color-accent: #4C8DFF;
   --color-accent-soft: #2B5FD9;
+  --color-backdrop: rgba(11, 15, 20, 0.72);
+  --color-status-listening-glow: rgba(76, 141, 255, 0.3);
+  --color-status-speaking-glow-soft: rgba(43, 95, 217, 0.24);
+  --color-status-speaking-glow-strong: rgba(43, 95, 217, 0.4);
 
   --color-success: #34C759;
   --color-warning: #F59E0B;

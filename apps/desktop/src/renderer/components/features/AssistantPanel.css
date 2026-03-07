@@ -7,45 +7,49 @@
 .assistant-panel__status-item {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .assistant-panel__status-label {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   color: var(--color-text-secondary);
 }
 
 .assistant-panel__status-value {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   font-size: 0.875rem;
   color: var(--color-text-primary);
 }
 
 .assistant-panel__status-actions {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: var(--space-3);
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
 .assistant-panel__dev-controls {
-  margin-top: var(--space-4);
+  margin-top: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .assistant-panel__dev-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .assistant-panel__dev-label {
+  margin: 0;
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .assistant-panel__dev-select {
@@ -85,12 +89,13 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .assistant-panel__session-label {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   color: var(--color-text-secondary);
 }
 
@@ -110,6 +115,11 @@
   width: 100%;
 }
 
+.assistant-panel__action-primary,
+.assistant-panel__action-secondary {
+  justify-content: center;
+}
+
 .assistant-panel__actions-feedback {
   margin: var(--space-3) 0 0;
   color: var(--color-text-secondary);
@@ -119,7 +129,7 @@
 .assistant-panel__settings-modal {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 .assistant-panel__settings-header {
@@ -144,8 +154,8 @@
 .assistant-panel__settings-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -153,11 +163,9 @@
 
 .assistant-panel__settings-section-title {
   margin: 0;
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .assistant-panel__settings-list {

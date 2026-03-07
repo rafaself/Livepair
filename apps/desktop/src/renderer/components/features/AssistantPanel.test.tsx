@@ -59,12 +59,44 @@ describe('AssistantPanel', () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
 
       const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+      const panelScope = within(panel);
       expect(panel).toHaveAttribute('aria-hidden', 'false');
       expect(screen.getByRole('heading', { name: 'Livepair' })).toBeVisible();
       expect(screen.getByText('Panel')).toBeVisible();
       expect(screen.getByText('Open')).toBeVisible();
       expect(checkBackendHealth).toHaveBeenCalledTimes(1);
       expect(await screen.findByText('Connected')).toBeVisible();
+      expect(panelScope.getByRole('heading', { name: 'Status' })).toBeVisible();
+      expect(panelScope.getByRole('heading', { name: 'Session' })).toBeVisible();
+      expect(panelScope.getByRole('heading', { name: 'Actions' })).toBeVisible();
+
+      const statusHeading = panelScope.getByRole('heading', {
+        name: 'Status',
+        level: 3,
+      });
+      const sessionHeading = panelScope.getByRole('heading', {
+        name: 'Session',
+        level: 3,
+      });
+      const actionsHeading = panelScope.getByRole('heading', {
+        name: 'Actions',
+        level: 3,
+      });
+      expect(statusHeading.compareDocumentPosition(sessionHeading)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      expect(sessionHeading.compareDocumentPosition(actionsHeading)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+
+      expect(panelScope.getByRole('button', { name: 'Connect' })).toHaveClass(
+        'assistant-panel__action-primary',
+        'btn--primary',
+      );
+      expect(panelScope.getByRole('button', { name: 'Start Listening' })).toHaveClass(
+        'assistant-panel__action-secondary',
+        'btn--secondary',
+      );
 
       const speakingStateButton = screen.getByRole('button', { name: 'speaking' });
       fireEvent.click(speakingStateButton);

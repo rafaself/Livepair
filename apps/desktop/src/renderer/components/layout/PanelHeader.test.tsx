@@ -14,8 +14,7 @@ describe('PanelHeader', () => {
       </PanelHeader>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Title' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Title', level: 2 })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Action' })).toBeVisible();
   });
 });
-

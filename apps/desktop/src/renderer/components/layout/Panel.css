@@ -11,6 +11,7 @@
   background: var(--color-surface-elevated);
   box-shadow: var(--shadow-md);
   transform: translateX(100%);
+  will-change: transform;
   pointer-events: none;
   transition: transform var(--motion-normal) var(--ease-out);
 }

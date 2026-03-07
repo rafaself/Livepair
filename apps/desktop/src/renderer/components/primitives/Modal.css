@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--color-backdrop);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--motion-normal) var(--ease-out);
@@ -25,10 +25,14 @@
   max-width: min(480px, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
-  transform: scale(0.96);
-  transition: transform var(--motion-normal) var(--ease-out);
+  opacity: 0;
+  transform: translateY(var(--space-2)) scale(0.98);
+  transition:
+    transform var(--motion-normal) var(--ease-out),
+    opacity var(--motion-normal) var(--ease-out);
 }
 
 .modal__backdrop--open .modal__content {
-  transform: scale(1);
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }

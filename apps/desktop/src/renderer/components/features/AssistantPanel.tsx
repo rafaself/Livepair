@@ -181,12 +181,17 @@ export function AssistantPanel({
           <div className="assistant-panel__actions">
             <Button
               variant="primary"
+              className="assistant-panel__action-primary"
               onClick={() => void handleConnect()}
               disabled={tokenRequestState === 'loading'}
             >
               Connect
             </Button>
-            <Button variant="secondary" onClick={handleActionTriggered}>
+            <Button
+              variant="secondary"
+              className="assistant-panel__action-secondary"
+              onClick={handleActionTriggered}
+            >
               Start Listening
             </Button>
           </div>
