@@ -14,7 +14,7 @@ export type AssistantPanelProps = {
 
 const CONVERSATION_HINTS: Record<AssistantRuntimeState, string> = {
   disconnected: 'Open a voice session when you are ready to talk.',
-  ready: 'Livepair is ready when you are.',
+  ready: '',
   listening: 'Speak naturally. Your latest exchange will appear here.',
   thinking: 'Livepair is preparing the conversation.',
   speaking: 'Livepair is responding out loud.',
@@ -54,11 +54,11 @@ export function AssistantPanel({
       >
         <PanelHeader title="Livepair">
           {showStateDevControls ? (
-            <Button variant="secondary" size="sm" onClick={openDebug} aria-label="Developer tools">
+            <Button variant="ghost" size="sm" onClick={openDebug} aria-label="Developer tools">
               <Bug size={16} />
             </Button>
           ) : null}
-          <Button variant="secondary" size="sm" onClick={openSettings} aria-label="Settings">
+          <Button variant="ghost" size="sm" onClick={openSettings} aria-label="Settings">
             <Settings size={16} />
           </Button>
         </PanelHeader>

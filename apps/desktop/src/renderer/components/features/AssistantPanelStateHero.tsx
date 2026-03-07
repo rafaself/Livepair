@@ -28,7 +28,7 @@ const HERO_COPY: Record<
     icon: Unplug,
   },
   ready: {
-    description: 'Everything is set. Start talking whenever you want help.',
+    description: '',
     icon: Sparkles,
   },
   listening: {
@@ -78,7 +78,7 @@ export function AssistantPanelStateHero({
       <div className={`assistant-panel__hero-visual assistant-panel__hero-visual--${state}`}>
         <Icon
           className={`assistant-panel__hero-icon assistant-panel__hero-icon--${state}`}
-          size={28}
+          size={22}
           stroke={state === 'ready' ? 'url(#gemini-gradient)' : undefined}
         />
         {state === 'speaking' ? (
@@ -91,7 +91,7 @@ export function AssistantPanelStateHero({
       </div>
       <div className="assistant-panel__hero-copy">
         <h3 className="assistant-panel__hero-title">{label}</h3>
-        <p className="assistant-panel__hero-description">{description}</p>
+        {description ? <p className="assistant-panel__hero-description">{description}</p> : null}
       </div>
     </section>
   );
