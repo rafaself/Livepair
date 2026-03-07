@@ -7,6 +7,7 @@
     "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
     "build": "electron-vite build",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "preview": "env -u ELECTRON_RUN_AS_NODE electron-vite preview",
     "lint": "eslint src/"
@@ -24,6 +25,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "electron": "^31.0.0",
     "electron-vite": "^2.3.0",
     "jsdom": "^26.1.0",

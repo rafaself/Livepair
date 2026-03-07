@@ -12,7 +12,7 @@ export interface DesktopBridge {
   ) => Promise<CreateEphemeralTokenResponse>;
 }
 
-const bridge: DesktopBridge = {
+export const bridge: DesktopBridge = {
   checkHealth: () => ipcRenderer.invoke('health:check'),
   requestSessionToken: (req) => ipcRenderer.invoke('session:requestToken', req),
 };

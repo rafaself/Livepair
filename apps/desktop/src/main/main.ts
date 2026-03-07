@@ -6,9 +6,9 @@ import type {
   CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
 
-const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:3000';
+export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:3000';
 
-function createWindow(): void {
+export function createWindow(): void {
   const win = new BrowserWindow({
     width: 900,
     height: 600,
@@ -26,6 +26,18 @@ function createWindow(): void {
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'));
   }
+}
+
+export function handleAppActivate(
+  existingWindowsCount: number = BrowserWindow.getAllWindows().length,
+): void {
+  if (existingWindowsCount === 0) createWindow();
+}
+
+export function handleWindowAllClosed(
+  platform: NodeJS.Platform = process.platform,
+): void {
+  if (platform !== 'darwin') app.quit();
 }
 
 ipcMain.handle('health:check', async (): Promise<HealthResponse> => {
@@ -53,10 +65,10 @@ ipcMain.handle(
 app.whenReady().then(() => {
   createWindow();
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    handleAppActivate();
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  handleWindowAllClosed();
 });
