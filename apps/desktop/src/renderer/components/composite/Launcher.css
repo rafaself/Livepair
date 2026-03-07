@@ -1,0 +1,54 @@
+.launcher {
+  position: fixed;
+  top: 50%;
+  right: var(--space-4);
+  z-index: var(--z-panel);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-12);
+  height: var(--space-12);
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background-color var(--motion-normal) var(--ease-out),
+    border-color var(--motion-normal) var(--ease-out),
+    transform var(--motion-normal) var(--ease-out),
+    box-shadow var(--motion-normal) var(--ease-out);
+}
+
+.launcher:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: var(--shadow-lg);
+}
+
+.launcher:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.launcher--open {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.launcher__core {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  box-shadow: 0 0 12px rgba(76, 141, 255, 0.45);
+}
+
+@media (max-width: 640px) {
+  .launcher {
+    right: var(--space-3);
+  }
+}

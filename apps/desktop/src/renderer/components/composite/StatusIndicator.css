@@ -1,0 +1,52 @@
+.status-indicator {
+  display: inline-block;
+  border-radius: var(--radius-full);
+}
+
+.status-indicator--sm {
+  width: 8px;
+  height: 8px;
+}
+
+.status-indicator--md {
+  width: 12px;
+  height: 12px;
+}
+
+/* States */
+.status-indicator--disconnected {
+  background: var(--color-text-secondary);
+}
+
+.status-indicator--connecting {
+  background: var(--color-accent);
+  animation: status-pulse var(--motion-slow) ease-in-out infinite;
+}
+
+.status-indicator--ready {
+  background: var(--color-success);
+}
+
+.status-indicator--listening {
+  background: var(--color-accent);
+  box-shadow: 0 0 8px rgba(76, 141, 255, 0.4);
+}
+
+.status-indicator--speaking {
+  background: var(--color-accent-soft);
+  animation: status-glow var(--motion-slow) ease-in-out infinite alternate;
+}
+
+.status-indicator--error {
+  background: var(--color-error);
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes status-glow {
+  from { box-shadow: 0 0 4px rgba(43, 95, 217, 0.3); }
+  to { box-shadow: 0 0 12px rgba(43, 95, 217, 0.6); }
+}
