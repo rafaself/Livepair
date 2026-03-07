@@ -1,0 +1,95 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #0f0f0f;
+  color: #e0e0e0;
+  padding: 2rem;
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.subtitle {
+  color: #888;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.card h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #ccc;
+}
+
+.card p {
+  margin-bottom: 0.75rem;
+}
+
+.detail {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.status {
+  font-weight: 600;
+}
+
+.status--ok { color: #22c55e; }
+.status--error { color: #ef4444; }
+.status--unknown { color: #888; }
+
+.result {
+  margin-top: 0.75rem;
+  background: #0f0f0f;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 0.75rem;
+  font-size: 0.8rem;
+  overflow-x: auto;
+}
+
+.error {
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
