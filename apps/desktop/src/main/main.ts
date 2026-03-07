@@ -6,7 +6,7 @@ import type {
   CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
 
-const API_BASE_URL = process.env.API_BASE_URL ?? 'http://localhost:3000';
+const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:3000';
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -20,7 +20,7 @@ function createWindow(): void {
     },
   });
 
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env['NODE_ENV'] === 'development') {
     win.loadURL('http://localhost:5173');
     win.webContents.openDevTools({ mode: 'detach' });
   } else {
