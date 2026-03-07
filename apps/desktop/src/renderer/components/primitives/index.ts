@@ -10,3 +10,5 @@ export { Divider } from './Divider';
 export type { DividerProps } from './Divider';
 export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
+export { LivepairIcon } from './LivepairIcon';
+export type { LivepairIconProps } from './LivepairIcon';

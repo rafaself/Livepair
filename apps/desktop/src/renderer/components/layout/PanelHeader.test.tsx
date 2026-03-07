@@ -17,4 +17,17 @@ describe('PanelHeader', () => {
     expect(screen.getByRole('heading', { name: 'Title', level: 2 })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Action' })).toBeVisible();
   });
+
+  it('renders an icon when provided', () => {
+    const { container } = render(
+      <PanelHeader title="Title" icon={<span data-testid="icon">Icon</span>} />,
+    );
+    expect(container.querySelector('.panel-header__icon')).toBeVisible();
+    expect(screen.getByTestId('icon')).toBeVisible();
+  });
+
+  it('does not render icon container when icon is omitted', () => {
+    const { container } = render(<PanelHeader title="Title" />);
+    expect(container.querySelector('.panel-header__icon')).toBeNull();
+  });
 });

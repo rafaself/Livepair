@@ -1,7 +1,7 @@
 import { Bug, Settings } from 'lucide-react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { OverlayContainer, Panel, PanelHeader } from '../layout';
-import { Button } from '../primitives';
+import { Button, LivepairIcon } from '../primitives';
 import { AssistantPanelDebugModal } from './AssistantPanelDebugModal';
 import { AssistantPanelSettingsModal } from './AssistantPanelSettingsModal';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
@@ -52,7 +52,7 @@ export function AssistantPanel({
         isOpen={isPanelOpen}
         className="assistant-panel"
       >
-        <PanelHeader title="Livepair">
+        <PanelHeader title="Livepair" icon={<LivepairIcon size={28} />}>
           {showStateDevControls ? (
             <Button variant="ghost" size="sm" onClick={openDebug} aria-label="Developer tools">
               <Bug size={16} />
