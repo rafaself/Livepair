@@ -7,7 +7,7 @@ describe('components barrel exports', () => {
     expect(Components.IconButton).toBeDefined();
     expect(Components.Modal).toBeDefined();
     expect(Components.Panel).toBeDefined();
-    expect(Components.Launcher).toBeDefined();
+    expect(Components.ControlDock).toBeDefined();
     expect(Components.StatusIndicator).toBeDefined();
     expect(Components.AssistantPanel).toBeDefined();
   });
