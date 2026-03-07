@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { AssistantPanel } from './components/AssistantPanel';
-import { EdgeLauncher } from './components/EdgeLauncher';
+import { AssistantPanel } from './components/features/AssistantPanel';
+import { Launcher } from './components/composite/Launcher';
 
 export function App(): JSX.Element {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -12,7 +12,7 @@ export function App(): JSX.Element {
   return (
     <div className="app-shell">
       <AssistantPanel isOpen={isPanelOpen} />
-      <EdgeLauncher isPanelOpen={isPanelOpen} onToggle={togglePanel} />
+      <Launcher isPanelOpen={isPanelOpen} onToggle={togglePanel} />
     </div>
   );
 }

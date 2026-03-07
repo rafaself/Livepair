@@ -1,4 +1,6 @@
-type AssistantPanelProps = {
+import './AssistantPanel.css';
+
+export type AssistantPanelProps = {
   isOpen: boolean;
 };
 
