@@ -1,16 +1,14 @@
 import { StatusIndicator } from '../composite';
 import { OverlayContainer, Panel, PanelFooter, PanelHeader, PanelSection } from '../layout';
-import { Button, IconButton } from '../primitives';
+import { Button } from '../primitives';
 import './AssistantPanel.css';
 
 export type AssistantPanelProps = {
   isOpen: boolean;
-  onClose: () => void;
 };
 
 export function AssistantPanel({
   isOpen,
-  onClose,
 }: AssistantPanelProps): JSX.Element {
   function handleActionTriggered(): void {
     console.log('action triggered');
@@ -30,11 +28,7 @@ export function AssistantPanel({
         isOpen={isOpen}
         className="assistant-panel"
       >
-        <PanelHeader title="Livepair">
-          <IconButton label="Close assistant panel" size="sm" onClick={onClose}>
-            X
-          </IconButton>
-        </PanelHeader>
+        <PanelHeader title="Livepair" />
 
         <PanelSection title="Status">
           <div className="assistant-panel__status-list">

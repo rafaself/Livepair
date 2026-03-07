@@ -15,8 +15,8 @@ export function App(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <AssistantPanel isOpen={isPanelOpen} onClose={closePanel} />
-      {!isPanelOpen && <Launcher isPanelOpen={isPanelOpen} onToggle={togglePanel} />}
+      <AssistantPanel isOpen={isPanelOpen} />
+      <Launcher isPanelOpen={isPanelOpen} onToggle={togglePanel} />
     </div>
   );
 }

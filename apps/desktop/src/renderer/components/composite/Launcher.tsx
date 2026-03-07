@@ -18,7 +18,19 @@ export function Launcher({
       aria-expanded={isPanelOpen}
       onClick={onToggle}
     >
-      <span className="launcher__core" />
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="launcher__icon"
+      >
+        <polyline points={isPanelOpen ? '9 18 15 12 9 6' : '15 18 9 12 15 6'} />
+      </svg>
     </button>
   );
 }

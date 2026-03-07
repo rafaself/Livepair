@@ -2,7 +2,7 @@
   position: fixed;
   top: 50%;
   right: var(--space-4);
-  z-index: var(--z-panel);
+  z-index: var(--z-overlay);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -20,6 +20,7 @@
     background-color var(--motion-normal) var(--ease-out),
     border-color var(--motion-normal) var(--ease-out),
     transform var(--motion-normal) var(--ease-out),
+    right var(--motion-normal) var(--ease-out),
     box-shadow var(--motion-normal) var(--ease-out);
 }
 
@@ -37,14 +38,14 @@
 .launcher--open {
   background: var(--color-accent-soft);
   border-color: var(--color-accent);
+  right: calc(min(340px, calc(100vw - var(--space-4))) - (var(--space-12) / 2));
 }
 
-.launcher__core {
-  width: 16px;
-  height: 16px;
-  border-radius: var(--radius-full);
-  background: currentColor;
-  box-shadow: 0 0 12px rgba(76, 141, 255, 0.45);
+.launcher__icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  transition: transform var(--motion-normal) var(--ease-out);
 }
 
 @media (max-width: 640px) {
