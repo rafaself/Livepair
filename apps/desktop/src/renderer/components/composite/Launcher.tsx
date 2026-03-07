@@ -1,14 +1,14 @@
+import { useUiStore } from '../../store/uiStore';
 import './Launcher.css';
 
-export type LauncherProps = {
-  isPanelOpen: boolean;
-  onToggle: () => void;
-};
+export type LauncherProps = Record<string, never>;
 
-export function Launcher({
-  isPanelOpen,
-  onToggle,
-}: LauncherProps): JSX.Element {
+export function Launcher(_props: LauncherProps): JSX.Element {
+  const {
+    state: { isPanelOpen },
+    togglePanel,
+  } = useUiStore();
+
   return (
     <button
       type="button"
@@ -16,7 +16,7 @@ export function Launcher({
       aria-label={isPanelOpen ? 'Close assistant panel' : 'Open assistant panel'}
       aria-controls="assistant-panel"
       aria-expanded={isPanelOpen}
-      onClick={onToggle}
+      onClick={togglePanel}
     >
       <svg
         width="20"

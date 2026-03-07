@@ -1,49 +1,35 @@
-import { useState, type ChangeEvent } from 'react';
 import {
-  ASSISTANT_PANEL_STATE_LABELS,
   ASSISTANT_RUNTIME_STATES,
   ASSISTANT_RUNTIME_STATE_LABELS,
-  type AssistantPanelState,
   type AssistantRuntimeState,
 } from '../../state/assistantUiState';
+import { useUiStore } from '../../store/uiStore';
 import { StatusIndicator } from '../composite';
 import { OverlayContainer, Panel, PanelFooter, PanelHeader, PanelSection } from '../layout';
 import { Button, Modal } from '../primitives';
 import './AssistantPanel.css';
 
 export type AssistantPanelProps = {
-  panelState: AssistantPanelState;
   showStateDevControls?: boolean;
 };
 
 export function AssistantPanel({
-  panelState,
   showStateDevControls = false,
 }: AssistantPanelProps): JSX.Element {
-  const isOpen = panelState === 'expanded';
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [runtimeState, setRuntimeState] = useState<AssistantRuntimeState>('disconnected');
+  const {
+    state: { assistantState, isPanelOpen, isSettingsOpen },
+    closePanel,
+    openSettings,
+    closeSettings,
+    setAssistantState,
+  } = useUiStore();
 
   function handleActionTriggered(): void {
     console.log('action triggered');
   }
 
-  function handleOpenSettings(): void {
-    setIsSettingsOpen(true);
-  }
-
-  function handleCloseSettings(): void {
-    setIsSettingsOpen(false);
-  }
-
-  function handleRuntimeStateChange(event: ChangeEvent<HTMLSelectElement>): void {
-    const selectedState = ASSISTANT_RUNTIME_STATES.find(
-      (state) => state === event.target.value,
-    );
-
-    if (selectedState) {
-      setRuntimeState(selectedState);
-    }
+  function handleSetAssistantState(nextState: AssistantRuntimeState): void {
+    setAssistantState(nextState);
   }
 
   return (
@@ -52,25 +38,29 @@ export function AssistantPanel({
         id="assistant-panel"
         role="complementary"
         aria-label="Assistant Panel"
-        aria-hidden={!isOpen}
-        isOpen={isOpen}
+        aria-hidden={!isPanelOpen}
+        isOpen={isPanelOpen}
         className="assistant-panel"
       >
-        <PanelHeader title="Livepair" />
+        <PanelHeader title="Livepair">
+          <Button variant="secondary" size="sm" onClick={closePanel}>
+            Close panel
+          </Button>
+        </PanelHeader>
 
         <PanelSection title="Status">
           <div className="assistant-panel__status-list">
             <div className="assistant-panel__status-item">
               <p className="assistant-panel__status-label">Assistant</p>
               <div className="assistant-panel__status-value">
-                <StatusIndicator state={runtimeState} size="sm" />
-                <span>{ASSISTANT_RUNTIME_STATE_LABELS[runtimeState]}</span>
+                <StatusIndicator state={assistantState} size="sm" />
+                <span>{ASSISTANT_RUNTIME_STATE_LABELS[assistantState]}</span>
               </div>
             </div>
             <div className="assistant-panel__status-item">
               <p className="assistant-panel__status-label">Panel</p>
               <div className="assistant-panel__status-value">
-                <span>{ASSISTANT_PANEL_STATE_LABELS[panelState]}</span>
+                <span>{isPanelOpen ? 'Open' : 'Closed'}</span>
               </div>
             </div>
             <div className="assistant-panel__status-item">
@@ -84,24 +74,19 @@ export function AssistantPanel({
 
           {showStateDevControls ? (
             <div className="assistant-panel__dev-controls">
-              <label
-                htmlFor="assistant-runtime-state"
-                className="assistant-panel__dev-label"
-              >
-                Assistant runtime state
-              </label>
-              <select
-                id="assistant-runtime-state"
-                className="assistant-panel__dev-select"
-                value={runtimeState}
-                onChange={handleRuntimeStateChange}
-              >
+              <p className="assistant-panel__dev-label">Set state:</p>
+              <div className="assistant-panel__dev-buttons">
                 {ASSISTANT_RUNTIME_STATES.map((state) => (
-                  <option key={state} value={state}>
-                    {ASSISTANT_RUNTIME_STATE_LABELS[state]}
-                  </option>
+                  <Button
+                    key={state}
+                    variant={assistantState === state ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => handleSetAssistantState(state)}
+                  >
+                    {state}
+                  </Button>
                 ))}
-              </select>
+              </div>
             </div>
           ) : null}
         </PanelSection>
@@ -139,17 +124,17 @@ export function AssistantPanel({
         </PanelSection>
 
         <PanelFooter>
-          <Button variant="secondary" onClick={handleOpenSettings}>
+          <Button variant="secondary" onClick={openSettings}>
             Settings
           </Button>
         </PanelFooter>
       </Panel>
 
-      <Modal isOpen={isSettingsOpen} onClose={handleCloseSettings} ariaLabel="Settings">
+      <Modal isOpen={isSettingsOpen} onClose={closeSettings} ariaLabel="Settings">
         <div className="assistant-panel__settings-modal">
           <header className="assistant-panel__settings-header">
             <h2 className="assistant-panel__settings-title">Settings</h2>
-            <Button variant="secondary" onClick={handleCloseSettings}>
+            <Button variant="secondary" onClick={closeSettings}>
               Close settings
             </Button>
           </header>

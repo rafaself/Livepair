@@ -31,6 +31,12 @@
   gap: var(--space-2);
 }
 
+.assistant-panel__dev-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .assistant-panel__dev-label {
   color: var(--color-text-secondary);
   font-size: 0.75rem;

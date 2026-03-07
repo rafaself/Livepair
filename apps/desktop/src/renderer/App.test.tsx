@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
 describe('App', () => {
-  it('opens the assistant shell, renders static assistant sections, and supports placeholder actions', () => {
+  it('wires launcher, panel, settings, and actions through the shared ui store', () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {
       return undefined;
     });
@@ -24,21 +24,19 @@ describe('App', () => {
       fireEvent.click(launcherOpen);
 
       expect(panel).toHaveAttribute('aria-hidden', 'false');
-      expect(
-        screen.queryByRole('button', { name: /open assistant panel/i }),
-      ).toBeNull();
+      const launcherClose = screen.getByRole('button', {
+        name: /close assistant panel/i,
+      });
+      expect(launcherClose).toHaveAttribute('aria-expanded', 'true');
 
       expect(screen.getByRole('heading', { name: 'Livepair' })).toBeVisible();
-      expect(
-        screen.getByRole('button', { name: /close assistant panel/i }),
-      ).toBeVisible();
 
       const panelScope = within(panel);
       expect(panelScope.getByRole('heading', { name: 'Status' })).toBeVisible();
       expect(panelScope.getByText('Assistant')).toBeVisible();
       expect(panelScope.getAllByRole('status', { name: 'Disconnected' })).toHaveLength(2);
       expect(panelScope.getByText('Panel')).toBeVisible();
-      expect(panelScope.getByText('Expanded')).toBeVisible();
+      expect(panelScope.getByText('Open')).toBeVisible();
       expect(panelScope.getByText('Backend')).toBeVisible();
       expect(panelScope.getByText('Not connected')).toBeVisible();
 
@@ -53,21 +51,21 @@ describe('App', () => {
       expect(panelScope.getByRole('heading', { name: 'Actions' })).toBeVisible();
       fireEvent.click(panelScope.getByRole('button', { name: 'Connect' }));
       fireEvent.click(panelScope.getByRole('button', { name: 'Start Listening' }));
-
       expect(consoleLogSpy).toHaveBeenCalledWith('action triggered');
 
       fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
       expect(screen.getByRole('dialog', { name: 'Settings' })).toBeVisible();
-      fireEvent.keyDown(document, { key: 'Escape' });
+
+      fireEvent.click(launcherClose);
+      expect(panel).toHaveAttribute('aria-hidden', 'true');
       expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
 
-      fireEvent.click(
-        screen.getByRole('button', { name: /close assistant panel/i }),
-      );
-      expect(panel).toHaveAttribute('aria-hidden', 'true');
-      expect(
-        screen.getByRole('button', { name: /open assistant panel/i }),
-      ).toBeVisible();
+      fireEvent.click(screen.getByRole('button', { name: /open assistant panel/i }));
+      expect(panel).toHaveAttribute('aria-hidden', 'false');
+      fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+      expect(screen.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
     } finally {
       consoleLogSpy.mockRestore();
     }
