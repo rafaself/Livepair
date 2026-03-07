@@ -1,9 +1,9 @@
-import { Bug, Settings } from 'lucide-react';
+import { Bug, MessageCircle, Settings } from 'lucide-react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { OverlayContainer, Panel, PanelHeader } from '../layout';
 import { Button, LivepairIcon } from '../primitives';
-import { AssistantPanelDebugModal } from './AssistantPanelDebugModal';
-import { AssistantPanelSettingsModal } from './AssistantPanelSettingsModal';
+import { AssistantPanelDebugView } from './AssistantPanelDebugView';
+import { AssistantPanelSettingsView } from './AssistantPanelSettingsView';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import './AssistantPanel.css';
@@ -24,23 +24,18 @@ const CONVERSATION_HINTS: Record<AssistantRuntimeState, string> = {
 export function AssistantPanel({
   showStateDevControls = false,
 }: AssistantPanelProps): JSX.Element {
-  const panel = useAssistantPanelController();
   const {
     assistantState,
     isPanelOpen,
-    isSettingsOpen,
-    isDebugOpen,
-    openSettings,
-    closeSettings,
-    openDebug,
-    closeDebug,
+    panelView,
+    setPanelView,
     backendState,
     backendIndicatorState,
     backendLabel,
     tokenFeedback,
     handleCheckBackendHealth,
     setAssistantState,
-  } = panel;
+  } = useAssistantPanelController();
 
   return (
     <OverlayContainer>
@@ -54,49 +49,74 @@ export function AssistantPanel({
       >
         <PanelHeader title="Livepair" icon={<LivepairIcon size={28} />}>
           {showStateDevControls ? (
-            <Button variant="ghost" size="sm" onClick={openDebug} aria-label="Developer tools">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPanelView('debug')}
+              aria-label="Developer tools"
+              aria-pressed={panelView === 'debug'}
+              className={panelView === 'debug' ? 'assistant-panel__header-btn--active' : undefined}
+            >
               <Bug size={16} />
             </Button>
           ) : null}
-          <Button variant="ghost" size="sm" onClick={openSettings} aria-label="Settings">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPanelView('settings')}
+            aria-label="Settings"
+            aria-pressed={panelView === 'settings'}
+            className={panelView === 'settings' ? 'assistant-panel__header-btn--active' : undefined}
+          >
             <Settings size={16} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPanelView('chat')}
+            aria-label="Chat"
+            aria-pressed={panelView === 'chat'}
+            className={panelView === 'chat' ? 'assistant-panel__header-btn--active' : undefined}
+          >
+            <MessageCircle size={16} />
           </Button>
         </PanelHeader>
 
-        <AssistantPanelStateHero state={assistantState} />
-
-        <section className="assistant-panel__conversation" aria-labelledby="assistant-panel-conversation-title">
-          <div className="assistant-panel__conversation-header">
-            <h3 id="assistant-panel-conversation-title" className="assistant-panel__conversation-title">
-              Conversation
-            </h3>
-            <p className="assistant-panel__conversation-hint">{CONVERSATION_HINTS[assistantState]}</p>
-          </div>
-
-          <div className="assistant-panel__conversation-card">
-            <p className="assistant-panel__conversation-empty-title">No conversation yet</p>
-            <p className="assistant-panel__conversation-empty-body">
-              When you start talking, Livepair will keep the latest exchange here so you can stay oriented in the flow.
-            </p>
-          </div>
-        </section>
-
+        <div className="assistant-panel__view" key={panelView}>
+          {panelView === 'chat' ? (
+            <>
+              <AssistantPanelStateHero state={assistantState} />
+              <section className="assistant-panel__conversation" aria-labelledby="assistant-panel-conversation-title">
+                <div className="assistant-panel__conversation-header">
+                  <h3 id="assistant-panel-conversation-title" className="assistant-panel__conversation-title">
+                    Conversation
+                  </h3>
+                  <p className="assistant-panel__conversation-hint">{CONVERSATION_HINTS[assistantState]}</p>
+                </div>
+                <div className="assistant-panel__conversation-card">
+                  <p className="assistant-panel__conversation-empty-title">No conversation yet</p>
+                  <p className="assistant-panel__conversation-empty-body">
+                    When you start talking, Livepair will keep the latest exchange here so you can stay oriented in the flow.
+                  </p>
+                </div>
+              </section>
+            </>
+          ) : panelView === 'settings' ? (
+            <AssistantPanelSettingsView onBack={() => setPanelView('chat')} />
+          ) : (panelView === 'debug' && showStateDevControls) ? (
+            <AssistantPanelDebugView
+              assistantState={assistantState}
+              backendState={backendState}
+              backendIndicatorState={backendIndicatorState}
+              backendLabel={backendLabel}
+              tokenFeedback={tokenFeedback}
+              onBack={() => setPanelView('chat')}
+              onRetryBackendHealth={handleCheckBackendHealth}
+              onSetAssistantState={setAssistantState}
+            />
+          ) : null}
+        </div>
       </Panel>
-
-      <AssistantPanelSettingsModal isOpen={isSettingsOpen} onClose={closeSettings} />
-      {showStateDevControls ? (
-        <AssistantPanelDebugModal
-          isOpen={isDebugOpen}
-          assistantState={assistantState}
-          backendState={backendState}
-          backendIndicatorState={backendIndicatorState}
-          backendLabel={backendLabel}
-          tokenFeedback={tokenFeedback}
-          onClose={closeDebug}
-          onRetryBackendHealth={handleCheckBackendHealth}
-          onSetAssistantState={setAssistantState}
-        />
-      ) : null}
     </OverlayContainer>
   );
 }

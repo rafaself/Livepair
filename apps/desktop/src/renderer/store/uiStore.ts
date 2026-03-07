@@ -10,23 +10,23 @@ import {
 import type { AssistantRuntimeState } from '../state/assistantUiState';
 
 export type AssistantState = AssistantRuntimeState;
+export type PanelView = 'chat' | 'settings' | 'debug';
 
 export type UiState = {
   isPanelOpen: boolean;
-  isSettingsOpen: boolean;
+  panelView: PanelView;
   assistantState: AssistantState;
 };
 
 type UiAction =
   | { type: 'togglePanel' }
   | { type: 'closePanel' }
-  | { type: 'openSettings' }
-  | { type: 'closeSettings' }
+  | { type: 'setPanelView'; payload: PanelView }
   | { type: 'setAssistantState'; payload: AssistantState };
 
 const initialUiState: UiState = {
   isPanelOpen: false,
-  isSettingsOpen: false,
+  panelView: 'chat',
   assistantState: 'disconnected',
 };
 
@@ -37,7 +37,7 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         return {
           ...state,
           isPanelOpen: false,
-          isSettingsOpen: false,
+          panelView: 'chat',
         };
       }
 
@@ -50,19 +50,13 @@ function uiReducer(state: UiState, action: UiAction): UiState {
       return {
         ...state,
         isPanelOpen: false,
-        isSettingsOpen: false,
+        panelView: 'chat',
       };
     }
-    case 'openSettings': {
+    case 'setPanelView': {
       return {
         ...state,
-        isSettingsOpen: true,
-      };
-    }
-    case 'closeSettings': {
-      return {
-        ...state,
-        isSettingsOpen: false,
+        panelView: action.payload,
       };
     }
     case 'setAssistantState': {
@@ -81,8 +75,7 @@ type UiStoreValue = {
   state: UiState;
   togglePanel: () => void;
   closePanel: () => void;
-  openSettings: () => void;
-  closeSettings: () => void;
+  setPanelView: (view: PanelView) => void;
   setAssistantState: (state: AssistantState) => void;
 };
 
@@ -96,8 +89,10 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
   const [state, dispatch] = useReducer(uiReducer, initialUiState);
   const togglePanel = useCallback(() => dispatch({ type: 'togglePanel' }), []);
   const closePanel = useCallback(() => dispatch({ type: 'closePanel' }), []);
-  const openSettings = useCallback(() => dispatch({ type: 'openSettings' }), []);
-  const closeSettings = useCallback(() => dispatch({ type: 'closeSettings' }), []);
+  const setPanelView = useCallback(
+    (view: PanelView) => dispatch({ type: 'setPanelView', payload: view }),
+    [],
+  );
   const setAssistantState = useCallback(
     (assistantState: AssistantState) =>
       dispatch({ type: 'setAssistantState', payload: assistantState }),
@@ -109,11 +104,10 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       state,
       togglePanel,
       closePanel,
-      openSettings,
-      closeSettings,
+      setPanelView,
       setAssistantState,
     }),
-    [closePanel, closeSettings, openSettings, setAssistantState, state, togglePanel],
+    [closePanel, setPanelView, setAssistantState, state, togglePanel],
   );
 
   return createElement(UiStoreContext.Provider, { value }, children);

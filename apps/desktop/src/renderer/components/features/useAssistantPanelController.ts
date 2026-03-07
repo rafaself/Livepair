@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { checkBackendHealth, requestSessionToken } from '../../api/backend';
-import { useUiStore } from '../../store/uiStore';
+import { useUiStore, type PanelView } from '../../store/uiStore';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
 export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
@@ -9,13 +9,9 @@ export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
   isPanelOpen: boolean;
-  isSettingsOpen: boolean;
-  isDebugOpen: boolean;
+  panelView: PanelView;
+  setPanelView: (view: PanelView) => void;
   closePanel: () => void;
-  openSettings: () => void;
-  closeSettings: () => void;
-  openDebug: () => void;
-  closeDebug: () => void;
   setAssistantState: (state: AssistantRuntimeState) => void;
   backendState: BackendConnectionState;
   backendIndicatorState: AssistantRuntimeState;
@@ -28,15 +24,13 @@ export type AssistantPanelController = {
 
 export function useAssistantPanelController(): AssistantPanelController {
   const {
-    state: { assistantState, isPanelOpen, isSettingsOpen },
+    state: { assistantState, isPanelOpen, panelView },
     closePanel,
-    openSettings,
-    closeSettings,
+    setPanelView,
     setAssistantState,
   } = useUiStore();
   const [backendState, setBackendState] = useState<BackendConnectionState>('idle');
   const [tokenRequestState, setTokenRequestState] = useState<TokenRequestState>('idle');
-  const [isDebugOpen, setIsDebugOpen] = useState(false);
 
   const handleCheckBackendHealth = useCallback(async (): Promise<void> => {
     setBackendState('checking');
@@ -57,12 +51,6 @@ export function useAssistantPanelController(): AssistantPanelController {
 
     void handleCheckBackendHealth();
   }, [handleCheckBackendHealth, isPanelOpen]);
-
-  useEffect(() => {
-    if (!isPanelOpen) {
-      setIsDebugOpen(false);
-    }
-  }, [isPanelOpen]);
 
   const handleStartTalking = useCallback(async (): Promise<void> => {
     setTokenRequestState('loading');
@@ -105,13 +93,9 @@ export function useAssistantPanelController(): AssistantPanelController {
   return {
     assistantState,
     isPanelOpen,
-    isSettingsOpen,
-    isDebugOpen,
+    panelView,
+    setPanelView,
     closePanel,
-    openSettings,
-    closeSettings,
-    openDebug: () => setIsDebugOpen(true),
-    closeDebug: () => setIsDebugOpen(false),
     setAssistantState,
     backendState,
     backendIndicatorState,

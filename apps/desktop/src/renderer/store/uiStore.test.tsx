@@ -7,15 +7,14 @@ function UiStoreHarness(): JSX.Element {
     state,
     togglePanel,
     closePanel,
-    openSettings,
-    closeSettings,
+    setPanelView,
     setAssistantState,
   } = useUiStore();
 
   return (
     <div>
       <output aria-label="panel-open">{String(state.isPanelOpen)}</output>
-      <output aria-label="settings-open">{String(state.isSettingsOpen)}</output>
+      <output aria-label="panel-view">{state.panelView}</output>
       <output aria-label="assistant-state">{state.assistantState}</output>
 
       <button type="button" onClick={togglePanel}>
@@ -24,11 +23,11 @@ function UiStoreHarness(): JSX.Element {
       <button type="button" onClick={closePanel}>
         close panel
       </button>
-      <button type="button" onClick={openSettings}>
+      <button type="button" onClick={() => setPanelView('settings')}>
         open settings
       </button>
-      <button type="button" onClick={closeSettings}>
-        close settings
+      <button type="button" onClick={() => setPanelView('chat')}>
+        back to chat
       </button>
       <button type="button" onClick={() => setAssistantState('speaking')}>
         set speaking
@@ -38,7 +37,7 @@ function UiStoreHarness(): JSX.Element {
 }
 
 describe('uiStore', () => {
-  it('applies panel, settings, and assistant state actions with closePanel closing settings', () => {
+  it('applies panel view and assistant state actions with closePanel resetting to chat', () => {
     render(
       <UiStoreProvider>
         <UiStoreHarness />
@@ -46,23 +45,23 @@ describe('uiStore', () => {
     );
 
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('false');
-    expect(screen.getByLabelText('settings-open')).toHaveTextContent('false');
+    expect(screen.getByLabelText('panel-view')).toHaveTextContent('chat');
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
 
     fireEvent.click(screen.getByRole('button', { name: 'open settings' }));
-    expect(screen.getByLabelText('settings-open')).toHaveTextContent('true');
+    expect(screen.getByLabelText('panel-view')).toHaveTextContent('settings');
 
     fireEvent.click(screen.getByRole('button', { name: 'set speaking' }));
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('speaking');
 
     fireEvent.click(screen.getByRole('button', { name: 'close panel' }));
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('false');
-    expect(screen.getByLabelText('settings-open')).toHaveTextContent('false');
+    expect(screen.getByLabelText('panel-view')).toHaveTextContent('chat');
 
-    fireEvent.click(screen.getByRole('button', { name: 'close settings' }));
-    expect(screen.getByLabelText('settings-open')).toHaveTextContent('false');
+    fireEvent.click(screen.getByRole('button', { name: 'back to chat' }));
+    expect(screen.getByLabelText('panel-view')).toHaveTextContent('chat');
   });
 });

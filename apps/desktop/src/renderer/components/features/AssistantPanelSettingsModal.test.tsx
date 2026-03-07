@@ -1,28 +1,20 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { AssistantPanelSettingsModal } from './AssistantPanelSettingsModal';
+import { AssistantPanelSettingsView } from './AssistantPanelSettingsView';
 
-describe('AssistantPanelSettingsModal', () => {
-  it('renders settings sections when open and closes via close button', () => {
-    const onClose = vi.fn();
+describe('AssistantPanelSettingsView', () => {
+  it('renders settings sections and calls onBack when back button is clicked', () => {
+    const onBack = vi.fn();
 
-    render(<AssistantPanelSettingsModal isOpen={true} onClose={onClose} />);
+    render(<AssistantPanelSettingsView onBack={onBack} />);
 
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'General' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Backend' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close settings' }));
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps dialog hidden when closed', () => {
-    const onClose = vi.fn();
-
-    render(<AssistantPanelSettingsModal isOpen={false} onClose={onClose} />);
-
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chat' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

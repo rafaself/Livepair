@@ -18,7 +18,7 @@ function HookHarness(): JSX.Element {
       <output aria-label="assistant-state">{controller.assistantState}</output>
       <output aria-label="backend-label">{controller.backendLabel}</output>
       <output aria-label="token-feedback">{controller.tokenFeedback ?? 'none'}</output>
-      <output aria-label="debug-open">{String(controller.isDebugOpen)}</output>
+      <output aria-label="panel-view">{controller.panelView}</output>
 
       <button type="button" onClick={togglePanel}>
         toggle panel
@@ -26,10 +26,10 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={() => void controller.handleStartTalking()}>
         start talking
       </button>
-      <button type="button" onClick={controller.openDebug}>
+      <button type="button" onClick={() => controller.setPanelView('debug')}>
         open debug
       </button>
-      <button type="button" onClick={controller.closeDebug}>
+      <button type="button" onClick={() => controller.setPanelView('chat')}>
         close debug
       </button>
     </div>
@@ -131,7 +131,7 @@ describe('useAssistantPanelController', () => {
     expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Connection failed');
   });
 
-  it('closes the debug modal when the panel closes', async () => {
+  it('resets panel view to chat when the panel closes', async () => {
     render(
       <UiStoreProvider>
         <HookHarness />
@@ -141,13 +141,13 @@ describe('useAssistantPanelController', () => {
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     fireEvent.click(screen.getByRole('button', { name: 'open debug' }));
     await waitFor(() => {
-      expect(screen.getByLabelText('debug-open')).toHaveTextContent('true');
+      expect(screen.getByLabelText('panel-view')).toHaveTextContent('debug');
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('debug-open')).toHaveTextContent('false');
+      expect(screen.getByLabelText('panel-view')).toHaveTextContent('chat');
     });
   });
 });

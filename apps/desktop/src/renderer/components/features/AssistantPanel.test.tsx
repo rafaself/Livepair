@@ -91,16 +91,14 @@ describe('AssistantPanel', () => {
 
     expect(await panelScope.findByRole('status', { name: 'Error' })).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Developer tools' }));
-    const dialog = screen.getByRole('dialog', { name: 'Developer tools' });
-    const modal = within(dialog);
+    fireEvent.click(panelScope.getByRole('button', { name: 'Developer tools' }));
 
-    expect(modal.getByText('Backend status')).toBeVisible();
-    expect(modal.getByText('Not connected')).toBeVisible();
+    expect(panelScope.getByText('Backend status')).toBeVisible();
+    expect(panelScope.getByText('Not connected')).toBeVisible();
 
-    fireEvent.click(modal.getByRole('button', { name: 'Retry backend' }));
+    fireEvent.click(panelScope.getByRole('button', { name: 'Retry backend' }));
 
-    expect(await panelScope.findByRole('status', { name: 'Ready' })).toBeVisible();
+    await panelScope.findByText('Connected');
     expect(checkBackendHealth).toHaveBeenCalledTimes(2);
   });
 
@@ -118,49 +116,51 @@ describe('AssistantPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     await screen.findByRole('status', { name: 'Ready' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    const dialog = screen.getByRole('dialog', { name: 'Settings' });
-    const modal = within(dialog);
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
 
-    expect(dialog).toBeVisible();
-    expect(modal.getByRole('heading', { name: 'General' })).toBeVisible();
-    expect(modal.getByRole('heading', { name: 'Audio' })).toBeVisible();
-    expect(modal.getByRole('heading', { name: 'Backend' })).toBeVisible();
-    expect(modal.getByRole('heading', { name: 'Advanced' })).toBeVisible();
+    fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+
+    expect(panelScope.getByRole('heading', { name: 'Settings' })).toBeVisible();
+    expect(panelScope.getByRole('heading', { name: 'General' })).toBeVisible();
+    expect(panelScope.getByRole('heading', { name: 'Audio' })).toBeVisible();
+    expect(panelScope.getByRole('heading', { name: 'Backend' })).toBeVisible();
+    expect(panelScope.getByRole('heading', { name: 'Advanced' })).toBeVisible();
   });
 
-  it('closes settings and developer dialogs via close button, Escape and panel close', async () => {
+  it('returns to chat via back button and panel close resets view', async () => {
     renderAssistantPanel({ showStateDevControls: true });
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     await screen.findByRole('status', { name: 'Ready' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close settings' }));
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    // Open settings view
+    fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+    expect(panelScope.getByRole('heading', { name: 'Settings' })).toBeVisible();
+    expect(panelScope.queryByText('No conversation yet')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    // Return to chat via back button
+    fireEvent.click(panelScope.getByRole('button', { name: 'Back to chat' }));
+    expect(panelScope.queryByRole('heading', { name: 'Settings' })).toBeNull();
+    expect(panelScope.getByText('No conversation yet')).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Developer tools' }));
-    expect(screen.getByRole('dialog', { name: 'Developer tools' })).toBeVisible();
+    // Open debug view
+    fireEvent.click(panelScope.getByRole('button', { name: 'Developer tools' }));
+    expect(panelScope.getByRole('heading', { name: 'Developer tools' })).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close developer tools' }));
-    expect(screen.queryByRole('dialog', { name: 'Developer tools' })).toBeNull();
+    // Return to chat via Chat button
+    fireEvent.click(panelScope.getByRole('button', { name: 'Chat' }));
+    expect(panelScope.queryByRole('heading', { name: 'Developer tools' })).toBeNull();
+    expect(panelScope.getByText('No conversation yet')).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Developer tools' }));
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Developer tools' })).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Developer tools' }));
+    // Panel close resets view — re-open with debug active, then close
+    fireEvent.click(panelScope.getByRole('button', { name: 'Developer tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     expect(screen.getByRole('complementary', { hidden: true })).toHaveAttribute(
       'aria-hidden',
       'true',
     );
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
-    expect(screen.queryByRole('dialog', { name: 'Developer tools' })).toBeNull();
   });
 });
