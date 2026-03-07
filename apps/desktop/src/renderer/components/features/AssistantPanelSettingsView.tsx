@@ -1,3 +1,5 @@
+import { Mic, Server, Settings2, Wrench } from 'lucide-react';
+
 export function AssistantPanelSettingsView(): JSX.Element {
   return (
     <div className="assistant-panel__settings-modal">
@@ -5,7 +7,11 @@ export function AssistantPanelSettingsView(): JSX.Element {
 
       <div className="assistant-panel__settings-body">
         <section className="assistant-panel__settings-section" aria-label="General">
-          <h3 className="assistant-panel__settings-section-title">General</h3>
+          <div className="assistant-panel__section-header">
+            <Settings2 size={13} color="var(--color-text-primary)" aria-hidden="true" />
+            <h3 className="assistant-panel__settings-section-title">General</h3>
+            <div className="assistant-panel__section-header-rule" />
+          </div>
           <dl className="assistant-panel__settings-list">
             <div className="assistant-panel__settings-item">
               <dt className="assistant-panel__settings-label">Preferred mode</dt>
@@ -15,7 +21,11 @@ export function AssistantPanelSettingsView(): JSX.Element {
         </section>
 
         <section className="assistant-panel__settings-section" aria-label="Audio">
-          <h3 className="assistant-panel__settings-section-title">Audio</h3>
+          <div className="assistant-panel__section-header">
+            <Mic size={13} color="var(--color-text-primary)" aria-hidden="true" />
+            <h3 className="assistant-panel__settings-section-title">Audio</h3>
+            <div className="assistant-panel__section-header-rule" />
+          </div>
           <dl className="assistant-panel__settings-list">
             <div className="assistant-panel__settings-item">
               <dt className="assistant-panel__settings-label">Input device</dt>
@@ -25,7 +35,11 @@ export function AssistantPanelSettingsView(): JSX.Element {
         </section>
 
         <section className="assistant-panel__settings-section" aria-label="Backend">
-          <h3 className="assistant-panel__settings-section-title">Backend</h3>
+          <div className="assistant-panel__section-header">
+            <Server size={13} color="var(--color-text-primary)" aria-hidden="true" />
+            <h3 className="assistant-panel__settings-section-title">Backend</h3>
+            <div className="assistant-panel__section-header-rule" />
+          </div>
           <dl className="assistant-panel__settings-list">
             <div className="assistant-panel__settings-item">
               <dt className="assistant-panel__settings-label">Backend URL</dt>
@@ -35,7 +49,11 @@ export function AssistantPanelSettingsView(): JSX.Element {
         </section>
 
         <section className="assistant-panel__settings-section" aria-label="Advanced">
-          <h3 className="assistant-panel__settings-section-title">Advanced</h3>
+          <div className="assistant-panel__section-header">
+            <Wrench size={13} color="var(--color-text-primary)" aria-hidden="true" />
+            <h3 className="assistant-panel__settings-section-title">Advanced</h3>
+            <div className="assistant-panel__section-header-rule" />
+          </div>
           <dl className="assistant-panel__settings-list">
             <div className="assistant-panel__settings-item">
               <dt className="assistant-panel__settings-label">Debug mode</dt>

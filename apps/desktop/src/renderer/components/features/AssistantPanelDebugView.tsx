@@ -1,3 +1,4 @@
+import { Eye, SlidersHorizontal, Wifi } from 'lucide-react';
 import {
   ASSISTANT_RUNTIME_STATES,
   ASSISTANT_RUNTIME_STATE_LABELS,
@@ -32,7 +33,11 @@ export function AssistantPanelDebugView({
       <h2 className="assistant-panel__debug-title">Developer tools</h2>
 
       <section className="assistant-panel__debug-section" aria-label="Connection">
-        <h3 className="assistant-panel__debug-section-title">Connection</h3>
+        <div className="assistant-panel__section-header">
+          <Wifi size={13} color="var(--color-text-primary)" aria-hidden="true" />
+          <h3 className="assistant-panel__debug-section-title">Connection</h3>
+          <div className="assistant-panel__section-header-rule" />
+        </div>
         <dl className="assistant-panel__debug-list">
           <div className="assistant-panel__debug-item">
             <dt className="assistant-panel__debug-label">Backend status</dt>
@@ -70,12 +75,20 @@ export function AssistantPanelDebugView({
       </section>
 
       <section className="assistant-panel__debug-section" aria-label="Preview">
-        <h3 className="assistant-panel__debug-section-title">Preview</h3>
+        <div className="assistant-panel__section-header">
+          <Eye size={13} color="var(--color-text-primary)" aria-hidden="true" />
+          <h3 className="assistant-panel__debug-section-title">Preview</h3>
+          <div className="assistant-panel__section-header-rule" />
+        </div>
         <AssistantPanelStateHero state={assistantState} />
       </section>
 
       <section className="assistant-panel__debug-section" aria-label="State overrides">
-        <h3 className="assistant-panel__debug-section-title">Set assistant state</h3>
+        <div className="assistant-panel__section-header">
+          <SlidersHorizontal size={13} color="var(--color-text-primary)" aria-hidden="true" />
+          <h3 className="assistant-panel__debug-section-title">Set assistant state</h3>
+          <div className="assistant-panel__section-header-rule" />
+        </div>
         <div className="assistant-panel__debug-state-buttons">
           {ASSISTANT_RUNTIME_STATES.map((state) => (
             <Button
