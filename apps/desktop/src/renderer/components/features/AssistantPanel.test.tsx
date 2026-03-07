@@ -1,7 +1,13 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { checkBackendHealth, requestSessionToken } from '../../api/backend';
 import { UiStoreProvider, useUiStore } from '../../store/uiStore';
 import { AssistantPanel } from './AssistantPanel';
+
+vi.mock('../../api/backend', () => ({
+  checkBackendHealth: vi.fn(),
+  requestSessionToken: vi.fn(),
+}));
 
 type AssistantPanelHarnessProps = {
   showStateDevControls?: boolean;
@@ -33,7 +39,17 @@ function renderAssistantPanel(
 }
 
 describe('AssistantPanel', () => {
-  it('renders panel content, allows runtime state switching, handles actions, and opens settings modal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(checkBackendHealth).mockResolvedValue(true);
+    vi.mocked(requestSessionToken).mockResolvedValue({
+      token: 'stub-token',
+      expiresAt: 'later',
+      isStub: true,
+    });
+  });
+
+  it('renders panel content, allows runtime state switching, checks backend, and opens settings modal', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {
       return undefined;
     });
@@ -47,12 +63,13 @@ describe('AssistantPanel', () => {
       expect(screen.getByRole('heading', { name: 'Livepair' })).toBeVisible();
       expect(screen.getByText('Panel')).toBeVisible();
       expect(screen.getByText('Open')).toBeVisible();
+      expect(checkBackendHealth).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText('Connected')).toBeVisible();
 
       const speakingStateButton = screen.getByRole('button', { name: 'speaking' });
       fireEvent.click(speakingStateButton);
       expect(screen.getByRole('status', { name: 'Speaking' })).toBeVisible();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
       fireEvent.click(screen.getByRole('button', { name: 'Start Listening' }));
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
@@ -77,17 +94,59 @@ describe('AssistantPanel', () => {
     }
   });
 
-  it('hides dev state controls when showStateDevControls is false', () => {
+  it('shows retry when backend health check fails and reconnects on retry', async () => {
+    vi.mocked(checkBackendHealth)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
     renderAssistantPanel();
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+
+    expect(await screen.findByText('Not connected')).toBeVisible();
+    const retry = screen.getByRole('button', { name: 'Retry' });
+    expect(retry).toBeVisible();
+
+    fireEvent.click(retry);
+    expect(await screen.findByText('Connected')).toBeVisible();
+    expect(checkBackendHealth).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows token request loading, success, and failure states', async () => {
+    vi.mocked(requestSessionToken)
+      .mockResolvedValueOnce({
+        token: 'stub-token',
+        expiresAt: 'later',
+        isStub: true,
+      })
+      .mockRejectedValueOnce(new Error('token failed'));
+
+    renderAssistantPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+
+    const connect = screen.getByRole('button', { name: 'Connect' });
+    fireEvent.click(connect);
+    expect(screen.getByText('Requesting token...')).toBeVisible();
+    expect(await screen.findByText('Token received')).toBeVisible();
+
+    fireEvent.click(connect);
+    expect(screen.getByText('Requesting token...')).toBeVisible();
+    expect(await screen.findByText('Connection failed')).toBeVisible();
+    expect(requestSessionToken).toHaveBeenCalledTimes(2);
+  });
+
+  it('hides dev state controls when showStateDevControls is false', async () => {
+    renderAssistantPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    await screen.findByText('Connected');
 
     expect(screen.queryByRole('button', { name: 'disconnected' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'error' })).toBeNull();
   });
 
-  it('closes settings modal via close button, escape key, and panel close action', () => {
+  it('closes settings modal via close button, escape key, and panel close action', async () => {
     renderAssistantPanel();
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    await screen.findByText('Connected');
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeVisible();

@@ -24,6 +24,12 @@
   color: var(--color-text-primary);
 }
 
+.assistant-panel__status-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .assistant-panel__dev-controls {
   margin-top: var(--space-4);
   display: flex;
@@ -102,6 +108,12 @@
 
 .assistant-panel__actions .btn {
   width: 100%;
+}
+
+.assistant-panel__actions-feedback {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
 }
 
 .assistant-panel__settings-modal {

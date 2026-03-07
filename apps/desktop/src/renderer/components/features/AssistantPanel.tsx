@@ -1,8 +1,10 @@
+import { useCallback, useEffect, useState } from 'react';
 import {
   ASSISTANT_RUNTIME_STATES,
   ASSISTANT_RUNTIME_STATE_LABELS,
   type AssistantRuntimeState,
 } from '../../state/assistantUiState';
+import { checkBackendHealth, requestSessionToken } from '../../api/backend';
 import { useUiStore } from '../../store/uiStore';
 import { StatusIndicator } from '../composite';
 import { OverlayContainer, Panel, PanelFooter, PanelHeader, PanelSection } from '../layout';
@@ -12,6 +14,9 @@ import './AssistantPanel.css';
 export type AssistantPanelProps = {
   showStateDevControls?: boolean;
 };
+
+type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
+type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
 
 export function AssistantPanel({
   showStateDevControls = false,
@@ -23,14 +28,63 @@ export function AssistantPanel({
     closeSettings,
     setAssistantState,
   } = useUiStore();
+  const [backendState, setBackendState] = useState<BackendConnectionState>('idle');
+  const [tokenRequestState, setTokenRequestState] = useState<TokenRequestState>('idle');
 
   function handleActionTriggered(): void {
     console.log('action triggered');
   }
 
+  const handleCheckBackendHealth = useCallback(async (): Promise<void> => {
+    setBackendState('checking');
+    const isHealthy = await checkBackendHealth();
+    setBackendState(isHealthy ? 'connected' : 'failed');
+  }, []);
+
+  useEffect(() => {
+    if (!isPanelOpen) {
+      return;
+    }
+
+    void handleCheckBackendHealth();
+  }, [handleCheckBackendHealth, isPanelOpen]);
+
+  async function handleConnect(): Promise<void> {
+    setTokenRequestState('loading');
+    try {
+      await requestSessionToken();
+      setTokenRequestState('success');
+    } catch {
+      setTokenRequestState('error');
+    }
+  }
+
   function handleSetAssistantState(nextState: AssistantRuntimeState): void {
     setAssistantState(nextState);
   }
+
+  const backendIndicatorState: AssistantRuntimeState =
+    backendState === 'connected'
+      ? 'ready'
+      : backendState === 'checking'
+        ? 'connecting'
+        : 'disconnected';
+
+  const backendLabel =
+    backendState === 'connected'
+      ? 'Connected'
+      : backendState === 'checking'
+        ? 'Checking backend...'
+        : 'Not connected';
+
+  const tokenFeedback =
+    tokenRequestState === 'loading'
+      ? 'Requesting token...'
+      : tokenRequestState === 'success'
+        ? 'Token received'
+        : tokenRequestState === 'error'
+          ? 'Connection failed'
+          : null;
 
   return (
     <OverlayContainer>
@@ -65,9 +119,20 @@ export function AssistantPanel({
             </div>
             <div className="assistant-panel__status-item">
               <p className="assistant-panel__status-label">Backend</p>
-              <div className="assistant-panel__status-value">
-                <StatusIndicator state="disconnected" size="sm" />
-                <span>Not connected</span>
+              <div className="assistant-panel__status-actions">
+                <div className="assistant-panel__status-value">
+                  <StatusIndicator state={backendIndicatorState} size="sm" />
+                  <span>{backendLabel}</span>
+                </div>
+                {backendState === 'failed' ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void handleCheckBackendHealth()}
+                  >
+                    Retry
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>
@@ -114,13 +179,22 @@ export function AssistantPanel({
 
         <PanelSection title="Actions">
           <div className="assistant-panel__actions">
-            <Button variant="primary" onClick={handleActionTriggered}>
+            <Button
+              variant="primary"
+              onClick={() => void handleConnect()}
+              disabled={tokenRequestState === 'loading'}
+            >
               Connect
             </Button>
             <Button variant="secondary" onClick={handleActionTriggered}>
               Start Listening
             </Button>
           </div>
+          {tokenFeedback ? (
+            <p className="assistant-panel__actions-feedback" role="status" aria-live="polite">
+              {tokenFeedback}
+            </p>
+          ) : null}
         </PanelSection>
 
         <PanelFooter>
