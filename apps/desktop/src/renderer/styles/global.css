@@ -21,6 +21,19 @@ body,
 
 body {
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+/* Opt-in text selection for content that should be selectable */
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 button,
