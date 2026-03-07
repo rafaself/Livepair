@@ -16,13 +16,18 @@ describe('ControlDock', () => {
     renderDock();
     expect(screen.getByRole('button', { name: /unmute microphone/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /enable camera/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /end session/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start session/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /open panel/i })).toBeInTheDocument();
   });
 
-  it('disables end session button when disconnected (default state)', () => {
+  it('shows start session button when disconnected and end session when active', () => {
     renderDock();
-    expect(screen.getByRole('button', { name: /end session/i })).toBeDisabled();
+    const startBtn = screen.getByRole('button', { name: /start session/i });
+    expect(startBtn).toBeEnabled();
+
+    fireEvent.click(startBtn);
+
+    expect(screen.getByRole('button', { name: /end session/i })).toBeInTheDocument();
   });
 
   it('toggles mic aria-label on click', () => {

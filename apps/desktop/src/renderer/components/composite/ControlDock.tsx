@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mic, MicOff, PhoneOff, Settings, Video, VideoOff } from 'lucide-react';
+import { ChevronLeft, Mic, MicOff, Monitor, MonitorOff, Phone, Play } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import './ControlDock.css';
@@ -37,28 +37,27 @@ export function ControlDock(_props: ControlDockProps): JSX.Element {
         className={isCameraActive ? 'control-dock__btn--active' : undefined}
         onClick={() => setIsCameraActive((prev) => !prev)}
       >
-        {isCameraActive ? <Video size={18} /> : <VideoOff size={18} />}
+        {isCameraActive ? <Monitor size={18} /> : <MonitorOff size={18} />}
       </IconButton>
 
       <IconButton
-        label="End session"
-        className="control-dock__btn--danger"
-        disabled={!isSessionActive}
-        onClick={() => setAssistantState('disconnected')}
+        label={isSessionActive ? 'End session' : 'Start session'}
+        className={isSessionActive ? 'control-dock__btn--danger' : 'control-dock__btn--start'}
+        onClick={() => setAssistantState(isSessionActive ? 'disconnected' : 'ready')}
       >
-        <PhoneOff size={18} />
+        {isSessionActive ? <Phone size={18} /> : <Play size={18} />}
       </IconButton>
 
       <Divider orientation="horizontal" />
 
       <IconButton
         label={isPanelOpen ? 'Close panel' : 'Open panel'}
-        className={isPanelOpen ? 'control-dock__btn--active' : undefined}
+        className={`control-dock__panel-btn${isPanelOpen ? ' control-dock__btn--active' : ''}`}
         aria-controls="assistant-panel"
         aria-expanded={isPanelOpen}
         onClick={togglePanel}
       >
-        <Settings size={18} />
+        <ChevronLeft size={18} />
       </IconButton>
     </div>
   );

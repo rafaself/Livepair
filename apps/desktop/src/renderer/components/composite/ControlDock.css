@@ -30,6 +30,16 @@
 .control-dock__btn--active {
   color: var(--color-accent) !important;
   background: rgba(76, 141, 255, 0.12) !important;
+  border-radius: var(--radius-full) !important;
+}
+
+.control-dock__btn--start {
+  color: var(--color-success) !important;
+}
+
+.control-dock__btn--start:hover:not(:disabled) {
+  background: rgba(52, 199, 89, 0.15) !important;
+  color: var(--color-success) !important;
 }
 
 .control-dock__btn--danger {
@@ -39,6 +49,14 @@
 .control-dock__btn--danger:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.15) !important;
   color: var(--color-error) !important;
+}
+
+.control-dock__panel-btn svg {
+  transition: transform var(--motion-normal) var(--ease-out);
+}
+
+.control-dock__panel-btn.control-dock__btn--active svg {
+  transform: rotate(180deg);
 }
 
 .control-dock .divider {
