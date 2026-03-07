@@ -82,6 +82,21 @@ For non-trivial changes, provide:
 - risks or tradeoffs
 - follow-up work still needed
 
+## Skills
+
+Reusable agent workflows live in `.agents/skills/`. Each skill has a `SKILL.md` with trigger conditions, a checklist or workflow, and a structured output format. Skills may optionally include `scripts/`, `references/`, or `assets/` subdirectories.
+
+| Skill | Phase | Use when |
+|---|---|---|
+| `feature-planner` | planning | Non-trivial feature — run before writing code |
+| `tdd-implementer` | implementation | Logic changes — run during coding |
+| `contract-change-check` | post-implementation | Shared types, API payloads, IPC, or event schemas changed |
+| `electron-security-review` | post-implementation | Main process, preload, IPC, or privileged API surface touched |
+| `live-api-realtime-review` | post-implementation | Realtime hot path, audio/video pipeline, or session logic touched |
+| `demo-readiness` | final gate | Feature is "done" and about to be shown |
+
+Skill execution order: `feature-planner` → `tdd-implementer` → post-implementation reviews (parallel) → `demo-readiness`. The `feature-planner` output declares which downstream skills are required.
+
 ## Priority Order
 1. Correctness
 2. Security
