@@ -24,6 +24,34 @@
   color: var(--color-text-primary);
 }
 
+.assistant-panel__dev-controls {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.assistant-panel__dev-label {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.assistant-panel__dev-select {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  padding: var(--space-2) var(--space-3);
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.assistant-panel__dev-select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .assistant-panel__session {
   flex: 1;
 }

@@ -1,24 +1,11 @@
+import {
+  ASSISTANT_RUNTIME_STATE_LABELS,
+  type AssistantRuntimeState,
+} from '../../state/assistantUiState';
 import './StatusIndicator.css';
 
-export type ConnectionState =
-  | 'disconnected'
-  | 'connecting'
-  | 'ready'
-  | 'listening'
-  | 'speaking'
-  | 'error';
-
-const STATE_LABELS: Record<ConnectionState, string> = {
-  disconnected: 'Disconnected',
-  connecting: 'Connecting',
-  ready: 'Ready',
-  listening: 'Listening',
-  speaking: 'Speaking',
-  error: 'Error',
-};
-
 export type StatusIndicatorProps = {
-  state: ConnectionState;
+  state: AssistantRuntimeState;
   size?: 'sm' | 'md';
 };
 
@@ -30,7 +17,7 @@ export function StatusIndicator({
     <span
       className={`status-indicator status-indicator--${size} status-indicator--${state}`}
       role="status"
-      aria-label={STATE_LABELS[state]}
+      aria-label={ASSISTANT_RUNTIME_STATE_LABELS[state]}
     />
   );
 }

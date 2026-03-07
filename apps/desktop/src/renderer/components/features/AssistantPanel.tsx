@@ -1,17 +1,28 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
+import {
+  ASSISTANT_PANEL_STATE_LABELS,
+  ASSISTANT_RUNTIME_STATES,
+  ASSISTANT_RUNTIME_STATE_LABELS,
+  type AssistantPanelState,
+  type AssistantRuntimeState,
+} from '../../state/assistantUiState';
 import { StatusIndicator } from '../composite';
 import { OverlayContainer, Panel, PanelFooter, PanelHeader, PanelSection } from '../layout';
 import { Button, Modal } from '../primitives';
 import './AssistantPanel.css';
 
 export type AssistantPanelProps = {
-  isOpen: boolean;
+  panelState: AssistantPanelState;
+  showStateDevControls?: boolean;
 };
 
 export function AssistantPanel({
-  isOpen,
+  panelState,
+  showStateDevControls = false,
 }: AssistantPanelProps): JSX.Element {
+  const isOpen = panelState === 'expanded';
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [runtimeState, setRuntimeState] = useState<AssistantRuntimeState>('disconnected');
 
   function handleActionTriggered(): void {
     console.log('action triggered');
@@ -23,6 +34,16 @@ export function AssistantPanel({
 
   function handleCloseSettings(): void {
     setIsSettingsOpen(false);
+  }
+
+  function handleRuntimeStateChange(event: ChangeEvent<HTMLSelectElement>): void {
+    const selectedState = ASSISTANT_RUNTIME_STATES.find(
+      (state) => state === event.target.value,
+    );
+
+    if (selectedState) {
+      setRuntimeState(selectedState);
+    }
   }
 
   return (
@@ -42,8 +63,14 @@ export function AssistantPanel({
             <div className="assistant-panel__status-item">
               <p className="assistant-panel__status-label">Assistant</p>
               <div className="assistant-panel__status-value">
-                <StatusIndicator state="disconnected" size="sm" />
-                <span>Disconnected</span>
+                <StatusIndicator state={runtimeState} size="sm" />
+                <span>{ASSISTANT_RUNTIME_STATE_LABELS[runtimeState]}</span>
+              </div>
+            </div>
+            <div className="assistant-panel__status-item">
+              <p className="assistant-panel__status-label">Panel</p>
+              <div className="assistant-panel__status-value">
+                <span>{ASSISTANT_PANEL_STATE_LABELS[panelState]}</span>
               </div>
             </div>
             <div className="assistant-panel__status-item">
@@ -54,6 +81,29 @@ export function AssistantPanel({
               </div>
             </div>
           </div>
+
+          {showStateDevControls ? (
+            <div className="assistant-panel__dev-controls">
+              <label
+                htmlFor="assistant-runtime-state"
+                className="assistant-panel__dev-label"
+              >
+                Assistant runtime state
+              </label>
+              <select
+                id="assistant-runtime-state"
+                className="assistant-panel__dev-select"
+                value={runtimeState}
+                onChange={handleRuntimeStateChange}
+              >
+                {ASSISTANT_RUNTIME_STATES.map((state) => (
+                  <option key={state} value={state}>
+                    {ASSISTANT_RUNTIME_STATE_LABELS[state]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </PanelSection>
 
         <PanelSection title="Session" className="assistant-panel__session">

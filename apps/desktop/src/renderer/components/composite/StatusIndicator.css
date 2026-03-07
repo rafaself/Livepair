@@ -29,7 +29,8 @@
 
 .status-indicator--listening {
   background: var(--color-accent);
-  box-shadow: 0 0 8px rgba(76, 141, 255, 0.4);
+  animation: status-pulse var(--motion-slow) ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(76, 141, 255, 0.35);
 }
 
 .status-indicator--speaking {

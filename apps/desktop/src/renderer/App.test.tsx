@@ -36,7 +36,9 @@ describe('App', () => {
       const panelScope = within(panel);
       expect(panelScope.getByRole('heading', { name: 'Status' })).toBeVisible();
       expect(panelScope.getByText('Assistant')).toBeVisible();
-      expect(panelScope.getByText('Disconnected')).toBeVisible();
+      expect(panelScope.getAllByRole('status', { name: 'Disconnected' })).toHaveLength(2);
+      expect(panelScope.getByText('Panel')).toBeVisible();
+      expect(panelScope.getByText('Expanded')).toBeVisible();
       expect(panelScope.getByText('Backend')).toBeVisible();
       expect(panelScope.getByText('Not connected')).toBeVisible();
 

@@ -3,22 +3,32 @@ import { describe, expect, it, vi } from 'vitest';
 import { AssistantPanel } from './AssistantPanel';
 
 describe('AssistantPanel', () => {
-  it('renders panel content, handles actions, and opens settings modal', () => {
+  it('renders panel content, allows runtime state switching, handles actions, and opens settings modal', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {
       return undefined;
     });
 
     try {
-      render(<AssistantPanel isOpen={true} />);
+      render(<AssistantPanel panelState="expanded" showStateDevControls={true} />);
 
       const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
       expect(panel).toHaveAttribute('aria-hidden', 'false');
       expect(screen.getByRole('heading', { name: 'Livepair' })).toBeVisible();
+      expect(screen.getByText('Panel')).toBeVisible();
+      expect(screen.getByText('Expanded')).toBeVisible();
 
       // No close button should be present in the panel anymore
       expect(
         screen.queryByRole('button', { name: /close assistant panel/i }),
       ).toBeNull();
+
+      const runtimeStateSelect = screen.getByRole('combobox', {
+        name: 'Assistant runtime state',
+      });
+      expect(runtimeStateSelect).toHaveValue('disconnected');
+      fireEvent.change(runtimeStateSelect, { target: { value: 'speaking' } });
+      expect(runtimeStateSelect).toHaveValue('speaking');
+      expect(screen.getByRole('status', { name: 'Speaking' })).toBeVisible();
 
       fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
       fireEvent.click(screen.getByRole('button', { name: 'Start Listening' }));
@@ -45,8 +55,15 @@ describe('AssistantPanel', () => {
     }
   });
 
+  it('hides dev state controls when showStateDevControls is false', () => {
+    render(<AssistantPanel panelState="expanded" />);
+    expect(
+      screen.queryByRole('combobox', { name: 'Assistant runtime state' }),
+    ).toBeNull();
+  });
+
   it('closes settings modal via close button and escape key', () => {
-    render(<AssistantPanel isOpen={true} />);
+    render(<AssistantPanel panelState="expanded" />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeVisible();
@@ -62,11 +79,12 @@ describe('AssistantPanel', () => {
   });
 
   it('renders hidden panel when closed', () => {
-    render(<AssistantPanel isOpen={false} />);
+    render(<AssistantPanel panelState="collapsed" />);
     expect(
       screen.getByLabelText('Assistant Panel', {
         selector: '[role="complementary"]',
       }),
     ).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('Collapsed')).toBeVisible();
   });
 });
