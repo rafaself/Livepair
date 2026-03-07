@@ -16,44 +16,20 @@ export type AssistantPanelStateHeroProps = {
   state: AssistantRuntimeState;
 };
 
-const HERO_COPY: Record<
-  AssistantRuntimeState,
-  {
-    description: string;
-    icon: LucideIcon;
-  }
-> = {
-  disconnected: {
-    description: 'The assistant is offline right now. Start talking to reconnect and begin a voice session.',
-    icon: Unplug,
-  },
-  ready: {
-    description: '',
-    icon: Sparkles,
-  },
-  listening: {
-    description: 'Livepair is listening. Speak naturally and keep going.',
-    icon: Mic,
-  },
-  thinking: {
-    description: 'Livepair is getting the conversation ready and preparing a response.',
-    icon: LoaderCircle,
-  },
-  speaking: {
-    description: 'Livepair is speaking now. You can interrupt whenever you need to.',
-    icon: AudioLines,
-  },
-  error: {
-    description: 'Livepair could not start the session. Try again when you are ready.',
-    icon: AlertCircle,
-  },
+const HERO_COPY: Record<AssistantRuntimeState, LucideIcon> = {
+  disconnected: Unplug,
+  ready: Sparkles,
+  listening: Mic,
+  thinking: LoaderCircle,
+  speaking: AudioLines,
+  error: AlertCircle,
 };
 
 export function AssistantPanelStateHero({
   state,
 }: AssistantPanelStateHeroProps): JSX.Element {
   const label = ASSISTANT_RUNTIME_STATE_LABELS[state];
-  const { description, icon: Icon } = HERO_COPY[state];
+  const Icon = HERO_COPY[state];
 
   return (
     <section
@@ -79,12 +55,11 @@ export function AssistantPanelStateHero({
         <Icon
           className={`assistant-panel__hero-icon assistant-panel__hero-icon--${state}`}
           size={22}
-          stroke={state === 'ready' ? 'url(#gemini-gradient)' : undefined}
+          {...(state === 'ready' ? { stroke: 'url(#gemini-gradient)' } : {})}
         />
       </div>
       <div className="assistant-panel__hero-copy">
         <h3 className="assistant-panel__hero-title">{label}</h3>
-        {description ? <p className="assistant-panel__hero-description">{description}</p> : null}
       </div>
     </section>
   );
