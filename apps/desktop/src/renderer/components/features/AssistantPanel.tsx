@@ -37,10 +37,8 @@ export function AssistantPanel({
     backendState,
     backendIndicatorState,
     backendLabel,
-    tokenRequestState,
     tokenFeedback,
     handleCheckBackendHealth,
-    handleStartTalking,
     setAssistantState,
   } = panel;
 
@@ -83,17 +81,6 @@ export function AssistantPanel({
           </div>
         </section>
 
-        <div className="assistant-panel__primary-action">
-          <Button
-            variant="primary"
-            size="lg"
-            className="assistant-panel__start-button"
-            onClick={() => void handleStartTalking()}
-            disabled={tokenRequestState === 'loading'}
-          >
-            Start talking
-          </Button>
-        </div>
       </Panel>
 
       <AssistantPanelSettingsModal isOpen={isSettingsOpen} onClose={closeSettings} />

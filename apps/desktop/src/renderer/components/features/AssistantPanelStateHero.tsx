@@ -62,8 +62,25 @@ export function AssistantPanelStateHero({
       aria-live="polite"
       aria-label={label}
     >
+      {state === 'ready' ? (
+        <svg width="0" height="0" aria-hidden="true" style={{ position: 'absolute' }}>
+          <defs>
+            <linearGradient id="gemini-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#1A73E8" />
+              <stop offset="25%" stopColor="#5E5CE6" />
+              <stop offset="50%" stopColor="#9334E6" />
+              <stop offset="75%" stopColor="#E942B6" />
+              <stop offset="100%" stopColor="#FF5F9E" />
+            </linearGradient>
+          </defs>
+        </svg>
+      ) : null}
       <div className={`assistant-panel__hero-visual assistant-panel__hero-visual--${state}`}>
-        <Icon className={`assistant-panel__hero-icon assistant-panel__hero-icon--${state}`} size={28} />
+        <Icon
+          className={`assistant-panel__hero-icon assistant-panel__hero-icon--${state}`}
+          size={28}
+          stroke={state === 'ready' ? 'url(#gemini-gradient)' : undefined}
+        />
         {state === 'speaking' ? (
           <span className="assistant-panel__hero-wave" aria-hidden="true">
             <span />

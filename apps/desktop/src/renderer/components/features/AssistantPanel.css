@@ -12,27 +12,8 @@
 .assistant-panel__hero {
   display: flex;
   align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-5);
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 60%),
-    rgba(255, 255, 255, 0.02);
-}
-
-.assistant-panel__hero--ready {
-  border-color: rgba(80, 200, 120, 0.2);
-}
-
-.assistant-panel__hero--listening,
-.assistant-panel__hero--thinking,
-.assistant-panel__hero--speaking {
-  border-color: rgba(76, 141, 255, 0.24);
-}
-
-.assistant-panel__hero--error {
-  border-color: rgba(255, 107, 107, 0.28);
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
 }
 
 .assistant-panel__hero-visual {
@@ -120,6 +101,7 @@
   margin: 0;
   font-size: 1.25rem;
   color: var(--color-text-primary);
+  user-select: none;
 }
 
 .assistant-panel__hero-description {
@@ -149,6 +131,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-text-secondary);
+  user-select: none;
 }
 
 .assistant-panel__conversation-hint {
@@ -185,14 +168,6 @@
   line-height: 1.5;
 }
 
-.assistant-panel__primary-action {
-  margin-top: auto;
-}
-
-.assistant-panel__start-button {
-  width: 100%;
-  justify-content: center;
-}
 
 .assistant-panel__debug-modal,
 .assistant-panel__settings-modal {

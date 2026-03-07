@@ -1,12 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkBackendHealth, requestSessionToken } from '../../api/backend';
+import { checkBackendHealth } from '../../api/backend';
 import { UiStoreProvider, useUiStore } from '../../store/uiStore';
 import { AssistantPanel } from './AssistantPanel';
 
 vi.mock('../../api/backend', () => ({
   checkBackendHealth: vi.fn(),
-  requestSessionToken: vi.fn(),
 }));
 
 type AssistantPanelHarnessProps = {
@@ -42,11 +41,6 @@ describe('AssistantPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(checkBackendHealth).mockResolvedValue(true);
-    vi.mocked(requestSessionToken).mockResolvedValue({
-      token: 'stub-token',
-      expiresAt: 'later',
-      isStub: true,
-    });
   });
 
   it('renders hidden panel when closed', () => {
@@ -71,7 +65,6 @@ describe('AssistantPanel', () => {
 
     const hero = await panelScope.findByRole('status', { name: 'Ready' });
     const conversationHeading = panelScope.getByRole('heading', { name: 'Conversation' });
-    const startTalkingButton = panelScope.getByRole('button', { name: 'Start talking' });
 
     expect(panelScope.getByRole('button', { name: 'Developer tools' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'Settings' })).toBeVisible();
@@ -79,9 +72,7 @@ describe('AssistantPanel', () => {
     expect(hero.compareDocumentPosition(conversationHeading)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(conversationHeading.compareDocumentPosition(startTalkingButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(panelScope.queryByRole('button', { name: 'Start talking' })).toBeNull();
     expect(panelScope.queryByText('Backend status')).toBeNull();
     expect(panelScope.queryByText('Token request')).toBeNull();
     expect(panelScope.queryByText('Mode')).toBeNull();
@@ -113,44 +104,6 @@ describe('AssistantPanel', () => {
     expect(checkBackendHealth).toHaveBeenCalledTimes(2);
   });
 
-  it('uses one primary talking action and maps token request outcomes to assistant states', async () => {
-    let resolveToken: (() => void) | undefined;
-    vi.mocked(requestSessionToken)
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveToken = () =>
-              resolve({
-                token: 'stub-token',
-                expiresAt: 'later',
-                isStub: true,
-              });
-          }),
-      )
-      .mockRejectedValueOnce(new Error('token failed'));
-
-    renderAssistantPanel();
-    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-    await screen.findByRole('status', { name: 'Ready' });
-
-    const startTalking = screen.getByRole('button', { name: 'Start talking' });
-    fireEvent.click(startTalking);
-    expect(screen.getByRole('status', { name: 'Thinking' })).toBeVisible();
-    expect(startTalking).toBeDisabled();
-
-    resolveToken?.();
-    expect(await screen.findByRole('status', { name: 'Ready' })).toBeVisible();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start talking' }));
-    expect(screen.getByRole('status', { name: 'Thinking' })).toBeVisible();
-    expect(await screen.findByRole('status', { name: 'Error' })).toBeVisible();
-
-    expect(requestSessionToken).toHaveBeenCalledTimes(2);
-    expect(requestSessionToken).toHaveBeenNthCalledWith(1, {});
-    expect(requestSessionToken).toHaveBeenNthCalledWith(2, {});
-    expect(screen.queryByText('Token received')).toBeNull();
-    expect(screen.queryByText('Connection failed')).toBeNull();
-  });
 
   it('omits developer tools when showStateDevControls is false', async () => {
     renderAssistantPanel();
