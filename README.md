@@ -163,6 +163,59 @@ Use HD screenshots only on demand.
   * `nodeIntegration: false`
   * privileged APIs only through `preload`
 
+## 📝 Commit Convention
+
+All commits follow the **Conventional Commits** pattern:
+
+```
+type(scope): message
+```
+
+### Types
+
+| Type | Use when |
+|------|----------|
+| `feat` | Adding a new feature or capability |
+| `fix` | Fixing a bug |
+| `chore` | Maintenance, config, dependencies, CI |
+| `refactor` | Restructuring code without changing behavior |
+| `test` | Adding or updating tests only |
+| `docs` | Documentation-only changes |
+| `style` | Formatting, whitespace, linting (no logic change) |
+| `perf` | Performance improvements |
+| `ci` | CI/CD pipeline changes |
+
+### Scopes
+
+| Scope | Covers |
+|-------|--------|
+| `monorepo` | Root configs, workspace, tooling |
+| `shared` | `packages/shared-types`, `packages/shared-utils` |
+| `api` | `apps/api` backend |
+| `desktop` | `apps/desktop` Electron app |
+| `docs` | Documentation files |
+
+### Examples
+
+```
+chore(monorepo): scaffold pnpm workspace with root configs
+feat(shared): add shared-types and shared-utils packages
+feat(api): add NestJS backend with health and session modules
+feat(desktop): add Electron app with React renderer and IPC bridge
+fix(api): correct token expiry calculation
+test(api): add integration tests for session controller
+refactor(desktop): extract IPC handlers to separate module
+docs(docs): update README with commit conventions
+```
+
+### Rules
+
+* Use imperative mood in the message ("add", not "added" or "adds")
+* Keep the subject line under 72 characters
+* Use the body for details when the subject alone is not enough
+* Group related changes into a single commit by logical scope
+* Do not mix unrelated changes in the same commit
+
 ## 🧪 Development Principles
 
 * Prefer TDD whenever practical and cost-effective
