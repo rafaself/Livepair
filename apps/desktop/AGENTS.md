@@ -21,6 +21,12 @@ Electron + React desktop app. Captures audio/screen, connects directly to Gemini
 - Keep UI lightweight. Do not add heavy dependencies to the renderer.
 - State stays local to the component unless a shared store is clearly justified.
 
+## Design System
+- All visual values (colors, spacing, radius, shadow, z-index, motion) come from CSS custom properties defined in `src/renderer/styles/tokens.css` and `src/renderer/styles/motion.css`. Never hardcode these values in component CSS or inline styles.
+- The style entry point is `src/renderer/styles/index.css` — imported once in `main.tsx`. Do not add additional global CSS imports.
+- Component CSS lives co-located with its `.tsx` file and is imported directly in that file. No global `components.css`.
+- See `src/renderer/components/AGENTS.md` for component architecture rules.
+
 ## Shared Contracts
 - Import types from `@livepair/shared-types` — never redefine API shapes locally.
 - Any new IPC channel must update `DesktopBridge` in preload and the type declaration in App or a dedicated types file.
