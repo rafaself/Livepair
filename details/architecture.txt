@@ -1,0 +1,216 @@
++-----------------------------------------------------------+
+|                    Desktop Client                         |
+|                Electron + React (TypeScript)              |
+|                                                           |
+|  +-------------------+     +----------------------------+ |
+|  |  Audio Pipeline   |     |     Screen Capture         | |
+|  |                   |     |                            | |
+|  | Mic Input         |     | desktopCapturer            | |
+|  | VAD detection     |     | frame compression          | |
+|  | audio chunks      |     | adaptive FPS               | |
+|  +---------+---------+     +-------------+--------------+ |
+|            |                               |              |
+|            |                               |              |
+|            +---------------+---------------+              |
+|                            |                              |
+|                    Live WebSocket                         |
+|                            |                              |
++----------------------------|------------------------------+
+                             |
+                             |
+                             ▼
++-----------------------------------------------------------+
+|                    Gemini Live API                        |
+|                                                           |
+|        Multimodal Streaming Session                       |
+|                                                           |
+|   • Audio Input                                           |
+|   • Screen Frames                                         |
+|   • Response Audio                                        |
+|   • Response Text                                         |
+|                                                           |
++----------------------------+------------------------------+
+                             |
+                             |
+                             |
+                             ▼
++-----------------------------------------------------------+
+|                    Backend API                            |
+|                NestJS (Cloud Run)                         |
+|                                                           |
+|  Modules:                                                 |
+|                                                           |
+|  • Session Module                                         |
+|  • Token Module                                           |
+|  • Tools Module                                           |
+|  • Logging Module                                         |
+|                                                           |
+|  Endpoints:                                               |
+|  POST /session/token                                      |
+|  POST /session/checkpoint                                 |
+|  POST /tool/screenshot-hd                                 |
+|  POST /tool/visual-summary                                |
+|  POST /session/error                                      |
+|                                                           |
++----------------------------+------------------------------+
+                             |
+                             |
+                             ▼
++-----------------------------------------------------------+
+|                    Redis Session Store                    |
+|                                                           |
+|  session_id                                               |
+|  goal                                                     |
+|  summary                                                  |
+|  recent_turns                                             |
+|  last_visual_context                                      |
+|                                                           |
++-----------------------------------------------------------+
+
+
+## Fluxo de inicialização da sessão
+
+1. Electron inicia aplicação
+
+2. Cliente solicita token
+
+Electron
+   │
+   │ POST /session/token
+   ▼
+NestJS (Cloud Run)
+
+3. Backend gera ephemeral token
+
+NestJS
+   │
+   │ token
+   ▼
+Electron
+
+4. Cliente abre sessão realtime
+
+Electron
+   │
+   │ WebSocket
+   ▼
+Gemini Live API
+
+
+
+## Audio flow
+
+**Standard**
+User voice
+   │
+   ▼
+Microphone capture
+   │
+   ▼
+VAD detection
+   │
+   ▼
+PCM chunks (20–40 ms)
+   │
+   ▼
+WebSocket
+   │
+   ▼
+Gemini Live API
+   │
+   ▼
+Response audio
+   │
+   ▼
+Electron playback
+
+
+**Interruption**
+User starts speaking
+      │
+      ▼
+VAD detect
+      │
+      ▼
+interrupt event
+      │
+      ▼
+cancel agent speech
+
+
+## Vision flow
+
+desktopCapturer
+      │
+      ▼
+Frame capture
+      │
+      ▼
+Resize (720–900p)
+      │
+      ▼
+JPEG compression (60–70)
+      │
+      ▼
+0.5–1 FPS
+      │
+      ▼
+Live API
+
+
+**Adaptative increase**
+
+Screen change detected
+        │
+        ▼
+Increase capture rate
+        │
+        ▼
+2–3 FPS temporarily
+
+
+## Tool call flow
+
+Gemini Live API
+      │
+      ▼
+tool request
+      │
+      ▼
+Electron
+      │
+      ▼
+POST /tool/screenshot-hd
+      │
+      ▼
+NestJS
+      │
+      ▼
+result
+      │
+      ▼
+Live API
+
+
+## Session control
+
+Session running
+     │
+     ▼
+Periodic checkpoint
+     │
+     ▼
+POST /session/checkpoint
+     │
+     ▼
+Redis store
+
+goal
+recent_turns
+compressed_summary
+last_visual_context
+
+*If reconnect*
+retrieve session state
+rebuild context
+resume conversation

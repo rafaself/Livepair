@@ -1,0 +1,20 @@
+repo
+│
+├ apps
+│   ├ desktop
+│   │   ├ main
+│   │   ├ preload
+│   │   └ renderer (React)
+│   │
+│   └ api
+│       ├ src
+│       │   ├ session
+│       │   ├ tools
+│       │   ├ token
+│       │   └ logging
+│
+├ packages
+│   ├ shared-types
+│   └ shared-utils
+│
+└ pnpm-workspace.yaml
