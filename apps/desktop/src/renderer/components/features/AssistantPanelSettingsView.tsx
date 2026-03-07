@@ -1,22 +1,7 @@
-export type AssistantPanelSettingsViewProps = {
-  onBack: () => void;
-};
-
-export function AssistantPanelSettingsView({
-  onBack,
-}: AssistantPanelSettingsViewProps): JSX.Element {
+export function AssistantPanelSettingsView(): JSX.Element {
   return (
     <div className="assistant-panel__settings-modal">
-      <header className="assistant-panel__settings-header">
-        <h2 className="assistant-panel__settings-title">Settings</h2>
-        <button
-          className="assistant-panel__view-back-btn"
-          onClick={onBack}
-          aria-label="Back to chat"
-        >
-          ← Back
-        </button>
-      </header>
+      <h2 className="assistant-panel__settings-title">Settings</h2>
 
       <div className="assistant-panel__settings-body">
         <section className="assistant-panel__settings-section" aria-label="General">

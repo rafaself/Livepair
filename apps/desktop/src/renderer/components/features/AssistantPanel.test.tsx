@@ -141,8 +141,8 @@ describe('AssistantPanel', () => {
     expect(panelScope.getByRole('heading', { name: 'Settings' })).toBeVisible();
     expect(panelScope.queryByText('No conversation yet')).toBeNull();
 
-    // Return to chat via back button
-    fireEvent.click(panelScope.getByRole('button', { name: 'Back to chat' }));
+    // Return to chat via Chat button
+    fireEvent.click(panelScope.getByRole('button', { name: 'Chat' }));
     expect(panelScope.queryByRole('heading', { name: 'Settings' })).toBeNull();
     expect(panelScope.getByText('No conversation yet')).toBeVisible();
 

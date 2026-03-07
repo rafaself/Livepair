@@ -4,7 +4,6 @@ import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 
 describe('AssistantPanelDebugView', () => {
   it('renders developer diagnostics and state controls', () => {
-    const onBack = vi.fn();
     const onRetryBackendHealth = vi.fn(async () => undefined);
     const onSetAssistantState = vi.fn();
 
@@ -15,7 +14,6 @@ describe('AssistantPanelDebugView', () => {
         backendIndicatorState="error"
         backendLabel="Not connected"
         tokenFeedback="Connection failed"
-        onBack={onBack}
         onRetryBackendHealth={onRetryBackendHealth}
         onSetAssistantState={onSetAssistantState}
       />,
@@ -33,8 +31,5 @@ describe('AssistantPanelDebugView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'speaking' }));
     expect(onSetAssistantState).toHaveBeenCalledWith('speaking');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Back to chat' }));
-    expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

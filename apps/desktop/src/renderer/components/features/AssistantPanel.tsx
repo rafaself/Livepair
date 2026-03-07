@@ -102,7 +102,7 @@ export function AssistantPanel({
               </section>
             </>
           ) : panelView === 'settings' ? (
-            <AssistantPanelSettingsView onBack={() => setPanelView('chat')} />
+            <AssistantPanelSettingsView />
           ) : (panelView === 'debug' && showStateDevControls) ? (
             <AssistantPanelDebugView
               assistantState={assistantState}
@@ -110,7 +110,6 @@ export function AssistantPanel({
               backendIndicatorState={backendIndicatorState}
               backendLabel={backendLabel}
               tokenFeedback={tokenFeedback}
-              onBack={() => setPanelView('chat')}
               onRetryBackendHealth={handleCheckBackendHealth}
               onSetAssistantState={setAssistantState}
             />

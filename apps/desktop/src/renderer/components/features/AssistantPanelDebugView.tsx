@@ -13,7 +13,6 @@ export type AssistantPanelDebugViewProps = {
   backendIndicatorState: AssistantRuntimeState;
   backendLabel: string;
   tokenFeedback: string | null;
-  onBack: () => void;
   onRetryBackendHealth: () => Promise<void>;
   onSetAssistantState: (state: AssistantRuntimeState) => void;
 };
@@ -24,25 +23,12 @@ export function AssistantPanelDebugView({
   backendIndicatorState,
   backendLabel,
   tokenFeedback,
-  onBack,
   onRetryBackendHealth,
   onSetAssistantState,
 }: AssistantPanelDebugViewProps): JSX.Element {
   return (
     <div className="assistant-panel__debug-modal">
-      <header className="assistant-panel__debug-header">
-        <div>
-          <h2 className="assistant-panel__debug-title">Developer tools</h2>
-          <p className="assistant-panel__debug-subtitle">Internal diagnostics and manual state controls.</p>
-        </div>
-        <button
-          className="assistant-panel__view-back-btn"
-          onClick={onBack}
-          aria-label="Back to chat"
-        >
-          ← Back
-        </button>
-      </header>
+      <h2 className="assistant-panel__debug-title">Developer tools</h2>
 
       <section className="assistant-panel__debug-section" aria-label="Connection">
         <h3 className="assistant-panel__debug-section-title">Connection</h3>

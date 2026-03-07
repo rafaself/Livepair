@@ -1,10 +1,10 @@
 import {
   AlertCircle,
+  AudioLines,
   LoaderCircle,
   Mic,
   Sparkles,
   Unplug,
-  Volume2,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -41,7 +41,7 @@ const HERO_COPY: Record<
   },
   speaking: {
     description: 'Livepair is speaking now. You can interrupt whenever you need to.',
-    icon: Volume2,
+    icon: AudioLines,
   },
   error: {
     description: 'Livepair could not start the session. Try again when you are ready.',
@@ -81,13 +81,6 @@ export function AssistantPanelStateHero({
           size={22}
           stroke={state === 'ready' ? 'url(#gemini-gradient)' : undefined}
         />
-        {state === 'speaking' ? (
-          <span className="assistant-panel__hero-wave" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </span>
-        ) : null}
       </div>
       <div className="assistant-panel__hero-copy">
         <h3 className="assistant-panel__hero-title">{label}</h3>
