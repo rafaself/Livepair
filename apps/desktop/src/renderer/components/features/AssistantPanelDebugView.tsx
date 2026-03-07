@@ -6,6 +6,7 @@ import {
 import { StatusIndicator } from '../composite';
 import { Button } from '../primitives';
 import type { BackendConnectionState } from './useAssistantPanelController';
+import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 
 export type AssistantPanelDebugViewProps = {
   assistantState: AssistantRuntimeState;
@@ -66,6 +67,11 @@ export function AssistantPanelDebugView({
             Retry backend
           </Button>
         ) : null}
+      </section>
+
+      <section className="assistant-panel__debug-section" aria-label="Preview">
+        <h3 className="assistant-panel__debug-section-title">Preview</h3>
+        <AssistantPanelStateHero state={assistantState} />
       </section>
 
       <section className="assistant-panel__debug-section" aria-label="State overrides">
