@@ -1,0 +1,15 @@
+{
+  "name": "livepair",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter !livepair dev",
+    "build": "pnpm -r --filter !livepair build",
+    "lint": "pnpm -r --filter !livepair lint",
+    "typecheck": "pnpm -r --filter !livepair typecheck",
+    "test": "pnpm -r --filter !livepair test"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
