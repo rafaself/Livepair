@@ -1,13 +1,19 @@
 import { Mic, Server, Settings2, Wrench } from 'lucide-react';
 import { FieldList } from '../composite';
 import { ViewSection } from '../layout';
-import { Switch } from '../primitives';
+import { Select, Switch, type SelectOptionItem } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
+
+const MODE_OPTIONS: readonly SelectOptionItem[] = [
+  { value: 'fast', label: 'Fast' },
+  { value: 'thinking', label: 'Thinking' },
+];
 
 export function AssistantPanelSettingsView(): JSX.Element {
   const {
-    state: { isPanelPinned },
+    state: { isPanelPinned, preferredMode },
     togglePanelPinned,
+    setPreferredMode,
   } = useUiStore();
 
   return (
@@ -18,7 +24,23 @@ export function AssistantPanelSettingsView(): JSX.Element {
         <ViewSection icon={Settings2} title="General">
           <FieldList
             items={[
-              { label: 'Preferred mode', value: 'Fast' },
+              {
+                label: 'Preferred mode',
+                value: (
+                  <Select
+                    aria-label="Preferred mode"
+                    className="assistant-panel__settings-mode-select"
+                    options={MODE_OPTIONS}
+                    value={preferredMode}
+                    onChange={(event) => {
+                      if (event.target.value === 'fast' || event.target.value === 'thinking') {
+                        setPreferredMode(event.target.value);
+                      }
+                    }}
+                    size="sm"
+                  />
+                ),
+              },
               {
                 label: 'Lock panel',
                 value: (

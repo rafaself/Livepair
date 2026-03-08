@@ -36,4 +36,20 @@ describe('AssistantPanelSettingsView', () => {
       'true',
     );
   });
+
+  it('lets the user change preferred mode from settings', () => {
+    render(
+      <UiStoreProvider>
+        <AssistantPanelSettingsView />
+      </UiStoreProvider>,
+    );
+
+    const preferredModeSelect = screen.getByRole('button', { name: /preferred mode/i });
+    expect(preferredModeSelect).toHaveTextContent('Fast');
+
+    fireEvent.click(preferredModeSelect);
+    fireEvent.click(screen.getByRole('option', { name: 'Thinking' }));
+
+    expect(screen.getByRole('button', { name: /preferred mode/i })).toHaveTextContent('Thinking');
+  });
 });

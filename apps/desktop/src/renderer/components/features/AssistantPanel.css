@@ -195,6 +195,10 @@
   flex-shrink: 0;
 }
 
+.assistant-panel__settings-mode-select {
+  width: calc(var(--space-12) * 2);
+}
+
 @keyframes assistant-panel-listening-pulse {
   0%,
   100% {
