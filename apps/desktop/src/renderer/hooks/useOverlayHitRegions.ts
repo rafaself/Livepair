@@ -1,21 +1,8 @@
 import { useEffect } from 'react';
 import type { OverlayHitRegion } from '../../preload/preload';
+import { toOverlayHitRegions } from './overlayHitRegions';
 
 const SELECTOR = '.control-dock, .panel.panel--open';
-
-function toOverlayHitRegion(element: Element): OverlayHitRegion | null {
-  const rect = element.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) {
-    return null;
-  }
-
-  return {
-    x: Math.round(rect.x),
-    y: Math.round(rect.y),
-    width: Math.round(rect.width),
-    height: Math.round(rect.height),
-  };
-}
 
 export function useOverlayHitRegions(): void {
   useEffect(() => {
@@ -25,8 +12,7 @@ export function useOverlayHitRegions(): void {
 
     const publishHitRegions = (): void => {
       const regions = Array.from(document.querySelectorAll(SELECTOR))
-        .map(toOverlayHitRegion)
-        .filter((entry): entry is OverlayHitRegion => entry !== null);
+        .flatMap((element): OverlayHitRegion[] => toOverlayHitRegions(element));
 
       void window.bridge?.setOverlayHitRegions(regions);
     };

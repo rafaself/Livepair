@@ -56,17 +56,24 @@ describe('useOverlayHitRegions', () => {
     return el;
   }
 
-  it('publishes dock and open panel rectangles to preload bridge', async () => {
+  it('publishes a pill-shaped dock region alongside the open panel rectangle', async () => {
     createHitElement('control-dock', { x: 1500, y: 300, width: 80, height: 220 });
     createHitElement('panel panel--open', { x: 1580, y: 0, width: 340, height: 1080 });
 
     renderHook(() => useOverlayHitRegions());
     await Promise.resolve();
 
-    expect(mockSetOverlayHitRegions).toHaveBeenCalledWith([
-      { x: 1500, y: 300, width: 80, height: 220 },
-      { x: 1580, y: 0, width: 340, height: 1080 },
-    ]);
+    const publishedRegions = mockSetOverlayHitRegions.mock.lastCall?.[0];
+    expect(publishedRegions).toBeDefined();
+    expect(publishedRegions.at(-1)).toEqual({ x: 1580, y: 0, width: 340, height: 1080 });
+
+    const dockRegions = publishedRegions.slice(0, -1);
+    expect(dockRegions.length).toBeGreaterThan(3);
+    expect(dockRegions[0].x).toBeGreaterThan(1500);
+    expect(dockRegions[0].width).toBeLessThan(80);
+    expect(dockRegions.some((region: { x: number; width: number }) => (
+      region.x === 1500 && region.width === 80
+    ))).toBe(true);
   });
 
   it('republishes the final panel rectangle after the open transition ends', async () => {
