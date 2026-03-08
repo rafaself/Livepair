@@ -25,6 +25,12 @@
 
 .status-indicator--ready {
   background: var(--color-success);
+  animation: status-ready-blink 3s ease-in-out infinite;
+}
+
+@keyframes status-ready-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
 
 .status-indicator--listening {

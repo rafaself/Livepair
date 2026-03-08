@@ -45,7 +45,15 @@ export function AssistantPanelDebugView({
                 </>
               ),
             },
-            { label: 'Backend lifecycle', value: backendState },
+            {
+              label: 'Backend lifecycle',
+              value: (
+                <>
+                  <StatusIndicator state={backendIndicatorState} size="sm" />
+                  <span>{backendState.charAt(0).toUpperCase() + backendState.slice(1)}</span>
+                </>
+              ),
+            },
             { label: 'Token request', value: tokenFeedback ?? 'Idle' },
             { label: 'Mode', value: 'Fast' },
             {
