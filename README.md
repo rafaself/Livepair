@@ -266,9 +266,12 @@ Adjust package names and scripts to match the actual workspace setup.
 
 ```bash
 PORT=
+HOST=
 GEMINI_API_KEY=
 EPHEMERAL_TOKEN_TTL_SECONDS=
 REDIS_URL=
+OPEN_DEVTOOLS=
+DISABLE_HTTP_LISTEN=
 ```
 
 ### 🖥️ Desktop

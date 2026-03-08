@@ -28,6 +28,7 @@ describe('preload bridge', () => {
       expect.objectContaining({
         checkHealth: expect.any(Function),
         requestSessionToken: expect.any(Function),
+        setOverlayHitRegions: expect.any(Function),
       }),
     );
   });
@@ -48,6 +49,12 @@ describe('preload bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {
       sessionId: 'session-1',
     });
+
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await bridge.setOverlayHitRegions([{ x: 0, y: 10, width: 100, height: 60 }]);
+    expect(mockInvoke).toHaveBeenCalledWith('overlay:setHitRegions', [
+      { x: 0, y: 10, width: 100, height: 60 },
+    ]);
   });
 
   it('passes explicit empty payload when request has no fields', async () => {

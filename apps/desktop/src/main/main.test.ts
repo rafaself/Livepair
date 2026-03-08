@@ -10,6 +10,7 @@ const mockLoadFile = vi.fn();
 const mockOpenDevTools = vi.fn();
 const mockToggleDevTools = vi.fn();
 const mockSetIgnoreMouseEvents = vi.fn();
+const mockSetShape = vi.fn();
 const mockWindowOn = vi.fn();
 const mockGetAllWindows = vi.fn((): unknown[] => []);
 const mockAppendSwitch = vi.fn();
@@ -24,6 +25,7 @@ const browserWindowCtor = vi.fn(() => ({
     on: mockWebContentsOn,
   },
   setIgnoreMouseEvents: mockSetIgnoreMouseEvents,
+  setShape: mockSetShape,
   on: mockWindowOn,
 }));
 
@@ -52,10 +54,10 @@ describe('main process runtime', () => {
     vi.unstubAllEnvs();
   });
 
-  it('registers IPC handlers for health and token', async () => {
+  it('registers IPC handlers for health, token, and overlay hit regions', async () => {
     const main = await import('./main');
 
-    expect(mockHandle).toHaveBeenCalledTimes(2);
+    expect(mockHandle).toHaveBeenCalledTimes(3);
     expect(mockHandle).toHaveBeenNthCalledWith(
       1,
       'health:check',
@@ -64,6 +66,11 @@ describe('main process runtime', () => {
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
       'session:requestToken',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      3,
+      'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(main.API_BASE_URL).toBe('http://localhost:3000');
@@ -95,7 +102,7 @@ describe('main process runtime', () => {
       }),
     );
     expect(mockLoadURL).toHaveBeenCalledWith('http://localhost:5173');
-    expect(mockOpenDevTools).toHaveBeenCalled();
+    expect(mockOpenDevTools).not.toHaveBeenCalled();
 
     // On Linux, compositors handle click-through natively — setIgnoreMouseEvents is skipped.
     // On macOS/Windows, it would be called with (true, { forward: true }).
@@ -103,11 +110,22 @@ describe('main process runtime', () => {
       expect(mockSetIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
     } else {
       expect(mockSetIgnoreMouseEvents).not.toHaveBeenCalled();
+      expect(mockSetShape).toHaveBeenCalledWith([]);
     }
 
     vi.stubEnv('NODE_ENV', 'production');
     main.createWindow();
     expect(mockLoadFile).toHaveBeenCalled();
+  });
+
+  it('opens devtools only when OPEN_DEVTOOLS is true', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('OPEN_DEVTOOLS', 'true');
+    const main = await import('./main');
+
+    main.createWindow();
+
+    expect(mockOpenDevTools).toHaveBeenCalledWith({ mode: 'detach' });
   });
 
   it('health IPC handler returns JSON on success and throws on failure', async () => {
@@ -209,6 +227,32 @@ describe('main process runtime', () => {
         body: JSON.stringify({}),
       },
     );
+  });
+
+  it('overlay hit-region IPC sets Linux shaped input regions', async () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, 'platform', { value: 'linux', writable: true });
+
+    try {
+      const main = await import('./main');
+      main.createWindow();
+      mockSetShape.mockClear();
+
+      const overlayHandler = mockHandle.mock.calls.find(
+        ([channel]) => channel === 'overlay:setHitRegions',
+      )?.[1] as (_event: unknown, regions: unknown) => void;
+
+      overlayHandler({}, [{ x: 1, y: 2, width: 30, height: 40 }]);
+      expect(mockSetShape).toHaveBeenCalledWith([
+        { x: 1, y: 2, width: 30, height: 40 },
+      ]);
+
+      expect(() => overlayHandler({}, [{ x: 'bad', y: 2, width: 1, height: 1 }])).toThrow(
+        'overlay:setHitRegions requires an array of rectangles',
+      );
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform, writable: true });
+    }
   });
 
   it('handles app activate and window-all-closed via helper functions', async () => {

@@ -8,6 +8,7 @@ describe('renderer backend api helper', () => {
     window.bridge = {
       checkHealth,
       requestSessionToken: requestToken,
+      setOverlayHitRegions: vi.fn(),
     };
 
     await expect(checkBackendHealth()).resolves.toBe(true);
@@ -19,6 +20,7 @@ describe('renderer backend api helper', () => {
     window.bridge = {
       checkHealth: vi.fn().mockResolvedValue({ status: 'bad', timestamp: 'now' }),
       requestSessionToken: requestToken,
+      setOverlayHitRegions: vi.fn(),
     };
 
     await expect(checkBackendHealth()).resolves.toBe(false);
@@ -26,6 +28,7 @@ describe('renderer backend api helper', () => {
     window.bridge = {
       checkHealth: vi.fn().mockRejectedValue(new Error('network')),
       requestSessionToken: requestToken,
+      setOverlayHitRegions: vi.fn(),
     };
     await expect(checkBackendHealth()).resolves.toBe(false);
   });
@@ -41,6 +44,7 @@ describe('renderer backend api helper', () => {
     window.bridge = {
       checkHealth,
       requestSessionToken: requestToken,
+      setOverlayHitRegions: vi.fn(),
     };
 
     await expect(requestSessionToken({})).resolves.toEqual(tokenResponse);
@@ -54,6 +58,7 @@ describe('renderer backend api helper', () => {
     window.bridge = {
       checkHealth,
       requestSessionToken: requestToken,
+      setOverlayHitRegions: vi.fn(),
     };
 
     await expect(requestSessionToken({})).rejects.toThrow('token failed');

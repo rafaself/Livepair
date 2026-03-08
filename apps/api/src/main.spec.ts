@@ -17,8 +17,14 @@ jest.mock('@nestjs/core', () => ({
 
 describe('main bootstrap', () => {
   const originalPort = process.env['PORT'];
+  const originalHost = process.env['HOST'];
+  const originalDisableHttpListen = process.env['DISABLE_HTTP_LISTEN'];
+  const originalCodexNetworkDisabled = process.env['CODEX_SANDBOX_NETWORK_DISABLED'];
   const originalNodeEnv = process.env['NODE_ENV'];
   const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {
+    return undefined;
+  });
+  const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {
     return undefined;
   });
 
@@ -32,27 +38,50 @@ describe('main bootstrap', () => {
 
   afterAll(() => {
     process.env['PORT'] = originalPort;
+    process.env['HOST'] = originalHost;
+    process.env['DISABLE_HTTP_LISTEN'] = originalDisableHttpListen;
+    process.env['CODEX_SANDBOX_NETWORK_DISABLED'] = originalCodexNetworkDisabled;
     process.env['NODE_ENV'] = originalNodeEnv;
     logSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 
   it('bootstraps the app immediately on module load with default port', async () => {
     delete process.env['PORT'];
+    delete process.env['HOST'];
+    delete process.env['DISABLE_HTTP_LISTEN'];
+    delete process.env['CODEX_SANDBOX_NETWORK_DISABLED'];
     await import('./main');
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(create).toHaveBeenCalledTimes(1);
     expect(useGlobalPipes).toHaveBeenCalledTimes(1);
-    expect(listen).toHaveBeenCalledWith(3000);
-    expect(logSpy).toHaveBeenCalledWith('API listening on port 3000');
+    expect(listen).toHaveBeenCalledWith(3000, '127.0.0.1');
+    expect(logSpy).toHaveBeenCalledWith('API listening on 127.0.0.1:3000');
   });
 
-  it('uses explicit PORT value during bootstrap as a parsed number', async () => {
+  it('uses explicit PORT and HOST values during bootstrap', async () => {
     process.env['PORT'] = '4050';
+    process.env['HOST'] = '0.0.0.0';
+    delete process.env['DISABLE_HTTP_LISTEN'];
+    delete process.env['CODEX_SANDBOX_NETWORK_DISABLED'];
     await import('./main');
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(listen).toHaveBeenCalledWith(4050);
-    expect(logSpy).toHaveBeenCalledWith('API listening on port 4050');
+    expect(listen).toHaveBeenCalledWith(4050, '0.0.0.0');
+    expect(logSpy).toHaveBeenCalledWith('API listening on 0.0.0.0:4050');
+  });
+
+  it('skips network bind when DISABLE_HTTP_LISTEN is true', async () => {
+    process.env['DISABLE_HTTP_LISTEN'] = 'true';
+    delete process.env['CODEX_SANDBOX_NETWORK_DISABLED'];
+
+    await import('./main');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(listen).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'HTTP listen disabled (DISABLE_HTTP_LISTEN=true or CODEX_SANDBOX_NETWORK_DISABLED=1).',
+    );
   });
 });
