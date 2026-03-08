@@ -9,6 +9,7 @@ function UiStoreHarness(): JSX.Element {
     closePanel,
     setPanelView,
     setAssistantState,
+    setBackendUrl,
     setSelectedInputDeviceId,
   } = useUiStore();
 
@@ -17,6 +18,7 @@ function UiStoreHarness(): JSX.Element {
       <output aria-label="panel-open">{String(state.isPanelOpen)}</output>
       <output aria-label="panel-view">{state.panelView}</output>
       <output aria-label="assistant-state">{state.assistantState}</output>
+      <output aria-label="backend-url">{state.backendUrl}</output>
       <output aria-label="selected-input-device">{state.selectedInputDeviceId}</output>
 
       <button type="button" onClick={togglePanel}>
@@ -33,6 +35,9 @@ function UiStoreHarness(): JSX.Element {
       </button>
       <button type="button" onClick={() => setAssistantState('speaking')}>
         set speaking
+      </button>
+      <button type="button" onClick={() => setBackendUrl('https://api.livepair.dev')}>
+        set backend url
       </button>
       <button type="button" onClick={() => setSelectedInputDeviceId('usb-mic')}>
         set usb mic
@@ -56,6 +61,7 @@ describe('uiStore', () => {
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('false');
     expect(screen.getByLabelText('panel-view')).toHaveTextContent('chat');
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
+    expect(screen.getByLabelText('backend-url')).toHaveTextContent('http://localhost:3000');
     expect(screen.getByLabelText('selected-input-device')).toHaveTextContent('default');
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -90,5 +96,24 @@ describe('uiStore', () => {
 
     expect(screen.getByLabelText('selected-input-device')).toHaveTextContent('usb-mic');
     expect(window.localStorage.getItem('livepair.selectedInputDeviceId')).toBe('usb-mic');
+  });
+
+  it('hydrates and persists the backend URL', () => {
+    window.localStorage.setItem('livepair.backendUrl', 'https://persisted.livepair.dev');
+
+    render(
+      <UiStoreProvider>
+        <UiStoreHarness />
+      </UiStoreProvider>,
+    );
+
+    expect(screen.getByLabelText('backend-url')).toHaveTextContent(
+      'https://persisted.livepair.dev',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'set backend url' }));
+
+    expect(screen.getByLabelText('backend-url')).toHaveTextContent('https://api.livepair.dev');
+    expect(window.localStorage.getItem('livepair.backendUrl')).toBe('https://api.livepair.dev');
   });
 });

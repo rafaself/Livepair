@@ -57,7 +57,7 @@ describe('main process runtime', () => {
   it('registers IPC handlers for health, token, and overlay IPC', async () => {
     const main = await import('./main');
 
-    expect(mockHandle).toHaveBeenCalledTimes(4);
+    expect(mockHandle).toHaveBeenCalledTimes(6);
     expect(mockHandle).toHaveBeenNthCalledWith(
       1,
       'health:check',
@@ -70,15 +70,25 @@ describe('main process runtime', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       3,
-      'overlay:setHitRegions',
+      'config:getBackendBaseUrl',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       4,
+      'config:setBackendBaseUrl',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      5,
+      'overlay:setHitRegions',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      6,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
-    expect(main.API_BASE_URL).toBe('http://localhost:3000');
+    expect(main.getApiBaseUrl()).toBe('http://localhost:3000');
   });
 
   it('creates transparent overlay BrowserWindow and handles dev/prod loading', async () => {
@@ -232,6 +242,52 @@ describe('main process runtime', () => {
         body: JSON.stringify({}),
       },
     );
+  });
+
+  it('gets and sets the backend base URL through IPC and uses the override for fetches', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => ({ status: 'ok', timestamp: 't' })),
+    });
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+
+    await import('./main');
+    const getBackendUrlHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'config:getBackendBaseUrl',
+    )?.[1] as () => Promise<string>;
+    const setBackendUrlHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'config:setBackendBaseUrl',
+    )?.[1] as (_event: unknown, url: string) => Promise<string>;
+    const healthHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'health:check',
+    )?.[1] as () => Promise<{ status: 'ok'; timestamp: string }>;
+
+    await expect(getBackendUrlHandler()).resolves.toBe('http://localhost:3000');
+    await expect(setBackendUrlHandler({}, ' https://api.livepair.dev/base/ ')).resolves.toBe(
+      'https://api.livepair.dev/base',
+    );
+    await expect(getBackendUrlHandler()).resolves.toBe('https://api.livepair.dev/base');
+
+    await healthHandler();
+
+    expect(fetchMock).toHaveBeenLastCalledWith('https://api.livepair.dev/base/health');
+  });
+
+  it('rejects invalid backend base URLs before changing runtime state', async () => {
+    await import('./main');
+    const setBackendUrlHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'config:setBackendBaseUrl',
+    )?.[1] as (_event: unknown, url: unknown) => Promise<string>;
+    const getBackendUrlHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'config:getBackendBaseUrl',
+    )?.[1] as () => Promise<string>;
+
+    await expect(setBackendUrlHandler({}, 'ftp://bad.example.com')).rejects.toThrow(
+      'Invalid backend base URL',
+    );
+    await expect(setBackendUrlHandler({}, 123)).rejects.toThrow('Invalid backend base URL');
+    await expect(getBackendUrlHandler()).resolves.toBe('http://localhost:3000');
   });
 
   it('overlay hit-region IPC sets Linux shaped input regions', async () => {

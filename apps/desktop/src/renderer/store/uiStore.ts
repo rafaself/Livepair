@@ -9,6 +9,10 @@ import {
   type ReactNode,
 } from 'react';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
+import {
+  DEFAULT_API_BASE_URL,
+  normalizeBackendBaseUrl,
+} from '../../shared/backendBaseUrl';
 
 export type AssistantState = AssistantRuntimeState;
 export type PanelView = 'chat' | 'settings' | 'debug';
@@ -20,6 +24,7 @@ export type UiState = {
   panelView: PanelView;
   assistantState: AssistantState;
   preferredMode: PreferredMode;
+  backendUrl: string;
   selectedInputDeviceId: string;
 };
 
@@ -30,9 +35,11 @@ type UiAction =
   | { type: 'setPanelView'; payload: PanelView }
   | { type: 'setAssistantState'; payload: AssistantState }
   | { type: 'setPreferredMode'; payload: PreferredMode }
+  | { type: 'setBackendUrl'; payload: string }
   | { type: 'setSelectedInputDeviceId'; payload: string };
 
 const INPUT_DEVICE_STORAGE_KEY = 'livepair.selectedInputDeviceId';
+const BACKEND_URL_STORAGE_KEY = 'livepair.backendUrl';
 
 const defaultUiState: UiState = {
   isPanelOpen: false,
@@ -40,6 +47,7 @@ const defaultUiState: UiState = {
   panelView: 'chat',
   assistantState: 'disconnected',
   preferredMode: 'fast',
+  backendUrl: DEFAULT_API_BASE_URL,
   selectedInputDeviceId: 'default',
 };
 
@@ -49,9 +57,13 @@ function getInitialUiState(): UiState {
   }
 
   const storedInputDeviceId = window.localStorage.getItem(INPUT_DEVICE_STORAGE_KEY);
+  const storedBackendUrl = normalizeBackendBaseUrl(
+    window.localStorage.getItem(BACKEND_URL_STORAGE_KEY) ?? '',
+  );
 
   return {
     ...defaultUiState,
+    backendUrl: storedBackendUrl ?? defaultUiState.backendUrl,
     selectedInputDeviceId: storedInputDeviceId || defaultUiState.selectedInputDeviceId,
   };
 }
@@ -103,6 +115,12 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         preferredMode: action.payload,
       };
     }
+    case 'setBackendUrl': {
+      return {
+        ...state,
+        backendUrl: action.payload,
+      };
+    }
     case 'setSelectedInputDeviceId': {
       return {
         ...state,
@@ -123,6 +141,7 @@ type UiStoreValue = {
   setPanelView: (view: PanelView) => void;
   setAssistantState: (state: AssistantState) => void;
   setPreferredMode: (mode: PreferredMode) => void;
+  setBackendUrl: (url: string) => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
 };
 
@@ -134,6 +153,13 @@ export type UiStoreProviderProps = {
 
 export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element {
   const [state, dispatch] = useReducer(uiReducer, undefined, getInitialUiState);
+  const initialPersistedBackendUrl = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    return normalizeBackendBaseUrl(window.localStorage.getItem(BACKEND_URL_STORAGE_KEY) ?? '');
+  }, []);
   const togglePanel = useCallback(() => dispatch({ type: 'togglePanel' }), []);
   const closePanel = useCallback(() => dispatch({ type: 'closePanel' }), []);
   const togglePanelPinned = useCallback(() => dispatch({ type: 'togglePanelPinned' }), []);
@@ -150,6 +176,10 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
     (preferredMode: PreferredMode) => dispatch({ type: 'setPreferredMode', payload: preferredMode }),
     [],
   );
+  const setBackendUrl = useCallback(
+    (backendUrl: string) => dispatch({ type: 'setBackendUrl', payload: backendUrl }),
+    [],
+  );
   const setSelectedInputDeviceId = useCallback(
     (selectedInputDeviceId: string) =>
       dispatch({ type: 'setSelectedInputDeviceId', payload: selectedInputDeviceId }),
@@ -164,6 +194,61 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
     window.localStorage.setItem(INPUT_DEVICE_STORAGE_KEY, state.selectedInputDeviceId);
   }, [state.selectedInputDeviceId]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(BACKEND_URL_STORAGE_KEY, state.backendUrl);
+  }, [state.backendUrl]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let isDisposed = false;
+
+    const syncBackendUrl = async (): Promise<void> => {
+      const runtimeBackendUrl = normalizeBackendBaseUrl(await window.bridge.getBackendBaseUrl())
+        ?? DEFAULT_API_BASE_URL;
+
+      if (isDisposed) {
+        return;
+      }
+
+      if (!initialPersistedBackendUrl) {
+        setBackendUrl(runtimeBackendUrl);
+        return;
+      }
+
+      if (initialPersistedBackendUrl === runtimeBackendUrl) {
+        setBackendUrl(runtimeBackendUrl);
+        return;
+      }
+
+      try {
+        const appliedBackendUrl = normalizeBackendBaseUrl(
+          await window.bridge.setBackendBaseUrl(initialPersistedBackendUrl),
+        ) ?? runtimeBackendUrl;
+
+        if (!isDisposed) {
+          setBackendUrl(appliedBackendUrl);
+        }
+      } catch {
+        if (!isDisposed) {
+          setBackendUrl(runtimeBackendUrl);
+        }
+      }
+    };
+
+    void syncBackendUrl();
+
+    return () => {
+      isDisposed = true;
+    };
+  }, [initialPersistedBackendUrl, setBackendUrl]);
+
   const value = useMemo<UiStoreValue>(
     () => ({
       state,
@@ -173,6 +258,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       setPanelView,
       setAssistantState,
       setPreferredMode,
+      setBackendUrl,
       setSelectedInputDeviceId,
     }),
     [
@@ -180,6 +266,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       setPanelView,
       setAssistantState,
       setPreferredMode,
+      setBackendUrl,
       setSelectedInputDeviceId,
       state,
       togglePanel,

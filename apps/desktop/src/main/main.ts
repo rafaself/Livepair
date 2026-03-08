@@ -7,8 +7,16 @@ import type {
 import {
   IPC_CHANNELS,
 } from '../shared/desktopBridge';
+import {
+  normalizeBackendBaseUrl,
+  resolveBackendBaseUrl,
+} from '../shared/backendBaseUrl';
 
-export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:3000';
+let apiBaseUrl = resolveBackendBaseUrl(process.env['API_BASE_URL']);
+
+export function getApiBaseUrl(): string {
+  return apiBaseUrl;
+}
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-transparent-visuals');
@@ -138,7 +146,7 @@ export function handleWindowAllClosed(
 }
 
 ipcMain.handle(IPC_CHANNELS.checkHealth, async () => {
-  const res = await fetch(`${API_BASE_URL}/health`);
+  const res = await fetch(`${apiBaseUrl}/health`);
   if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
   return res.json();
 });
@@ -153,13 +161,35 @@ ipcMain.handle(
       throw new Error('Invalid token request payload');
     }
 
-    const res = await fetch(`${API_BASE_URL}/session/token`, {
+    const res = await fetch(`${apiBaseUrl}/session/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
     });
     if (!res.ok) throw new Error(`Token request failed: ${res.status}`);
     return res.json();
+  },
+);
+
+ipcMain.handle(IPC_CHANNELS.getBackendBaseUrl, async () => {
+  return apiBaseUrl;
+});
+
+ipcMain.handle(
+  IPC_CHANNELS.setBackendBaseUrl,
+  async (_event, nextBaseUrl: unknown) => {
+    if (typeof nextBaseUrl !== 'string') {
+      throw new Error('Invalid backend base URL');
+    }
+
+    const normalizedBaseUrl = normalizeBackendBaseUrl(nextBaseUrl);
+
+    if (!normalizedBaseUrl) {
+      throw new Error('Invalid backend base URL');
+    }
+
+    apiBaseUrl = normalizedBaseUrl;
+    return apiBaseUrl;
   },
 );
 

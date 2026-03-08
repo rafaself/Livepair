@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Mic, Server, Settings2, Wrench } from 'lucide-react';
+import { normalizeBackendBaseUrl } from '../../../shared/backendBaseUrl';
 import { FieldList } from '../composite';
 import { ViewSection } from '../layout';
-import { Select, Switch, type SelectOptionItem } from '../primitives';
+import { Select, Switch, TextInput, type SelectOptionItem } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 
 const MODE_OPTIONS: readonly SelectOptionItem[] = [
@@ -40,13 +41,16 @@ function buildInputDeviceOptions(devices: MediaDeviceInfo[]): readonly SelectOpt
 
 export function AssistantPanelSettingsView(): JSX.Element {
   const {
-    state: { isPanelPinned, preferredMode, selectedInputDeviceId },
+    state: { backendUrl, isPanelPinned, preferredMode, selectedInputDeviceId },
     togglePanelPinned,
     setPreferredMode,
+    setBackendUrl,
     setSelectedInputDeviceId,
   } = useUiStore();
   const [inputDeviceOptions, setInputDeviceOptions] =
     useState<readonly SelectOptionItem[]>(UNAVAILABLE_INPUT_OPTION);
+  const [backendUrlDraft, setBackendUrlDraft] = useState(backendUrl);
+  const [backendUrlError, setBackendUrlError] = useState<string | null>(null);
 
   useEffect(() => {
     let isDisposed = false;
@@ -100,6 +104,32 @@ export function AssistantPanelSettingsView(): JSX.Element {
 
     setSelectedInputDeviceId(DEFAULT_INPUT_DEVICE_ID);
   }, [inputDeviceOptions, selectedInputDeviceId, setSelectedInputDeviceId]);
+
+  useEffect(() => {
+    setBackendUrlDraft(backendUrl);
+  }, [backendUrl]);
+
+  const handleBackendUrlBlur = async (): Promise<void> => {
+    const normalizedBackendUrl = normalizeBackendBaseUrl(backendUrlDraft);
+
+    if (!normalizedBackendUrl) {
+      setBackendUrlError('Enter a valid http:// or https:// URL.');
+      return;
+    }
+
+    try {
+      const appliedBackendUrl = normalizeBackendBaseUrl(
+        await window.bridge.setBackendBaseUrl(normalizedBackendUrl),
+      ) ?? normalizedBackendUrl;
+
+      setBackendUrl(appliedBackendUrl);
+      setBackendUrlDraft(appliedBackendUrl);
+      setBackendUrlError(null);
+    } catch {
+      setBackendUrlDraft(backendUrl);
+      setBackendUrlError('Unable to update backend URL.');
+    }
+  };
 
   return (
     <div className="assistant-panel__settings-modal">
@@ -171,7 +201,32 @@ export function AssistantPanelSettingsView(): JSX.Element {
         </ViewSection>
 
         <ViewSection icon={Server} title="Backend">
-          <FieldList items={[{ label: 'Backend URL', value: 'http://localhost:3000' }]} />
+          <FieldList
+            className="assistant-panel__settings-field-list field-list--aligned-controls"
+            items={[
+              {
+                label: 'Backend URL',
+                value: (
+                  <TextInput
+                    aria-label="Backend URL"
+                    className="assistant-panel__settings-backend-input"
+                    error={backendUrlError ?? undefined}
+                    size="sm"
+                    value={backendUrlDraft}
+                    onChange={(event) => {
+                      setBackendUrlDraft(event.target.value);
+                      if (backendUrlError !== null) {
+                        setBackendUrlError(null);
+                      }
+                    }}
+                    onBlur={() => {
+                      void handleBackendUrlBlur();
+                    }}
+                  />
+                ),
+              },
+            ]}
+          />
         </ViewSection>
 
         <ViewSection icon={Wrench} title="Advanced">

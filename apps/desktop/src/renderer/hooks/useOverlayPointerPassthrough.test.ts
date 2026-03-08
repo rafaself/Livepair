@@ -11,6 +11,8 @@ describe('useOverlayPointerPassthrough', () => {
       overlayMode: 'forwarded-pointer',
       checkHealth: vi.fn(),
       requestSessionToken: vi.fn(),
+      getBackendBaseUrl: vi.fn(),
+      setBackendBaseUrl: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: mockSetOverlayPointerPassthrough,
     };

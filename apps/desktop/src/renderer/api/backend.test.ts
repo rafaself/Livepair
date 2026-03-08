@@ -9,6 +9,8 @@ describe('renderer backend api helper', () => {
       overlayMode: 'linux-shape',
       checkHealth,
       requestSessionToken: requestToken,
+      getBackendBaseUrl: vi.fn(),
+      setBackendBaseUrl: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };
@@ -23,6 +25,8 @@ describe('renderer backend api helper', () => {
       overlayMode: 'linux-shape',
       checkHealth: vi.fn().mockResolvedValue({ status: 'bad', timestamp: 'now' }),
       requestSessionToken: requestToken,
+      getBackendBaseUrl: vi.fn(),
+      setBackendBaseUrl: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };
@@ -33,6 +37,8 @@ describe('renderer backend api helper', () => {
       overlayMode: 'linux-shape',
       checkHealth: vi.fn().mockRejectedValue(new Error('network')),
       requestSessionToken: requestToken,
+      getBackendBaseUrl: vi.fn(),
+      setBackendBaseUrl: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };
@@ -51,6 +57,8 @@ describe('renderer backend api helper', () => {
       overlayMode: 'linux-shape',
       checkHealth,
       requestSessionToken: requestToken,
+      getBackendBaseUrl: vi.fn(),
+      setBackendBaseUrl: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };
@@ -67,6 +75,8 @@ describe('renderer backend api helper', () => {
       overlayMode: 'linux-shape',
       checkHealth,
       requestSessionToken: requestToken,
+      getBackendBaseUrl: vi.fn(),
+      setBackendBaseUrl: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };

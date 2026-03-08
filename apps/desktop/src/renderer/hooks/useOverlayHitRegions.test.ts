@@ -21,6 +21,8 @@ describe('useOverlayHitRegions', () => {
       overlayMode: 'linux-shape',
       checkHealth: vi.fn(),
       requestSessionToken: vi.fn(),
+      getBackendBaseUrl: vi.fn(),
+      setBackendBaseUrl: vi.fn(),
       setOverlayHitRegions: mockSetOverlayHitRegions,
       setOverlayPointerPassthrough: vi.fn(),
     };

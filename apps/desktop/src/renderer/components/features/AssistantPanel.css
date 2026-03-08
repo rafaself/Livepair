@@ -220,6 +220,10 @@
   justify-self: stretch;
 }
 
+.assistant-panel__settings-backend-input {
+  width: 100%;
+}
+
 @keyframes assistant-panel-listening-pulse {
   0%,
   100% {

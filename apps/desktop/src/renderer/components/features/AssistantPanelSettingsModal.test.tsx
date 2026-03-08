@@ -7,6 +7,8 @@ type MockMediaDeviceInfo = Pick<MediaDeviceInfo, 'deviceId' | 'groupId' | 'kind'
 
 const enumerateDevices = vi.fn<() => Promise<MockMediaDeviceInfo[]>>();
 const mediaDevicesEvents = new EventTarget();
+const getBackendBaseUrl = vi.fn<() => Promise<string>>();
+const setBackendBaseUrl = vi.fn<(url: string) => Promise<string>>();
 
 function installMediaDevicesMock(): void {
   Object.defineProperty(window.navigator, 'mediaDevices', {
@@ -39,7 +41,13 @@ async function renderSettings(): Promise<ReturnType<typeof render>> {
 describe('AssistantPanelSettingsView', () => {
   beforeEach(() => {
     enumerateDevices.mockReset();
+    getBackendBaseUrl.mockReset();
+    getBackendBaseUrl.mockResolvedValue('http://localhost:3000');
+    setBackendBaseUrl.mockReset();
+    setBackendBaseUrl.mockImplementation(async (url) => url);
     window.localStorage.clear();
+    window.bridge.getBackendBaseUrl = getBackendBaseUrl;
+    window.bridge.setBackendBaseUrl = setBackendBaseUrl;
     installMediaDevicesMock();
   });
 
@@ -56,6 +64,50 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Backend' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
+  });
+
+  it('renders the backend URL as a textbox using the current runtime value', async () => {
+    getBackendBaseUrl.mockResolvedValue('https://runtime.livepair.dev/api/');
+    enumerateDevices.mockResolvedValue([]);
+    await renderSettings();
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /backend url/i })).toHaveValue(
+        'https://runtime.livepair.dev/api',
+      );
+    });
+  });
+
+  it('applies a valid backend URL override on blur', async () => {
+    enumerateDevices.mockResolvedValue([]);
+    await renderSettings();
+
+    const backendUrlInput = await screen.findByRole('textbox', { name: /backend url/i });
+
+    fireEvent.change(backendUrlInput, { target: { value: ' https://api.livepair.dev/v1/ ' } });
+    fireEvent.blur(backendUrlInput);
+
+    await waitFor(() => {
+      expect(setBackendBaseUrl).toHaveBeenCalledWith('https://api.livepair.dev/v1');
+    });
+
+    expect(backendUrlInput).toHaveValue('https://api.livepair.dev/v1');
+    expect(window.localStorage.getItem('livepair.backendUrl')).toBe('https://api.livepair.dev/v1');
+  });
+
+  it('rejects invalid backend URLs on blur and preserves the applied value', async () => {
+    enumerateDevices.mockResolvedValue([]);
+    await renderSettings();
+
+    const backendUrlInput = await screen.findByRole('textbox', { name: /backend url/i });
+    expect(backendUrlInput).toHaveValue('http://localhost:3000');
+
+    fireEvent.change(backendUrlInput, { target: { value: 'ftp://bad.example.com' } });
+    fireEvent.blur(backendUrlInput);
+
+    expect(setBackendBaseUrl).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('livepair.backendUrl')).toBe('http://localhost:3000');
+    expect(screen.getByText('Enter a valid http:// or https:// URL.')).toBeVisible();
   });
 
   it('lets the user lock the panel from settings', async () => {

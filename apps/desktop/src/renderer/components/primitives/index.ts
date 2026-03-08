@@ -22,3 +22,10 @@ export { SelectContent } from './SelectContent';
 export type { SelectContentProps } from './SelectContent';
 export { SelectOption } from './SelectOption';
 export type { SelectOptionProps } from './SelectOption';
+export { TextInput } from './TextInput';
+export type {
+  TextInputHideDetails,
+  TextInputProps,
+  TextInputRule,
+  TextInputValidateOn,
+} from './TextInput';

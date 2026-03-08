@@ -29,6 +29,8 @@ describe('preload bridge', () => {
         overlayMode: expect.any(String),
         checkHealth: expect.any(Function),
         requestSessionToken: expect.any(Function),
+        getBackendBaseUrl: expect.any(Function),
+        setBackendBaseUrl: expect.any(Function),
         setOverlayHitRegions: expect.any(Function),
         setOverlayPointerPassthrough: expect.any(Function),
       }),
@@ -51,6 +53,17 @@ describe('preload bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {
       sessionId: 'session-1',
     });
+
+    mockInvoke.mockResolvedValueOnce('http://localhost:3000');
+    await bridge.getBackendBaseUrl();
+    expect(mockInvoke).toHaveBeenCalledWith('config:getBackendBaseUrl');
+
+    mockInvoke.mockResolvedValueOnce('https://api.livepair.dev');
+    await bridge.setBackendBaseUrl('https://api.livepair.dev');
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'config:setBackendBaseUrl',
+      'https://api.livepair.dev',
+    );
 
     mockInvoke.mockResolvedValueOnce(undefined);
     await bridge.setOverlayHitRegions([{ x: 0, y: 10, width: 100, height: 60 }]);
