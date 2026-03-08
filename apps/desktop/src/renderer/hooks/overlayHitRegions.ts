@@ -1,4 +1,4 @@
-import type { OverlayHitRegion } from '../../preload/preload';
+import type { OverlayHitRegion } from '../../shared/desktopBridge';
 
 function toIntegerRect(element: Element): OverlayHitRegion | null {
   const rect = element.getBoundingClientRect();

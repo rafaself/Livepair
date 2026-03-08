@@ -1,13 +1,38 @@
 import { AssistantPanel } from './components/features/AssistantPanel';
 import { ControlDock } from './components/composite/ControlDock';
 import { useOverlayHitRegions } from './hooks/useOverlayHitRegions';
+import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrough';
 import { UiStoreProvider } from './store/uiStore';
+import type { OverlayMode } from '../shared/desktopBridge';
+
+function LinuxOverlayInteraction(): null {
+  useOverlayHitRegions();
+  return null;
+}
+
+function ForwardedPointerOverlayInteraction(): null {
+  useOverlayPointerPassthrough();
+  return null;
+}
+
+function OverlayInteractionManager({
+  overlayMode,
+}: {
+  overlayMode: OverlayMode;
+}): JSX.Element | null {
+  if (overlayMode === 'linux-shape') {
+    return <LinuxOverlayInteraction />;
+  }
+
+  return <ForwardedPointerOverlayInteraction />;
+}
 
 function AppShell(): JSX.Element {
-  useOverlayHitRegions();
+  const overlayMode = window.bridge?.overlayMode ?? 'linux-shape';
 
   return (
     <div className="app-shell">
+      <OverlayInteractionManager overlayMode={overlayMode} />
       <AssistantPanel showStateDevControls={import.meta.env.DEV} />
       <ControlDock />
     </div>

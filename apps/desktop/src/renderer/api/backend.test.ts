@@ -6,9 +6,11 @@ describe('renderer backend api helper', () => {
     const checkHealth = vi.fn().mockResolvedValue({ status: 'ok', timestamp: 'now' });
     const requestToken = vi.fn();
     window.bridge = {
+      overlayMode: 'linux-shape',
       checkHealth,
       requestSessionToken: requestToken,
       setOverlayHitRegions: vi.fn(),
+      setOverlayPointerPassthrough: vi.fn(),
     };
 
     await expect(checkBackendHealth()).resolves.toBe(true);
@@ -18,17 +20,21 @@ describe('renderer backend api helper', () => {
   it('returns false when bridge health rejects or returns a non-ok payload', async () => {
     const requestToken = vi.fn();
     window.bridge = {
+      overlayMode: 'linux-shape',
       checkHealth: vi.fn().mockResolvedValue({ status: 'bad', timestamp: 'now' }),
       requestSessionToken: requestToken,
       setOverlayHitRegions: vi.fn(),
+      setOverlayPointerPassthrough: vi.fn(),
     };
 
     await expect(checkBackendHealth()).resolves.toBe(false);
 
     window.bridge = {
+      overlayMode: 'linux-shape',
       checkHealth: vi.fn().mockRejectedValue(new Error('network')),
       requestSessionToken: requestToken,
       setOverlayHitRegions: vi.fn(),
+      setOverlayPointerPassthrough: vi.fn(),
     };
     await expect(checkBackendHealth()).resolves.toBe(false);
   });
@@ -42,9 +48,11 @@ describe('renderer backend api helper', () => {
     const checkHealth = vi.fn();
     const requestToken = vi.fn().mockResolvedValue(tokenResponse);
     window.bridge = {
+      overlayMode: 'linux-shape',
       checkHealth,
       requestSessionToken: requestToken,
       setOverlayHitRegions: vi.fn(),
+      setOverlayPointerPassthrough: vi.fn(),
     };
 
     await expect(requestSessionToken({})).resolves.toEqual(tokenResponse);
@@ -56,9 +64,11 @@ describe('renderer backend api helper', () => {
     const checkHealth = vi.fn();
     const requestToken = vi.fn().mockRejectedValue(new Error('token failed'));
     window.bridge = {
+      overlayMode: 'linux-shape',
       checkHealth,
       requestSessionToken: requestToken,
       setOverlayHitRegions: vi.fn(),
+      setOverlayPointerPassthrough: vi.fn(),
     };
 
     await expect(requestSessionToken({})).rejects.toThrow('token failed');

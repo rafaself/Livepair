@@ -98,7 +98,14 @@ describe('AssistantPanel', () => {
 
     fireEvent.click(panelScope.getByRole('button', { name: 'Retry backend' }));
 
-    await panelScope.findByText('Connected');
+    const connectionSection = panelScope.getByRole('heading', { name: 'Connection' }).closest('section');
+    expect(connectionSection).not.toBeNull();
+    const backendStatusRow = within(connectionSection as HTMLElement)
+      .getByText('Backend status')
+      .closest('.field-list__item');
+
+    expect(backendStatusRow).not.toBeNull();
+    await within(backendStatusRow as HTMLElement).findByText('Connected');
     expect(checkBackendHealth).toHaveBeenCalledTimes(2);
   });
 

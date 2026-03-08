@@ -18,9 +18,11 @@ describe('useOverlayHitRegions', () => {
       .spyOn(window, 'cancelAnimationFrame')
       .mockImplementation((): void => {});
     window.bridge = {
+      overlayMode: 'linux-shape',
       checkHealth: vi.fn(),
       requestSessionToken: vi.fn(),
       setOverlayHitRegions: mockSetOverlayHitRegions,
+      setOverlayPointerPassthrough: vi.fn(),
     };
   });
 
@@ -173,5 +175,64 @@ describe('useOverlayHitRegions', () => {
     createHitElement('control-dock', { x: 1500, y: 300, width: 80, height: 220 });
 
     expect(() => renderHook(() => useOverlayHitRegions())).not.toThrow();
+  });
+
+  it('skips duplicate publishes and ignores unrelated mutations', async () => {
+    const observeSpy = vi
+      .spyOn(window, 'MutationObserver')
+      .mockImplementation(
+        (callback: MutationCallback): MutationObserver =>
+          ({
+            disconnect: vi.fn(),
+            observe: vi.fn(),
+            takeRecords: vi.fn(() => []),
+            callback,
+          }) as unknown as MutationObserver,
+      );
+
+    const dock = createHitElement('control-dock', { x: 1500, y: 300, width: 80, height: 220 });
+    const unrelated = createHitElement('unrelated', { x: 0, y: 0, width: 10, height: 10 });
+
+    renderHook(() => useOverlayHitRegions());
+    await Promise.resolve();
+
+    expect(mockSetOverlayHitRegions).toHaveBeenCalledTimes(1);
+
+    const callback = observeSpy.mock.calls[0]?.[0] as MutationCallback | undefined;
+    expect(callback).toBeTypeOf('function');
+
+    callback?.(
+      [
+        {
+          type: 'attributes',
+          target: unrelated,
+          addedNodes: [] as unknown as NodeList,
+          removedNodes: [] as unknown as NodeList,
+          attributeName: 'class',
+          oldValue: null,
+        } as MutationRecord,
+      ],
+      {} as MutationObserver,
+    );
+    await Promise.resolve();
+    expect(mockSetOverlayHitRegions).toHaveBeenCalledTimes(1);
+
+    callback?.(
+      [
+        {
+          type: 'attributes',
+          target: dock,
+          addedNodes: [] as unknown as NodeList,
+          removedNodes: [] as unknown as NodeList,
+          attributeName: 'class',
+          oldValue: null,
+        } as MutationRecord,
+      ],
+      {} as MutationObserver,
+    );
+    await Promise.resolve();
+    expect(mockSetOverlayHitRegions).toHaveBeenCalledTimes(1);
+
+    observeSpy.mockRestore();
   });
 });

@@ -1,29 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type {
-  HealthResponse,
-  CreateEphemeralTokenRequest,
-  CreateEphemeralTokenResponse,
-} from '@livepair/shared-types';
-
-export type OverlayHitRegion = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-export interface DesktopBridge {
-  checkHealth: () => Promise<HealthResponse>;
-  requestSessionToken: (
-    req: CreateEphemeralTokenRequest,
-  ) => Promise<CreateEphemeralTokenResponse>;
-  setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
-}
+import {
+  getOverlayMode,
+  IPC_CHANNELS,
+  type DesktopBridge,
+} from '../shared/desktopBridge';
 
 export const bridge: DesktopBridge = {
-  checkHealth: () => ipcRenderer.invoke('health:check'),
-  requestSessionToken: (req) => ipcRenderer.invoke('session:requestToken', req),
-  setOverlayHitRegions: (regions) => ipcRenderer.invoke('overlay:setHitRegions', regions),
+  overlayMode: getOverlayMode(process.platform),
+  checkHealth: () => ipcRenderer.invoke(IPC_CHANNELS.checkHealth),
+  requestSessionToken: (req) => ipcRenderer.invoke(IPC_CHANNELS.requestSessionToken, req),
+  setOverlayHitRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayHitRegions, regions),
+  setOverlayPointerPassthrough: (enabled) =>
+    ipcRenderer.invoke(IPC_CHANNELS.setOverlayPointerPassthrough, enabled),
 };
 
 contextBridge.exposeInMainWorld('bridge', bridge);

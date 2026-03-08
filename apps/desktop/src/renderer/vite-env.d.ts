@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { DesktopBridge } from '../preload/preload';
+import type { DesktopBridge } from '../shared/desktopBridge';
 
 declare global {
   interface Window {

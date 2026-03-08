@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["src/renderer/**/*"],
+  "include": ["src/renderer/**/*", "src/shared/**/*"],
   "compilerOptions": {
     "composite": true,
     "module": "ESNext",

@@ -26,9 +26,11 @@ describe('preload bridge', () => {
     expect(mockExposeInMainWorld).toHaveBeenCalledWith(
       'bridge',
       expect.objectContaining({
+        overlayMode: expect.any(String),
         checkHealth: expect.any(Function),
         requestSessionToken: expect.any(Function),
         setOverlayHitRegions: expect.any(Function),
+        setOverlayPointerPassthrough: expect.any(Function),
       }),
     );
   });
@@ -55,6 +57,10 @@ describe('preload bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith('overlay:setHitRegions', [
       { x: 0, y: 10, width: 100, height: 60 },
     ]);
+
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await bridge.setOverlayPointerPassthrough(false);
+    expect(mockInvoke).toHaveBeenCalledWith('overlay:setPointerPassthrough', false);
   });
 
   it('passes explicit empty payload when request has no fields', async () => {
@@ -64,5 +70,11 @@ describe('preload bridge', () => {
     await bridge.requestSessionToken({});
 
     expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {});
+  });
+
+  it('exposes the platform-derived overlay mode', async () => {
+    const { bridge } = await import('./preload');
+
+    expect(['linux-shape', 'forwarded-pointer']).toContain(bridge.overlayMode);
   });
 });

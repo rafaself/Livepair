@@ -1,18 +1,51 @@
 import { useEffect } from 'react';
-import type { OverlayHitRegion } from '../../preload/preload';
+import type { OverlayHitRegion } from '../../shared/desktopBridge';
 import { toOverlayHitRegions } from './overlayHitRegions';
 
 const SELECTOR = '.control-dock, .panel.panel--open';
+const MUTATION_SELECTOR = '.control-dock, .panel';
+
+function isOverlayRelatedElement(element: Element): boolean {
+  return element.matches(MUTATION_SELECTOR) || element.querySelector(MUTATION_SELECTOR) !== null;
+}
+
+function shouldPublishForMutation(records: MutationRecord[]): boolean {
+  return records.some((record) => {
+    if (record.target instanceof Element && isOverlayRelatedElement(record.target)) {
+      return true;
+    }
+
+    if (record.type !== 'childList') {
+      return false;
+    }
+
+    return [...record.addedNodes, ...record.removedNodes].some(
+      (node) => node instanceof Element && isOverlayRelatedElement(node),
+    );
+  });
+}
 
 export function useOverlayHitRegions(): void {
   useEffect(() => {
+    if (window.bridge?.overlayMode !== 'linux-shape') {
+      return;
+    }
+
     let rafId: number | null = null;
     let transitionLoopId: number | null = null;
     const transitioningElements = new Set<Element>();
+    let lastPublishedKey: string | null = null;
 
     const publishHitRegions = (): void => {
       const regions = Array.from(document.querySelectorAll(SELECTOR))
         .flatMap((element): OverlayHitRegion[] => toOverlayHitRegions(element));
+      const nextKey = JSON.stringify(regions);
+
+      if (nextKey === lastPublishedKey) {
+        return;
+      }
+
+      lastPublishedKey = nextKey;
 
       void window.bridge?.setOverlayHitRegions(regions);
     };
@@ -72,7 +105,10 @@ export function useOverlayHitRegions(): void {
 
     publishHitRegions();
 
-    const mutationObserver = new MutationObserver(() => {
+    const mutationObserver = new MutationObserver((records) => {
+      if (!shouldPublishForMutation(records)) {
+        return;
+      }
       schedulePublish();
     });
     mutationObserver.observe(document.body, {
@@ -99,7 +135,9 @@ export function useOverlayHitRegions(): void {
       document.removeEventListener('transitionrun', handleTransitionRun, true);
       document.removeEventListener('transitionend', handleTransitionEnd, true);
       document.removeEventListener('transitioncancel', handleTransitionEnd, true);
-      void window.bridge?.setOverlayHitRegions([]);
+      if (lastPublishedKey !== '[]') {
+        void window.bridge?.setOverlayHitRegions([]);
+      }
     };
   }, []);
 }

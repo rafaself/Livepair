@@ -54,10 +54,10 @@ describe('main process runtime', () => {
     vi.unstubAllEnvs();
   });
 
-  it('registers IPC handlers for health, token, and overlay hit regions', async () => {
+  it('registers IPC handlers for health, token, and overlay IPC', async () => {
     const main = await import('./main');
 
-    expect(mockHandle).toHaveBeenCalledTimes(3);
+    expect(mockHandle).toHaveBeenCalledTimes(4);
     expect(mockHandle).toHaveBeenNthCalledWith(
       1,
       'health:check',
@@ -71,6 +71,11 @@ describe('main process runtime', () => {
     expect(mockHandle).toHaveBeenNthCalledWith(
       3,
       'overlay:setHitRegions',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      4,
+      'overlay:setPointerPassthrough',
       expect.any(Function),
     );
     expect(main.API_BASE_URL).toBe('http://localhost:3000');
@@ -253,6 +258,28 @@ describe('main process runtime', () => {
     } finally {
       Object.defineProperty(process, 'platform', { value: originalPlatform, writable: true });
     }
+  });
+
+  it('overlay passthrough IPC toggles mouse forwarding on non-linux platforms', async () => {
+    if (process.platform === 'linux') {
+      return;
+    }
+
+    const main = await import('./main');
+    main.createWindow();
+    mockSetIgnoreMouseEvents.mockClear();
+
+    const passthroughHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'overlay:setPointerPassthrough',
+    )?.[1] as (_event: unknown, enabled: boolean) => void;
+
+    passthroughHandler({}, false);
+    expect(mockSetIgnoreMouseEvents).toHaveBeenNthCalledWith(1, false);
+
+    passthroughHandler({}, true);
+    expect(mockSetIgnoreMouseEvents).toHaveBeenNthCalledWith(2, true, {
+      forward: true,
+    });
   });
 
   it('handles app activate and window-all-closed via helper functions', async () => {

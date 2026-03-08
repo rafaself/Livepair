@@ -2,10 +2,11 @@ import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import type { Rectangle } from 'electron';
 import { join } from 'path';
 import type {
-  HealthResponse,
   CreateEphemeralTokenRequest,
-  CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
+import {
+  IPC_CHANNELS,
+} from '../shared/desktopBridge';
 
 export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:3000';
 
@@ -136,18 +137,18 @@ export function handleWindowAllClosed(
   if (platform !== 'darwin') app.quit();
 }
 
-ipcMain.handle('health:check', async (): Promise<HealthResponse> => {
+ipcMain.handle(IPC_CHANNELS.checkHealth, async () => {
   const res = await fetch(`${API_BASE_URL}/health`);
   if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
-  return res.json() as Promise<HealthResponse>;
+  return res.json();
 });
 
 ipcMain.handle(
-  'session:requestToken',
+  IPC_CHANNELS.requestSessionToken,
   async (
     _event,
     req: unknown,
-  ): Promise<CreateEphemeralTokenResponse> => {
+  ) => {
     if (!isCreateEphemeralTokenRequest(req)) {
       throw new Error('Invalid token request payload');
     }
@@ -158,12 +159,12 @@ ipcMain.handle(
       body: JSON.stringify(req),
     });
     if (!res.ok) throw new Error(`Token request failed: ${res.status}`);
-    return res.json() as Promise<CreateEphemeralTokenResponse>;
+    return res.json();
   },
 );
 
 ipcMain.handle(
-  'overlay:setHitRegions',
+  IPC_CHANNELS.setOverlayHitRegions,
   (_event, hitRegions: unknown): void => {
     if (process.platform !== 'linux') {
       return;
@@ -172,6 +173,28 @@ ipcMain.handle(
       return;
     }
     mainWindow.setShape(toOverlayRectangles(hitRegions));
+  },
+);
+
+ipcMain.handle(
+  IPC_CHANNELS.setOverlayPointerPassthrough,
+  (_event, enabled: unknown): void => {
+    if (typeof enabled !== 'boolean') {
+      throw new Error('overlay:setPointerPassthrough requires a boolean');
+    }
+    if (process.platform === 'linux') {
+      return;
+    }
+    if (!mainWindow) {
+      return;
+    }
+
+    if (enabled) {
+      mainWindow.setIgnoreMouseEvents(true, { forward: true });
+      return;
+    }
+
+    mainWindow.setIgnoreMouseEvents(false);
   },
 );
 
