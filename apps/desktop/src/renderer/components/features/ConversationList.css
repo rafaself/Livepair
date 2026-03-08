@@ -44,9 +44,13 @@
 
 .conversation-list__frame {
   height: 100%;
+  flex: 1;
+  min-height: 0;
   border-radius: 0;
   background: transparent;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .conversation-list__frame--empty {
@@ -57,9 +61,23 @@
   position: relative;
   height: 100%;
   max-height: 100%;
+  flex: 1;
+  min-height: 0;
   padding: var(--space-4) var(--space-2);
   overflow-y: auto;
   overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.conversation-list__content {
+  flex: 1 0 auto;
+  min-height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .conversation-list__items {

@@ -112,13 +112,18 @@ export function ConversationList({
           data-testid="conversation-list-viewport"
           onScroll={handleScroll}
         >
-          <ul className="conversation-list__items">
-            {turns.map((turn) => (
-              <li key={turn.id} className="conversation-list__item">
-                <ConversationTurn turn={turn} />
-              </li>
-            ))}
-          </ul>
+          <div
+            className="conversation-list__content"
+            data-testid="conversation-list-content"
+          >
+            <ul className="conversation-list__items">
+              {turns.map((turn) => (
+                <li key={turn.id} className="conversation-list__item">
+                  <ConversationTurn turn={turn} />
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,34 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConversationList } from './ConversationList';
 import { MOCK_CONVERSATION_TURNS } from './mockConversation';
+
+function setViewportMetrics(
+  viewport: HTMLElement,
+  {
+    clientHeight,
+    scrollHeight,
+    scrollTop,
+    scrollTo = vi.fn(),
+  }: {
+    clientHeight: number;
+    scrollHeight: number;
+    scrollTop: number;
+    scrollTo?: ReturnType<typeof vi.fn>;
+  },
+): ReturnType<typeof vi.fn> {
+  Object.defineProperties(viewport, {
+    clientHeight: { configurable: true, value: clientHeight },
+    scrollHeight: { configurable: true, value: scrollHeight },
+    scrollTop: { configurable: true, writable: true, value: scrollTop },
+  });
+  Object.defineProperty(viewport, 'scrollTo', {
+    configurable: true,
+    value: scrollTo,
+  });
+
+  return scrollTo;
+}
 
 describe('ConversationList', () => {
   beforeEach(() => {
@@ -42,9 +69,53 @@ describe('ConversationList', () => {
     expect(items[2]).toHaveTextContent('Keep it compact and tell me if anything looks risky.');
   });
 
-  it('follows the bottom when the user is already near the end', async () => {
-    const scrollTo = vi.fn();
+  it('renders populated conversation content inside a bottom-anchor wrapper', () => {
+    render(
+      <ConversationList
+        turns={MOCK_CONVERSATION_TURNS.slice(0, 2)}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
 
+    const viewport = screen.getByTestId('conversation-list-viewport');
+    const content = screen.getByTestId('conversation-list-content');
+
+    expect(content).toHaveClass('conversation-list__content');
+    expect(viewport.firstElementChild).toBe(content);
+    expect(screen.getByRole('list')).toBeVisible();
+  });
+
+  it('scrolls to the latest message on initial mount', async () => {
+    let scheduledFrame: FrameRequestCallback | null = null;
+
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
+      scheduledFrame = callback;
+      return 1;
+    });
+
+    render(
+      <ConversationList
+        turns={MOCK_CONVERSATION_TURNS.slice(0, 4)}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    const viewport = screen.getByTestId('conversation-list-viewport');
+    const scrollTo = setViewportMetrics(viewport, {
+      clientHeight: 220,
+      scrollHeight: 480,
+      scrollTop: 0,
+    });
+
+    expect(scheduledFrame).not.toBeNull();
+    scheduledFrame?.(16.7);
+
+    await waitFor(() => {
+      expect(scrollTo).toHaveBeenCalledWith({ top: 480 });
+    });
+  });
+
+  it('follows the bottom when the user is already near the end', async () => {
     const { rerender } = render(
       <ConversationList
         turns={MOCK_CONVERSATION_TURNS.slice(0, 4)}
@@ -53,16 +124,13 @@ describe('ConversationList', () => {
     );
 
     const viewport = screen.getByTestId('conversation-list-viewport');
+    const scrollTo = setViewportMetrics(viewport, {
+      clientHeight: 220,
+      scrollHeight: 480,
+      scrollTop: 258,
+    });
 
-    Object.defineProperties(viewport, {
-      clientHeight: { configurable: true, value: 220 },
-      scrollHeight: { configurable: true, value: 480 },
-      scrollTop: { configurable: true, writable: true, value: 258 },
-    });
-    Object.defineProperty(viewport, 'scrollTo', {
-      configurable: true,
-      value: scrollTo,
-    });
+    scrollTo.mockClear();
 
     rerender(
       <ConversationList
@@ -77,8 +145,6 @@ describe('ConversationList', () => {
   });
 
   it('does not force-scroll when the user has scrolled up', () => {
-    const scrollTo = vi.fn();
-
     const { rerender } = render(
       <ConversationList
         turns={MOCK_CONVERSATION_TURNS.slice(0, 4)}
@@ -87,16 +153,14 @@ describe('ConversationList', () => {
     );
 
     const viewport = screen.getByTestId('conversation-list-viewport');
+    const scrollTo = setViewportMetrics(viewport, {
+      clientHeight: 220,
+      scrollHeight: 600,
+      scrollTop: 40,
+    });
 
-    Object.defineProperties(viewport, {
-      clientHeight: { configurable: true, value: 220 },
-      scrollHeight: { configurable: true, value: 600 },
-      scrollTop: { configurable: true, writable: true, value: 40 },
-    });
-    Object.defineProperty(viewport, 'scrollTo', {
-      configurable: true,
-      value: scrollTo,
-    });
+    fireEvent.scroll(viewport);
+    scrollTo.mockClear();
 
     rerender(
       <ConversationList
@@ -106,5 +170,47 @@ describe('ConversationList', () => {
     );
 
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('resumes auto-scroll after the user returns near the bottom', async () => {
+    const { rerender } = render(
+      <ConversationList
+        turns={MOCK_CONVERSATION_TURNS.slice(0, 4)}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    const viewport = screen.getByTestId('conversation-list-viewport');
+    const scrollTo = setViewportMetrics(viewport, {
+      clientHeight: 220,
+      scrollHeight: 600,
+      scrollTop: 40,
+    });
+
+    fireEvent.scroll(viewport);
+    scrollTo.mockClear();
+
+    rerender(
+      <ConversationList
+        turns={MOCK_CONVERSATION_TURNS.slice(0, 5)}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    viewport.scrollTop = 352;
+    fireEvent.scroll(viewport);
+
+    rerender(
+      <ConversationList
+        turns={MOCK_CONVERSATION_TURNS}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(scrollTo).toHaveBeenCalledWith({ top: 600 });
+    });
   });
 });
