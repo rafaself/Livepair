@@ -4,6 +4,7 @@ import { Button, LivepairIcon } from '../primitives';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 import { AssistantPanelSettingsView } from './AssistantPanelSettingsView';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
+import { ConversationList } from './ConversationList';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import './AssistantPanel.css';
 
@@ -18,6 +19,8 @@ export function AssistantPanel({
     assistantState,
     isPanelOpen,
     panelView,
+    conversationTurns,
+    isConversationEmpty,
     setPanelView,
     backendState,
     backendIndicatorState,
@@ -81,13 +84,19 @@ export function AssistantPanel({
                 aria-labelledby="assistant-panel-conversation-title"
               >
                 <h3 id="assistant-panel-conversation-title">Conversation</h3>
-                <div className="assistant-panel__conversation-card">
-                  <p className="assistant-panel__conversation-empty-title">No conversation yet</p>
-                  <p className="assistant-panel__conversation-empty-body">
-                    When you start talking, Livepair will keep the latest exchange
-                    here so you can stay oriented in the flow.
-                  </p>
-                </div>
+                <ConversationList
+                  turns={conversationTurns}
+                  emptyState={(
+                    <div className="assistant-panel__conversation-card assistant-panel__conversation-card--empty">
+                      <p className="assistant-panel__conversation-empty-title">No conversation yet</p>
+                      <p className="assistant-panel__conversation-empty-body">
+                        When you start talking, Livepair will keep the latest exchange
+                        here so you can stay oriented in the flow.
+                      </p>
+                    </div>
+                  )}
+                  className={isConversationEmpty ? undefined : 'assistant-panel__conversation-list'}
+                />
               </section>
             </>
           ) : panelView === 'settings' ? (

@@ -70,7 +70,7 @@ export function ControlDock(_props: ControlDockProps): JSX.Element {
       <IconButton
         label={isSessionActive ? 'End session' : 'Start session'}
         className={isSessionActive ? 'control-dock__btn--danger' : 'control-dock__btn--start'}
-        onClick={() => setAssistantState(isSessionActive ? 'disconnected' : 'ready')}
+        onClick={() => setAssistantState(isSessionActive ? 'disconnected' : 'listening')}
       >
         {isSessionActive ? <Phone size={18} /> : <Play size={18} />}
       </IconButton>

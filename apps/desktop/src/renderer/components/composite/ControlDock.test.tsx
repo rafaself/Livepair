@@ -6,12 +6,13 @@ import { ControlDock } from './ControlDock';
 function renderDock() {
   function DockHarness(): JSX.Element {
     const {
-      state: { isPanelOpen },
+      state: { assistantState, isPanelOpen },
     } = useUiStore();
 
     return (
       <>
         <output aria-label="panel-open">{String(isPanelOpen)}</output>
+        <output aria-label="assistant-state">{assistantState}</output>
         <ControlDock />
       </>
     );
@@ -40,6 +41,7 @@ describe('ControlDock', () => {
 
     fireEvent.click(startBtn);
 
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('listening');
     expect(screen.getByRole('button', { name: /end session/i })).toBeInTheDocument();
   });
 

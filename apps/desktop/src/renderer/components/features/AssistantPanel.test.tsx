@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkBackendHealth } from '../../api/backend';
 import { UiStoreProvider, useUiStore } from '../../store/uiStore';
 import { AssistantPanel } from './AssistantPanel';
@@ -15,12 +15,15 @@ type AssistantPanelHarnessProps = {
 function AssistantPanelHarness({
   showStateDevControls = false,
 }: AssistantPanelHarnessProps): JSX.Element {
-  const { togglePanel } = useUiStore();
+  const { togglePanel, setAssistantState } = useUiStore();
 
   return (
     <>
       <button type="button" onClick={togglePanel}>
         toggle panel
+      </button>
+      <button type="button" onClick={() => setAssistantState('listening')}>
+        start session
       </button>
       <AssistantPanel showStateDevControls={showStateDevControls} />
     </>
@@ -43,6 +46,10 @@ describe('AssistantPanel', () => {
     vi.mocked(checkBackendHealth).mockResolvedValue(true);
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders hidden panel when closed', () => {
     renderAssistantPanel();
 
@@ -63,7 +70,7 @@ describe('AssistantPanel', () => {
     expect(panel).toHaveAttribute('aria-hidden', 'false');
     expect(panelScope.getByRole('heading', { name: 'Livepair' })).toBeVisible();
 
-    const hero = await panelScope.findByRole('status', { name: 'Ready' });
+    const hero = await panelScope.findByRole('status', { name: 'Disconnected' });
     const conversationHeading = panelScope.getByRole('heading', { name: 'Conversation' });
 
     expect(panelScope.getByRole('button', { name: 'Developer tools' })).toBeVisible();
@@ -113,7 +120,7 @@ describe('AssistantPanel', () => {
   it('omits developer tools when showStateDevControls is false', async () => {
     renderAssistantPanel();
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-    await screen.findByRole('status', { name: 'Ready' });
+    await screen.findByRole('status', { name: 'Disconnected' });
 
     expect(screen.queryByRole('button', { name: 'Developer tools' })).toBeNull();
   });
@@ -121,7 +128,7 @@ describe('AssistantPanel', () => {
   it('opens settings from the header', async () => {
     renderAssistantPanel();
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-    await screen.findByRole('status', { name: 'Ready' });
+    await screen.findByRole('status', { name: 'Disconnected' });
 
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
@@ -138,7 +145,7 @@ describe('AssistantPanel', () => {
   it('returns to chat via back button and panel close resets view', async () => {
     renderAssistantPanel({ showStateDevControls: true });
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-    await screen.findByRole('status', { name: 'Ready' });
+    await screen.findByRole('status', { name: 'Disconnected' });
 
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
@@ -169,5 +176,29 @@ describe('AssistantPanel', () => {
       'aria-hidden',
       'true',
     );
+  });
+
+  it('renders a populated conversation after a session starts', async () => {
+    vi.useFakeTimers();
+    renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('status', { name: 'Disconnected' })).toBeVisible();
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'start session' }));
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    expect(panelScope.getByText('Give me a quick status readout.')).toBeVisible();
+    expect(panelScope.queryByText('No conversation yet')).toBeNull();
   });
 });

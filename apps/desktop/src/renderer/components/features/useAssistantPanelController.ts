@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { checkBackendHealth, requestSessionToken } from '../../api/backend';
 import { useUiStore, type PanelView } from '../../store/uiStore';
+import { useMockSession } from './useMockSession';
+import type { ConversationTurnModel } from './mockConversation';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
 export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
@@ -10,6 +12,8 @@ export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
   isPanelOpen: boolean;
   panelView: PanelView;
+  conversationTurns: ConversationTurnModel[];
+  isConversationEmpty: boolean;
   setPanelView: (view: PanelView) => void;
   closePanel: () => void;
   setAssistantState: (state: AssistantRuntimeState) => void;
@@ -31,13 +35,20 @@ export function useAssistantPanelController(): AssistantPanelController {
   } = useUiStore();
   const [backendState, setBackendState] = useState<BackendConnectionState>('idle');
   const [tokenRequestState, setTokenRequestState] = useState<TokenRequestState>('idle');
+  const { turns: conversationTurns, isConversationEmpty } = useMockSession({
+    assistantState,
+    enabled: import.meta.env.DEV || import.meta.env.MODE === 'test',
+    setAssistantState,
+  });
 
   const handleCheckBackendHealth = useCallback(async (): Promise<void> => {
     setBackendState('checking');
     try {
       const isHealthy = await checkBackendHealth();
       setBackendState(isHealthy ? 'connected' : 'failed');
-      setAssistantState(isHealthy ? 'ready' : 'error');
+      if (!isHealthy) {
+        setAssistantState('error');
+      }
     } catch {
       setBackendState('failed');
       setAssistantState('error');
@@ -94,6 +105,8 @@ export function useAssistantPanelController(): AssistantPanelController {
     assistantState,
     isPanelOpen,
     panelView,
+    conversationTurns,
+    isConversationEmpty,
     setPanelView,
     closePanel,
     setAssistantState,

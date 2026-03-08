@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkBackendHealth, requestSessionToken } from '../../api/backend';
 import { UiStoreProvider, useUiStore } from '../../store/uiStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
@@ -19,12 +19,17 @@ function HookHarness(): JSX.Element {
       <output aria-label="backend-label">{controller.backendLabel}</output>
       <output aria-label="token-feedback">{controller.tokenFeedback ?? 'none'}</output>
       <output aria-label="panel-view">{controller.panelView}</output>
+      <output aria-label="conversation-count">{String(controller.conversationTurns.length)}</output>
+      <output aria-label="conversation-empty">{String(controller.isConversationEmpty)}</output>
 
       <button type="button" onClick={togglePanel}>
         toggle panel
       </button>
       <button type="button" onClick={() => void controller.handleStartTalking()}>
         start talking
+      </button>
+      <button type="button" onClick={() => controller.setAssistantState('listening')}>
+        start mock session
       </button>
       <button type="button" onClick={() => controller.setPanelView('debug')}>
         open debug
@@ -47,7 +52,11 @@ describe('useAssistantPanelController', () => {
     });
   });
 
-  it('checks backend health when the panel is opened and maps success to ready', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('checks backend health when the panel is opened without promoting the session state', async () => {
     render(
       <UiStoreProvider>
         <HookHarness />
@@ -58,9 +67,9 @@ describe('useAssistantPanelController', () => {
 
     expect(checkBackendHealth).toHaveBeenCalledTimes(1);
     await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
+      expect(screen.getByLabelText('backend-label')).toHaveTextContent('Connected');
     });
-    expect(screen.getByLabelText('backend-label')).toHaveTextContent('Connected');
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
   });
 
   it('maps backend health failures to the error state', async () => {
@@ -149,5 +158,27 @@ describe('useAssistantPanelController', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('panel-view')).toHaveTextContent('chat');
     });
+  });
+
+  it('exposes mock conversation turns when a session starts in development', async () => {
+    vi.useFakeTimers();
+    render(
+      <UiStoreProvider>
+        <HookHarness />
+      </UiStoreProvider>,
+    );
+
+    expect(screen.getByLabelText('conversation-empty')).toHaveTextContent('true');
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'start mock session' }));
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(Number(screen.getByLabelText('conversation-count').textContent)).toBeGreaterThan(0);
+    expect(screen.getByLabelText('conversation-empty')).toHaveTextContent('false');
   });
 });
