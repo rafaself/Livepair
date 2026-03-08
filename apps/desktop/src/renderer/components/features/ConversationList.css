@@ -28,11 +28,18 @@
   top: 0;
   right: 0;
   left: 0;
-  height: 40px;
+  height: 36px;
   pointer-events: none;
-  background: linear-gradient(180deg, var(--color-surface-elevated) 0%, transparent 100%);
-  z-index: var(--z-base);
-  border-radius: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 28, 35, 0.6) 0%,
+    rgba(22, 28, 35, 0.3) 40%,
+    rgba(22, 28, 35, 0) 100%
+  );
+  z-index: 1;
+  border: none;
+  box-shadow: none;
+  outline: none;
 }
 
 .conversation-list__frame {
