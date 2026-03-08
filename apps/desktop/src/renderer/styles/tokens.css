@@ -56,3 +56,27 @@
   /* Component tuning */
   --text-input-label-scale: 0.85;
 }
+
+:root[data-theme='light'] {
+  --color-bg: #F3F6FA;
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #EEF3F8;
+
+  --color-border: #D5DEE8;
+  --color-border-hover: rgba(53, 109, 255, 0.38);
+
+  --color-text-primary: #122033;
+  --color-text-secondary: #526173;
+  --color-text-inverse: #FFFFFF;
+
+  --color-accent: #356DFF;
+  --color-accent-soft: #2B59D0;
+  --color-backdrop: rgba(226, 233, 242, 0.72);
+  --color-status-listening-glow: rgba(53, 109, 255, 0.22);
+  --color-status-speaking-glow-soft: rgba(43, 89, 208, 0.18);
+  --color-status-speaking-glow-strong: rgba(43, 89, 208, 0.28);
+
+  --color-success: #1F9D55;
+  --color-warning: #C77A00;
+  --color-error: #D64545;
+}

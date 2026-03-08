@@ -4,6 +4,7 @@ import * as Components from './index';
 describe('components barrel exports', () => {
   it('re-exports primitives, layout, composite and features', () => {
     expect(Components.Button).toBeDefined();
+    expect(Components.ButtonGroup).toBeDefined();
     expect(Components.IconButton).toBeDefined();
     expect(Components.Modal).toBeDefined();
     expect(Components.TextInput).toBeDefined();
@@ -11,5 +12,6 @@ describe('components barrel exports', () => {
     expect(Components.ControlDock).toBeDefined();
     expect(Components.StatusIndicator).toBeDefined();
     expect(Components.AssistantPanel).toBeDefined();
+    expect(Components.ThemeToggle).toBeDefined();
   });
 });

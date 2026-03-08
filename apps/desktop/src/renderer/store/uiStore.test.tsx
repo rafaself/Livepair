@@ -11,6 +11,7 @@ function UiStoreHarness(): JSX.Element {
     setAssistantState,
     setBackendUrl,
     setSelectedInputDeviceId,
+    setThemePreference,
   } = useUiStore();
 
   return (
@@ -20,6 +21,7 @@ function UiStoreHarness(): JSX.Element {
       <output aria-label="assistant-state">{state.assistantState}</output>
       <output aria-label="backend-url">{state.backendUrl}</output>
       <output aria-label="selected-input-device">{state.selectedInputDeviceId}</output>
+      <output aria-label="theme-preference">{state.themePreference}</output>
 
       <button type="button" onClick={togglePanel}>
         toggle panel
@@ -42,6 +44,12 @@ function UiStoreHarness(): JSX.Element {
       <button type="button" onClick={() => setSelectedInputDeviceId('usb-mic')}>
         set usb mic
       </button>
+      <button type="button" onClick={() => setThemePreference('light')}>
+        set light theme
+      </button>
+      <button type="button" onClick={() => setThemePreference('system')}>
+        set system theme
+      </button>
     </div>
   );
 }
@@ -63,6 +71,7 @@ describe('uiStore', () => {
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
     expect(screen.getByLabelText('backend-url')).toHaveTextContent('http://localhost:3000');
     expect(screen.getByLabelText('selected-input-device')).toHaveTextContent('default');
+    expect(screen.getByLabelText('theme-preference')).toHaveTextContent('system');
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
@@ -115,5 +124,38 @@ describe('uiStore', () => {
 
     expect(screen.getByLabelText('backend-url')).toHaveTextContent('https://api.livepair.dev');
     expect(window.localStorage.getItem('livepair.backendUrl')).toBe('https://api.livepair.dev');
+  });
+
+  it('hydrates and persists the theme preference', () => {
+    window.localStorage.setItem('livepair.themePreference', 'light');
+
+    render(
+      <UiStoreProvider>
+        <UiStoreHarness />
+      </UiStoreProvider>,
+    );
+
+    expect(screen.getByLabelText('theme-preference')).toHaveTextContent('light');
+
+    fireEvent.click(screen.getByRole('button', { name: 'set system theme' }));
+
+    expect(screen.getByLabelText('theme-preference')).toHaveTextContent('system');
+    expect(window.localStorage.getItem('livepair.themePreference')).toBe('system');
+  });
+
+  it('falls back to the system theme when the persisted preference is invalid', () => {
+    window.localStorage.setItem('livepair.themePreference', 'sepia');
+
+    render(
+      <UiStoreProvider>
+        <UiStoreHarness />
+      </UiStoreProvider>,
+    );
+
+    expect(screen.getByLabelText('theme-preference')).toHaveTextContent('system');
+
+    fireEvent.click(screen.getByRole('button', { name: 'set light theme' }));
+
+    expect(window.localStorage.getItem('livepair.themePreference')).toBe('light');
   });
 });

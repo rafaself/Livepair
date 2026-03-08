@@ -9,6 +9,12 @@
   --scrollbar-thumb-active: rgba(157, 167, 179, 0.5);
 }
 
+:root[data-theme='light'] {
+  --scrollbar-thumb-idle: rgba(82, 97, 115, 0.18);
+  --scrollbar-thumb-hover: rgba(82, 97, 115, 0.3);
+  --scrollbar-thumb-active: rgba(82, 97, 115, 0.4);
+}
+
 *,
 *::before,
 *::after {

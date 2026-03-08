@@ -64,6 +64,7 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Backend' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
+    expect(screen.getByText('Theme')).toBeVisible();
   });
 
   it('renders the backend URL as a textbox using the current runtime value', async () => {
@@ -187,6 +188,25 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('button', { name: /input device/i }).closest('.select')).toHaveClass(
       'assistant-panel__settings-input-select',
     );
+    expect(screen.getByRole('radiogroup', { name: /theme/i })).toHaveClass(
+      'assistant-panel__settings-theme-toggle',
+    );
+  });
+
+  it('lets the user change the theme preference from settings', async () => {
+    enumerateDevices.mockResolvedValue([]);
+    await renderSettings();
+
+    const darkThemeOption = screen.getByRole('radio', { name: 'Use dark theme' });
+    expect(screen.getByRole('radio', { name: 'Use system theme' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+
+    fireEvent.click(darkThemeOption);
+
+    expect(darkThemeOption).toHaveAttribute('aria-checked', 'true');
+    expect(window.localStorage.getItem('livepair.themePreference')).toBe('dark');
   });
 
   it('renders system default plus enumerated microphones', async () => {

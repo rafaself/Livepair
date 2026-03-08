@@ -3,6 +3,7 @@ import { Mic, Server, Settings2, Wrench } from 'lucide-react';
 import { normalizeBackendBaseUrl } from '../../../shared/backendBaseUrl';
 import { FieldList } from '../composite';
 import { ViewSection } from '../layout';
+import { ThemeToggle } from './ThemeToggle';
 import { Select, Switch, TextInput, type SelectOptionItem } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 
@@ -41,11 +42,18 @@ function buildInputDeviceOptions(devices: MediaDeviceInfo[]): readonly SelectOpt
 
 export function AssistantPanelSettingsView(): JSX.Element {
   const {
-    state: { backendUrl, isPanelPinned, preferredMode, selectedInputDeviceId },
+    state: {
+      backendUrl,
+      isPanelPinned,
+      preferredMode,
+      selectedInputDeviceId,
+      themePreference,
+    },
     togglePanelPinned,
     setPreferredMode,
     setBackendUrl,
     setSelectedInputDeviceId,
+    setThemePreference,
   } = useUiStore();
   const [inputDeviceOptions, setInputDeviceOptions] =
     useState<readonly SelectOptionItem[]>(UNAVAILABLE_INPUT_OPTION);
@@ -154,6 +162,17 @@ export function AssistantPanelSettingsView(): JSX.Element {
                       }
                     }}
                     size="sm"
+                  />
+                ),
+              },
+              {
+                label: 'Theme',
+                value: (
+                  <ThemeToggle
+                    className="assistant-panel__settings-theme-toggle"
+                    size="sm"
+                    value={themePreference}
+                    onChange={setThemePreference}
                   />
                 ),
               },

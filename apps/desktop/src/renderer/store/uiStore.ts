@@ -13,6 +13,7 @@ import {
   DEFAULT_API_BASE_URL,
   normalizeBackendBaseUrl,
 } from '../../shared/backendBaseUrl';
+import { THEME_PREFERENCE_STORAGE_KEY, type ThemePreference } from '../theme';
 
 export type AssistantState = AssistantRuntimeState;
 export type PanelView = 'chat' | 'settings' | 'debug';
@@ -26,6 +27,7 @@ export type UiState = {
   preferredMode: PreferredMode;
   backendUrl: string;
   selectedInputDeviceId: string;
+  themePreference: ThemePreference;
 };
 
 type UiAction =
@@ -36,7 +38,8 @@ type UiAction =
   | { type: 'setAssistantState'; payload: AssistantState }
   | { type: 'setPreferredMode'; payload: PreferredMode }
   | { type: 'setBackendUrl'; payload: string }
-  | { type: 'setSelectedInputDeviceId'; payload: string };
+  | { type: 'setSelectedInputDeviceId'; payload: string }
+  | { type: 'setThemePreference'; payload: ThemePreference };
 
 const INPUT_DEVICE_STORAGE_KEY = 'livepair.selectedInputDeviceId';
 const BACKEND_URL_STORAGE_KEY = 'livepair.backendUrl';
@@ -49,6 +52,7 @@ const defaultUiState: UiState = {
   preferredMode: 'fast',
   backendUrl: DEFAULT_API_BASE_URL,
   selectedInputDeviceId: 'default',
+  themePreference: 'system',
 };
 
 function getInitialUiState(): UiState {
@@ -60,11 +64,18 @@ function getInitialUiState(): UiState {
   const storedBackendUrl = normalizeBackendBaseUrl(
     window.localStorage.getItem(BACKEND_URL_STORAGE_KEY) ?? '',
   );
+  const storedThemePreference = window.localStorage.getItem(THEME_PREFERENCE_STORAGE_KEY);
 
   return {
     ...defaultUiState,
     backendUrl: storedBackendUrl ?? defaultUiState.backendUrl,
     selectedInputDeviceId: storedInputDeviceId || defaultUiState.selectedInputDeviceId,
+    themePreference:
+      storedThemePreference === 'system' ||
+      storedThemePreference === 'light' ||
+      storedThemePreference === 'dark'
+        ? storedThemePreference
+        : defaultUiState.themePreference,
   };
 }
 
@@ -127,6 +138,12 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         selectedInputDeviceId: action.payload,
       };
     }
+    case 'setThemePreference': {
+      return {
+        ...state,
+        themePreference: action.payload,
+      };
+    }
     default: {
       return state;
     }
@@ -143,6 +160,7 @@ type UiStoreValue = {
   setPreferredMode: (mode: PreferredMode) => void;
   setBackendUrl: (url: string) => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
+  setThemePreference: (themePreference: ThemePreference) => void;
 };
 
 const UiStoreContext = createContext<UiStoreValue | undefined>(undefined);
@@ -185,6 +203,11 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       dispatch({ type: 'setSelectedInputDeviceId', payload: selectedInputDeviceId }),
     [],
   );
+  const setThemePreference = useCallback(
+    (themePreference: ThemePreference) =>
+      dispatch({ type: 'setThemePreference', payload: themePreference }),
+    [],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -201,6 +224,14 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
 
     window.localStorage.setItem(BACKEND_URL_STORAGE_KEY, state.backendUrl);
   }, [state.backendUrl]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(THEME_PREFERENCE_STORAGE_KEY, state.themePreference);
+  }, [state.themePreference]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -260,6 +291,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       setPreferredMode,
       setBackendUrl,
       setSelectedInputDeviceId,
+      setThemePreference,
     }),
     [
       closePanel,
@@ -268,6 +300,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       setPreferredMode,
       setBackendUrl,
       setSelectedInputDeviceId,
+      setThemePreference,
       state,
       togglePanel,
       togglePanelPinned,
