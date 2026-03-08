@@ -59,15 +59,7 @@
   max-height: 100%;
   padding: var(--space-4) var(--space-2);
   overflow-y: auto;
-}
-
-/* Active-scrolling modifier: slightly stronger thumb */
-.conversation-list__viewport--scrolling {
-  scrollbar-color: rgba(157, 167, 179, 0.52) transparent;
-}
-
-.conversation-list__viewport--scrolling::-webkit-scrollbar-thumb {
-  background: rgba(157, 167, 179, 0.52);
+  overscroll-behavior: contain;
 }
 
 .conversation-list__items {

@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type HTMLAttributes,
-  type ReactNode,
-} from 'react';
+import { useEffect, useRef, type HTMLAttributes, type ReactNode } from 'react';
 import { ConversationTurn } from './ConversationTurn';
 import type { ConversationTurnModel } from './mockConversation';
 import './ConversationList.css';
@@ -16,7 +9,6 @@ export type ConversationListProps = {
 } & HTMLAttributes<HTMLDivElement>;
 
 const AUTO_SCROLL_THRESHOLD = 32;
-const SCROLLBAR_IDLE_TIMEOUT_MS = 700;
 
 function requestFrame(callback: () => void): number {
   if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -35,6 +27,20 @@ function cancelFrame(frameId: number): void {
   window.clearTimeout(frameId);
 }
 
+function isNearBottom(viewport: HTMLDivElement): boolean {
+  const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+  return distanceFromBottom <= AUTO_SCROLL_THRESHOLD;
+}
+
+function scrollViewportToBottom(viewport: HTMLDivElement): void {
+  if (typeof viewport.scrollTo === 'function') {
+    viewport.scrollTo({ top: viewport.scrollHeight });
+    return;
+  }
+
+  viewport.scrollTop = viewport.scrollHeight;
+}
+
 export function ConversationList({
   turns,
   emptyState,
@@ -42,76 +48,43 @@ export function ConversationList({
   ...rest
 }: ConversationListProps): JSX.Element {
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const followBottomRef = useRef(true);
-  const frameRef = useRef<number | null>(null);
-  const scrollbarTimeoutRef = useRef<number | null>(null);
-  const [isScrollbarActive, setIsScrollbarActive] = useState(false);
+  const shouldAutoScrollRef = useRef(true);
   const classes = `conversation-list${turns.length > 0 ? ' conversation-list--populated' : ''}${className ? ` ${className}` : ''}`;
 
-  const updateFollowBottom = useCallback((): void => {
+  const handleScroll = (): void => {
     const viewport = viewportRef.current;
 
     if (!viewport) {
       return;
     }
 
-    const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-    followBottomRef.current = distanceFromBottom <= AUTO_SCROLL_THRESHOLD;
-  }, []);
-
-  const scrollToBottom = useCallback((): void => {
-    const viewport = viewportRef.current;
-
-    if (!viewport) {
-      return;
-    }
-
-    if (typeof viewport.scrollTo === 'function') {
-      viewport.scrollTo({ top: viewport.scrollHeight });
-      return;
-    }
-
-    viewport.scrollTop = viewport.scrollHeight;
-  }, []);
-
-  const activateScrollbar = useCallback((): void => {
-    setIsScrollbarActive(true);
-
-    if (scrollbarTimeoutRef.current !== null) {
-      window.clearTimeout(scrollbarTimeoutRef.current);
-    }
-
-    scrollbarTimeoutRef.current = window.setTimeout(() => {
-      setIsScrollbarActive(false);
-      scrollbarTimeoutRef.current = null;
-    }, SCROLLBAR_IDLE_TIMEOUT_MS);
-  }, []);
-
-  const handleScroll = useCallback((): void => {
-    updateFollowBottom();
-    activateScrollbar();
-  }, [activateScrollbar, updateFollowBottom]);
+    shouldAutoScrollRef.current = isNearBottom(viewport);
+  };
 
   useEffect(() => {
-    if (turns.length === 0 || !followBottomRef.current) {
+    if (turns.length === 0) {
+      shouldAutoScrollRef.current = true;
       return;
     }
 
-    frameRef.current = requestFrame(scrollToBottom);
+    if (!shouldAutoScrollRef.current) {
+      return;
+    }
+
+    const frameId = requestFrame(() => {
+      const viewport = viewportRef.current;
+
+      if (!viewport) {
+        return;
+      }
+
+      scrollViewportToBottom(viewport);
+    });
 
     return () => {
-      if (frameRef.current !== null) {
-        cancelFrame(frameRef.current);
-        frameRef.current = null;
-      }
+      cancelFrame(frameId);
     };
-  }, [scrollToBottom, turns]);
-
-  useEffect(() => () => {
-    if (scrollbarTimeoutRef.current !== null) {
-      window.clearTimeout(scrollbarTimeoutRef.current);
-    }
-  }, []);
+  }, [turns]);
 
   if (turns.length === 0) {
     return (
@@ -135,7 +108,7 @@ export function ConversationList({
       <div className="conversation-list__frame">
         <div
           ref={viewportRef}
-          className={`conversation-list__viewport${isScrollbarActive ? ' conversation-list__viewport--scrolling' : ''}`}
+          className="conversation-list__viewport"
           data-testid="conversation-list-viewport"
           onScroll={handleScroll}
         >
