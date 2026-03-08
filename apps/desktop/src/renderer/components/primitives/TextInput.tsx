@@ -13,15 +13,15 @@ export type TextInputHideDetails = boolean | 'auto';
 export type TextInputValidateOn = 'input' | 'blur';
 
 export type TextInputProps = {
-  size?: 'sm' | 'md';
-  label?: string;
-  invalid?: boolean;
-  error?: string;
-  hint?: string;
-  persistentHint?: boolean;
-  hideDetails?: TextInputHideDetails;
-  rules?: TextInputRule[];
-  validateOn?: TextInputValidateOn;
+  size?: 'sm' | 'md' | undefined;
+  label?: string | undefined;
+  invalid?: boolean | undefined;
+  error?: string | undefined;
+  hint?: string | undefined;
+  persistentHint?: boolean | undefined;
+  hideDetails?: TextInputHideDetails | undefined;
+  rules?: TextInputRule[] | undefined;
+  validateOn?: TextInputValidateOn | undefined;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>;
 
 type ValidationResult = {

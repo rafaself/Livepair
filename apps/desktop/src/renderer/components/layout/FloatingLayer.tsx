@@ -34,8 +34,8 @@ export type FloatingLayerProps = {
   className?: string;
   children: ReactNode;
   positionOptions?: FloatingPositionOptions;
-  portalTarget?: HTMLElement | null;
-  measureContentWidth?: (content: HTMLElement) => number;
+  portalTarget?: HTMLElement | null | undefined;
+  measureContentWidth?: ((content: HTMLElement) => number) | undefined;
 };
 
 export function FloatingLayer({

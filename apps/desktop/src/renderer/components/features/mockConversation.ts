@@ -7,8 +7,8 @@ export type ConversationTurnModel = {
   role: ConversationRole;
   content: string;
   timestamp: string;
-  state?: ConversationTurnState;
-  statusLabel?: string;
+  state?: ConversationTurnState | undefined;
+  statusLabel?: string | undefined;
 };
 
 export const MOCK_CONVERSATION_TURNS: readonly ConversationTurnModel[] = [

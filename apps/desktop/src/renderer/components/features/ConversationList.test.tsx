@@ -108,7 +108,8 @@ describe('ConversationList', () => {
     });
 
     expect(scheduledFrame).not.toBeNull();
-    scheduledFrame?.(16.7);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- TS cannot track closure assignment; asserted non-null above
+    scheduledFrame!(16.7);
 
     await waitFor(() => {
       expect(scrollTo).toHaveBeenCalledWith({ top: 480, behavior: 'smooth' });

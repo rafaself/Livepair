@@ -104,6 +104,10 @@ export function useMockSession({
 
       const exchange = MOCK_SESSION_SCRIPT[exchangeIndex];
 
+      if (!exchange) {
+        return;
+      }
+
       scheduleTimeout(() => {
         appendTurn({
           id: `mock-user-${exchangeIndex}`,

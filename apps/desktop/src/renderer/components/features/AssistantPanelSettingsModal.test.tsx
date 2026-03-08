@@ -17,10 +17,7 @@ function installMediaDevicesMock(): void {
       enumerateDevices,
       addEventListener: mediaDevicesEvents.addEventListener.bind(mediaDevicesEvents),
       removeEventListener: mediaDevicesEvents.removeEventListener.bind(mediaDevicesEvents),
-    } satisfies Pick<
-      MediaDevices,
-      'enumerateDevices' | 'addEventListener' | 'removeEventListener'
-    >,
+    },
   });
 }
 

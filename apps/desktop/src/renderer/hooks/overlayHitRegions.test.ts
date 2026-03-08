@@ -48,11 +48,13 @@ describe('toOverlayHitRegions', () => {
     const regions = toOverlayHitRegions(dock);
 
     expect(regions.length).toBeGreaterThan(3);
-    expect(regions[0].y).toBe(300);
-    expect(regions[0].x).toBeGreaterThan(1500);
-    expect(regions[0].width).toBeLessThan(80);
+    const firstRegion = regions[0];
+    expect(firstRegion).toBeDefined();
+    expect(firstRegion!.y).toBe(300);
+    expect(firstRegion!.x).toBeGreaterThan(1500);
+    expect(firstRegion!.width).toBeLessThan(80);
     expect(regions.some((region) => region.x === 1500 && region.width === 80)).toBe(true);
-    expect(regions.at(-1)?.x).toBe(regions[0].x);
-    expect(regions.at(-1)?.width).toBe(regions[0].width);
+    expect(regions.at(-1)?.x).toBe(firstRegion!.x);
+    expect(regions.at(-1)?.width).toBe(firstRegion!.width);
   });
 });

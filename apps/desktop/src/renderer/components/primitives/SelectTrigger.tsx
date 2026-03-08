@@ -8,7 +8,7 @@ export type SelectTriggerProps = {
   valueContent?: ReactNode;
   placeholder?: ReactNode;
   size?: 'sm' | 'md';
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'onClick' | 'children' | 'size'>;
 
 export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(function SelectTrigger(

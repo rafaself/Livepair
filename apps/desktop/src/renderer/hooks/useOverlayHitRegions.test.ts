@@ -1,11 +1,11 @@
 import { cleanup, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { useOverlayHitRegions } from './useOverlayHitRegions';
 
 describe('useOverlayHitRegions', () => {
   const mockSetOverlayHitRegions = vi.fn();
-  let requestAnimationFrameSpy: ReturnType<typeof vi.spyOn>;
-  let cancelAnimationFrameSpy: ReturnType<typeof vi.spyOn>;
+  let requestAnimationFrameSpy: MockInstance<(callback: FrameRequestCallback) => number>;
+  let cancelAnimationFrameSpy: MockInstance<(id: number) => void>;
 
   beforeEach(() => {
     requestAnimationFrameSpy = vi
@@ -212,7 +212,7 @@ describe('useOverlayHitRegions', () => {
           removedNodes: [] as unknown as NodeList,
           attributeName: 'class',
           oldValue: null,
-        } as MutationRecord,
+        } as unknown as MutationRecord,
       ],
       {} as MutationObserver,
     );
@@ -228,7 +228,7 @@ describe('useOverlayHitRegions', () => {
           removedNodes: [] as unknown as NodeList,
           attributeName: 'class',
           oldValue: null,
-        } as MutationRecord,
+        } as unknown as MutationRecord,
       ],
       {} as MutationObserver,
     );

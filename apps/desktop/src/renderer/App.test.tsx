@@ -36,7 +36,7 @@ function installMatchMedia(initialMatches: boolean): {
     media: THEME_MEDIA_QUERY,
     addEventListener,
     removeEventListener,
-  } satisfies Pick<MediaQueryList, 'matches' | 'media' | 'addEventListener' | 'removeEventListener'>;
+  };
   const matchMedia = vi.fn().mockReturnValue(mediaQueryList);
 
   Object.defineProperty(window, 'matchMedia', {
@@ -64,7 +64,7 @@ describe('App', () => {
       () => new Promise<boolean>(() => {}),
     );
     window.localStorage.clear();
-    document.documentElement.dataset.theme = '';
+    document.documentElement.dataset['theme'] = '';
     document.documentElement.style.colorScheme = '';
     window.bridge.overlayMode = 'linux-shape';
   });
@@ -82,7 +82,7 @@ describe('App', () => {
     expect(panelToggleOpen).toHaveAttribute('aria-expanded', 'false');
     expect(panel).toHaveAttribute('aria-label', 'Assistant Panel');
     expect(panel).toHaveAttribute('aria-hidden', 'true');
-    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(document.documentElement.dataset['theme']).toBe('dark');
     expect(document.documentElement.style.colorScheme).toBe('dark');
 
     fireEvent.click(panelToggleOpen);
@@ -103,11 +103,11 @@ describe('App', () => {
 
     expect(matchMedia.matchMedia).toHaveBeenCalledWith(THEME_MEDIA_QUERY);
     expect(matchMedia.addEventListener).toHaveBeenCalledTimes(1);
-    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(document.documentElement.dataset['theme']).toBe('dark');
 
     matchMedia.change(false);
 
-    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(document.documentElement.dataset['theme']).toBe('light');
     expect(document.documentElement.style.colorScheme).toBe('light');
 
     unmount();
@@ -122,13 +122,13 @@ describe('App', () => {
 
     render(<App />);
 
-    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(document.documentElement.dataset['theme']).toBe('light');
     expect(document.documentElement.style.colorScheme).toBe('light');
     expect(matchMedia.addEventListener).not.toHaveBeenCalled();
 
     matchMedia.change(false);
 
-    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(document.documentElement.dataset['theme']).toBe('light');
     expect(window.bridge.setOverlayPointerPassthrough).toHaveBeenCalled();
   });
 });
