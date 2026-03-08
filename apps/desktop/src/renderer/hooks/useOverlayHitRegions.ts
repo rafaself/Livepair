@@ -39,6 +39,16 @@ export function useOverlayHitRegions(): void {
       });
     };
 
+    const handleTransitionEnd = (event: Event): void => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      if (!event.target.matches(SELECTOR)) {
+        return;
+      }
+      schedulePublish();
+    };
+
     publishHitRegions();
 
     const mutationObserver = new MutationObserver(() => {
@@ -52,6 +62,7 @@ export function useOverlayHitRegions(): void {
     });
 
     window.addEventListener('resize', schedulePublish);
+    document.addEventListener('transitionend', handleTransitionEnd, true);
 
     return () => {
       if (rafId !== null) {
@@ -59,6 +70,7 @@ export function useOverlayHitRegions(): void {
       }
       mutationObserver.disconnect();
       window.removeEventListener('resize', schedulePublish);
+      document.removeEventListener('transitionend', handleTransitionEnd, true);
       void window.bridge?.setOverlayHitRegions([]);
     };
   }, []);
