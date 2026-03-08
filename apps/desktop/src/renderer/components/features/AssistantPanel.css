@@ -145,6 +145,7 @@
 }
 
 .assistant-panel__conversation > .conversation-list {
+  margin-left: calc(var(--space-6) * -1);
   margin-right: calc(var(--space-6) * -1);
 }
 
