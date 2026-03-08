@@ -108,13 +108,14 @@ export function AssistantPanelSettingsView(): JSX.Element {
       <div className="assistant-panel__settings-body">
         <ViewSection icon={Settings2} title="General">
           <FieldList
+            className="assistant-panel__settings-field-list field-list--aligned-controls"
             items={[
               {
                 label: 'Preferred mode',
                 value: (
                   <Select
                     aria-label="Preferred mode"
-                    className="assistant-panel__settings-mode-select"
+                    className="assistant-panel__settings-select assistant-panel__settings-mode-select"
                     options={MODE_OPTIONS}
                     value={preferredMode}
                     onChange={(event) => {
@@ -143,12 +144,14 @@ export function AssistantPanelSettingsView(): JSX.Element {
 
         <ViewSection icon={Mic} title="Audio">
           <FieldList
+            className="assistant-panel__settings-field-list field-list--aligned-controls"
             items={[
               {
                 label: 'Input device',
                 value: (
                   <Select
                     aria-label="Input device"
+                    className="assistant-panel__settings-select assistant-panel__settings-input-select"
                     options={inputDeviceOptions}
                     value={
                       inputDeviceOptions[0]?.value === 'unavailable'

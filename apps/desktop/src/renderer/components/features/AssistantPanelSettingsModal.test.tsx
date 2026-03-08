@@ -87,6 +87,44 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('button', { name: /preferred mode/i })).toHaveTextContent('Thinking');
   });
 
+  it('uses compact mode sizing and constrained input-device sizing', async () => {
+    enumerateDevices.mockResolvedValue([
+      {
+        deviceId: 'default',
+        groupId: 'group-default',
+        kind: 'audioinput',
+        label: 'Default microphone',
+      },
+      {
+        deviceId: 'usb-mic',
+        groupId: 'group-2',
+        kind: 'audioinput',
+        label: 'USB Microphone',
+      },
+    ]);
+
+    await renderSettings();
+
+    expect(screen.getByText('Preferred mode').closest('.field-list')).toHaveClass(
+      'assistant-panel__settings-field-list',
+    );
+    expect(screen.getByText('Input device').closest('.field-list')).toHaveClass(
+      'assistant-panel__settings-field-list',
+    );
+    expect(screen.getByRole('button', { name: /preferred mode/i }).closest('.select')).toHaveClass(
+      'assistant-panel__settings-select',
+    );
+    expect(screen.getByRole('button', { name: /preferred mode/i }).closest('.select')).toHaveClass(
+      'assistant-panel__settings-mode-select',
+    );
+    expect(screen.getByRole('button', { name: /input device/i }).closest('.select')).toHaveClass(
+      'assistant-panel__settings-select',
+    );
+    expect(screen.getByRole('button', { name: /input device/i }).closest('.select')).toHaveClass(
+      'assistant-panel__settings-input-select',
+    );
+  });
+
   it('renders system default plus enumerated microphones', async () => {
     enumerateDevices.mockResolvedValue([
       {

@@ -195,8 +195,21 @@
   flex-shrink: 0;
 }
 
+.assistant-panel__settings-field-list {
+  --field-list-control-width: clamp(12rem, 44%, 18rem);
+}
+
+.assistant-panel__settings-select {
+  width: 100%;
+}
+
 .assistant-panel__settings-mode-select {
-  width: calc(var(--space-12) * 2);
+  width: 80px;
+  justify-self: end;
+}
+
+.assistant-panel__settings-input-select {
+  justify-self: stretch;
 }
 
 @keyframes assistant-panel-listening-pulse {

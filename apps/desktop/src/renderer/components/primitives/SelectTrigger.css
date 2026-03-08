@@ -1,5 +1,7 @@
 .select-trigger {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   appearance: none;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -57,6 +59,7 @@
 .select-trigger__chevron {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   color: var(--color-text-secondary);
 }
 

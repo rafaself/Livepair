@@ -23,6 +23,19 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
+  max-width: 100%;
   color: var(--color-text-primary);
   font-size: 0.875rem;
+}
+
+.field-list--aligned-controls .field-list__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--field-list-control-width, 16rem));
+  align-items: center;
+}
+
+.field-list--aligned-controls .field-list__value {
+  width: 100%;
+  justify-content: flex-end;
 }
