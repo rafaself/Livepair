@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import { join } from 'path';
 import type {
   HealthResponse,
@@ -7,6 +7,10 @@ import type {
 } from '@livepair/shared-types';
 
 export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:3000';
+
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-transparent-visuals');
+}
 
 function isCreateEphemeralTokenRequest(
   req: unknown,
@@ -24,9 +28,19 @@ function isCreateEphemeralTokenRequest(
 }
 
 export function createWindow(): void {
+  const { workArea } = screen.getPrimaryDisplay();
+
   const win = new BrowserWindow({
-    width: 900,
-    height: 600,
+    x: workArea.x,
+    y: workArea.y,
+    width: workArea.width,
+    height: workArea.height,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    hasShadow: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -38,15 +52,28 @@ export function createWindow(): void {
   if (process.env['NODE_ENV'] === 'development') {
     win.loadURL('http://localhost:5173');
     win.webContents.openDevTools({ mode: 'detach' });
+    win.webContents.on('before-input-event', (_event, input) => {
+      if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+        win.webContents.toggleDevTools();
+      }
+    });
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'));
+  }
+
+  // On Linux, compositors handle click-through on transparent pixels natively.
+  // On macOS/Windows, use setIgnoreMouseEvents + forward for click-through.
+  if (process.platform !== 'linux') {
+    win.setIgnoreMouseEvents(true, { forward: true });
   }
 }
 
 export function handleAppActivate(
   existingWindowsCount: number = BrowserWindow.getAllWindows().length,
 ): void {
-  if (existingWindowsCount === 0) createWindow();
+  if (existingWindowsCount === 0) {
+    createWindow();
+  }
 }
 
 export function handleWindowAllClosed(

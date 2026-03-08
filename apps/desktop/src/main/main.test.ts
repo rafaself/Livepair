@@ -8,12 +8,27 @@ const mockQuit = vi.fn();
 const mockLoadURL = vi.fn();
 const mockLoadFile = vi.fn();
 const mockOpenDevTools = vi.fn();
+const mockToggleDevTools = vi.fn();
+const mockSetIgnoreMouseEvents = vi.fn();
+const mockWindowOn = vi.fn();
 const mockGetAllWindows = vi.fn((): unknown[] => []);
+const mockAppendSwitch = vi.fn();
+const mockWebContentsOn = vi.fn();
 
 const browserWindowCtor = vi.fn(() => ({
   loadURL: mockLoadURL,
   loadFile: mockLoadFile,
-  webContents: { openDevTools: mockOpenDevTools },
+  webContents: {
+    openDevTools: mockOpenDevTools,
+    toggleDevTools: mockToggleDevTools,
+    on: mockWebContentsOn,
+  },
+  setIgnoreMouseEvents: mockSetIgnoreMouseEvents,
+  on: mockWindowOn,
+}));
+
+const mockGetPrimaryDisplay = vi.fn(() => ({
+  workArea: { x: 0, y: 0, width: 1920, height: 1080 },
 }));
 
 vi.mock('electron', () => ({
@@ -21,11 +36,13 @@ vi.mock('electron', () => ({
     whenReady: mockWhenReady,
     on: mockAppOn,
     quit: mockQuit,
+    commandLine: { appendSwitch: mockAppendSwitch },
   },
   ipcMain: { handle: mockHandle },
   BrowserWindow: Object.assign(browserWindowCtor, {
     getAllWindows: mockGetAllWindows,
   }),
+  screen: { getPrimaryDisplay: mockGetPrimaryDisplay },
 }));
 
 describe('main process runtime', () => {
@@ -52,13 +69,24 @@ describe('main process runtime', () => {
     expect(main.API_BASE_URL).toBe('http://localhost:3000');
   });
 
-  it('creates secure BrowserWindow options and handles dev/prod loading', async () => {
+  it('creates transparent overlay BrowserWindow and handles dev/prod loading', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     const main = await import('./main');
 
     main.createWindow();
+    expect(mockGetPrimaryDisplay).toHaveBeenCalled();
     expect(browserWindowCtor).toHaveBeenCalledWith(
       expect.objectContaining({
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+        transparent: true,
+        frame: false,
+        alwaysOnTop: true,
+        resizable: false,
+        skipTaskbar: true,
+        hasShadow: false,
         webPreferences: expect.objectContaining({
           contextIsolation: true,
           nodeIntegration: false,
@@ -68,6 +96,14 @@ describe('main process runtime', () => {
     );
     expect(mockLoadURL).toHaveBeenCalledWith('http://localhost:5173');
     expect(mockOpenDevTools).toHaveBeenCalled();
+
+    // On Linux, compositors handle click-through natively — setIgnoreMouseEvents is skipped.
+    // On macOS/Windows, it would be called with (true, { forward: true }).
+    if (process.platform !== 'linux') {
+      expect(mockSetIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
+    } else {
+      expect(mockSetIgnoreMouseEvents).not.toHaveBeenCalled();
+    }
 
     vi.stubEnv('NODE_ENV', 'production');
     main.createWindow();

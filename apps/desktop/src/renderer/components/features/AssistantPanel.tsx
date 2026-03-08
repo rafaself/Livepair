@@ -11,7 +11,6 @@ export type AssistantPanelProps = {
   showStateDevControls?: boolean;
 };
 
-
 export function AssistantPanel({
   showStateDevControls = false,
 }: AssistantPanelProps): JSX.Element {
@@ -77,11 +76,16 @@ export function AssistantPanel({
           {panelView === 'chat' ? (
             <>
               <AssistantPanelStateHero state={assistantState} />
-              <section className="assistant-panel__conversation" aria-labelledby="assistant-panel-conversation-title">
-<div className="assistant-panel__conversation-card">
+              <section
+                className="assistant-panel__conversation"
+                aria-labelledby="assistant-panel-conversation-title"
+              >
+                <h3 id="assistant-panel-conversation-title">Conversation</h3>
+                <div className="assistant-panel__conversation-card">
                   <p className="assistant-panel__conversation-empty-title">No conversation yet</p>
                   <p className="assistant-panel__conversation-empty-body">
-                    When you start talking, Livepair will keep the latest exchange here so you can stay oriented in the flow.
+                    When you start talking, Livepair will keep the latest exchange
+                    here so you can stay oriented in the flow.
                   </p>
                 </div>
               </section>
