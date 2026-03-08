@@ -199,6 +199,14 @@
   --field-list-control-width: clamp(12rem, 44%, 18rem);
 }
 
+.assistant-panel__settings-field-list .field-list__item {
+  grid-template-columns: max-content minmax(0, var(--field-list-control-width));
+}
+
+.assistant-panel__settings-field-list .field-list__label {
+  white-space: nowrap;
+}
+
 .assistant-panel__settings-select {
   width: 100%;
 }
