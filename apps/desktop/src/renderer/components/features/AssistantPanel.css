@@ -147,6 +147,20 @@
   margin-right: calc(var(--space-6) * -1);
 }
 
+.assistant-panel__bottom-fade {
+  flex-shrink: 0;
+  height: 28px;
+  margin-top: calc(var(--space-4) * -1);
+  margin-left: calc(var(--space-6) * -1);
+  margin-right: calc(var(--space-6) * -1);
+  background: linear-gradient(
+    180deg,
+    var(--color-chat-bg) 0%,
+    var(--color-chat-bg) 25%,
+    var(--color-surface-elevated) 100%
+  );
+}
+
 
 .assistant-panel__debug-modal,
 .assistant-panel__settings-modal {

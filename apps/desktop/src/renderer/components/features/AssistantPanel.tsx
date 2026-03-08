@@ -97,6 +97,7 @@ export function AssistantPanel({
                   )}
                   className={isConversationEmpty ? undefined : 'assistant-panel__conversation-list'}
                 />
+                <div className="assistant-panel__bottom-fade" aria-hidden="true" />
               </section>
             </>
           ) : panelView === 'settings' ? (

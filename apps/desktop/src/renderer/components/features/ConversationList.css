@@ -28,11 +28,12 @@
   top: 0;
   right: 0;
   left: 0;
-  height: 48px;
+  height: 28px;
   pointer-events: none;
   background: linear-gradient(
     180deg,
     var(--color-surface-elevated) 0%,
+    var(--color-surface-elevated-0) 75%,
     var(--color-surface-elevated-0) 100%
   );
   z-index: 1;
@@ -41,20 +42,6 @@
   outline: none;
 }
 
-.conversation-list__bottom-fade {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  left: 0;
-  height: 48px;
-  pointer-events: none;
-  background: linear-gradient(
-    0deg,
-    var(--color-surface-elevated) 0%,
-    var(--color-surface-elevated-0) 100%
-  );
-  z-index: 1;
-}
 
 .conversation-list__frame {
   height: 100%;
