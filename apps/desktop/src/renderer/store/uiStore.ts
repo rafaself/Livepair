@@ -3,6 +3,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
   type ReactNode,
@@ -19,6 +20,7 @@ export type UiState = {
   panelView: PanelView;
   assistantState: AssistantState;
   preferredMode: PreferredMode;
+  selectedInputDeviceId: string;
 };
 
 type UiAction =
@@ -27,15 +29,32 @@ type UiAction =
   | { type: 'togglePanelPinned' }
   | { type: 'setPanelView'; payload: PanelView }
   | { type: 'setAssistantState'; payload: AssistantState }
-  | { type: 'setPreferredMode'; payload: PreferredMode };
+  | { type: 'setPreferredMode'; payload: PreferredMode }
+  | { type: 'setSelectedInputDeviceId'; payload: string };
 
-const initialUiState: UiState = {
+const INPUT_DEVICE_STORAGE_KEY = 'livepair.selectedInputDeviceId';
+
+const defaultUiState: UiState = {
   isPanelOpen: false,
   isPanelPinned: false,
   panelView: 'chat',
   assistantState: 'disconnected',
   preferredMode: 'fast',
+  selectedInputDeviceId: 'default',
 };
+
+function getInitialUiState(): UiState {
+  if (typeof window === 'undefined') {
+    return defaultUiState;
+  }
+
+  const storedInputDeviceId = window.localStorage.getItem(INPUT_DEVICE_STORAGE_KEY);
+
+  return {
+    ...defaultUiState,
+    selectedInputDeviceId: storedInputDeviceId || defaultUiState.selectedInputDeviceId,
+  };
+}
 
 function uiReducer(state: UiState, action: UiAction): UiState {
   switch (action.type) {
@@ -84,6 +103,12 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         preferredMode: action.payload,
       };
     }
+    case 'setSelectedInputDeviceId': {
+      return {
+        ...state,
+        selectedInputDeviceId: action.payload,
+      };
+    }
     default: {
       return state;
     }
@@ -98,6 +123,7 @@ type UiStoreValue = {
   setPanelView: (view: PanelView) => void;
   setAssistantState: (state: AssistantState) => void;
   setPreferredMode: (mode: PreferredMode) => void;
+  setSelectedInputDeviceId: (deviceId: string) => void;
 };
 
 const UiStoreContext = createContext<UiStoreValue | undefined>(undefined);
@@ -107,7 +133,7 @@ export type UiStoreProviderProps = {
 };
 
 export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element {
-  const [state, dispatch] = useReducer(uiReducer, initialUiState);
+  const [state, dispatch] = useReducer(uiReducer, undefined, getInitialUiState);
   const togglePanel = useCallback(() => dispatch({ type: 'togglePanel' }), []);
   const closePanel = useCallback(() => dispatch({ type: 'closePanel' }), []);
   const togglePanelPinned = useCallback(() => dispatch({ type: 'togglePanelPinned' }), []);
@@ -124,6 +150,19 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
     (preferredMode: PreferredMode) => dispatch({ type: 'setPreferredMode', payload: preferredMode }),
     [],
   );
+  const setSelectedInputDeviceId = useCallback(
+    (selectedInputDeviceId: string) =>
+      dispatch({ type: 'setSelectedInputDeviceId', payload: selectedInputDeviceId }),
+    [],
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(INPUT_DEVICE_STORAGE_KEY, state.selectedInputDeviceId);
+  }, [state.selectedInputDeviceId]);
 
   const value = useMemo<UiStoreValue>(
     () => ({
@@ -134,12 +173,14 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       setPanelView,
       setAssistantState,
       setPreferredMode,
+      setSelectedInputDeviceId,
     }),
     [
       closePanel,
       setPanelView,
       setAssistantState,
       setPreferredMode,
+      setSelectedInputDeviceId,
       state,
       togglePanel,
       togglePanelPinned,
