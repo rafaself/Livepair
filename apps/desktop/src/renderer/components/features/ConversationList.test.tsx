@@ -111,7 +111,7 @@ describe('ConversationList', () => {
     scheduledFrame?.(16.7);
 
     await waitFor(() => {
-      expect(scrollTo).toHaveBeenCalledWith({ top: 480 });
+      expect(scrollTo).toHaveBeenCalledWith({ top: 480, behavior: 'smooth' });
     });
   });
 
@@ -210,7 +210,78 @@ describe('ConversationList', () => {
     );
 
     await waitFor(() => {
-      expect(scrollTo).toHaveBeenCalledWith({ top: 600 });
+      expect(scrollTo).toHaveBeenCalledWith({ top: 600, behavior: 'smooth' });
+    });
+  });
+
+  it('shows a scroll-to-bottom button after the user scrolls away from the end', () => {
+    render(
+      <ConversationList
+        turns={MOCK_CONVERSATION_TURNS.slice(0, 4)}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    const viewport = screen.getByTestId('conversation-list-viewport');
+
+    setViewportMetrics(viewport, {
+      clientHeight: 220,
+      scrollHeight: 600,
+      scrollTop: 40,
+    });
+
+    fireEvent.scroll(viewport);
+
+    expect(screen.getByRole('button', { name: 'Scroll to latest messages' })).toBeVisible();
+  });
+
+  it('hides the scroll-to-bottom button when the user returns near the end', () => {
+    render(
+      <ConversationList
+        turns={MOCK_CONVERSATION_TURNS.slice(0, 4)}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    const viewport = screen.getByTestId('conversation-list-viewport');
+
+    setViewportMetrics(viewport, {
+      clientHeight: 220,
+      scrollHeight: 600,
+      scrollTop: 40,
+    });
+
+    fireEvent.scroll(viewport);
+    expect(screen.getByRole('button', { name: 'Scroll to latest messages' })).toBeVisible();
+
+    viewport.scrollTop = 352;
+    fireEvent.scroll(viewport);
+
+    expect(screen.queryByRole('button', { name: 'Scroll to latest messages' })).toBeNull();
+  });
+
+  it('scrolls to the bottom and hides the button when pressed', async () => {
+    render(
+      <ConversationList
+        turns={MOCK_CONVERSATION_TURNS.slice(0, 4)}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    const viewport = screen.getByTestId('conversation-list-viewport');
+    const scrollTo = setViewportMetrics(viewport, {
+      clientHeight: 220,
+      scrollHeight: 600,
+      scrollTop: 40,
+    });
+
+    fireEvent.scroll(viewport);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scroll to latest messages' }));
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 600, behavior: 'smooth' });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Scroll to latest messages' })).toBeNull();
     });
   });
 });

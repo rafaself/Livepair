@@ -1,4 +1,5 @@
-import { useEffect, useRef, type HTMLAttributes, type ReactNode } from 'react';
+import { ArrowDown } from 'lucide-react';
+import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { ConversationTurn } from './ConversationTurn';
 import type { ConversationTurnModel } from './mockConversation';
 import './ConversationList.css';
@@ -9,6 +10,10 @@ export type ConversationListProps = {
 } & HTMLAttributes<HTMLDivElement>;
 
 const AUTO_SCROLL_THRESHOLD = 32;
+
+function getDistanceFromBottom(viewport: HTMLDivElement): number {
+  return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+}
 
 function requestFrame(callback: () => void): number {
   if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -28,13 +33,12 @@ function cancelFrame(frameId: number): void {
 }
 
 function isNearBottom(viewport: HTMLDivElement): boolean {
-  const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-  return distanceFromBottom <= AUTO_SCROLL_THRESHOLD;
+  return getDistanceFromBottom(viewport) <= AUTO_SCROLL_THRESHOLD;
 }
 
 function scrollViewportToBottom(viewport: HTMLDivElement): void {
   if (typeof viewport.scrollTo === 'function') {
-    viewport.scrollTo({ top: viewport.scrollHeight });
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
     return;
   }
 
@@ -49,6 +53,7 @@ export function ConversationList({
 }: ConversationListProps): JSX.Element {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
+  const [showScrollToBottomButton, setShowScrollToBottomButton] = useState(false);
   const classes = `conversation-list${turns.length > 0 ? ' conversation-list--populated' : ''}${className ? ` ${className}` : ''}`;
 
   const handleScroll = (): void => {
@@ -58,12 +63,29 @@ export function ConversationList({
       return;
     }
 
-    shouldAutoScrollRef.current = isNearBottom(viewport);
+    const nearBottom = isNearBottom(viewport);
+
+    shouldAutoScrollRef.current = nearBottom;
+    setShowScrollToBottomButton(!nearBottom);
+  };
+
+  const handleScrollToBottomClick = (): void => {
+    const viewport = viewportRef.current;
+
+    shouldAutoScrollRef.current = true;
+    setShowScrollToBottomButton(false);
+
+    if (!viewport) {
+      return;
+    }
+
+    scrollViewportToBottom(viewport);
   };
 
   useEffect(() => {
     if (turns.length === 0) {
       shouldAutoScrollRef.current = true;
+      setShowScrollToBottomButton(false);
       return;
     }
 
@@ -125,6 +147,16 @@ export function ConversationList({
             </ul>
           </div>
         </div>
+        {showScrollToBottomButton ? (
+          <button
+            type="button"
+            className="conversation-list__scroll-to-bottom"
+            aria-label="Scroll to latest messages"
+            onClick={handleScrollToBottomClick}
+          >
+            <ArrowDown size={18} />
+          </button>
+        ) : null}
       </div>
     </div>
   );
