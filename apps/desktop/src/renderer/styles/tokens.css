@@ -54,7 +54,7 @@
   --z-toast: 40;
 
   /* Component tuning */
-  --text-input-label-scale: 0.85;
+  --text-input-label-scale: 1;
 
   /* Chat container */
   --color-chat-bg: #040404;
