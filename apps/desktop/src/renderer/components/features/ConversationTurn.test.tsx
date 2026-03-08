@@ -25,7 +25,7 @@ describe('ConversationTurn', () => {
     expect(screen.getByText('09:41')).toBeVisible();
     expect(meta).not.toBeNull();
     expect(icon).not.toBeNull();
-    expect(meta?.contains(icon as Node)).toBe(true);
+    expect(article.contains(icon)).toBe(true);
   });
 
   it('renders an assistant error turn with a badge', () => {
