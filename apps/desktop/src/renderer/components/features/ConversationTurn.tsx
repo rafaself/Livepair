@@ -43,10 +43,6 @@ export function ConversationTurn({
       aria-label={`${TURN_LABELS[turn.role]} turn at ${turn.timestamp}`}
       {...rest}
     >
-      <span className="conversation-turn__icon" aria-hidden="true">
-        {turn.role === 'user' ? <CircleUserRound size={14} /> : <Sparkles size={14} />}
-      </span>
-
       <div className="conversation-turn__bubble">
         {isTypingOnly ? (
           <TypingIndicator className="conversation-turn__typing" />
@@ -55,10 +51,15 @@ export function ConversationTurn({
         )}
 
         <div className="conversation-turn__meta">
-          <time className="conversation-turn__timestamp">{turn.timestamp}</time>
-          {turn.statusLabel ? (
-            <Badge variant={getBadgeVariant(turn)}>{turn.statusLabel}</Badge>
-          ) : null}
+          <div className="conversation-turn__meta-main">
+            <time className="conversation-turn__timestamp">{turn.timestamp}</time>
+            {turn.statusLabel ? (
+              <Badge variant={getBadgeVariant(turn)}>{turn.statusLabel}</Badge>
+            ) : null}
+          </div>
+          <span className="conversation-turn__icon" aria-hidden="true">
+            {turn.role === 'user' ? <CircleUserRound size={14} /> : <Sparkles size={14} />}
+          </span>
         </div>
       </div>
     </article>

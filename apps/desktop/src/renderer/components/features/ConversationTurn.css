@@ -1,13 +1,11 @@
 .conversation-turn {
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-3);
+  align-items: flex-start;
   width: 100%;
 }
 
 .conversation-turn--user {
   justify-content: flex-end;
-  flex-direction: row-reverse;
 }
 
 .conversation-turn--system {
@@ -28,7 +26,8 @@
 }
 
 .conversation-turn__bubble {
-  max-width: calc(100% - 36px);
+  position: relative;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -43,17 +42,50 @@
   box-shadow: var(--shadow-sm);
 }
 
+.conversation-turn--assistant .conversation-turn__bubble::before,
+.conversation-turn--user .conversation-turn__bubble::before {
+  content: '';
+  position: absolute;
+  bottom: calc(var(--space-2) * -1);
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.conversation-turn--assistant .conversation-turn__bubble::before {
+  left: var(--space-3);
+  border-left: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
 .conversation-turn--user .conversation-turn__bubble {
   background: var(--color-surface);
+}
+
+.conversation-turn--user .conversation-turn__bubble::before {
+  right: var(--space-3);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-bottom-right-radius: var(--radius-sm);
 }
 
 .conversation-turn--error .conversation-turn__bubble {
   border-color: var(--color-error);
 }
 
+.conversation-turn--error .conversation-turn__bubble::before {
+  border-color: var(--color-error);
+}
+
 .conversation-turn--system .conversation-turn__bubble {
   align-items: center;
   text-align: center;
+}
+
+.conversation-turn--system .conversation-turn__bubble::before {
+  display: none;
 }
 
 .conversation-turn__body {
@@ -73,6 +105,13 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+.conversation-turn__meta-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
   flex-wrap: wrap;
 }
 

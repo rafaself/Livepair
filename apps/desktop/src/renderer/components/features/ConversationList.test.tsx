@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConversationList } from './ConversationList';
 import { MOCK_CONVERSATION_TURNS } from './mockConversation';
@@ -106,5 +106,32 @@ describe('ConversationList', () => {
     );
 
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('keeps the scrollbar visible briefly while the user is scrolling', () => {
+    vi.useFakeTimers();
+
+    render(
+      <ConversationList
+        turns={MOCK_CONVERSATION_TURNS.slice(0, 4)}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    const viewport = screen.getByTestId('conversation-list-viewport');
+
+    expect(viewport).not.toHaveClass('conversation-list__viewport--scrolling');
+
+    fireEvent.scroll(viewport);
+
+    expect(viewport).toHaveClass('conversation-list__viewport--scrolling');
+
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+
+    expect(viewport).not.toHaveClass('conversation-list__viewport--scrolling');
+
+    vi.useRealTimers();
   });
 });
