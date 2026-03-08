@@ -1,8 +1,6 @@
 .assistant-panel {
   gap: var(--space-6);
-  background:
-    linear-gradient(180deg, rgba(76, 141, 255, 0.08) 0%, rgba(76, 141, 255, 0) 28%),
-    var(--color-surface-elevated);
+  background: var(--color-surface-elevated);
 }
 
 .assistant-panel .panel-header {
