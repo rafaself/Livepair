@@ -101,6 +101,64 @@ describe('useOverlayHitRegions', () => {
     ]);
   });
 
+  it('publishes updated bounds during an active panel transition', async () => {
+    let nextFrameId = 0;
+    const frameQueue = new Map<number, FrameRequestCallback>();
+
+    requestAnimationFrameSpy.mockImplementation((callback: FrameRequestCallback): number => {
+      nextFrameId += 1;
+      frameQueue.set(nextFrameId, callback);
+      return nextFrameId;
+    });
+    cancelAnimationFrameSpy.mockImplementation((id: number): void => {
+      frameQueue.delete(id);
+    });
+
+    let panelRect = { x: 1680, y: 0, width: 240, height: 1080 };
+    const panel = createHitElement('panel panel--open', panelRect);
+
+    Object.defineProperty(panel, 'getBoundingClientRect', {
+      value: () => ({
+        x: panelRect.x,
+        y: panelRect.y,
+        width: panelRect.width,
+        height: panelRect.height,
+        top: panelRect.y,
+        left: panelRect.x,
+        right: panelRect.x + panelRect.width,
+        bottom: panelRect.y + panelRect.height,
+        toJSON: () => ({}),
+      }),
+    });
+
+    renderHook(() => useOverlayHitRegions());
+    await Promise.resolve();
+
+    const transitionRunEvent = new Event('transitionrun', { bubbles: true });
+    Object.defineProperty(transitionRunEvent, 'propertyName', { value: 'transform' });
+    panel.dispatchEvent(transitionRunEvent);
+
+    panelRect = { x: 1640, y: 0, width: 280, height: 1080 };
+    const firstFrame = frameQueue.get(1);
+    expect(firstFrame).toBeTypeOf('function');
+    firstFrame?.(16);
+    await Promise.resolve();
+
+    expect(mockSetOverlayHitRegions).toHaveBeenLastCalledWith([
+      { x: 1640, y: 0, width: 280, height: 1080 },
+    ]);
+
+    panelRect = { x: 1580, y: 0, width: 340, height: 1080 };
+    const secondFrame = frameQueue.get(2);
+    expect(secondFrame).toBeTypeOf('function');
+    secondFrame?.(32);
+    await Promise.resolve();
+
+    expect(mockSetOverlayHitRegions).toHaveBeenLastCalledWith([
+      { x: 1580, y: 0, width: 340, height: 1080 },
+    ]);
+  });
+
   it('does not throw when bridge is unavailable', () => {
     // @ts-expect-error testing graceful degradation
     delete window.bridge;
