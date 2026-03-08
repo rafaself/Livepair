@@ -78,6 +78,15 @@ describe('AssistantPanelSettingsView', () => {
     });
   });
 
+  it('renders the backend URL field with the input stacked below its label', async () => {
+    enumerateDevices.mockResolvedValue([]);
+    await renderSettings();
+
+    expect(screen.getByRole('textbox', { name: /backend url/i }).closest('.field-list')).toHaveClass(
+      'assistant-panel__settings-field-list--stacked',
+    );
+  });
+
   it('applies a valid backend URL override on blur', async () => {
     enumerateDevices.mockResolvedValue([]);
     await renderSettings();

@@ -202,7 +202,7 @@ export function AssistantPanelSettingsView(): JSX.Element {
 
         <ViewSection icon={Server} title="Backend">
           <FieldList
-            className="assistant-panel__settings-field-list field-list--aligned-controls"
+            className="assistant-panel__settings-field-list assistant-panel__settings-field-list--stacked"
             items={[
               {
                 label: 'Backend URL',
