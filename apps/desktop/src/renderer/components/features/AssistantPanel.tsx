@@ -88,6 +88,7 @@ export function AssistantPanel({
                   turns={conversationTurns}
                   emptyState={(
                     <div className="assistant-panel__conversation-card assistant-panel__conversation-card--empty">
+                      <MessageCircle size={56} strokeWidth={1.25} className="assistant-panel__conversation-empty-icon" aria-hidden="true" />
                       <p className="assistant-panel__conversation-empty-title">No conversation yet</p>
                       <p className="assistant-panel__conversation-empty-body">
                         When you start talking, Livepair will keep the latest exchange
