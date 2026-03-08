@@ -12,6 +12,7 @@ function UiStoreHarness(): JSX.Element {
     setBackendUrl,
     setSelectedInputDeviceId,
     setThemePreference,
+    toggleDebugMode,
   } = useUiStore();
 
   return (
@@ -22,6 +23,7 @@ function UiStoreHarness(): JSX.Element {
       <output aria-label="backend-url">{state.backendUrl}</output>
       <output aria-label="selected-input-device">{state.selectedInputDeviceId}</output>
       <output aria-label="theme-preference">{state.themePreference}</output>
+      <output aria-label="debug-mode">{String(state.isDebugMode)}</output>
 
       <button type="button" onClick={togglePanel}>
         toggle panel
@@ -49,6 +51,9 @@ function UiStoreHarness(): JSX.Element {
       </button>
       <button type="button" onClick={() => setThemePreference('system')}>
         set system theme
+      </button>
+      <button type="button" onClick={toggleDebugMode}>
+        toggle debug mode
       </button>
     </div>
   );
@@ -157,5 +162,21 @@ describe('uiStore', () => {
     fireEvent.click(screen.getByRole('button', { name: 'set light theme' }));
 
     expect(window.localStorage.getItem('livepair.themePreference')).toBe('light');
+  });
+
+  it('toggles debug mode on and off', () => {
+    render(
+      <UiStoreProvider>
+        <UiStoreHarness />
+      </UiStoreProvider>,
+    );
+
+    expect(screen.getByLabelText('debug-mode')).toHaveTextContent('false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'toggle debug mode' }));
+    expect(screen.getByLabelText('debug-mode')).toHaveTextContent('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'toggle debug mode' }));
+    expect(screen.getByLabelText('debug-mode')).toHaveTextContent('false');
   });
 });
