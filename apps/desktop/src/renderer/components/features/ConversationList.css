@@ -57,7 +57,7 @@
   position: relative;
   height: 100%;
   max-height: 100%;
-  padding: var(--space-4) var(--space-6) var(--space-4) var(--space-6);
+  padding: var(--space-4) var(--space-2);
   overflow-y: auto;
 }
 
@@ -83,7 +83,7 @@
   width: 100%;
 }
 
-.conversation-list--populated .conversation-list__item:first-child {
+.conversation-list--populated .conversation-list__item:last-child {
   animation: conversation-list-first-turn var(--motion-slow) var(--ease-out);
 }
 
