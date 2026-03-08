@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronLeft, Mic, MicOff, Monitor, MonitorOff, Phone, Play } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
@@ -15,14 +15,37 @@ export function ControlDock(_props: ControlDockProps): JSX.Element {
 
   const [isMicActive, setIsMicActive] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isWindowFocused, setIsWindowFocused] = useState(() => document.hasFocus());
 
   const isSessionActive = assistantState !== 'disconnected';
+  const shouldDimDock = !isWindowFocused && !isHovered;
+
+  useEffect(() => {
+    const handleWindowFocus = (): void => {
+      setIsWindowFocused(true);
+    };
+
+    const handleWindowBlur = (): void => {
+      setIsWindowFocused(false);
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, []);
 
   return (
     <div
-      className={`control-dock${isPanelOpen ? ' control-dock--panel-open' : ''}`}
+      className={`control-dock${isPanelOpen ? ' control-dock--panel-open' : ''}${shouldDimDock ? ' control-dock--dimmed' : ''}`}
       role="toolbar"
       aria-label="Assistant controls"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <IconButton
         label={isMicActive ? 'Mute microphone' : 'Unmute microphone'}

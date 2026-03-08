@@ -13,14 +13,20 @@
   border-radius: var(--radius-full);
   background: var(--color-surface-elevated);
   box-shadow: var(--shadow-md);
-  will-change: right;
+  opacity: 1;
+  will-change: right, opacity;
   transition:
     right var(--motion-normal) var(--ease-out),
-    box-shadow var(--motion-normal) var(--ease-out);
+    box-shadow var(--motion-normal) var(--ease-out),
+    opacity var(--motion-slow) var(--ease-out);
 }
 
 .control-dock:hover {
   box-shadow: var(--shadow-lg);
+}
+
+.control-dock--dimmed {
+  opacity: 0.42;
 }
 
 .control-dock--panel-open {

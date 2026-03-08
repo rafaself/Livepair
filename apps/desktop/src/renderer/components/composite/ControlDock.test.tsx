@@ -69,4 +69,24 @@ describe('ControlDock', () => {
 
     expect(dock).toHaveClass('control-dock--panel-open');
   });
+
+  it('dims the dock when the app window loses focus and restores it on hover', () => {
+    renderDock();
+    const dock = screen.getByRole('toolbar', { name: /assistant controls/i });
+
+    fireEvent(window, new Event('focus'));
+    expect(dock).not.toHaveClass('control-dock--dimmed');
+
+    fireEvent(window, new Event('blur'));
+    expect(dock).toHaveClass('control-dock--dimmed');
+
+    fireEvent.mouseEnter(dock);
+    expect(dock).not.toHaveClass('control-dock--dimmed');
+
+    fireEvent.mouseLeave(dock);
+    expect(dock).toHaveClass('control-dock--dimmed');
+
+    fireEvent(window, new Event('focus'));
+    expect(dock).not.toHaveClass('control-dock--dimmed');
+  });
 });
