@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useEffect,
   useId,
   useState,
   type FocusEvent,
@@ -13,6 +14,7 @@ export type TextInputValidateOn = 'input' | 'blur';
 
 export type TextInputProps = {
   size?: 'sm' | 'md';
+  label?: string;
   invalid?: boolean;
   error?: string;
   hint?: string;
@@ -30,6 +32,20 @@ type ValidationResult = {
 const DEFAULT_VALIDATION_RESULT: ValidationResult = {
   invalid: false,
   message: null,
+};
+
+const hasInputValue = (
+  value: InputHTMLAttributes<HTMLInputElement>['value'] | InputHTMLAttributes<HTMLInputElement>['defaultValue'],
+): boolean => {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  return String(value).length > 0;
 };
 
 const evaluateRules = (
@@ -66,6 +82,7 @@ const toAriaInvalid = (
 export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInput(
   {
     size = 'md',
+    label,
     invalid = false,
     error,
     hint,
@@ -76,6 +93,10 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
     className,
     type = 'text',
     id,
+    value,
+    defaultValue,
+    disabled = false,
+    placeholder,
     onChange,
     onFocus,
     onBlur,
@@ -89,6 +110,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   const inputId = id ?? `text-input-${generatedId}`;
   const detailsId = `${inputId}-details`;
   const [isFocused, setIsFocused] = useState(false);
+  const [isFilled, setIsFilled] = useState(hasInputValue(value ?? defaultValue));
   const [validationResult, setValidationResult] = useState<ValidationResult>(
     DEFAULT_VALIDATION_RESULT,
   );
@@ -113,11 +135,22 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   const classes = [
     'text-input',
     `text-input--${size}`,
+    label ? 'text-input--labeled' : '',
     isInvalid ? 'text-input--invalid' : '',
     className,
   ]
     .filter(Boolean)
     .join(' ');
+  const isFloating = Boolean(label) && (isFocused || isFilled);
+  const resolvedPlaceholder = label && !isFloating ? '' : placeholder;
+
+  useEffect(() => {
+    if (value === undefined) {
+      return;
+    }
+
+    setIsFilled(hasInputValue(value));
+  }, [value]);
 
   const runValidation = (nextValue: string): void => {
     if (hasExternalError) {
@@ -143,6 +176,8 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   };
 
   const handleChange: NonNullable<TextInputProps['onChange']> = (event) => {
+    setIsFilled(hasInputValue(event.currentTarget.value));
+
     if (validateOn === 'input') {
       runValidation(event.currentTarget.value);
     }
@@ -152,18 +187,36 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
 
   return (
     <div className="text-input__root">
-      <input
-        {...rest}
-        ref={ref}
-        id={inputId}
-        type={type}
-        className={classes}
-        aria-invalid={isInvalid ? 'true' : ariaInvalid}
-        aria-describedby={describedBy}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-      />
+      <div
+        className={`text-input__control text-input__control--${size}`}
+        data-disabled={disabled ? 'true' : 'false'}
+        data-filled={isFilled ? 'true' : 'false'}
+        data-focused={isFocused ? 'true' : 'false'}
+        data-floating={isFloating ? 'true' : 'false'}
+        data-invalid={isInvalid ? 'true' : 'false'}
+      >
+        {label ? (
+          <label className="text-input__label" htmlFor={inputId}>
+            {label}
+          </label>
+        ) : null}
+        <input
+          {...rest}
+          ref={ref}
+          id={inputId}
+          type={type}
+          value={value}
+          defaultValue={defaultValue}
+          disabled={disabled}
+          placeholder={resolvedPlaceholder}
+          className={classes}
+          aria-invalid={isInvalid ? 'true' : ariaInvalid}
+          aria-describedby={describedBy}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+        />
+      </div>
       {detailsVisible ? (
         <div
           id={detailsId}

@@ -201,31 +201,21 @@ export function AssistantPanelSettingsView(): JSX.Element {
         </ViewSection>
 
         <ViewSection icon={Server} title="Backend">
-          <FieldList
-            className="assistant-panel__settings-field-list assistant-panel__settings-field-list--stacked"
-            items={[
-              {
-                label: 'Backend URL',
-                value: (
-                  <TextInput
-                    aria-label="Backend URL"
-                    className="assistant-panel__settings-backend-input"
-                    error={backendUrlError ?? undefined}
-                    size="sm"
-                    value={backendUrlDraft}
-                    onChange={(event) => {
-                      setBackendUrlDraft(event.target.value);
-                      if (backendUrlError !== null) {
-                        setBackendUrlError(null);
-                      }
-                    }}
-                    onBlur={() => {
-                      void handleBackendUrlBlur();
-                    }}
-                  />
-                ),
-              },
-            ]}
+          <TextInput
+            label="Backend URL"
+            className="assistant-panel__settings-backend-input"
+            error={backendUrlError ?? undefined}
+            size="sm"
+            value={backendUrlDraft}
+            onChange={(event) => {
+              setBackendUrlDraft(event.target.value);
+              if (backendUrlError !== null) {
+                setBackendUrlError(null);
+              }
+            }}
+            onBlur={() => {
+              void handleBackendUrlBlur();
+            }}
           />
         </ViewSection>
 

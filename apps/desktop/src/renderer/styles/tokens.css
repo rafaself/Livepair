@@ -5,6 +5,7 @@
   --color-surface-elevated: #161C23;
 
   --color-border: #242C36;
+  --color-border-hover: rgba(76, 141, 255, 0.35);
 
   --color-text-primary: #E6EDF3;
   --color-text-secondary: #9DA7B3;
@@ -50,4 +51,7 @@
   --z-overlay: 20;
   --z-modal: 30;
   --z-toast: 40;
+
+  /* Component tuning */
+  --text-input-label-scale: 0.85;
 }
