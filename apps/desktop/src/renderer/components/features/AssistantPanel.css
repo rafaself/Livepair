@@ -191,6 +191,10 @@
   gap: var(--space-8);
 }
 
+.assistant-panel__settings-switch {
+  flex-shrink: 0;
+}
+
 @keyframes assistant-panel-listening-pulse {
   0%,
   100% {

@@ -8,6 +8,8 @@ export { Badge } from './Badge';
 export type { BadgeProps } from './Badge';
 export { Divider } from './Divider';
 export type { DividerProps } from './Divider';
+export { Switch } from './Switch';
+export type { SwitchProps } from './Switch';
 export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
 export { LivepairIcon } from './LivepairIcon';

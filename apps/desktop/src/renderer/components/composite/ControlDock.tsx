@@ -8,7 +8,7 @@ export type ControlDockProps = Record<string, never>;
 
 export function ControlDock(_props: ControlDockProps): JSX.Element {
   const {
-    state: { isPanelOpen, assistantState },
+    state: { isPanelOpen, isPanelPinned, assistantState },
     togglePanel,
     closePanel,
     setAssistantState,
@@ -29,7 +29,7 @@ export function ControlDock(_props: ControlDockProps): JSX.Element {
 
     const handleWindowBlur = (): void => {
       setIsWindowFocused(false);
-      if (isPanelOpen) {
+      if (isPanelOpen && !isPanelPinned) {
         closePanel();
       }
     };
@@ -41,7 +41,7 @@ export function ControlDock(_props: ControlDockProps): JSX.Element {
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [closePanel, isPanelOpen]);
+  }, [closePanel, isPanelOpen, isPanelPinned]);
 
   return (
     <div

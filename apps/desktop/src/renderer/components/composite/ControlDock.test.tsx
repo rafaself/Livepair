@@ -1,19 +1,22 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { AssistantPanelSettingsView } from '../features/AssistantPanelSettingsView';
 import { UiStoreProvider, useUiStore } from '../../store/uiStore';
 import { ControlDock } from './ControlDock';
 
 function renderDock() {
   function DockHarness(): JSX.Element {
     const {
-      state: { assistantState, isPanelOpen },
+      state: { assistantState, isPanelOpen, isPanelPinned },
     } = useUiStore();
 
     return (
       <>
         <output aria-label="panel-open">{String(isPanelOpen)}</output>
+        <output aria-label="panel-pinned">{String(isPanelPinned)}</output>
         <output aria-label="assistant-state">{assistantState}</output>
         <ControlDock />
+        <AssistantPanelSettingsView />
       </>
     );
   }
@@ -113,6 +116,19 @@ describe('ControlDock', () => {
 
     fireEvent(window, new Event('blur'));
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('false');
+  });
+
+  it('keeps the panel open on blur when the panel is fixed', () => {
+    renderDock();
+
+    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
+    expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
+
+    fireEvent.click(screen.getByRole('switch', { name: /lock panel/i }));
+    expect(screen.getByLabelText('panel-pinned')).toHaveTextContent('true');
+
+    fireEvent(window, new Event('blur'));
+    expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
   });
 
   it('keeps the dock opaque whenever the panel is open', () => {

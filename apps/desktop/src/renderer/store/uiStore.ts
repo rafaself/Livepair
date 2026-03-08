@@ -14,6 +14,7 @@ export type PanelView = 'chat' | 'settings' | 'debug';
 
 export type UiState = {
   isPanelOpen: boolean;
+  isPanelPinned: boolean;
   panelView: PanelView;
   assistantState: AssistantState;
 };
@@ -21,11 +22,13 @@ export type UiState = {
 type UiAction =
   | { type: 'togglePanel' }
   | { type: 'closePanel' }
+  | { type: 'togglePanelPinned' }
   | { type: 'setPanelView'; payload: PanelView }
   | { type: 'setAssistantState'; payload: AssistantState };
 
 const initialUiState: UiState = {
   isPanelOpen: false,
+  isPanelPinned: false,
   panelView: 'chat',
   assistantState: 'disconnected',
 };
@@ -53,6 +56,12 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         panelView: 'chat',
       };
     }
+    case 'togglePanelPinned': {
+      return {
+        ...state,
+        isPanelPinned: !state.isPanelPinned,
+      };
+    }
     case 'setPanelView': {
       return {
         ...state,
@@ -75,6 +84,7 @@ type UiStoreValue = {
   state: UiState;
   togglePanel: () => void;
   closePanel: () => void;
+  togglePanelPinned: () => void;
   setPanelView: (view: PanelView) => void;
   setAssistantState: (state: AssistantState) => void;
 };
@@ -89,6 +99,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
   const [state, dispatch] = useReducer(uiReducer, initialUiState);
   const togglePanel = useCallback(() => dispatch({ type: 'togglePanel' }), []);
   const closePanel = useCallback(() => dispatch({ type: 'closePanel' }), []);
+  const togglePanelPinned = useCallback(() => dispatch({ type: 'togglePanelPinned' }), []);
   const setPanelView = useCallback(
     (view: PanelView) => dispatch({ type: 'setPanelView', payload: view }),
     [],
@@ -104,10 +115,11 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       state,
       togglePanel,
       closePanel,
+      togglePanelPinned,
       setPanelView,
       setAssistantState,
     }),
-    [closePanel, setPanelView, setAssistantState, state, togglePanel],
+    [closePanel, setPanelView, setAssistantState, state, togglePanel, togglePanelPinned],
   );
 
   return createElement(UiStoreContext.Provider, { value }, children);
