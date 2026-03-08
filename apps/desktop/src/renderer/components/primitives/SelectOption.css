@@ -1,0 +1,28 @@
+.select-option {
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.select-option:hover {
+  background: var(--color-surface);
+}
+
+.select-option:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.select-option--selected {
+  background: var(--color-surface);
+  color: var(--color-accent);
+  font-weight: 600;
+}

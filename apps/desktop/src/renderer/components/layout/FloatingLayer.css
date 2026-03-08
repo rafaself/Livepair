@@ -1,0 +1,71 @@
+.floating-layer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  z-index: var(--z-overlay);
+}
+
+.floating-layer--open {
+  animation: floating-layer-open var(--motion-fast) var(--ease-out);
+}
+
+.floating-layer--closing {
+  animation: floating-layer-close var(--motion-fast) var(--ease-out) forwards;
+}
+
+.floating-layer--up.floating-layer--open {
+  animation-name: floating-layer-open-up;
+}
+
+.floating-layer--up.floating-layer--closing {
+  animation-name: floating-layer-close-up;
+}
+
+@keyframes floating-layer-open {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--space-1) * -1)) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes floating-layer-close {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--space-1) * -1)) scale(0.98);
+  }
+}
+
+@keyframes floating-layer-open-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-1)) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes floating-layer-close-up {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(var(--space-1)) scale(0.98);
+  }
+}

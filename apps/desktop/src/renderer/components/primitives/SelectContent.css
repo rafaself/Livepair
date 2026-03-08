@@ -1,0 +1,16 @@
+.select-content {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1);
+  overflow-y: auto;
+}
+
+.select-content--open {
+  opacity: 1;
+}
+
+.select-content--closing {
+  opacity: 1;
+}
