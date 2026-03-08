@@ -44,11 +44,13 @@ export function AssistantPanelSettingsView(): JSX.Element {
   const {
     state: {
       backendUrl,
+      isDebugMode,
       isPanelPinned,
       preferredMode,
       selectedInputDeviceId,
       themePreference,
     },
+    toggleDebugMode,
     togglePanelPinned,
     setPreferredMode,
     setBackendUrl,
@@ -225,6 +227,7 @@ export function AssistantPanelSettingsView(): JSX.Element {
             className="assistant-panel__settings-backend-input"
             error={backendUrlError ?? undefined}
             size="sm"
+            spellCheck={false}
             value={backendUrlDraft}
             onChange={(event) => {
               setBackendUrlDraft(event.target.value);
@@ -239,7 +242,22 @@ export function AssistantPanelSettingsView(): JSX.Element {
         </ViewSection>
 
         <ViewSection icon={Wrench} title="Advanced">
-          <FieldList items={[{ label: 'Debug mode', value: 'Disabled' }]} />
+          <FieldList
+            className="assistant-panel__settings-field-list field-list--aligned-controls"
+            items={[
+              {
+                label: 'Debug mode',
+                value: (
+                  <Switch
+                    aria-label="Debug mode"
+                    checked={isDebugMode}
+                    className="assistant-panel__settings-switch"
+                    onCheckedChange={() => toggleDebugMode()}
+                  />
+                ),
+              },
+            ]}
+          />
         </ViewSection>
       </div>
     </div>

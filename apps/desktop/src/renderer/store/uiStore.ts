@@ -22,6 +22,7 @@ export type PreferredMode = 'fast' | 'thinking';
 export type UiState = {
   isPanelOpen: boolean;
   isPanelPinned: boolean;
+  isDebugMode: boolean;
   panelView: PanelView;
   assistantState: AssistantState;
   preferredMode: PreferredMode;
@@ -34,6 +35,7 @@ type UiAction =
   | { type: 'togglePanel' }
   | { type: 'closePanel' }
   | { type: 'togglePanelPinned' }
+  | { type: 'toggleDebugMode' }
   | { type: 'setPanelView'; payload: PanelView }
   | { type: 'setAssistantState'; payload: AssistantState }
   | { type: 'setPreferredMode'; payload: PreferredMode }
@@ -47,6 +49,7 @@ const BACKEND_URL_STORAGE_KEY = 'livepair.backendUrl';
 const defaultUiState: UiState = {
   isPanelOpen: false,
   isPanelPinned: false,
+  isDebugMode: false,
   panelView: 'chat',
   assistantState: 'disconnected',
   preferredMode: 'fast',
@@ -108,6 +111,12 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         isPanelPinned: !state.isPanelPinned,
       };
     }
+    case 'toggleDebugMode': {
+      return {
+        ...state,
+        isDebugMode: !state.isDebugMode,
+      };
+    }
     case 'setPanelView': {
       return {
         ...state,
@@ -155,6 +164,7 @@ type UiStoreValue = {
   togglePanel: () => void;
   closePanel: () => void;
   togglePanelPinned: () => void;
+  toggleDebugMode: () => void;
   setPanelView: (view: PanelView) => void;
   setAssistantState: (state: AssistantState) => void;
   setPreferredMode: (mode: PreferredMode) => void;
@@ -181,6 +191,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
   const togglePanel = useCallback(() => dispatch({ type: 'togglePanel' }), []);
   const closePanel = useCallback(() => dispatch({ type: 'closePanel' }), []);
   const togglePanelPinned = useCallback(() => dispatch({ type: 'togglePanelPinned' }), []);
+  const toggleDebugMode = useCallback(() => dispatch({ type: 'toggleDebugMode' }), []);
   const setPanelView = useCallback(
     (view: PanelView) => dispatch({ type: 'setPanelView', payload: view }),
     [],
@@ -286,6 +297,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       togglePanel,
       closePanel,
       togglePanelPinned,
+      toggleDebugMode,
       setPanelView,
       setAssistantState,
       setPreferredMode,
@@ -303,6 +315,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       setThemePreference,
       state,
       togglePanel,
+      toggleDebugMode,
       togglePanelPinned,
     ],
   );
