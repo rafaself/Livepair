@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TextInput } from './TextInput';
@@ -133,5 +134,31 @@ describe('TextInput', () => {
     expect(textbox.closest('.text-input__control')).toHaveAttribute('data-invalid', 'true');
     expect(textbox).toHaveAttribute('aria-invalid', 'true');
     expect(textbox).toHaveAttribute('aria-describedby', details.id);
+  });
+
+  it('derives filled state from value prop without an extra render cycle', () => {
+    function Wrapper(): JSX.Element {
+      const [url, setUrl] = useState('https://api.example.com');
+
+      return (
+        <>
+          <TextInput label="Backend URL" value={url} onChange={() => {}} />
+          <button type="button" onClick={() => setUrl('')}>Clear</button>
+        </>
+      );
+    }
+
+    render(<Wrapper />);
+
+    const textbox = screen.getByRole('textbox', { name: 'Backend URL' });
+    const control = textbox.closest('.text-input__control');
+
+    expect(control).toHaveAttribute('data-filled', 'true');
+    expect(control).toHaveAttribute('data-floating', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(control).toHaveAttribute('data-filled', 'false');
+    expect(control).toHaveAttribute('data-floating', 'false');
   });
 });

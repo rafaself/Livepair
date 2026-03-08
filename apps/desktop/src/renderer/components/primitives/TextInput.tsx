@@ -1,6 +1,5 @@
 import {
   forwardRef,
-  useEffect,
   useId,
   useState,
   type FocusEvent,
@@ -109,8 +108,10 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   const generatedId = useId();
   const inputId = id ?? `text-input-${generatedId}`;
   const detailsId = `${inputId}-details`;
+  const isControlled = value !== undefined;
   const [isFocused, setIsFocused] = useState(false);
-  const [isFilled, setIsFilled] = useState(hasInputValue(value ?? defaultValue));
+  const [uncontrolledFilled, setUncontrolledFilled] = useState(hasInputValue(defaultValue));
+  const isFilled = isControlled ? hasInputValue(value) : uncontrolledFilled;
   const [validationResult, setValidationResult] = useState<ValidationResult>(
     DEFAULT_VALIDATION_RESULT,
   );
@@ -144,14 +145,6 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   const isFloating = Boolean(label) && (isFocused || isFilled);
   const resolvedPlaceholder = label && !isFloating ? '' : placeholder;
 
-  useEffect(() => {
-    if (value === undefined) {
-      return;
-    }
-
-    setIsFilled(hasInputValue(value));
-  }, [value]);
-
   const runValidation = (nextValue: string): void => {
     if (hasExternalError) {
       return;
@@ -176,7 +169,9 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   };
 
   const handleChange: NonNullable<TextInputProps['onChange']> = (event) => {
-    setIsFilled(hasInputValue(event.currentTarget.value));
+    if (!isControlled) {
+      setUncontrolledFilled(hasInputValue(event.currentTarget.value));
+    }
 
     if (validateOn === 'input') {
       runValidation(event.currentTarget.value);
