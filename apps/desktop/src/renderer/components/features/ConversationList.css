@@ -3,7 +3,7 @@
   flex: 1;
   min-height: 220px;
   border-radius: 0;
-  background: transparent;
+  background: var(--color-chat-bg);
   padding: 0;
 }
 
@@ -28,18 +28,32 @@
   top: 0;
   right: 0;
   left: 0;
-  height: 36px;
+  height: 48px;
   pointer-events: none;
   background: linear-gradient(
     180deg,
-    rgba(22, 28, 35, 0.6) 0%,
-    rgba(22, 28, 35, 0.3) 40%,
-    rgba(22, 28, 35, 0) 100%
+    var(--color-surface-elevated) 0%,
+    var(--color-surface-elevated-0) 100%
   );
   z-index: 1;
   border: none;
   box-shadow: none;
   outline: none;
+}
+
+.conversation-list__bottom-fade {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  height: 48px;
+  pointer-events: none;
+  background: linear-gradient(
+    0deg,
+    var(--color-surface-elevated) 0%,
+    var(--color-surface-elevated-0) 100%
+  );
+  z-index: 1;
 }
 
 .conversation-list__frame {

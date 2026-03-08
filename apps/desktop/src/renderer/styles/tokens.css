@@ -55,12 +55,18 @@
 
   /* Component tuning */
   --text-input-label-scale: 0.85;
+
+  /* Chat container */
+  --color-chat-bg: #111820;
+  --color-surface-elevated-0: rgba(0, 0, 0, 0);
 }
 
 :root[data-theme='light'] {
   --color-bg: #F3F6FA;
   --color-surface: #FFFFFF;
   --color-surface-elevated: #EEF3F8;
+  --color-chat-bg: #FFFFFF;
+  --color-surface-elevated-0: rgba(238, 243, 248, 0);
 
   --color-border: #D5DEE8;
   --color-border-hover: rgba(53, 109, 255, 0.38);

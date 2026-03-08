@@ -158,6 +158,11 @@ export function ConversationList({
           </button>
         ) : null}
       </div>
+      <div
+        className="conversation-list__bottom-fade"
+        data-testid="conversation-list-bottom-fade"
+        aria-hidden="true"
+      />
     </div>
   );
 }
