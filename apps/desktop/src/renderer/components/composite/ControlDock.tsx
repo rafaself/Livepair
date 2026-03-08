@@ -10,6 +10,7 @@ export function ControlDock(_props: ControlDockProps): JSX.Element {
   const {
     state: { isPanelOpen, assistantState },
     togglePanel,
+    closePanel,
     setAssistantState,
   } = useUiStore();
 
@@ -19,7 +20,7 @@ export function ControlDock(_props: ControlDockProps): JSX.Element {
   const [isWindowFocused, setIsWindowFocused] = useState(() => document.hasFocus());
 
   const isSessionActive = assistantState !== 'disconnected';
-  const shouldDimDock = !isWindowFocused && !isHovered;
+  const shouldDimDock = !isPanelOpen && !isWindowFocused && !isHovered;
 
   useEffect(() => {
     const handleWindowFocus = (): void => {
@@ -28,6 +29,9 @@ export function ControlDock(_props: ControlDockProps): JSX.Element {
 
     const handleWindowBlur = (): void => {
       setIsWindowFocused(false);
+      if (isPanelOpen) {
+        closePanel();
+      }
     };
 
     window.addEventListener('focus', handleWindowFocus);
@@ -37,7 +41,7 @@ export function ControlDock(_props: ControlDockProps): JSX.Element {
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, []);
+  }, [closePanel, isPanelOpen]);
 
   return (
     <div

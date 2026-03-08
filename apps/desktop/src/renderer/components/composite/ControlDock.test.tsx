@@ -1,12 +1,25 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { UiStoreProvider } from '../../store/uiStore';
+import { UiStoreProvider, useUiStore } from '../../store/uiStore';
 import { ControlDock } from './ControlDock';
 
 function renderDock() {
+  function DockHarness(): JSX.Element {
+    const {
+      state: { isPanelOpen },
+    } = useUiStore();
+
+    return (
+      <>
+        <output aria-label="panel-open">{String(isPanelOpen)}</output>
+        <ControlDock />
+      </>
+    );
+  }
+
   return render(
     <UiStoreProvider>
-      <ControlDock />
+      <DockHarness />
     </UiStoreProvider>,
   );
 }
@@ -87,6 +100,28 @@ describe('ControlDock', () => {
     expect(dock).toHaveClass('control-dock--dimmed');
 
     fireEvent(window, new Event('focus'));
+    expect(dock).not.toHaveClass('control-dock--dimmed');
+  });
+
+  it('closes the panel when the app window loses focus', () => {
+    renderDock();
+
+    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
+    expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
+
+    fireEvent(window, new Event('blur'));
+    expect(screen.getByLabelText('panel-open')).toHaveTextContent('false');
+  });
+
+  it('keeps the dock opaque whenever the panel is open', () => {
+    renderDock();
+    const dock = screen.getByRole('toolbar', { name: /assistant controls/i });
+
+    fireEvent(window, new Event('blur'));
+    expect(dock).toHaveClass('control-dock--dimmed');
+
+    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
+    expect(dock).toHaveClass('control-dock--panel-open');
     expect(dock).not.toHaveClass('control-dock--dimmed');
   });
 });
