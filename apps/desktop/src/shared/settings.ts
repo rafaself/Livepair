@@ -14,7 +14,9 @@ export type DesktopSettings = {
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
   selectedCaptureDisplayId: string;
+  selectedCaptureDisplayLabel?: string;
   selectedOverlayDisplayId: string;
+  selectedOverlayDisplayLabel?: string;
   isPanelPinned: boolean;
 };
 
@@ -78,7 +80,7 @@ export function normalizeDesktopSettings(
     return null;
   }
 
-  return {
+  const result: DesktopSettings = {
     themePreference,
     backendUrl,
     preferredMode,
@@ -88,6 +90,15 @@ export function normalizeDesktopSettings(
     selectedOverlayDisplayId,
     isPanelPinned,
   };
+
+  if (typeof settings.selectedCaptureDisplayLabel === 'string') {
+    result.selectedCaptureDisplayLabel = settings.selectedCaptureDisplayLabel;
+  }
+  if (typeof settings.selectedOverlayDisplayLabel === 'string') {
+    result.selectedOverlayDisplayLabel = settings.selectedOverlayDisplayLabel;
+  }
+
+  return result;
 }
 
 export function normalizeDesktopSettingsPatch(
@@ -145,6 +156,18 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.selectedOverlayDisplayId = patch.selectedOverlayDisplayId;
+  }
+
+  if ('selectedCaptureDisplayLabel' in patch) {
+    if (typeof patch.selectedCaptureDisplayLabel === 'string') {
+      normalizedPatch.selectedCaptureDisplayLabel = patch.selectedCaptureDisplayLabel;
+    }
+  }
+
+  if ('selectedOverlayDisplayLabel' in patch) {
+    if (typeof patch.selectedOverlayDisplayLabel === 'string') {
+      normalizedPatch.selectedOverlayDisplayLabel = patch.selectedOverlayDisplayLabel;
+    }
   }
 
   if ('isPanelPinned' in patch) {

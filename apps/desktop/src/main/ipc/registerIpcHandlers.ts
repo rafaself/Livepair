@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import type { DesktopDisplayOption } from '../../shared/desktopBridge';
 import { IPC_CHANNELS } from '../../shared/desktopBridge';
+import type { DesktopSettingsPatch } from '../../shared/settings';
 import type { DesktopSettingsService } from '../settings/settingsService';
 import { createBackendClient } from '../backend/backendClient';
 import {
@@ -14,7 +15,11 @@ type RegisterIpcHandlersOptions = {
   fetchImpl?: typeof fetch;
   getMainWindow: () => BrowserWindow | null;
   listDisplays?: () => DesktopDisplayOption[];
-  moveWindowToDisplay?: (targetDisplayId: string) => void;
+  moveWindowToDisplay?: (target: {
+    targetDisplayId?: string | undefined;
+    targetDisplayLabel?: string | undefined;
+  } | string) => void;
+  lookupDisplayLabel?: (displayId: string) => string | undefined;
   platform?: NodeJS.Platform;
   settingsService: DesktopSettingsService;
 };
@@ -23,6 +28,7 @@ export function registerIpcHandlers({
   fetchImpl = fetch,
   getMainWindow,
   listDisplays = () => [],
+  lookupDisplayLabel,
   moveWindowToDisplay = () => undefined,
   platform = process.platform,
   settingsService,
@@ -62,10 +68,28 @@ export function registerIpcHandlers({
         throw new Error('Invalid settings update');
       }
 
-      const nextSettings = await settingsService.updateSettings(patch);
+      // Store connector labels alongside display IDs for fallback matching
+      const enrichedPatch: DesktopSettingsPatch = { ...patch };
+      if (enrichedPatch.selectedOverlayDisplayId && lookupDisplayLabel) {
+        const label = lookupDisplayLabel(enrichedPatch.selectedOverlayDisplayId);
+        if (label) {
+          enrichedPatch.selectedOverlayDisplayLabel = label;
+        }
+      }
+      if (enrichedPatch.selectedCaptureDisplayId && lookupDisplayLabel) {
+        const label = lookupDisplayLabel(enrichedPatch.selectedCaptureDisplayId);
+        if (label) {
+          enrichedPatch.selectedCaptureDisplayLabel = label;
+        }
+      }
+
+      const nextSettings = await settingsService.updateSettings(enrichedPatch);
 
       if ('selectedOverlayDisplayId' in patch) {
-        moveWindowToDisplay(nextSettings.selectedOverlayDisplayId);
+        moveWindowToDisplay({
+          targetDisplayId: nextSettings.selectedOverlayDisplayId,
+          targetDisplayLabel: nextSettings.selectedOverlayDisplayLabel,
+        });
       }
 
       return nextSettings;

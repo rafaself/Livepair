@@ -183,6 +183,46 @@ describe('registerIpcHandlers', () => {
     expect(settingsService.updateSettings).not.toHaveBeenCalled();
   });
 
+  it('preserves the resolved overlay label when moving the window after a settings update', async () => {
+    const moveWindowToDisplay = vi.fn();
+    const lookupDisplayLabel = vi.fn(() => 'Built-in display');
+    const settingsService = createSettingsServiceDouble();
+    vi.mocked(settingsService.updateSettings).mockResolvedValue({
+      ...defaultSettings,
+      selectedOverlayDisplayId: '1881264395124818',
+      selectedOverlayDisplayLabel: 'Built-in display',
+    });
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      getMainWindow: () => null,
+      lookupDisplayLabel,
+      moveWindowToDisplay,
+      settingsService,
+    });
+
+    const updateSettingsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'settings:update',
+    )?.[1] as (_event: unknown, patch: unknown) => Promise<unknown>;
+
+    await expect(
+      updateSettingsHandler({}, { selectedOverlayDisplayId: '1881264395124818' }),
+    ).resolves.toEqual({
+      ...defaultSettings,
+      selectedOverlayDisplayId: '1881264395124818',
+      selectedOverlayDisplayLabel: 'Built-in display',
+    });
+
+    expect(settingsService.updateSettings).toHaveBeenCalledWith({
+      selectedOverlayDisplayId: '1881264395124818',
+      selectedOverlayDisplayLabel: 'Built-in display',
+    });
+    expect(moveWindowToDisplay).toHaveBeenCalledWith({
+      targetDisplayId: '1881264395124818',
+      targetDisplayLabel: 'Built-in display',
+    });
+  });
+
   it('routes overlay operations through the current window with platform-aware behavior', async () => {
     const mainWindow = createMainWindowDouble();
     const setShape = vi.mocked(mainWindow.setShape);

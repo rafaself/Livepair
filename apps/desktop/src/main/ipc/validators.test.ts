@@ -44,7 +44,9 @@ describe('ipc validators', () => {
       preferredMode: 'fast',
       isPanelPinned: true,
       selectedCaptureDisplayId: 'display-2',
+      selectedCaptureDisplayLabel: 'Built-in display',
       selectedOverlayDisplayId: 'primary',
+      selectedOverlayDisplayLabel: 'Built-in display',
     };
 
     expect(isDesktopSettingsPatch(valid)).toBe(true);
@@ -59,7 +61,9 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ bad: true })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedInputDeviceId: '' })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedCaptureDisplayId: '' })).toBe(false);
+    expect(isDesktopSettingsPatch({ selectedCaptureDisplayLabel: '' })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedOverlayDisplayId: '' })).toBe(false);
+    expect(isDesktopSettingsPatch({ selectedOverlayDisplayLabel: '' })).toBe(false);
     expect(isDesktopSettingsPatch({ preferredMode: 'slow' })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedOutputDeviceId: false })).toBe(false);
     expect(isDesktopSettingsPatch({ isPanelPinned: 'yes' })).toBe(false);

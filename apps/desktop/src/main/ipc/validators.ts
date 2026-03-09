@@ -41,7 +41,9 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
   'selectedInputDeviceId',
   'selectedOutputDeviceId',
   'selectedCaptureDisplayId',
+  'selectedCaptureDisplayLabel',
   'selectedOverlayDisplayId',
+  'selectedOverlayDisplayLabel',
   'isPanelPinned',
 ] as const;
 
@@ -135,8 +137,22 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
   }
 
   if (
+    'selectedCaptureDisplayLabel' in value &&
+    !isNonEmptyString(value['selectedCaptureDisplayLabel'])
+  ) {
+    return false;
+  }
+
+  if (
     'selectedOverlayDisplayId' in value &&
     !isNonEmptyString(value['selectedOverlayDisplayId'])
+  ) {
+    return false;
+  }
+
+  if (
+    'selectedOverlayDisplayLabel' in value &&
+    !isNonEmptyString(value['selectedOverlayDisplayLabel'])
   ) {
     return false;
   }
