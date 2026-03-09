@@ -6,6 +6,13 @@ This roadmap assumes the UI shell is mostly complete and the next work should fo
 
 Suggested target path for the future document: `docs/IMPLEMENTATION_ROADMAP.md`.
 
+Decision-complete specs for the next critical releases:
+
+- [Release 0: Runtime Infrastructure](../specs/release-0-runtime-infrastructure.md)
+- [Release 1: Real Token Issuance](../specs/release-1-real-token-issuance.md)
+- [Release 2: Desktop Realtime Session Skeleton](../specs/release-2-desktop-realtime-session-skeleton.md)
+- [Release 3: Text-First Realtime Turn](../specs/release-3-text-first-realtime-turn.md)
+
 ## Performance Targets
 
 - voice latency target: under 1 second for the main happy path
