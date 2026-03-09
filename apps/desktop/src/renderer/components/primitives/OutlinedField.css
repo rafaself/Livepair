@@ -7,32 +7,43 @@
   position: relative;
   width: 100%;
   max-width: 100%;
-  background: var(--color-surface);
+  background: transparent;
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
   --outlined-field-border-width: 1px;
-  --outlined-field-label-line-height: 1.4;
+  --outlined-field-label-rest-left-shift: 2px;
   transition:
-    background-color var(--motion-fast) var(--ease-out),
     color var(--motion-fast) var(--ease-out),
     opacity var(--motion-fast) var(--ease-out);
 }
 
 .outlined-field--sm {
-  --outlined-field-label-inline: var(--space-2);
-  --outlined-field-outline-leading: var(--space-2);
+  --outlined-field-outline-leading: calc(var(--space-2) + 2px);
+  --outlined-field-notch-padding-inline: 6px;
+  --outlined-field-label-inline: calc(
+    var(--outlined-field-outline-leading) + var(--outlined-field-notch-padding-inline)
+  );
   --outlined-field-content-min-height: calc(var(--space-10) + var(--space-1));
   --outlined-field-content-padding-inline: var(--space-2);
   --outlined-field-content-font-size: 0.875rem;
+  --outlined-field-label-float-font-size: 0.75rem;
+  --outlined-field-label-line-height: 1.25;
+  --outlined-field-label-float-scale: 0.8571;
   --outlined-field-label-float-y: calc(var(--space-2) * -1);
 }
 
 .outlined-field--md {
-  --outlined-field-label-inline: var(--space-3);
-  --outlined-field-outline-leading: var(--space-3);
+  --outlined-field-outline-leading: calc(var(--space-3) + 2px);
+  --outlined-field-notch-padding-inline: 6px;
+  --outlined-field-label-inline: calc(
+    var(--outlined-field-outline-leading) + var(--outlined-field-notch-padding-inline)
+  );
   --outlined-field-content-min-height: calc(var(--space-12) - var(--space-1));
   --outlined-field-content-padding-inline: var(--space-3);
   --outlined-field-content-font-size: 0.95rem;
+  --outlined-field-label-float-font-size: 0.75rem;
+  --outlined-field-label-line-height: 1.25;
+  --outlined-field-label-float-scale: 0.7895;
   --outlined-field-label-float-y: calc(var(--space-3) * -1);
 }
 
@@ -54,10 +65,6 @@
   )
   .outlined-field__outline {
   color: var(--color-border-hover);
-}
-
-.outlined-field__control[data-focused='true'] {
-  background: var(--color-surface-elevated);
 }
 
 .outlined-field__control[data-focused='true'] {
@@ -85,23 +92,25 @@
   max-width: calc(100% - (var(--outlined-field-label-inline) * 2));
   overflow: hidden;
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  cursor: text;
+  pointer-events: none;
+  font-size: var(--outlined-field-content-font-size);
   line-height: var(--outlined-field-label-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
-  transform: translateY(-50%) scale(1);
+  transform: translateX(calc(var(--outlined-field-label-rest-left-shift) * -1))
+    translateY(-50%) scale(1);
   transform-origin: left top;
   transition:
     color var(--motion-fast) var(--ease-out),
-    opacity var(--motion-fast) var(--ease-out),
     top var(--motion-fast) var(--ease-out),
     transform var(--motion-fast) var(--ease-out);
 }
 
 .outlined-field__control[data-floating='true'] .outlined-field__label {
   top: 0;
-  transform: translateY(var(--outlined-field-label-float-y))
-    scale(var(--text-input-label-scale));
+  transform: translateX(0) translateY(var(--outlined-field-label-float-y))
+    scale(var(--outlined-field-label-float-scale));
 }
 
 .outlined-field__control[data-focused='true'] .outlined-field__label {
@@ -140,10 +149,10 @@
   border-top-width: var(--outlined-field-border-width);
   border-bottom-width: var(--outlined-field-border-width);
   border-inline-start-width: var(--outlined-field-border-width);
-  border-start-start-radius: inherit;
+  border-start-start-radius: var(--radius-md);
   border-start-end-radius: 0;
   border-end-end-radius: 0;
-  border-end-start-radius: inherit;
+  border-end-start-radius: var(--radius-md);
 }
 
 .outlined-field__outline-notch {
@@ -177,8 +186,8 @@
 
 .outlined-field__outline-notch-label {
   display: block;
-  padding: 0 var(--space-1);
-  font-size: 0.75rem;
+  padding: 0 var(--outlined-field-notch-padding-inline);
+  font-size: var(--outlined-field-label-float-font-size);
   line-height: var(--outlined-field-label-line-height);
   opacity: 0;
   white-space: nowrap;
@@ -193,7 +202,7 @@
   border-bottom-width: var(--outlined-field-border-width);
   border-inline-end-width: var(--outlined-field-border-width);
   border-start-start-radius: 0;
-  border-start-end-radius: inherit;
-  border-end-end-radius: inherit;
+  border-start-end-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
   border-end-start-radius: 0;
 }
