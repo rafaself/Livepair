@@ -26,6 +26,13 @@ function HookHarness(): JSX.Element {
       <output aria-label="output-options">
         {controller.outputDeviceOptions.map((option) => option.label).join('|')}
       </output>
+      <output aria-label="capture-options">
+        {controller.captureDisplayOptions.map((option) => option.label).join('|')}
+      </output>
+      <output aria-label="overlay-options">
+        {controller.overlayDisplayOptions.map((option) => option.label).join('|')}
+      </output>
+      <output aria-label="display-issues">{controller.displayIssueSummaries.join('|') || 'none'}</output>
       <output aria-label="debug-mode">{String(controller.isDebugMode)}</output>
       <button type="button" onClick={controller.toggleDebugMode}>
         toggle debug
@@ -41,6 +48,12 @@ function HookHarness(): JSX.Element {
       </button>
       <button type="button" onClick={() => controller.setSelectedOutputDeviceId('desk-speakers')}>
         set output
+      </button>
+      <button type="button" onClick={() => controller.setSelectedCaptureDisplayId('display-2')}>
+        set capture display
+      </button>
+      <button type="button" onClick={() => controller.setSelectedOverlayDisplayId('display-3')}>
+        set overlay display
       </button>
       <button type="button" onClick={() => controller.setThemePreference('dark')}>
         set dark
@@ -60,10 +73,20 @@ describe('useAssistantPanelSettingsController', () => {
       isReady: true,
     });
     useUiStore.getState().initializeSettingsUi(useSettingsStore.getState().settings);
+    useUiStore.setState({
+      displayOptions: [
+        { id: 'display-2', label: 'Display 2', isPrimary: false },
+        { id: 'display-3', label: 'Display 3', isPrimary: false },
+      ],
+    });
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
       ...patch,
     }));
+    window.bridge.listDisplays = vi.fn(async () => [
+      { id: 'display-2', label: 'Display 2', isPrimary: false },
+      { id: 'display-3', label: 'Display 3', isPrimary: false },
+    ]);
   });
 
   it('normalizes and persists a valid backend url on blur', async () => {
@@ -134,6 +157,22 @@ describe('useAssistantPanelSettingsController', () => {
     expect(screen.getByLabelText('output-options')).toHaveTextContent('No speaker detected');
   });
 
+  it('builds display options with the primary sentinel and preserves unavailable saved displays', () => {
+    useSettingsStore.setState({
+      settings: {
+        ...useSettingsStore.getState().settings,
+        selectedCaptureDisplayId: 'missing-display',
+      },
+      isReady: true,
+    });
+
+    render(<HookHarness />);
+
+    expect(screen.getByLabelText('capture-options')).toHaveTextContent(
+      'Primary display|Display 2|Display 3|Saved display unavailable',
+    );
+  });
+
   it('routes settings mutations through the stores and exposes debug mode toggles', async () => {
     render(<HookHarness />);
 
@@ -142,6 +181,8 @@ describe('useAssistantPanelSettingsController', () => {
     fireEvent.click(screen.getByRole('button', { name: 'set thinking' }));
     fireEvent.click(screen.getByRole('button', { name: 'set input' }));
     fireEvent.click(screen.getByRole('button', { name: 'set output' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set capture display' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set overlay display' }));
     fireEvent.click(screen.getByRole('button', { name: 'set dark' }));
 
     await waitFor(() => {
@@ -152,6 +193,12 @@ describe('useAssistantPanelSettingsController', () => {
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ selectedInputDeviceId: 'usb-mic' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       selectedOutputDeviceId: 'desk-speakers',
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      selectedCaptureDisplayId: 'display-2',
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      selectedOverlayDisplayId: 'display-3',
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
   });

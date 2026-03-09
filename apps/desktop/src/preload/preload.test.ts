@@ -32,6 +32,7 @@ describe('preload bridge', () => {
       'requestSessionToken',
       'getSettings',
       'updateSettings',
+      'listDisplays',
       'setOverlayHitRegions',
       'setOverlayPointerPassthrough',
     ]);
@@ -41,6 +42,7 @@ describe('preload bridge', () => {
       requestSessionToken: expect.any(Function),
       getSettings: expect.any(Function),
       updateSettings: expect.any(Function),
+      listDisplays: expect.any(Function),
       setOverlayHitRegions: expect.any(Function),
       setOverlayPointerPassthrough: expect.any(Function),
     });
@@ -86,6 +88,12 @@ describe('preload bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith('settings:update', {
       backendUrl: 'https://api.livepair.dev',
     });
+
+    mockInvoke.mockResolvedValueOnce([
+      { id: 'primary', label: 'Primary display', isPrimary: true },
+    ]);
+    await bridge.listDisplays();
+    expect(mockInvoke).toHaveBeenCalledWith('displays:list');
 
     mockInvoke.mockResolvedValueOnce(undefined);
     await bridge.setOverlayHitRegions([{ x: 0, y: 10, width: 100, height: 60 }]);

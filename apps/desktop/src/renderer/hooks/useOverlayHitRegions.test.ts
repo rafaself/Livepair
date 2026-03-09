@@ -23,6 +23,7 @@ describe('useOverlayHitRegions', () => {
       requestSessionToken: vi.fn(),
       getSettings: vi.fn(),
       updateSettings: vi.fn(),
+      listDisplays: vi.fn(),
       setOverlayHitRegions: mockSetOverlayHitRegions,
       setOverlayPointerPassthrough: vi.fn(),
     };

@@ -16,6 +16,8 @@ const defaultSettings: DesktopSettings = {
   preferredMode: 'fast',
   selectedInputDeviceId: 'default',
   selectedOutputDeviceId: 'default',
+  selectedCaptureDisplayId: 'primary',
+  selectedOverlayDisplayId: 'primary',
   isPanelPinned: false,
 };
 
@@ -47,7 +49,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(6);
+    expect(mockHandle).toHaveBeenCalledTimes(7);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -57,16 +59,21 @@ describe('registerIpcHandlers', () => {
     expect(mockHandle).toHaveBeenNthCalledWith(3, 'settings:get', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       4,
-      'settings:update',
+      'displays:list',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       5,
-      'overlay:setHitRegions',
+      'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       6,
+      'overlay:setHitRegions',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      7,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );

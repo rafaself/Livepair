@@ -13,6 +13,7 @@ describe('useOverlayPointerPassthrough', () => {
       requestSessionToken: vi.fn(),
       getSettings: vi.fn(),
       updateSettings: vi.fn(),
+      listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: mockSetOverlayPointerPassthrough,
     };

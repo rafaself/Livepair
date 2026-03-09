@@ -10,6 +10,7 @@ const mockOpenDevTools = vi.fn();
 const mockToggleDevTools = vi.fn();
 const mockSetIgnoreMouseEvents = vi.fn();
 const mockSetShape = vi.fn();
+const mockSetBounds = vi.fn();
 const mockWindowOn = vi.fn();
 const mockGetAllWindows = vi.fn((): unknown[] => []);
 const mockAppendSwitch = vi.fn();
@@ -26,12 +27,23 @@ const browserWindowCtor = vi.fn(() => ({
   },
   setIgnoreMouseEvents: mockSetIgnoreMouseEvents,
   setShape: mockSetShape,
+  setBounds: mockSetBounds,
   on: mockWindowOn,
 }));
 
 const mockGetPrimaryDisplay = vi.fn(() => ({
+  id: 1,
+  bounds: { x: 0, y: 0, width: 1920, height: 1080 },
   workArea: { x: 0, y: 0, width: 1920, height: 1080 },
 }));
+const mockGetAllDisplays = vi.fn(() => [
+  mockGetPrimaryDisplay(),
+  {
+    id: 2,
+    bounds: { x: 1920, y: 0, width: 2560, height: 1440 },
+    workArea: { x: 1920, y: 0, width: 2560, height: 1440 },
+  },
+]);
 
 vi.mock('electron', () => ({
   app: {
@@ -42,7 +54,10 @@ vi.mock('electron', () => ({
   BrowserWindow: Object.assign(browserWindowCtor, {
     getAllWindows: mockGetAllWindows,
   }),
-  screen: { getPrimaryDisplay: mockGetPrimaryDisplay },
+  screen: {
+    getPrimaryDisplay: mockGetPrimaryDisplay,
+    getAllDisplays: mockGetAllDisplays,
+  },
 }));
 
 describe('overlayWindow', () => {
@@ -56,7 +71,7 @@ describe('overlayWindow', () => {
     vi.stubEnv('NODE_ENV', 'development');
     const overlayWindow = await import('./overlayWindow');
 
-    overlayWindow.createWindow();
+    overlayWindow.createWindow('primary');
 
     expect(mockGetPrimaryDisplay).toHaveBeenCalled();
     expect(browserWindowCtor).toHaveBeenCalledWith(
@@ -93,7 +108,7 @@ describe('overlayWindow', () => {
     vi.stubEnv('NODE_ENV', 'development');
     const overlayWindow = await import('./overlayWindow');
 
-    overlayWindow.createWindow();
+    overlayWindow.createWindow('primary');
 
     const beforeInputHandler = mockWebContentsOn.mock.calls.find(
       ([eventName]) => eventName === 'before-input-event',
@@ -119,7 +134,7 @@ describe('overlayWindow', () => {
     vi.stubEnv('NODE_ENV', 'production');
     const overlayWindow = await import('./overlayWindow');
 
-    overlayWindow.createWindow();
+    overlayWindow.createWindow('primary');
     expect(mockLoadFile).toHaveBeenCalled();
     expect(mockOpenDevTools).not.toHaveBeenCalled();
 
@@ -129,8 +144,118 @@ describe('overlayWindow', () => {
     vi.stubEnv('OPEN_DEVTOOLS', 'true');
     const devOverlayWindow = await import('./overlayWindow');
 
-    devOverlayWindow.createWindow();
+    devOverlayWindow.createWindow('primary');
     expect(mockOpenDevTools).toHaveBeenCalledWith({ mode: 'detach' });
+  });
+
+  it('creates the overlay window on a selected concrete display and can move an existing window later', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow('2');
+
+    expect(browserWindowCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        x: 1920,
+        y: 0,
+        width: 2560,
+        height: 1440,
+      }),
+    );
+
+    overlayWindow.moveWindowToDisplay('primary');
+    expect(mockSetBounds).toHaveBeenCalledWith({
+      x: 0,
+      y: 0,
+      width: 1920,
+      height: 1080,
+    });
+  });
+
+  it('forces the target bounds after creating the window so the window manager cannot keep a stale monitor placement', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow('2');
+
+    expect(mockSetBounds).toHaveBeenCalledWith({
+      x: 1920,
+      y: 0,
+      width: 2560,
+      height: 1440,
+    });
+  });
+
+  it('uses display bounds instead of work area when accessibility settings shrink the work area', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    mockGetPrimaryDisplay.mockReturnValueOnce({
+      id: 1,
+      bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+      workArea: { x: 64, y: 0, width: 1856, height: 1080 },
+    });
+    mockGetAllDisplays.mockReturnValueOnce([
+      {
+        id: 1,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 64, y: 0, width: 1856, height: 1080 },
+      },
+      {
+        id: 2,
+        bounds: { x: 1920, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 1920, y: 0, width: 2560, height: 1440 },
+      },
+    ]);
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow('primary');
+
+    expect(browserWindowCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+      }),
+    );
+    expect(mockSetBounds).toHaveBeenCalledWith({
+      x: 0,
+      y: 0,
+      width: 1920,
+      height: 1080,
+    });
+  });
+
+  it('keeps using Electron primary display instead of the display anchored at the origin', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    mockGetPrimaryDisplay.mockReturnValueOnce({
+      id: 2,
+      bounds: { x: 1920, y: 0, width: 2560, height: 1440 },
+      workArea: { x: 1920, y: 0, width: 2560, height: 1440 },
+    });
+    mockGetAllDisplays.mockReturnValueOnce([
+      {
+        id: 1,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+      },
+      {
+        id: 2,
+        bounds: { x: 1920, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 1920, y: 0, width: 2560, height: 1440 },
+      },
+    ]);
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow('primary');
+
+    expect(browserWindowCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        x: 1920,
+        y: 0,
+        width: 2560,
+        height: 1440,
+      }),
+    );
   });
 
   it('applies the linux transparent visuals switch only on linux', async () => {

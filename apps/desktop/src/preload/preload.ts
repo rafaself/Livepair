@@ -11,6 +11,7 @@ export const bridge: DesktopBridge = {
   requestSessionToken: (req) => ipcRenderer.invoke(IPC_CHANNELS.requestSessionToken, req),
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.getSettings),
   updateSettings: (patch) => ipcRenderer.invoke(IPC_CHANNELS.updateSettings, patch),
+  listDisplays: () => ipcRenderer.invoke(IPC_CHANNELS.listDisplays),
   setOverlayHitRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayHitRegions, regions),
   setOverlayPointerPassthrough: (enabled) =>
     ipcRenderer.invoke(IPC_CHANNELS.setOverlayPointerPassthrough, enabled),

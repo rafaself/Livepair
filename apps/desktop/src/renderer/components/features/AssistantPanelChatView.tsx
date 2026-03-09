@@ -1,8 +1,10 @@
 import { MessageCircle } from 'lucide-react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import type { ConversationTurnModel } from './mockConversation';
+import { useUiStore } from '../../store/uiStore';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { ConversationList } from './ConversationList';
+import { Badge, Button } from '../primitives';
 
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;
@@ -15,8 +17,24 @@ export function AssistantPanelChatView({
   turns,
   isConversationEmpty,
 }: AssistantPanelChatViewProps): JSX.Element {
+  const primarySettingsIssue = useUiStore((state) => state.settingsIssues[0] ?? null);
+  const openSettingsForTarget = useUiStore((state) => state.openSettingsForTarget);
+
   return (
     <div className="assistant-panel__view-section">
+      {primarySettingsIssue ? (
+        <div className="assistant-panel__warning-summary" role="status" aria-live="polite">
+          <Badge variant="warning">Warning</Badge>
+          <p>{primarySettingsIssue.summary}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openSettingsForTarget(primarySettingsIssue.focusTarget)}
+          >
+            Fix
+          </Button>
+        </div>
+      ) : null}
       <AssistantPanelStateHero state={assistantState} />
       <section
         className="assistant-panel__conversation"

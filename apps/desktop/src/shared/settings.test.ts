@@ -19,6 +19,22 @@ describe('normalizeDesktopSettings', () => {
     });
   });
 
+  it('defaults both display selections to the primary display sentinel and accepts concrete ids', () => {
+    expect(DEFAULT_DESKTOP_SETTINGS.selectedCaptureDisplayId).toBe('primary');
+    expect(DEFAULT_DESKTOP_SETTINGS.selectedOverlayDisplayId).toBe('primary');
+
+    expect(
+      normalizeDesktopSettings({
+        selectedCaptureDisplayId: 'display-2',
+        selectedOverlayDisplayId: 'display-3',
+      }),
+    ).toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      selectedCaptureDisplayId: 'display-2',
+      selectedOverlayDisplayId: 'display-3',
+    });
+  });
+
   it('rejects invalid full settings values', () => {
     expect(
       normalizeDesktopSettings({
@@ -37,6 +53,16 @@ describe('normalizeDesktopSettings', () => {
     ).toBeNull();
     expect(
       normalizeDesktopSettings({
+        selectedCaptureDisplayId: '',
+      }),
+    ).toBeNull();
+    expect(
+      normalizeDesktopSettings({
+        selectedOverlayDisplayId: '',
+      }),
+    ).toBeNull();
+    expect(
+      normalizeDesktopSettings({
         themePreference: 'sepia' as never,
       }),
     ).toBeNull();
@@ -50,11 +76,15 @@ describe('normalizeDesktopSettingsPatch', () => {
         backendUrl: ' https://api.livepair.dev/base/ ',
         preferredMode: 'thinking',
         isPanelPinned: true,
+        selectedCaptureDisplayId: 'display-2',
+        selectedOverlayDisplayId: 'primary',
       }),
     ).toEqual({
       backendUrl: 'https://api.livepair.dev/base',
       preferredMode: 'thinking',
       isPanelPinned: true,
+      selectedCaptureDisplayId: 'display-2',
+      selectedOverlayDisplayId: 'primary',
     });
   });
 
@@ -82,6 +112,16 @@ describe('normalizeDesktopSettingsPatch', () => {
     expect(
       normalizeDesktopSettingsPatch({
         selectedInputDeviceId: '',
+      }),
+    ).toBeNull();
+    expect(
+      normalizeDesktopSettingsPatch({
+        selectedCaptureDisplayId: '',
+      }),
+    ).toBeNull();
+    expect(
+      normalizeDesktopSettingsPatch({
+        selectedOverlayDisplayId: '',
       }),
     ).toBeNull();
   });

@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
+import type { DesktopDisplayOption } from '../../shared/desktopBridge';
 import { IPC_CHANNELS } from '../../shared/desktopBridge';
 import type { DesktopSettingsService } from '../settings/settingsService';
 import { createBackendClient } from '../backend/backendClient';
@@ -12,6 +13,8 @@ import {
 type RegisterIpcHandlersOptions = {
   fetchImpl?: typeof fetch;
   getMainWindow: () => BrowserWindow | null;
+  listDisplays?: () => DesktopDisplayOption[];
+  moveWindowToDisplay?: (targetDisplayId: string) => void;
   platform?: NodeJS.Platform;
   settingsService: DesktopSettingsService;
 };
@@ -19,6 +22,8 @@ type RegisterIpcHandlersOptions = {
 export function registerIpcHandlers({
   fetchImpl = fetch,
   getMainWindow,
+  listDisplays = () => [],
+  moveWindowToDisplay = () => undefined,
   platform = process.platform,
   settingsService,
 }: RegisterIpcHandlersOptions): void {
@@ -46,6 +51,10 @@ export function registerIpcHandlers({
     return settingsService.getSettings();
   });
 
+  ipcMain.handle(IPC_CHANNELS.listDisplays, async () => {
+    return listDisplays();
+  });
+
   ipcMain.handle(
     IPC_CHANNELS.updateSettings,
     async (_event, patch: unknown) => {
@@ -53,7 +62,13 @@ export function registerIpcHandlers({
         throw new Error('Invalid settings update');
       }
 
-      return settingsService.updateSettings(patch);
+      const nextSettings = await settingsService.updateSettings(patch);
+
+      if ('selectedOverlayDisplayId' in patch) {
+        moveWindowToDisplay(nextSettings.selectedOverlayDisplayId);
+      }
+
+      return nextSettings;
     },
   );
 

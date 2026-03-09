@@ -148,4 +148,19 @@ describe('DesktopSettingsRepository', () => {
       repository.updateSettings({ selectedOutputDeviceId: '' }),
     ).rejects.toThrow('Invalid desktop settings');
   });
+
+  it('persists display selection settings alongside the existing desktop settings', async () => {
+    const repository = new DesktopSettingsRepository(settingsFilePath);
+
+    await expect(
+      repository.updateSettings({
+        selectedCaptureDisplayId: 'display-2',
+        selectedOverlayDisplayId: 'display-3',
+      }),
+    ).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      selectedCaptureDisplayId: 'display-2',
+      selectedOverlayDisplayId: 'display-3',
+    });
+  });
 });

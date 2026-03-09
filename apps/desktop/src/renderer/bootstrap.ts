@@ -6,6 +6,7 @@ export async function bootstrapDesktopRenderer(): Promise<void> {
   const settings = await useSettingsStore.getState().hydrate();
   useUiStore.getState().initializeSettingsUi(settings);
   await useUiStore.getState().initializeDevicePreferences();
+  await useUiStore.getState().initializeDisplayPreferences();
 
   const mediaQueryList = window.matchMedia(THEME_MEDIA_QUERY);
   applyResolvedTheme(resolveThemePreference(settings.themePreference, mediaQueryList.matches));

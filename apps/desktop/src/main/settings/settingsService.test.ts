@@ -21,6 +21,8 @@ vi.mock('./settingsRepository', () => ({
         preferredMode: 'fast',
         selectedInputDeviceId: 'default',
         selectedOutputDeviceId: 'default',
+        selectedCaptureDisplayId: 'primary',
+        selectedOverlayDisplayId: 'primary',
         themePreference: 'system',
       })),
       updateSettings: vi.fn(async (patch) => ({
@@ -29,6 +31,8 @@ vi.mock('./settingsRepository', () => ({
         preferredMode: patch.preferredMode ?? 'fast',
         selectedInputDeviceId: patch.selectedInputDeviceId ?? 'default',
         selectedOutputDeviceId: patch.selectedOutputDeviceId ?? 'default',
+        selectedCaptureDisplayId: patch.selectedCaptureDisplayId ?? 'primary',
+        selectedOverlayDisplayId: patch.selectedOverlayDisplayId ?? 'primary',
         themePreference: patch.themePreference ?? 'system',
       })),
     };
@@ -50,6 +54,8 @@ describe('DesktopSettingsService', () => {
         preferredMode: 'fast' as const,
         selectedInputDeviceId: 'default',
         selectedOutputDeviceId: 'default',
+        selectedCaptureDisplayId: 'primary',
+        selectedOverlayDisplayId: 'primary',
         themePreference: 'system' as const,
       })),
       updateSettings: vi.fn(async () => ({
@@ -58,6 +64,8 @@ describe('DesktopSettingsService', () => {
         preferredMode: 'thinking' as const,
         selectedInputDeviceId: 'usb-mic',
         selectedOutputDeviceId: 'desk-speakers',
+        selectedCaptureDisplayId: 'display-2',
+        selectedOverlayDisplayId: 'display-3',
         themePreference: 'dark' as const,
       })),
     };

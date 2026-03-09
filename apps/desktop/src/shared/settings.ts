@@ -5,6 +5,7 @@ import {
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type PreferredMode = 'fast' | 'thinking';
+export const PRIMARY_DISPLAY_ID = 'primary';
 
 export type DesktopSettings = {
   themePreference: ThemePreference;
@@ -12,6 +13,8 @@ export type DesktopSettings = {
   preferredMode: PreferredMode;
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
+  selectedCaptureDisplayId: string;
+  selectedOverlayDisplayId: string;
   isPanelPinned: boolean;
 };
 
@@ -23,6 +26,8 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   preferredMode: 'fast',
   selectedInputDeviceId: 'default',
   selectedOutputDeviceId: 'default',
+  selectedCaptureDisplayId: PRIMARY_DISPLAY_ID,
+  selectedOverlayDisplayId: PRIMARY_DISPLAY_ID,
   isPanelPinned: false,
 };
 
@@ -54,6 +59,10 @@ export function normalizeDesktopSettings(
     settings.selectedInputDeviceId ?? DEFAULT_DESKTOP_SETTINGS.selectedInputDeviceId;
   const selectedOutputDeviceId =
     settings.selectedOutputDeviceId ?? DEFAULT_DESKTOP_SETTINGS.selectedOutputDeviceId;
+  const selectedCaptureDisplayId =
+    settings.selectedCaptureDisplayId ?? DEFAULT_DESKTOP_SETTINGS.selectedCaptureDisplayId;
+  const selectedOverlayDisplayId =
+    settings.selectedOverlayDisplayId ?? DEFAULT_DESKTOP_SETTINGS.selectedOverlayDisplayId;
   const isPanelPinned = settings.isPanelPinned ?? DEFAULT_DESKTOP_SETTINGS.isPanelPinned;
 
   if (
@@ -62,6 +71,8 @@ export function normalizeDesktopSettings(
     preferredMode === null ||
     !isNonEmptyString(selectedInputDeviceId) ||
     !isNonEmptyString(selectedOutputDeviceId) ||
+    !isNonEmptyString(selectedCaptureDisplayId) ||
+    !isNonEmptyString(selectedOverlayDisplayId) ||
     typeof isPanelPinned !== 'boolean'
   ) {
     return null;
@@ -73,6 +84,8 @@ export function normalizeDesktopSettings(
     preferredMode,
     selectedInputDeviceId,
     selectedOutputDeviceId,
+    selectedCaptureDisplayId,
+    selectedOverlayDisplayId,
     isPanelPinned,
   };
 }
@@ -118,6 +131,20 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.selectedOutputDeviceId = patch.selectedOutputDeviceId;
+  }
+
+  if ('selectedCaptureDisplayId' in patch) {
+    if (!isNonEmptyString(patch.selectedCaptureDisplayId)) {
+      return null;
+    }
+    normalizedPatch.selectedCaptureDisplayId = patch.selectedCaptureDisplayId;
+  }
+
+  if ('selectedOverlayDisplayId' in patch) {
+    if (!isNonEmptyString(patch.selectedOverlayDisplayId)) {
+      return null;
+    }
+    normalizedPatch.selectedOverlayDisplayId = patch.selectedOverlayDisplayId;
   }
 
   if ('isPanelPinned' in patch) {

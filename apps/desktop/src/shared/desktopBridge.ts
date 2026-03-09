@@ -8,6 +8,12 @@ import type {
   DesktopSettingsPatch,
 } from './settings';
 
+export type DesktopDisplayOption = {
+  id: string;
+  label: string;
+  isPrimary: boolean;
+};
+
 export type OverlayHitRegion = {
   x: number;
   y: number;
@@ -25,6 +31,7 @@ export interface DesktopBridge {
   ) => Promise<CreateEphemeralTokenResponse>;
   getSettings: () => Promise<DesktopSettings>;
   updateSettings: (patch: DesktopSettingsPatch) => Promise<DesktopSettings>;
+  listDisplays: () => Promise<DesktopDisplayOption[]>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
   setOverlayPointerPassthrough: (enabled: boolean) => Promise<void>;
 }
@@ -34,6 +41,7 @@ export const IPC_CHANNELS = {
   requestSessionToken: 'session:requestToken',
   getSettings: 'settings:get',
   updateSettings: 'settings:update',
+  listDisplays: 'displays:list',
   setOverlayHitRegions: 'overlay:setHitRegions',
   setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
 } as const;

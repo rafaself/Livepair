@@ -11,6 +11,7 @@ describe('renderer backend api helper', () => {
       requestSessionToken: requestToken,
       getSettings: vi.fn(),
       updateSettings: vi.fn(),
+      listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };
@@ -27,6 +28,7 @@ describe('renderer backend api helper', () => {
       requestSessionToken: requestToken,
       getSettings: vi.fn(),
       updateSettings: vi.fn(),
+      listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };
@@ -39,6 +41,7 @@ describe('renderer backend api helper', () => {
       requestSessionToken: requestToken,
       getSettings: vi.fn(),
       updateSettings: vi.fn(),
+      listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };
@@ -59,6 +62,7 @@ describe('renderer backend api helper', () => {
       requestSessionToken: requestToken,
       getSettings: vi.fn(),
       updateSettings: vi.fn(),
+      listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };
@@ -77,6 +81,7 @@ describe('renderer backend api helper', () => {
       requestSessionToken: requestToken,
       getSettings: vi.fn(),
       updateSettings: vi.fn(),
+      listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
     };

@@ -57,6 +57,15 @@
   color: var(--color-error) !important;
 }
 
+.control-dock__btn--warning {
+  color: var(--color-warning) !important;
+}
+
+.control-dock__btn--warning:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: var(--color-warning) !important;
+}
+
 .control-dock__panel-btn svg {
   transition: transform var(--motion-normal) var(--ease-out);
 }

@@ -31,6 +31,7 @@ async function renderSettings(settings = DEFAULT_DESKTOP_SETTINGS): Promise<Retu
 
   await act(async () => {
     await useUiStore.getState().initializeDevicePreferences();
+    await useUiStore.getState().initializeDisplayPreferences();
   });
 
   return render(<AssistantPanelSettingsView />);
@@ -45,6 +46,10 @@ describe('AssistantPanelSettingsView', () => {
       ...useSettingsStore.getState().settings,
       ...patch,
     }));
+    window.bridge.listDisplays = vi.fn(async () => [
+      { id: 'display-2', label: 'Display 2', isPrimary: false },
+      { id: 'display-3', label: 'Display 3', isPrimary: false },
+    ]);
     installMediaDevicesMock();
   });
 
@@ -56,6 +61,7 @@ describe('AssistantPanelSettingsView', () => {
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'General' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Display' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Backend' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
@@ -111,6 +117,30 @@ describe('AssistantPanelSettingsView', () => {
 
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ preferredMode: 'thinking' });
+  });
+
+  it('persists display selections through the settings store', async () => {
+    await renderSettings();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /screen capture display/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'Display 2' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /dock and panel display/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('option', { name: 'Display 3' }).at(-1)!);
+    });
+
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      selectedCaptureDisplayId: 'display-2',
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      selectedOverlayDisplayId: 'display-3',
+    });
   });
 
   it('renders enumerated devices and resets invalid stored selections to default', async () => {
@@ -195,6 +225,21 @@ describe('AssistantPanelSettingsView', () => {
 
     await waitFor(() => {
       expect(enumerateDevices).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('keeps missing saved displays visible and shows a warning instead of auto-resetting them', async () => {
+    await renderSettings({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      selectedCaptureDisplayId: 'missing-display',
+    });
+
+    expect(screen.getByRole('button', { name: /screen capture display/i })).toHaveTextContent(
+      'Saved display unavailable',
+    );
+    expect(screen.getByText(/Screen capture display is unavailable/i)).toBeVisible();
+    expect(window.bridge.updateSettings).not.toHaveBeenCalledWith({
+      selectedCaptureDisplayId: 'primary',
     });
   });
 });

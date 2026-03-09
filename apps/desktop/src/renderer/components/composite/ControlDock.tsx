@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, Mic, MicOff, Monitor, MonitorOff, Phone, Play } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronLeft,
+  Mic,
+  MicOff,
+  Monitor,
+  MonitorOff,
+  Phone,
+  Play,
+} from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -17,9 +26,12 @@ export function ControlDock({
   onEndSession,
 }: ControlDockProps): JSX.Element {
   const isPanelOpen = useUiStore((state) => state.isPanelOpen);
+  const settingsIssues = useUiStore((state) => state.settingsIssues);
+  const openSettingsForTarget = useUiStore((state) => state.openSettingsForTarget);
   const togglePanel = useUiStore((state) => state.togglePanel);
   const closePanel = useUiStore((state) => state.closePanel);
   const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
+  const primarySettingsIssue = settingsIssues[0] ?? null;
 
   const [isMicActive, setIsMicActive] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -80,6 +92,16 @@ export function ControlDock({
       >
         {isSessionActive ? <Phone size={18} /> : <Play size={18} />}
       </IconButton>
+
+      {primarySettingsIssue ? (
+        <IconButton
+          label="Open warnings"
+          className="control-dock__btn--warning"
+          onClick={() => openSettingsForTarget(primarySettingsIssue.focusTarget)}
+        >
+          <AlertTriangle size={18} />
+        </IconButton>
+      ) : null}
 
       <Divider orientation="horizontal" />
 

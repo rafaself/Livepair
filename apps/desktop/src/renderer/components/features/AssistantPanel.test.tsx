@@ -65,6 +65,9 @@ describe('AssistantPanel', () => {
       expiresAt: 'later',
       isStub: true,
     });
+    window.bridge.listDisplays = vi.fn().mockResolvedValue([
+      { id: 'display-2', label: 'Display 2', isPrimary: false },
+    ]);
     enumerateDevices.mockReset();
     enumerateDevices.mockResolvedValue([]);
     Object.defineProperty(window.navigator, 'mediaDevices', {
@@ -162,5 +165,34 @@ describe('AssistantPanel', () => {
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
     expect(panelScope.queryByRole('button', { name: 'Developer tools' })).toBeNull();
+  });
+
+  it('shows a warning summary in chat and deep-links to the affected settings control', async () => {
+    useUiStore.setState({
+      settingsIssues: [
+        {
+          id: 'missing-overlay-display',
+          severity: 'warning',
+          summary: 'Dock and panel display is unavailable.',
+          focusTarget: 'overlay-display',
+        },
+      ],
+    });
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    expect(panelScope.getByText(/Dock and panel display is unavailable/i)).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Fix' }));
+    });
+
+    expect(panelScope.getByRole('button', { name: /dock and panel display/i })).toHaveFocus();
   });
 });

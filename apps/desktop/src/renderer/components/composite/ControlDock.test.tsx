@@ -14,12 +14,14 @@ function renderDock() {
   function DockHarness(): JSX.Element {
     const assistantState = useSessionStore(selectAssistantRuntimeState);
     const isPanelOpen = useUiStore((state) => state.isPanelOpen);
+    const panelView = useUiStore((state) => state.panelView);
     const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
     const { handleEndSession, handleStartSession, isSessionActive } = useSessionRuntime();
 
     return (
       <>
         <output aria-label="panel-open">{String(isPanelOpen)}</output>
+        <output aria-label="panel-view">{panelView}</output>
         <output aria-label="panel-pinned">{String(isPanelPinned)}</output>
         <output aria-label="assistant-state">{assistantState}</output>
         <ControlDock
@@ -53,6 +55,7 @@ describe('ControlDock', () => {
       expiresAt: 'later',
       isStub: true,
     });
+    window.bridge.listDisplays = vi.fn().mockResolvedValue([]);
   });
 
   it('renders all four control buttons', () => {
@@ -128,5 +131,25 @@ describe('ControlDock', () => {
     expect(toolbar.className).not.toContain('control-dock--dimmed');
 
     hasFocusSpy.mockRestore();
+  });
+
+  it('shows a warning button for settings issues and deep-links to settings', () => {
+    useUiStore.setState({
+      settingsIssues: [
+        {
+          id: 'missing-overlay-display',
+          severity: 'warning',
+          summary: 'Dock and panel display is unavailable.',
+          focusTarget: 'overlay-display',
+        },
+      ],
+    });
+
+    renderDock();
+
+    fireEvent.click(screen.getByRole('button', { name: /open warnings/i }));
+
+    expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
+    expect(screen.getByLabelText('panel-view')).toHaveTextContent('settings');
   });
 });

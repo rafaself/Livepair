@@ -10,6 +10,8 @@ const mockQuit = vi.fn();
 const mockLoadURL = vi.fn();
 const mockSetIgnoreMouseEvents = vi.fn();
 const mockSetShape = vi.fn();
+const mockSetBounds = vi.fn();
+const mockScreenOn = vi.fn();
 const mockWindowOn = vi.fn();
 const mockGetAllWindows = vi.fn((): unknown[] => []);
 const mockAppendSwitch = vi.fn();
@@ -26,12 +28,16 @@ const browserWindowCtor = vi.fn(() => ({
   },
   setIgnoreMouseEvents: mockSetIgnoreMouseEvents,
   setShape: mockSetShape,
+  setBounds: mockSetBounds,
   on: mockWindowOn,
 }));
 
 const mockGetPrimaryDisplay = vi.fn(() => ({
+  id: 1,
+  bounds: { x: 0, y: 0, width: 1920, height: 1080 },
   workArea: { x: 0, y: 0, width: 1920, height: 1080 },
 }));
+const mockGetAllDisplays = vi.fn(() => [mockGetPrimaryDisplay()]);
 
 vi.mock('electron', () => ({
   app: {
@@ -45,7 +51,11 @@ vi.mock('electron', () => ({
   BrowserWindow: Object.assign(browserWindowCtor, {
     getAllWindows: mockGetAllWindows,
   }),
-  screen: { getPrimaryDisplay: mockGetPrimaryDisplay },
+  screen: {
+    getPrimaryDisplay: mockGetPrimaryDisplay,
+    getAllDisplays: mockGetAllDisplays,
+    on: mockScreenOn,
+  },
 }));
 
 describe('main process runtime', () => {
@@ -59,7 +69,7 @@ describe('main process runtime', () => {
     await import('./main');
 
     expect(mockWhenReady).toHaveBeenCalledTimes(1);
-    expect(mockHandle).toHaveBeenCalledTimes(6);
+    expect(mockHandle).toHaveBeenCalledTimes(7);
     expect(mockAppOn).toHaveBeenCalledWith('window-all-closed', expect.any(Function));
   });
 
@@ -67,14 +77,17 @@ describe('main process runtime', () => {
     vi.stubEnv('NODE_ENV', 'development');
     await import('./main');
     await Promise.resolve();
+    await Promise.resolve();
 
     expect(mockGetPrimaryDisplay).toHaveBeenCalled();
     expect(browserWindowCtor).toHaveBeenCalledTimes(1);
     expect(mockLoadURL).toHaveBeenCalledWith('http://localhost:5173');
+    expect(mockScreenOn).toHaveBeenCalledTimes(3);
   });
 
   it('routes activate and window-all-closed callbacks through the overlay helpers', async () => {
     await import('./main');
+    await Promise.resolve();
     await Promise.resolve();
 
     const activateHandler = mockAppOn.mock.calls.find(
@@ -87,6 +100,7 @@ describe('main process runtime', () => {
     browserWindowCtor.mockClear();
     mockGetAllWindows.mockReturnValueOnce([]);
     activateHandler();
+    await Promise.resolve();
     expect(browserWindowCtor).toHaveBeenCalledTimes(1);
 
     browserWindowCtor.mockClear();

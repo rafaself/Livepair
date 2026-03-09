@@ -1,8 +1,18 @@
 import { create } from 'zustand';
+import type { DesktopDisplayOption } from '../../shared/desktopBridge';
+import { PRIMARY_DISPLAY_ID } from '../../shared/settings';
 import type { SelectOptionItem } from '../components/primitives';
 import { useSettingsStore } from './settingsStore';
 
 export type PanelView = 'chat' | 'settings' | 'debug';
+export type SettingsFocusTarget = 'capture-display' | 'overlay-display';
+export type SettingsIssue = {
+  id: 'missing-capture-display' | 'missing-overlay-display';
+  severity: 'warning';
+  summary: string;
+  focusTarget: SettingsFocusTarget;
+};
+
 const DEFAULT_DEVICE_ID = 'default';
 const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'No microphone detected' },
@@ -39,8 +49,48 @@ function buildDeviceOptions(
   ];
 }
 
+function buildDisplayIssues(
+  displayOptions: readonly DesktopDisplayOption[],
+): readonly SettingsIssue[] {
+  const {
+    selectedCaptureDisplayId,
+    selectedOverlayDisplayId,
+  } = useSettingsStore.getState().settings;
+  const availableDisplayIds = new Set(displayOptions.map((option) => option.id));
+  const issues: SettingsIssue[] = [];
+
+  if (
+    selectedCaptureDisplayId !== PRIMARY_DISPLAY_ID &&
+    !availableDisplayIds.has(selectedCaptureDisplayId)
+  ) {
+    issues.push({
+      id: 'missing-capture-display',
+      severity: 'warning',
+      summary: 'Screen capture display is unavailable. Pick another screen in Settings.',
+      focusTarget: 'capture-display',
+    });
+  }
+
+  if (
+    selectedOverlayDisplayId !== PRIMARY_DISPLAY_ID &&
+    !availableDisplayIds.has(selectedOverlayDisplayId)
+  ) {
+    issues.push({
+      id: 'missing-overlay-display',
+      severity: 'warning',
+      summary:
+        'Dock and panel display is unavailable. Livepair is using the primary display until you fix it.',
+      focusTarget: 'overlay-display',
+    });
+  }
+
+  return issues;
+}
+
 let deviceWatcherCleanup: (() => void) | null = null;
 let deviceRefreshRequestId = 0;
+let displayWatcherCleanup: (() => void) | null = null;
+let displayRefreshRequestId = 0;
 
 export type UiStoreState = {
   isPanelOpen: boolean;
@@ -50,14 +100,22 @@ export type UiStoreState = {
   backendUrlError: string | null;
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
+  displayOptions: readonly DesktopDisplayOption[];
+  settingsIssues: readonly SettingsIssue[];
+  settingsFocusTarget: SettingsFocusTarget | null;
   togglePanel: () => void;
+  openPanel: () => void;
   closePanel: () => void;
   setPanelView: (view: PanelView) => void;
+  openSettingsForTarget: (target: SettingsFocusTarget) => void;
+  clearSettingsFocusTarget: () => void;
   toggleDebugMode: () => void;
   initializeSettingsUi: (settings: { backendUrl: string }) => void;
   setBackendUrlDraft: (value: string) => void;
   setBackendUrlError: (value: string | null) => void;
   initializeDevicePreferences: () => Promise<void>;
+  initializeDisplayPreferences: () => Promise<void>;
+  refreshDisplayPreferences: () => Promise<void>;
   reset: () => void;
 };
 
@@ -69,21 +127,36 @@ const defaultUiState = {
   backendUrlError: null,
   inputDeviceOptions: [] as readonly SelectOptionItem[],
   outputDeviceOptions: [] as readonly SelectOptionItem[],
+  displayOptions: [] as readonly DesktopDisplayOption[],
+  settingsIssues: [] as readonly SettingsIssue[],
+  settingsFocusTarget: null as SettingsFocusTarget | null,
 };
 
-export const useUiStore = create<UiStoreState>((set) => ({
+export const useUiStore = create<UiStoreState>((set, get) => ({
   ...defaultUiState,
   togglePanel: () =>
     set((state) => ({
       isPanelOpen: !state.isPanelOpen,
       panelView: state.isPanelOpen ? 'chat' : state.panelView,
     })),
+  openPanel: () =>
+    set({
+      isPanelOpen: true,
+    }),
   closePanel: () =>
     set({
       isPanelOpen: false,
       panelView: 'chat',
+      settingsFocusTarget: null,
     }),
   setPanelView: (panelView) => set({ panelView }),
+  openSettingsForTarget: (settingsFocusTarget) =>
+    set({
+      isPanelOpen: true,
+      panelView: 'settings',
+      settingsFocusTarget,
+    }),
+  clearSettingsFocusTarget: () => set({ settingsFocusTarget: null }),
   toggleDebugMode: () => set((state) => ({ isDebugMode: !state.isDebugMode })),
   initializeSettingsUi: ({ backendUrl }) =>
     set((state) => ({
@@ -181,9 +254,51 @@ export const useUiStore = create<UiStoreState>((set) => ({
       deviceWatcherCleanup = null;
     };
   },
+  refreshDisplayPreferences: async () => {
+    const requestId = ++displayRefreshRequestId;
+
+    try {
+      const displayOptions = await window.bridge.listDisplays();
+      if (requestId !== displayRefreshRequestId) {
+        return;
+      }
+
+      set({
+        displayOptions,
+        settingsIssues: buildDisplayIssues(displayOptions),
+      });
+    } catch {
+      if (requestId !== displayRefreshRequestId) {
+        return;
+      }
+
+      set((state) => ({
+        settingsIssues: buildDisplayIssues(state.displayOptions),
+      }));
+    }
+  },
+  initializeDisplayPreferences: async () => {
+    await get().refreshDisplayPreferences();
+
+    if (displayWatcherCleanup !== null) {
+      return;
+    }
+
+    const handleWindowFocus = (): void => {
+      void get().refreshDisplayPreferences();
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    displayWatcherCleanup = () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      displayWatcherCleanup = null;
+    };
+  },
   reset: () => {
     deviceRefreshRequestId += 1;
+    displayRefreshRequestId += 1;
     deviceWatcherCleanup?.();
+    displayWatcherCleanup?.();
     set(defaultUiState);
   },
 }));

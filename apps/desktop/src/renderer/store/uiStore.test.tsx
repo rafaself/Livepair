@@ -56,6 +56,10 @@ describe('uiStore', () => {
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
+    window.bridge.listDisplays = vi.fn(async () => [
+      { id: 'display-1', label: 'Display 1', isPrimary: true },
+      { id: 'display-2', label: 'Display 2', isPrimary: false },
+    ]);
     enumerateDevices.mockReset();
   });
 
@@ -131,6 +135,45 @@ describe('uiStore', () => {
         backendUrlError: null,
         inputDeviceOptions: [],
         outputDeviceOptions: [],
+        displayOptions: [],
+        settingsIssues: [],
+        settingsFocusTarget: null,
+      }),
+    );
+  });
+
+  it('hydrates display options and raises warnings for missing saved displays without rewriting settings', async () => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        selectedCaptureDisplayId: 'missing-capture',
+        selectedOverlayDisplayId: 'missing-overlay',
+      },
+      isReady: true,
+    });
+
+    await useUiStore.getState().initializeDisplayPreferences();
+
+    expect(window.bridge.listDisplays).toHaveBeenCalledTimes(1);
+    expect(useUiStore.getState().displayOptions).toEqual([
+      { id: 'display-1', label: 'Display 1', isPrimary: true },
+      { id: 'display-2', label: 'Display 2', isPrimary: false },
+    ]);
+    expect(useUiStore.getState().settingsIssues).toEqual([
+      expect.objectContaining({ id: 'missing-capture-display', focusTarget: 'capture-display' }),
+      expect.objectContaining({ id: 'missing-overlay-display', focusTarget: 'overlay-display' }),
+    ]);
+    expect(window.bridge.updateSettings).not.toHaveBeenCalled();
+  });
+
+  it('opens the panel in settings mode when navigating to a warning target', () => {
+    useUiStore.getState().openSettingsForTarget('overlay-display');
+
+    expect(useUiStore.getState()).toEqual(
+      expect.objectContaining({
+        isPanelOpen: true,
+        panelView: 'settings',
+        settingsFocusTarget: 'overlay-display',
       }),
     );
   });

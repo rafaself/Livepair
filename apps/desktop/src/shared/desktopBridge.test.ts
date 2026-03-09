@@ -8,6 +8,7 @@ describe('IPC_CHANNELS', () => {
       requestSessionToken: 'session:requestToken',
       getSettings: 'settings:get',
       updateSettings: 'settings:update',
+      listDisplays: 'displays:list',
       setOverlayHitRegions: 'overlay:setHitRegions',
       setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
     });

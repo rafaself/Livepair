@@ -43,6 +43,8 @@ describe('ipc validators', () => {
       backendUrl: 'http://localhost:3000',
       preferredMode: 'fast',
       isPanelPinned: true,
+      selectedCaptureDisplayId: 'display-2',
+      selectedOverlayDisplayId: 'primary',
     };
 
     expect(isDesktopSettingsPatch(valid)).toBe(true);
@@ -56,6 +58,8 @@ describe('ipc validators', () => {
     ).toBe(true);
     expect(isDesktopSettingsPatch({ bad: true })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedInputDeviceId: '' })).toBe(false);
+    expect(isDesktopSettingsPatch({ selectedCaptureDisplayId: '' })).toBe(false);
+    expect(isDesktopSettingsPatch({ selectedOverlayDisplayId: '' })).toBe(false);
     expect(isDesktopSettingsPatch({ preferredMode: 'slow' })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedOutputDeviceId: false })).toBe(false);
     expect(isDesktopSettingsPatch({ isPanelPinned: 'yes' })).toBe(false);
