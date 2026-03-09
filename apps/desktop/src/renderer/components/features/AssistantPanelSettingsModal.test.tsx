@@ -81,10 +81,21 @@ describe('AssistantPanelSettingsView', () => {
     await renderSettings();
 
     const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
-    const backendUrlLabel = screen.getByText('Backend URL');
+    const backendUrlLabel = screen.getByText('Backend URL', { selector: 'label' });
+    const outlinedControl = backendUrlInput.closest('.outlined-field__control');
 
     expect(backendUrlLabel.tagName).toBe('LABEL');
     expect(backendUrlLabel).toHaveAttribute('for', backendUrlInput.id);
+    expect(outlinedControl?.querySelector('.outlined-field__outline')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
+    expect(outlinedControl?.querySelector('.outlined-field__outline-start')).toBeInTheDocument();
+    expect(outlinedControl?.querySelector('.outlined-field__outline-notch')).toBeInTheDocument();
+    expect(outlinedControl?.querySelector('.outlined-field__outline-end')).toBeInTheDocument();
+    expect(outlinedControl?.querySelector('.outlined-field__outline-notch-label')).toHaveTextContent(
+      'Backend URL',
+    );
     expect(backendUrlInput.closest('.field-list')).toBeNull();
   });
 

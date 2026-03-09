@@ -8,8 +8,8 @@ describe('TextInput', () => {
     render(<TextInput label="Backend URL" />);
 
     const textbox = screen.getByRole('textbox', { name: 'Backend URL' });
-    const label = screen.getByText('Backend URL');
-    const control = textbox.closest('.text-input__control');
+    const label = screen.getByText('Backend URL', { selector: 'label' });
+    const control = textbox.closest('.outlined-field__control');
 
     expect(label.tagName).toBe('LABEL');
     expect(label).toHaveAttribute('for', textbox.id);
@@ -25,7 +25,7 @@ describe('TextInput', () => {
     const { unmount } = render(<TextInput label="Backend URL" value="https://api.example.com" />);
 
     let textbox = screen.getByRole('textbox', { name: 'Backend URL' });
-    let control = textbox.closest('.text-input__control');
+    let control = textbox.closest('.outlined-field__control');
     expect(control).toHaveAttribute('data-filled', 'true');
     expect(control).toHaveAttribute('data-floating', 'true');
 
@@ -33,7 +33,7 @@ describe('TextInput', () => {
     render(<TextInput label="Backend URL" defaultValue="https://fallback.example.com" />);
 
     textbox = screen.getByRole('textbox', { name: 'Backend URL' });
-    control = textbox.closest('.text-input__control');
+    control = textbox.closest('.outlined-field__control');
     expect(control).toHaveAttribute('data-filled', 'true');
     expect(control).toHaveAttribute('data-floating', 'true');
   });
@@ -42,7 +42,7 @@ describe('TextInput', () => {
     render(<TextInput label="Backend URL" defaultValue="https://api.example.com" />);
 
     const textbox = screen.getByRole('textbox', { name: 'Backend URL' });
-    const control = textbox.closest('.text-input__control');
+    const control = textbox.closest('.outlined-field__control');
 
     fireEvent.change(textbox, { target: { value: '' } });
     fireEvent.blur(textbox);
@@ -84,12 +84,28 @@ describe('TextInput', () => {
     );
 
     const textbox = screen.getByRole('textbox', { name: 'Backend URL' });
-    const control = textbox.closest('.text-input__control');
+    const control = textbox.closest('.outlined-field__control');
     expect(textbox).toHaveAttribute('placeholder', '');
     expect(textbox).toHaveClass('text-input', 'text-input--sm', 'text-input--invalid');
     expect(textbox).toHaveAttribute('aria-invalid', 'true');
     expect(control).toHaveAttribute('data-invalid', 'true');
     expect(control).toHaveAttribute('data-disabled', 'true');
+  });
+
+  it('renders the text input inside the outlined field shell', () => {
+    render(<TextInput label="Backend URL" />);
+
+    const textbox = screen.getByRole('textbox', { name: 'Backend URL' });
+    const control = textbox.closest('.outlined-field__control');
+    const outline = control?.querySelector('.outlined-field__outline');
+
+    expect(outline).toHaveAttribute('aria-hidden', 'true');
+    expect(outline?.querySelector('.outlined-field__outline-start')).toBeInTheDocument();
+    expect(outline?.querySelector('.outlined-field__outline-notch')).toBeInTheDocument();
+    expect(outline?.querySelector('.outlined-field__outline-end')).toBeInTheDocument();
+    expect(outline?.querySelector('.outlined-field__outline-notch-label')).toHaveTextContent(
+      'Backend URL',
+    );
   });
 
   it('shows a hint on focus and connects it with aria-describedby', () => {
@@ -131,7 +147,7 @@ describe('TextInput', () => {
     fireEvent.blur(textbox);
 
     const details = screen.getByText('URL must start with https://');
-    expect(textbox.closest('.text-input__control')).toHaveAttribute('data-invalid', 'true');
+    expect(textbox.closest('.outlined-field__control')).toHaveAttribute('data-invalid', 'true');
     expect(textbox).toHaveAttribute('aria-invalid', 'true');
     expect(textbox).toHaveAttribute('aria-describedby', details.id);
   });
@@ -151,7 +167,7 @@ describe('TextInput', () => {
     render(<Wrapper />);
 
     const textbox = screen.getByRole('textbox', { name: 'Backend URL' });
-    const control = textbox.closest('.text-input__control');
+    const control = textbox.closest('.outlined-field__control');
 
     expect(control).toHaveAttribute('data-filled', 'true');
     expect(control).toHaveAttribute('data-floating', 'true');

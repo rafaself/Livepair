@@ -16,6 +16,8 @@ export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
 export { LivepairIcon } from './LivepairIcon';
 export type { LivepairIconProps } from './LivepairIcon';
+export { OutlinedField } from './OutlinedField';
+export type { OutlinedFieldProps } from './OutlinedField';
 export { Select } from './Select';
 export type { SelectProps, SelectOptionItem } from './Select';
 export { SelectTrigger } from './SelectTrigger';

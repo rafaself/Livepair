@@ -5,6 +5,7 @@ import {
   type FocusEvent,
   type InputHTMLAttributes,
 } from 'react';
+import { OutlinedField } from './OutlinedField';
 import './TextInput.css';
 
 export type TextInputRule = (value: string) => true | string | boolean;
@@ -136,9 +137,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   const classes = [
     'text-input',
     `text-input--${size}`,
-    label ? 'text-input--labeled' : '',
     isInvalid ? 'text-input--invalid' : '',
-    className,
   ]
     .filter(Boolean)
     .join(' ');
@@ -181,20 +180,17 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   };
 
   return (
-    <div className="text-input__root">
-      <div
-        className={`text-input__control text-input__control--${size}`}
-        data-disabled={disabled ? 'true' : 'false'}
-        data-filled={isFilled ? 'true' : 'false'}
-        data-focused={isFocused ? 'true' : 'false'}
-        data-floating={isFloating ? 'true' : 'false'}
-        data-invalid={isInvalid ? 'true' : 'false'}
+    <div className={['text-input__root', className].filter(Boolean).join(' ')}>
+      <OutlinedField
+        label={label}
+        htmlFor={inputId}
+        size={size}
+        focused={isFocused}
+        filled={isFilled}
+        floating={isFloating}
+        invalid={isInvalid}
+        disabled={disabled}
       >
-        {label ? (
-          <label className="text-input__label" htmlFor={inputId}>
-            {label}
-          </label>
-        ) : null}
         <input
           {...rest}
           ref={ref}
@@ -211,7 +207,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
           onFocus={handleFocus}
           onBlur={handleBlur}
         />
-      </div>
+      </OutlinedField>
       {detailsVisible ? (
         <div
           id={detailsId}
