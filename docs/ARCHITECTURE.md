@@ -1,5 +1,27 @@
 # Architecture
 
+## Status Legend
+
+- `Implemented today` means the behavior exists in the current repository.
+- `Planned target` means the behavior is part of the intended MVP architecture but is not fully implemented yet.
+
+## Current Implementation Snapshot
+
+Implemented today:
+
+- Electron overlay shell and renderer UI
+- typed preload bridge and strict IPC boundary
+- backend health endpoint and stub token issuance path
+- desktop settings persistence and overlay interaction behavior
+
+Planned target:
+
+- real Gemini ephemeral token issuance
+- desktop session controller and transport adapter
+- reconnect and checkpoint flows
+- audio, interruption, and vision pipelines
+- backend tool and error-report endpoints beyond the current health/token path
+
 ## 1. System Overview
 
 This project implements a desktop real-time multimodal AI assistant. The application enables natural interaction through voice and screen context using a persistent streaming session with Gemini Live API.
@@ -22,7 +44,7 @@ Actors and external systems:
 * User (desktop interaction)
 * Gemini Live API
 * Backend API (NestJS)
-* Redis session store
+* Redis session store (`Planned target`)
 
 High-level interaction:
 
@@ -41,36 +63,36 @@ Major components:
 
 Responsibilities:
 
-* User interface
-* Audio capture and playback
-* Screen capture pipeline
-* Session orchestration
-* LLM transport adapter
+* User interface (`Implemented today`)
+* Audio capture and playback (`Planned target`)
+* Screen capture pipeline (`Planned target`)
+* Session orchestration (`Planned target`)
+* LLM transport adapter (`Planned target`)
 
 Internal modules:
 
-* UI Layer
-* Audio Pipeline
-* Vision Pipeline
-* Session Controller
-* LLM Transport Adapter
-* Tool Bridge
+* UI Layer (`Implemented today`)
+* Audio Pipeline (`Planned target`)
+* Vision Pipeline (`Planned target`)
+* Session Controller (`Planned target`)
+* LLM Transport Adapter (`Planned target`)
+* Tool Bridge (`Planned target`)
 
 ### Backend API (NestJS)
 
 Responsibilities:
 
-* Ephemeral token generation
-* Tool execution
-* Session checkpoint persistence
-* Logging and analytics
+* Ephemeral token generation (`Implemented today` as a stub, `Planned target` as a real provider path)
+* Tool execution (`Planned target`)
+* Session checkpoint persistence (`Planned target`)
+* Logging and analytics (`Planned target`)
 
 ### Redis
 
 Responsibilities:
 
-* Session state storage
-* Context checkpointing
+* Session state storage (`Planned target`)
+* Context checkpointing (`Planned target`)
 
 ### Gemini Live API
 
@@ -159,11 +181,17 @@ This layer isolates the application from model-specific APIs.
 
 ### Backend Endpoints
 
-POST /session/token
-POST /session/checkpoint
-POST /tool/screenshot-hd
-POST /tool/visual-summary
-POST /session/error
+Implemented today:
+
+- `POST /health`
+- `POST /session/token` (stub token path)
+
+Planned target:
+
+- `POST /session/checkpoint`
+- `POST /tool/screenshot-hd`
+- `POST /tool/visual-summary`
+- `POST /session/error`
 
 ### LLM Transport Interface
 
