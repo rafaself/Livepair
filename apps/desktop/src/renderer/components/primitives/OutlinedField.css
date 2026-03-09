@@ -11,20 +11,20 @@
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
   --outlined-field-border-width: 1px;
-  --outlined-field-label-rest-left-shift: 2px;
   transition:
     color var(--motion-fast) var(--ease-out),
     opacity var(--motion-fast) var(--ease-out);
 }
 
 .outlined-field--sm {
-  --outlined-field-outline-leading: calc(var(--space-2) + 2px);
   --outlined-field-notch-padding-inline: 6px;
-  --outlined-field-label-inline: calc(
-    var(--outlined-field-outline-leading) + var(--outlined-field-notch-padding-inline)
+  --outlined-field-text-inline: calc(var(--space-2) + 6px);
+  --outlined-field-outline-leading: calc(
+    var(--outlined-field-text-inline) - var(--outlined-field-notch-padding-inline)
   );
+  --outlined-field-label-inline: var(--outlined-field-text-inline);
   --outlined-field-content-min-height: calc(var(--space-10) + var(--space-1));
-  --outlined-field-content-padding-inline: var(--space-2);
+  --outlined-field-content-padding-inline: var(--outlined-field-text-inline);
   --outlined-field-content-font-size: 0.875rem;
   --outlined-field-label-float-font-size: 0.75rem;
   --outlined-field-label-line-height: 1.25;
@@ -33,13 +33,14 @@
 }
 
 .outlined-field--md {
-  --outlined-field-outline-leading: calc(var(--space-3) + 2px);
   --outlined-field-notch-padding-inline: 6px;
-  --outlined-field-label-inline: calc(
-    var(--outlined-field-outline-leading) + var(--outlined-field-notch-padding-inline)
+  --outlined-field-text-inline: calc(var(--space-3) + 6px);
+  --outlined-field-outline-leading: calc(
+    var(--outlined-field-text-inline) - var(--outlined-field-notch-padding-inline)
   );
+  --outlined-field-label-inline: var(--outlined-field-text-inline);
   --outlined-field-content-min-height: calc(var(--space-12) - var(--space-1));
-  --outlined-field-content-padding-inline: var(--space-3);
+  --outlined-field-content-padding-inline: var(--outlined-field-text-inline);
   --outlined-field-content-font-size: 0.95rem;
   --outlined-field-label-float-font-size: 0.75rem;
   --outlined-field-label-line-height: 1.25;
@@ -98,8 +99,7 @@
   line-height: var(--outlined-field-label-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
-  transform: translateX(calc(var(--outlined-field-label-rest-left-shift) * -1))
-    translateY(-50%) scale(1);
+  transform: translateY(-50%) scale(1);
   transform-origin: left top;
   transition:
     color var(--motion-fast) var(--ease-out),
@@ -109,8 +109,7 @@
 
 .outlined-field__control[data-floating='true'] .outlined-field__label {
   top: 0;
-  transform: translateX(0) translateY(var(--outlined-field-label-float-y))
-    scale(var(--outlined-field-label-float-scale));
+  transform: translateY(var(--outlined-field-label-float-y)) scale(var(--outlined-field-label-float-scale));
 }
 
 .outlined-field__control[data-focused='true'] .outlined-field__label {
