@@ -8,6 +8,8 @@ vi.mock('../../api/backend', () => ({
   checkBackendHealth: vi.fn(),
 }));
 
+const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();
+
 type AssistantPanelHarnessProps = {
   showStateDevControls?: boolean;
 };
@@ -44,6 +46,16 @@ describe('AssistantPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(checkBackendHealth).mockResolvedValue(true);
+    enumerateDevices.mockReset();
+    enumerateDevices.mockResolvedValue([]);
+    Object.defineProperty(window.navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        enumerateDevices,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      },
+    });
   });
 
   afterEach(() => {
@@ -140,6 +152,38 @@ describe('AssistantPanel', () => {
     expect(panelScope.getByRole('heading', { name: 'Audio' })).toBeVisible();
     expect(panelScope.getByRole('heading', { name: 'Backend' })).toBeVisible();
     expect(panelScope.getByRole('heading', { name: 'Advanced' })).toBeVisible();
+  });
+
+  it('preserves config draft state when switching away from settings and back', async () => {
+    window.localStorage.setItem('livepair.backendUrl', 'https://persisted.livepair.dev');
+
+    renderAssistantPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    await screen.findByRole('status', { name: 'Disconnected' });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+
+    const backendUrlInput = await panelScope.findByRole('textbox', { name: /backend url/i });
+    expect(backendUrlInput).toHaveValue('https://persisted.livepair.dev');
+    expect(enumerateDevices).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(backendUrlInput, {
+      target: { value: 'https://draft.livepair.dev' },
+    });
+    expect(backendUrlInput).toHaveValue('https://draft.livepair.dev');
+
+    fireEvent.click(panelScope.getByRole('button', { name: 'Chat' }));
+    expect(panelScope.getByText('No conversation yet')).toBeVisible();
+
+    fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+
+    expect(await panelScope.findByRole('textbox', { name: /backend url/i })).toHaveValue(
+      'https://draft.livepair.dev',
+    );
+    expect(enumerateDevices).toHaveBeenCalledTimes(1);
   });
 
   it('returns to chat via back button and panel close resets view', async () => {

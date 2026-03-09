@@ -10,8 +10,14 @@
 .assistant-panel__view {
   flex: 1;
   min-height: 0;
+  position: relative;
+}
+
+.assistant-panel__view-section {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  height: 100%;
   gap: var(--space-6);
   animation: panel-view-enter 200ms var(--ease-out) both;
 }

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Bug, MessageCircle, Settings } from 'lucide-react';
 import { OverlayContainer, Panel, PanelHeader } from '../layout';
 import { Button, LivepairIcon } from '../primitives';
@@ -15,6 +16,7 @@ export type AssistantPanelProps = {
 export function AssistantPanel({
   showStateDevControls = false,
 }: AssistantPanelProps): JSX.Element {
+  const [hasVisitedSettings, setHasVisitedSettings] = useState(false);
   const {
     assistantState,
     isPanelOpen,
@@ -29,6 +31,12 @@ export function AssistantPanel({
     handleCheckBackendHealth,
     setAssistantState,
   } = useAssistantPanelController();
+
+  useEffect(() => {
+    if (panelView === 'settings') {
+      setHasVisitedSettings(true);
+    }
+  }, [panelView]);
 
   return (
     <OverlayContainer>
@@ -74,10 +82,9 @@ export function AssistantPanel({
             <MessageCircle size={16} />
           </Button>
         </PanelHeader>
-
-        <div className="assistant-panel__view" key={panelView}>
+        <div className="assistant-panel__view">
           {panelView === 'chat' ? (
-            <>
+            <div className="assistant-panel__view-section">
               <AssistantPanelStateHero state={assistantState} />
               <section
                 className="assistant-panel__conversation"
@@ -100,19 +107,30 @@ export function AssistantPanel({
                 />
                 <div className="assistant-panel__bottom-fade" aria-hidden="true" />
               </section>
-            </>
-          ) : panelView === 'settings' ? (
-            <AssistantPanelSettingsView />
-          ) : (panelView === 'debug' && showStateDevControls) ? (
-            <AssistantPanelDebugView
-              assistantState={assistantState}
-              backendState={backendState}
-              backendIndicatorState={backendIndicatorState}
-              backendLabel={backendLabel}
-              tokenFeedback={tokenFeedback}
-              onRetryBackendHealth={handleCheckBackendHealth}
-              onSetAssistantState={setAssistantState}
-            />
+            </div>
+          ) : null}
+
+          {hasVisitedSettings ? (
+            <div
+              className="assistant-panel__view-section"
+              hidden={panelView !== 'settings'}
+            >
+              <AssistantPanelSettingsView />
+            </div>
+          ) : null}
+
+          {(panelView === 'debug' && showStateDevControls) ? (
+            <div className="assistant-panel__view-section">
+              <AssistantPanelDebugView
+                assistantState={assistantState}
+                backendState={backendState}
+                backendIndicatorState={backendIndicatorState}
+                backendLabel={backendLabel}
+                tokenFeedback={tokenFeedback}
+                onRetryBackendHealth={handleCheckBackendHealth}
+                onSetAssistantState={setAssistantState}
+              />
+            </div>
           ) : null}
         </div>
       </Panel>
