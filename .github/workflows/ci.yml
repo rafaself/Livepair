@@ -3,40 +3,178 @@ name: CI
 on:
   pull_request:
   push:
-    # branches:
-    #   - main
-    #   - master
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9.0.0"
+
+# ──────────────────────────────────────────────
+# Shared setup anchor (reused via YAML anchors
+# are not supported in GHA, so we use a
+# reusable setup job + dependency caching)
+# ──────────────────────────────────────────────
 
 jobs:
-  verify:
+  # ── 📦 Install & Build shared packages ─────
+  setup:
+    name: 📦 Setup
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: 🔀 Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
+      - name: 🏗️ Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.0.0
+          version: ${{ env.PNPM_VERSION }}
 
-      - name: Setup Node.js
+      - name: ⬢ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: Install dependencies
+      - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
+      - name: 🔨 Build shared packages
+        run: pnpm --filter @livepair/shared-types --filter @livepair/shared-utils build
+
+      - name: 💾 Cache workspace
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/*/dist
+          key: workspace-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+
+  # ── 🔍 Lint ────────────────────────────────
+  lint:
+    name: 🔍 Lint
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔀 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: ⬢ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 📦 Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/*/dist
+          key: workspace-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+
+      - name: 🔍 Lint all packages
         run: pnpm lint
 
-      - name: Typecheck
+  # ── 🏷️ Typecheck ───────────────────────────
+  typecheck:
+    name: 🏷️ Typecheck
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔀 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: ⬢ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 📦 Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/*/dist
+          key: workspace-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+
+      - name: 🏷️ Typecheck all packages
         run: pnpm typecheck
 
-      - name: Test
-        run: pnpm test
+  # ── 🧪 Test ────────────────────────────────
+  test:
+    name: 🧪 Test
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔀 Checkout
+        uses: actions/checkout@v4
 
-      - name: Desktop Coverage
-        run: pnpm --filter @livepair/desktop test:coverage
+      - name: 🏗️ Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: ⬢ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 📦 Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            packages/*/dist
+          key: workspace-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+
+      - name: 🧪 Run tests with coverage
+        run: pnpm test:coverage
+
+      - name: 📊 Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            apps/api/coverage/
+            apps/desktop/coverage/
+            packages/shared-utils/coverage/
+          retention-days: 7
+
+  # ── ✅ CI Gate ──────────────────────────────
+  ci-pass:
+    name: ✅ CI Pass
+    if: always()
+    needs: [lint, typecheck, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: ✅ Check all jobs
+        run: |
+          if [[ "${{ needs.lint.result }}" != "success" ||
+                "${{ needs.typecheck.result }}" != "success" ||
+                "${{ needs.test.result }}" != "success" ]]; then
+            echo "❌ One or more CI jobs failed"
+            exit 1
+          fi
+          echo "✅ All CI checks passed"
