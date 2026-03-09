@@ -184,6 +184,9 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByText('Input device').closest('.field-list')).toHaveClass(
       'assistant-panel__settings-field-list',
     );
+    expect(screen.getByText('Output device').closest('.field-list')).toHaveClass(
+      'assistant-panel__settings-field-list',
+    );
     expect(screen.getByRole('button', { name: /preferred mode/i }).closest('.select')).toHaveClass(
       'assistant-panel__settings-select',
     );
@@ -195,6 +198,12 @@ describe('AssistantPanelSettingsView', () => {
     );
     expect(screen.getByRole('button', { name: /input device/i }).closest('.select')).toHaveClass(
       'assistant-panel__settings-input-select',
+    );
+    expect(screen.getByRole('button', { name: /output device/i }).closest('.select')).toHaveClass(
+      'assistant-panel__settings-select',
+    );
+    expect(screen.getByRole('button', { name: /output device/i }).closest('.select')).toHaveClass(
+      'assistant-panel__settings-output-select',
     );
     expect(screen.getByRole('radiogroup', { name: /theme/i })).toHaveClass(
       'assistant-panel__settings-theme-toggle',
@@ -260,6 +269,49 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.queryByRole('option', { name: 'Desk Speakers' })).toBeNull();
   });
 
+  it('renders system default plus enumerated output devices', async () => {
+    enumerateDevices.mockResolvedValue([
+      {
+        deviceId: 'default',
+        groupId: 'group-default',
+        kind: 'audiooutput',
+        label: 'Default speakers',
+      },
+      {
+        deviceId: 'desk-speakers',
+        groupId: 'group-1',
+        kind: 'audiooutput',
+        label: 'Desk Speakers',
+      },
+      {
+        deviceId: 'usb-headset',
+        groupId: 'group-2',
+        kind: 'audiooutput',
+        label: 'USB Headset',
+      },
+      {
+        deviceId: 'mic-1',
+        groupId: 'group-3',
+        kind: 'audioinput',
+        label: 'Built-in Microphone',
+      },
+    ]);
+
+    await renderSettings();
+
+    const outputDeviceSelect = await screen.findByRole('button', { name: /output device/i });
+    expect(outputDeviceSelect).toHaveTextContent('System default');
+
+    await act(async () => {
+      fireEvent.click(outputDeviceSelect);
+    });
+
+    expect(screen.getByRole('option', { name: 'System default' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'Desk Speakers' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'USB Headset' })).toBeVisible();
+    expect(screen.queryByRole('option', { name: 'Built-in Microphone' })).toBeNull();
+  });
+
   it('updates the selected microphone when the user chooses a device', async () => {
     enumerateDevices.mockResolvedValue([
       {
@@ -292,6 +344,40 @@ describe('AssistantPanelSettingsView', () => {
       'USB Microphone',
     );
     expect(window.localStorage.getItem('livepair.selectedInputDeviceId')).toBe('usb-mic');
+  });
+
+  it('updates the selected output device when the user chooses a device', async () => {
+    enumerateDevices.mockResolvedValue([
+      {
+        deviceId: 'default',
+        groupId: 'group-default',
+        kind: 'audiooutput',
+        label: 'Default speakers',
+      },
+      {
+        deviceId: 'desk-speakers',
+        groupId: 'group-2',
+        kind: 'audiooutput',
+        label: 'Desk Speakers',
+      },
+    ]);
+
+    await renderSettings();
+
+    const outputDeviceSelect = await screen.findByRole('button', { name: /output device/i });
+    expect(outputDeviceSelect).toHaveTextContent('System default');
+
+    await act(async () => {
+      fireEvent.click(outputDeviceSelect);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'Desk Speakers' }));
+    });
+
+    expect(screen.getByRole('button', { name: /output device/i })).toHaveTextContent(
+      'Desk Speakers',
+    );
+    expect(window.localStorage.getItem('livepair.selectedOutputDeviceId')).toBe('desk-speakers');
   });
 
   it('falls back to generic labels when microphone labels are unavailable', async () => {
@@ -344,6 +430,23 @@ describe('AssistantPanelSettingsView', () => {
     expect(inputDeviceSelect).toHaveTextContent('No microphone detected');
   });
 
+  it('disables output selection when no outputs are available', async () => {
+    enumerateDevices.mockResolvedValue([
+      {
+        deviceId: 'mic-1',
+        groupId: 'group-3',
+        kind: 'audioinput',
+        label: 'Desk Microphone',
+      },
+    ]);
+
+    await renderSettings();
+
+    const outputDeviceSelect = await screen.findByRole('button', { name: /output device/i });
+    expect(outputDeviceSelect).toBeDisabled();
+    expect(outputDeviceSelect).toHaveTextContent('No speaker detected');
+  });
+
   it('resets an invalid persisted microphone selection to system default', async () => {
     window.localStorage.setItem('livepair.selectedInputDeviceId', 'missing-mic');
     enumerateDevices.mockResolvedValue([
@@ -367,6 +470,31 @@ describe('AssistantPanelSettingsView', () => {
       'System default',
     );
     expect(window.localStorage.getItem('livepair.selectedInputDeviceId')).toBe('default');
+  });
+
+  it('resets an invalid persisted output selection to system default', async () => {
+    window.localStorage.setItem('livepair.selectedOutputDeviceId', 'missing-speaker');
+    enumerateDevices.mockResolvedValue([
+      {
+        deviceId: 'default',
+        groupId: 'group-default',
+        kind: 'audiooutput',
+        label: 'Default speakers',
+      },
+      {
+        deviceId: 'desk-speakers',
+        groupId: 'group-1',
+        kind: 'audiooutput',
+        label: 'Desk Speakers',
+      },
+    ]);
+
+    await renderSettings();
+
+    expect(await screen.findByRole('button', { name: /output device/i })).toHaveTextContent(
+      'System default',
+    );
+    expect(window.localStorage.getItem('livepair.selectedOutputDeviceId')).toBe('default');
   });
 
   it('refreshes microphone options after a devicechange event', async () => {
@@ -431,6 +559,71 @@ describe('AssistantPanelSettingsView', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'USB Microphone' })).toBeVisible();
+    });
+  });
+
+  it('refreshes output options after a devicechange event', async () => {
+    enumerateDevices
+      .mockResolvedValueOnce([
+        {
+          deviceId: 'default',
+          groupId: 'group-default',
+          kind: 'audiooutput',
+          label: 'Default speakers',
+        },
+        {
+          deviceId: 'desk-speakers',
+          groupId: 'group-1',
+          kind: 'audiooutput',
+          label: 'Desk Speakers',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          deviceId: 'default',
+          groupId: 'group-default',
+          kind: 'audiooutput',
+          label: 'Default speakers',
+        },
+        {
+          deviceId: 'desk-speakers',
+          groupId: 'group-1',
+          kind: 'audiooutput',
+          label: 'Desk Speakers',
+        },
+        {
+          deviceId: 'usb-headset',
+          groupId: 'group-2',
+          kind: 'audiooutput',
+          label: 'USB Headset',
+        },
+      ]);
+
+    await renderSettings();
+
+    const outputDeviceSelect = await screen.findByRole('button', { name: /output device/i });
+    await act(async () => {
+      fireEvent.click(outputDeviceSelect);
+    });
+    expect(screen.queryByRole('option', { name: 'USB Headset' })).toBeNull();
+
+    await act(async () => {
+      mediaDevicesEvents.dispatchEvent(new Event('devicechange'));
+    });
+
+    await waitFor(() => {
+      expect(enumerateDevices).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /output device/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /output device/i }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'USB Headset' })).toBeVisible();
     });
   });
 });

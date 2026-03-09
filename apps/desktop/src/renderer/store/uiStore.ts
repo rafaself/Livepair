@@ -28,6 +28,7 @@ export type UiState = {
   preferredMode: PreferredMode;
   backendUrl: string;
   selectedInputDeviceId: string;
+  selectedOutputDeviceId: string;
   themePreference: ThemePreference;
 };
 
@@ -41,9 +42,11 @@ type UiAction =
   | { type: 'setPreferredMode'; payload: PreferredMode }
   | { type: 'setBackendUrl'; payload: string }
   | { type: 'setSelectedInputDeviceId'; payload: string }
+  | { type: 'setSelectedOutputDeviceId'; payload: string }
   | { type: 'setThemePreference'; payload: ThemePreference };
 
 const INPUT_DEVICE_STORAGE_KEY = 'livepair.selectedInputDeviceId';
+const OUTPUT_DEVICE_STORAGE_KEY = 'livepair.selectedOutputDeviceId';
 const BACKEND_URL_STORAGE_KEY = 'livepair.backendUrl';
 
 const defaultUiState: UiState = {
@@ -55,6 +58,7 @@ const defaultUiState: UiState = {
   preferredMode: 'fast',
   backendUrl: DEFAULT_API_BASE_URL,
   selectedInputDeviceId: 'default',
+  selectedOutputDeviceId: 'default',
   themePreference: 'system',
 };
 
@@ -64,6 +68,7 @@ function getInitialUiState(): UiState {
   }
 
   const storedInputDeviceId = window.localStorage.getItem(INPUT_DEVICE_STORAGE_KEY);
+  const storedOutputDeviceId = window.localStorage.getItem(OUTPUT_DEVICE_STORAGE_KEY);
   const storedBackendUrl = normalizeBackendBaseUrl(
     window.localStorage.getItem(BACKEND_URL_STORAGE_KEY) ?? '',
   );
@@ -73,6 +78,7 @@ function getInitialUiState(): UiState {
     ...defaultUiState,
     backendUrl: storedBackendUrl ?? defaultUiState.backendUrl,
     selectedInputDeviceId: storedInputDeviceId || defaultUiState.selectedInputDeviceId,
+    selectedOutputDeviceId: storedOutputDeviceId || defaultUiState.selectedOutputDeviceId,
     themePreference:
       storedThemePreference === 'system' ||
       storedThemePreference === 'light' ||
@@ -147,6 +153,12 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         selectedInputDeviceId: action.payload,
       };
     }
+    case 'setSelectedOutputDeviceId': {
+      return {
+        ...state,
+        selectedOutputDeviceId: action.payload,
+      };
+    }
     case 'setThemePreference': {
       return {
         ...state,
@@ -170,6 +182,7 @@ type UiStoreValue = {
   setPreferredMode: (mode: PreferredMode) => void;
   setBackendUrl: (url: string) => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
+  setSelectedOutputDeviceId: (deviceId: string) => void;
   setThemePreference: (themePreference: ThemePreference) => void;
 };
 
@@ -214,6 +227,11 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       dispatch({ type: 'setSelectedInputDeviceId', payload: selectedInputDeviceId }),
     [],
   );
+  const setSelectedOutputDeviceId = useCallback(
+    (selectedOutputDeviceId: string) =>
+      dispatch({ type: 'setSelectedOutputDeviceId', payload: selectedOutputDeviceId }),
+    [],
+  );
   const setThemePreference = useCallback(
     (themePreference: ThemePreference) =>
       dispatch({ type: 'setThemePreference', payload: themePreference }),
@@ -227,6 +245,14 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
 
     window.localStorage.setItem(INPUT_DEVICE_STORAGE_KEY, state.selectedInputDeviceId);
   }, [state.selectedInputDeviceId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(OUTPUT_DEVICE_STORAGE_KEY, state.selectedOutputDeviceId);
+  }, [state.selectedOutputDeviceId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -303,6 +329,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       setPreferredMode,
       setBackendUrl,
       setSelectedInputDeviceId,
+      setSelectedOutputDeviceId,
       setThemePreference,
     }),
     [
@@ -312,6 +339,7 @@ export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element
       setPreferredMode,
       setBackendUrl,
       setSelectedInputDeviceId,
+      setSelectedOutputDeviceId,
       setThemePreference,
       state,
       togglePanel,

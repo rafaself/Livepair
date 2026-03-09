@@ -11,6 +11,7 @@ function UiStoreHarness(): JSX.Element {
     setAssistantState,
     setBackendUrl,
     setSelectedInputDeviceId,
+    setSelectedOutputDeviceId,
     setThemePreference,
     toggleDebugMode,
   } = useUiStore();
@@ -22,6 +23,7 @@ function UiStoreHarness(): JSX.Element {
       <output aria-label="assistant-state">{state.assistantState}</output>
       <output aria-label="backend-url">{state.backendUrl}</output>
       <output aria-label="selected-input-device">{state.selectedInputDeviceId}</output>
+      <output aria-label="selected-output-device">{state.selectedOutputDeviceId}</output>
       <output aria-label="theme-preference">{state.themePreference}</output>
       <output aria-label="debug-mode">{String(state.isDebugMode)}</output>
 
@@ -45,6 +47,9 @@ function UiStoreHarness(): JSX.Element {
       </button>
       <button type="button" onClick={() => setSelectedInputDeviceId('usb-mic')}>
         set usb mic
+      </button>
+      <button type="button" onClick={() => setSelectedOutputDeviceId('desk-speakers')}>
+        set desk speakers
       </button>
       <button type="button" onClick={() => setThemePreference('light')}>
         set light theme
@@ -76,6 +81,7 @@ describe('uiStore', () => {
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
     expect(screen.getByLabelText('backend-url')).toHaveTextContent('http://localhost:3000');
     expect(screen.getByLabelText('selected-input-device')).toHaveTextContent('default');
+    expect(screen.getByLabelText('selected-output-device')).toHaveTextContent('default');
     expect(screen.getByLabelText('theme-preference')).toHaveTextContent('system');
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -110,6 +116,23 @@ describe('uiStore', () => {
 
     expect(screen.getByLabelText('selected-input-device')).toHaveTextContent('usb-mic');
     expect(window.localStorage.getItem('livepair.selectedInputDeviceId')).toBe('usb-mic');
+  });
+
+  it('hydrates and persists the selected output device', () => {
+    window.localStorage.setItem('livepair.selectedOutputDeviceId', 'usb-headset');
+
+    render(
+      <UiStoreProvider>
+        <UiStoreHarness />
+      </UiStoreProvider>,
+    );
+
+    expect(screen.getByLabelText('selected-output-device')).toHaveTextContent('usb-headset');
+
+    fireEvent.click(screen.getByRole('button', { name: 'set desk speakers' }));
+
+    expect(screen.getByLabelText('selected-output-device')).toHaveTextContent('desk-speakers');
+    expect(window.localStorage.getItem('livepair.selectedOutputDeviceId')).toBe('desk-speakers');
   });
 
   it('hydrates and persists the backend URL', () => {

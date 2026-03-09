@@ -245,6 +245,10 @@
   justify-self: stretch;
 }
 
+.assistant-panel__settings-output-select {
+  justify-self: stretch;
+}
+
 .assistant-panel__settings-backend-input {
   width: 100%;
 }

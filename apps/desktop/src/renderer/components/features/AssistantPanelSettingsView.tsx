@@ -12,28 +12,36 @@ const MODE_OPTIONS: readonly SelectOptionItem[] = [
   { value: 'thinking', label: 'Thinking' },
 ];
 
-const DEFAULT_INPUT_DEVICE_ID = 'default';
+const DEFAULT_DEVICE_ID = 'default';
 const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'No microphone detected' },
 ];
+const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
+  { value: 'unavailable', label: 'No speaker detected' },
+];
 
-function buildInputDeviceOptions(devices: MediaDeviceInfo[]): readonly SelectOptionItem[] {
-  const audioInputDevices = devices.filter((device) => device.kind === 'audioinput');
+function buildDeviceOptions(
+  devices: MediaDeviceInfo[],
+  kind: MediaDeviceKind,
+  unavailableOptions: readonly SelectOptionItem[],
+  unnamedLabelPrefix: string,
+): readonly SelectOptionItem[] {
+  const matchingDevices = devices.filter((device) => device.kind === kind);
 
-  if (audioInputDevices.length === 0) {
-    return UNAVAILABLE_INPUT_OPTION;
+  if (matchingDevices.length === 0) {
+    return unavailableOptions;
   }
 
-  let unnamedMicrophoneCount = 0;
+  let unnamedDeviceCount = 0;
 
   return [
-    { value: DEFAULT_INPUT_DEVICE_ID, label: 'System default' },
-    ...audioInputDevices.flatMap((device) => {
-      if (device.deviceId === DEFAULT_INPUT_DEVICE_ID) {
+    { value: DEFAULT_DEVICE_ID, label: 'System default' },
+    ...matchingDevices.flatMap((device) => {
+      if (device.deviceId === DEFAULT_DEVICE_ID) {
         return [];
       }
 
-      const label = device.label || `Microphone ${++unnamedMicrophoneCount}`;
+      const label = device.label || `${unnamedLabelPrefix} ${++unnamedDeviceCount}`;
 
       return [{ value: device.deviceId, label }];
     }),
@@ -48,6 +56,7 @@ export function AssistantPanelSettingsView(): JSX.Element {
       isPanelPinned,
       preferredMode,
       selectedInputDeviceId,
+      selectedOutputDeviceId,
       themePreference,
     },
     toggleDebugMode,
@@ -55,10 +64,13 @@ export function AssistantPanelSettingsView(): JSX.Element {
     setPreferredMode,
     setBackendUrl,
     setSelectedInputDeviceId,
+    setSelectedOutputDeviceId,
     setThemePreference,
   } = useUiStore();
   const [inputDeviceOptions, setInputDeviceOptions] =
     useState<readonly SelectOptionItem[]>(UNAVAILABLE_INPUT_OPTION);
+  const [outputDeviceOptions, setOutputDeviceOptions] =
+    useState<readonly SelectOptionItem[]>(UNAVAILABLE_OUTPUT_OPTION);
   const [backendUrlDraft, setBackendUrlDraft] = useState(backendUrl);
   const [backendUrlError, setBackendUrlError] = useState<string | null>(null);
 
@@ -82,10 +94,16 @@ export function AssistantPanelSettingsView(): JSX.Element {
           return;
         }
 
-        setInputDeviceOptions(buildInputDeviceOptions(devices));
+        setInputDeviceOptions(
+          buildDeviceOptions(devices, 'audioinput', UNAVAILABLE_INPUT_OPTION, 'Microphone'),
+        );
+        setOutputDeviceOptions(
+          buildDeviceOptions(devices, 'audiooutput', UNAVAILABLE_OUTPUT_OPTION, 'Speaker'),
+        );
       } catch {
         if (!isDisposed) {
           setInputDeviceOptions(UNAVAILABLE_INPUT_OPTION);
+          setOutputDeviceOptions(UNAVAILABLE_OUTPUT_OPTION);
         }
       }
     };
@@ -112,8 +130,19 @@ export function AssistantPanelSettingsView(): JSX.Element {
       return;
     }
 
-    setSelectedInputDeviceId(DEFAULT_INPUT_DEVICE_ID);
+    setSelectedInputDeviceId(DEFAULT_DEVICE_ID);
   }, [inputDeviceOptions, selectedInputDeviceId, setSelectedInputDeviceId]);
+
+  useEffect(() => {
+    if (
+      outputDeviceOptions[0]?.value === 'unavailable' ||
+      outputDeviceOptions.some((option) => option.value === selectedOutputDeviceId)
+    ) {
+      return;
+    }
+
+    setSelectedOutputDeviceId(DEFAULT_DEVICE_ID);
+  }, [outputDeviceOptions, selectedOutputDeviceId, setSelectedOutputDeviceId]);
 
   useEffect(() => {
     setBackendUrlDraft(backendUrl);
@@ -213,6 +242,26 @@ export function AssistantPanelSettingsView(): JSX.Element {
                       setSelectedInputDeviceId(event.target.value);
                     }}
                     disabled={inputDeviceOptions[0]?.value === 'unavailable'}
+                    size="sm"
+                  />
+                ),
+              },
+              {
+                label: 'Output device',
+                value: (
+                  <Select
+                    aria-label="Output device"
+                    className="assistant-panel__settings-select assistant-panel__settings-output-select"
+                    options={outputDeviceOptions}
+                    value={
+                      outputDeviceOptions[0]?.value === 'unavailable'
+                        ? 'unavailable'
+                        : selectedOutputDeviceId
+                    }
+                    onChange={(event) => {
+                      setSelectedOutputDeviceId(event.target.value);
+                    }}
+                    disabled={outputDeviceOptions[0]?.value === 'unavailable'}
                     size="sm"
                   />
                 ),
