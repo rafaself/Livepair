@@ -17,6 +17,7 @@
   background: transparent;
   box-shadow: none;
   color: inherit;
+  cursor: text;
   font: inherit;
   line-height: 1.4;
 }

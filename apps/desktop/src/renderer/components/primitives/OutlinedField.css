@@ -10,6 +10,7 @@
   background: transparent;
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
+  cursor: text;
   --outlined-field-border-width: 1px;
   transition:
     color var(--motion-fast) var(--ease-out),
@@ -58,6 +59,7 @@
   min-width: 0;
   min-height: var(--outlined-field-content-min-height);
   padding: 0 var(--outlined-field-content-padding-inline);
+  cursor: inherit;
   font-size: var(--outlined-field-content-font-size);
 }
 

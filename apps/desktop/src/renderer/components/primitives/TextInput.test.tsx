@@ -128,6 +128,19 @@ describe('TextInput', () => {
     expect(textbox).toHaveAttribute('placeholder', 'https://api.example.com');
   });
 
+  it('focuses the textbox when clicking the outlined control surface', () => {
+    render(<TextInput label="Backend URL" />);
+
+    const textbox = screen.getByRole('textbox', { name: 'Backend URL' });
+    const control = textbox.closest('.outlined-field__control');
+
+    expect(textbox).not.toHaveFocus();
+
+    fireEvent.mouseDown(control!);
+
+    expect(textbox).toHaveFocus();
+  });
+
   it('validates on blur with rules and announces the validation message', () => {
     render(
       <TextInput

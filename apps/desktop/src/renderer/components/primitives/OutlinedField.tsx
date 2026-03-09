@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type MouseEvent, type ReactNode } from 'react';
 import './OutlinedField.css';
 
 export type OutlinedFieldProps = {
@@ -13,6 +13,12 @@ export type OutlinedFieldProps = {
   disabled?: boolean | undefined;
   className?: string | undefined;
 };
+
+function findFocusableControl(container: HTMLElement): HTMLElement | null {
+  return container.querySelector<HTMLElement>(
+    'input:not([disabled]), textarea:not([disabled]), [contenteditable="true"], [tabindex]:not([tabindex="-1"])',
+  );
+}
 
 export function OutlinedField({
   children,
@@ -30,10 +36,32 @@ export function OutlinedField({
     .filter(Boolean)
     .join(' ');
 
+  const handleMouseDown = (event: MouseEvent<HTMLDivElement>): void => {
+    if (disabled) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+
+    if (target.closest('input, textarea, [contenteditable="true"], [tabindex]:not([tabindex="-1"])')) {
+      return;
+    }
+
+    const focusTarget = findFocusableControl(event.currentTarget);
+
+    if (!focusTarget || document.activeElement === focusTarget) {
+      return;
+    }
+
+    event.preventDefault();
+    focusTarget.focus();
+  };
+
   return (
     <div className={rootClassName}>
       <div
         className="outlined-field__control"
+        onMouseDown={handleMouseDown}
         data-disabled={disabled ? 'true' : 'false'}
         data-filled={filled ? 'true' : 'false'}
         data-focused={focused ? 'true' : 'false'}
