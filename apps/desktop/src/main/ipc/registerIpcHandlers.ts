@@ -15,6 +15,7 @@ type RegisterIpcHandlersOptions = {
   fetchImpl?: typeof fetch;
   getMainWindow: () => BrowserWindow | null;
   listDisplays?: () => DesktopDisplayOption[];
+  setOverlayWindowFocusable?: (focusable: boolean) => void;
   moveWindowToDisplay?: (target: {
     targetDisplayId?: string | undefined;
     targetDisplayLabel?: string | undefined;
@@ -30,6 +31,7 @@ export function registerIpcHandlers({
   listDisplays = () => [],
   lookupDisplayLabel,
   moveWindowToDisplay = () => undefined,
+  setOverlayWindowFocusable = () => undefined,
   platform = process.platform,
   settingsService,
 }: RegisterIpcHandlersOptions): void {
@@ -133,6 +135,25 @@ export function registerIpcHandlers({
       }
 
       mainWindow.setIgnoreMouseEvents(false);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.setOverlayFocusable,
+    (_event, enabled: unknown): void => {
+      if (typeof enabled !== 'boolean') {
+        throw new Error('overlay:setFocusable requires a boolean');
+      }
+      if (platform !== 'linux') {
+        return;
+      }
+
+      const mainWindow = getMainWindow();
+      if (!mainWindow) {
+        return;
+      }
+
+      setOverlayWindowFocusable(enabled);
     },
   );
 }

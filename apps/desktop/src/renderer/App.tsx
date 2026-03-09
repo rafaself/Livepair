@@ -6,6 +6,7 @@ import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrou
 import type { OverlayMode } from '../shared/desktopBridge';
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
 import { useSettingsStore } from './store/settingsStore';
+import { useUiStore } from './store/uiStore';
 import { useSessionRuntime } from './runtime/useSessionRuntime';
 
 function LinuxOverlayInteraction(): null {
@@ -18,13 +19,28 @@ function ForwardedPointerOverlayInteraction(): null {
   return null;
 }
 
+function LinuxOverlayFocusabilitySync(): null {
+  const isPanelOpen = useUiStore((state) => state.isPanelOpen);
+
+  useEffect(() => {
+    void window.bridge?.setOverlayFocusable(isPanelOpen);
+  }, [isPanelOpen]);
+
+  return null;
+}
+
 function OverlayInteractionManager({
   overlayMode,
 }: {
   overlayMode: OverlayMode;
 }): JSX.Element | null {
   if (overlayMode === 'linux-shape') {
-    return <LinuxOverlayInteraction />;
+    return (
+      <>
+        <LinuxOverlayInteraction />
+        <LinuxOverlayFocusabilitySync />
+      </>
+    );
   }
 
   return <ForwardedPointerOverlayInteraction />;

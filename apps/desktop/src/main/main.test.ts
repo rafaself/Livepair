@@ -10,6 +10,11 @@ const mockQuit = vi.fn();
 const mockLoadURL = vi.fn();
 const mockSetIgnoreMouseEvents = vi.fn();
 const mockSetShape = vi.fn();
+const mockSetAlwaysOnTop = vi.fn();
+const mockSetVisibleOnAllWorkspaces = vi.fn();
+const mockMoveTop = vi.fn();
+const mockSetFocusable = vi.fn();
+const mockShowInactive = vi.fn();
 const mockSetBounds = vi.fn();
 const mockSetPosition = vi.fn();
 const mockSetSize = vi.fn();
@@ -31,6 +36,11 @@ const browserWindowCtor = vi.fn(() => ({
     toggleDevTools: vi.fn(),
     on: mockWebContentsOn,
   },
+  setAlwaysOnTop: mockSetAlwaysOnTop,
+  setVisibleOnAllWorkspaces: mockSetVisibleOnAllWorkspaces,
+  moveTop: mockMoveTop,
+  setFocusable: mockSetFocusable,
+  showInactive: mockShowInactive,
   setIgnoreMouseEvents: mockSetIgnoreMouseEvents,
   setShape: mockSetShape,
   setBounds: mockSetBounds,
@@ -81,7 +91,7 @@ describe('main process runtime', () => {
     await import('./main');
 
     expect(mockWhenReady).toHaveBeenCalledTimes(1);
-    expect(mockHandle).toHaveBeenCalledTimes(7);
+    expect(mockHandle).toHaveBeenCalledTimes(8);
     expect(mockAppOn).toHaveBeenCalledWith('window-all-closed', expect.any(Function));
   });
 

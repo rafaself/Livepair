@@ -11,6 +11,7 @@ describe('IPC_CHANNELS', () => {
       listDisplays: 'displays:list',
       setOverlayHitRegions: 'overlay:setHitRegions',
       setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
+      setOverlayFocusable: 'overlay:setFocusable',
     });
   });
 });

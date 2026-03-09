@@ -34,6 +34,7 @@ export interface DesktopBridge {
   listDisplays: () => Promise<DesktopDisplayOption[]>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
   setOverlayPointerPassthrough: (enabled: boolean) => Promise<void>;
+  setOverlayFocusable: (enabled: boolean) => Promise<void>;
 }
 
 export const IPC_CHANNELS = {
@@ -44,6 +45,7 @@ export const IPC_CHANNELS = {
   listDisplays: 'displays:list',
   setOverlayHitRegions: 'overlay:setHitRegions',
   setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
+  setOverlayFocusable: 'overlay:setFocusable',
 } as const;
 
 export function getOverlayMode(platform: string): OverlayMode {

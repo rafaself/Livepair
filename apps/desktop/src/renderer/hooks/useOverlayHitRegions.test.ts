@@ -26,6 +26,7 @@ describe('useOverlayHitRegions', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: mockSetOverlayHitRegions,
       setOverlayPointerPassthrough: vi.fn(),
+      setOverlayFocusable: vi.fn(),
     };
   });
 

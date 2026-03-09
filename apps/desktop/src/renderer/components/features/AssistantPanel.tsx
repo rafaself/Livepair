@@ -55,13 +55,13 @@ export function AssistantPanel({
           ) : null}
 
           {panelView === 'settings' ? (
-            <div className="assistant-panel__view-section">
+            <div className="assistant-panel__view-section assistant-panel__view-section--scrollable">
               <AssistantPanelSettingsContent controller={settingsController} />
             </div>
           ) : null}
 
           {(panelView === 'debug' && showStateDevControls) ? (
-            <div className="assistant-panel__view-section">
+            <div className="assistant-panel__view-section assistant-panel__view-section--scrollable">
               <AssistantPanelDebugView
                 assistantState={assistantState}
                 backendState={backendState}

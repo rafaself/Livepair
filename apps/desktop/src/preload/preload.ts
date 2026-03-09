@@ -15,6 +15,7 @@ export const bridge: DesktopBridge = {
   setOverlayHitRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayHitRegions, regions),
   setOverlayPointerPassthrough: (enabled) =>
     ipcRenderer.invoke(IPC_CHANNELS.setOverlayPointerPassthrough, enabled),
+  setOverlayFocusable: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayFocusable, enabled),
 };
 
 contextBridge.exposeInMainWorld('bridge', bridge);

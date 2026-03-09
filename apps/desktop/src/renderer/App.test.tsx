@@ -127,4 +127,17 @@ describe('App', () => {
     expect(document.documentElement.dataset['theme']).toBe('light');
     expect(window.bridge.setOverlayPointerPassthrough).toHaveBeenCalled();
   });
+
+  it('toggles linux overlay focusability with panel visibility so the passive dock can stay topmost', () => {
+    installMatchMedia(true);
+    render(<App />);
+
+    expect(window.bridge.setOverlayFocusable).toHaveBeenCalledWith(false);
+
+    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
+    expect(window.bridge.setOverlayFocusable).toHaveBeenLastCalledWith(true);
+
+    fireEvent(window, new Event('blur'));
+    expect(window.bridge.setOverlayFocusable).toHaveBeenLastCalledWith(false);
+  });
 });

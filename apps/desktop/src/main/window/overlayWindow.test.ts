@@ -12,6 +12,11 @@ const mockOpenDevTools = vi.fn();
 const mockToggleDevTools = vi.fn();
 const mockSetIgnoreMouseEvents = vi.fn();
 const mockSetShape = vi.fn();
+const mockSetAlwaysOnTop = vi.fn();
+const mockSetVisibleOnAllWorkspaces = vi.fn();
+const mockMoveTop = vi.fn();
+const mockSetFocusable = vi.fn();
+const mockShowInactive = vi.fn();
 const mockSetBounds = vi.fn((bounds: typeof currentBounds) => {
   currentBounds = { ...bounds };
 });
@@ -54,6 +59,11 @@ const browserWindowCtor = vi.fn((options: typeof currentBounds) => {
       toggleDevTools: mockToggleDevTools,
       on: mockWebContentsOn,
     },
+    setAlwaysOnTop: mockSetAlwaysOnTop,
+    setVisibleOnAllWorkspaces: mockSetVisibleOnAllWorkspaces,
+    moveTop: mockMoveTop,
+    setFocusable: mockSetFocusable,
+    showInactive: mockShowInactive,
     setIgnoreMouseEvents: mockSetIgnoreMouseEvents,
     setShape: mockSetShape,
     setBounds: mockSetBounds,
@@ -131,6 +141,7 @@ describe('overlayWindow', () => {
         transparent: true,
         frame: false,
         alwaysOnTop: true,
+        fullscreenable: false,
         resizable: true,
         skipTaskbar: true,
         hasShadow: false,
@@ -142,6 +153,15 @@ describe('overlayWindow', () => {
       }),
     );
     expect(mockLoadURL).toHaveBeenCalledWith('http://localhost:5173');
+    expect(mockSetAlwaysOnTop).toHaveBeenCalledWith(true, 'screen-saver', 1);
+    expect(mockSetVisibleOnAllWorkspaces).toHaveBeenCalledWith(true, {
+      visibleOnFullScreen: true,
+    });
+    expect(mockMoveTop).toHaveBeenCalled();
+    if (process.platform === 'linux') {
+      expect(mockSetFocusable).toHaveBeenCalledWith(false);
+      expect(mockShowInactive).toHaveBeenCalled();
+    }
     expect(overlayWindow.getMainWindow()).not.toBeNull();
 
     if (process.platform !== 'linux') {
@@ -218,6 +238,27 @@ describe('overlayWindow', () => {
       width: 1920,
       height: 1080,
     });
+  });
+
+  it('reapplies the stored linux focusability when moving between displays', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow('2');
+    mockSetFocusable.mockClear();
+    mockShowInactive.mockClear();
+
+    overlayWindow.setOverlayWindowFocusable(false);
+    overlayWindow.moveWindowToDisplay('primary');
+
+    if (process.platform === 'linux') {
+      expect(mockSetFocusable).toHaveBeenNthCalledWith(1, false);
+      expect(mockSetFocusable).toHaveBeenNthCalledWith(2, false);
+      expect(mockShowInactive).toHaveBeenCalledTimes(2);
+    } else {
+      expect(mockSetFocusable).not.toHaveBeenCalled();
+      expect(mockShowInactive).not.toHaveBeenCalled();
+    }
   });
 
   it('forces the target bounds after creating the window so the window manager cannot keep a stale monitor placement', async () => {

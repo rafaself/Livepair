@@ -20,5 +20,6 @@ beforeEach(async () => {
     listDisplays: vi.fn(async () => []),
     setOverlayHitRegions: vi.fn(),
     setOverlayPointerPassthrough: vi.fn(),
+    setOverlayFocusable: vi.fn(),
   };
 });

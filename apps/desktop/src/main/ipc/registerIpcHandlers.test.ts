@@ -32,6 +32,7 @@ function createMainWindowDouble(): BrowserWindow {
   return {
     setShape: vi.fn(),
     setIgnoreMouseEvents: vi.fn(),
+    setFocusable: vi.fn(),
   } as unknown as BrowserWindow;
 }
 
@@ -49,7 +50,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(7);
+    expect(mockHandle).toHaveBeenCalledTimes(8);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -75,6 +76,11 @@ describe('registerIpcHandlers', () => {
     expect(mockHandle).toHaveBeenNthCalledWith(
       7,
       'overlay:setPointerPassthrough',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      8,
+      'overlay:setFocusable',
       expect.any(Function),
     );
   });
@@ -227,6 +233,7 @@ describe('registerIpcHandlers', () => {
     const mainWindow = createMainWindowDouble();
     const setShape = vi.mocked(mainWindow.setShape);
     const setIgnoreMouseEvents = vi.mocked(mainWindow.setIgnoreMouseEvents);
+    const setFocusable = vi.mocked(mainWindow.setFocusable);
     const getMainWindow = vi.fn(() => mainWindow);
     const settingsService = createSettingsServiceDouble();
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
@@ -234,6 +241,7 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers({
       getMainWindow,
       platform: 'linux',
+      setOverlayWindowFocusable: (focusable) => mainWindow.setFocusable(focusable),
       settingsService,
     });
 
@@ -264,6 +272,25 @@ describe('registerIpcHandlers', () => {
 
     expect(setIgnoreMouseEvents).toHaveBeenNthCalledWith(1, true, { forward: true });
     expect(setIgnoreMouseEvents).toHaveBeenNthCalledWith(2, false);
+
+    mockHandle.mockReset();
+    registerIpcHandlers({
+      getMainWindow,
+      platform: 'linux',
+      setOverlayWindowFocusable: (focusable) => mainWindow.setFocusable(focusable),
+      settingsService,
+    });
+
+    const focusableHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'overlay:setFocusable',
+    )?.[1] as (_event: unknown, enabled: unknown) => void;
+
+    expect(() => focusableHandler({}, 'bad')).toThrow(
+      'overlay:setFocusable requires a boolean',
+    );
+
+    focusableHandler({}, false);
+    expect(setFocusable).toHaveBeenCalledWith(false);
   });
 
   it('skips overlay work when the active platform does not support that operation', async () => {
@@ -296,6 +323,20 @@ describe('registerIpcHandlers', () => {
     )?.[1] as (_event: unknown, enabled: unknown) => void;
 
     passthroughHandler({}, true);
+    expect(getMainWindow).not.toHaveBeenCalled();
+
+    mockHandle.mockReset();
+    registerIpcHandlers({
+      getMainWindow,
+      platform: 'win32',
+      settingsService,
+    });
+
+    const focusableHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'overlay:setFocusable',
+    )?.[1] as (_event: unknown, enabled: unknown) => void;
+
+    focusableHandler({}, false);
     expect(getMainWindow).not.toHaveBeenCalled();
   });
 
@@ -334,5 +375,21 @@ describe('registerIpcHandlers', () => {
       passthroughHandler({}, true);
     }).not.toThrow();
     expect(getMainWindow).toHaveBeenCalledTimes(2);
+
+    mockHandle.mockReset();
+    registerIpcHandlers({
+      getMainWindow,
+      platform: 'linux',
+      settingsService,
+    });
+
+    const focusableHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'overlay:setFocusable',
+    )?.[1] as (_event: unknown, enabled: unknown) => void;
+
+    expect(() => {
+      focusableHandler({}, false);
+    }).not.toThrow();
+    expect(getMainWindow).toHaveBeenCalledTimes(3);
   });
 });

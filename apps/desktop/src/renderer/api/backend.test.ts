@@ -14,6 +14,7 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
+      setOverlayFocusable: vi.fn(),
     };
 
     await expect(checkBackendHealth()).resolves.toBe(true);
@@ -31,6 +32,7 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
+      setOverlayFocusable: vi.fn(),
     };
 
     await expect(checkBackendHealth()).resolves.toBe(false);
@@ -44,6 +46,7 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
+      setOverlayFocusable: vi.fn(),
     };
     await expect(checkBackendHealth()).resolves.toBe(false);
   });
@@ -65,6 +68,7 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
+      setOverlayFocusable: vi.fn(),
     };
 
     await expect(requestSessionToken({})).resolves.toEqual(tokenResponse);
@@ -84,6 +88,7 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
+      setOverlayFocusable: vi.fn(),
     };
 
     await expect(requestSessionToken({})).rejects.toThrow('token failed');

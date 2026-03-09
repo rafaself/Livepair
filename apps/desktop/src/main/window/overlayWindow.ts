@@ -28,6 +28,7 @@ if (process.platform === 'linux') {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let linuxOverlayFocusable = false;
 
 type NormalizedDisplayTarget = {
   targetDisplayId: string;
@@ -152,6 +153,23 @@ function applyWindowBounds(window: BrowserWindow, bounds: Rectangle): void {
   window.setSize(bounds.width, bounds.height);
 }
 
+function enforceOverlayWindowPriority(window: BrowserWindow): void {
+  window.setAlwaysOnTop(true, 'screen-saver', 1);
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  window.moveTop();
+}
+
+function applyLinuxWindowFocusability(window: BrowserWindow): void {
+  if (process.platform !== 'linux') {
+    return;
+  }
+
+  window.setFocusable(linuxOverlayFocusable);
+  if (!linuxOverlayFocusable) {
+    window.showInactive();
+  }
+}
+
 function applyWindowPlacement(
   window: BrowserWindow,
   target: NormalizedDisplayTarget,
@@ -163,6 +181,8 @@ function applyWindowPlacement(
   logDisplaySnapshot(resolved, reason, target);
   const bounds = toWindowBounds(resolved);
 
+  enforceOverlayWindowPriority(window);
+  applyLinuxWindowFocusability(window);
   applyWindowBounds(window, bounds);
   verifyBoundsAndRetry({
     bounds,
@@ -207,6 +227,8 @@ export function createWindow(
     transparent: true,
     frame: false,
     alwaysOnTop: true,
+    fullscreenable: false,
+    focusable: process.platform === 'linux' ? linuxOverlayFocusable : true,
     resizable: true,
     skipTaskbar: true,
     hasShadow: false,
@@ -269,6 +291,21 @@ export function moveWindowToDisplay(
   }
 
   applyWindowPlacement(window, target, 'move');
+}
+
+export function setOverlayWindowFocusable(focusable: boolean): void {
+  if (process.platform !== 'linux') {
+    return;
+  }
+
+  linuxOverlayFocusable = focusable;
+  const window = getMainWindow();
+  if (!window) {
+    return;
+  }
+
+  applyLinuxWindowFocusability(window);
+  enforceOverlayWindowPriority(window);
 }
 
 type VerifyBoundsAndRetryOptions = {

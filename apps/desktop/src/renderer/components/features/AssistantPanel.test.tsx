@@ -195,4 +195,26 @@ describe('AssistantPanel', () => {
 
     expect(panelScope.getByRole('button', { name: /dock and panel display/i })).toHaveFocus();
   });
+
+  it('uses a scrollable container for overflow-heavy settings and debug tabs', async () => {
+    await renderAssistantPanel({ showStateDevControls: true });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+    });
+
+    expect(panel.querySelector('.assistant-panel__view-section--scrollable')).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Developer tools' }));
+    });
+
+    expect(panel.querySelector('.assistant-panel__view-section--scrollable')).not.toBeNull();
+  });
 });

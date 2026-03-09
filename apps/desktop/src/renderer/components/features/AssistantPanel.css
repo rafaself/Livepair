@@ -11,6 +11,7 @@
   flex: 1;
   min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 .assistant-panel__view-section {
@@ -20,6 +21,13 @@
   height: 100%;
   gap: var(--space-6);
   animation: panel-view-enter 200ms var(--ease-out) both;
+}
+
+.assistant-panel__view-section--scrollable {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: var(--space-2);
+  scrollbar-gutter: stable;
 }
 
 .assistant-panel__header-btn--active {

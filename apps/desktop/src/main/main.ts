@@ -11,6 +11,7 @@ import {
   logDisplaySnapshot,
   lookupDisplayLabel,
   moveWindowToDisplay,
+  setOverlayWindowFocusable,
 } from './window/overlayWindow';
 
 export function createDebouncedHandler(
@@ -35,6 +36,7 @@ registerIpcHandlers({
   listDisplays: listAvailableDisplays,
   lookupDisplayLabel,
   moveWindowToDisplay,
+  setOverlayWindowFocusable,
   settingsService,
 });
 

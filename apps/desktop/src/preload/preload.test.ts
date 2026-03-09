@@ -35,6 +35,7 @@ describe('preload bridge', () => {
       'listDisplays',
       'setOverlayHitRegions',
       'setOverlayPointerPassthrough',
+      'setOverlayFocusable',
     ]);
     expect(exposedBridge).toEqual({
       overlayMode: expect.any(String),
@@ -45,6 +46,7 @@ describe('preload bridge', () => {
       listDisplays: expect.any(Function),
       setOverlayHitRegions: expect.any(Function),
       setOverlayPointerPassthrough: expect.any(Function),
+      setOverlayFocusable: expect.any(Function),
     });
   });
 
@@ -104,6 +106,10 @@ describe('preload bridge', () => {
     mockInvoke.mockResolvedValueOnce(undefined);
     await bridge.setOverlayPointerPassthrough(false);
     expect(mockInvoke).toHaveBeenCalledWith('overlay:setPointerPassthrough', false);
+
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await bridge.setOverlayFocusable(false);
+    expect(mockInvoke).toHaveBeenCalledWith('overlay:setFocusable', false);
   });
 
   it('passes explicit empty payload when request has no fields', async () => {
