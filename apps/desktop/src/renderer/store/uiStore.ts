@@ -1,362 +1,175 @@
-import {
-  createElement,
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useReducer,
-  type ReactNode,
-} from 'react';
-import type { AssistantRuntimeState } from '../state/assistantUiState';
-import {
-  DEFAULT_API_BASE_URL,
-  normalizeBackendBaseUrl,
-} from '../../shared/backendBaseUrl';
-import { THEME_PREFERENCE_STORAGE_KEY, type ThemePreference } from '../theme';
+import { create } from 'zustand';
+import type { SelectOptionItem } from '../components/primitives';
+import { useSettingsStore } from './settingsStore';
 
-export type AssistantState = AssistantRuntimeState;
 export type PanelView = 'chat' | 'settings' | 'debug';
-export type PreferredMode = 'fast' | 'thinking';
+const DEFAULT_DEVICE_ID = 'default';
+const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
+  { value: 'unavailable', label: 'No microphone detected' },
+];
+const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
+  { value: 'unavailable', label: 'No speaker detected' },
+];
 
-export type UiState = {
-  isPanelOpen: boolean;
-  isPanelPinned: boolean;
-  isDebugMode: boolean;
-  panelView: PanelView;
-  assistantState: AssistantState;
-  preferredMode: PreferredMode;
-  backendUrl: string;
-  selectedInputDeviceId: string;
-  selectedOutputDeviceId: string;
-  themePreference: ThemePreference;
-};
+function buildDeviceOptions(
+  devices: MediaDeviceInfo[],
+  kind: MediaDeviceKind,
+  unavailableOptions: readonly SelectOptionItem[],
+  unnamedLabelPrefix: string,
+): readonly SelectOptionItem[] {
+  const matchingDevices = devices.filter((device) => device.kind === kind);
 
-type UiAction =
-  | { type: 'togglePanel' }
-  | { type: 'closePanel' }
-  | { type: 'togglePanelPinned' }
-  | { type: 'toggleDebugMode' }
-  | { type: 'setPanelView'; payload: PanelView }
-  | { type: 'setAssistantState'; payload: AssistantState }
-  | { type: 'setPreferredMode'; payload: PreferredMode }
-  | { type: 'setBackendUrl'; payload: string }
-  | { type: 'setSelectedInputDeviceId'; payload: string }
-  | { type: 'setSelectedOutputDeviceId'; payload: string }
-  | { type: 'setThemePreference'; payload: ThemePreference };
-
-const INPUT_DEVICE_STORAGE_KEY = 'livepair.selectedInputDeviceId';
-const OUTPUT_DEVICE_STORAGE_KEY = 'livepair.selectedOutputDeviceId';
-const BACKEND_URL_STORAGE_KEY = 'livepair.backendUrl';
-
-const defaultUiState: UiState = {
-  isPanelOpen: false,
-  isPanelPinned: false,
-  isDebugMode: false,
-  panelView: 'chat',
-  assistantState: 'disconnected',
-  preferredMode: 'fast',
-  backendUrl: DEFAULT_API_BASE_URL,
-  selectedInputDeviceId: 'default',
-  selectedOutputDeviceId: 'default',
-  themePreference: 'system',
-};
-
-function getInitialUiState(): UiState {
-  if (typeof window === 'undefined') {
-    return defaultUiState;
+  if (matchingDevices.length === 0) {
+    return unavailableOptions;
   }
 
-  const storedInputDeviceId = window.localStorage.getItem(INPUT_DEVICE_STORAGE_KEY);
-  const storedOutputDeviceId = window.localStorage.getItem(OUTPUT_DEVICE_STORAGE_KEY);
-  const storedBackendUrl = normalizeBackendBaseUrl(
-    window.localStorage.getItem(BACKEND_URL_STORAGE_KEY) ?? '',
-  );
-  const storedThemePreference = window.localStorage.getItem(THEME_PREFERENCE_STORAGE_KEY);
+  let unnamedDeviceCount = 0;
 
-  return {
-    ...defaultUiState,
-    backendUrl: storedBackendUrl ?? defaultUiState.backendUrl,
-    selectedInputDeviceId: storedInputDeviceId || defaultUiState.selectedInputDeviceId,
-    selectedOutputDeviceId: storedOutputDeviceId || defaultUiState.selectedOutputDeviceId,
-    themePreference:
-      storedThemePreference === 'system' ||
-      storedThemePreference === 'light' ||
-      storedThemePreference === 'dark'
-        ? storedThemePreference
-        : defaultUiState.themePreference,
-  };
-}
-
-function uiReducer(state: UiState, action: UiAction): UiState {
-  switch (action.type) {
-    case 'togglePanel': {
-      if (state.isPanelOpen) {
-        return {
-          ...state,
-          isPanelOpen: false,
-          panelView: 'chat',
-        };
+  return [
+    { value: DEFAULT_DEVICE_ID, label: 'System default' },
+    ...matchingDevices.flatMap((device) => {
+      if (device.deviceId === DEFAULT_DEVICE_ID) {
+        return [];
       }
 
-      return {
-        ...state,
-        isPanelOpen: true,
-      };
-    }
-    case 'closePanel': {
-      return {
-        ...state,
-        isPanelOpen: false,
-        panelView: 'chat',
-      };
-    }
-    case 'togglePanelPinned': {
-      return {
-        ...state,
-        isPanelPinned: !state.isPanelPinned,
-      };
-    }
-    case 'toggleDebugMode': {
-      return {
-        ...state,
-        isDebugMode: !state.isDebugMode,
-      };
-    }
-    case 'setPanelView': {
-      return {
-        ...state,
-        panelView: action.payload,
-      };
-    }
-    case 'setAssistantState': {
-      return {
-        ...state,
-        assistantState: action.payload,
-      };
-    }
-    case 'setPreferredMode': {
-      return {
-        ...state,
-        preferredMode: action.payload,
-      };
-    }
-    case 'setBackendUrl': {
-      return {
-        ...state,
-        backendUrl: action.payload,
-      };
-    }
-    case 'setSelectedInputDeviceId': {
-      return {
-        ...state,
-        selectedInputDeviceId: action.payload,
-      };
-    }
-    case 'setSelectedOutputDeviceId': {
-      return {
-        ...state,
-        selectedOutputDeviceId: action.payload,
-      };
-    }
-    case 'setThemePreference': {
-      return {
-        ...state,
-        themePreference: action.payload,
-      };
-    }
-    default: {
-      return state;
-    }
-  }
+      const label = device.label || `${unnamedLabelPrefix} ${++unnamedDeviceCount}`;
+
+      return [{ value: device.deviceId, label }];
+    }),
+  ];
 }
 
-type UiStoreValue = {
-  state: UiState;
+let deviceWatcherCleanup: (() => void) | null = null;
+
+export type UiStoreState = {
+  isPanelOpen: boolean;
+  panelView: PanelView;
+  isDebugMode: boolean;
+  backendUrlDraft: string;
+  backendUrlError: string | null;
+  inputDeviceOptions: readonly SelectOptionItem[];
+  outputDeviceOptions: readonly SelectOptionItem[];
   togglePanel: () => void;
   closePanel: () => void;
-  togglePanelPinned: () => void;
-  toggleDebugMode: () => void;
   setPanelView: (view: PanelView) => void;
-  setAssistantState: (state: AssistantState) => void;
-  setPreferredMode: (mode: PreferredMode) => void;
-  setBackendUrl: (url: string) => void;
-  setSelectedInputDeviceId: (deviceId: string) => void;
-  setSelectedOutputDeviceId: (deviceId: string) => void;
-  setThemePreference: (themePreference: ThemePreference) => void;
+  toggleDebugMode: () => void;
+  initializeSettingsUi: (settings: { backendUrl: string }) => void;
+  setBackendUrlDraft: (value: string) => void;
+  setBackendUrlError: (value: string | null) => void;
+  initializeDevicePreferences: () => Promise<void>;
+  reset: () => void;
 };
 
-const UiStoreContext = createContext<UiStoreValue | undefined>(undefined);
-
-export type UiStoreProviderProps = {
-  children: ReactNode;
+const defaultUiState = {
+  isPanelOpen: false,
+  panelView: 'chat' as PanelView,
+  isDebugMode: false,
+  backendUrlDraft: '',
+  backendUrlError: null,
+  inputDeviceOptions: [] as readonly SelectOptionItem[],
+  outputDeviceOptions: [] as readonly SelectOptionItem[],
 };
 
-export function UiStoreProvider({ children }: UiStoreProviderProps): JSX.Element {
-  const [state, dispatch] = useReducer(uiReducer, undefined, getInitialUiState);
-  const initialPersistedBackendUrl = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
+export const useUiStore = create<UiStoreState>((set) => ({
+  ...defaultUiState,
+  togglePanel: () =>
+    set((state) => ({
+      isPanelOpen: !state.isPanelOpen,
+      panelView: state.isPanelOpen ? 'chat' : state.panelView,
+    })),
+  closePanel: () =>
+    set({
+      isPanelOpen: false,
+      panelView: 'chat',
+    }),
+  setPanelView: (panelView) => set({ panelView }),
+  toggleDebugMode: () => set((state) => ({ isDebugMode: !state.isDebugMode })),
+  initializeSettingsUi: ({ backendUrl }) =>
+    set((state) => ({
+      backendUrlDraft: state.backendUrlDraft || backendUrl,
+    })),
+  setBackendUrlDraft: (backendUrlDraft) => set({ backendUrlDraft }),
+  setBackendUrlError: (backendUrlError) => set({ backendUrlError }),
+  initializeDevicePreferences: async () => {
+    const applyDevices = async (): Promise<void> => {
+      const mediaDevices = navigator.mediaDevices;
 
-    return normalizeBackendBaseUrl(window.localStorage.getItem(BACKEND_URL_STORAGE_KEY) ?? '');
-  }, []);
-  const togglePanel = useCallback(() => dispatch({ type: 'togglePanel' }), []);
-  const closePanel = useCallback(() => dispatch({ type: 'closePanel' }), []);
-  const togglePanelPinned = useCallback(() => dispatch({ type: 'togglePanelPinned' }), []);
-  const toggleDebugMode = useCallback(() => dispatch({ type: 'toggleDebugMode' }), []);
-  const setPanelView = useCallback(
-    (view: PanelView) => dispatch({ type: 'setPanelView', payload: view }),
-    [],
-  );
-  const setAssistantState = useCallback(
-    (assistantState: AssistantState) =>
-      dispatch({ type: 'setAssistantState', payload: assistantState }),
-    [],
-  );
-  const setPreferredMode = useCallback(
-    (preferredMode: PreferredMode) => dispatch({ type: 'setPreferredMode', payload: preferredMode }),
-    [],
-  );
-  const setBackendUrl = useCallback(
-    (backendUrl: string) => dispatch({ type: 'setBackendUrl', payload: backendUrl }),
-    [],
-  );
-  const setSelectedInputDeviceId = useCallback(
-    (selectedInputDeviceId: string) =>
-      dispatch({ type: 'setSelectedInputDeviceId', payload: selectedInputDeviceId }),
-    [],
-  );
-  const setSelectedOutputDeviceId = useCallback(
-    (selectedOutputDeviceId: string) =>
-      dispatch({ type: 'setSelectedOutputDeviceId', payload: selectedOutputDeviceId }),
-    [],
-  );
-  const setThemePreference = useCallback(
-    (themePreference: ThemePreference) =>
-      dispatch({ type: 'setThemePreference', payload: themePreference }),
-    [],
-  );
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    window.localStorage.setItem(INPUT_DEVICE_STORAGE_KEY, state.selectedInputDeviceId);
-  }, [state.selectedInputDeviceId]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    window.localStorage.setItem(OUTPUT_DEVICE_STORAGE_KEY, state.selectedOutputDeviceId);
-  }, [state.selectedOutputDeviceId]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    window.localStorage.setItem(BACKEND_URL_STORAGE_KEY, state.backendUrl);
-  }, [state.backendUrl]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    window.localStorage.setItem(THEME_PREFERENCE_STORAGE_KEY, state.themePreference);
-  }, [state.themePreference]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    let isDisposed = false;
-
-    const syncBackendUrl = async (): Promise<void> => {
-      const runtimeBackendUrl = normalizeBackendBaseUrl(await window.bridge.getBackendBaseUrl())
-        ?? DEFAULT_API_BASE_URL;
-
-      if (isDisposed) {
-        return;
-      }
-
-      if (!initialPersistedBackendUrl) {
-        setBackendUrl(runtimeBackendUrl);
-        return;
-      }
-
-      if (initialPersistedBackendUrl === runtimeBackendUrl) {
-        setBackendUrl(runtimeBackendUrl);
+      if (!mediaDevices?.enumerateDevices) {
+        set({
+          inputDeviceOptions: UNAVAILABLE_INPUT_OPTION,
+          outputDeviceOptions: UNAVAILABLE_OUTPUT_OPTION,
+        });
         return;
       }
 
       try {
-        const appliedBackendUrl = normalizeBackendBaseUrl(
-          await window.bridge.setBackendBaseUrl(initialPersistedBackendUrl),
-        ) ?? runtimeBackendUrl;
+        const devices = await mediaDevices.enumerateDevices();
+        const inputDeviceOptions = buildDeviceOptions(
+          devices,
+          'audioinput',
+          UNAVAILABLE_INPUT_OPTION,
+          'Microphone',
+        );
+        const outputDeviceOptions = buildDeviceOptions(
+          devices,
+          'audiooutput',
+          UNAVAILABLE_OUTPUT_OPTION,
+          'Speaker',
+        );
 
-        if (!isDisposed) {
-          setBackendUrl(appliedBackendUrl);
+        set({
+          inputDeviceOptions,
+          outputDeviceOptions,
+        });
+
+        const {
+          selectedInputDeviceId,
+          selectedOutputDeviceId,
+        } = useSettingsStore.getState().settings;
+
+        if (
+          inputDeviceOptions[0]?.value !== 'unavailable' &&
+          !inputDeviceOptions.some((option) => option.value === selectedInputDeviceId)
+        ) {
+          await useSettingsStore.getState().updateSettings({
+            selectedInputDeviceId: DEFAULT_DEVICE_ID,
+          });
+        }
+
+        if (
+          outputDeviceOptions[0]?.value !== 'unavailable' &&
+          !outputDeviceOptions.some((option) => option.value === selectedOutputDeviceId)
+        ) {
+          await useSettingsStore.getState().updateSettings({
+            selectedOutputDeviceId: DEFAULT_DEVICE_ID,
+          });
         }
       } catch {
-        if (!isDisposed) {
-          setBackendUrl(runtimeBackendUrl);
-        }
+        set({
+          inputDeviceOptions: UNAVAILABLE_INPUT_OPTION,
+          outputDeviceOptions: UNAVAILABLE_OUTPUT_OPTION,
+        });
       }
     };
 
-    void syncBackendUrl();
+    await applyDevices();
 
-    return () => {
-      isDisposed = true;
+    if (deviceWatcherCleanup !== null) {
+      return;
+    }
+
+    const handleDeviceChange = (): void => {
+      void applyDevices();
     };
-  }, [initialPersistedBackendUrl, setBackendUrl]);
 
-  const value = useMemo<UiStoreValue>(
-    () => ({
-      state,
-      togglePanel,
-      closePanel,
-      togglePanelPinned,
-      toggleDebugMode,
-      setPanelView,
-      setAssistantState,
-      setPreferredMode,
-      setBackendUrl,
-      setSelectedInputDeviceId,
-      setSelectedOutputDeviceId,
-      setThemePreference,
-    }),
-    [
-      closePanel,
-      setPanelView,
-      setAssistantState,
-      setPreferredMode,
-      setBackendUrl,
-      setSelectedInputDeviceId,
-      setSelectedOutputDeviceId,
-      setThemePreference,
-      state,
-      togglePanel,
-      toggleDebugMode,
-      togglePanelPinned,
-    ],
-  );
-
-  return createElement(UiStoreContext.Provider, { value }, children);
-}
-
-export function useUiStore(): UiStoreValue {
-  const context = useContext(UiStoreContext);
-
-  if (!context) {
-    throw new Error('useUiStore must be used within UiStoreProvider');
-  }
-
-  return context;
-}
+    navigator.mediaDevices?.addEventListener?.('devicechange', handleDeviceChange);
+    deviceWatcherCleanup = () => {
+      navigator.mediaDevices?.removeEventListener?.('devicechange', handleDeviceChange);
+      deviceWatcherCleanup = null;
+    };
+  },
+  reset: () => {
+    deviceWatcherCleanup?.();
+    set(defaultUiState);
+  },
+}));

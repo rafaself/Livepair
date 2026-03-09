@@ -29,8 +29,9 @@ describe('preload bridge', () => {
         overlayMode: expect.any(String),
         checkHealth: expect.any(Function),
         requestSessionToken: expect.any(Function),
-        getBackendBaseUrl: expect.any(Function),
-        setBackendBaseUrl: expect.any(Function),
+        getSettings: expect.any(Function),
+        updateSettings: expect.any(Function),
+        migrateLegacySettings: expect.any(Function),
         setOverlayHitRegions: expect.any(Function),
         setOverlayPointerPassthrough: expect.any(Function),
       }),
@@ -54,16 +55,42 @@ describe('preload bridge', () => {
       sessionId: 'session-1',
     });
 
-    mockInvoke.mockResolvedValueOnce('http://localhost:3000');
-    await bridge.getBackendBaseUrl();
-    expect(mockInvoke).toHaveBeenCalledWith('config:getBackendBaseUrl');
+    mockInvoke.mockResolvedValueOnce({
+      backendUrl: 'http://localhost:3000',
+      isPanelPinned: false,
+      preferredMode: 'fast',
+      selectedInputDeviceId: 'default',
+      selectedOutputDeviceId: 'default',
+      themePreference: 'system',
+    });
+    await bridge.getSettings();
+    expect(mockInvoke).toHaveBeenCalledWith('settings:get');
 
-    mockInvoke.mockResolvedValueOnce('https://api.livepair.dev');
-    await bridge.setBackendBaseUrl('https://api.livepair.dev');
-    expect(mockInvoke).toHaveBeenCalledWith(
-      'config:setBackendBaseUrl',
-      'https://api.livepair.dev',
-    );
+    mockInvoke.mockResolvedValueOnce({
+      backendUrl: 'https://api.livepair.dev',
+      isPanelPinned: false,
+      preferredMode: 'fast',
+      selectedInputDeviceId: 'default',
+      selectedOutputDeviceId: 'default',
+      themePreference: 'system',
+    });
+    await bridge.updateSettings({ backendUrl: 'https://api.livepair.dev' });
+    expect(mockInvoke).toHaveBeenCalledWith('settings:update', {
+      backendUrl: 'https://api.livepair.dev',
+    });
+
+    mockInvoke.mockResolvedValueOnce({
+      backendUrl: 'https://api.livepair.dev',
+      isPanelPinned: false,
+      preferredMode: 'fast',
+      selectedInputDeviceId: 'default',
+      selectedOutputDeviceId: 'default',
+      themePreference: 'system',
+    });
+    await bridge.migrateLegacySettings({ backendUrl: 'https://api.livepair.dev' });
+    expect(mockInvoke).toHaveBeenCalledWith('settings:migrateLegacy', {
+      backendUrl: 'https://api.livepair.dev',
+    });
 
     mockInvoke.mockResolvedValueOnce(undefined);
     await bridge.setOverlayHitRegions([{ x: 0, y: 10, width: 100, height: 60 }]);

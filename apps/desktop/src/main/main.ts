@@ -7,22 +7,18 @@ import type {
 import {
   IPC_CHANNELS,
 } from '../shared/desktopBridge';
-import {
-  normalizeBackendBaseUrl,
-  resolveBackendBaseUrl,
-} from '../shared/backendBaseUrl';
-
-let apiBaseUrl = resolveBackendBaseUrl(process.env['API_BASE_URL']);
-
-export function getApiBaseUrl(): string {
-  return apiBaseUrl;
-}
+import type {
+  DesktopSettingsPatch,
+  LegacySettingsSnapshot,
+} from '../shared/settings';
+import { getDesktopSettingsService } from './settings/settingsService';
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-transparent-visuals');
 }
 
 let mainWindow: BrowserWindow | null = null;
+const settingsService = getDesktopSettingsService();
 
 function toOverlayRectangles(input: unknown): Rectangle[] {
   if (!Array.isArray(input)) {
@@ -76,6 +72,116 @@ function isCreateEphemeralTokenRequest(
 
   const sessionId = (req as { sessionId?: unknown }).sessionId;
   return typeof sessionId === 'string' || typeof sessionId === 'undefined';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function hasOnlyAllowedKeys(
+  value: Record<string, unknown>,
+  allowedKeys: readonly string[],
+): boolean {
+  return Object.keys(value).every((key) => allowedKeys.includes(key));
+}
+
+function isThemePreference(value: unknown): boolean {
+  return value === 'system' || value === 'light' || value === 'dark';
+}
+
+function isPreferredMode(value: unknown): boolean {
+  return value === 'fast' || value === 'thinking';
+}
+
+function isNonEmptyString(value: unknown): boolean {
+  return typeof value === 'string' && value.length > 0;
+}
+
+const DESKTOP_SETTINGS_PATCH_KEYS = [
+  'themePreference',
+  'backendUrl',
+  'preferredMode',
+  'selectedInputDeviceId',
+  'selectedOutputDeviceId',
+  'isPanelPinned',
+] as const;
+
+function isDesktopSettingsPatch(value: unknown): value is DesktopSettingsPatch {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, DESKTOP_SETTINGS_PATCH_KEYS)) {
+    return false;
+  }
+
+  if ('themePreference' in value && !isThemePreference(value['themePreference'])) {
+    return false;
+  }
+
+  if ('backendUrl' in value && typeof value['backendUrl'] !== 'string') {
+    return false;
+  }
+
+  if ('preferredMode' in value && !isPreferredMode(value['preferredMode'])) {
+    return false;
+  }
+
+  if ('selectedInputDeviceId' in value && !isNonEmptyString(value['selectedInputDeviceId'])) {
+    return false;
+  }
+
+  if (
+    'selectedOutputDeviceId' in value &&
+    !isNonEmptyString(value['selectedOutputDeviceId'])
+  ) {
+    return false;
+  }
+
+  if ('isPanelPinned' in value && typeof value['isPanelPinned'] !== 'boolean') {
+    return false;
+  }
+
+  return true;
+}
+
+const LEGACY_SETTINGS_SNAPSHOT_KEYS = [
+  'themePreference',
+  'backendUrl',
+  'selectedInputDeviceId',
+  'selectedOutputDeviceId',
+] as const;
+
+function isLegacySettingsSnapshot(value: unknown): value is LegacySettingsSnapshot {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, LEGACY_SETTINGS_SNAPSHOT_KEYS)) {
+    return false;
+  }
+
+  if ('themePreference' in value && !isThemePreference(value['themePreference'])) {
+    return false;
+  }
+
+  if ('backendUrl' in value && typeof value['backendUrl'] !== 'string') {
+    return false;
+  }
+
+  if ('selectedInputDeviceId' in value && !isNonEmptyString(value['selectedInputDeviceId'])) {
+    return false;
+  }
+
+  if (
+    'selectedOutputDeviceId' in value &&
+    !isNonEmptyString(value['selectedOutputDeviceId'])
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export function createWindow(): void {
@@ -146,7 +252,8 @@ export function handleWindowAllClosed(
 }
 
 ipcMain.handle(IPC_CHANNELS.checkHealth, async () => {
-  const res = await fetch(`${apiBaseUrl}/health`);
+  const { backendUrl } = await settingsService.getSettings();
+  const res = await fetch(`${backendUrl}/health`);
   if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
   return res.json();
 });
@@ -161,7 +268,8 @@ ipcMain.handle(
       throw new Error('Invalid token request payload');
     }
 
-    const res = await fetch(`${apiBaseUrl}/session/token`, {
+    const { backendUrl } = await settingsService.getSettings();
+    const res = await fetch(`${backendUrl}/session/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
@@ -171,25 +279,29 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle(IPC_CHANNELS.getBackendBaseUrl, async () => {
-  return apiBaseUrl;
+ipcMain.handle(IPC_CHANNELS.getSettings, async () => {
+  return settingsService.getSettings();
 });
 
 ipcMain.handle(
-  IPC_CHANNELS.setBackendBaseUrl,
-  async (_event, nextBaseUrl: unknown) => {
-    if (typeof nextBaseUrl !== 'string') {
-      throw new Error('Invalid backend base URL');
+  IPC_CHANNELS.updateSettings,
+  async (_event, patch: unknown) => {
+    if (!isDesktopSettingsPatch(patch)) {
+      throw new Error('Invalid settings update');
     }
 
-    const normalizedBaseUrl = normalizeBackendBaseUrl(nextBaseUrl);
+    return settingsService.updateSettings(patch);
+  },
+);
 
-    if (!normalizedBaseUrl) {
-      throw new Error('Invalid backend base URL');
+ipcMain.handle(
+  IPC_CHANNELS.migrateLegacySettings,
+  async (_event, snapshot: unknown) => {
+    if (!isLegacySettingsSnapshot(snapshot)) {
+      throw new Error('Invalid legacy settings snapshot');
     }
 
-    apiBaseUrl = normalizedBaseUrl;
-    return apiBaseUrl;
+    return settingsService.migrateLegacySettings(snapshot);
   },
 );
 

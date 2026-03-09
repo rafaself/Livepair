@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react';
 import { AudioLines, Server, Settings2, Wrench } from 'lucide-react';
 import { normalizeBackendBaseUrl } from '../../../shared/backendBaseUrl';
+import type { ThemePreference } from '../../../shared/settings';
 import { FieldList } from '../composite';
 import { ViewSection } from '../layout';
 import { ThemeToggle } from './ThemeToggle';
 import { Select, Switch, TextInput, type SelectOptionItem } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
+import { useSettingsStore } from '../../store/settingsStore';
 
 const MODE_OPTIONS: readonly SelectOptionItem[] = [
   { value: 'fast', label: 'Fast' },
   { value: 'thinking', label: 'Thinking' },
 ];
 
-const DEFAULT_DEVICE_ID = 'default';
 const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'No microphone detected' },
 ];
@@ -20,41 +20,13 @@ const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'No speaker detected' },
 ];
 
-function buildDeviceOptions(
-  devices: MediaDeviceInfo[],
-  kind: MediaDeviceKind,
-  unavailableOptions: readonly SelectOptionItem[],
-  unnamedLabelPrefix: string,
-): readonly SelectOptionItem[] {
-  const matchingDevices = devices.filter((device) => device.kind === kind);
-
-  if (matchingDevices.length === 0) {
-    return unavailableOptions;
-  }
-
-  let unnamedDeviceCount = 0;
-
-  return [
-    { value: DEFAULT_DEVICE_ID, label: 'System default' },
-    ...matchingDevices.flatMap((device) => {
-      if (device.deviceId === DEFAULT_DEVICE_ID) {
-        return [];
-      }
-
-      const label = device.label || `${unnamedLabelPrefix} ${++unnamedDeviceCount}`;
-
-      return [{ value: device.deviceId, label }];
-    }),
-  ];
-}
-
 export type AssistantPanelSettingsController = {
   isDebugMode: boolean;
   isPanelPinned: boolean;
   preferredMode: 'fast' | 'thinking';
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
-  themePreference: ReturnType<typeof useUiStore>['state']['themePreference'];
+  themePreference: ThemePreference;
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
   backendUrlDraft: string;
@@ -64,7 +36,7 @@ export type AssistantPanelSettingsController = {
   setPreferredMode: (mode: 'fast' | 'thinking') => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
   setSelectedOutputDeviceId: (deviceId: string) => void;
-  setThemePreference: ReturnType<typeof useUiStore>['setThemePreference'];
+  setThemePreference: (themePreference: ThemePreference) => void;
   handleBackendUrlChange: (value: string) => void;
   handleBackendUrlBlur: () => Promise<void>;
 };
@@ -74,113 +46,27 @@ export type UseAssistantPanelSettingsControllerOptions = {
 };
 
 export function useAssistantPanelSettingsController({
-  enabled = true,
+  enabled: _enabled = true,
 }: UseAssistantPanelSettingsControllerOptions = {}): AssistantPanelSettingsController {
-  const {
-    state: {
-      backendUrl,
-      isDebugMode,
-      isPanelPinned,
-      preferredMode,
-      selectedInputDeviceId,
-      selectedOutputDeviceId,
-      themePreference,
-    },
-    toggleDebugMode,
-    togglePanelPinned,
-    setPreferredMode,
-    setBackendUrl,
-    setSelectedInputDeviceId,
-    setSelectedOutputDeviceId,
-    setThemePreference,
-  } = useUiStore();
-  const [inputDeviceOptions, setInputDeviceOptions] =
-    useState<readonly SelectOptionItem[]>(UNAVAILABLE_INPUT_OPTION);
-  const [outputDeviceOptions, setOutputDeviceOptions] =
-    useState<readonly SelectOptionItem[]>(UNAVAILABLE_OUTPUT_OPTION);
-  const [backendUrlDraft, setBackendUrlDraft] = useState(backendUrl);
-  const [backendUrlError, setBackendUrlError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    let isDisposed = false;
-
-    const loadInputDevices = async (): Promise<void> => {
-      const mediaDevices = navigator.mediaDevices;
-
-      if (!mediaDevices?.enumerateDevices) {
-        if (!isDisposed) {
-          setInputDeviceOptions(UNAVAILABLE_INPUT_OPTION);
-        }
-        return;
-      }
-
-      try {
-        const devices = await mediaDevices.enumerateDevices();
-
-        if (isDisposed) {
-          return;
-        }
-
-        setInputDeviceOptions(
-          buildDeviceOptions(devices, 'audioinput', UNAVAILABLE_INPUT_OPTION, 'Microphone'),
-        );
-        setOutputDeviceOptions(
-          buildDeviceOptions(devices, 'audiooutput', UNAVAILABLE_OUTPUT_OPTION, 'Speaker'),
-        );
-      } catch {
-        if (!isDisposed) {
-          setInputDeviceOptions(UNAVAILABLE_INPUT_OPTION);
-          setOutputDeviceOptions(UNAVAILABLE_OUTPUT_OPTION);
-        }
-      }
-    };
-
-    void loadInputDevices();
-
-    const handleDeviceChange = (): void => {
-      void loadInputDevices();
-    };
-
-    navigator.mediaDevices?.addEventListener?.('devicechange', handleDeviceChange);
-
-    return () => {
-      isDisposed = true;
-      navigator.mediaDevices?.removeEventListener?.('devicechange', handleDeviceChange);
-    };
-  }, [enabled]);
-
-  useEffect(() => {
-    if (
-      inputDeviceOptions[0]?.value === 'unavailable' ||
-      inputDeviceOptions.some((option) => option.value === selectedInputDeviceId)
-    ) {
-      return;
-    }
-
-    setSelectedInputDeviceId(DEFAULT_DEVICE_ID);
-  }, [inputDeviceOptions, selectedInputDeviceId, setSelectedInputDeviceId]);
-
-  useEffect(() => {
-    if (
-      outputDeviceOptions[0]?.value === 'unavailable' ||
-      outputDeviceOptions.some((option) => option.value === selectedOutputDeviceId)
-    ) {
-      return;
-    }
-
-    setSelectedOutputDeviceId(DEFAULT_DEVICE_ID);
-  }, [outputDeviceOptions, selectedOutputDeviceId, setSelectedOutputDeviceId]);
-
-  useEffect(() => {
-    setBackendUrlDraft(backendUrl);
-  }, [backendUrl]);
+  const settings = useSettingsStore((state) => state.settings);
+  const updateSetting = useSettingsStore((state) => state.updateSetting);
+  const updateSettings = useSettingsStore((state) => state.updateSettings);
+  const isDebugMode = useUiStore((state) => state.isDebugMode);
+  const toggleDebugMode = useUiStore((state) => state.toggleDebugMode);
+  const backendUrlDraft = useUiStore((state) => state.backendUrlDraft);
+  const backendUrlError = useUiStore((state) => state.backendUrlError);
+  const setBackendUrlDraft = useUiStore((state) => state.setBackendUrlDraft);
+  const setBackendUrlError = useUiStore((state) => state.setBackendUrlError);
+  const inputDeviceOptions = useUiStore((state) =>
+    state.inputDeviceOptions.length > 0 ? state.inputDeviceOptions : UNAVAILABLE_INPUT_OPTION,
+  );
+  const outputDeviceOptions = useUiStore((state) =>
+    state.outputDeviceOptions.length > 0 ? state.outputDeviceOptions : UNAVAILABLE_OUTPUT_OPTION,
+  );
+  const resolvedBackendUrlDraft = backendUrlDraft || settings.backendUrl;
 
   const handleBackendUrlBlur = async (): Promise<void> => {
-    const normalizedBackendUrl = normalizeBackendBaseUrl(backendUrlDraft);
+    const normalizedBackendUrl = normalizeBackendBaseUrl(resolvedBackendUrlDraft);
 
     if (!normalizedBackendUrl) {
       setBackendUrlError('Enter a valid http:// or https:// URL.');
@@ -188,15 +74,14 @@ export function useAssistantPanelSettingsController({
     }
 
     try {
-      const appliedBackendUrl = normalizeBackendBaseUrl(
-        await window.bridge.setBackendBaseUrl(normalizedBackendUrl),
-      ) ?? normalizedBackendUrl;
+      const nextSettings = await updateSettings({
+        backendUrl: normalizedBackendUrl,
+      });
 
-      setBackendUrl(appliedBackendUrl);
-      setBackendUrlDraft(appliedBackendUrl);
+      setBackendUrlDraft(nextSettings.backendUrl);
       setBackendUrlError(null);
     } catch {
-      setBackendUrlDraft(backendUrl);
+      setBackendUrlDraft(settings.backendUrl);
       setBackendUrlError('Unable to update backend URL.');
     }
   };
@@ -210,21 +95,31 @@ export function useAssistantPanelSettingsController({
 
   return {
     isDebugMode,
-    isPanelPinned,
-    preferredMode,
-    selectedInputDeviceId,
-    selectedOutputDeviceId,
-    themePreference,
+    isPanelPinned: settings.isPanelPinned,
+    preferredMode: settings.preferredMode,
+    selectedInputDeviceId: settings.selectedInputDeviceId,
+    selectedOutputDeviceId: settings.selectedOutputDeviceId,
+    themePreference: settings.themePreference,
     inputDeviceOptions,
     outputDeviceOptions,
-    backendUrlDraft,
+    backendUrlDraft: resolvedBackendUrlDraft,
     backendUrlError,
     toggleDebugMode,
-    togglePanelPinned,
-    setPreferredMode,
-    setSelectedInputDeviceId,
-    setSelectedOutputDeviceId,
-    setThemePreference,
+    togglePanelPinned: () => {
+      void updateSetting('isPanelPinned', !settings.isPanelPinned);
+    },
+    setPreferredMode: (preferredMode) => {
+      void updateSetting('preferredMode', preferredMode);
+    },
+    setSelectedInputDeviceId: (selectedInputDeviceId) => {
+      void updateSetting('selectedInputDeviceId', selectedInputDeviceId);
+    },
+    setSelectedOutputDeviceId: (selectedOutputDeviceId) => {
+      void updateSetting('selectedOutputDeviceId', selectedOutputDeviceId);
+    },
+    setThemePreference: (themePreference) => {
+      void updateSetting('themePreference', themePreference);
+    },
     handleBackendUrlChange,
     handleBackendUrlBlur,
   };

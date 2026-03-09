@@ -1,0 +1,130 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import {
+  DEFAULT_DESKTOP_SETTINGS,
+  normalizeDesktopSettings,
+  normalizeDesktopSettingsPatch,
+  normalizeLegacySettingsSnapshot,
+  type DesktopSettings,
+  type DesktopSettingsPatch,
+  type LegacySettingsSnapshot,
+} from '../../shared/settings';
+
+type StoredDesktopSettings = {
+  version: number;
+  legacyMigrationCompleted: boolean;
+  settings: DesktopSettings;
+};
+
+const SETTINGS_SCHEMA_VERSION = 1;
+
+function createDefaultStoredSettings(): StoredDesktopSettings {
+  return {
+    version: SETTINGS_SCHEMA_VERSION,
+    legacyMigrationCompleted: false,
+    settings: DEFAULT_DESKTOP_SETTINGS,
+  };
+}
+
+export class DesktopSettingsRepository {
+  private mutationQueue: Promise<void> = Promise.resolve();
+
+  constructor(private readonly settingsFilePath: string) {}
+
+  async getSettings(): Promise<DesktopSettings> {
+    const storedSettings = await this.readStoredSettings();
+    return storedSettings.settings;
+  }
+
+  async updateSettings(patch: DesktopSettingsPatch): Promise<DesktopSettings> {
+    return this.runExclusive(async () => {
+      const normalizedPatch = normalizeDesktopSettingsPatch(patch);
+      if (normalizedPatch === null) {
+        throw new Error('Invalid desktop settings');
+      }
+
+      const storedSettings = await this.readStoredSettings();
+      const nextSettings = normalizeDesktopSettings({
+        ...storedSettings.settings,
+        ...normalizedPatch,
+      });
+
+      if (nextSettings === null) {
+        throw new Error('Invalid desktop settings');
+      }
+
+      await this.writeStoredSettings({
+        version: SETTINGS_SCHEMA_VERSION,
+        legacyMigrationCompleted: storedSettings.legacyMigrationCompleted,
+        settings: nextSettings,
+      });
+
+      return nextSettings;
+    });
+  }
+
+  async migrateLegacySettings(snapshot: LegacySettingsSnapshot): Promise<DesktopSettings> {
+    return this.runExclusive(async () => {
+      const storedSettings = await this.readStoredSettings();
+      if (storedSettings.legacyMigrationCompleted) {
+        return storedSettings.settings;
+      }
+
+      const normalizedPatch = normalizeLegacySettingsSnapshot(snapshot);
+      const nextSettings = normalizeDesktopSettings({
+        ...storedSettings.settings,
+        ...normalizedPatch,
+      });
+
+      if (nextSettings === null) {
+        throw new Error('Invalid desktop settings');
+      }
+
+      await this.writeStoredSettings({
+        version: SETTINGS_SCHEMA_VERSION,
+        legacyMigrationCompleted: true,
+        settings: nextSettings,
+      });
+
+      return nextSettings;
+    });
+  }
+
+  private runExclusive<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.mutationQueue.then(operation, operation);
+    this.mutationQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  private async readStoredSettings(): Promise<StoredDesktopSettings> {
+    try {
+      const contents = await readFile(this.settingsFilePath, 'utf8');
+      const parsed = JSON.parse(contents) as Partial<StoredDesktopSettings>;
+      const normalizedSettings = normalizeDesktopSettings(parsed.settings ?? {});
+
+      if (
+        parsed.version !== SETTINGS_SCHEMA_VERSION ||
+        normalizedSettings === null ||
+        typeof parsed.legacyMigrationCompleted !== 'boolean'
+      ) {
+        return createDefaultStoredSettings();
+      }
+
+      return {
+        version: SETTINGS_SCHEMA_VERSION,
+        legacyMigrationCompleted: parsed.legacyMigrationCompleted,
+        settings: normalizedSettings,
+      };
+    } catch {
+      return createDefaultStoredSettings();
+    }
+  }
+
+  private async writeStoredSettings(settings: StoredDesktopSettings): Promise<void> {
+    await mkdir(dirname(this.settingsFilePath), { recursive: true });
+    await writeFile(this.settingsFilePath, JSON.stringify(settings, null, 2), 'utf8');
+  }
+}

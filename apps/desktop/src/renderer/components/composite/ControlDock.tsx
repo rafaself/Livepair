@@ -2,17 +2,19 @@ import { useEffect, useState } from 'react';
 import { ChevronLeft, Mic, MicOff, Monitor, MonitorOff, Phone, Play } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
+import { useSessionStore } from '../../store/sessionStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import './ControlDock.css';
 
 export type ControlDockProps = Record<string, never>;
 
 export function ControlDock(_props: ControlDockProps): JSX.Element {
-  const {
-    state: { isPanelOpen, isPanelPinned, assistantState },
-    togglePanel,
-    closePanel,
-    setAssistantState,
-  } = useUiStore();
+  const isPanelOpen = useUiStore((state) => state.isPanelOpen);
+  const togglePanel = useUiStore((state) => state.togglePanel);
+  const closePanel = useUiStore((state) => state.closePanel);
+  const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
+  const assistantState = useSessionStore((state) => state.assistantState);
+  const setAssistantState = useSessionStore((state) => state.setAssistantState);
 
   const [isMicActive, setIsMicActive] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);

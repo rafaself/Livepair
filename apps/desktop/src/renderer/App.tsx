@@ -3,9 +3,9 @@ import { AssistantPanel } from './components/features/AssistantPanel';
 import { ControlDock } from './components/composite/ControlDock';
 import { useOverlayHitRegions } from './hooks/useOverlayHitRegions';
 import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrough';
-import { UiStoreProvider, useUiStore } from './store/uiStore';
 import type { OverlayMode } from '../shared/desktopBridge';
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
+import { useSettingsStore } from './store/settingsStore';
 
 function LinuxOverlayInteraction(): null {
   useOverlayHitRegions();
@@ -30,9 +30,7 @@ function OverlayInteractionManager({
 }
 
 function ThemePreferenceSync(): null {
-  const {
-    state: { themePreference },
-  } = useUiStore();
+  const themePreference = useSettingsStore((state) => state.settings.themePreference);
 
   useEffect(() => {
     if (themePreference !== 'system') {
@@ -71,9 +69,5 @@ function AppShell(): JSX.Element {
 }
 
 export function App(): JSX.Element {
-  return (
-    <UiStoreProvider>
-      <AppShell />
-    </UiStoreProvider>
-  );
+  return <AppShell />;
 }

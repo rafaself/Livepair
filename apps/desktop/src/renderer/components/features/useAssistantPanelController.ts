@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { checkBackendHealth, requestSessionToken } from '../../api/backend';
 import { useUiStore, type PanelView } from '../../store/uiStore';
+import {
+  useSessionStore,
+  type BackendConnectionState,
+  type TokenRequestState,
+} from '../../store/sessionStore';
 import { useMockSession } from './useMockSession';
 import type { ConversationTurnModel } from './mockConversation';
-
-export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
-export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
 
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
@@ -27,14 +29,16 @@ export type AssistantPanelController = {
 };
 
 export function useAssistantPanelController(): AssistantPanelController {
-  const {
-    state: { assistantState, isPanelOpen, panelView },
-    closePanel,
-    setPanelView,
-    setAssistantState,
-  } = useUiStore();
-  const [backendState, setBackendState] = useState<BackendConnectionState>('idle');
-  const [tokenRequestState, setTokenRequestState] = useState<TokenRequestState>('idle');
+  const isPanelOpen = useUiStore((state) => state.isPanelOpen);
+  const panelView = useUiStore((state) => state.panelView);
+  const closePanel = useUiStore((state) => state.closePanel);
+  const setPanelView = useUiStore((state) => state.setPanelView);
+  const assistantState = useSessionStore((state) => state.assistantState);
+  const setAssistantState = useSessionStore((state) => state.setAssistantState);
+  const backendState = useSessionStore((state) => state.backendState);
+  const setBackendState = useSessionStore((state) => state.setBackendState);
+  const tokenRequestState = useSessionStore((state) => state.tokenRequestState);
+  const setTokenRequestState = useSessionStore((state) => state.setTokenRequestState);
   const { turns: conversationTurns, isConversationEmpty } = useMockSession({
     assistantState,
     enabled: import.meta.env.DEV || import.meta.env.MODE === 'test',

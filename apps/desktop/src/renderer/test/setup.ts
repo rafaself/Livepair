@@ -1,17 +1,21 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, vi } from 'vitest';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetDesktopStores } from '../store/testing';
 
 beforeEach(() => {
   if (typeof window === 'undefined') {
     return;
   }
 
+  resetDesktopStores();
   window.bridge = {
     overlayMode: 'linux-shape',
     checkHealth: vi.fn(),
     requestSessionToken: vi.fn(),
-    getBackendBaseUrl: vi.fn(async () => 'http://localhost:3000'),
-    setBackendBaseUrl: vi.fn(async (url: string) => url),
+    getSettings: vi.fn(async () => DEFAULT_DESKTOP_SETTINGS),
+    updateSettings: vi.fn(async (patch) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...patch })),
+    migrateLegacySettings: vi.fn(async (snapshot) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...snapshot })),
     setOverlayHitRegions: vi.fn(),
     setOverlayPointerPassthrough: vi.fn(),
   };

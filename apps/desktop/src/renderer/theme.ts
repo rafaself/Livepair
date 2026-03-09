@@ -1,8 +1,9 @@
-export type ThemePreference = 'system' | 'light' | 'dark';
+export type { ThemePreference } from '../shared/settings';
+import type { ThemePreference } from '../shared/settings';
+
 export type ResolvedTheme = Exclude<ThemePreference, 'system'>;
 
 export const THEME_MEDIA_QUERY = '(prefers-color-scheme: dark)';
-export const THEME_PREFERENCE_STORAGE_KEY = 'livepair.themePreference';
 
 export function resolveThemePreference(
   preference: ThemePreference,

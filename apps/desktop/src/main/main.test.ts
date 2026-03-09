@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockHandle = vi.fn();
@@ -15,6 +17,7 @@ const mockWindowOn = vi.fn();
 const mockGetAllWindows = vi.fn((): unknown[] => []);
 const mockAppendSwitch = vi.fn();
 const mockWebContentsOn = vi.fn();
+const mockGetPath = vi.fn(() => join(tmpdir(), 'livepair-main-tests'));
 
 const browserWindowCtor = vi.fn(() => ({
   loadURL: mockLoadURL,
@@ -38,6 +41,7 @@ vi.mock('electron', () => ({
     whenReady: mockWhenReady,
     on: mockAppOn,
     quit: mockQuit,
+    getPath: mockGetPath,
     commandLine: { appendSwitch: mockAppendSwitch },
   },
   ipcMain: { handle: mockHandle },
@@ -52,12 +56,15 @@ describe('main process runtime', () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.unstubAllEnvs();
+    mockGetPath.mockReturnValue(
+      join(tmpdir(), 'livepair-main-tests', `${Date.now()}-${Math.random()}`),
+    );
   });
 
-  it('registers IPC handlers for health, token, and overlay IPC', async () => {
-    const main = await import('./main');
+  it('registers IPC handlers for health, token, settings, and overlay IPC', async () => {
+    await import('./main');
 
-    expect(mockHandle).toHaveBeenCalledTimes(6);
+    expect(mockHandle).toHaveBeenCalledTimes(7);
     expect(mockHandle).toHaveBeenNthCalledWith(
       1,
       'health:check',
@@ -70,25 +77,29 @@ describe('main process runtime', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       3,
-      'config:getBackendBaseUrl',
+      'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       4,
-      'config:setBackendBaseUrl',
+      'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       5,
-      'overlay:setHitRegions',
+      'settings:migrateLegacy',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       6,
+      'overlay:setHitRegions',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      7,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
-    expect(main.getApiBaseUrl()).toBe('http://localhost:3000');
   });
 
   it('creates transparent overlay BrowserWindow and handles dev/prod loading', async () => {
@@ -244,7 +255,7 @@ describe('main process runtime', () => {
     );
   });
 
-  it('gets and sets the backend base URL through IPC and uses the override for fetches', async () => {
+  it('gets and updates settings through IPC and uses the persisted backend URL for fetches', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -253,41 +264,142 @@ describe('main process runtime', () => {
     vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
 
     await import('./main');
-    const getBackendUrlHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'config:getBackendBaseUrl',
-    )?.[1] as () => Promise<string>;
-    const setBackendUrlHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'config:setBackendBaseUrl',
-    )?.[1] as (_event: unknown, url: string) => Promise<string>;
+    const getSettingsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'settings:get',
+    )?.[1] as () => Promise<{ backendUrl: string }>;
+    const updateSettingsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'settings:update',
+    )?.[1] as (_event: unknown, patch: unknown) => Promise<{ backendUrl: string }>;
     const healthHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'health:check',
     )?.[1] as () => Promise<{ status: 'ok'; timestamp: string }>;
 
-    await expect(getBackendUrlHandler()).resolves.toBe('http://localhost:3000');
-    await expect(setBackendUrlHandler({}, ' https://api.livepair.dev/base/ ')).resolves.toBe(
-      'https://api.livepair.dev/base',
+    await expect(getSettingsHandler()).resolves.toEqual(
+      expect.objectContaining({ backendUrl: 'http://localhost:3000' }),
     );
-    await expect(getBackendUrlHandler()).resolves.toBe('https://api.livepair.dev/base');
+    await expect(
+      updateSettingsHandler({}, { backendUrl: ' https://api.livepair.dev/base/ ' }),
+    ).resolves.toEqual(expect.objectContaining({ backendUrl: 'https://api.livepair.dev/base' }));
+    await expect(getSettingsHandler()).resolves.toEqual(
+      expect.objectContaining({ backendUrl: 'https://api.livepair.dev/base' }),
+    );
 
     await healthHandler();
 
     expect(fetchMock).toHaveBeenLastCalledWith('https://api.livepair.dev/base/health');
   });
 
-  it('rejects invalid backend base URLs before changing runtime state', async () => {
+  it('rejects invalid settings updates before changing runtime state', async () => {
     await import('./main');
-    const setBackendUrlHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'config:setBackendBaseUrl',
-    )?.[1] as (_event: unknown, url: unknown) => Promise<string>;
-    const getBackendUrlHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'config:getBackendBaseUrl',
-    )?.[1] as () => Promise<string>;
+    const updateSettingsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'settings:update',
+    )?.[1] as (_event: unknown, patch: unknown) => Promise<{ backendUrl: string }>;
+    const getSettingsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'settings:get',
+    )?.[1] as () => Promise<{ backendUrl: string }>;
 
-    await expect(setBackendUrlHandler({}, 'ftp://bad.example.com')).rejects.toThrow(
-      'Invalid backend base URL',
+    await expect(updateSettingsHandler({}, 'ftp://bad.example.com')).rejects.toThrow(
+      'Invalid settings update',
     );
-    await expect(setBackendUrlHandler({}, 123)).rejects.toThrow('Invalid backend base URL');
-    await expect(getBackendUrlHandler()).resolves.toBe('http://localhost:3000');
+    await expect(
+      updateSettingsHandler({}, { backendUrl: 'ftp://bad.example.com' }),
+    ).rejects.toThrow('Invalid desktop settings');
+    await expect(
+      updateSettingsHandler({}, { isPanelPinned: 'yes' }),
+    ).rejects.toThrow('Invalid settings update');
+    await expect(
+      updateSettingsHandler({}, { backendUrl: 'https://api.livepair.dev', extra: true }),
+    ).rejects.toThrow('Invalid settings update');
+    await expect(
+      updateSettingsHandler(
+        {},
+        Object.assign(Object.create({ injected: true }), {
+          backendUrl: 'https://api.livepair.dev',
+        }),
+      ),
+    ).rejects.toThrow('Invalid settings update');
+    await expect(getSettingsHandler()).resolves.toEqual(
+      expect.objectContaining({ backendUrl: 'http://localhost:3000' }),
+    );
+  });
+
+  it('migrates legacy renderer settings once through IPC', async () => {
+    await import('./main');
+    const migrateLegacySettingsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'settings:migrateLegacy',
+    )?.[1] as (_event: unknown, snapshot: unknown) => Promise<{
+      backendUrl: string;
+      themePreference: string;
+    }>;
+    const getSettingsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'settings:get',
+    )?.[1] as () => Promise<{ backendUrl: string; themePreference: string }>;
+
+    await expect(
+      migrateLegacySettingsHandler({}, {
+        backendUrl: 'https://legacy.livepair.dev/',
+        themePreference: 'dark',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        backendUrl: 'https://legacy.livepair.dev',
+        themePreference: 'dark',
+      }),
+    );
+
+    await expect(
+      migrateLegacySettingsHandler({}, {
+        backendUrl: 'https://stale-legacy.livepair.dev',
+        themePreference: 'light',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        backendUrl: 'https://legacy.livepair.dev',
+        themePreference: 'dark',
+      }),
+    );
+
+    await expect(getSettingsHandler()).resolves.toEqual(
+      expect.objectContaining({
+        backendUrl: 'https://legacy.livepair.dev',
+        themePreference: 'dark',
+      }),
+    );
+  });
+
+  it('rejects invalid legacy settings snapshots before migration', async () => {
+    await import('./main');
+    const migrateLegacySettingsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'settings:migrateLegacy',
+    )?.[1] as (_event: unknown, snapshot: unknown) => Promise<{
+      backendUrl: string;
+      themePreference: string;
+    }>;
+    const getSettingsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'settings:get',
+    )?.[1] as () => Promise<{ backendUrl: string; themePreference: string }>;
+
+    await expect(
+      migrateLegacySettingsHandler({}, { themePreference: 'sepia' }),
+    ).rejects.toThrow('Invalid legacy settings snapshot');
+    await expect(
+      migrateLegacySettingsHandler({}, { backendUrl: 'https://legacy.livepair.dev', extra: true }),
+    ).rejects.toThrow('Invalid legacy settings snapshot');
+    await expect(
+      migrateLegacySettingsHandler(
+        {},
+        Object.assign(Object.create({ injected: true }), {
+          themePreference: 'dark',
+        }),
+      ),
+    ).rejects.toThrow('Invalid legacy settings snapshot');
+
+    await expect(getSettingsHandler()).resolves.toEqual(
+      expect.objectContaining({
+        backendUrl: 'http://localhost:3000',
+        themePreference: 'system',
+      }),
+    );
   });
 
   it('overlay hit-region IPC sets Linux shaped input regions', async () => {

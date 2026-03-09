@@ -3,6 +3,11 @@ import type {
   CreateEphemeralTokenResponse,
   HealthResponse,
 } from '@livepair/shared-types';
+import type {
+  DesktopSettings,
+  DesktopSettingsPatch,
+  LegacySettingsSnapshot,
+} from './settings';
 
 export type OverlayHitRegion = {
   x: number;
@@ -19,8 +24,9 @@ export interface DesktopBridge {
   requestSessionToken: (
     req: CreateEphemeralTokenRequest,
   ) => Promise<CreateEphemeralTokenResponse>;
-  getBackendBaseUrl: () => Promise<string>;
-  setBackendBaseUrl: (url: string) => Promise<string>;
+  getSettings: () => Promise<DesktopSettings>;
+  updateSettings: (patch: DesktopSettingsPatch) => Promise<DesktopSettings>;
+  migrateLegacySettings: (snapshot: LegacySettingsSnapshot) => Promise<DesktopSettings>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
   setOverlayPointerPassthrough: (enabled: boolean) => Promise<void>;
 }
@@ -28,8 +34,9 @@ export interface DesktopBridge {
 export const IPC_CHANNELS = {
   checkHealth: 'health:check',
   requestSessionToken: 'session:requestToken',
-  getBackendBaseUrl: 'config:getBackendBaseUrl',
-  setBackendBaseUrl: 'config:setBackendBaseUrl',
+  getSettings: 'settings:get',
+  updateSettings: 'settings:update',
+  migrateLegacySettings: 'settings:migrateLegacy',
   setOverlayHitRegions: 'overlay:setHitRegions',
   setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
 } as const;

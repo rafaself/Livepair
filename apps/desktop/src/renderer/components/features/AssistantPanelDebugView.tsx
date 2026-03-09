@@ -7,7 +7,7 @@ import {
 import { FieldList, StatusIndicator } from '../composite';
 import { ViewSection } from '../layout';
 import { Button } from '../primitives';
-import type { BackendConnectionState } from './useAssistantPanelController';
+import type { BackendConnectionState } from '../../store/sessionStore';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 
 export type AssistantPanelDebugViewProps = {

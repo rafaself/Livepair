@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Bug, MessageCircle, Settings } from 'lucide-react';
 import { OverlayContainer, Panel, PanelHeader } from '../layout';
 import { Button, LivepairIcon } from '../primitives';
@@ -19,7 +18,6 @@ export type AssistantPanelProps = {
 export function AssistantPanel({
   showStateDevControls = false,
 }: AssistantPanelProps): JSX.Element {
-  const [hasInitializedSettings, setHasInitializedSettings] = useState(false);
   const {
     assistantState,
     isPanelOpen,
@@ -34,15 +32,7 @@ export function AssistantPanel({
     handleCheckBackendHealth,
     setAssistantState,
   } = useAssistantPanelController();
-  const settingsController = useAssistantPanelSettingsController({
-    enabled: hasInitializedSettings || panelView === 'settings',
-  });
-
-  useEffect(() => {
-    if (panelView === 'settings') {
-      setHasInitializedSettings(true);
-    }
-  }, [panelView]);
+  const settingsController = useAssistantPanelSettingsController();
 
   return (
     <OverlayContainer>

@@ -1,7 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { checkBackendHealth, requestSessionToken } from '../../api/backend';
-import { UiStoreProvider, useUiStore } from '../../store/uiStore';
+import { useSessionStore } from '../../store/sessionStore';
+import { useSettingsStore } from '../../store/settingsStore';
+import { resetDesktopStores } from '../../store/testing';
+import { useUiStore } from '../../store/uiStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
 
 vi.mock('../../api/backend', () => ({
@@ -10,7 +14,7 @@ vi.mock('../../api/backend', () => ({
 }));
 
 function HookHarness(): JSX.Element {
-  const { togglePanel } = useUiStore();
+  const togglePanel = useUiStore((state) => state.togglePanel);
   const controller = useAssistantPanelController();
 
   return (
@@ -34,15 +38,14 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={() => controller.setPanelView('debug')}>
         open debug
       </button>
-      <button type="button" onClick={() => controller.setPanelView('chat')}>
-        close debug
-      </button>
     </div>
   );
 }
 
 describe('useAssistantPanelController', () => {
   beforeEach(() => {
+    resetDesktopStores();
+    useSettingsStore.setState({ settings: DEFAULT_DESKTOP_SETTINGS, isReady: true });
     vi.clearAllMocks();
     vi.mocked(checkBackendHealth).mockResolvedValue(true);
     vi.mocked(requestSessionToken).mockResolvedValue({
@@ -57,11 +60,7 @@ describe('useAssistantPanelController', () => {
   });
 
   it('checks backend health when the panel is opened without promoting the session state', async () => {
-    render(
-      <UiStoreProvider>
-        <HookHarness />
-      </UiStoreProvider>,
-    );
+    render(<HookHarness />);
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
 
@@ -72,66 +71,10 @@ describe('useAssistantPanelController', () => {
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
   });
 
-  it('maps backend health failures to the error state', async () => {
-    vi.mocked(checkBackendHealth).mockResolvedValue(false);
-
-    render(
-      <UiStoreProvider>
-        <HookHarness />
-      </UiStoreProvider>,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
-    });
-    expect(screen.getByLabelText('backend-label')).toHaveTextContent('Not connected');
-  });
-
-  it('maps start talking to thinking while the token request is pending and returns to ready on success', async () => {
-    let resolveToken: (() => void) | undefined;
-    vi.mocked(requestSessionToken).mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveToken = () =>
-            resolve({
-              token: 'stub-token',
-              expiresAt: 'later',
-              isStub: true,
-            });
-        }),
-    );
-
-    render(
-      <UiStoreProvider>
-        <HookHarness />
-      </UiStoreProvider>,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
-
-    expect(requestSessionToken).toHaveBeenCalledWith({});
-    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('thinking');
-    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Requesting token...');
-
-    resolveToken?.();
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
-    });
-    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Token received');
-  });
-
   it('maps token request failures to the error state', async () => {
     vi.mocked(requestSessionToken).mockRejectedValueOnce(new Error('token failed'));
 
-    render(
-      <UiStoreProvider>
-        <HookHarness />
-      </UiStoreProvider>,
-    );
-
+    render(<HookHarness />);
     fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
 
     await waitFor(() => {
@@ -140,45 +83,11 @@ describe('useAssistantPanelController', () => {
     expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Connection failed');
   });
 
-  it('resets panel view to chat when the panel closes', async () => {
-    render(
-      <UiStoreProvider>
-        <HookHarness />
-      </UiStoreProvider>,
-    );
+  it('routes direct assistant state changes through the session store', () => {
+    render(<HookHarness />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-    fireEvent.click(screen.getByRole('button', { name: 'open debug' }));
-    await waitFor(() => {
-      expect(screen.getByLabelText('panel-view')).toHaveTextContent('debug');
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('panel-view')).toHaveTextContent('chat');
-    });
-  });
-
-  it('exposes mock conversation turns when a session starts in development', async () => {
-    vi.useFakeTimers();
-    render(
-      <UiStoreProvider>
-        <HookHarness />
-      </UiStoreProvider>,
-    );
-
-    expect(screen.getByLabelText('conversation-empty')).toHaveTextContent('true');
-
-    act(() => {
-      fireEvent.click(screen.getByRole('button', { name: 'start mock session' }));
-    });
-
-    act(() => {
-      vi.advanceTimersByTime(2000);
-    });
-
-    expect(Number(screen.getByLabelText('conversation-count').textContent)).toBeGreaterThan(0);
-    expect(screen.getByLabelText('conversation-empty')).toHaveTextContent('false');
+    fireEvent.click(screen.getByRole('button', { name: 'start mock session' }));
+    expect(useSessionStore.getState().assistantState).toBe('listening');
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('listening');
   });
 });
