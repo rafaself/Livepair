@@ -1,52 +1,64 @@
 ---
 name: contract-change-check
-description: Verifies that changes to shared contracts (API payloads, IPC messages, event schemas, shared types) are complete, consistent, and update all impacted consumers in the same task.
+description: Verify that Livepair contract changes are centralized, updated across all consumers, and reflected in shared types, preload/IPC surfaces, DTOs, and validators in the same task.
 ---
 
 # Contract Change Check
 
 ## Use when changes affect
-- API request/response payloads between desktop and backend
-- IPC message definitions or channel contracts
-- Shared TypeScript types used across packages
-- Realtime event structures (WebSocket messages, streaming events)
-- Shared validation schemas or Zod/Joi definitions
-
-## Sequencing
-- **Phase:** post-implementation verification — runs after code is written.
-- Not a substitute for `feature-planner`. If the task is non-trivial, run `feature-planner` first to plan the change, then run this skill to verify contract completeness after implementation.
-- Can run in parallel with `electron-security-review` and `live-api-realtime-review`.
+- `packages/shared-types/src/index.ts`
+- desktop IPC channels or `DesktopBridge`
+- backend request/response payloads or DTOs
+- shared validation logic used across package boundaries
+- session or settings payloads that cross renderer/main/backend boundaries
 
 ## Do not use when
-- Changes are internal to a single package with no shared surface
-- The modified types are not imported by any other package
+- The change is internal to one module with no shared callers
+- The changed type is not consumed outside its local file/package
 
-## Checklist
+## Workflow
 
-1. **Shared types updated** - The canonical type definition is updated in the shared location. Not patched locally in a consumer.
-2. **No duplicated schemas** - The same contract is not defined in multiple places. If it is, consolidate.
-3. **All consumers identified** - List every file/module that imports or depends on the changed contract.
-4. **Consumers updated** - Every identified consumer handles the new shape. No consumer left using the old contract.
-5. **Backward-compatibility risk** - If the backend and desktop can be deployed independently, note whether the change is backward-compatible. If breaking, note the required deployment order.
-6. **Validation updated** - If the contract has runtime validation (Zod, Joi, manual checks), the validation matches the new shape.
+1. Identify the canonical contract definition. In this repo that is usually:
+   - `packages/shared-types/src/index.ts`
+   - `apps/desktop/src/shared/desktopBridge.ts`
+   - a backend DTO paired with shared types under `apps/api/src/**/dto`
+2. Search consumers with `rg` before concluding the update is complete.
+3. Confirm every consumer was updated in the same task:
+   - renderer callers using `window.bridge`
+   - preload bridge exposure in `apps/desktop/src/preload/preload.ts`
+   - main IPC handlers in `apps/desktop/src/main/ipc/registerIpcHandlers.ts`
+   - desktop validators in `apps/desktop/src/main/ipc/validators.ts`
+   - backend controller/service/DTO files under `apps/api/src`
+4. Check for duplicate shapes. If a payload changed, it should not also live as an untracked local interface elsewhere.
+5. Check runtime validation:
+   - backend DTO decorators
+   - desktop IPC validators
+   - any manual guards or normalizers
+6. Note compatibility and rollout risk:
+   - desktop and backend may evolve independently
+   - breaking payload changes require an explicit rollout note
+7. If the task mentions realtime events, confirm whether those events exist in current code. If they do not, say that the contract is still planned and cannot be verified from implementation.
 
 ## Output format
 
-```
+```md
 ## Contract Change Check
 
-**Changed contracts:**
-- <type/schema name> in <file path> — <what changed>
+**Canonical contracts changed:**
+- <path> — <what changed>
 
-**Impacted consumers:**
-- <file path> — <status: updated / needs update>
+**Consumers checked:**
+- <path> — <updated / unaffected / missing update>
+
+**Validation alignment:**
+- <validator or DTO> — <status>
+
+**Compatibility and rollout:**
+- <compatible / breaking> — <notes>
 
 **Missing updates:**
 - <item or "None">
 
-**Backward-compatibility:**
-- <compatible / breaking — deployment notes>
-
-**Follow-up items:**
+**Cannot verify from current context:**
 - <item or "None">
 ```

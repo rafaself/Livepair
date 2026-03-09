@@ -1,54 +1,67 @@
 ---
 name: tdd-implementer
-description: Enforces test-driven development workflow. Write a failing test first, implement the minimum change to pass, then refactor. Applies to all non-trivial logic changes.
+description: Apply repository-aware TDD in Livepair. Write the smallest failing test first, implement the minimum code to pass, and verify with the narrowest relevant pnpm command.
 ---
 
 # TDD Implementer
 
 ## Use when
-- Implementing new domain logic, reducers, parsers, or services
-- Fixing a bug with a reproducible root cause
-- Changing shared contracts or validation logic
-- Adding or modifying backend endpoints
+- Changing backend services, DTO validation, controllers, or env/config behavior
+- Changing desktop main/preload/shared logic, IPC validation, stores, hooks, or typed adapters
+- Changing shared contracts or shared utility logic
 
 ## Do not use when
-- Running a spike or throwaway experiment (but still require regression coverage before closing)
-- Writing glue code with poor test value (e.g., wiring a config constant)
-- The change is purely declarative (CSS, static markup)
+- The change is documentation-only or skill-only
+- The change is trivial wiring with no meaningful test value
+- The task is a spike, but add regression coverage before closing if behavior changed
 
-## Sequencing
-- **Phase:** implementation — runs during coding, after `feature-planner` (if used).
-- If `feature-planner` was run, follow the test plan from its output.
-- This skill does not replace post-implementation reviews (`electron-security-review`, `live-api-realtime-review`, `contract-change-check`).
+## Repository test map
+
+- `apps/api`: Jest + `@nestjs/testing` + `supertest` when useful
+- `apps/desktop`: Vitest + Testing Library + `src/renderer/test/setup.ts`
+- `packages/shared-utils`: Vitest in node mode
+- `packages/shared-types`: compile-only type assertions via `pnpm --filter @livepair/shared-types test`
 
 ## Workflow
 
-1. **Write a failing test** - Define the expected behavior. Run the test and confirm it fails for the right reason.
-2. **Implement the minimum change** - Write only enough code to make the test pass. Do not add unrelated functionality.
-3. **Run the test** - Confirm it passes.
-4. **Refactor** - Clean up the implementation without changing behavior. Re-run tests after refactoring.
-5. **Repeat** - If the feature requires more behavior, go back to step 1.
+1. Pick the smallest test level that covers the change:
+   - shared contract shape -> type test or consumer regression
+   - validator/parser/store/service logic -> unit test
+   - controller + DTO boundary -> Nest testing or lightweight integration
+   - renderer state/UI logic -> targeted Vitest test
+2. Write or update the failing test first near the changed code.
+3. Run the narrowest command that proves failure.
+4. Implement the minimum change to pass.
+5. Re-run the same narrow command.
+6. Refactor only if behavior stays covered.
+7. Before closing, widen verification to the smallest relevant package command:
+   - `pnpm --filter @livepair/<pkg> test`
+   - optionally `pnpm verify:<pkg>` when lint/typecheck coverage matters for that package
 
-### Bug fix variant
-1. **Reproduce with a test** - Write a test that fails due to the bug.
-2. **Fix** - Apply the minimum fix.
-3. **Confirm** - Test passes, no regressions.
+## Repository checks
 
-### When TDD is skipped
-- Still require at least one regression test covering the new behavior before marking the task complete.
-- Document why TDD was skipped (spike, glue code, etc.).
+- Do not weaken Electron security just to make tests easier.
+- Prefer shared contract imports over duplicated local test shapes.
+- When testing desktop renderer code, use the existing bridge/store setup instead of ad hoc globals.
+- When TDD is skipped, say why and state what regression coverage was added instead.
 
 ## Output format
 
-```
+```md
 ## TDD Summary
 
-**Tests added/updated:**
-- <test file>:<test name> — <what it covers>
+**Failing test first:**
+- <file> — <what failed initially>
 
 **Implementation:**
-- <short description of what changed>
+- <minimum code change>
 
-**Remaining risks:**
-- <risk or "None">
+**Verification run:**
+- <command> — <result>
+
+**Coverage notes:**
+- <what behavior is now protected>
+
+**Cannot verify from current context:**
+- <item or "None">
 ```

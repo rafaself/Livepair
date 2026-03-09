@@ -1,62 +1,69 @@
 ---
 name: electron-security-review
-description: Security review checklist for changes touching Electron main process, preload scripts, IPC, permissions, screen capture, file system access, shell execution, or any privileged API surface.
+description: Review Livepair Electron security boundaries with concrete checks against the real main, preload, renderer, IPC, CSP, and validator files.
 ---
 
 # Electron Security Review
 
 ## Use when changes touch
-- Main process code
-- Preload scripts
-- IPC handlers or channel definitions
-- Permission requests or grants
-- Screen capture or media access
-- File system reads/writes from the app
-- Shell or child process execution
-- `webPreferences` or `BrowserWindow` configuration
-- CSP headers or meta tags
-
-## Sequencing
-- **Phase:** post-implementation review — runs after code is written.
-- If the change also touches shared contracts or the realtime path, run `contract-change-check` and/or `live-api-realtime-review` in parallel.
-- If `feature-planner` was run, this skill should have been listed in its "Required downstream skills" output.
+- `apps/desktop/src/main/**`
+- `apps/desktop/src/preload/**`
+- `apps/desktop/src/shared/desktopBridge.ts`
+- IPC validators or channel definitions
+- renderer code that consumes privileged APIs
+- BrowserWindow configuration, permissions, CSP, file system, shell, or native access
 
 ## Do not use when
-- Changes are limited to renderer UI components with no IPC or privilege changes
-- Changes are backend-only
+- The change is backend-only
+- The change is renderer-only styling or presentational UI with no bridge or privilege impact
 
-## Checklist
+## Inspection steps
 
-1. **`contextIsolation`** - Confirm it remains `true` in all `BrowserWindow` configs.
-2. **`nodeIntegration`** - Confirm it remains `false` in all `BrowserWindow` configs.
-3. **Preload boundary** - Verify that only explicitly needed APIs are exposed via `contextBridge.exposeInMainWorld`. No blanket exposure of Node or Electron modules.
-4. **Least-privilege IPC** - Each IPC channel exposes only the minimum needed operation. No generic "execute" or "eval" channels.
-5. **Input validation** - All arguments received via IPC in the main process are validated before use.
-6. **Renderer safety** - Renderer code does not access `require`, `process`, `electron`, or Node APIs directly.
-7. **Dangerous patterns** - Check for:
-   - `shell.openExternal` with unvalidated URLs
-   - `protocol.registerFileProtocol` without path validation
-   - Dynamic `require` or `import` based on user input
+1. Inspect `apps/desktop/src/main/window/overlayWindow.ts`:
+   - `contextIsolation: true`
+   - `nodeIntegration: false`
+   - `sandbox: true`
+   - no unsafe web preferences
+2. Inspect `apps/desktop/src/preload/preload.ts` and `apps/desktop/src/shared/desktopBridge.ts`:
+   - only narrow, typed APIs exposed through `contextBridge`
+   - no raw `ipcRenderer`, `electron`, or Node surface leaked to renderer
+3. Inspect `apps/desktop/src/main/ipc/registerIpcHandlers.ts` and `apps/desktop/src/main/ipc/validators.ts`:
+   - inputs validated before use
+   - no generic pass-through, eval-style, or shell-style channels
+   - overlay and settings mutations remain constrained
+4. Inspect renderer entry points such as `apps/desktop/src/renderer/index.html` and changed renderer files:
+   - CSP still present
+   - renderer does not import Electron or Node directly
+5. Search for dangerous patterns in changed files and nearby code:
+   - `shell.openExternal`
    - `webSecurity: false`
    - `allowRunningInsecureContent: true`
-   - Missing or overly permissive CSP
-8. **API key exposure** - No permanent API keys or secrets in client-shipped code. Ephemeral tokens only.
+   - `nodeIntegration: true`
+   - `contextIsolation: false`
+   - dynamic `require` / `import` from user input
+6. Check secret handling:
+   - no permanent Gemini key shipped to the client
+   - token flow still uses backend-issued ephemeral credentials
+7. If a claim cannot be proven from the changed code or current repository state, say so explicitly.
 
 ## Output format
 
-```
+```md
 ## Electron Security Review
 
 **Findings:**
-- [CRITICAL/HIGH/MEDIUM/LOW] <finding>
+- [severity] <finding> — <path>
 
 **Required fixes:**
-- <fix>
+- <fix or "None">
 
-**Optional improvements:**
-- <improvement>
+**Verified invariants:**
+- <invariant>
 
-**Verdict:** PASS / FAIL (with required fixes)
+**Cannot verify from current context:**
+- <item or "None">
+
+**Verdict:** PASS / FAIL
 ```
 
-If no findings: state "No security issues found" and verdict PASS.
+If there are no findings, still list the invariants that were actually checked.

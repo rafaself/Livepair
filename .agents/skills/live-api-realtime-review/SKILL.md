@@ -1,56 +1,72 @@
 ---
 name: live-api-realtime-review
-description: Review changes that affect realtime UX, latency, or the client-to-Gemini-Live-API hot path. Catches silent latency regressions, unnecessary backend proxying, and degraded interruption or resumability behavior.
+description: Review changes that affect Livepair's realtime and control-plane boundaries. Distinguishes the current stub token flow from the planned Gemini Live API pipeline and flags latency or architecture regressions.
 ---
 
 # Live API Realtime Review
 
 ## Use when changes touch
-- Audio capture or playback pipeline
-- Audio chunking or encoding
-- VAD or interruption handling
-- Screen frame capture, compression, or transmission
-- WebSocket or streaming connection to Gemini Live API
-- Reconnect, session resume, or checkpointing logic
-- Ephemeral token issuance or renewal flow
-- Any backend interaction that could land on the realtime hot path
-
-## Sequencing
-- **Phase:** post-implementation review — runs after code is written.
-- If the change also touches Electron security surface or shared contracts, run `electron-security-review` and/or `contract-change-check` in parallel.
-- If `feature-planner` was run, this skill should have been listed in its "Required downstream skills" output.
+- session token issuance or renewal
+- backend calls that could land on the realtime hot path
+- planned or actual Gemini transport/session code
+- screen capture, audio capture, playback, interruption, or checkpoint logic
+- architecture changes that might proxy media through the backend
 
 ## Do not use when
-- Changes are backend-only with no realtime path impact
-- Changes are purely UI layout or styling with no capture/playback involvement
+- The change is isolated to static UI styling
+- The change is backend-only and clearly unrelated to session, token, tool, or realtime boundaries
 
-## Checklist
+## Current repository reality
 
-1. **Hot path remains short** - Client still connects directly to Gemini Live API. No new backend hop inserted in the audio/video/screen path.
-2. **No unnecessary backend proxying** - Data that should flow client-to-Gemini is not being routed through the backend.
-3. **No silent latency regressions** - Check for:
-   - Increased chunk sizes
-   - Added synchronous waits or blocking calls in the capture/playback pipeline
-   - New network round-trips on the hot path
-   - Heavier compression or encoding without justification
-4. **Screen capture remains lightweight** - Capture frequency not increased beyond baseline without measurement. Resolution and compression stay reasonable (per WATCHOUTS.md guidelines).
-5. **Interruption is first-class** - Local VAD still triggers immediate audio stop. Model-side detection is not the sole interruption mechanism.
-6. **Resumability intact** - Reconnection, checkpointing, and short-context recovery still function. Session state is not silently discarded.
-7. **Token flow correct** - Ephemeral token issuance and renewal still work. Token expiration is handled explicitly, not silently ignored.
+- Implemented today: desktop requests a stub token from the backend through `window.bridge` and main-process IPC.
+- Planned target: desktop connects directly to Gemini Live API for realtime media; audio, vision, interrupt, reconnect, and checkpoint pipelines are not fully implemented yet.
+
+Do not review planned subsystems as if they already exist. Check code first.
+
+## Inspection steps
+
+1. Confirm whether the changed behavior is implemented today or only documented in:
+   - `README.md`
+   - `docs/ARCHITECTURE.md`
+   - `WATCHOUTS.md`
+2. Inspect the existing token/control-plane path when relevant:
+   - `apps/desktop/src/renderer/api/backend.ts`
+   - `apps/desktop/src/preload/preload.ts`
+   - `apps/desktop/src/main/ipc/registerIpcHandlers.ts`
+   - `apps/desktop/src/main/backend/backendClient.ts`
+   - `apps/api/src/session/**`
+   - `packages/shared-types/src/index.ts`
+3. Reject architecture regressions:
+   - backend inserted into audio/video/frame hot path
+   - extra round trips before starting or resuming a session
+   - large synchronous work in capture/playback/session code
+4. Compare against `WATCHOUTS.md`:
+   - small audio chunks
+   - lightweight screen capture
+   - local interruption handling
+   - explicit token expiry/renewal handling
+   - resumability and short checkpoints
+5. If the repo does not yet contain the subsystem being reviewed, state that you cannot verify latency or behavior from implementation and fall back to boundary checks only.
 
 ## Output format
 
-```
+```md
 ## Realtime Review
+
+**Implemented path reviewed:**
+- <current code path or "No implemented path for this subsystem">
 
 **Latency risks:**
 - <risk or "None">
 
-**UX risks:**
+**Architecture risks:**
 - <risk or "None">
 
-**Correctness risks:**
+**Correctness/UX risks:**
 - <risk or "None">
+
+**Cannot verify from current context:**
+- <item or "None">
 
 **Recommended fixes:**
 - <fix or "None">

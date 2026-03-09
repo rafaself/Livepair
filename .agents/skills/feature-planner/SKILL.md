@@ -1,67 +1,94 @@
 ---
 name: feature-planner
-description: Structured planning workflow for non-trivial features. Produces a short plan covering goal, affected files, contracts, risks, tests, and minimal implementation path before any code is written.
+description: Plan a non-trivial Livepair change before coding. Anchors the plan to the real repository layout, current implementation status, affected boundaries, tests, and required follow-up reviews.
 ---
 
 # Feature Planner
 
 ## Use when
-- Implementing a feature that touches more than one file or module
-- Adding a new capability that affects shared contracts, IPC, or API surface
-- The implementation path is not immediately obvious
+- The task touches more than one file, package, or runtime boundary
+- The change adds or modifies API payloads, IPC channels, settings flows, or session behavior
+- The task implements something described in docs but not obviously present in code today
 
 ## Do not use when
-- The change is a single-file bug fix with a clear root cause
-- The task is a spike or throwaway experiment
-- The change is purely cosmetic (formatting, renaming)
-
-## Sequencing
-- **Phase:** planning — runs before any code is written.
-- This skill runs first. Its output determines which downstream skills apply.
-- Do not use `contract-change-check`, `electron-security-review`, or `live-api-realtime-review` as substitutes for this skill. Those are post-implementation verification.
+- The change is an isolated single-file fix with an obvious implementation path
+- The work is purely presentational or documentation-only
 
 ## Workflow
 
-1. **State the goal** - One sentence describing what the feature does and why it matters.
-2. **List affected files/modules** - Identify every file or module that will be created, modified, or deleted.
-3. **Identify shared contracts affected** - List any API payloads, IPC messages, shared types, or event schemas that change. If none, state "None."
-4. **List risks** - What could break, regress, or conflict. Include security, latency, and backward-compatibility risks.
-5. **Define tests to add or update** - Specify failing tests to write first (per TDD preference). Include unit, integration, and E2E as applicable.
-6. **Describe the minimal implementation path** - Ordered steps to implement. Each step should be small enough to verify independently.
-7. **Mark out-of-scope items** - Explicitly list related work that will NOT be done in this task.
-8. **Declare required downstream skills** - Based on the plan, list which skills must run after implementation:
-   - Shared contracts affected → `contract-change-check`
-   - Electron main/preload/IPC touched → `electron-security-review`
-   - Realtime path touched → `live-api-realtime-review`
-   - Always include `tdd-implementer` unless TDD is explicitly skipped.
+1. Inspect the current implementation before planning. Use the smallest relevant reads under:
+   - `apps/desktop/src/main`, `apps/desktop/src/preload`, `apps/desktop/src/renderer`
+   - `apps/api/src`
+   - `packages/shared-types/src`, `packages/shared-utils/src`
+   - `README.md`, `docs/ARCHITECTURE.md`, `WATCHOUTS.md`
+2. Separate `implemented today` from `planned target`. Do not plan against docs-only architecture without naming the missing code.
+3. List the exact files or modules expected to change. Include new files if any.
+4. Identify boundary impact:
+   - renderer vs preload vs main
+   - desktop vs backend
+   - shared contract vs local implementation
+   - realtime hot path vs control plane
+5. Identify contract impact. Check whether the task changes:
+   - `packages/shared-types/src/index.ts`
+   - `apps/desktop/src/shared/desktopBridge.ts`
+   - backend DTOs under `apps/api/src/**/dto`
+   - runtime validators such as `apps/desktop/src/main/ipc/validators.ts`
+6. Call out security, latency, and scope risks specific to this repo:
+   - Electron security invariants
+   - backend must not proxy audio/video
+   - controllers stay thin
+   - no new production dependency without user confirmation
+7. Define the smallest relevant tests and verification commands first:
+   - `pnpm --filter @livepair/api test`
+   - `pnpm --filter @livepair/desktop test`
+   - `pnpm --filter @livepair/shared-types test`
+   - `pnpm --filter @livepair/shared-utils test`
+   - widen to `verify:<pkg>` only when the task warrants it
+8. Declare downstream skills:
+   - contract changed -> `contract-change-check`
+   - main/preload/IPC/security surface touched -> `electron-security-review`
+   - realtime/session/control-plane boundary touched -> `live-api-realtime-review`
+   - responsibility placement changed across desktop/backend/shared -> `architecture-boundary-review`
+   - logic change with meaningful test value -> `tdd-implementer`
+9. State what cannot be verified from current context.
 
 ## Output format
 
-```
-## Feature Plan: <feature name>
+```md
+## Feature Plan: <task>
 
 **Goal:** <one sentence>
 
-**Affected files/modules:**
-- <path> — <what changes>
+**Implemented today vs planned target:**
+- Implemented: <relevant current code>
+- Planned/not yet in code: <target-state items or "None">
 
-**Shared contracts affected:**
-- <contract> — <change description>
+**Files/modules expected to change:**
+- <path> — <reason>
 
-**Risks:**
+**Boundary impact:**
+- <boundary> — <effect or "None">
+
+**Contracts affected:**
+- <contract/path> — <change or "None">
+
+**Key risks:**
 - <risk>
 
-**Tests:**
-- <test to add/update>
+**Tests and verification:**
+- <test file or command>
 
-**Implementation steps:**
+**Minimal implementation path:**
 1. <step>
 
 **Out of scope:**
 - <item>
 
 **Required downstream skills:**
-- <skill name>
+- <skill>
+
+**Cannot verify from current context:**
+- <item or "None">
 ```
 
-Keep the plan under 40 lines. If it exceeds that, the feature scope is likely too large — split it.
+Keep it short and repository-specific. If the plan starts describing speculative subsystems, tighten scope.

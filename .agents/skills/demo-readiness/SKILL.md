@@ -1,45 +1,61 @@
 ---
 name: demo-readiness
-description: Verifies whether a feature is actually ready to demonstrate. Checks happy path, failure handling, log quality, demo scenario fit, and surface polish. Produces a clear go/no-go verdict with blockers and minimum fixes.
+description: Final presentation gate for Livepair work. Verifies the intended demo path, known failure handling, verification evidence, and what remains unverifiable in the current repository state.
 ---
 
 # Demo Readiness
 
 ## Use when
-- A feature is considered "done" and about to be shown
-- Preparing for a scheduled demo or review
-- Validating that a milestone is presentable
-
-## Sequencing
-- **Phase:** final gate — runs last, after all implementation and review skills have completed.
-- Before running this skill, confirm that all applicable review skills (`electron-security-review`, `live-api-realtime-review`, `contract-change-check`) have passed. If any have outstanding required fixes, resolve those first.
+- A feature or milestone is about to be shown to someone else
+- You need a go/no-go answer for a demo or review
 
 ## Do not use when
-- The feature is still actively being implemented
-- The task is a spike or internal-only tooling change
+- Implementation is still in progress
+- Required review skills still have unresolved fixes
 
-## Checklist
+## Workflow
 
-1. **Happy path works** - Run the main demo scenario end-to-end. It completes without errors or manual workarounds.
-2. **Important failure path handled** - At least one likely failure (network drop, token expiry, invalid input) is handled gracefully. No silent failures or raw stack traces shown to the user.
-3. **Logs and errors are useful** - Visible errors have clear messages. Console/log output during demo is clean (no excessive noise, no leaked secrets).
-4. **Supports the main demo scenario** - The feature fits the chosen demo flow (per WATCHOUTS.md: one main scenario, others secondary). It does not require explaining away broken adjacent features.
-5. **Polished enough to present** - UI elements are aligned, labeled, and responsive. No placeholder text, broken layouts, or jarring transitions visible during the demo path.
-6. **Rough edges called out** - Known limitations are documented. The presenter knows what to avoid during the demo.
+1. Name the exact demo scenario first. This repo should optimize for one main scenario, not a broad tour.
+2. Confirm review preconditions:
+   - `feature-planner` used when the task was non-trivial
+   - relevant post-implementation review skills passed
+3. Run or inspect the smallest real verification evidence available:
+   - relevant package test command
+   - lint/typecheck when appropriate
+   - manual flow evidence if no automation exists
+4. Check one likely failure mode for the scenario:
+   - invalid settings/input
+   - backend unavailable
+   - token request failure or stub limitation
+5. Check presentation quality:
+   - no placeholder copy in the demo path
+   - no raw stack traces
+   - errors and logs are understandable
+6. State what is not demo-verifiable from this repository:
+   - planned realtime/audio/vision flows without implementation
+   - missing end-to-end automation
 
 ## Output format
 
-```
+```md
 ## Demo Readiness
 
+**Scenario:** <main demo path>
+
 **Demo-ready:** YES / NO
+
+**Evidence checked:**
+- <command or manual check>
 
 **Blockers:**
 - <blocker or "None">
 
-**Polish gaps:**
-- <gap or "None">
+**Known rough edges:**
+- <item or "None">
+
+**Cannot verify from current context:**
+- <item or "None">
 
 **Minimum fixes before demo:**
-- <fix or "None — ready to present">
+- <fix or "None">
 ```

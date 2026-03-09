@@ -96,6 +96,7 @@ Reusable agent workflows live in `.agents/skills/`. Each skill has a `SKILL.md` 
 | `contract-change-check` | post-implementation | Shared types, API payloads, IPC, or event schemas changed |
 | `electron-security-review` | post-implementation | Main process, preload, IPC, or privileged API surface touched |
 | `live-api-realtime-review` | post-implementation | Realtime hot path, audio/video pipeline, or session logic touched |
+| `architecture-boundary-review` | post-implementation | Responsibility placement or desktop/backend/shared architecture boundaries changed |
 | `demo-readiness` | final gate | Feature is "done" and about to be shown |
 
 Skill execution order: `feature-planner` → `tdd-implementer` → post-implementation reviews (parallel) → `demo-readiness`. The `feature-planner` output declares which downstream skills are required.
