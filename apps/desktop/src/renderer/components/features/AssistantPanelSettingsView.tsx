@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mic, Server, Settings2, Wrench } from 'lucide-react';
+import { AudioLines, Server, Settings2, Wrench } from 'lucide-react';
 import { normalizeBackendBaseUrl } from '../../../shared/backendBaseUrl';
 import { FieldList } from '../composite';
 import { ViewSection } from '../layout';
@@ -222,7 +222,7 @@ export function AssistantPanelSettingsView(): JSX.Element {
           />
         </ViewSection>
 
-        <ViewSection icon={Mic} title="Audio">
+        <ViewSection icon={AudioLines} title="Audio">
           <FieldList
             className="assistant-panel__settings-field-list field-list--aligned-controls"
             items={[
@@ -231,7 +231,7 @@ export function AssistantPanelSettingsView(): JSX.Element {
                 value: (
                   <Select
                     aria-label="Input device"
-                    className="assistant-panel__settings-select assistant-panel__settings-input-select"
+                    className="assistant-panel__settings-select assistant-panel__settings-audio-select assistant-panel__settings-input-select"
                     options={inputDeviceOptions}
                     value={
                       inputDeviceOptions[0]?.value === 'unavailable'
@@ -251,7 +251,7 @@ export function AssistantPanelSettingsView(): JSX.Element {
                 value: (
                   <Select
                     aria-label="Output device"
-                    className="assistant-panel__settings-select assistant-panel__settings-output-select"
+                    className="assistant-panel__settings-select assistant-panel__settings-audio-select assistant-panel__settings-output-select"
                     options={outputDeviceOptions}
                     value={
                       outputDeviceOptions[0]?.value === 'unavailable'

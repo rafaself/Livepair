@@ -197,10 +197,16 @@ describe('AssistantPanelSettingsView', () => {
       'assistant-panel__settings-select',
     );
     expect(screen.getByRole('button', { name: /input device/i }).closest('.select')).toHaveClass(
+      'assistant-panel__settings-audio-select',
+    );
+    expect(screen.getByRole('button', { name: /input device/i }).closest('.select')).toHaveClass(
       'assistant-panel__settings-input-select',
     );
     expect(screen.getByRole('button', { name: /output device/i }).closest('.select')).toHaveClass(
       'assistant-panel__settings-select',
+    );
+    expect(screen.getByRole('button', { name: /output device/i }).closest('.select')).toHaveClass(
+      'assistant-panel__settings-audio-select',
     );
     expect(screen.getByRole('button', { name: /output device/i }).closest('.select')).toHaveClass(
       'assistant-panel__settings-output-select',

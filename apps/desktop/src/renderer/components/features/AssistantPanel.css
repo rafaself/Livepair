@@ -241,12 +241,17 @@
   justify-self: end;
 }
 
+.assistant-panel__settings-audio-select {
+  width: min(100%, 11rem);
+  justify-self: end;
+}
+
 .assistant-panel__settings-input-select {
-  justify-self: stretch;
+  max-width: 100%;
 }
 
 .assistant-panel__settings-output-select {
-  justify-self: stretch;
+  max-width: 100%;
 }
 
 .assistant-panel__settings-backend-input {
