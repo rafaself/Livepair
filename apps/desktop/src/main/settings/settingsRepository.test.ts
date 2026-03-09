@@ -20,6 +20,37 @@ describe('DesktopSettingsRepository', () => {
     await expect(repository.getSettings()).resolves.toEqual(DEFAULT_DESKTOP_SETTINGS);
   });
 
+  it('falls back to defaults when the stored file has an unsupported version or invalid settings', async () => {
+    const versionMismatchPath = join(tmpdir(), `livepair-settings-version-${Date.now()}.json`);
+    const invalidSettingsPath = join(tmpdir(), `livepair-settings-invalid-${Date.now()}.json`);
+    const { writeFile } = await import('node:fs/promises');
+
+    await writeFile(
+      versionMismatchPath,
+      JSON.stringify({
+        version: 99,
+        settings: DEFAULT_DESKTOP_SETTINGS,
+      }),
+    );
+    await writeFile(
+      invalidSettingsPath,
+      JSON.stringify({
+        version: 1,
+        settings: {
+          ...DEFAULT_DESKTOP_SETTINGS,
+          selectedInputDeviceId: '',
+        },
+      }),
+    );
+
+    await expect(new DesktopSettingsRepository(versionMismatchPath).getSettings()).resolves.toEqual(
+      DEFAULT_DESKTOP_SETTINGS,
+    );
+    await expect(new DesktopSettingsRepository(invalidSettingsPath).getSettings()).resolves.toEqual(
+      DEFAULT_DESKTOP_SETTINGS,
+    );
+  });
+
   it('merges partial updates, normalizes values, and persists them to disk', async () => {
     const repository = new DesktopSettingsRepository(settingsFilePath);
 
@@ -108,5 +139,13 @@ describe('DesktopSettingsRepository', () => {
       vi.doUnmock('node:fs/promises');
       vi.resetModules();
     }
+  });
+
+  it('rejects invalid update patches before writing to disk', async () => {
+    const repository = new DesktopSettingsRepository(settingsFilePath);
+
+    await expect(
+      repository.updateSettings({ selectedOutputDeviceId: '' }),
+    ).rejects.toThrow('Invalid desktop settings');
   });
 });

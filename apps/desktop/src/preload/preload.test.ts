@@ -23,18 +23,27 @@ describe('preload bridge', () => {
     await import('./preload');
 
     expect(mockExposeInMainWorld).toHaveBeenCalledTimes(1);
-    expect(mockExposeInMainWorld).toHaveBeenCalledWith(
-      'bridge',
-      expect.objectContaining({
-        overlayMode: expect.any(String),
-        checkHealth: expect.any(Function),
-        requestSessionToken: expect.any(Function),
-        getSettings: expect.any(Function),
-        updateSettings: expect.any(Function),
-        setOverlayHitRegions: expect.any(Function),
-        setOverlayPointerPassthrough: expect.any(Function),
-      }),
-    );
+    const [, exposedBridge] = mockExposeInMainWorld.mock.calls[0] ?? [];
+
+    expect(mockExposeInMainWorld).toHaveBeenCalledWith('bridge', exposedBridge);
+    expect(Object.keys(exposedBridge)).toEqual([
+      'overlayMode',
+      'checkHealth',
+      'requestSessionToken',
+      'getSettings',
+      'updateSettings',
+      'setOverlayHitRegions',
+      'setOverlayPointerPassthrough',
+    ]);
+    expect(exposedBridge).toEqual({
+      overlayMode: expect.any(String),
+      checkHealth: expect.any(Function),
+      requestSessionToken: expect.any(Function),
+      getSettings: expect.any(Function),
+      updateSettings: expect.any(Function),
+      setOverlayHitRegions: expect.any(Function),
+      setOverlayPointerPassthrough: expect.any(Function),
+    });
   });
 
   it('maps bridge methods to strict IPC channels', async () => {

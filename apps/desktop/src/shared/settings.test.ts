@@ -35,6 +35,11 @@ describe('normalizeDesktopSettings', () => {
         isPanelPinned: 'yes' as never,
       }),
     ).toBeNull();
+    expect(
+      normalizeDesktopSettings({
+        themePreference: 'sepia' as never,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -67,6 +72,16 @@ describe('normalizeDesktopSettingsPatch', () => {
     expect(
       normalizeDesktopSettingsPatch({
         backendUrl: 'ftp://bad.example.com',
+      }),
+    ).toBeNull();
+    expect(
+      normalizeDesktopSettingsPatch({
+        isPanelPinned: 'yes' as never,
+      }),
+    ).toBeNull();
+    expect(
+      normalizeDesktopSettingsPatch({
+        selectedInputDeviceId: '',
       }),
     ).toBeNull();
   });

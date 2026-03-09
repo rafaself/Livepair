@@ -37,3 +37,6 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Desktop Coverage
+        run: pnpm --filter @livepair/desktop test:coverage

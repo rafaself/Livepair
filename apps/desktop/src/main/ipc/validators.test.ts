@@ -35,6 +35,7 @@ describe('ipc validators', () => {
     expect(isCreateEphemeralTokenRequest({ sessionId: undefined })).toBe(true);
     expect(isCreateEphemeralTokenRequest({ sessionId: 12 })).toBe(false);
     expect(isCreateEphemeralTokenRequest(undefined)).toBe(false);
+    expect(isCreateEphemeralTokenRequest([])).toBe(false);
   });
 
   it('validates settings patch payloads', () => {
@@ -45,8 +46,18 @@ describe('ipc validators', () => {
     };
 
     expect(isDesktopSettingsPatch(valid)).toBe(true);
+    expect(
+      isDesktopSettingsPatch(
+        Object.assign(Object.create(null), {
+          themePreference: 'light',
+          isPanelPinned: false,
+        }),
+      ),
+    ).toBe(true);
     expect(isDesktopSettingsPatch({ bad: true })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedInputDeviceId: '' })).toBe(false);
     expect(isDesktopSettingsPatch({ preferredMode: 'slow' })).toBe(false);
+    expect(isDesktopSettingsPatch({ selectedOutputDeviceId: false })).toBe(false);
+    expect(isDesktopSettingsPatch({ isPanelPinned: 'yes' })).toBe(false);
   });
 });

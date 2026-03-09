@@ -89,6 +89,32 @@ describe('overlayWindow', () => {
     }
   });
 
+  it('registers the development devtools shortcut and clears the tracked window when closed', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow();
+
+    const beforeInputHandler = mockWebContentsOn.mock.calls.find(
+      ([eventName]) => eventName === 'before-input-event',
+    )?.[1] as ((_event: unknown, input: { control?: boolean; shift?: boolean; key: string }) => void) | undefined;
+    const closedHandler = mockWindowOn.mock.calls.find(
+      ([eventName]) => eventName === 'closed',
+    )?.[1] as (() => void) | undefined;
+
+    expect(beforeInputHandler).toBeTypeOf('function');
+    expect(closedHandler).toBeTypeOf('function');
+
+    beforeInputHandler?.({}, { control: true, shift: true, key: 'i' });
+    beforeInputHandler?.({}, { control: true, shift: false, key: 'i' });
+
+    expect(mockToggleDevTools).toHaveBeenCalledTimes(1);
+    expect(overlayWindow.getMainWindow()).not.toBeNull();
+
+    closedHandler?.();
+    expect(overlayWindow.getMainWindow()).toBeNull();
+  });
+
   it('loads the production renderer file and opens devtools only when enabled', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     const overlayWindow = await import('./overlayWindow');
@@ -105,6 +131,17 @@ describe('overlayWindow', () => {
 
     devOverlayWindow.createWindow();
     expect(mockOpenDevTools).toHaveBeenCalledWith({ mode: 'detach' });
+  });
+
+  it('applies the linux transparent visuals switch only on linux', async () => {
+    await import('./overlayWindow');
+
+    if (process.platform === 'linux') {
+      expect(mockAppendSwitch).toHaveBeenCalledWith('enable-transparent-visuals');
+      return;
+    }
+
+    expect(mockAppendSwitch).not.toHaveBeenCalled();
   });
 
   it('recreates or quits the window through the exported lifecycle helpers', async () => {

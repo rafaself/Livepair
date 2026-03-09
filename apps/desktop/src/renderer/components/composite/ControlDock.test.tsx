@@ -55,6 +55,20 @@ describe('ControlDock', () => {
     expect(screen.getByRole('button', { name: /end session/i })).toBeInTheDocument();
   });
 
+  it('toggles microphone and camera state labels and can end an active session', () => {
+    renderDock();
+
+    fireEvent.click(screen.getByRole('button', { name: /unmute microphone/i }));
+    expect(screen.getByRole('button', { name: /mute microphone/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /enable camera/i }));
+    expect(screen.getByRole('button', { name: /disable camera/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /start session/i }));
+    fireEvent.click(screen.getByRole('button', { name: /end session/i }));
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
+  });
+
   it('opens and closes the panel', () => {
     renderDock();
     const openBtn = screen.getByRole('button', { name: /open panel/i });
@@ -79,5 +93,22 @@ describe('ControlDock', () => {
 
     fireEvent(window, new Event('blur'));
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
+  });
+
+  it('closes the panel on blur when it is not pinned and restores focus styling on focus', () => {
+    const hasFocusSpy = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    renderDock();
+
+    const toolbar = screen.getByRole('toolbar', { name: /assistant controls/i });
+    expect(toolbar.className).toContain('control-dock--dimmed');
+
+    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
+    fireEvent(window, new Event('blur'));
+    expect(screen.getByLabelText('panel-open')).toHaveTextContent('false');
+
+    fireEvent(window, new Event('focus'));
+    expect(toolbar.className).not.toContain('control-dock--dimmed');
+
+    hasFocusSpy.mockRestore();
   });
 });

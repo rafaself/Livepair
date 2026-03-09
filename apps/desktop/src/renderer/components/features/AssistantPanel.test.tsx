@@ -134,4 +134,30 @@ describe('AssistantPanel', () => {
     const panelScope = within(panel);
     expect(panelScope.getByRole('button', { name: 'Developer tools' })).toBeVisible();
   });
+
+  it('renders the debug view when developer controls are enabled', async () => {
+    await renderAssistantPanel({ showStateDevControls: true });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Developer tools' }));
+    });
+
+    expect(await panelScope.findByRole('heading', { name: 'Developer tools' })).toBeVisible();
+  });
+
+  it('hides the debug entry point when developer controls are disabled', async () => {
+    await renderAssistantPanel({ showStateDevControls: false });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+    expect(panelScope.queryByRole('button', { name: 'Developer tools' })).toBeNull();
+  });
 });

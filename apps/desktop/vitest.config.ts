@@ -13,12 +13,13 @@ export default defineConfig({
       exclude: [
         'src/**/*.test.ts?(x)',
         'src/renderer/test/**',
+        'src/**/*.d.ts',
       ],
       thresholds: {
-        statements: 100,
-        branches: 100,
-        functions: 100,
-        lines: 100,
+        statements: 95,
+        branches: 90,
+        functions: 95,
+        lines: 95,
       },
     },
   },

@@ -83,6 +83,40 @@ describe('useAssistantPanelController', () => {
     expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Connection failed');
   });
 
+  it('maps healthy and unhealthy backend checks into the derived labels and states', async () => {
+    vi.mocked(checkBackendHealth).mockResolvedValueOnce(false);
+
+    render(<HookHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('backend-label')).toHaveTextContent('Not connected');
+    });
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
+  });
+
+  it('maps backend check failures into the error state', async () => {
+    vi.mocked(checkBackendHealth).mockRejectedValueOnce(new Error('backend down'));
+
+    render(<HookHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('backend-label')).toHaveTextContent('Not connected');
+    });
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
+  });
+
+  it('promotes the session to ready when token acquisition succeeds', async () => {
+    render(<HookHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
+    });
+    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Token received');
+  });
+
   it('routes direct assistant state changes through the session store', () => {
     render(<HookHarness />);
 

@@ -22,4 +22,34 @@ describe('SelectOption', () => {
 
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
+
+  it('selects on keyboard activation with Enter and Space', () => {
+    const onSelect = vi.fn();
+
+    render(<SelectOption onSelect={onSelect}>Fast</SelectOption>);
+    const option = screen.getByRole('option');
+
+    fireEvent.keyDown(option, { key: 'Enter' });
+    fireEvent.keyDown(option, { key: ' ' });
+
+    expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not select when a custom keydown handler prevents the default behavior', () => {
+    const onSelect = vi.fn();
+
+    render(
+      <SelectOption
+        onSelect={onSelect}
+        onKeyDown={(event) => {
+          event.preventDefault();
+        }}
+      >
+        Fast
+      </SelectOption>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('option'), { key: 'Enter' });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 });
