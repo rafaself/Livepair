@@ -6,6 +6,7 @@ import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrou
 import type { OverlayMode } from '../shared/desktopBridge';
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
 import { useSettingsStore } from './store/settingsStore';
+import { useSessionRuntime } from './runtime/useSessionRuntime';
 
 function LinuxOverlayInteraction(): null {
   useOverlayHitRegions();
@@ -57,13 +58,22 @@ function ThemePreferenceSync(): null {
 
 function AppShell(): JSX.Element {
   const overlayMode = window.bridge?.overlayMode ?? 'linux-shape';
+  const {
+    isSessionActive,
+    handleStartSession,
+    handleEndSession,
+  } = useSessionRuntime();
 
   return (
     <div className="app-shell">
       <ThemePreferenceSync />
       <OverlayInteractionManager overlayMode={overlayMode} />
       <AssistantPanel showStateDevControls={import.meta.env.DEV} />
-      <ControlDock />
+      <ControlDock
+        isSessionActive={isSessionActive}
+        onStartSession={handleStartSession}
+        onEndSession={handleEndSession}
+      />
     </div>
   );
 }

@@ -1,14 +1,9 @@
 import { useCallback, useEffect } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
-import { checkBackendHealth, requestSessionToken } from '../../api/backend';
 import { useUiStore, type PanelView } from '../../store/uiStore';
-import {
-  useSessionStore,
-  type BackendConnectionState,
-  type TokenRequestState,
-} from '../../store/sessionStore';
-import { useMockSession } from './useMockSession';
-import type { ConversationTurnModel } from './mockConversation';
+import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
+import { useSessionRuntime } from '../../runtime/useSessionRuntime';
+import type { ConversationTurnModel } from '../../runtime/types';
 
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
@@ -33,77 +28,35 @@ export function useAssistantPanelController(): AssistantPanelController {
   const panelView = useUiStore((state) => state.panelView);
   const closePanel = useUiStore((state) => state.closePanel);
   const setPanelView = useUiStore((state) => state.setPanelView);
-  const assistantState = useSessionStore((state) => state.assistantState);
-  const setAssistantState = useSessionStore((state) => state.setAssistantState);
-  const backendState = useSessionStore((state) => state.backendState);
-  const setBackendState = useSessionStore((state) => state.setBackendState);
-  const tokenRequestState = useSessionStore((state) => state.tokenRequestState);
-  const setTokenRequestState = useSessionStore((state) => state.setTokenRequestState);
-  const { turns: conversationTurns, isConversationEmpty } = useMockSession({
+  const {
     assistantState,
-    enabled: import.meta.env.DEV || import.meta.env.MODE === 'test',
+    backendState,
+    backendIndicatorState,
+    backendLabel,
+    tokenRequestState,
+    tokenFeedback,
+    conversationTurns,
+    isConversationEmpty,
+    handleCheckBackendHealth,
+    handleStartSession,
     setAssistantState,
-  });
+  } = useSessionRuntime();
 
-  const handleCheckBackendHealth = useCallback(async (): Promise<void> => {
-    setBackendState('checking');
-    try {
-      const isHealthy = await checkBackendHealth();
-      setBackendState(isHealthy ? 'connected' : 'failed');
-      if (!isHealthy) {
-        setAssistantState('error');
-      }
-    } catch {
-      setBackendState('failed');
-      setAssistantState('error');
-    }
-  }, [setAssistantState]);
+  const handleCheckBackendHealthCallback = useCallback(async (): Promise<void> => {
+    await handleCheckBackendHealth();
+  }, [handleCheckBackendHealth]);
 
   useEffect(() => {
     if (!isPanelOpen) {
       return;
     }
 
-    void handleCheckBackendHealth();
-  }, [handleCheckBackendHealth, isPanelOpen]);
+    void handleCheckBackendHealthCallback();
+  }, [handleCheckBackendHealthCallback, isPanelOpen]);
 
   const handleStartTalking = useCallback(async (): Promise<void> => {
-    setTokenRequestState('loading');
-    setAssistantState('thinking');
-    try {
-      await requestSessionToken({});
-      setTokenRequestState('success');
-      setAssistantState('ready');
-    } catch {
-      setTokenRequestState('error');
-      setAssistantState('error');
-    }
-  }, [setAssistantState]);
-
-  const backendIndicatorState: AssistantRuntimeState =
-    backendState === 'connected'
-      ? 'ready'
-      : backendState === 'checking'
-        ? 'thinking'
-        : backendState === 'failed'
-          ? 'error'
-          : 'disconnected';
-
-  const backendLabel =
-    backendState === 'connected'
-      ? 'Connected'
-      : backendState === 'checking'
-        ? 'Checking backend...'
-        : 'Not connected';
-
-  const tokenFeedback =
-    tokenRequestState === 'loading'
-      ? 'Requesting token...'
-      : tokenRequestState === 'success'
-        ? 'Token received'
-        : tokenRequestState === 'error'
-          ? 'Connection failed'
-          : null;
+    await handleStartSession();
+  }, [handleStartSession]);
 
   return {
     assistantState,
@@ -119,7 +72,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendLabel,
     tokenRequestState,
     tokenFeedback,
-    handleCheckBackendHealth,
+    handleCheckBackendHealth: handleCheckBackendHealthCallback,
     handleStartTalking,
   };
 }
