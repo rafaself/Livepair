@@ -3,7 +3,10 @@ import { Bug, MessageCircle, Settings } from 'lucide-react';
 import { OverlayContainer, Panel, PanelHeader } from '../layout';
 import { Button, LivepairIcon } from '../primitives';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
-import { AssistantPanelSettingsView } from './AssistantPanelSettingsView';
+import {
+  AssistantPanelSettingsContent,
+  useAssistantPanelSettingsController,
+} from './AssistantPanelSettingsView';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { ConversationList } from './ConversationList';
 import { useAssistantPanelController } from './useAssistantPanelController';
@@ -16,7 +19,7 @@ export type AssistantPanelProps = {
 export function AssistantPanel({
   showStateDevControls = false,
 }: AssistantPanelProps): JSX.Element {
-  const [hasVisitedSettings, setHasVisitedSettings] = useState(false);
+  const [hasInitializedSettings, setHasInitializedSettings] = useState(false);
   const {
     assistantState,
     isPanelOpen,
@@ -31,10 +34,13 @@ export function AssistantPanel({
     handleCheckBackendHealth,
     setAssistantState,
   } = useAssistantPanelController();
+  const settingsController = useAssistantPanelSettingsController({
+    enabled: hasInitializedSettings || panelView === 'settings',
+  });
 
   useEffect(() => {
     if (panelView === 'settings') {
-      setHasVisitedSettings(true);
+      setHasInitializedSettings(true);
     }
   }, [panelView]);
 
@@ -110,12 +116,9 @@ export function AssistantPanel({
             </div>
           ) : null}
 
-          {hasVisitedSettings ? (
-            <div
-              className="assistant-panel__view-section"
-              hidden={panelView !== 'settings'}
-            >
-              <AssistantPanelSettingsView />
+          {panelView === 'settings' ? (
+            <div className="assistant-panel__view-section">
+              <AssistantPanelSettingsContent controller={settingsController} />
             </div>
           ) : null}
 

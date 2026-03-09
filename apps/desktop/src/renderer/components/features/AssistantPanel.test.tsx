@@ -186,6 +186,59 @@ describe('AssistantPanel', () => {
     expect(enumerateDevices).toHaveBeenCalledTimes(1);
   });
 
+  it('does not keep config content mounted inside the debug section', async () => {
+    renderAssistantPanel({ showStateDevControls: true });
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    await screen.findByRole('status', { name: 'Disconnected' });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+    await panelScope.findByRole('textbox', { name: /backend url/i });
+
+    fireEvent.click(panelScope.getByRole('button', { name: 'Developer tools' }));
+
+    expect(panelScope.getByRole('heading', { name: 'Developer tools' })).toBeVisible();
+    expect(panelScope.queryByText('Backend URL')).toBeNull();
+    expect(panelScope.queryByRole('textbox', { name: /backend url/i })).toBeNull();
+  });
+
+  it('preserves config draft state after closing and reopening the panel', async () => {
+    window.localStorage.setItem('livepair.backendUrl', 'https://persisted.livepair.dev');
+
+    renderAssistantPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    await screen.findByRole('status', { name: 'Disconnected' });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
+
+    const backendUrlInput = await panelScope.findByRole('textbox', { name: /backend url/i });
+    fireEvent.change(backendUrlInput, {
+      target: { value: 'https://draft.livepair.dev' },
+    });
+    expect(enumerateDevices).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    expect(screen.getByRole('complementary', { hidden: true })).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    await screen.findByRole('status', { name: 'Disconnected' });
+
+    const reopenedPanel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const reopenedPanelScope = within(reopenedPanel);
+
+    fireEvent.click(reopenedPanelScope.getByRole('button', { name: 'Settings' }));
+
+    expect(await reopenedPanelScope.findByRole('textbox', { name: /backend url/i })).toHaveValue(
+      'https://draft.livepair.dev',
+    );
+    expect(enumerateDevices).toHaveBeenCalledTimes(1);
+  });
+
   it('returns to chat via back button and panel close resets view', async () => {
     renderAssistantPanel({ showStateDevControls: true });
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));

@@ -48,7 +48,34 @@ function buildDeviceOptions(
   ];
 }
 
-export function AssistantPanelSettingsView(): JSX.Element {
+export type AssistantPanelSettingsController = {
+  isDebugMode: boolean;
+  isPanelPinned: boolean;
+  preferredMode: 'fast' | 'thinking';
+  selectedInputDeviceId: string;
+  selectedOutputDeviceId: string;
+  themePreference: ReturnType<typeof useUiStore>['state']['themePreference'];
+  inputDeviceOptions: readonly SelectOptionItem[];
+  outputDeviceOptions: readonly SelectOptionItem[];
+  backendUrlDraft: string;
+  backendUrlError: string | null;
+  toggleDebugMode: () => void;
+  togglePanelPinned: () => void;
+  setPreferredMode: (mode: 'fast' | 'thinking') => void;
+  setSelectedInputDeviceId: (deviceId: string) => void;
+  setSelectedOutputDeviceId: (deviceId: string) => void;
+  setThemePreference: ReturnType<typeof useUiStore>['setThemePreference'];
+  handleBackendUrlChange: (value: string) => void;
+  handleBackendUrlBlur: () => Promise<void>;
+};
+
+export type UseAssistantPanelSettingsControllerOptions = {
+  enabled?: boolean;
+};
+
+export function useAssistantPanelSettingsController({
+  enabled = true,
+}: UseAssistantPanelSettingsControllerOptions = {}): AssistantPanelSettingsController {
   const {
     state: {
       backendUrl,
@@ -75,6 +102,10 @@ export function AssistantPanelSettingsView(): JSX.Element {
   const [backendUrlError, setBackendUrlError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     let isDisposed = false;
 
     const loadInputDevices = async (): Promise<void> => {
@@ -120,7 +151,7 @@ export function AssistantPanelSettingsView(): JSX.Element {
       isDisposed = true;
       navigator.mediaDevices?.removeEventListener?.('devicechange', handleDeviceChange);
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     if (
@@ -169,6 +200,63 @@ export function AssistantPanelSettingsView(): JSX.Element {
       setBackendUrlError('Unable to update backend URL.');
     }
   };
+
+  const handleBackendUrlChange = (value: string): void => {
+    setBackendUrlDraft(value);
+    if (backendUrlError !== null) {
+      setBackendUrlError(null);
+    }
+  };
+
+  return {
+    isDebugMode,
+    isPanelPinned,
+    preferredMode,
+    selectedInputDeviceId,
+    selectedOutputDeviceId,
+    themePreference,
+    inputDeviceOptions,
+    outputDeviceOptions,
+    backendUrlDraft,
+    backendUrlError,
+    toggleDebugMode,
+    togglePanelPinned,
+    setPreferredMode,
+    setSelectedInputDeviceId,
+    setSelectedOutputDeviceId,
+    setThemePreference,
+    handleBackendUrlChange,
+    handleBackendUrlBlur,
+  };
+}
+
+export type AssistantPanelSettingsContentProps = {
+  controller: AssistantPanelSettingsController;
+};
+
+export function AssistantPanelSettingsContent({
+  controller,
+}: AssistantPanelSettingsContentProps): JSX.Element {
+  const {
+    isDebugMode,
+    isPanelPinned,
+    preferredMode,
+    selectedInputDeviceId,
+    selectedOutputDeviceId,
+    themePreference,
+    inputDeviceOptions,
+    outputDeviceOptions,
+    backendUrlDraft,
+    backendUrlError,
+    toggleDebugMode,
+    togglePanelPinned,
+    setPreferredMode,
+    setSelectedInputDeviceId,
+    setSelectedOutputDeviceId,
+    setThemePreference,
+    handleBackendUrlChange,
+    handleBackendUrlBlur,
+  } = controller;
 
   return (
     <div className="assistant-panel__settings-modal">
@@ -279,10 +367,7 @@ export function AssistantPanelSettingsView(): JSX.Element {
             spellCheck={false}
             value={backendUrlDraft}
             onChange={(event) => {
-              setBackendUrlDraft(event.target.value);
-              if (backendUrlError !== null) {
-                setBackendUrlError(null);
-              }
+              handleBackendUrlChange(event.target.value);
             }}
             onBlur={() => {
               void handleBackendUrlBlur();
@@ -311,4 +396,10 @@ export function AssistantPanelSettingsView(): JSX.Element {
       </div>
     </div>
   );
+}
+
+export function AssistantPanelSettingsView(): JSX.Element {
+  const controller = useAssistantPanelSettingsController();
+
+  return <AssistantPanelSettingsContent controller={controller} />;
 }
