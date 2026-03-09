@@ -5,6 +5,23 @@ A real-time multimodal desktop assistant.
 
 This application captures microphone input and full-screen context, sends the realtime stream to Gemini Live API, and responds with low-latency voice and contextual guidance. The backend stays out of the audio/video hot path and is responsible only for ephemeral token issuance, lightweight tools, session checkpointing, and error reporting.
 
+## Current Status
+
+### Implemented today
+
+* Electron overlay shell with React renderer
+* Typed preload bridge and IPC surface
+* Backend health and stub session token path
+* Desktop settings persistence and overlay interaction behavior
+* Unit and component tests across shared packages, API, and desktop
+
+### Planned next
+
+* real ephemeral token issuance
+* desktop session controller and transport adapter
+* text-first realtime turn
+* audio, interruption, checkpointing, and screen streaming
+
 ## 🎯 Goals
 
 * Natural voice interaction with interruption support
@@ -117,10 +134,10 @@ Desktop client → Gemini Live API
 ## 🔌 Backend Responsibilities
 
 * `POST /session/token`
-* `POST /session/checkpoint`
-* `POST /tool/screenshot-hd`
-* `POST /tool/visual-summary`
-* `POST /session/error`
+* Planned: `POST /session/checkpoint`
+* Planned: `POST /tool/screenshot-hd`
+* Planned: `POST /tool/visual-summary`
+* Planned: `POST /session/error`
 
 The backend should remain small, modular, and focused.
 
@@ -240,14 +257,24 @@ pnpm install
 
 ### ▶️ Run the desktop app
 
+Preferred:
+
 ```bash
-pnpm --filter desktop dev
+pnpm dev
+```
+
+Desktop only:
+
+```bash
+pnpm --filter @livepair/desktop dev
 ```
 
 ### ▶️ Run the backend
 
+Preferred:
+
 ```bash
-pnpm --filter api dev
+pnpm --filter @livepair/api dev
 ```
 
 ### 🧹 Run workspace checks
@@ -258,7 +285,14 @@ pnpm typecheck
 pnpm test
 ```
 
-Adjust package names and scripts to match the actual workspace setup.
+Smallest relevant package-level checks:
+
+```bash
+pnpm verify:api
+pnpm verify:desktop
+pnpm verify:shared-types
+pnpm verify:shared-utils
+```
 
 ## 🌍 Environment Variables
 

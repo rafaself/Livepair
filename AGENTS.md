@@ -3,6 +3,8 @@
 ## Purpose
 This repository builds a real-time multimodal desktop assistant.
 
+Always consult the most recent documentation when necessary, prioritizing reliable and widely recognized sources.
+
 Core stack:
 - Desktop: Electron + React + TypeScript
 - Backend: NestJS + TypeScript
