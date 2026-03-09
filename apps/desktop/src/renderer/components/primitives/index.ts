@@ -12,8 +12,6 @@ export { Divider } from './Divider';
 export type { DividerProps } from './Divider';
 export { Switch } from './Switch';
 export type { SwitchProps } from './Switch';
-export { Modal } from './Modal';
-export type { ModalProps } from './Modal';
 export { LivepairIcon } from './LivepairIcon';
 export type { LivepairIconProps } from './LivepairIcon';
 export { OutlinedField } from './OutlinedField';
