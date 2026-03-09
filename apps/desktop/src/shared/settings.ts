@@ -17,20 +17,6 @@ export type DesktopSettings = {
 
 export type DesktopSettingsPatch = Partial<DesktopSettings>;
 
-export type LegacySettingsSnapshot = Partial<{
-  themePreference: string;
-  backendUrl: string;
-  selectedInputDeviceId: string;
-  selectedOutputDeviceId: string;
-}>;
-
-export const DESKTOP_SETTINGS_STORAGE_KEYS = {
-  themePreference: 'livepair.themePreference',
-  backendUrl: 'livepair.backendUrl',
-  selectedInputDeviceId: 'livepair.selectedInputDeviceId',
-  selectedOutputDeviceId: 'livepair.selectedOutputDeviceId',
-} as const;
-
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   themePreference: 'system',
   backendUrl: DEFAULT_API_BASE_URL,
@@ -139,39 +125,6 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.isPanelPinned = patch.isPanelPinned;
-  }
-
-  return normalizedPatch;
-}
-
-export function normalizeLegacySettingsSnapshot(
-  snapshot: LegacySettingsSnapshot,
-): DesktopSettingsPatch {
-  const normalizedPatch: DesktopSettingsPatch = {};
-
-  if ('themePreference' in snapshot) {
-    const themePreference = normalizeThemePreference(snapshot.themePreference);
-    if (themePreference !== null) {
-      normalizedPatch.themePreference = themePreference;
-    }
-  }
-
-  if ('backendUrl' in snapshot) {
-    const backendUrl = normalizeBackendBaseUrl(snapshot.backendUrl);
-    if (backendUrl !== null) {
-      normalizedPatch.backendUrl = backendUrl;
-    }
-  }
-
-  if ('selectedInputDeviceId' in snapshot && isNonEmptyString(snapshot.selectedInputDeviceId)) {
-    normalizedPatch.selectedInputDeviceId = snapshot.selectedInputDeviceId;
-  }
-
-  if (
-    'selectedOutputDeviceId' in snapshot &&
-    isNonEmptyString(snapshot.selectedOutputDeviceId)
-  ) {
-    normalizedPatch.selectedOutputDeviceId = snapshot.selectedOutputDeviceId;
   }
 
   return normalizedPatch;

@@ -6,7 +6,6 @@ import { createBackendClient } from '../backend/backendClient';
 import {
   isCreateEphemeralTokenRequest,
   isDesktopSettingsPatch,
-  isLegacySettingsSnapshot,
   toOverlayRectangles,
 } from './validators';
 
@@ -55,17 +54,6 @@ export function registerIpcHandlers({
       }
 
       return settingsService.updateSettings(patch);
-    },
-  );
-
-  ipcMain.handle(
-    IPC_CHANNELS.migrateLegacySettings,
-    async (_event, snapshot: unknown) => {
-      if (!isLegacySettingsSnapshot(snapshot)) {
-        throw new Error('Invalid legacy settings snapshot');
-      }
-
-      return settingsService.migrateLegacySettings(snapshot);
     },
   );
 

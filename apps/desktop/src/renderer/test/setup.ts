@@ -15,7 +15,6 @@ beforeEach(() => {
     requestSessionToken: vi.fn(),
     getSettings: vi.fn(async () => DEFAULT_DESKTOP_SETTINGS),
     updateSettings: vi.fn(async (patch) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...patch })),
-    migrateLegacySettings: vi.fn(async (snapshot) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...snapshot })),
     setOverlayHitRegions: vi.fn(),
     setOverlayPointerPassthrough: vi.fn(),
   };

@@ -1,12 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type { Rectangle } from 'electron';
-import type { DesktopSettingsPatch, LegacySettingsSnapshot } from '../../shared/settings';
+import type { DesktopSettingsPatch } from '../../shared/settings';
 import type { CreateEphemeralTokenRequest } from '@livepair/shared-types';
 import {
   isCreateEphemeralTokenRequest,
   isDesktopSettingsPatch,
-  isLegacySettingsSnapshot,
   toOverlayRectangles,
 } from './validators';
 
@@ -49,18 +48,5 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ bad: true })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedInputDeviceId: '' })).toBe(false);
     expect(isDesktopSettingsPatch({ preferredMode: 'slow' })).toBe(false);
-  });
-
-  it('validates legacy settings snapshots', () => {
-    const valid: LegacySettingsSnapshot = {
-      themePreference: 'dark',
-      backendUrl: 'http://localhost:3000',
-      selectedInputDeviceId: 'mic',
-    };
-
-    expect(isLegacySettingsSnapshot(valid)).toBe(true);
-    expect(isLegacySettingsSnapshot({ selectedOutputDeviceId: '' })).toBe(false);
-    expect(isLegacySettingsSnapshot({ themePreference: 'blue' })).toBe(false);
-    expect(isLegacySettingsSnapshot({ ignoredField: 'x' })).toBe(false);
   });
 });

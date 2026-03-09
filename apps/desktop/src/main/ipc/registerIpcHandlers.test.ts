@@ -23,7 +23,6 @@ function createSettingsServiceDouble(): DesktopSettingsService {
   return {
     getSettings: vi.fn(async () => defaultSettings),
     updateSettings: vi.fn(),
-    migrateLegacySettings: vi.fn(),
   } as unknown as DesktopSettingsService;
 }
 
@@ -48,7 +47,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(7);
+    expect(mockHandle).toHaveBeenCalledTimes(6);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -63,16 +62,11 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       5,
-      'settings:migrateLegacy',
-      expect.any(Function),
-    );
-    expect(mockHandle).toHaveBeenNthCalledWith(
-      6,
       'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      7,
+      6,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );

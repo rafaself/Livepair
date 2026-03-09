@@ -64,7 +64,7 @@ describe('main process runtime', () => {
   it('registers IPC handlers for health, token, settings, and overlay IPC', async () => {
     await import('./main');
 
-    expect(mockHandle).toHaveBeenCalledTimes(7);
+    expect(mockHandle).toHaveBeenCalledTimes(6);
     expect(mockHandle).toHaveBeenNthCalledWith(
       1,
       'health:check',
@@ -87,16 +87,11 @@ describe('main process runtime', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       5,
-      'settings:migrateLegacy',
-      expect.any(Function),
-    );
-    expect(mockHandle).toHaveBeenNthCalledWith(
-      6,
       'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      7,
+      6,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
@@ -320,85 +315,6 @@ describe('main process runtime', () => {
     ).rejects.toThrow('Invalid settings update');
     await expect(getSettingsHandler()).resolves.toEqual(
       expect.objectContaining({ backendUrl: 'http://localhost:3000' }),
-    );
-  });
-
-  it('migrates legacy renderer settings once through IPC', async () => {
-    await import('./main');
-    const migrateLegacySettingsHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'settings:migrateLegacy',
-    )?.[1] as (_event: unknown, snapshot: unknown) => Promise<{
-      backendUrl: string;
-      themePreference: string;
-    }>;
-    const getSettingsHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'settings:get',
-    )?.[1] as () => Promise<{ backendUrl: string; themePreference: string }>;
-
-    await expect(
-      migrateLegacySettingsHandler({}, {
-        backendUrl: 'https://legacy.livepair.dev/',
-        themePreference: 'dark',
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        backendUrl: 'https://legacy.livepair.dev',
-        themePreference: 'dark',
-      }),
-    );
-
-    await expect(
-      migrateLegacySettingsHandler({}, {
-        backendUrl: 'https://stale-legacy.livepair.dev',
-        themePreference: 'light',
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        backendUrl: 'https://legacy.livepair.dev',
-        themePreference: 'dark',
-      }),
-    );
-
-    await expect(getSettingsHandler()).resolves.toEqual(
-      expect.objectContaining({
-        backendUrl: 'https://legacy.livepair.dev',
-        themePreference: 'dark',
-      }),
-    );
-  });
-
-  it('rejects invalid legacy settings snapshots before migration', async () => {
-    await import('./main');
-    const migrateLegacySettingsHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'settings:migrateLegacy',
-    )?.[1] as (_event: unknown, snapshot: unknown) => Promise<{
-      backendUrl: string;
-      themePreference: string;
-    }>;
-    const getSettingsHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'settings:get',
-    )?.[1] as () => Promise<{ backendUrl: string; themePreference: string }>;
-
-    await expect(
-      migrateLegacySettingsHandler({}, { themePreference: 'sepia' }),
-    ).rejects.toThrow('Invalid legacy settings snapshot');
-    await expect(
-      migrateLegacySettingsHandler({}, { backendUrl: 'https://legacy.livepair.dev', extra: true }),
-    ).rejects.toThrow('Invalid legacy settings snapshot');
-    await expect(
-      migrateLegacySettingsHandler(
-        {},
-        Object.assign(Object.create({ injected: true }), {
-          themePreference: 'dark',
-        }),
-      ),
-    ).rejects.toThrow('Invalid legacy settings snapshot');
-
-    await expect(getSettingsHandler()).resolves.toEqual(
-      expect.objectContaining({
-        backendUrl: 'http://localhost:3000',
-        themePreference: 'system',
-      }),
     );
   });
 

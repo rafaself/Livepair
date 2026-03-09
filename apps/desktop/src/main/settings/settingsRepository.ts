@@ -4,15 +4,12 @@ import {
   DEFAULT_DESKTOP_SETTINGS,
   normalizeDesktopSettings,
   normalizeDesktopSettingsPatch,
-  normalizeLegacySettingsSnapshot,
   type DesktopSettings,
   type DesktopSettingsPatch,
-  type LegacySettingsSnapshot,
 } from '../../shared/settings';
 
 type StoredDesktopSettings = {
   version: number;
-  legacyMigrationCompleted: boolean;
   settings: DesktopSettings;
 };
 
@@ -21,7 +18,6 @@ const SETTINGS_SCHEMA_VERSION = 1;
 function createDefaultStoredSettings(): StoredDesktopSettings {
   return {
     version: SETTINGS_SCHEMA_VERSION,
-    legacyMigrationCompleted: false,
     settings: DEFAULT_DESKTOP_SETTINGS,
   };
 }
@@ -55,34 +51,6 @@ export class DesktopSettingsRepository {
 
       await this.writeStoredSettings({
         version: SETTINGS_SCHEMA_VERSION,
-        legacyMigrationCompleted: storedSettings.legacyMigrationCompleted,
-        settings: nextSettings,
-      });
-
-      return nextSettings;
-    });
-  }
-
-  async migrateLegacySettings(snapshot: LegacySettingsSnapshot): Promise<DesktopSettings> {
-    return this.runExclusive(async () => {
-      const storedSettings = await this.readStoredSettings();
-      if (storedSettings.legacyMigrationCompleted) {
-        return storedSettings.settings;
-      }
-
-      const normalizedPatch = normalizeLegacySettingsSnapshot(snapshot);
-      const nextSettings = normalizeDesktopSettings({
-        ...storedSettings.settings,
-        ...normalizedPatch,
-      });
-
-      if (nextSettings === null) {
-        throw new Error('Invalid desktop settings');
-      }
-
-      await this.writeStoredSettings({
-        version: SETTINGS_SCHEMA_VERSION,
-        legacyMigrationCompleted: true,
         settings: nextSettings,
       });
 
@@ -107,15 +75,13 @@ export class DesktopSettingsRepository {
 
       if (
         parsed.version !== SETTINGS_SCHEMA_VERSION ||
-        normalizedSettings === null ||
-        typeof parsed.legacyMigrationCompleted !== 'boolean'
+        normalizedSettings === null
       ) {
         return createDefaultStoredSettings();
       }
 
       return {
         version: SETTINGS_SCHEMA_VERSION,
-        legacyMigrationCompleted: parsed.legacyMigrationCompleted,
         settings: normalizedSettings,
       };
     } catch {

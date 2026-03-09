@@ -8,7 +8,6 @@ import { useUiStore } from './store/uiStore';
 describe('bootstrapDesktopRenderer', () => {
   beforeEach(() => {
     resetDesktopStores();
-    window.localStorage.clear();
     document.documentElement.dataset['theme'] = '';
     document.documentElement.style.colorScheme = '';
     Object.defineProperty(window, 'matchMedia', {
@@ -22,35 +21,14 @@ describe('bootstrapDesktopRenderer', () => {
     });
     window.bridge.getSettings = vi.fn().mockResolvedValue(DEFAULT_DESKTOP_SETTINGS);
     window.bridge.updateSettings = vi.fn().mockResolvedValue(DEFAULT_DESKTOP_SETTINGS);
-    window.bridge.migrateLegacySettings = vi.fn().mockImplementation(async (snapshot) => ({
-      ...DEFAULT_DESKTOP_SETTINGS,
-      ...snapshot,
-    }));
   });
 
-  it('hydrates settings before render, applies the resolved theme, seeds drafts, and clears migrated legacy keys', async () => {
-    window.localStorage.setItem('livepair.backendUrl', 'https://legacy.livepair.dev');
-    window.localStorage.setItem('livepair.themePreference', 'dark');
-
+  it('hydrates settings before render, applies the resolved theme, and seeds drafts from persisted settings', async () => {
     await bootstrapDesktopRenderer();
 
-    expect(window.bridge.migrateLegacySettings).toHaveBeenCalledWith({
-      backendUrl: 'https://legacy.livepair.dev',
-      themePreference: 'dark',
-    });
+    expect(window.bridge.getSettings).toHaveBeenCalledTimes(1);
     expect(useSettingsStore.getState().isReady).toBe(true);
-    expect(useUiStore.getState().backendUrlDraft).toBe('https://legacy.livepair.dev');
-    expect(document.documentElement.dataset['theme']).toBe('dark');
-    expect(window.localStorage.getItem('livepair.backendUrl')).toBeNull();
-    expect(window.localStorage.getItem('livepair.themePreference')).toBeNull();
-  });
-
-  it('leaves legacy localStorage values intact when hydration fails', async () => {
-    window.localStorage.setItem('livepair.backendUrl', 'https://legacy.livepair.dev');
-    window.bridge.migrateLegacySettings = vi.fn().mockRejectedValue(new Error('boom'));
-
-    await expect(bootstrapDesktopRenderer()).rejects.toThrow('boom');
-
-    expect(window.localStorage.getItem('livepair.backendUrl')).toBe('https://legacy.livepair.dev');
+    expect(useUiStore.getState().backendUrlDraft).toBe(DEFAULT_DESKTOP_SETTINGS.backendUrl);
+    expect(document.documentElement.dataset['theme']).toBe('light');
   });
 });

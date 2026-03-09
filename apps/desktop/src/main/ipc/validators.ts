@@ -1,9 +1,6 @@
 import type { Rectangle } from 'electron';
 import type { CreateEphemeralTokenRequest } from '@livepair/shared-types';
-import type {
-  DesktopSettingsPatch,
-  LegacySettingsSnapshot,
-} from '../../shared/settings';
+import type { DesktopSettingsPatch } from '../../shared/settings';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -44,13 +41,6 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
   'selectedInputDeviceId',
   'selectedOutputDeviceId',
   'isPanelPinned',
-] as const;
-
-const LEGACY_SETTINGS_SNAPSHOT_KEYS = [
-  'themePreference',
-  'backendUrl',
-  'selectedInputDeviceId',
-  'selectedOutputDeviceId',
 ] as const;
 
 export function toOverlayRectangles(input: unknown): Rectangle[] {
@@ -136,35 +126,6 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
   }
 
   if ('isPanelPinned' in value && typeof value['isPanelPinned'] !== 'boolean') {
-    return false;
-  }
-
-  return true;
-}
-
-export function isLegacySettingsSnapshot(
-  value: unknown,
-): value is LegacySettingsSnapshot {
-  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, LEGACY_SETTINGS_SNAPSHOT_KEYS)) {
-    return false;
-  }
-
-  if ('themePreference' in value && !isThemePreference(value['themePreference'])) {
-    return false;
-  }
-
-  if ('backendUrl' in value && typeof value['backendUrl'] !== 'string') {
-    return false;
-  }
-
-  if ('selectedInputDeviceId' in value && !isNonEmptyString(value['selectedInputDeviceId'])) {
-    return false;
-  }
-
-  if (
-    'selectedOutputDeviceId' in value &&
-    !isNonEmptyString(value['selectedOutputDeviceId'])
-  ) {
     return false;
   }
 

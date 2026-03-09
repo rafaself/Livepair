@@ -6,32 +6,21 @@ import { useSettingsStore } from './settingsStore';
 describe('settingsStore', () => {
   beforeEach(() => {
     resetDesktopStores();
-    window.localStorage.clear();
     window.bridge.getSettings = vi.fn().mockResolvedValue(DEFAULT_DESKTOP_SETTINGS);
     window.bridge.updateSettings = vi.fn().mockImplementation(async (patch) => ({
       ...DEFAULT_DESKTOP_SETTINGS,
       ...patch,
     }));
-    window.bridge.migrateLegacySettings = vi.fn().mockImplementation(async (snapshot) => ({
-      ...DEFAULT_DESKTOP_SETTINGS,
-      ...snapshot,
-    }));
   });
 
-  it('hydrates once, marks the store ready, and prefers legacy migration when needed', async () => {
-    const legacySnapshot = { backendUrl: 'https://legacy.livepair.dev' };
+  it('hydrates once and marks the store ready from persisted settings', async () => {
+    await expect(useSettingsStore.getState().hydrate()).resolves.toEqual(DEFAULT_DESKTOP_SETTINGS);
 
-    await expect(useSettingsStore.getState().hydrate(legacySnapshot)).resolves.toEqual({
-      ...DEFAULT_DESKTOP_SETTINGS,
-      backendUrl: 'https://legacy.livepair.dev',
-    });
-
-    expect(window.bridge.migrateLegacySettings).toHaveBeenCalledWith(legacySnapshot);
-    expect(window.bridge.getSettings).not.toHaveBeenCalled();
+    expect(window.bridge.getSettings).toHaveBeenCalledTimes(1);
     expect(useSettingsStore.getState().isReady).toBe(true);
 
-    await useSettingsStore.getState().hydrate(legacySnapshot);
-    expect(window.bridge.migrateLegacySettings).toHaveBeenCalledTimes(1);
+    await useSettingsStore.getState().hydrate();
+    expect(window.bridge.getSettings).toHaveBeenCalledTimes(1);
   });
 
   it('deduplicates concurrent hydrate calls while initialization is still in flight', async () => {
@@ -64,7 +53,6 @@ describe('settingsStore', () => {
     });
 
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
-    expect(window.localStorage.getItem('livepair.themePreference')).toBeNull();
     expect(useSettingsStore.getState().settings.themePreference).toBe('dark');
   });
 });

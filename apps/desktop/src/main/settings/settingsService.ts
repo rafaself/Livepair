@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import type {
   DesktopSettings,
   DesktopSettingsPatch,
-  LegacySettingsSnapshot,
 } from '../../shared/settings';
 import { DesktopSettingsRepository } from './settingsRepository';
 
@@ -23,11 +22,6 @@ export class DesktopSettingsService {
 
   async updateSettings(patch: DesktopSettingsPatch): Promise<DesktopSettings> {
     this.cachedSettings = await this.repository.updateSettings(patch);
-    return this.cachedSettings;
-  }
-
-  async migrateLegacySettings(snapshot: LegacySettingsSnapshot): Promise<DesktopSettings> {
-    this.cachedSettings = await this.repository.migrateLegacySettings(snapshot);
     return this.cachedSettings;
   }
 }

@@ -6,7 +6,6 @@ import type {
 import type {
   DesktopSettings,
   DesktopSettingsPatch,
-  LegacySettingsSnapshot,
 } from './settings';
 
 export type OverlayHitRegion = {
@@ -26,7 +25,6 @@ export interface DesktopBridge {
   ) => Promise<CreateEphemeralTokenResponse>;
   getSettings: () => Promise<DesktopSettings>;
   updateSettings: (patch: DesktopSettingsPatch) => Promise<DesktopSettings>;
-  migrateLegacySettings: (snapshot: LegacySettingsSnapshot) => Promise<DesktopSettings>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
   setOverlayPointerPassthrough: (enabled: boolean) => Promise<void>;
 }
@@ -36,7 +34,6 @@ export const IPC_CHANNELS = {
   requestSessionToken: 'session:requestToken',
   getSettings: 'settings:get',
   updateSettings: 'settings:update',
-  migrateLegacySettings: 'settings:migrateLegacy',
   setOverlayHitRegions: 'overlay:setHitRegions',
   setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
 } as const;

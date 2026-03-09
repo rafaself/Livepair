@@ -41,49 +41,20 @@ describe('DesktopSettingsRepository', () => {
       themePreference: 'dark',
     });
 
-    await expect(readFile(settingsFilePath, 'utf8')).resolves.toContain('"version": 1');
-  });
-
-  it('applies the legacy localStorage migration only once', async () => {
-    const repository = new DesktopSettingsRepository(settingsFilePath);
-
-    await expect(
-      repository.migrateLegacySettings({
-        backendUrl: 'https://legacy.livepair.dev/',
-        themePreference: 'light',
-        selectedInputDeviceId: 'usb-mic',
-      }),
-    ).resolves.toEqual({
-      ...DEFAULT_DESKTOP_SETTINGS,
-      backendUrl: 'https://legacy.livepair.dev',
-      themePreference: 'light',
-      selectedInputDeviceId: 'usb-mic',
-    });
-
-    await expect(
-      repository.updateSettings({
-        themePreference: 'dark',
-        selectedInputDeviceId: 'desk-mic',
-      }),
-    ).resolves.toEqual({
-      ...DEFAULT_DESKTOP_SETTINGS,
-      backendUrl: 'https://legacy.livepair.dev',
-      themePreference: 'dark',
-      selectedInputDeviceId: 'desk-mic',
-    });
-
-    await expect(
-      repository.migrateLegacySettings({
-        backendUrl: 'https://stale-legacy.livepair.dev',
-        themePreference: 'light',
-        selectedInputDeviceId: 'stale-mic',
-      }),
-    ).resolves.toEqual({
-      ...DEFAULT_DESKTOP_SETTINGS,
-      backendUrl: 'https://legacy.livepair.dev',
-      themePreference: 'dark',
-      selectedInputDeviceId: 'desk-mic',
-    });
+    await expect(readFile(settingsFilePath, 'utf8')).resolves.toBe(
+      JSON.stringify(
+        {
+          version: 1,
+          settings: {
+            ...DEFAULT_DESKTOP_SETTINGS,
+            backendUrl: 'https://api.livepair.dev/v1',
+            themePreference: 'dark',
+          },
+        },
+        null,
+        2,
+      ),
+    );
   });
 
   it('serializes overlapping updates so concurrent writes do not lose settings', async () => {
@@ -91,7 +62,6 @@ describe('DesktopSettingsRepository', () => {
 
     let storedContents = JSON.stringify({
       version: 1,
-      legacyMigrationCompleted: false,
       settings: DEFAULT_DESKTOP_SETTINGS,
     });
     let releaseReads = (): void => undefined;
