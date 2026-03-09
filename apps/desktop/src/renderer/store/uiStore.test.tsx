@@ -6,6 +6,35 @@ import { resetDesktopStores } from './testing';
 import { useUiStore } from './uiStore';
 
 const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();
+const mediaDevicesEvents = new EventTarget();
+
+function createDevice(
+  overrides: Partial<MediaDeviceInfo> & Pick<MediaDeviceInfo, 'deviceId' | 'kind'>,
+): MediaDeviceInfo {
+  return {
+    deviceId: overrides.deviceId,
+    groupId: overrides.groupId ?? `${overrides.deviceId}-group`,
+    kind: overrides.kind,
+    label: overrides.label ?? overrides.deviceId,
+    toJSON: overrides.toJSON ?? (() => ({})),
+  } satisfies MediaDeviceInfo;
+}
+
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+async function flushAsyncWork(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}
 
 describe('uiStore', () => {
   beforeEach(() => {
@@ -18,8 +47,8 @@ describe('uiStore', () => {
       configurable: true,
       value: {
         enumerateDevices,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
+        addEventListener: mediaDevicesEvents.addEventListener.bind(mediaDevicesEvents),
+        removeEventListener: mediaDevicesEvents.removeEventListener.bind(mediaDevicesEvents),
       },
     });
     useSettingsStore.setState({
@@ -70,20 +99,18 @@ describe('uiStore', () => {
 
   it('resets transient drafts and device options back to defaults', async () => {
     enumerateDevices.mockResolvedValue([
-      {
+      createDevice({
         deviceId: 'default',
         groupId: 'group-input',
         kind: 'audioinput',
         label: 'Default microphone',
-        toJSON: () => ({}),
-      } satisfies MediaDeviceInfo,
-      {
+      }),
+      createDevice({
         deviceId: 'default',
         groupId: 'group-output',
         kind: 'audiooutput',
         label: 'Default speakers',
-        toJSON: () => ({}),
-      } satisfies MediaDeviceInfo,
+      }),
     ]);
 
     useUiStore.getState().initializeSettingsUi({ backendUrl: DEFAULT_DESKTOP_SETTINGS.backendUrl });
@@ -105,5 +132,78 @@ describe('uiStore', () => {
         outputDeviceOptions: [],
       }),
     );
+  });
+
+  it('keeps the latest device refresh when devicechange events resolve out of order', async () => {
+    enumerateDevices.mockResolvedValueOnce([
+      createDevice({
+        deviceId: 'default',
+        kind: 'audioinput',
+        label: 'Default microphone',
+      }),
+      createDevice({
+        deviceId: 'default',
+        kind: 'audiooutput',
+        label: 'Default speakers',
+      }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    const firstRefresh = createDeferred<MediaDeviceInfo[]>();
+    const secondRefresh = createDeferred<MediaDeviceInfo[]>();
+    enumerateDevices
+      .mockImplementationOnce(() => firstRefresh.promise)
+      .mockImplementationOnce(() => secondRefresh.promise);
+
+    mediaDevicesEvents.dispatchEvent(new Event('devicechange'));
+    mediaDevicesEvents.dispatchEvent(new Event('devicechange'));
+
+    secondRefresh.resolve([
+      createDevice({
+        deviceId: 'default',
+        kind: 'audioinput',
+        label: 'Default microphone',
+      }),
+      createDevice({
+        deviceId: 'usb-mic',
+        kind: 'audioinput',
+        label: 'USB Microphone',
+      }),
+      createDevice({
+        deviceId: 'default',
+        kind: 'audiooutput',
+        label: 'Default speakers',
+      }),
+      createDevice({
+        deviceId: 'desk-speakers',
+        kind: 'audiooutput',
+        label: 'Desk Speakers',
+      }),
+    ]);
+    await flushAsyncWork();
+
+    firstRefresh.resolve([
+      createDevice({
+        deviceId: 'default',
+        kind: 'audioinput',
+        label: 'Default microphone',
+      }),
+      createDevice({
+        deviceId: 'default',
+        kind: 'audiooutput',
+        label: 'Default speakers',
+      }),
+    ]);
+    await flushAsyncWork();
+
+    expect(useUiStore.getState().inputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'usb-mic', label: 'USB Microphone' },
+    ]);
+    expect(useUiStore.getState().outputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'desk-speakers', label: 'Desk Speakers' },
+    ]);
   });
 });

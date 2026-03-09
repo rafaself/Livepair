@@ -40,6 +40,7 @@ function buildDeviceOptions(
 }
 
 let deviceWatcherCleanup: (() => void) | null = null;
+let deviceRefreshRequestId = 0;
 
 export type UiStoreState = {
   isPanelOpen: boolean;
@@ -92,18 +93,25 @@ export const useUiStore = create<UiStoreState>((set) => ({
   setBackendUrlError: (backendUrlError) => set({ backendUrlError }),
   initializeDevicePreferences: async () => {
     const applyDevices = async (): Promise<void> => {
+      const requestId = ++deviceRefreshRequestId;
       const mediaDevices = navigator.mediaDevices;
 
       if (!mediaDevices?.enumerateDevices) {
-        set({
-          inputDeviceOptions: UNAVAILABLE_INPUT_OPTION,
-          outputDeviceOptions: UNAVAILABLE_OUTPUT_OPTION,
-        });
+        if (requestId === deviceRefreshRequestId) {
+          set({
+            inputDeviceOptions: UNAVAILABLE_INPUT_OPTION,
+            outputDeviceOptions: UNAVAILABLE_OUTPUT_OPTION,
+          });
+        }
         return;
       }
 
       try {
         const devices = await mediaDevices.enumerateDevices();
+        if (requestId !== deviceRefreshRequestId) {
+          return;
+        }
+
         const inputDeviceOptions = buildDeviceOptions(
           devices,
           'audioinput',
@@ -134,6 +142,9 @@ export const useUiStore = create<UiStoreState>((set) => ({
           await useSettingsStore.getState().updateSettings({
             selectedInputDeviceId: DEFAULT_DEVICE_ID,
           });
+          if (requestId !== deviceRefreshRequestId) {
+            return;
+          }
         }
 
         if (
@@ -145,10 +156,12 @@ export const useUiStore = create<UiStoreState>((set) => ({
           });
         }
       } catch {
-        set({
-          inputDeviceOptions: UNAVAILABLE_INPUT_OPTION,
-          outputDeviceOptions: UNAVAILABLE_OUTPUT_OPTION,
-        });
+        if (requestId === deviceRefreshRequestId) {
+          set({
+            inputDeviceOptions: UNAVAILABLE_INPUT_OPTION,
+            outputDeviceOptions: UNAVAILABLE_OUTPUT_OPTION,
+          });
+        }
       }
     };
 
@@ -169,6 +182,7 @@ export const useUiStore = create<UiStoreState>((set) => ({
     };
   },
   reset: () => {
+    deviceRefreshRequestId += 1;
     deviceWatcherCleanup?.();
     set(defaultUiState);
   },
