@@ -1,6 +1,6 @@
 # Task Spec Template
 
-Use this template for any non-trivial implementation task. The goal is to give human contributors and Codex agents the same decision-complete source of truth.
+Use this template for any non-trivial implementation task. The goal is to give human contributors and AI agents the same decision-complete source of truth.
 
 ## Title
 

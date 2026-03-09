@@ -296,7 +296,14 @@ pnpm verify:shared-utils
 
 ## 🌍 Environment Variables
 
-### ⚙️ Backend
+Environment examples are separated per app:
+
+- backend: [apps/api/.env.example](./apps/api/.env.example)
+- desktop: [apps/desktop/.env.example](./apps/desktop/.env.example)
+
+Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed in these files because they come from Node, Electron, or Vite rather than repository configuration.
+
+### ⚙️ Backend: `apps/api/.env.example`
 
 ```bash
 PORT=
@@ -304,11 +311,27 @@ HOST=
 GEMINI_API_KEY=
 EPHEMERAL_TOKEN_TTL_SECONDS=
 REDIS_URL=
-OPEN_DEVTOOLS=
 DISABLE_HTTP_LISTEN=
 ```
 
-### 🖥️ Desktop
+Meaning:
+
+- `PORT`: backend HTTP port. Defaults to `3000` when unset.
+- `HOST`: backend bind host. Defaults to `127.0.0.1` when unset.
+- `GEMINI_API_KEY`: server-side Gemini credential for minting ephemeral tokens. Never expose this in the desktop app.
+- `EPHEMERAL_TOKEN_TTL_SECONDS`: token lifetime returned by `/session/token`. Defaults to `60` when unset.
+- `REDIS_URL`: planned Redis connection string for future checkpoint/session storage work. It is not active in the current MVP path yet.
+- `DISABLE_HTTP_LISTEN`: when `true`, starts the backend process without binding the HTTP server. Useful for tests or environments where you want bootstrap without opening a port.
+
+### 🖥️ Desktop: `apps/desktop/.env.example`
+
+```bash
+OPEN_DEVTOOLS=
+```
+
+Meaning:
+
+- `OPEN_DEVTOOLS`: when `true`, Electron opens devtools automatically in desktop development mode. This is only a local developer convenience flag.
 
 The desktop app must not contain a permanent Gemini API key.
 

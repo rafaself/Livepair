@@ -19,7 +19,6 @@ describe('main bootstrap', () => {
   const originalPort = process.env['PORT'];
   const originalHost = process.env['HOST'];
   const originalDisableHttpListen = process.env['DISABLE_HTTP_LISTEN'];
-  const originalCodexNetworkDisabled = process.env['CODEX_SANDBOX_NETWORK_DISABLED'];
   const originalNodeEnv = process.env['NODE_ENV'];
   const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {
     return undefined;
@@ -40,7 +39,6 @@ describe('main bootstrap', () => {
     process.env['PORT'] = originalPort;
     process.env['HOST'] = originalHost;
     process.env['DISABLE_HTTP_LISTEN'] = originalDisableHttpListen;
-    process.env['CODEX_SANDBOX_NETWORK_DISABLED'] = originalCodexNetworkDisabled;
     process.env['NODE_ENV'] = originalNodeEnv;
     logSpy.mockRestore();
     warnSpy.mockRestore();
@@ -50,7 +48,6 @@ describe('main bootstrap', () => {
     delete process.env['PORT'];
     delete process.env['HOST'];
     delete process.env['DISABLE_HTTP_LISTEN'];
-    delete process.env['CODEX_SANDBOX_NETWORK_DISABLED'];
     await import('./main');
     await new Promise((resolve) => setImmediate(resolve));
 
@@ -64,7 +61,6 @@ describe('main bootstrap', () => {
     process.env['PORT'] = '4050';
     process.env['HOST'] = '0.0.0.0';
     delete process.env['DISABLE_HTTP_LISTEN'];
-    delete process.env['CODEX_SANDBOX_NETWORK_DISABLED'];
     await import('./main');
     await new Promise((resolve) => setImmediate(resolve));
 
@@ -74,14 +70,13 @@ describe('main bootstrap', () => {
 
   it('skips network bind when DISABLE_HTTP_LISTEN is true', async () => {
     process.env['DISABLE_HTTP_LISTEN'] = 'true';
-    delete process.env['CODEX_SANDBOX_NETWORK_DISABLED'];
 
     await import('./main');
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(listen).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
-      'HTTP listen disabled (DISABLE_HTTP_LISTEN=true or CODEX_SANDBOX_NETWORK_DISABLED=1).',
+      'HTTP listen disabled (DISABLE_HTTP_LISTEN=true).',
     );
   });
 });

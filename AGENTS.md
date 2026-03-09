@@ -76,7 +76,7 @@ Core stack:
 - Reuse existing patterns before adding new abstractions.
 - Do not add dependencies unless clearly justified.
 - Do not expand MVP scope without explicit approval.
-- When adding or removing an environment variable, update `.env.example` in the same task.
+- When adding or removing an environment variable, update the relevant app-local `.env.example` in the same task.
 
 ## Task Output
 For non-trivial changes, provide:

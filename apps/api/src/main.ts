@@ -8,13 +8,9 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
-  const shouldDisableHttpListen =
-    process.env['DISABLE_HTTP_LISTEN'] === 'true' ||
-    process.env['CODEX_SANDBOX_NETWORK_DISABLED'] === '1';
+  const shouldDisableHttpListen = process.env['DISABLE_HTTP_LISTEN'] === 'true';
   if (shouldDisableHttpListen) {
-    console.warn(
-      'HTTP listen disabled (DISABLE_HTTP_LISTEN=true or CODEX_SANDBOX_NETWORK_DISABLED=1).',
-    );
+    console.warn('HTTP listen disabled (DISABLE_HTTP_LISTEN=true).');
     if (process.env['NODE_ENV'] === 'test') {
       return;
     }
