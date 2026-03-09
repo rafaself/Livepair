@@ -1,17 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
-import { checkBackendHealth, requestSessionToken } from '../../api/backend';
 import { useSessionStore } from '../../store/sessionStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { resetDesktopStores } from '../../store/testing';
 import { useUiStore } from '../../store/uiStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
-
-vi.mock('../../api/backend', () => ({
-  checkBackendHealth: vi.fn(),
-  requestSessionToken: vi.fn(),
-}));
+import { selectAssistantRuntimeState } from '../../runtime/selectors';
 
 function HookHarness(): JSX.Element {
   const togglePanel = useUiStore((state) => state.togglePanel);
@@ -47,8 +42,11 @@ describe('useAssistantPanelController', () => {
     resetDesktopStores();
     useSettingsStore.setState({ settings: DEFAULT_DESKTOP_SETTINGS, isReady: true });
     vi.clearAllMocks();
-    vi.mocked(checkBackendHealth).mockResolvedValue(true);
-    vi.mocked(requestSessionToken).mockResolvedValue({
+    window.bridge.checkHealth = vi.fn().mockResolvedValue({
+      status: 'ok',
+      timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
+    });
+    window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
       token: 'stub-token',
       expiresAt: 'later',
       isStub: true,
@@ -64,7 +62,7 @@ describe('useAssistantPanelController', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
 
-    expect(checkBackendHealth).toHaveBeenCalledTimes(1);
+    expect(window.bridge.checkHealth).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(screen.getByLabelText('backend-label')).toHaveTextContent('Connected');
     });
@@ -72,7 +70,7 @@ describe('useAssistantPanelController', () => {
   });
 
   it('maps token request failures to the error state', async () => {
-    vi.mocked(requestSessionToken).mockRejectedValueOnce(new Error('token failed'));
+    window.bridge.requestSessionToken = vi.fn().mockRejectedValueOnce(new Error('token failed'));
 
     render(<HookHarness />);
     fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
@@ -84,7 +82,7 @@ describe('useAssistantPanelController', () => {
   });
 
   it('maps healthy and unhealthy backend checks into the derived labels and states', async () => {
-    vi.mocked(checkBackendHealth).mockResolvedValueOnce(false);
+    window.bridge.checkHealth = vi.fn().mockRejectedValueOnce(new Error('backend down'));
 
     render(<HookHarness />);
     fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -95,33 +93,25 @@ describe('useAssistantPanelController', () => {
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
   });
 
-  it('maps backend check failures into the error state', async () => {
-    vi.mocked(checkBackendHealth).mockRejectedValueOnce(new Error('backend down'));
+  it('promotes the runtime session through the mock transport when token acquisition succeeds', async () => {
+    vi.useFakeTimers();
 
     render(<HookHarness />);
-    fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('backend-label')).toHaveTextContent('Not connected');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
+      await Promise.resolve();
+      await Promise.resolve();
     });
-    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
-  });
 
-  it('promotes the session to ready when token acquisition succeeds', async () => {
-    render(<HookHarness />);
-    fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
-    });
-    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Token received');
-  });
-
-  it('routes direct assistant state changes through the session store', () => {
-    render(<HookHarness />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'start mock session' }));
-    expect(useSessionStore.getState().assistantState).toBe('listening');
+    expect(window.bridge.requestSessionToken).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('listening');
+    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Token received');
+
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+
+    expect(useSessionStore.getState().conversationTurns.length).toBeGreaterThan(0);
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).not.toBe('disconnected');
   });
 });

@@ -5,21 +5,28 @@ import { useSessionStore } from '../../store/sessionStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { resetDesktopStores } from '../../store/testing';
 import { useUiStore } from '../../store/uiStore';
+import { selectAssistantRuntimeState } from '../../runtime/selectors';
+import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 import { AssistantPanelSettingsView } from '../features/AssistantPanelSettingsView';
 import { ControlDock } from './ControlDock';
 
 function renderDock() {
   function DockHarness(): JSX.Element {
-    const assistantState = useSessionStore((state) => state.assistantState);
+    const assistantState = useSessionStore(selectAssistantRuntimeState);
     const isPanelOpen = useUiStore((state) => state.isPanelOpen);
     const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
+    const { handleEndSession, handleStartSession, isSessionActive } = useSessionRuntime();
 
     return (
       <>
         <output aria-label="panel-open">{String(isPanelOpen)}</output>
         <output aria-label="panel-pinned">{String(isPanelPinned)}</output>
         <output aria-label="assistant-state">{assistantState}</output>
-        <ControlDock />
+        <ControlDock
+          isSessionActive={isSessionActive}
+          onStartSession={handleStartSession}
+          onEndSession={handleEndSession}
+        />
         <AssistantPanelSettingsView />
       </>
     );
@@ -37,6 +44,15 @@ describe('ControlDock', () => {
       ...useSettingsStore.getState().settings,
       ...patch,
     }));
+    window.bridge.checkHealth = vi.fn().mockResolvedValue({
+      status: 'ok',
+      timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
+    });
+    window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'stub-token',
+      expiresAt: 'later',
+      isStub: true,
+    });
   });
 
   it('renders all four control buttons', () => {
@@ -51,8 +67,10 @@ describe('ControlDock', () => {
     renderDock();
     fireEvent.click(screen.getByRole('button', { name: /start session/i }));
 
-    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('listening');
-    expect(screen.getByRole('button', { name: /end session/i })).toBeInTheDocument();
+    return waitFor(() => {
+      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('listening');
+      expect(screen.getByRole('button', { name: /end session/i })).toBeInTheDocument();
+    });
   });
 
   it('toggles microphone and camera state labels and can end an active session', () => {

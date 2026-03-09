@@ -1,16 +1,11 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkBackendHealth } from '../../api/backend';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
-import { useSessionStore } from '../../store/sessionStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { resetDesktopStores } from '../../store/testing';
 import { useUiStore } from '../../store/uiStore';
 import { AssistantPanel } from './AssistantPanel';
-
-vi.mock('../../api/backend', () => ({
-  checkBackendHealth: vi.fn(),
-}));
+import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 
 const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();
 
@@ -20,14 +15,14 @@ function AssistantPanelHarness({
   showStateDevControls?: boolean;
 }): JSX.Element {
   const togglePanel = useUiStore((state) => state.togglePanel);
-  const setAssistantState = useSessionStore((state) => state.setAssistantState);
+  const { handleStartSession } = useSessionRuntime();
 
   return (
     <>
       <button type="button" onClick={togglePanel}>
         toggle panel
       </button>
-      <button type="button" onClick={() => setAssistantState('listening')}>
+      <button type="button" onClick={() => void handleStartSession()}>
         start session
       </button>
       <AssistantPanel showStateDevControls={showStateDevControls} />
@@ -61,7 +56,15 @@ describe('AssistantPanel', () => {
       ...patch,
     }));
     vi.clearAllMocks();
-    vi.mocked(checkBackendHealth).mockResolvedValue(true);
+    window.bridge.checkHealth = vi.fn().mockResolvedValue({
+      status: 'ok',
+      timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
+    });
+    window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'stub-token',
+      expiresAt: 'later',
+      isStub: true,
+    });
     enumerateDevices.mockReset();
     enumerateDevices.mockResolvedValue([]);
     Object.defineProperty(window.navigator, 'mediaDevices', {

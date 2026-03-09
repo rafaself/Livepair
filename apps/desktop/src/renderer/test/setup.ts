@@ -1,13 +1,15 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetDesktopSessionController } from '../runtime/sessionController';
 import { resetDesktopStores } from '../store/testing';
 
-beforeEach(() => {
+beforeEach(async () => {
   if (typeof window === 'undefined') {
     return;
   }
 
+  await resetDesktopSessionController();
   resetDesktopStores();
   window.bridge = {
     overlayMode: 'linux-shape',

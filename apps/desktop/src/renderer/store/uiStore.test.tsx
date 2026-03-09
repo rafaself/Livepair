@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { selectAssistantRuntimeState } from '../runtime/selectors';
 import { useSessionStore } from './sessionStore';
 import { useSettingsStore } from './settingsStore';
 import { resetDesktopStores } from './testing';
@@ -89,12 +90,12 @@ describe('uiStore', () => {
 
   it('keeps runtime assistant state in the session store', () => {
     useSessionStore.getState().setAssistantState('speaking');
-    expect(useSessionStore.getState().assistantState).toBe('speaking');
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('speaking');
     expect(useUiStore.getState().isDebugMode).toBe(false);
 
     useUiStore.getState().toggleDebugMode();
     expect(useUiStore.getState().isDebugMode).toBe(true);
-    expect(useSessionStore.getState().assistantState).toBe('speaking');
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('speaking');
   });
 
   it('resets transient drafts and device options back to defaults', async () => {

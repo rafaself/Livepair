@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { selectAssistantRuntimeState } from '../runtime/selectors';
 import { useSessionStore } from './sessionStore';
 
 describe('sessionStore', () => {
@@ -6,33 +7,49 @@ describe('sessionStore', () => {
     useSessionStore.getState().reset();
   });
 
-  it('tracks assistant, backend, and token request state independently', () => {
-    useSessionStore.getState().setAssistantState('listening');
+  it('tracks runtime session fields independently and derives the UI assistant state', () => {
+    useSessionStore.getState().setSessionPhase('active');
+    useSessionStore.getState().setAssistantActivity('listening');
     useSessionStore.getState().setBackendState('checking');
     useSessionStore.getState().setTokenRequestState('loading');
+    useSessionStore.getState().setTransportState('connecting');
+    useSessionStore.getState().setActiveTransport('mock');
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        assistantState: 'listening',
+        sessionPhase: 'active',
+        assistantActivity: 'listening',
         backendState: 'checking',
         tokenRequestState: 'loading',
+        transportState: 'connecting',
+        activeTransport: 'mock',
       }),
     );
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('listening');
   });
 
-  it('resets all session state back to its defaults', () => {
-    useSessionStore.getState().setAssistantState('error');
+  it('resets all runtime state back to its defaults', () => {
+    useSessionStore.getState().setSessionPhase('error');
+    useSessionStore.getState().setAssistantActivity('speaking');
     useSessionStore.getState().setBackendState('failed');
     useSessionStore.getState().setTokenRequestState('success');
+    useSessionStore.getState().setTransportState('connected');
+    useSessionStore.getState().setActiveTransport('mock');
 
     useSessionStore.getState().reset();
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        assistantState: 'disconnected',
+        sessionPhase: 'idle',
+        assistantActivity: 'idle',
         backendState: 'idle',
         tokenRequestState: 'idle',
+        transportState: 'idle',
+        activeTransport: null,
+        conversationTurns: [],
+        lastRuntimeError: null,
       }),
     );
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('disconnected');
   });
 });
