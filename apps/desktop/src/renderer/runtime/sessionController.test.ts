@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TextChatRequest, TextChatStreamEvent } from '@livepair/shared-types';
+import type { AssistantAudioPlaybackObserver } from './assistantAudioPlayback';
 import { createDesktopSessionController } from './sessionController';
 import { selectAssistantRuntimeState, selectIsConversationEmpty } from './selectors';
 import type {
@@ -7,6 +8,7 @@ import type {
   LocalVoiceChunk,
   RuntimeLogger,
   VoiceCaptureDiagnostics,
+  VoicePlaybackState,
 } from './types';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -146,6 +148,41 @@ function createVoiceCaptureHarness(): {
   };
 }
 
+function createVoicePlaybackHarness(): {
+  createVoicePlayback: ReturnType<typeof vi.fn>;
+  enqueue: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+  emitState: (state: VoicePlaybackState) => void;
+  emitDiagnostics: (diagnostics: Record<string, unknown>) => void;
+  emitError: (detail: string) => void;
+} {
+  let observer: AssistantAudioPlaybackObserver | null = null;
+  const enqueue = vi.fn(async () => undefined);
+  const stop = vi.fn(async () => undefined);
+
+  return {
+    createVoicePlayback: vi.fn((nextObserver) => {
+      observer = nextObserver;
+
+      return {
+        enqueue,
+        stop,
+      };
+    }),
+    enqueue,
+    stop,
+    emitState: (state) => {
+      observer?.onStateChange(state);
+    },
+    emitDiagnostics: (diagnostics) => {
+      observer?.onDiagnostics(diagnostics);
+    },
+    emitError: (detail) => {
+      observer?.onError(detail);
+    },
+  };
+}
+
 describe('createDesktopSessionController', () => {
   beforeEach(() => {
     useSessionStore.getState().reset();
@@ -230,6 +267,71 @@ describe('createDesktopSessionController', () => {
       },
       mode: 'voice',
     });
+  });
+
+  it('routes assistant audio chunks into playback state and diagnostics without affecting text mode', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        selectedOutputDeviceId: 'desk-speakers',
+      },
+      isReady: true,
+    });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    voicePlayback.emitState('playing');
+    voicePlayback.emitDiagnostics({
+      chunkCount: 1,
+      queueDepth: 1,
+      sampleRateHz: 24_000,
+      selectedOutputDeviceId: 'desk-speakers',
+      lastError: null,
+    });
+
+    expect(voicePlayback.createVoicePlayback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onStateChange: expect.any(Function),
+      }),
+      expect.objectContaining({
+        selectedOutputDeviceId: 'desk-speakers',
+      }),
+    );
+    expect(voicePlayback.enqueue).toHaveBeenCalledWith(new Uint8Array([1, 2, 3, 4]));
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voicePlaybackState: 'playing',
+        assistantActivity: 'speaking',
+        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+      }),
+    );
+    expect(useSessionStore.getState().voicePlaybackDiagnostics).toEqual(
+      expect.objectContaining({
+        chunkCount: 1,
+        queueDepth: 1,
+        sampleRateHz: 24_000,
+        selectedOutputDeviceId: 'desk-speakers',
+        lastError: null,
+      }),
+    );
   });
 
   it('auto-starts text mode, streams assistant text, and completes the turn', async () => {
@@ -592,6 +694,98 @@ describe('createDesktopSessionController', () => {
     expect(useSessionStore.getState().voiceCaptureState).toBe('stopped');
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
     expect(voiceTransport.sendAudioStreamEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops assistant playback on disconnect and transport error without changing text mode', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    await Promise.resolve();
+
+    voiceTransport.emit({ type: 'connection-state-changed', state: 'disconnected' });
+    await Promise.resolve();
+
+    expect(voicePlayback.stop).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voicePlaybackState: 'stopped',
+        voiceSessionStatus: 'disconnected',
+        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+      }),
+    );
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([5, 6, 7, 8]) });
+    voicePlayback.emitState('playing');
+    voiceTransport.emit({ type: 'error', detail: 'transport failed' });
+    await Promise.resolve();
+
+    expect(voicePlayback.stop).toHaveBeenCalledTimes(2);
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voicePlaybackState: 'stopped',
+        voiceSessionStatus: 'error',
+        lastRuntimeError: 'transport failed',
+      }),
+    );
+  });
+
+  it('surfaces malformed assistant audio as a playback-only error and keeps the voice session connected', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    await Promise.resolve();
+    voiceTransport.emit({
+      type: 'audio-error',
+      detail: 'Assistant audio payload was malformed',
+    });
+    await Promise.resolve();
+
+    expect(voicePlayback.stop).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        activeTransport: 'gemini-live',
+        voiceSessionStatus: 'ready',
+        voicePlaybackState: 'error',
+        lastRuntimeError: 'Assistant audio payload was malformed',
+      }),
+    );
   });
 
   it('rejects microphone capture until the voice session is connected', async () => {

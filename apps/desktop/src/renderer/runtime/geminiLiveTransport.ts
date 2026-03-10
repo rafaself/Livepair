@@ -73,6 +73,7 @@ function closeGeminiLiveSdkSession(session: GeminiLiveSdkSession | null): void {
 }
 
 const LIVE_AUDIO_PCM_MIME_TYPE = 'audio/pcm;rate=16000';
+const ASSISTANT_AUDIO_MIME_TYPE_PREFIX = 'audio/pcm';
 
 function encodeChunkToBase64(chunk: Uint8Array): string {
   let binary = '';
@@ -82,6 +83,17 @@ function encodeChunkToBase64(chunk: Uint8Array): string {
   }
 
   return btoa(binary);
+}
+
+function decodeBase64Chunk(data: string): Uint8Array {
+  const binary = atob(data);
+  const chunk = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    chunk[index] = binary.charCodeAt(index);
+  }
+
+  return chunk;
 }
 
 export class GeminiLiveTransport implements DesktopSession {
@@ -273,6 +285,38 @@ export class GeminiLiveTransport implements DesktopSession {
           this.pendingOutputText = '';
           this.emit({ type: 'interrupted' });
           return;
+        }
+
+        if (this.activeMode === 'voice') {
+          const parts = message.serverContent?.modelTurn?.parts ?? [];
+
+          for (const part of parts) {
+            const inlineData = part.inlineData;
+
+            if (!inlineData?.data) {
+              continue;
+            }
+
+            if (!inlineData.mimeType?.startsWith(ASSISTANT_AUDIO_MIME_TYPE_PREFIX)) {
+              this.emit({
+                type: 'audio-error',
+                detail: `Unsupported assistant audio format: ${inlineData.mimeType ?? '(missing mime type)'}`,
+              });
+              continue;
+            }
+
+            try {
+              this.emit({
+                type: 'audio-chunk',
+                chunk: decodeBase64Chunk(inlineData.data),
+              });
+            } catch {
+              this.emit({
+                type: 'audio-error',
+                detail: 'Assistant audio payload was malformed',
+              });
+            }
+          }
         }
 
         if (message.serverContent?.generationComplete) {

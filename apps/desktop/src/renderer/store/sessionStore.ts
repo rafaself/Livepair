@@ -17,6 +17,8 @@ import type {
   TransportKind,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoicePlaybackDiagnostics,
+  VoicePlaybackState,
   VoiceSessionStatus,
 } from '../runtime/types';
 
@@ -37,6 +39,8 @@ type SessionStoreData = {
   voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
+  voicePlaybackState: VoicePlaybackState;
+  voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
 };
 
 export type SessionStoreState = SessionStoreData & {
@@ -57,6 +61,10 @@ export type SessionStoreState = SessionStoreData & {
   setVoiceCaptureState: (voiceCaptureState: VoiceCaptureState) => void;
   setVoiceCaptureDiagnostics: (
     patch: Partial<VoiceCaptureDiagnostics>,
+  ) => void;
+  setVoicePlaybackState: (voicePlaybackState: VoicePlaybackState) => void;
+  setVoicePlaybackDiagnostics: (
+    patch: Partial<VoicePlaybackDiagnostics>,
   ) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
   resetTextSessionRuntime: (textSessionStatus?: TextSessionStatus) => void;
@@ -84,6 +92,16 @@ function buildDefaultVoiceCaptureDiagnostics(): VoiceCaptureDiagnostics {
   };
 }
 
+function buildDefaultVoicePlaybackDiagnostics(): VoicePlaybackDiagnostics {
+  return {
+    chunkCount: 0,
+    queueDepth: 0,
+    sampleRateHz: null,
+    selectedOutputDeviceId: null,
+    lastError: null,
+  };
+}
+
 function buildDefaultSessionState(): SessionStoreData {
   return {
     ...withDerivedLifecycleFields(createTextSessionLifecycle()),
@@ -97,6 +115,8 @@ function buildDefaultSessionState(): SessionStoreData {
     voiceSessionStatus: 'disconnected',
     voiceCaptureState: 'idle',
     voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
+    voicePlaybackState: 'idle',
+    voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
   };
 }
 
@@ -191,6 +211,14 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setVoicePlaybackState: (voicePlaybackState) => set({ voicePlaybackState }),
+  setVoicePlaybackDiagnostics: (patch) =>
+    set((state) => ({
+      voicePlaybackDiagnostics: {
+        ...state.voicePlaybackDiagnostics,
+        ...patch,
+      },
+    })),
   setAssistantState: (assistantState) =>
     set((state) => getDebugRuntimeState(assistantState, state.activeTransport)),
   resetTextSessionRuntime: (textSessionStatus = 'idle') =>
@@ -206,6 +234,8 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       voiceSessionStatus: 'disconnected',
       voiceCaptureState: state.voiceCaptureState,
       voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
+      voicePlaybackState: state.voicePlaybackState,
+      voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
     })),
   reset: (overrides) =>
     set(() => {

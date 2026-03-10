@@ -22,6 +22,13 @@ export type VoiceCaptureState =
   | 'stopping'
   | 'stopped'
   | 'error';
+export type VoicePlaybackState =
+  | 'idle'
+  | 'buffering'
+  | 'playing'
+  | 'stopping'
+  | 'stopped'
+  | 'error';
 export type VoiceSessionStatus =
   | 'connecting'
   | 'ready'
@@ -83,6 +90,14 @@ export type VoiceCaptureDiagnostics = {
   lastError: string | null;
 };
 
+export type VoicePlaybackDiagnostics = {
+  chunkCount: number;
+  queueDepth: number;
+  sampleRateHz: number | null;
+  selectedOutputDeviceId: string | null;
+  lastError: string | null;
+};
+
 export type SessionControllerEvent =
   | { type: 'session.backend.health.started' }
   | { type: 'session.backend.health.succeeded' }
@@ -113,6 +128,10 @@ export type LiveSessionEvent =
   | {
       type: 'audio-chunk';
       chunk: Uint8Array;
+    }
+  | {
+      type: 'audio-error';
+      detail: string;
     }
   | {
       type: 'input-transcript';
@@ -160,6 +179,11 @@ export type DesktopSession = {
   sendAudioStreamEnd: () => Promise<void>;
   disconnect: () => Promise<void>;
   subscribe: (listener: (event: LiveSessionEvent) => void) => () => void;
+};
+
+export type AssistantAudioPlayback = {
+  enqueue: (chunk: Uint8Array) => Promise<void>;
+  stop: () => Promise<void>;
 };
 
 export type RuntimeLogger = {

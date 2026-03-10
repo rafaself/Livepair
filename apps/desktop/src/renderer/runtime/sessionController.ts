@@ -10,6 +10,10 @@ import {
 import { formatConversationTimestamp } from './conversationTimestamp';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
 import { LIVE_ADAPTER_KEY } from './liveConfig';
+import {
+  createAssistantAudioPlayback,
+  type AssistantAudioPlaybackObserver,
+} from './assistantAudioPlayback';
 import { createLocalVoiceCapture, type LocalVoiceCapture } from './localVoiceCapture';
 import {
   isSessionActiveLifecycle,
@@ -22,6 +26,7 @@ import type {
   ConversationTurnModel,
   DesktopSession,
   LocalVoiceChunk,
+  AssistantAudioPlayback,
   LiveSessionEvent,
   RuntimeLogger,
   SessionControllerEvent,
@@ -30,6 +35,8 @@ import type {
   TransportKind,
   VoiceCaptureDiagnostics,
   VoiceSessionStatus,
+  VoicePlaybackDiagnostics,
+  VoicePlaybackState,
 } from './types';
 import type {
   TextChatMessage,
@@ -70,6 +77,10 @@ export type DesktopSessionControllerDependencies = {
       onError: (detail: string) => void;
     },
   ) => LocalVoiceCapture;
+  createVoicePlayback: (
+    observer: AssistantAudioPlaybackObserver,
+    options: { selectedOutputDeviceId: string },
+  ) => AssistantAudioPlayback;
   store: SessionStoreApi;
   settingsStore: SettingsStoreApi;
 };
@@ -105,6 +116,8 @@ export function createDesktopSessionController(
     requestSessionToken,
     createTransport: (_kind) => createGeminiLiveTransport(),
     createVoiceCapture: (observer) => createLocalVoiceCapture(observer),
+    createVoicePlayback: (observer, options) =>
+      createAssistantAudioPlayback(observer, options),
     store: useSessionStore,
     settingsStore: useSettingsStore,
     ...overrides,
@@ -120,6 +133,7 @@ export function createDesktopSessionController(
   let nextAssistantTurnId = 0;
   let pendingAssistantTurnId: string | null = null;
   let voiceCapture: LocalVoiceCapture | null = null;
+  let voicePlayback: AssistantAudioPlayback | null = null;
   let voiceSendChain = Promise.resolve();
   const voiceChunkListeners = new Set<(chunk: LocalVoiceChunk) => void>();
 
@@ -177,6 +191,57 @@ export function createDesktopSessionController(
     return voiceCapture;
   };
 
+  const updateVoicePlaybackDiagnostics = (
+    patch: Partial<VoicePlaybackDiagnostics>,
+  ): void => {
+    dependencies.store.getState().setVoicePlaybackDiagnostics(patch);
+  };
+
+  const setVoicePlaybackState = (state: VoicePlaybackState): void => {
+    dependencies.store.getState().setVoicePlaybackState(state);
+
+    if (state === 'playing' || state === 'buffering') {
+      dependencies.store.getState().setAssistantActivity('speaking');
+      return;
+    }
+
+    if (state === 'stopped' || state === 'idle' || state === 'error') {
+      dependencies.store.getState().setAssistantActivity('idle');
+    }
+  };
+
+  const getVoicePlayback = (): AssistantAudioPlayback => {
+    if (!voicePlayback) {
+      const selectedOutputDeviceId =
+        dependencies.settingsStore.getState().settings.selectedOutputDeviceId;
+      voicePlayback = dependencies.createVoicePlayback(
+        {
+          onStateChange: (state) => {
+            setVoicePlaybackState(state);
+          },
+          onDiagnostics: (diagnostics) => {
+            updateVoicePlaybackDiagnostics(diagnostics);
+          },
+          onError: (detail) => {
+            updateVoicePlaybackDiagnostics({
+              lastError: detail,
+            });
+            setVoicePlaybackState('error');
+            dependencies.store.getState().setLastRuntimeError(detail);
+          },
+        },
+        {
+          selectedOutputDeviceId,
+        },
+      );
+      updateVoicePlaybackDiagnostics({
+        selectedOutputDeviceId,
+      });
+    }
+
+    return voicePlayback;
+  };
+
   const clearPendingAssistantTurn = (): void => {
     pendingAssistantTurnId = null;
   };
@@ -218,6 +283,7 @@ export function createDesktopSessionController(
     unsubscribeTransport?.();
     unsubscribeTransport = null;
     activeTransport = null;
+    voicePlayback = null;
     voiceSendChain = Promise.resolve();
     releaseTextChatStream();
     clearPendingAssistantTurn();
@@ -343,8 +409,36 @@ export function createDesktopSessionController(
     store.setVoiceCaptureState('error');
     store.setLastRuntimeError(detail);
     store.setActiveTransport(null);
+    setVoicePlaybackState('stopped');
+    updateVoicePlaybackDiagnostics({
+      queueDepth: 0,
+    });
+    store.setAssistantActivity('idle');
+    void voicePlayback?.stop().catch(() => {});
+    voicePlayback = null;
     cleanupTransport();
     void transport?.disconnect().catch(() => {});
+  };
+
+  const stopVoicePlayback = async (
+    nextState: VoicePlaybackState = 'stopped',
+  ): Promise<void> => {
+    const playback = voicePlayback;
+    voicePlayback = null;
+
+    if (!playback) {
+      setVoicePlaybackState(nextState);
+      updateVoicePlaybackDiagnostics({
+        queueDepth: 0,
+      });
+      return;
+    }
+
+    await playback.stop();
+    setVoicePlaybackState(nextState);
+    updateVoicePlaybackDiagnostics({
+      queueDepth: 0,
+    });
   };
 
   const enqueueVoiceChunkSend = (chunk: LocalVoiceChunk): Promise<void> => {
@@ -404,10 +498,20 @@ export function createDesktopSessionController(
         store.setAssistantActivity('idle');
         store.setActiveTransport(LIVE_ADAPTER_KEY);
         store.setLastRuntimeError(null);
+        setVoicePlaybackState('idle');
+        updateVoicePlaybackDiagnostics({
+          chunkCount: 0,
+          queueDepth: 0,
+          sampleRateHz: null,
+          lastError: null,
+          selectedOutputDeviceId:
+            dependencies.settingsStore.getState().settings.selectedOutputDeviceId,
+        });
         return;
       }
 
       setVoiceSessionStatus('disconnected');
+      void stopVoicePlayback();
       cleanupTransport();
       store.setAssistantActivity('idle');
       store.setActiveTransport(null);
@@ -421,6 +525,22 @@ export function createDesktopSessionController(
 
     if (event.type === 'error') {
       setVoiceErrorState(event.detail);
+      return;
+    }
+
+    if (event.type === 'audio-error') {
+      updateVoicePlaybackDiagnostics({
+        lastError: event.detail,
+      });
+      dependencies.store.getState().setLastRuntimeError(event.detail);
+      void stopVoicePlayback('error');
+      return;
+    }
+
+    if (event.type === 'audio-chunk') {
+      void getVoicePlayback()
+        .enqueue(event.chunk)
+        .catch(() => {});
     }
   };
 
@@ -543,6 +663,15 @@ export function createDesktopSessionController(
       const store = dependencies.store.getState();
       store.setVoiceCaptureState('idle');
       store.setVoiceCaptureDiagnostics({
+        lastError: null,
+      });
+      setVoicePlaybackState('idle');
+      updateVoicePlaybackDiagnostics({
+        chunkCount: 0,
+        queueDepth: 0,
+        sampleRateHz: null,
+        selectedOutputDeviceId:
+          dependencies.settingsStore.getState().settings.selectedOutputDeviceId,
         lastError: null,
       });
       setVoiceSessionStatus('connecting');
@@ -797,6 +926,7 @@ export function createDesktopSessionController(
           await getVoiceCapture().stop();
         }
         await activeTransport?.disconnect();
+        await stopVoicePlayback();
       } finally {
         cleanupTransport();
         resetRuntimeState('disconnected');

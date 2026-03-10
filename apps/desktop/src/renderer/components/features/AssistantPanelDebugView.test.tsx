@@ -24,6 +24,14 @@ describe('AssistantPanelDebugView', () => {
           selectedInputDeviceId: 'default',
           lastError: null,
         }}
+        voicePlaybackState="playing"
+        voicePlaybackDiagnostics={{
+          chunkCount: 2,
+          queueDepth: 1,
+          sampleRateHz: 24_000,
+          selectedOutputDeviceId: 'desk-speakers',
+          lastError: null,
+        }}
         onRetryBackendHealth={onRetryBackendHealth}
         onSetAssistantState={onSetAssistantState}
       />,
@@ -38,10 +46,14 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Streaming')).toBeVisible();
     expect(screen.getByText('Voice capture')).toBeVisible();
     expect(screen.getByText('Capturing')).toBeVisible();
+    expect(screen.getByText('Voice playback')).toBeVisible();
+    expect(screen.getByText('Playing')).toBeVisible();
     expect(screen.getByText('Chunk count')).toBeVisible();
     expect(screen.getByText('3')).toBeVisible();
     expect(screen.getByText('Audio format')).toBeVisible();
     expect(screen.getByText('16 kHz / mono / pcm_s16le')).toBeVisible();
+    expect(screen.getByText('Playback output')).toBeVisible();
+    expect(screen.getByText('desk-speakers')).toBeVisible();
     expect(screen.getByText('Set assistant state')).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry backend' }));

@@ -599,4 +599,126 @@ describe('createGeminiLiveTransport', () => {
       audioStreamEnd: true,
     });
   });
+
+  it('emits assistant audio chunks in order for voice sessions', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    sdkHarness.emitMessage({
+      serverContent: {
+        modelTurn: {
+          role: 'model',
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'audio/pcm;rate=24000',
+                data: 'AQIDBA==',
+              },
+            },
+            {
+              inlineData: {
+                mimeType: 'audio/pcm;rate=24000',
+                data: 'BwgJCg==',
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'audio-chunk',
+          chunk: new Uint8Array([1, 2, 3, 4]),
+        },
+        {
+          type: 'audio-chunk',
+          chunk: new Uint8Array([7, 8, 9, 10]),
+        },
+      ]),
+    );
+  });
+
+  it('emits a non-fatal audio error for malformed or unsupported assistant audio', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    sdkHarness.emitMessage({
+      serverContent: {
+        modelTurn: {
+          role: 'model',
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'audio/wav',
+                data: 'AQIDBA==',
+              },
+            },
+            {
+              inlineData: {
+                mimeType: 'audio/pcm;rate=24000',
+                data: '***',
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'audio-error',
+          detail: 'Unsupported assistant audio format: audio/wav',
+        },
+        {
+          type: 'audio-error',
+          detail: 'Assistant audio payload was malformed',
+        },
+      ]),
+    );
+    expect(events).not.toContainEqual({
+      type: 'error',
+      detail: 'Assistant audio payload was malformed',
+    });
+  });
 });

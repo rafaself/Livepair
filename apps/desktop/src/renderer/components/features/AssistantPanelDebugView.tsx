@@ -7,6 +7,8 @@ import {
 import type {
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoicePlaybackDiagnostics,
+  VoicePlaybackState,
   VoiceSessionStatus,
 } from '../../runtime/types';
 import { FieldList, StatusIndicator } from '../composite';
@@ -24,6 +26,8 @@ export type AssistantPanelDebugViewProps = {
   voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
+  voicePlaybackState: VoicePlaybackState;
+  voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   onRetryBackendHealth: () => Promise<void>;
   onSetAssistantState: (state: AssistantRuntimeState) => void;
 };
@@ -40,6 +44,10 @@ function formatVoiceSessionStatus(state: VoiceSessionStatus): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatVoicePlaybackState(state: VoicePlaybackState): string {
+  return state.charAt(0).toUpperCase() + state.slice(1);
+}
+
 export function AssistantPanelDebugView({
   assistantState,
   backendState,
@@ -49,6 +57,8 @@ export function AssistantPanelDebugView({
   voiceSessionStatus,
   voiceCaptureState,
   voiceCaptureDiagnostics,
+  voicePlaybackState,
+  voicePlaybackDiagnostics,
   onRetryBackendHealth,
   onSetAssistantState,
 }: AssistantPanelDebugViewProps): JSX.Element {
@@ -125,6 +135,32 @@ export function AssistantPanelDebugView({
             {
               label: 'Capture error',
               value: voiceCaptureDiagnostics.lastError ?? 'None',
+            },
+            {
+              label: 'Voice playback',
+              value: formatVoicePlaybackState(voicePlaybackState),
+            },
+            {
+              label: 'Playback output',
+              value: voicePlaybackDiagnostics.selectedOutputDeviceId ?? 'None',
+            },
+            {
+              label: 'Playback queue',
+              value: String(voicePlaybackDiagnostics.queueDepth),
+            },
+            {
+              label: 'Playback chunks',
+              value: String(voicePlaybackDiagnostics.chunkCount),
+            },
+            {
+              label: 'Playback format',
+              value: voicePlaybackDiagnostics.sampleRateHz
+                ? `${voicePlaybackDiagnostics.sampleRateHz / 1000} kHz / mono / pcm_s16le`
+                : 'Not started',
+            },
+            {
+              label: 'Playback error',
+              value: voicePlaybackDiagnostics.lastError ?? 'None',
             },
           ]}
         />

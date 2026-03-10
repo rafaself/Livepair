@@ -8,6 +8,8 @@ import type {
   TextSessionStatus,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoicePlaybackDiagnostics,
+  VoicePlaybackState,
   VoiceSessionStatus,
 } from '../../runtime/types';
 
@@ -30,6 +32,8 @@ export type AssistantPanelController = {
   voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
+  voicePlaybackState: VoicePlaybackState;
+  voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   canSubmitText: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -57,6 +61,8 @@ export function useAssistantPanelController(): AssistantPanelController {
     voiceSessionStatus,
     voiceCaptureState,
     voiceCaptureDiagnostics,
+    voicePlaybackState,
+    voicePlaybackDiagnostics,
     canSubmitText,
     conversationTurns,
     lastRuntimeError,
@@ -133,6 +139,8 @@ export function useAssistantPanelController(): AssistantPanelController {
     voiceSessionStatus,
     voiceCaptureState,
     voiceCaptureDiagnostics,
+    voicePlaybackState,
+    voicePlaybackDiagnostics,
     canSubmitText,
     lastRuntimeError,
     draftText,
