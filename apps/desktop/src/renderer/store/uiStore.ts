@@ -175,9 +175,10 @@ export const useUiStore = create<UiStoreState>((set) => ({
       void applyDevices();
     };
 
-    navigator.mediaDevices?.addEventListener?.('devicechange', handleDeviceChange);
+    const subscribedMediaDevices = navigator.mediaDevices;
+    subscribedMediaDevices?.addEventListener?.('devicechange', handleDeviceChange);
     deviceWatcherCleanup = () => {
-      navigator.mediaDevices?.removeEventListener?.('devicechange', handleDeviceChange);
+      subscribedMediaDevices?.removeEventListener?.('devicechange', handleDeviceChange);
       deviceWatcherCleanup = null;
     };
   },

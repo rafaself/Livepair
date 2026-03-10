@@ -1,5 +1,6 @@
 import { checkBackendHealth, requestSessionToken, startTextChatStream } from '../api/backend';
 import { useSessionStore } from '../store/sessionStore';
+import { useSettingsStore } from '../store/settingsStore';
 import {
   defaultRuntimeLogger,
   logLifecycleTransition,
@@ -8,8 +9,8 @@ import {
 } from './logger';
 import { formatConversationTimestamp } from './conversationTimestamp';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
+import { createLocalVoiceCapture, type LocalVoiceCapture } from './localVoiceCapture';
 import {
-  createTextSessionLifecycle,
   isSessionActiveLifecycle,
   isTextSessionConnectable,
   isTextTurnInFlight,
@@ -19,12 +20,14 @@ import {
 import type {
   ConversationTurnModel,
   DesktopSession,
+  LocalVoiceChunk,
   LiveSessionEvent,
   RuntimeLogger,
   SessionControllerEvent,
   SessionMode,
   TextSessionStatus,
   TransportKind,
+  VoiceCaptureDiagnostics,
 } from './types';
 import type {
   TextChatMessage,
@@ -36,6 +39,7 @@ const TEXT_CHAT_ADAPTER_KEY: TransportKind = 'backend-text';
 const VOICE_MODE_UNAVAILABLE_DETAIL = 'Voice mode is not available in this release';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
+type SettingsStoreApi = Pick<typeof useSettingsStore, 'getState'>;
 type DebugAssistantState = Parameters<
   ReturnType<SessionStoreApi['getState']>['setAssistantState']
 >[0];
@@ -43,6 +47,9 @@ type DebugAssistantState = Parameters<
 export type DesktopSessionController = {
   checkBackendHealth: () => Promise<void>;
   startSession: (options: { mode: SessionMode }) => Promise<void>;
+  startVoiceCapture: () => Promise<void>;
+  stopVoiceCapture: () => Promise<void>;
+  subscribeToVoiceChunks: (listener: (chunk: LocalVoiceChunk) => void) => () => void;
   submitTextTurn: (text: string) => Promise<boolean>;
   endSession: () => Promise<void>;
   setAssistantState: (assistantState: DebugAssistantState) => void;
@@ -54,7 +61,15 @@ export type DesktopSessionControllerDependencies = {
   startTextChatStream: typeof startTextChatStream;
   requestSessionToken: typeof requestSessionToken;
   createTransport: (kind: TransportKind) => DesktopSession;
+  createVoiceCapture: (
+    observer: {
+      onChunk: (chunk: LocalVoiceChunk) => void;
+      onDiagnostics: (diagnostics: Partial<VoiceCaptureDiagnostics>) => void;
+      onError: (detail: string) => void;
+    },
+  ) => LocalVoiceCapture;
   store: SessionStoreApi;
+  settingsStore: SettingsStoreApi;
 };
 
 function asErrorDetail(error: unknown, fallback: string): string {
@@ -87,7 +102,9 @@ export function createDesktopSessionController(
     startTextChatStream,
     requestSessionToken,
     createTransport: (_kind) => createGeminiLiveTransport(),
+    createVoiceCapture: (observer) => createLocalVoiceCapture(observer),
     store: useSessionStore,
+    settingsStore: useSettingsStore,
     ...overrides,
   };
 
@@ -100,6 +117,8 @@ export function createDesktopSessionController(
   let nextUserTurnId = 0;
   let nextAssistantTurnId = 0;
   let pendingAssistantTurnId: string | null = null;
+  let voiceCapture: LocalVoiceCapture | null = null;
+  const voiceChunkListeners = new Set<(chunk: LocalVoiceChunk) => void>();
 
   const recordSessionEvent = (event: SessionControllerEvent): void => {
     dependencies.logger.onSessionEvent(event);
@@ -118,6 +137,38 @@ export function createDesktopSessionController(
     return dependencies.store
       .getState()
       .conversationTurns.find((turn) => turn.id === turnId);
+  };
+
+  const getVoiceCapture = (): LocalVoiceCapture => {
+    if (!voiceCapture) {
+      voiceCapture = dependencies.createVoiceCapture({
+        onChunk: (chunk) => {
+          for (const listener of voiceChunkListeners) {
+            listener(chunk);
+          }
+
+          dependencies.store.getState().setVoiceCaptureDiagnostics({
+            chunkCount: chunk.sequence,
+            sampleRateHz: chunk.sampleRateHz,
+            bytesPerChunk: chunk.data.byteLength,
+            chunkDurationMs: chunk.durationMs,
+            lastError: null,
+          });
+        },
+        onDiagnostics: (diagnostics) => {
+          dependencies.store.getState().setVoiceCaptureDiagnostics(diagnostics);
+        },
+        onError: (detail) => {
+          dependencies.store.getState().setVoiceCaptureState('error');
+          dependencies.store.getState().setVoiceCaptureDiagnostics({
+            lastError: detail,
+          });
+          logRuntimeError('voice-capture', 'local capture failed', { detail });
+        },
+      });
+    }
+
+    return voiceCapture;
   };
 
   const clearPendingAssistantTurn = (): void => {
@@ -280,9 +331,7 @@ export function createDesktopSessionController(
 
   const resetRuntimeState = (textSessionStatus: TextSessionStatus = 'idle'): void => {
     clearPendingAssistantTurn();
-    dependencies.store.getState().reset({
-      textSessionLifecycle: createTextSessionLifecycle(textSessionStatus),
-    });
+    dependencies.store.getState().resetTextSessionRuntime(textSessionStatus);
   };
 
   const setGoAwayState = (detail: string): void => {
@@ -547,6 +596,65 @@ export function createDesktopSessionController(
     },
     startSession: async ({ mode }) => {
       await startSessionInternal({ mode });
+    },
+    startVoiceCapture: async () => {
+      const store = dependencies.store.getState();
+
+      if (
+        store.voiceCaptureState === 'requestingPermission' ||
+        store.voiceCaptureState === 'capturing'
+      ) {
+        return;
+      }
+
+      const selectedInputDeviceId =
+        dependencies.settingsStore.getState().settings.selectedInputDeviceId;
+      store.setVoiceCaptureState('requestingPermission');
+      store.setVoiceCaptureDiagnostics({
+        chunkCount: 0,
+        sampleRateHz: 16_000,
+        bytesPerChunk: 640,
+        chunkDurationMs: 20,
+        selectedInputDeviceId,
+        lastError: null,
+      });
+
+      try {
+        await getVoiceCapture().start({ selectedInputDeviceId });
+        dependencies.store.getState().setVoiceCaptureState('capturing');
+      } catch (error) {
+        const detail = asErrorDetail(error, 'Failed to start microphone capture');
+        dependencies.store.getState().setVoiceCaptureState('error');
+        dependencies.store.getState().setVoiceCaptureDiagnostics({
+          lastError: detail,
+          selectedInputDeviceId,
+        });
+      }
+    },
+    stopVoiceCapture: async () => {
+      const store = dependencies.store.getState();
+
+      if (
+        store.voiceCaptureState === 'idle' ||
+        store.voiceCaptureState === 'stopped'
+      ) {
+        return;
+      }
+
+      store.setVoiceCaptureState('stopping');
+
+      try {
+        await getVoiceCapture().stop();
+      } finally {
+        dependencies.store.getState().setVoiceCaptureState('stopped');
+      }
+    },
+    subscribeToVoiceChunks: (listener) => {
+      voiceChunkListeners.add(listener);
+
+      return () => {
+        voiceChunkListeners.delete(listener);
+      };
     },
     submitTextTurn: async (text: string) => {
       const trimmedText = text.trim();

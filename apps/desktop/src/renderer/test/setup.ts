@@ -10,6 +10,70 @@ beforeEach(async () => {
     return;
   }
 
+  const mediaTrack = {
+    stop: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  };
+  const mediaStream = {
+    getTracks: vi.fn(() => [mediaTrack]),
+  };
+  const mediaDevicesEvents = new EventTarget();
+  Object.defineProperty(window.navigator, 'mediaDevices', {
+    configurable: true,
+    value: {
+      enumerateDevices: vi.fn(async () => []),
+      getUserMedia: vi.fn(async () => mediaStream),
+      addEventListener: mediaDevicesEvents.addEventListener.bind(mediaDevicesEvents),
+      removeEventListener: mediaDevicesEvents.removeEventListener.bind(mediaDevicesEvents),
+    },
+  });
+
+  class FakeAudioWorkletNode {
+    readonly port = {
+      onmessage: null as ((event: MessageEvent) => void) | null,
+      onmessageerror: null as ((event: MessageEvent) => void) | null,
+    };
+
+    connect = vi.fn();
+    disconnect = vi.fn();
+  }
+
+  class FakeAudioContext {
+    readonly sampleRate = 48_000;
+    readonly audioWorklet = {
+      addModule: vi.fn(async () => undefined),
+    };
+
+    createMediaStreamSource = vi.fn(() => ({
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    }));
+    resume = vi.fn(async () => undefined);
+    close = vi.fn(async () => undefined);
+  }
+
+  Object.defineProperty(window, 'AudioContext', {
+    configurable: true,
+    value: FakeAudioContext,
+  });
+  Object.defineProperty(window, 'AudioWorkletNode', {
+    configurable: true,
+    value: FakeAudioWorkletNode,
+  });
+  Object.defineProperty(globalThis, 'AudioWorkletNode', {
+    configurable: true,
+    value: FakeAudioWorkletNode,
+  });
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: vi.fn(() => 'blob:livepair-test-worklet'),
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: vi.fn(),
+  });
+
   await resetDesktopSessionController();
   resetDesktopStores();
   __resetGeminiLiveSdkMock();

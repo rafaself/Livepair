@@ -15,15 +15,26 @@ function renderDock() {
     const assistantState = useSessionStore(selectAssistantRuntimeState);
     const isPanelOpen = useUiStore((state) => state.isPanelOpen);
     const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
-    const { handleEndSession, handleStartSession, isSessionActive } = useSessionRuntime();
+    const {
+      handleEndSession,
+      handleStartSession,
+      handleStartVoiceCapture,
+      handleStopVoiceCapture,
+      isSessionActive,
+      voiceCaptureState,
+    } = useSessionRuntime();
 
     return (
       <>
         <output aria-label="panel-open">{String(isPanelOpen)}</output>
         <output aria-label="panel-pinned">{String(isPanelPinned)}</output>
         <output aria-label="assistant-state">{assistantState}</output>
+        <output aria-label="voice-capture-state">{voiceCaptureState}</output>
         <ControlDock
           isSessionActive={isSessionActive}
+          voiceCaptureState={voiceCaptureState}
+          onStartVoiceCapture={handleStartVoiceCapture}
+          onStopVoiceCapture={handleStopVoiceCapture}
           onStartSession={handleStartSession}
           onEndSession={handleEndSession}
         />
@@ -46,12 +57,12 @@ describe('ControlDock', () => {
     }));
   });
 
-  it('renders disabled voice controls with explicit unavailable labels', () => {
+  it('renders the microphone control and keeps voice session controls unavailable', () => {
     renderDock();
 
     expect(
-      screen.getByRole('button', { name: /microphone unavailable in text mode/i }),
-    ).toBeDisabled();
+      screen.getByRole('button', { name: /start microphone capture/i }),
+    ).toBeEnabled();
     expect(
       screen.getByRole('button', { name: /camera unavailable in text mode/i }),
     ).toBeDisabled();
@@ -59,6 +70,25 @@ describe('ControlDock', () => {
       screen.getByRole('button', { name: /voice mode unavailable in text mode/i }),
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: /open panel/i })).toBeInTheDocument();
+  });
+
+  it('toggles local microphone capture from the dock', async () => {
+    renderDock();
+
+    fireEvent.click(screen.getByRole('button', { name: /start microphone capture/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('capturing');
+    });
+    expect(
+      screen.getByRole('button', { name: /stop microphone capture/i }),
+    ).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /stop microphone capture/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('stopped');
+    });
   });
 
   it('opens and closes the panel', () => {

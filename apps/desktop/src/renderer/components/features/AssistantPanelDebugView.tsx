@@ -4,6 +4,7 @@ import {
   ASSISTANT_RUNTIME_STATE_LABELS,
   type AssistantRuntimeState,
 } from '../../state/assistantUiState';
+import type { VoiceCaptureDiagnostics, VoiceCaptureState } from '../../runtime/types';
 import { FieldList, StatusIndicator } from '../composite';
 import { ViewSection } from '../layout';
 import { Button } from '../primitives';
@@ -16,9 +17,19 @@ export type AssistantPanelDebugViewProps = {
   backendIndicatorState: AssistantRuntimeState;
   backendLabel: string;
   tokenFeedback: string | null;
+  voiceCaptureState: VoiceCaptureState;
+  voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   onRetryBackendHealth: () => Promise<void>;
   onSetAssistantState: (state: AssistantRuntimeState) => void;
 };
+
+function formatVoiceCaptureState(state: VoiceCaptureState): string {
+  if (state === 'requestingPermission') {
+    return 'Requesting permission';
+  }
+
+  return state.charAt(0).toUpperCase() + state.slice(1);
+}
 
 export function AssistantPanelDebugView({
   assistantState,
@@ -26,6 +37,8 @@ export function AssistantPanelDebugView({
   backendIndicatorState,
   backendLabel,
   tokenFeedback,
+  voiceCaptureState,
+  voiceCaptureDiagnostics,
   onRetryBackendHealth,
   onSetAssistantState,
 }: AssistantPanelDebugViewProps): JSX.Element {
@@ -72,6 +85,38 @@ export function AssistantPanelDebugView({
             Retry backend
           </Button>
         ) : null}
+      </ViewSection>
+
+      <ViewSection icon={Eye} title="Audio">
+        <FieldList
+          items={[
+            { label: 'Voice capture', value: formatVoiceCaptureState(voiceCaptureState) },
+            {
+              label: 'Audio format',
+              value: voiceCaptureDiagnostics.sampleRateHz
+                ? `${voiceCaptureDiagnostics.sampleRateHz / 1000} kHz / mono / pcm_s16le`
+                : 'Not started',
+            },
+            {
+              label: 'Chunk count',
+              value: String(voiceCaptureDiagnostics.chunkCount),
+            },
+            {
+              label: 'Chunk size',
+              value: voiceCaptureDiagnostics.bytesPerChunk
+                ? `${voiceCaptureDiagnostics.bytesPerChunk} bytes / ${voiceCaptureDiagnostics.chunkDurationMs ?? 0} ms`
+                : 'Not started',
+            },
+            {
+              label: 'Input device',
+              value: voiceCaptureDiagnostics.selectedInputDeviceId ?? 'None',
+            },
+            {
+              label: 'Capture error',
+              value: voiceCaptureDiagnostics.lastError ?? 'None',
+            },
+          ]}
+        />
       </ViewSection>
 
       <ViewSection icon={Eye} title="Preview">

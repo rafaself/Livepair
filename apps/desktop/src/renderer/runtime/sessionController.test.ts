@@ -2,8 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TextChatRequest, TextChatStreamEvent } from '@livepair/shared-types';
 import { createDesktopSessionController } from './sessionController';
 import { selectAssistantRuntimeState, selectIsConversationEmpty } from './selectors';
-import type { DesktopSession, RuntimeLogger } from './types';
+import type {
+  DesktopSession,
+  LocalVoiceChunk,
+  RuntimeLogger,
+  VoiceCaptureDiagnostics,
+} from './types';
 import { useSessionStore } from '../store/sessionStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 
 function createUnusedTransport(): DesktopSession {
   return {
@@ -43,9 +50,62 @@ function createTextChatHarness(): {
   };
 }
 
+function createVoiceCaptureHarness(): {
+  createVoiceCapture: ReturnType<typeof vi.fn>;
+  emitChunk: (chunk?: Partial<LocalVoiceChunk>) => void;
+  emitDiagnostics: (diagnostics: Partial<VoiceCaptureDiagnostics>) => void;
+  emitError: (detail: string) => void;
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+} {
+  let observer:
+    | {
+        onChunk: (chunk: LocalVoiceChunk) => void;
+        onDiagnostics: (diagnostics: Partial<VoiceCaptureDiagnostics>) => void;
+        onError: (detail: string) => void;
+      }
+    | null = null;
+  const start = vi.fn(async () => undefined);
+  const stop = vi.fn(async () => undefined);
+
+  return {
+    createVoiceCapture: vi.fn((nextObserver) => {
+      observer = nextObserver;
+
+      return {
+        start,
+        stop,
+      };
+    }),
+    emitChunk: (chunk = {}) => {
+      observer?.onChunk({
+        data: new Uint8Array(640).fill(1),
+        sampleRateHz: 16_000,
+        channels: 1,
+        encoding: 'pcm_s16le',
+        durationMs: 20,
+        sequence: 1,
+        ...chunk,
+      });
+    },
+    emitDiagnostics: (diagnostics) => {
+      observer?.onDiagnostics(diagnostics);
+    },
+    emitError: (detail) => {
+      observer?.onError(detail);
+    },
+    start,
+    stop,
+  };
+}
+
 describe('createDesktopSessionController', () => {
   beforeEach(() => {
     useSessionStore.getState().reset();
+    useSettingsStore.setState({
+      settings: DEFAULT_DESKTOP_SETTINGS,
+      isReady: true,
+    });
   });
 
   it('starts text mode through backend health only and does not bootstrap Live', async () => {
@@ -365,5 +425,118 @@ describe('createDesktopSessionController', () => {
     );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('disconnected');
     expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
+  });
+
+  it('starts local voice capture, publishes chunks, and updates diagnostics without affecting text mode', async () => {
+    const voiceCapture = createVoiceCaptureHarness();
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        selectedInputDeviceId: 'usb-mic',
+      },
+      isReady: true,
+    });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+    const chunkListener = vi.fn();
+    const unsubscribe = controller.subscribeToVoiceChunks(chunkListener);
+
+    await controller.startVoiceCapture();
+    voiceCapture.emitChunk();
+    voiceCapture.emitDiagnostics({
+      chunkCount: 1,
+      sampleRateHz: 16_000,
+      bytesPerChunk: 640,
+      chunkDurationMs: 20,
+    });
+
+    expect(voiceCapture.start).toHaveBeenCalledWith({
+      selectedInputDeviceId: 'usb-mic',
+    });
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voiceCaptureState: 'capturing',
+        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+      }),
+    );
+    expect(useSessionStore.getState().voiceCaptureDiagnostics).toEqual(
+      expect.objectContaining({
+        chunkCount: 1,
+        sampleRateHz: 16_000,
+        bytesPerChunk: 640,
+        chunkDurationMs: 20,
+        selectedInputDeviceId: 'usb-mic',
+        lastError: null,
+      }),
+    );
+    expect(chunkListener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        encoding: 'pcm_s16le',
+        durationMs: 20,
+      }),
+    );
+
+    unsubscribe();
+  });
+
+  it('stops local voice capture cleanly and marks the pipeline as stopped', async () => {
+    const voiceCapture = createVoiceCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startVoiceCapture();
+    await controller.stopVoiceCapture();
+
+    expect(voiceCapture.stop).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().voiceCaptureState).toBe('stopped');
+  });
+
+  it('maps voice capture errors into the dedicated voice diagnostics without breaking text state', async () => {
+    const voiceCapture = createVoiceCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startVoiceCapture();
+    voiceCapture.emitError('Microphone permission was denied');
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voiceCaptureState: 'error',
+        voiceCaptureDiagnostics: expect.objectContaining({
+          lastError: 'Microphone permission was denied',
+        }),
+        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+      }),
+    );
   });
 });

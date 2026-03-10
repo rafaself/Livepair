@@ -15,6 +15,13 @@ export type ConversationTurnModel = {
 
 export type TransportKind = 'backend-text' | 'gemini-live';
 export type SessionMode = 'text' | 'voice';
+export type VoiceCaptureState =
+  | 'idle'
+  | 'requestingPermission'
+  | 'capturing'
+  | 'stopping'
+  | 'stopped'
+  | 'error';
 
 export type SessionPhase = 'idle' | 'starting' | 'active' | 'ending' | 'error';
 export type TextSessionStatus =
@@ -48,6 +55,24 @@ export type RuntimeDebugEvent = {
   type: string;
   at: string;
   detail?: string | undefined;
+};
+
+export type LocalVoiceChunk = {
+  data: Uint8Array;
+  sampleRateHz: 16_000;
+  channels: 1;
+  encoding: 'pcm_s16le';
+  durationMs: 20;
+  sequence: number;
+};
+
+export type VoiceCaptureDiagnostics = {
+  chunkCount: number;
+  sampleRateHz: number | null;
+  bytesPerChunk: number | null;
+  chunkDurationMs: number | null;
+  selectedInputDeviceId: string | null;
+  lastError: string | null;
 };
 
 export type SessionControllerEvent =

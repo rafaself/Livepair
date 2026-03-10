@@ -15,6 +15,8 @@ import type {
   TextSessionStatus,
   TransportConnectionState,
   TransportKind,
+  VoiceCaptureDiagnostics,
+  VoiceCaptureState,
 } from '../runtime/types';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
@@ -31,6 +33,8 @@ type SessionStoreData = {
   conversationTurns: ConversationTurnModel[];
   lastRuntimeError: string | null;
   lastDebugEvent: RuntimeDebugEvent | null;
+  voiceCaptureState: VoiceCaptureState;
+  voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
 };
 
 export type SessionStoreState = SessionStoreData & {
@@ -47,7 +51,12 @@ export type SessionStoreState = SessionStoreData & {
   clearConversationTurns: () => void;
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
+  setVoiceCaptureState: (voiceCaptureState: VoiceCaptureState) => void;
+  setVoiceCaptureDiagnostics: (
+    patch: Partial<VoiceCaptureDiagnostics>,
+  ) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
+  resetTextSessionRuntime: (textSessionStatus?: TextSessionStatus) => void;
   reset: (overrides?: Partial<SessionStoreData>) => void;
 };
 
@@ -61,6 +70,17 @@ function withDerivedLifecycleFields(
   };
 }
 
+function buildDefaultVoiceCaptureDiagnostics(): VoiceCaptureDiagnostics {
+  return {
+    chunkCount: 0,
+    sampleRateHz: null,
+    bytesPerChunk: null,
+    chunkDurationMs: null,
+    selectedInputDeviceId: null,
+    lastError: null,
+  };
+}
+
 function buildDefaultSessionState(): SessionStoreData {
   return {
     ...withDerivedLifecycleFields(createTextSessionLifecycle()),
@@ -71,6 +91,8 @@ function buildDefaultSessionState(): SessionStoreData {
     conversationTurns: [],
     lastRuntimeError: null,
     lastDebugEvent: null,
+    voiceCaptureState: 'idle',
+    voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
   };
 }
 
@@ -156,8 +178,29 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   clearConversationTurns: () => set({ conversationTurns: [] }),
   setLastRuntimeError: (lastRuntimeError) => set({ lastRuntimeError }),
   setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
+  setVoiceCaptureState: (voiceCaptureState) => set({ voiceCaptureState }),
+  setVoiceCaptureDiagnostics: (patch) =>
+    set((state) => ({
+      voiceCaptureDiagnostics: {
+        ...state.voiceCaptureDiagnostics,
+        ...patch,
+      },
+    })),
   setAssistantState: (assistantState) =>
     set((state) => getDebugRuntimeState(assistantState, state.activeTransport)),
+  resetTextSessionRuntime: (textSessionStatus = 'idle') =>
+    set((state) => ({
+      ...withDerivedLifecycleFields(createTextSessionLifecycle(textSessionStatus)),
+      assistantActivity: 'idle',
+      backendState: 'idle',
+      tokenRequestState: 'idle',
+      activeTransport: null,
+      conversationTurns: [],
+      lastRuntimeError: null,
+      lastDebugEvent: null,
+      voiceCaptureState: state.voiceCaptureState,
+      voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
+    })),
   reset: (overrides) =>
     set(() => {
       const nextState = {

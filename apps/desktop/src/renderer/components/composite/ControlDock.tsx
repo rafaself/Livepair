@@ -1,18 +1,25 @@
 import { useEffect, useState } from 'react';
-import { Ban, ChevronLeft, MicOff, MonitorOff, PhoneOff } from 'lucide-react';
+import { Ban, ChevronLeft, Mic, MonitorOff, PhoneOff } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import type { VoiceCaptureState } from '../../runtime/types';
 import './ControlDock.css';
 
 export type ControlDockProps = {
   isSessionActive: boolean;
+  voiceCaptureState: VoiceCaptureState;
+  onStartVoiceCapture: () => Promise<void>;
+  onStopVoiceCapture: () => Promise<void>;
   onStartSession: () => Promise<void>;
   onEndSession: () => Promise<void>;
 };
 
 export function ControlDock({
   isSessionActive,
+  voiceCaptureState,
+  onStartVoiceCapture,
+  onStopVoiceCapture,
   onStartSession: _onStartSession,
   onEndSession: _onEndSession,
 }: ControlDockProps): JSX.Element {
@@ -25,6 +32,18 @@ export function ControlDock({
   const [isWindowFocused, setIsWindowFocused] = useState(() => document.hasFocus());
 
   const shouldDimDock = !isPanelOpen && !isWindowFocused && !isHovered;
+  const isVoiceCaptureBusy =
+    voiceCaptureState === 'requestingPermission' || voiceCaptureState === 'stopping';
+  const isVoiceCapturing = voiceCaptureState === 'capturing';
+  const microphoneLabel = isVoiceCapturing
+    ? 'Stop microphone capture'
+    : voiceCaptureState === 'requestingPermission'
+      ? 'Requesting microphone permission'
+      : voiceCaptureState === 'stopping'
+        ? 'Stopping microphone capture'
+        : voiceCaptureState === 'error'
+          ? 'Retry microphone capture'
+          : 'Start microphone capture';
 
   useEffect(() => {
     const handleWindowFocus = (): void => {
@@ -56,10 +75,19 @@ export function ControlDock({
       onMouseLeave={() => setIsHovered(false)}
     >
       <IconButton
-        label="Microphone unavailable in text mode"
-        disabled
+        label={microphoneLabel}
+        className={isVoiceCapturing ? 'control-dock__btn--active' : undefined}
+        disabled={isVoiceCaptureBusy}
+        onClick={() => {
+          if (isVoiceCapturing) {
+            void onStopVoiceCapture();
+            return;
+          }
+
+          void onStartVoiceCapture();
+        }}
       >
-        <MicOff size={18} />
+        <Mic size={18} />
       </IconButton>
 
       <IconButton
