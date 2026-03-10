@@ -18,11 +18,11 @@ type _RequestShape = Assert<
 type _ResponseToken = Assert<
   IsExact<CreateEphemeralTokenResponse['token'], string>
 >;
-type _ResponseExpiresAt = Assert<
-  IsExact<CreateEphemeralTokenResponse['expiresAt'], string>
+type _ResponseExpireTime = Assert<
+  IsExact<CreateEphemeralTokenResponse['expireTime'], string>
 >;
-type _ResponseIsStubLiteral = Assert<
-  IsExact<CreateEphemeralTokenResponse['isStub'], true>
+type _ResponseNewSessionExpireTime = Assert<
+  IsExact<CreateEphemeralTokenResponse['newSessionExpireTime'], string>
 >;
 
 export const typeAssertionsAreCompiled = true;

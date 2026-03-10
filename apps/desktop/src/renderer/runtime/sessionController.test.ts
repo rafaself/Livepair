@@ -69,9 +69,9 @@ describe('createDesktopSessionController', () => {
       logger,
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       requestSessionToken: vi.fn().mockResolvedValue({
-        token: 'stub-token',
-        expiresAt: 'later',
-        isStub: true,
+        token: 'ephemeral-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
       }),
       createTransport: vi.fn((_kind: 'mock') => transportHarness.transport),
     });
@@ -142,9 +142,9 @@ describe('createDesktopSessionController', () => {
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       requestSessionToken: vi.fn().mockResolvedValue({
-        token: 'stub-token',
-        expiresAt: 'later',
-        isStub: true,
+        token: 'ephemeral-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
       }),
       createTransport: vi.fn().mockReturnValue(transportHarness.transport),
     });
@@ -188,9 +188,9 @@ describe('createDesktopSessionController', () => {
       },
       checkBackendHealth: vi.fn().mockImplementation(() => backendHealth.promise),
       requestSessionToken: vi.fn().mockResolvedValue({
-        token: 'stub-token',
-        expiresAt: 'later',
-        isStub: true,
+        token: 'ephemeral-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
       }),
       createTransport,
     });

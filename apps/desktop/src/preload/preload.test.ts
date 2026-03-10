@@ -55,8 +55,8 @@ describe('preload bridge', () => {
 
     mockInvoke.mockResolvedValueOnce({
       token: 't',
-      expiresAt: 'later',
-      isStub: true,
+      expireTime: 'later',
+      newSessionExpireTime: 'soon',
     });
     await bridge.requestSessionToken({ sessionId: 'session-1' });
     expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {
@@ -101,7 +101,11 @@ describe('preload bridge', () => {
   it('passes explicit empty payload when request has no fields', async () => {
     const { bridge } = await import('./preload');
 
-    mockInvoke.mockResolvedValueOnce({ token: 't', expiresAt: 'later', isStub: true });
+    mockInvoke.mockResolvedValueOnce({
+      token: 't',
+      expireTime: 'later',
+      newSessionExpireTime: 'soon',
+    });
     await bridge.requestSessionToken({});
 
     expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {});

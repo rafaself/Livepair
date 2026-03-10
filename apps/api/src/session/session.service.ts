@@ -1,24 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
 import { env } from '../config/env';
 import { formatTimestamp } from '@livepair/shared-utils';
+import { GeminiAuthTokenClient } from './gemini-auth-token.client';
 
 @Injectable()
 export class SessionService {
-  createEphemeralToken(
+  constructor(private readonly geminiAuthTokenClient: GeminiAuthTokenClient) {}
+
+  async createEphemeralToken(
     _req: CreateEphemeralTokenRequest,
-  ): CreateEphemeralTokenResponse {
-    // TODO: replace with real Gemini ephemeral token issuance
-    const expiresAt = new Date(
-      Date.now() + env.ephemeralTokenTtlSeconds * 1000,
+  ): Promise<CreateEphemeralTokenResponse> {
+    if (!env.geminiApiKey) {
+      throw new ServiceUnavailableException('Gemini API key is not configured');
+    }
+
+    const newSessionExpireTime = formatTimestamp(
+      new Date(Date.now() + env.ephemeralTokenTtlSeconds * 1000),
     );
-    return {
-      token: 'stub-token-replace-with-real-gemini-token',
-      expiresAt: formatTimestamp(expiresAt),
-      isStub: true,
-    };
+
+    return this.geminiAuthTokenClient.createToken({
+      apiKey: env.geminiApiKey,
+      newSessionExpireTime,
+    });
   }
 }

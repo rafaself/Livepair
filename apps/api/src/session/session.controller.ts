@@ -10,7 +10,7 @@ export class SessionController {
   @Post('token')
   createToken(
     @Body() dto: CreateEphemeralTokenDto,
-  ): CreateEphemeralTokenResponse {
+  ): Promise<CreateEphemeralTokenResponse> {
     return this.sessionService.createEphemeralToken(dto);
   }
 }

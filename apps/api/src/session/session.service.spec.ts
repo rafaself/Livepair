@@ -1,31 +1,79 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { SessionService } from './session.service';
+import { BadGatewayException, ServiceUnavailableException } from '@nestjs/common';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import { env } from '../config/env';
+import { GeminiAuthTokenClient } from './gemini-auth-token.client';
+import { SessionService } from './session.service';
 
 describe('SessionService', () => {
   let service: SessionService;
+  let createToken: jest.MockedFunction<GeminiAuthTokenClient['createToken']>;
+  const originalGeminiApiKey = env.geminiApiKey;
+  const originalEphemeralTokenTtlSeconds = env.ephemeralTokenTtlSeconds;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [SessionService],
-    }).compile();
-
-    service = module.get<SessionService>(SessionService);
+  beforeEach(() => {
+    createToken = jest.fn();
+    service = new SessionService({
+      createToken,
+    } as unknown as GeminiAuthTokenClient);
+    env.geminiApiKey = 'gemini-key';
+    env.ephemeralTokenTtlSeconds = 90;
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
   });
 
-  it('returns a stub token response', () => {
-    const result: CreateEphemeralTokenResponse = service.createEphemeralToken(
-      {},
-    );
-    expect(result.isStub).toBe(true);
-    expect(typeof result.token).toBe('string');
-    expect(result.token.length).toBeGreaterThan(0);
-    expect(typeof result.expiresAt).toBe('string');
-    expect(new Date(result.expiresAt).toISOString()).toBe(result.expiresAt);
+  afterEach(() => {
+    env.geminiApiKey = originalGeminiApiKey;
+    env.ephemeralTokenTtlSeconds = originalEphemeralTokenTtlSeconds;
+    jest.useRealTimers();
   });
 
-  it('returns a stub token response when sessionId is provided', () => {
-    const result = service.createEphemeralToken({ sessionId: 'test-session' });
-    expect(result.isStub).toBe(true);
+  it('returns a real ephemeral token response', async () => {
+    const response: CreateEphemeralTokenResponse = {
+      token: 'auth-tokens/abc123',
+      expireTime: '2026-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+    };
+    createToken.mockResolvedValue(response);
+
+    await expect(service.createEphemeralToken({})).resolves.toEqual(response);
+  });
+
+  it('requests a one-time token with a TTL-derived new session expiry', async () => {
+    createToken.mockResolvedValue({
+      token: 'auth-tokens/abc123',
+      expireTime: '2026-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+    });
+
+    await service.createEphemeralToken({ sessionId: 'test-session' });
+
+    expect(createToken).toHaveBeenCalledWith({
+      apiKey: 'gemini-key',
+      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+    });
+  });
+
+  it('throws a service unavailable error when the Gemini API key is missing', async () => {
+    env.geminiApiKey = '';
+
+    const tokenPromise = service.createEphemeralToken({});
+
+    await expect(tokenPromise).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(tokenPromise).rejects.toMatchObject({
+      message: 'Gemini API key is not configured',
+      status: 503,
+    });
+    expect(createToken).not.toHaveBeenCalled();
+  });
+
+  it('propagates provider failures as bad gateway errors', async () => {
+    createToken.mockRejectedValue(new BadGatewayException('Gemini token request failed'));
+
+    const tokenPromise = service.createEphemeralToken({});
+
+    await expect(tokenPromise).rejects.toBeInstanceOf(BadGatewayException);
+    await expect(tokenPromise).rejects.toMatchObject({
+      message: 'Gemini token request failed',
+      status: 502,
+    });
   });
 });

@@ -103,7 +103,11 @@ describe('registerIpcHandlers', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: vi.fn(async () => ({ token: 'stub-token', expiresAt: 'later', isStub: true })),
+        json: vi.fn(async () => ({
+          token: 'ephemeral-token',
+          expireTime: 'later',
+          newSessionExpireTime: 'soon',
+        })),
       });
     const settingsService = createSettingsServiceDouble();
     vi.mocked(settingsService.updateSettings).mockResolvedValue({
@@ -133,9 +137,9 @@ describe('registerIpcHandlers', () => {
 
     await expect(healthHandler()).resolves.toEqual({ status: 'ok', timestamp: 'now' });
     await expect(tokenHandler({}, { sessionId: 'session-1' })).resolves.toEqual({
-      token: 'stub-token',
-      expiresAt: 'later',
-      isStub: true,
+      token: 'ephemeral-token',
+      expireTime: 'later',
+      newSessionExpireTime: 'soon',
     });
     await expect(getSettingsHandler()).resolves.toEqual(defaultSettings);
     await expect(

@@ -41,9 +41,9 @@ describe('backendClient', () => {
   it('requests a session token through the configured backend URL', async () => {
     const req: CreateEphemeralTokenRequest = { sessionId: 'session-1' };
     const response: CreateEphemeralTokenResponse = {
-      token: 'stub-token',
-      expiresAt: 'later',
-      isStub: true,
+      token: 'ephemeral-token',
+      expireTime: 'later',
+      newSessionExpireTime: 'soon',
     };
     fetchImpl.mockResolvedValue({
       ok: true,

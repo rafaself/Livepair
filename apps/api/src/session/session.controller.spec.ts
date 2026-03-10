@@ -28,19 +28,17 @@ describe('SessionController', () => {
     controller = module.get<SessionController>(SessionController);
   });
 
-  it('delegates token creation to SessionService with the received DTO', () => {
+  it('delegates token creation to SessionService with the received DTO', async () => {
     const dto: CreateEphemeralTokenRequest = { sessionId: 'session-123' };
     const serviceResponse: CreateEphemeralTokenResponse = {
-      token: 'stub-token',
-      expiresAt: new Date().toISOString(),
-      isStub: true,
+      token: 'ephemeral-token',
+      expireTime: new Date().toISOString(),
+      newSessionExpireTime: new Date().toISOString(),
     };
-    createEphemeralToken.mockReturnValue(serviceResponse);
+    createEphemeralToken.mockResolvedValue(serviceResponse);
 
-    const result = controller.createToken(dto);
-
+    await expect(controller.createToken(dto)).resolves.toEqual(serviceResponse);
     expect(createEphemeralToken).toHaveBeenCalledTimes(1);
     expect(createEphemeralToken).toHaveBeenCalledWith(dto);
-    expect(result).toEqual(serviceResponse);
   });
 });

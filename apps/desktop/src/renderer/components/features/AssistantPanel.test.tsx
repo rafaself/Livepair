@@ -61,9 +61,9 @@ describe('AssistantPanel', () => {
       timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
     });
     window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
-      token: 'stub-token',
-      expiresAt: 'later',
-      isStub: true,
+      token: 'ephemeral-token',
+      expireTime: 'later',
+      newSessionExpireTime: 'soon',
     });
     enumerateDevices.mockReset();
     enumerateDevices.mockResolvedValue([]);
