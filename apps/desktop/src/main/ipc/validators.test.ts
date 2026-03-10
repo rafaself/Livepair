@@ -44,6 +44,7 @@ describe('ipc validators', () => {
     const valid: DesktopSettingsPatch = {
       backendUrl: 'http://localhost:3000',
       preferredMode: 'fast',
+      voiceNoiseSuppressionEnabled: true,
       isPanelPinned: true,
     };
 
@@ -61,6 +62,7 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ preferredMode: 'slow' })).toBe(false);
     expect(isDesktopSettingsPatch({ preferredMode: 'thinking' })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedOutputDeviceId: false })).toBe(false);
+    expect(isDesktopSettingsPatch({ voiceEchoCancellationEnabled: 'yes' })).toBe(false);
     expect(isDesktopSettingsPatch({ isPanelPinned: 'yes' })).toBe(false);
   });
 

@@ -618,6 +618,9 @@ describe('createDesktopSessionController', () => {
       settings: {
         ...DEFAULT_DESKTOP_SETTINGS,
         selectedInputDeviceId: 'usb-mic',
+        voiceEchoCancellationEnabled: false,
+        voiceNoiseSuppressionEnabled: true,
+        voiceAutoGainControlEnabled: false,
       },
       isReady: true,
     });
@@ -654,6 +657,9 @@ describe('createDesktopSessionController', () => {
 
     expect(voiceCapture.start).toHaveBeenCalledWith({
       selectedInputDeviceId: 'usb-mic',
+      echoCancellationEnabled: false,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: false,
     });
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({

@@ -16,6 +16,9 @@ const defaultSettings: DesktopSettings = {
   preferredMode: 'fast',
   selectedInputDeviceId: 'default',
   selectedOutputDeviceId: 'default',
+  voiceEchoCancellationEnabled: true,
+  voiceNoiseSuppressionEnabled: true,
+  voiceAutoGainControlEnabled: true,
   isPanelPinned: false,
 };
 

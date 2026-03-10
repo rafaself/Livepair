@@ -60,7 +60,12 @@ export type LocalVoiceCaptureObserver = {
 };
 
 export type LocalVoiceCapture = {
-  start: (options: { selectedInputDeviceId: string }) => Promise<void>;
+  start: (options: {
+    selectedInputDeviceId: string;
+    echoCancellationEnabled: boolean;
+    noiseSuppressionEnabled: boolean;
+    autoGainControlEnabled: boolean;
+  }) => Promise<void>;
   stop: () => Promise<void>;
 };
 
@@ -74,14 +79,22 @@ export type CreateLocalVoiceCaptureDependencies = {
   loadCaptureWorklet?: (context: AudioContextLike) => Promise<void>;
 };
 
-function buildAudioConstraints(selectedInputDeviceId: string): MediaTrackConstraints {
+function buildAudioConstraints({
+  selectedInputDeviceId,
+  echoCancellationEnabled,
+  noiseSuppressionEnabled,
+  autoGainControlEnabled,
+}: {
+  selectedInputDeviceId: string;
+  echoCancellationEnabled: boolean;
+  noiseSuppressionEnabled: boolean;
+  autoGainControlEnabled: boolean;
+}): MediaTrackConstraints {
   return {
     channelCount: { ideal: 1 },
-    // Prefer browser-level cleanup as a lightweight mitigation for false
-    // server-side barge-in from ambient noise until local VAD lands.
-    echoCancellation: true,
-    noiseSuppression: true,
-    autoGainControl: true,
+    echoCancellation: echoCancellationEnabled,
+    noiseSuppression: noiseSuppressionEnabled,
+    autoGainControl: autoGainControlEnabled,
     ...(selectedInputDeviceId === 'default'
       ? {}
       : { deviceId: { exact: selectedInputDeviceId } }),
@@ -231,7 +244,12 @@ export function createLocalVoiceCapture(
   };
 
   return {
-    start: async ({ selectedInputDeviceId }) => {
+    start: async ({
+      selectedInputDeviceId,
+      echoCancellationEnabled,
+      noiseSuppressionEnabled,
+      autoGainControlEnabled,
+    }) => {
       if (!mediaDevices?.getUserMedia) {
         const detail = 'Microphone capture is not available in this environment';
         emitDiagnostics({ lastError: detail, selectedInputDeviceId });
@@ -252,7 +270,12 @@ export function createLocalVoiceCapture(
 
       try {
         const stream = await mediaDevices.getUserMedia({
-          audio: buildAudioConstraints(selectedInputDeviceId),
+          audio: buildAudioConstraints({
+            selectedInputDeviceId,
+            echoCancellationEnabled,
+            noiseSuppressionEnabled,
+            autoGainControlEnabled,
+          }),
         });
         const audioContext = createAudioContextImpl();
         await loadCaptureWorkletImpl(audioContext);

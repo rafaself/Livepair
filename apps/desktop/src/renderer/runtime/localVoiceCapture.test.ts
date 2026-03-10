@@ -128,7 +128,12 @@ describe('createLocalVoiceCapture', () => {
   it('starts local capture, normalizes chunks, and emits diagnostics', async () => {
     const harness = createHarness();
 
-    await harness.capture.start({ selectedInputDeviceId: 'default' });
+    await harness.capture.start({
+      selectedInputDeviceId: 'default',
+      echoCancellationEnabled: true,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: true,
+    });
     harness.workletNode.port.onmessage?.({
       data: {
         channels: [
@@ -177,7 +182,12 @@ describe('createLocalVoiceCapture', () => {
   it('uses an exact device constraint when a non-default microphone is selected', async () => {
     const harness = createHarness();
 
-    await harness.capture.start({ selectedInputDeviceId: 'usb-mic' });
+    await harness.capture.start({
+      selectedInputDeviceId: 'usb-mic',
+      echoCancellationEnabled: true,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: true,
+    });
 
     expect(harness.getUserMedia).toHaveBeenCalledWith({
       audio: {
@@ -193,7 +203,12 @@ describe('createLocalVoiceCapture', () => {
   it('stops tracks and releases audio resources cleanly', async () => {
     const harness = createHarness();
 
-    await harness.capture.start({ selectedInputDeviceId: 'default' });
+    await harness.capture.start({
+      selectedInputDeviceId: 'default',
+      echoCancellationEnabled: true,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: true,
+    });
     await harness.capture.stop();
 
     expect(harness.sourceNode.disconnect).toHaveBeenCalledTimes(1);
@@ -212,7 +227,12 @@ describe('createLocalVoiceCapture', () => {
     });
 
     await expect(
-      harness.capture.start({ selectedInputDeviceId: 'default' }),
+      harness.capture.start({
+        selectedInputDeviceId: 'default',
+        echoCancellationEnabled: true,
+        noiseSuppressionEnabled: true,
+        autoGainControlEnabled: true,
+      }),
     ).rejects.toThrow('Microphone permission was denied');
     expect(harness.observer.onError).toHaveBeenCalledWith('Microphone permission was denied');
     expect(harness.observer.onDiagnostics).toHaveBeenCalledWith(
@@ -220,5 +240,25 @@ describe('createLocalVoiceCapture', () => {
         lastError: 'Microphone permission was denied',
       }),
     );
+  });
+
+  it('applies persisted browser audio cleanup flags when starting capture', async () => {
+    const harness = createHarness();
+
+    await harness.capture.start({
+      selectedInputDeviceId: 'default',
+      echoCancellationEnabled: false,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: false,
+    });
+
+    expect(harness.getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        autoGainControl: false,
+        channelCount: { ideal: 1 },
+        echoCancellation: false,
+        noiseSuppression: true,
+      },
+    });
   });
 });

@@ -62,6 +62,18 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('textbox', { name: /backend url/i })).toHaveValue(
       'https://runtime.livepair.dev/api',
     );
+    expect(screen.getByRole('switch', { name: 'Echo cancellation' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('switch', { name: 'Noise suppression' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('switch', { name: 'Auto gain control' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 
   it('applies a valid backend URL override on blur through the settings store', async () => {
@@ -192,6 +204,26 @@ describe('AssistantPanelSettingsView', () => {
 
     await waitFor(() => {
       expect(enumerateDevices).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('persists browser audio cleanup toggles from the audio section', async () => {
+    await renderSettings();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', { name: 'Echo cancellation' }));
+      fireEvent.click(screen.getByRole('switch', { name: 'Noise suppression' }));
+      fireEvent.click(screen.getByRole('switch', { name: 'Auto gain control' }));
+    });
+
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceEchoCancellationEnabled: false,
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceNoiseSuppressionEnabled: false,
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceAutoGainControlEnabled: false,
     });
   });
 });

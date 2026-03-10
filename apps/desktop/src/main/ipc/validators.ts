@@ -40,6 +40,9 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
   'preferredMode',
   'selectedInputDeviceId',
   'selectedOutputDeviceId',
+  'voiceEchoCancellationEnabled',
+  'voiceNoiseSuppressionEnabled',
+  'voiceAutoGainControlEnabled',
   'isPanelPinned',
 ] as const;
 
@@ -142,6 +145,27 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
   if (
     'selectedOutputDeviceId' in value &&
     !isNonEmptyString(value['selectedOutputDeviceId'])
+  ) {
+    return false;
+  }
+
+  if (
+    'voiceEchoCancellationEnabled' in value &&
+    typeof value['voiceEchoCancellationEnabled'] !== 'boolean'
+  ) {
+    return false;
+  }
+
+  if (
+    'voiceNoiseSuppressionEnabled' in value &&
+    typeof value['voiceNoiseSuppressionEnabled'] !== 'boolean'
+  ) {
+    return false;
+  }
+
+  if (
+    'voiceAutoGainControlEnabled' in value &&
+    typeof value['voiceAutoGainControlEnabled'] !== 'boolean'
   ) {
     return false;
   }

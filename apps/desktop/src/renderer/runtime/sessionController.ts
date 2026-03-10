@@ -944,6 +944,11 @@ export function createDesktopSessionController(
 
       const selectedInputDeviceId =
         dependencies.settingsStore.getState().settings.selectedInputDeviceId;
+      const {
+        voiceEchoCancellationEnabled,
+        voiceNoiseSuppressionEnabled,
+        voiceAutoGainControlEnabled,
+      } = dependencies.settingsStore.getState().settings;
       store.setVoiceCaptureState('requestingPermission');
       store.setVoiceCaptureDiagnostics({
         chunkCount: 0,
@@ -955,7 +960,12 @@ export function createDesktopSessionController(
       });
 
       try {
-        await getVoiceCapture().start({ selectedInputDeviceId });
+        await getVoiceCapture().start({
+          selectedInputDeviceId,
+          echoCancellationEnabled: voiceEchoCancellationEnabled,
+          noiseSuppressionEnabled: voiceNoiseSuppressionEnabled,
+          autoGainControlEnabled: voiceAutoGainControlEnabled,
+        });
         dependencies.store.getState().setVoiceCaptureState('capturing');
         dependencies.store.getState().setVoiceSessionStatus('capturing');
       } catch (error) {

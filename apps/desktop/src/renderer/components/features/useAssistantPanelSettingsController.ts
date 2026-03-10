@@ -17,6 +17,9 @@ export type AssistantPanelSettingsController = {
   preferredMode: PreferredMode;
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
+  voiceEchoCancellationEnabled: boolean;
+  voiceNoiseSuppressionEnabled: boolean;
+  voiceAutoGainControlEnabled: boolean;
   themePreference: ThemePreference;
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
@@ -27,6 +30,9 @@ export type AssistantPanelSettingsController = {
   setPreferredMode: (mode: PreferredMode) => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
   setSelectedOutputDeviceId: (deviceId: string) => void;
+  setVoiceEchoCancellationEnabled: (enabled: boolean) => void;
+  setVoiceNoiseSuppressionEnabled: (enabled: boolean) => void;
+  setVoiceAutoGainControlEnabled: (enabled: boolean) => void;
   setThemePreference: (themePreference: ThemePreference) => void;
   handleBackendUrlChange: (value: string) => void;
   handleBackendUrlBlur: () => Promise<void>;
@@ -84,6 +90,9 @@ export function useAssistantPanelSettingsController({
     preferredMode: settings.preferredMode,
     selectedInputDeviceId: settings.selectedInputDeviceId,
     selectedOutputDeviceId: settings.selectedOutputDeviceId,
+    voiceEchoCancellationEnabled: settings.voiceEchoCancellationEnabled,
+    voiceNoiseSuppressionEnabled: settings.voiceNoiseSuppressionEnabled,
+    voiceAutoGainControlEnabled: settings.voiceAutoGainControlEnabled,
     themePreference: settings.themePreference,
     inputDeviceOptions: UNAVAILABLE_INPUT_OPTION,
     outputDeviceOptions: UNAVAILABLE_OUTPUT_OPTION,
@@ -101,6 +110,15 @@ export function useAssistantPanelSettingsController({
     },
     setSelectedOutputDeviceId: (selectedOutputDeviceId) => {
       void updateSetting('selectedOutputDeviceId', selectedOutputDeviceId);
+    },
+    setVoiceEchoCancellationEnabled: (voiceEchoCancellationEnabled) => {
+      void updateSetting('voiceEchoCancellationEnabled', voiceEchoCancellationEnabled);
+    },
+    setVoiceNoiseSuppressionEnabled: (voiceNoiseSuppressionEnabled) => {
+      void updateSetting('voiceNoiseSuppressionEnabled', voiceNoiseSuppressionEnabled);
+    },
+    setVoiceAutoGainControlEnabled: (voiceAutoGainControlEnabled) => {
+      void updateSetting('voiceAutoGainControlEnabled', voiceAutoGainControlEnabled);
     },
     setThemePreference: (themePreference) => {
       void updateSetting('themePreference', themePreference);

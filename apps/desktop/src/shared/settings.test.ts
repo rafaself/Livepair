@@ -11,11 +11,13 @@ describe('normalizeDesktopSettings', () => {
       normalizeDesktopSettings({
         backendUrl: ' https://api.livepair.dev/base/ ',
         themePreference: 'dark',
+        voiceNoiseSuppressionEnabled: false,
       }),
     ).toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
       backendUrl: 'https://api.livepair.dev/base',
       themePreference: 'dark',
+      voiceNoiseSuppressionEnabled: false,
     });
   });
 
@@ -40,6 +42,11 @@ describe('normalizeDesktopSettings', () => {
         themePreference: 'sepia' as never,
       }),
     ).toBeNull();
+    expect(
+      normalizeDesktopSettings({
+        voiceAutoGainControlEnabled: 'yes' as never,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -49,11 +56,13 @@ describe('normalizeDesktopSettingsPatch', () => {
       normalizeDesktopSettingsPatch({
         backendUrl: ' https://api.livepair.dev/base/ ',
         preferredMode: 'fast',
+        voiceEchoCancellationEnabled: false,
         isPanelPinned: true,
       }),
     ).toEqual({
       backendUrl: 'https://api.livepair.dev/base',
       preferredMode: 'fast',
+      voiceEchoCancellationEnabled: false,
       isPanelPinned: true,
     });
   });
@@ -89,5 +98,10 @@ describe('normalizeDesktopSettingsPatch', () => {
         preferredMode: 'thinking' as never,
       }),
     ).toEqual({ preferredMode: 'fast' });
+    expect(
+      normalizeDesktopSettingsPatch({
+        voiceNoiseSuppressionEnabled: 'no' as never,
+      }),
+    ).toBeNull();
   });
 });

@@ -42,6 +42,18 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={() => controller.setSelectedOutputDeviceId('desk-speakers')}>
         set output
       </button>
+      <output aria-label="echo-cancellation">{String(controller.voiceEchoCancellationEnabled)}</output>
+      <output aria-label="noise-suppression">{String(controller.voiceNoiseSuppressionEnabled)}</output>
+      <output aria-label="auto-gain-control">{String(controller.voiceAutoGainControlEnabled)}</output>
+      <button type="button" onClick={() => controller.setVoiceEchoCancellationEnabled(false)}>
+        disable echo cancellation
+      </button>
+      <button type="button" onClick={() => controller.setVoiceNoiseSuppressionEnabled(false)}>
+        disable noise suppression
+      </button>
+      <button type="button" onClick={() => controller.setVoiceAutoGainControlEnabled(false)}>
+        disable auto gain control
+      </button>
       <button type="button" onClick={() => controller.setThemePreference('dark')}>
         set dark
       </button>
@@ -146,6 +158,9 @@ describe('useAssistantPanelSettingsController', () => {
     fireEvent.click(screen.getByRole('button', { name: 'set fast' }));
     fireEvent.click(screen.getByRole('button', { name: 'set input' }));
     fireEvent.click(screen.getByRole('button', { name: 'set output' }));
+    fireEvent.click(screen.getByRole('button', { name: 'disable echo cancellation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'disable noise suppression' }));
+    fireEvent.click(screen.getByRole('button', { name: 'disable auto gain control' }));
     fireEvent.click(screen.getByRole('button', { name: 'set dark' }));
 
     await waitFor(() => {
@@ -156,6 +171,15 @@ describe('useAssistantPanelSettingsController', () => {
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ selectedInputDeviceId: 'usb-mic' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       selectedOutputDeviceId: 'desk-speakers',
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceEchoCancellationEnabled: false,
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceNoiseSuppressionEnabled: false,
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceAutoGainControlEnabled: false,
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
   });

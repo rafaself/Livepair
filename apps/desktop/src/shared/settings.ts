@@ -12,6 +12,9 @@ export type DesktopSettings = {
   preferredMode: PreferredMode;
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
+  voiceEchoCancellationEnabled: boolean;
+  voiceNoiseSuppressionEnabled: boolean;
+  voiceAutoGainControlEnabled: boolean;
   isPanelPinned: boolean;
 };
 
@@ -23,6 +26,9 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   preferredMode: 'fast',
   selectedInputDeviceId: 'default',
   selectedOutputDeviceId: 'default',
+  voiceEchoCancellationEnabled: true,
+  voiceNoiseSuppressionEnabled: true,
+  voiceAutoGainControlEnabled: true,
   isPanelPinned: false,
 };
 
@@ -56,6 +62,15 @@ export function normalizeDesktopSettings(
     settings.selectedInputDeviceId ?? DEFAULT_DESKTOP_SETTINGS.selectedInputDeviceId;
   const selectedOutputDeviceId =
     settings.selectedOutputDeviceId ?? DEFAULT_DESKTOP_SETTINGS.selectedOutputDeviceId;
+  const voiceEchoCancellationEnabled =
+    settings.voiceEchoCancellationEnabled
+    ?? DEFAULT_DESKTOP_SETTINGS.voiceEchoCancellationEnabled;
+  const voiceNoiseSuppressionEnabled =
+    settings.voiceNoiseSuppressionEnabled
+    ?? DEFAULT_DESKTOP_SETTINGS.voiceNoiseSuppressionEnabled;
+  const voiceAutoGainControlEnabled =
+    settings.voiceAutoGainControlEnabled
+    ?? DEFAULT_DESKTOP_SETTINGS.voiceAutoGainControlEnabled;
   const isPanelPinned = settings.isPanelPinned ?? DEFAULT_DESKTOP_SETTINGS.isPanelPinned;
 
   if (
@@ -64,6 +79,9 @@ export function normalizeDesktopSettings(
     preferredMode === null ||
     !isNonEmptyString(selectedInputDeviceId) ||
     !isNonEmptyString(selectedOutputDeviceId) ||
+    typeof voiceEchoCancellationEnabled !== 'boolean' ||
+    typeof voiceNoiseSuppressionEnabled !== 'boolean' ||
+    typeof voiceAutoGainControlEnabled !== 'boolean' ||
     typeof isPanelPinned !== 'boolean'
   ) {
     return null;
@@ -75,6 +93,9 @@ export function normalizeDesktopSettings(
     preferredMode,
     selectedInputDeviceId,
     selectedOutputDeviceId,
+    voiceEchoCancellationEnabled,
+    voiceNoiseSuppressionEnabled,
+    voiceAutoGainControlEnabled,
     isPanelPinned,
   };
 }
@@ -120,6 +141,27 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.selectedOutputDeviceId = patch.selectedOutputDeviceId;
+  }
+
+  if ('voiceEchoCancellationEnabled' in patch) {
+    if (typeof patch.voiceEchoCancellationEnabled !== 'boolean') {
+      return null;
+    }
+    normalizedPatch.voiceEchoCancellationEnabled = patch.voiceEchoCancellationEnabled;
+  }
+
+  if ('voiceNoiseSuppressionEnabled' in patch) {
+    if (typeof patch.voiceNoiseSuppressionEnabled !== 'boolean') {
+      return null;
+    }
+    normalizedPatch.voiceNoiseSuppressionEnabled = patch.voiceNoiseSuppressionEnabled;
+  }
+
+  if ('voiceAutoGainControlEnabled' in patch) {
+    if (typeof patch.voiceAutoGainControlEnabled !== 'boolean') {
+      return null;
+    }
+    normalizedPatch.voiceAutoGainControlEnabled = patch.voiceAutoGainControlEnabled;
   }
 
   if ('isPanelPinned' in patch) {
