@@ -193,10 +193,6 @@
 }
 
 .assistant-panel__composer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-3);
-  align-items: start;
   padding-top: var(--space-2);
 }
 
@@ -205,8 +201,22 @@
 }
 
 .assistant-panel__composer-submit {
-  min-width: 112px;
-  align-self: stretch;
+  min-width: 0;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  margin-right: calc(var(--space-1) * -1);
+}
+
+.assistant-panel__composer-submit:disabled {
+  cursor: default;
+  color: var(--color-text-secondary);
+  opacity: 0.35;
+}
+
+.assistant-panel__composer-submit:not(:disabled) {
+  color: var(--color-accent);
 }
 
 

@@ -82,23 +82,24 @@ export function AssistantPanelChatView({
           onSubmit={onSubmitTextTurn}
         >
           <TextInput
-            label="Message Livepair"
             value={draftText}
             onChange={onDraftTextChange}
             disabled={isComposerDisabled}
-            placeholder="Ask a question or describe the next task"
+            placeholder="Ask Livepair"
             className="assistant-panel__composer-input"
+            append={
+              <Button
+                type="submit"
+                variant="ghost"
+                size="sm"
+                className="assistant-panel__composer-submit"
+                disabled={!canSubmit}
+                aria-label="Send message"
+              >
+                <SendHorizonal size={18} aria-hidden="true" />
+              </Button>
+            }
           />
-          <Button
-            type="submit"
-            variant="secondary"
-            className="assistant-panel__composer-submit"
-            disabled={!canSubmit}
-            aria-label="Send message"
-          >
-            <SendHorizonal size={16} aria-hidden="true" />
-            Send
-          </Button>
         </form>
       </section>
     </div>
