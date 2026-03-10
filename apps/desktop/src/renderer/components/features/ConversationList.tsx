@@ -124,6 +124,11 @@ export function ConversationList({
     <div className={classes} {...rest}>
       <div className="conversation-list__frame">
         <div
+          className="conversation-list__top-fade"
+          data-testid="conversation-list-top-fade"
+          aria-hidden="true"
+        />
+        <div
           ref={viewportRef}
           className="conversation-list__viewport"
           data-testid="conversation-list-viewport"
