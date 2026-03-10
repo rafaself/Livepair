@@ -20,7 +20,20 @@ function isVerboseLoggingEnabled(): boolean {
 
 function serialize(value: unknown): string {
   try {
-    return JSON.stringify(value, null, 2);
+    return JSON.stringify(
+      value,
+      (_key, currentValue) => {
+        if (currentValue instanceof Uint8Array) {
+          return {
+            type: 'Uint8Array',
+            byteLength: currentValue.byteLength,
+          };
+        }
+
+        return currentValue;
+      },
+      2,
+    );
   } catch {
     return String(value);
   }
