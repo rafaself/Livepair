@@ -1,10 +1,8 @@
 import type {
-  DesktopSessionTransport,
-  DesktopSessionTransportConnectParams,
-  ConversationTurnModel,
-  TransportEvent,
+  DesktopSession,
+  DesktopSessionConnectParams,
+  LiveSessionEvent,
 } from './types';
-import { formatConversationTimestamp } from './conversationTimestamp';
 
 const GEMINI_LIVE_MODEL = 'models/gemini-2.0-flash-exp';
 const GEMINI_LIVE_URL =
@@ -74,10 +72,10 @@ function extractTextContent(parts?: GeminiTextPart[] | undefined): string {
     .join('');
 }
 
-export class GeminiLiveTransport implements DesktopSessionTransport {
+export class GeminiLiveTransport implements DesktopSession {
   kind = 'gemini-live' as const;
 
-  private readonly listeners = new Set<(event: TransportEvent) => void>();
+  private readonly listeners = new Set<(event: LiveSessionEvent) => void>();
   private readonly createWebSocket: (url: string) => WebSocket;
   private readonly model: string;
   private readonly url: string;
@@ -86,8 +84,7 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
   private unsubscribeSocket: (() => void) | null = null;
   private hasCompletedSetup = false;
   private closingByClient = false;
-  private nextAssistantTurnNumber = 0;
-  private pendingAssistantTurn: ConversationTurnModel | null = null;
+  private pendingOutputText = '';
 
   constructor({
     createWebSocket = (url) => new WebSocket(url),
@@ -99,7 +96,7 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
     this.url = url;
   }
 
-  subscribe(listener: (event: TransportEvent) => void): () => void {
+  subscribe(listener: (event: LiveSessionEvent) => void): () => void {
     this.listeners.add(listener);
 
     return () => {
@@ -107,10 +104,16 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
     };
   }
 
-  async connect({ token }: DesktopSessionTransportConnectParams): Promise<void> {
+  async connect({ token, mode }: DesktopSessionConnectParams): Promise<void> {
     if (!token.token) {
       const detail = 'Gemini Live token was missing';
-      this.emit({ type: 'transport.lifecycle', state: 'error', detail });
+      this.emit({ type: 'error', detail });
+      throw createError(detail);
+    }
+
+    if (mode === 'voice') {
+      const detail = 'Voice mode is not implemented for Gemini Live yet';
+      this.emit({ type: 'error', detail });
       throw createError(detail);
     }
 
@@ -120,7 +123,8 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
 
     this.hasCompletedSetup = false;
     this.closingByClient = false;
-    this.emit({ type: 'transport.lifecycle', state: 'connecting' });
+    this.pendingOutputText = '';
+    this.emit({ type: 'connection-state-changed', state: 'connecting' });
 
     const socket = this.createWebSocket(createSessionUrl(this.url, token.token));
     this.socket = socket;
@@ -137,7 +141,7 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
         }
 
         cleanup();
-        this.emit({ type: 'transport.lifecycle', state: 'error', detail });
+        this.emit({ type: 'error', detail });
         reject(createError(detail));
       };
 
@@ -171,13 +175,15 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
           this.hasCompletedSetup = true;
           cleanup();
           this.unsubscribeSocket = this.attachSocketLifecycle(socket);
-          this.emit({ type: 'transport.lifecycle', state: 'connected' });
+          this.emit({ type: 'connection-state-changed', state: 'connected' });
           resolve();
           return;
         }
 
         if ('goAway' in payload) {
-          fail(payload.goAway.reason ?? 'Gemini Live session was rejected');
+          const detail = payload.goAway.reason ?? 'Gemini Live session was rejected';
+          this.emit({ type: 'go-away', detail });
+          fail(detail);
         }
       };
 
@@ -222,16 +228,9 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
       throw createError('Gemini Live session is not connected');
     }
 
-    if (this.pendingAssistantTurn) {
-      this.emit({
-        type: 'conversation.turn.updated',
-        turnId: this.pendingAssistantTurn.id,
-        content: this.pendingAssistantTurn.content,
-        state: 'complete',
-        statusLabel: 'Interrupted',
-      });
-      this.pendingAssistantTurn = null;
-      this.emit({ type: 'assistant.activity', activity: 'ready' });
+    if (this.pendingOutputText.length > 0) {
+      this.pendingOutputText = '';
+      this.emit({ type: 'interrupted' });
     }
 
     socket.send(
@@ -249,17 +248,21 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
     );
   }
 
+  async sendAudioChunk(_chunk: Uint8Array): Promise<void> {
+    throw createError('Audio input is not implemented for Gemini Live yet');
+  }
+
   async disconnect(): Promise<void> {
     const socket = this.socket;
 
     if (!socket) {
-      this.emit({ type: 'transport.lifecycle', state: 'disconnected' });
+      this.emit({ type: 'connection-state-changed', state: 'disconnected' });
       return;
     }
 
     if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
       this.cleanupSocket();
-      this.emit({ type: 'transport.lifecycle', state: 'disconnected' });
+      this.emit({ type: 'connection-state-changed', state: 'disconnected' });
       return;
     }
 
@@ -270,7 +273,7 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
         socket.removeEventListener('close', handleClose);
         this.cleanupSocket();
         this.closingByClient = false;
-        this.emit({ type: 'transport.lifecycle', state: 'disconnected' });
+        this.emit({ type: 'connection-state-changed', state: 'disconnected' });
         resolve();
       };
 
@@ -295,13 +298,10 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
 
       if ('goAway' in payload) {
         const detail = payload.goAway.reason ?? 'Gemini Live session was rejected';
-        this.markPendingAssistantTurnAsFailed('Disconnected');
+        this.pendingOutputText = '';
+        this.emit({ type: 'go-away', detail });
         this.cleanupSocket();
-        this.emit({
-          type: 'transport.lifecycle',
-          state: 'error',
-          detail,
-        });
+        this.emit({ type: 'error', detail });
         return;
       }
 
@@ -312,43 +312,23 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
       const textChunk = extractTextContent(payload.serverContent.modelTurn?.parts);
 
       if (textChunk.length > 0) {
-        if (!this.pendingAssistantTurn) {
-          const turn: ConversationTurnModel = {
-            id: `assistant-turn-${++this.nextAssistantTurnNumber}`,
-            role: 'assistant',
-            content: textChunk,
-            timestamp: formatConversationTimestamp(),
-            state: 'streaming',
-            statusLabel: 'Responding...',
-          };
-
-          this.pendingAssistantTurn = turn;
-          this.emit({ type: 'conversation.turn.appended', turn });
-        } else {
-          this.pendingAssistantTurn = {
-            ...this.pendingAssistantTurn,
-            content: `${this.pendingAssistantTurn.content}${textChunk}`,
-            state: 'streaming',
-            statusLabel: 'Responding...',
-          };
-
-          this.emit({
-            type: 'conversation.turn.updated',
-            turnId: this.pendingAssistantTurn.id,
-            content: this.pendingAssistantTurn.content,
-            state: 'streaming',
-            statusLabel: 'Responding...',
-          });
-        }
+        this.pendingOutputText = `${this.pendingOutputText}${textChunk}`;
+        this.emit({ type: 'text-delta', text: textChunk });
       }
 
       if (payload.serverContent.interrupted) {
-        this.finalizePendingAssistantTurn('Interrupted');
+        this.pendingOutputText = '';
+        this.emit({ type: 'interrupted' });
         return;
       }
 
       if (payload.serverContent.turnComplete) {
-        this.finalizePendingAssistantTurn();
+        if (this.pendingOutputText.length > 0) {
+          this.emit({ type: 'text-message', text: this.pendingOutputText });
+          this.pendingOutputText = '';
+        }
+
+        this.emit({ type: 'turn-complete' });
       }
     };
 
@@ -358,9 +338,9 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
       }
 
       const detail = event.reason || 'Gemini Live session closed unexpectedly';
-      this.markPendingAssistantTurnAsFailed('Disconnected');
+      this.pendingOutputText = '';
       this.cleanupSocket();
-      this.emit({ type: 'transport.lifecycle', state: 'error', detail });
+      this.emit({ type: 'error', detail });
     };
 
     const handleError = (): void => {
@@ -372,11 +352,10 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
         return;
       }
 
-      this.markPendingAssistantTurnAsFailed('Disconnected');
+      this.pendingOutputText = '';
       this.cleanupSocket();
       this.emit({
-        type: 'transport.lifecycle',
-        state: 'error',
+        type: 'error',
         detail: 'Gemini Live connection failed',
       });
     };
@@ -397,50 +376,18 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
     this.unsubscribeSocket = null;
     this.socket = null;
     this.hasCompletedSetup = false;
-    this.pendingAssistantTurn = null;
+    this.pendingOutputText = '';
   }
 
-  private emit(event: TransportEvent): void {
+  private emit(event: LiveSessionEvent): void {
     this.listeners.forEach((listener) => {
       listener(event);
     });
-  }
-
-  private finalizePendingAssistantTurn(statusLabel?: string): void {
-    if (!this.pendingAssistantTurn) {
-      this.emit({ type: 'assistant.activity', activity: 'ready' });
-      return;
-    }
-
-    this.emit({
-      type: 'conversation.turn.updated',
-      turnId: this.pendingAssistantTurn.id,
-      content: this.pendingAssistantTurn.content,
-      state: 'complete',
-      statusLabel,
-    });
-    this.pendingAssistantTurn = null;
-    this.emit({ type: 'assistant.activity', activity: 'ready' });
-  }
-
-  private markPendingAssistantTurnAsFailed(statusLabel: string): void {
-    if (!this.pendingAssistantTurn) {
-      return;
-    }
-
-    this.emit({
-      type: 'conversation.turn.updated',
-      turnId: this.pendingAssistantTurn.id,
-      content: this.pendingAssistantTurn.content,
-      state: 'error',
-      statusLabel,
-    });
-    this.pendingAssistantTurn = null;
   }
 }
 
 export function createGeminiLiveTransport(
   options?: CreateGeminiLiveTransportOptions,
-): DesktopSessionTransport {
+): DesktopSession {
   return new GeminiLiveTransport(options);
 }

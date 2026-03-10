@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
-import type { TransportEvent } from './types';
+import type { LiveSessionEvent } from './types';
 
 type WebSocketListenerMap = {
   open: Event;
@@ -85,7 +85,7 @@ describe('createGeminiLiveTransport', () => {
   it('connects only after the socket opens and setup completes', async () => {
     const socket = new FakeWebSocket();
     const createWebSocket = vi.fn(() => socket as unknown as WebSocket);
-    const events: TransportEvent[] = [];
+    const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       createWebSocket,
     });
@@ -99,9 +99,10 @@ describe('createGeminiLiveTransport', () => {
         expireTime: 'later',
         newSessionExpireTime: 'soon',
       },
+      mode: 'text',
     });
 
-    expect(events).toEqual([{ type: 'transport.lifecycle', state: 'connecting' }]);
+    expect(events).toEqual([{ type: 'connection-state-changed', state: 'connecting' }]);
     expect(createWebSocket).toHaveBeenCalledWith(
       'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=auth_tokens%2Ftest-token',
     );
@@ -118,7 +119,7 @@ describe('createGeminiLiveTransport', () => {
         },
       }),
     );
-    expect(events).toEqual([{ type: 'transport.lifecycle', state: 'connecting' }]);
+    expect(events).toEqual([{ type: 'connection-state-changed', state: 'connecting' }]);
 
     socket.emit(
       'message',
@@ -129,14 +130,14 @@ describe('createGeminiLiveTransport', () => {
     await connectPromise;
 
     expect(events).toEqual([
-      { type: 'transport.lifecycle', state: 'connecting' },
-      { type: 'transport.lifecycle', state: 'connected' },
+      { type: 'connection-state-changed', state: 'connecting' },
+      { type: 'connection-state-changed', state: 'connected' },
     ]);
   });
 
-  it('disconnects cleanly and emits a disconnected lifecycle event', async () => {
+  it('disconnects cleanly and emits a disconnected state change', async () => {
     const socket = new FakeWebSocket();
-    const events: TransportEvent[] = [];
+    const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       createWebSocket: vi.fn(() => socket as unknown as WebSocket),
     });
@@ -150,6 +151,7 @@ describe('createGeminiLiveTransport', () => {
         expireTime: 'later',
         newSessionExpireTime: 'soon',
       },
+      mode: 'text',
     });
 
     socket.emit('open', new Event('open'));
@@ -163,12 +165,15 @@ describe('createGeminiLiveTransport', () => {
     await transport.disconnect();
 
     expect(socket.close).toHaveBeenCalledWith(1000, 'Client ended session');
-    expect(events.at(-1)).toEqual({ type: 'transport.lifecycle', state: 'disconnected' });
+    expect(events.at(-1)).toEqual({
+      type: 'connection-state-changed',
+      state: 'disconnected',
+    });
   });
 
-  it('sends text turns and streams assistant transcript updates', async () => {
+  it('sends text turns and maps streamed Gemini text into contract events', async () => {
     const socket = new FakeWebSocket();
-    const events: TransportEvent[] = [];
+    const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       createWebSocket: vi.fn(() => socket as unknown as WebSocket),
     });
@@ -182,6 +187,7 @@ describe('createGeminiLiveTransport', () => {
         expireTime: 'later',
         newSessionExpireTime: 'soon',
       },
+      mode: 'text',
     });
 
     socket.emit('open', new Event('open'));
@@ -229,15 +235,6 @@ describe('createGeminiLiveTransport', () => {
             modelTurn: {
               parts: [{ text: ' response' }],
             },
-          },
-        }),
-      }),
-    );
-    socket.emit(
-      'message',
-      new MessageEvent('message', {
-        data: JSON.stringify({
-          serverContent: {
             turnComplete: true,
           },
         }),
@@ -247,38 +244,27 @@ describe('createGeminiLiveTransport', () => {
     expect(events).toEqual(
       expect.arrayContaining([
         {
-          type: 'conversation.turn.appended',
-          turn: expect.objectContaining({
-            role: 'assistant',
-            content: 'Streaming',
-            state: 'streaming',
-          }),
+          type: 'text-delta',
+          text: 'Streaming',
         },
         {
-          type: 'conversation.turn.updated',
-          turnId: expect.any(String),
-          content: 'Streaming response',
-          state: 'streaming',
-          statusLabel: 'Responding...',
+          type: 'text-delta',
+          text: ' response',
         },
         {
-          type: 'conversation.turn.updated',
-          turnId: expect.any(String),
-          content: 'Streaming response',
-          state: 'complete',
-          statusLabel: undefined,
+          type: 'text-message',
+          text: 'Streaming response',
         },
         {
-          type: 'assistant.activity',
-          activity: 'ready',
+          type: 'turn-complete',
         },
       ]),
     );
   });
 
-  it('marks a partial assistant turn as failed when the socket closes mid-stream', async () => {
+  it('emits interrupted when Gemini marks the current turn as interrupted', async () => {
     const socket = new FakeWebSocket();
-    const events: TransportEvent[] = [];
+    const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       createWebSocket: vi.fn(() => socket as unknown as WebSocket),
     });
@@ -292,6 +278,7 @@ describe('createGeminiLiveTransport', () => {
         expireTime: 'later',
         newSessionExpireTime: 'soon',
       },
+      mode: 'text',
     });
 
     socket.emit('open', new Event('open'));
@@ -312,33 +299,28 @@ describe('createGeminiLiveTransport', () => {
             modelTurn: {
               parts: [{ text: 'Partial reply' }],
             },
+            interrupted: true,
           },
         }),
       }),
     );
-    socket.emit('close', new CloseEvent('close', { code: 1011, reason: 'transport offline' }));
 
     expect(events).toEqual(
       expect.arrayContaining([
         {
-          type: 'conversation.turn.updated',
-          turnId: expect.any(String),
-          content: 'Partial reply',
-          state: 'error',
-          statusLabel: 'Disconnected',
+          type: 'text-delta',
+          text: 'Partial reply',
         },
         {
-          type: 'transport.lifecycle',
-          state: 'error',
-          detail: 'transport offline',
+          type: 'interrupted',
         },
       ]),
     );
   });
 
-  it('emits an error and rejects connect when setup fails', async () => {
+  it('emits go-away and error when Gemini rejects an active session', async () => {
     const socket = new FakeWebSocket();
-    const events: TransportEvent[] = [];
+    const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       createWebSocket: vi.fn(() => socket as unknown as WebSocket),
     });
@@ -352,6 +334,60 @@ describe('createGeminiLiveTransport', () => {
         expireTime: 'later',
         newSessionExpireTime: 'soon',
       },
+      mode: 'text',
+    });
+
+    socket.emit('open', new Event('open'));
+    socket.emit(
+      'message',
+      new MessageEvent('message', {
+        data: JSON.stringify({ setupComplete: {} }),
+      }),
+    );
+    await connectPromise;
+
+    socket.emit(
+      'message',
+      new MessageEvent('message', {
+        data: JSON.stringify({
+          goAway: {
+            reason: 'transport offline',
+          },
+        }),
+      }),
+    );
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'go-away',
+          detail: 'transport offline',
+        },
+        {
+          type: 'error',
+          detail: 'transport offline',
+        },
+      ]),
+    );
+  });
+
+  it('emits an error and rejects connect when setup fails', async () => {
+    const socket = new FakeWebSocket();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      createWebSocket: vi.fn(() => socket as unknown as WebSocket),
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
+      },
+      mode: 'text',
     });
 
     socket.emit('open', new Event('open'));
@@ -359,9 +395,18 @@ describe('createGeminiLiveTransport', () => {
 
     await expect(connectPromise).rejects.toThrow('setup failed');
     expect(events.at(-1)).toEqual({
-      type: 'transport.lifecycle',
-      state: 'error',
+      type: 'error',
       detail: 'setup failed',
     });
+  });
+
+  it('rejects audio upload until voice mode is implemented', async () => {
+    const transport = createGeminiLiveTransport({
+      createWebSocket: vi.fn(),
+    });
+
+    await expect(transport.sendAudioChunk(new Uint8Array([1, 2, 3]))).rejects.toThrow(
+      'Audio input is not implemented for Gemini Live yet',
+    );
   });
 });

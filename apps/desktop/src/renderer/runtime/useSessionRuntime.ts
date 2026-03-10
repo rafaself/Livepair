@@ -28,7 +28,7 @@ export function useSessionRuntime() {
   }, [controller]);
 
   const handleStartSession = useCallback(async (): Promise<void> => {
-    await controller.startSession();
+    await controller.startSession({ mode: 'text' });
   }, [controller]);
 
   const handleSubmitTextTurn = useCallback(async (text: string): Promise<boolean> => {

@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
-import type {
-  DesktopSessionTransport,
-  RuntimeLogger,
-  TransportEvent,
-} from './types';
+import type { DesktopSession, LiveSessionEvent, RuntimeLogger } from './types';
 import {
   selectAssistantRuntimeState,
   selectIsConversationEmpty,
@@ -24,21 +20,22 @@ function createDeferred<T>(): {
 }
 
 function createTransportHarness(): {
-  transport: DesktopSessionTransport;
-  emit: (event: TransportEvent) => void;
+  transport: DesktopSession;
+  emit: (event: LiveSessionEvent) => void;
 } {
-  let listener: ((event: TransportEvent) => void) | null = null;
+  let listener: ((event: LiveSessionEvent) => void) | null = null;
 
   return {
     transport: {
       kind: 'gemini-live',
       connect: vi.fn(async () => {
-        listener?.({ type: 'transport.lifecycle', state: 'connecting' });
-        listener?.({ type: 'transport.lifecycle', state: 'connected' });
+        listener?.({ type: 'connection-state-changed', state: 'connecting' });
+        listener?.({ type: 'connection-state-changed', state: 'connected' });
       }),
       sendText: vi.fn(async () => {}),
+      sendAudioChunk: vi.fn(async () => {}),
       disconnect: vi.fn(async () => {
-        listener?.({ type: 'transport.lifecycle', state: 'disconnected' });
+        listener?.({ type: 'connection-state-changed', state: 'disconnected' });
       }),
       subscribe: vi.fn((nextListener) => {
         listener = nextListener;
@@ -59,7 +56,7 @@ describe('createDesktopSessionController', () => {
     useSessionStore.getState().reset();
   });
 
-  it('starts a gemini-live runtime session and derives UI state from runtime fields', async () => {
+  it('starts a text-mode runtime session and derives UI state from internal session events', async () => {
     const transportHarness = createTransportHarness();
     const logger: RuntimeLogger = {
       onSessionEvent: vi.fn(),
@@ -76,22 +73,16 @@ describe('createDesktopSessionController', () => {
       createTransport: vi.fn((_kind: 'gemini-live') => transportHarness.transport),
     });
 
-    await controller.startSession();
-    transportHarness.emit({
-      type: 'assistant.activity',
-      activity: 'listening',
-    });
-    transportHarness.emit({
-      type: 'conversation.turn.appended',
-      turn: {
-        id: 'turn-1',
-        role: 'assistant',
-        content: 'Runtime connected.',
-        timestamp: '09:45',
-        state: 'complete',
-      },
-    });
+    await controller.startSession({ mode: 'text' });
 
+    expect(transportHarness.transport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'ephemeral-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
+      },
+      mode: 'text',
+    });
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
         sessionPhase: 'active',
@@ -101,14 +92,8 @@ describe('createDesktopSessionController', () => {
         activeTransport: 'gemini-live',
       }),
     );
-    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('listening');
-    expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(false);
-    expect(useSessionStore.getState().conversationTurns).toEqual([
-      expect.objectContaining({
-        id: 'turn-1',
-        content: 'Runtime connected.',
-      }),
-    ]);
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
+    expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
     expect(logger.onSessionEvent).toHaveBeenCalled();
     expect(logger.onTransportEvent).toHaveBeenCalled();
   });
@@ -124,20 +109,20 @@ describe('createDesktopSessionController', () => {
       createTransport: vi.fn(),
     });
 
-    await controller.startSession();
+    await controller.startSession({ mode: 'text' });
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
         sessionPhase: 'error',
         tokenRequestState: 'error',
-        transportState: 'idle',
+        transportState: 'error',
         lastRuntimeError: 'token failed',
       }),
     );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('error');
   });
 
-  it('auto-starts the session, sends user text, and stores streamed assistant text', async () => {
+  it('auto-starts text mode, sends user text, and stores streamed assistant text through the contract', async () => {
     const transportHarness = createTransportHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -156,6 +141,14 @@ describe('createDesktopSessionController', () => {
     await controller.submitTextTurn('Summarize the current screen');
 
     expect(transportHarness.transport.connect).toHaveBeenCalledTimes(1);
+    expect(transportHarness.transport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'ephemeral-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
+      },
+      mode: 'text',
+    });
     expect(transportHarness.transport.sendText).toHaveBeenCalledWith(
       'Summarize the current screen',
     );
@@ -169,25 +162,19 @@ describe('createDesktopSessionController', () => {
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('thinking');
 
     transportHarness.emit({
-      type: 'conversation.turn.appended',
-      turn: {
-        id: 'turn-2',
-        role: 'assistant',
-        content: 'Here is',
-        timestamp: '09:46',
-        state: 'streaming',
-        statusLabel: 'Responding...',
-      },
+      type: 'text-delta',
+      text: 'Here is',
     });
     transportHarness.emit({
-      type: 'conversation.turn.updated',
-      turnId: 'turn-2',
-      content: 'Here is the current screen summary.',
-      state: 'complete',
+      type: 'text-delta',
+      text: ' the current screen summary.',
     });
     transportHarness.emit({
-      type: 'assistant.activity',
-      activity: 'ready',
+      type: 'text-message',
+      text: 'Here is the current screen summary.',
+    });
+    transportHarness.emit({
+      type: 'turn-complete',
     });
 
     expect(useSessionStore.getState().conversationTurns).toEqual([
@@ -196,7 +183,6 @@ describe('createDesktopSessionController', () => {
         content: 'Summarize the current screen',
       }),
       expect.objectContaining({
-        id: 'turn-2',
         role: 'assistant',
         content: 'Here is the current screen summary.',
         state: 'complete',
@@ -238,16 +224,13 @@ describe('createDesktopSessionController', () => {
       createTransport: vi.fn().mockReturnValue(transportHarness.transport),
     });
 
-    await controller.startSession();
+    await controller.startSession({ mode: 'text' });
     transportHarness.emit({
-      type: 'conversation.turn.appended',
-      turn: {
-        id: 'turn-1',
-        role: 'assistant',
-        content: 'Runtime connected.',
-        timestamp: '09:45',
-        state: 'complete',
-      },
+      type: 'text-message',
+      text: 'Runtime connected.',
+    });
+    transportHarness.emit({
+      type: 'turn-complete',
     });
 
     await controller.endSession();
@@ -284,7 +267,7 @@ describe('createDesktopSessionController', () => {
       createTransport,
     });
 
-    const startPromise = controller.startSession();
+    const startPromise = controller.startSession({ mode: 'text' });
     await controller.endSession();
     backendHealth.resolve(true);
     await startPromise;
@@ -300,7 +283,7 @@ describe('createDesktopSessionController', () => {
     );
   });
 
-  it('maps transport failures into a recoverable runtime error state', async () => {
+  it('maps transport errors into a recoverable runtime error state', async () => {
     const transportHarness = createTransportHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -316,10 +299,9 @@ describe('createDesktopSessionController', () => {
       createTransport: vi.fn().mockReturnValue(transportHarness.transport),
     });
 
-    await controller.startSession();
+    await controller.startSession({ mode: 'text' });
     transportHarness.emit({
-      type: 'transport.lifecycle',
-      state: 'error',
+      type: 'error',
       detail: 'socket closed unexpectedly',
     });
 
@@ -336,7 +318,7 @@ describe('createDesktopSessionController', () => {
     expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
   });
 
-  it('preserves partial assistant text and marks it failed on disconnect', async () => {
+  it('handles interrupted and turn-complete events at the contract boundary', async () => {
     const transportHarness = createTransportHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -354,26 +336,73 @@ describe('createDesktopSessionController', () => {
 
     await controller.submitTextTurn('Summarize the current screen');
     transportHarness.emit({
-      type: 'conversation.turn.appended',
-      turn: {
-        id: 'turn-2',
+      type: 'text-delta',
+      text: 'Partial response',
+    });
+    transportHarness.emit({
+      type: 'interrupted',
+    });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'Summarize the current screen',
+      }),
+      expect.objectContaining({
         role: 'assistant',
         content: 'Partial response',
-        timestamp: '09:46',
-        state: 'streaming',
-        statusLabel: 'Responding...',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+      }),
+    ]);
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
+
+    await controller.submitTextTurn('Try again');
+    transportHarness.emit({
+      type: 'text-delta',
+      text: 'Done',
+    });
+    transportHarness.emit({
+      type: 'text-message',
+      text: 'Done',
+    });
+    transportHarness.emit({
+      type: 'turn-complete',
+    });
+
+    expect(useSessionStore.getState().conversationTurns.at(-1)).toEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Done',
+        state: 'complete',
+      }),
+    );
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
+  });
+
+  it('preserves partial assistant text and marks it failed on go-away', async () => {
+    const transportHarness = createTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
       },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'ephemeral-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
+      }),
+      createTransport: vi.fn().mockReturnValue(transportHarness.transport),
+    });
+
+    await controller.submitTextTurn('Summarize the current screen');
+    transportHarness.emit({
+      type: 'text-delta',
+      text: 'Partial response',
     });
     transportHarness.emit({
-      type: 'conversation.turn.updated',
-      turnId: 'turn-2',
-      content: 'Partial response',
-      state: 'error',
-      statusLabel: 'Disconnected',
-    });
-    transportHarness.emit({
-      type: 'transport.lifecycle',
-      state: 'error',
+      type: 'go-away',
       detail: 'transport offline',
     });
 
@@ -383,7 +412,6 @@ describe('createDesktopSessionController', () => {
         content: 'Summarize the current screen',
       }),
       expect.objectContaining({
-        id: 'turn-2',
         role: 'assistant',
         content: 'Partial response',
         state: 'error',
