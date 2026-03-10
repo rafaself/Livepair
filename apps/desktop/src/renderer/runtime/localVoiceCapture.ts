@@ -10,24 +10,10 @@ import {
 import type { LocalVoiceChunk, VoiceCaptureDiagnostics } from './types';
 
 const CAPTURE_WORKLET_PROCESSOR_NAME = 'livepair-local-voice-capture';
-const CAPTURE_WORKLET_SOURCE = `
-class LivepairLocalVoiceCaptureProcessor extends AudioWorkletProcessor {
-  process(inputs) {
-    const input = inputs[0];
-
-    if (!input || input.length === 0) {
-      return true;
-    }
-
-    const channels = input.map((channel) => new Float32Array(channel));
-    const transfer = channels.map((channel) => channel.buffer);
-    this.port.postMessage({ channels }, transfer);
-    return true;
-  }
-}
-
-registerProcessor('${CAPTURE_WORKLET_PROCESSOR_NAME}', LivepairLocalVoiceCaptureProcessor);
-`;
+const CAPTURE_WORKLET_MODULE_URL = new URL(
+  './localVoiceCaptureProcessor.worklet.js',
+  import.meta.url,
+).toString();
 
 type CaptureFramePayload = {
   channels?: Float32Array[] | undefined;
@@ -100,22 +86,8 @@ function buildAudioConstraints(selectedInputDeviceId: string): MediaTrackConstra
   };
 }
 
-function createCaptureWorkletModuleUrl(): string {
-  const blob = new Blob([CAPTURE_WORKLET_SOURCE], {
-    type: 'application/javascript',
-  });
-
-  return URL.createObjectURL(blob);
-}
-
 async function loadCaptureWorklet(context: AudioContextLike): Promise<void> {
-  const moduleUrl = createCaptureWorkletModuleUrl();
-
-  try {
-    await context.audioWorklet.addModule(moduleUrl);
-  } finally {
-    URL.revokeObjectURL(moduleUrl);
-  }
+  await context.audioWorklet.addModule(CAPTURE_WORKLET_MODULE_URL);
 }
 
 function createAudioContext(): AudioContextLike {

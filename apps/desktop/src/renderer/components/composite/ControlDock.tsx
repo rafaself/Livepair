@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Ban, ChevronLeft, Mic, MonitorOff, PhoneOff } from 'lucide-react';
+import { Ban, ChevronLeft, Mic, MicOff, MonitorOff, PhoneOff } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -35,6 +35,10 @@ export function ControlDock({
   const isVoiceCaptureBusy =
     voiceCaptureState === 'requestingPermission' || voiceCaptureState === 'stopping';
   const isVoiceCapturing = voiceCaptureState === 'capturing';
+  const micButtonClassName = [
+    isVoiceCapturing ? 'control-dock__btn--active' : '',
+    isVoiceCaptureBusy ? 'control-dock__btn--pending' : '',
+  ].filter(Boolean).join(' ') || undefined;
   const microphoneLabel = isVoiceCapturing
     ? 'Stop microphone capture'
     : voiceCaptureState === 'requestingPermission'
@@ -76,9 +80,13 @@ export function ControlDock({
     >
       <IconButton
         label={microphoneLabel}
-        className={isVoiceCapturing ? 'control-dock__btn--active' : undefined}
-        disabled={isVoiceCaptureBusy}
+        className={micButtonClassName}
+        aria-disabled={isVoiceCaptureBusy}
         onClick={() => {
+          if (isVoiceCaptureBusy) {
+            return;
+          }
+
           if (isVoiceCapturing) {
             void onStopVoiceCapture();
             return;
@@ -87,7 +95,7 @@ export function ControlDock({
           void onStartVoiceCapture();
         }}
       >
-        <Mic size={18} />
+        {isVoiceCapturing ? <Mic size={18} /> : <MicOff size={18} />}
       </IconButton>
 
       <IconButton
