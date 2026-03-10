@@ -135,6 +135,8 @@ export function createDesktopSessionController(
   let voiceCapture: LocalVoiceCapture | null = null;
   let voicePlayback: AssistantAudioPlayback | null = null;
   let voiceSendChain = Promise.resolve();
+  let voiceInterruptionInFlight: Promise<void> | null = null;
+  let voiceInterruptionSequence = 0;
   const voiceChunkListeners = new Set<(chunk: LocalVoiceChunk) => void>();
 
   const recordSessionEvent = (event: SessionControllerEvent): void => {
@@ -285,6 +287,8 @@ export function createDesktopSessionController(
     activeTransport = null;
     voicePlayback = null;
     voiceSendChain = Promise.resolve();
+    voiceInterruptionInFlight = null;
+    voiceInterruptionSequence += 1;
     releaseTextChatStream();
     clearPendingAssistantTurn();
   };
@@ -434,11 +438,47 @@ export function createDesktopSessionController(
       return;
     }
 
+    setVoicePlaybackState('stopping');
     await playback.stop();
     setVoicePlaybackState(nextState);
     updateVoicePlaybackDiagnostics({
       queueDepth: 0,
     });
+  };
+
+  const handleVoiceInterruption = (): void => {
+    if (voiceInterruptionInFlight) {
+      return;
+    }
+
+    voiceInterruptionSequence += 1;
+    const interruptionSequence = voiceInterruptionSequence;
+    setVoiceSessionStatus('interrupted');
+    dependencies.store.getState().setAssistantActivity('idle');
+
+    voiceInterruptionInFlight = (async () => {
+      try {
+        await stopVoicePlayback();
+      } catch {
+        // Ignore playback teardown errors while recovering from interruption.
+      }
+
+      if (voiceInterruptionSequence !== interruptionSequence) {
+        return;
+      }
+
+      voiceInterruptionInFlight = null;
+
+      if (!activeTransport || currentVoiceSessionStatus() !== 'interrupted') {
+        return;
+      }
+
+      setVoiceSessionStatus(
+        dependencies.store.getState().voiceCaptureState === 'capturing'
+          ? 'recovering'
+          : 'ready',
+      );
+    })();
   };
 
   const enqueueVoiceChunkSend = (chunk: LocalVoiceChunk): Promise<void> => {
@@ -448,14 +488,23 @@ export function createDesktopSessionController(
       return Promise.resolve();
     }
 
-    if (currentVoiceSessionStatus() === 'ready') {
+    if (
+      currentVoiceSessionStatus() === 'ready' ||
+      currentVoiceSessionStatus() === 'interrupted' ||
+      currentVoiceSessionStatus() === 'recovering'
+    ) {
       setVoiceSessionStatus('capturing');
     }
 
     voiceSendChain = voiceSendChain
       .then(async () => {
         await activeTransport?.sendAudioChunk(chunk.data);
-        if (currentVoiceSessionStatus() === 'capturing' || currentVoiceSessionStatus() === 'ready') {
+        if (
+          currentVoiceSessionStatus() === 'capturing' ||
+          currentVoiceSessionStatus() === 'ready' ||
+          currentVoiceSessionStatus() === 'interrupted' ||
+          currentVoiceSessionStatus() === 'recovering'
+        ) {
           setVoiceSessionStatus('streaming');
         }
       })
@@ -534,6 +583,11 @@ export function createDesktopSessionController(
       });
       dependencies.store.getState().setLastRuntimeError(event.detail);
       void stopVoicePlayback('error');
+      return;
+    }
+
+    if (event.type === 'interrupted') {
+      handleVoiceInterruption();
       return;
     }
 

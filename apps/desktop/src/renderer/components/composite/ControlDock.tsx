@@ -43,6 +43,8 @@ export function ControlDock({
     voiceSessionStatus === 'connecting' || voiceSessionStatus === 'stopping';
   const isMicrophoneAvailable =
     voiceSessionStatus === 'ready' ||
+    voiceSessionStatus === 'interrupted' ||
+    voiceSessionStatus === 'recovering' ||
     voiceSessionStatus === 'capturing' ||
     voiceSessionStatus === 'streaming' ||
     voiceSessionStatus === 'stopping';

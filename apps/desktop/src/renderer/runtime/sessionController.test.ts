@@ -155,10 +155,22 @@ function createVoicePlaybackHarness(): {
   emitState: (state: VoicePlaybackState) => void;
   emitDiagnostics: (diagnostics: Record<string, unknown>) => void;
   emitError: (detail: string) => void;
+  resolveStop: () => void;
+  enableDeferredStop: () => void;
 } {
   let observer: AssistantAudioPlaybackObserver | null = null;
   const enqueue = vi.fn(async () => undefined);
-  const stop = vi.fn(async () => undefined);
+  let resolveStopPromise: (() => void) | null = null;
+  let useDeferredStop = false;
+  const stop = vi.fn(async () => {
+    if (!useDeferredStop) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      resolveStopPromise = resolve;
+    });
+  });
 
   return {
     createVoicePlayback: vi.fn((nextObserver) => {
@@ -179,6 +191,13 @@ function createVoicePlaybackHarness(): {
     },
     emitError: (detail) => {
       observer?.onError(detail);
+    },
+    resolveStop: () => {
+      resolveStopPromise?.();
+      resolveStopPromise = null;
+    },
+    enableDeferredStop: () => {
+      useDeferredStop = true;
     },
   };
 }
@@ -297,6 +316,7 @@ describe('createDesktopSessionController', () => {
     });
 
     await controller.startSession({ mode: 'voice' });
+    voicePlayback.enableDeferredStop();
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     voicePlayback.emitState('playing');
     voicePlayback.emitDiagnostics({
@@ -746,6 +766,187 @@ describe('createDesktopSessionController', () => {
         lastRuntimeError: 'transport failed',
       }),
     );
+  });
+
+  it('handles interruption during active playback without disconnecting the voice session', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    voicePlayback.emitState('playing');
+    voicePlayback.emitDiagnostics({
+      chunkCount: 2,
+      queueDepth: 2,
+      sampleRateHz: 24_000,
+      selectedOutputDeviceId: 'default',
+      lastError: null,
+    });
+    await Promise.resolve();
+
+    voiceTransport.emit({ type: 'interrupted' });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voiceSessionStatus: 'interrupted',
+        assistantActivity: 'idle',
+        activeTransport: 'gemini-live',
+        lastRuntimeError: null,
+        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+      }),
+    );
+    expect(voicePlayback.stop).toHaveBeenCalledTimes(1);
+    expect(voiceTransport.disconnect).not.toHaveBeenCalled();
+
+    voicePlayback.resolveStop();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voiceSessionStatus: 'ready',
+        voicePlaybackState: 'stopped',
+        activeTransport: 'gemini-live',
+      }),
+    );
+    expect(useSessionStore.getState().voicePlaybackDiagnostics).toEqual(
+      expect.objectContaining({
+        queueDepth: 0,
+      }),
+    );
+  });
+
+  it('handles interruption while buffering, keeps capture active, and resumes streaming on the next mic chunk', async () => {
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.startVoiceCapture();
+    voicePlayback.enableDeferredStop();
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    voicePlayback.emitState('buffering');
+    voicePlayback.emitDiagnostics({
+      chunkCount: 1,
+      queueDepth: 1,
+      sampleRateHz: 24_000,
+      selectedOutputDeviceId: 'default',
+      lastError: null,
+    });
+    await Promise.resolve();
+
+    voiceTransport.emit({ type: 'interrupted' });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voiceSessionStatus: 'interrupted',
+        voiceCaptureState: 'capturing',
+        assistantActivity: 'idle',
+      }),
+    );
+
+    voicePlayback.resolveStop();
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState()).toEqual(
+        expect.objectContaining({
+          voiceSessionStatus: 'recovering',
+          voicePlaybackState: 'stopped',
+        }),
+      );
+    });
+    expect(useSessionStore.getState().voicePlaybackDiagnostics).toEqual(
+      expect.objectContaining({
+        queueDepth: 0,
+      }),
+    );
+
+    voiceCapture.emitChunk({
+      data: new Uint8Array(640).fill(2),
+      sequence: 2,
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(voiceTransport.sendAudioChunk).toHaveBeenLastCalledWith(
+      new Uint8Array(640).fill(2),
+    );
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('streaming');
+  });
+
+  it('treats repeated interruption events as safe and idempotent', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voicePlayback.enableDeferredStop();
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    voicePlayback.emitState('playing');
+    await Promise.resolve();
+
+    voiceTransport.emit({ type: 'interrupted' });
+    voiceTransport.emit({ type: 'interrupted' });
+
+    expect(voicePlayback.stop).toHaveBeenCalledTimes(1);
+
+    voicePlayback.resolveStop();
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState()).toEqual(
+        expect.objectContaining({
+          voiceSessionStatus: 'ready',
+          voicePlaybackState: 'stopped',
+          activeTransport: 'gemini-live',
+        }),
+      );
+    });
   });
 
   it('surfaces malformed assistant audio as a playback-only error and keeps the voice session connected', async () => {

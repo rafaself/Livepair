@@ -187,6 +187,27 @@ describe('createAssistantAudioPlayback', () => {
     );
   });
 
+  it('stops every scheduled source and remains safe when stop is called again', async () => {
+    const harness = createPlaybackHarness();
+
+    await harness.playback.enqueue(new Uint8Array([0, 0, 1, 0]));
+    await harness.playback.enqueue(new Uint8Array([2, 0, 3, 0]));
+
+    await harness.playback.stop();
+    await expect(harness.playback.stop()).resolves.toBeUndefined();
+
+    expect(harness.sources).toHaveLength(2);
+    expect(harness.sources[0]?.stop).toHaveBeenCalledTimes(1);
+    expect(harness.sources[1]?.stop).toHaveBeenCalledTimes(1);
+    expect(harness.context.close).toHaveBeenCalledTimes(1);
+    expect(harness.stateChanges.at(-1)).toBe('stopped');
+    expect(harness.diagnostics.at(-1)).toEqual(
+      expect.objectContaining({
+        queueDepth: 0,
+      }),
+    );
+  });
+
   it('falls back to the default output device when sink routing is unavailable or rejected', async () => {
     const unsupportedHarness = createPlaybackHarness({
       selectedOutputDeviceId: 'desk-speakers',

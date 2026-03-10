@@ -32,6 +32,8 @@ export type VoicePlaybackState =
 export type VoiceSessionStatus =
   | 'connecting'
   | 'ready'
+  | 'interrupted'
+  | 'recovering'
   | 'capturing'
   | 'streaming'
   | 'stopping'

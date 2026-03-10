@@ -82,6 +82,49 @@ describe('ControlDock', () => {
     expect(screen.getByRole('button', { name: /open panel/i })).toBeInTheDocument();
   });
 
+  it('keeps microphone controls available during interrupted and recovering voice states', () => {
+    const noop = vi.fn(async () => undefined);
+    const { rerender } = render(
+      <ControlDock
+        isTextSessionActive={false}
+        isVoiceSessionActive
+        voiceSessionStatus="interrupted"
+        voiceCaptureState="stopped"
+        onStartVoiceSession={noop}
+        onStartVoiceCapture={noop}
+        onStopVoiceCapture={noop}
+        onEndSession={noop}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /start microphone capture/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /disconnect voice session/i }),
+    ).toBeEnabled();
+
+    rerender(
+      <ControlDock
+        isTextSessionActive={false}
+        isVoiceSessionActive
+        voiceSessionStatus="recovering"
+        voiceCaptureState="stopped"
+        onStartVoiceSession={noop}
+        onStartVoiceCapture={noop}
+        onStopVoiceCapture={noop}
+        onEndSession={noop}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /start microphone capture/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /disconnect voice session/i }),
+    ).toBeEnabled();
+  });
+
   it('connects voice mode and then toggles local microphone capture from the dock', async () => {
     renderDock();
 
