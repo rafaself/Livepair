@@ -18,17 +18,25 @@ function isVerboseLoggingEnabled(): boolean {
   return import.meta.env.MODE === 'test' || useUiStore.getState().isDebugMode;
 }
 
+function serialize(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 function logSessionEvent(event: SessionControllerEvent): void {
   if (!isConsoleLoggingEnabled()) {
     return;
   }
 
   if ('detail' in event && event.type.endsWith('failed')) {
-    console.error('[runtime:session]', event.type, event);
+    console.error('[runtime:session]', event.type, serialize(event));
     return;
   }
 
-  console.info('[runtime:session]', event.type, event);
+  console.info('[runtime:session]', event.type, serialize(event));
 }
 
 function logTransportEvent(event: LiveSessionEvent): void {
@@ -37,16 +45,16 @@ function logTransportEvent(event: LiveSessionEvent): void {
   }
 
   if (event.type === 'error') {
-    console.error('[runtime:transport]', event.type, event);
+    console.error('[runtime:transport]', event.type, serialize(event));
     return;
   }
 
   if (event.type === 'go-away' || event.type === 'interrupted') {
-    console.warn('[runtime:transport]', event.type, event);
+    console.warn('[runtime:transport]', event.type, serialize(event));
     return;
   }
 
-  console.info('[runtime:transport]', event.type, event);
+  console.info('[runtime:transport]', event.type, serialize(event));
 }
 
 export function logLifecycleTransition(
@@ -58,9 +66,9 @@ export function logLifecycleTransition(
     return;
   }
 
-  console.info('[runtime:lifecycle]', `${previousStatus} -> ${nextStatus}`, {
+  console.info('[runtime:lifecycle]', `${previousStatus} -> ${nextStatus}`, serialize({
     eventType,
-  });
+  }));
 }
 
 export function logRuntimeDiagnostic(
@@ -73,7 +81,7 @@ export function logRuntimeDiagnostic(
   }
 
   if (payload) {
-    console.info(`[runtime:${scope}] ${message}`, payload);
+    console.info(`[runtime:${scope}] ${message}`, serialize(payload));
     return;
   }
 
@@ -90,7 +98,7 @@ export function logRuntimeError(
   }
 
   if (payload) {
-    console.error(`[runtime:${scope}] ${message}`, payload);
+    console.error(`[runtime:${scope}] ${message}`, serialize(payload));
     return;
   }
 
