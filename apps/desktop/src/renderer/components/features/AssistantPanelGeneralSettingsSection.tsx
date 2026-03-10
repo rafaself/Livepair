@@ -7,7 +7,6 @@ import { ThemeToggle } from './ThemeToggle';
 
 const MODE_OPTIONS: readonly SelectOptionItem[] = [
   { value: 'fast', label: 'Fast' },
-  { value: 'thinking', label: 'Thinking' },
 ];
 
 type GeneralSettingsController = Pick<
@@ -50,10 +49,11 @@ export function AssistantPanelGeneralSettingsSection({
                 options={MODE_OPTIONS}
                 value={preferredMode}
                 onChange={(event) => {
-                  if (event.target.value === 'fast' || event.target.value === 'thinking') {
+                  if (event.target.value === 'fast') {
                     setPreferredMode(event.target.value);
                   }
                 }}
+                disabled
                 size="sm"
               />
             ),

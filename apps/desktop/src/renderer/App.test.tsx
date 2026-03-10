@@ -9,13 +9,6 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
 import { App } from './App';
-import {
-  __emitGeminiLiveSdkClose,
-  __emitGeminiLiveSdkMessage,
-  __getLastGeminiLiveSdkConnectOptions,
-  __getLastGeminiLiveSdkSession,
-  __resetGeminiLiveSdkMock,
-} from './test/geminiLiveSdkMock';
 import { useSettingsStore } from './store/settingsStore';
 import { resetDesktopStores } from './store/testing';
 import { useUiStore } from './store/uiStore';
@@ -68,10 +61,30 @@ function installMatchMedia(initialMatches: boolean): {
   };
 }
 
+function createTextChatHarness(): {
+  start: ReturnType<typeof vi.fn>;
+  emit: (event: Parameters<Parameters<typeof window.bridge.startTextChatStream>[1]>[0]) => void;
+} {
+  let listener:
+    | Parameters<typeof window.bridge.startTextChatStream>[1]
+    | null = null;
+
+  return {
+    start: vi.fn(async (_request, onEvent) => {
+      listener = onEvent;
+      return {
+        cancel: vi.fn(async () => undefined),
+      };
+    }),
+    emit: (event) => {
+      listener?.(event);
+    },
+  };
+}
+
 describe('App', () => {
   beforeEach(() => {
     resetDesktopStores();
-    __resetGeminiLiveSdkMock();
     useSettingsStore.setState({
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
@@ -86,6 +99,9 @@ describe('App', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
+    window.bridge.startTextChatStream = vi.fn(async () => ({
+      cancel: vi.fn(async () => undefined),
+    }));
     document.documentElement.dataset['theme'] = '';
     document.documentElement.style.colorScheme = '';
     window.bridge.overlayMode = 'linux-shape';
@@ -144,12 +160,14 @@ describe('App', () => {
     expect(window.bridge.setOverlayPointerPassthrough).toHaveBeenCalled();
   });
 
-  it('streams a text-first realtime turn through the app shell and surfaces disconnect failures', async () => {
+  it('streams a text turn through the app shell without requesting a Live token', async () => {
+    const textChat = createTextChatHarness();
     installMatchMedia(true);
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
       status: 'ok',
       timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
     });
+    window.bridge.startTextChatStream = textChat.start;
 
     render(<App />);
 
@@ -171,57 +189,27 @@ describe('App', () => {
     });
 
     await waitFor(() => {
-      expect(__getLastGeminiLiveSdkConnectOptions()).toBeDefined();
+      expect(textChat.start).toHaveBeenCalledTimes(1);
     });
-
-    const session = __getLastGeminiLiveSdkSession();
+    expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
+    expect(textChat.start).toHaveBeenCalledWith(
+      {
+        messages: [{ role: 'user', content: 'Summarize the current screen' }],
+      },
+      expect.any(Function),
+    );
 
     act(() => {
-      __emitGeminiLiveSdkMessage({ setupComplete: {} });
-    });
-
-    await waitFor(() => {
-      expect(session.sendClientContent).toHaveBeenCalledWith({
-        turns: [
-          {
-            role: 'user',
-            parts: [{ text: 'Summarize the current screen' }],
-          },
-        ],
-        turnComplete: true,
-      });
-    });
-
-    act(() => {
-      __emitGeminiLiveSdkMessage({
-        serverContent: {
-          interrupted: false,
-          turnComplete: false,
-        },
-        text: 'Here is the streamed response.',
-      });
-      __emitGeminiLiveSdkMessage({
-        serverContent: {
-          interrupted: false,
-          turnComplete: true,
-        },
-      });
+      textChat.emit({ type: 'text-delta', text: 'Here is the streamed response.' });
     });
 
     expect(await screen.findByText('Here is the streamed response.')).toBeVisible();
 
     act(() => {
-      __emitGeminiLiveSdkMessage({
-        serverContent: {
-          interrupted: false,
-          turnComplete: false,
-        },
-        text: 'Partial retry',
-      });
-      __emitGeminiLiveSdkClose('transport offline');
+      textChat.emit({ type: 'error', detail: 'transport offline' });
     });
 
     expect(await screen.findByText('transport offline')).toBeVisible();
-    expect(screen.getByText('Partial retry')).toBeVisible();
+    expect(screen.getByText('Here is the streamed response.')).toBeVisible();
   });
 });

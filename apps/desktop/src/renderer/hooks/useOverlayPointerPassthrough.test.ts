@@ -11,6 +11,7 @@ describe('useOverlayPointerPassthrough', () => {
       overlayMode: 'forwarded-pointer',
       checkHealth: vi.fn(),
       requestSessionToken: vi.fn(),
+      startTextChatStream: vi.fn(),
       getSettings: vi.fn(),
       updateSettings: vi.fn(),
       setOverlayHitRegions: vi.fn(),

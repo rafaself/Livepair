@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, Mic, MicOff, Monitor, MonitorOff, Phone, Play } from 'lucide-react';
+import { Ban, ChevronLeft, MicOff, MonitorOff, PhoneOff } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -13,16 +13,14 @@ export type ControlDockProps = {
 
 export function ControlDock({
   isSessionActive,
-  onStartSession,
-  onEndSession,
+  onStartSession: _onStartSession,
+  onEndSession: _onEndSession,
 }: ControlDockProps): JSX.Element {
   const isPanelOpen = useUiStore((state) => state.isPanelOpen);
   const togglePanel = useUiStore((state) => state.togglePanel);
   const closePanel = useUiStore((state) => state.closePanel);
   const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
 
-  const [isMicActive, setIsMicActive] = useState(false);
-  const [isCameraActive, setIsCameraActive] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isWindowFocused, setIsWindowFocused] = useState(() => document.hasFocus());
 
@@ -58,27 +56,29 @@ export function ControlDock({
       onMouseLeave={() => setIsHovered(false)}
     >
       <IconButton
-        label={isMicActive ? 'Mute microphone' : 'Unmute microphone'}
-        className={isMicActive ? 'control-dock__btn--active' : undefined}
-        onClick={() => setIsMicActive((prev) => !prev)}
+        label="Microphone unavailable in text mode"
+        disabled
       >
-        {isMicActive ? <Mic size={18} /> : <MicOff size={18} />}
+        <MicOff size={18} />
       </IconButton>
 
       <IconButton
-        label={isCameraActive ? 'Disable camera' : 'Enable camera'}
-        className={isCameraActive ? 'control-dock__btn--active' : undefined}
-        onClick={() => setIsCameraActive((prev) => !prev)}
+        label="Camera unavailable in text mode"
+        disabled
       >
-        {isCameraActive ? <Monitor size={18} /> : <MonitorOff size={18} />}
+        <MonitorOff size={18} />
       </IconButton>
 
       <IconButton
-        label={isSessionActive ? 'End session' : 'Start session'}
+        label={
+          isSessionActive
+            ? 'Voice session unavailable in text mode'
+            : 'Voice mode unavailable in text mode'
+        }
         className={isSessionActive ? 'control-dock__btn--danger' : 'control-dock__btn--start'}
-        onClick={() => void (isSessionActive ? onEndSession() : onStartSession())}
+        disabled
       >
-        {isSessionActive ? <Phone size={18} /> : <Play size={18} />}
+        {isSessionActive ? <PhoneOff size={18} /> : <Ban size={18} />}
       </IconButton>
 
       <Divider orientation="horizontal" />
