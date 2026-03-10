@@ -31,6 +31,10 @@ export function useSessionRuntime() {
     await controller.startSession();
   }, [controller]);
 
+  const handleSubmitTextTurn = useCallback(async (text: string): Promise<boolean> => {
+    return controller.submitTextTurn(text);
+  }, [controller]);
+
   const handleEndSession = useCallback(async (): Promise<void> => {
     await controller.endSession();
   }, [controller]);
@@ -55,6 +59,7 @@ export function useSessionRuntime() {
     isSessionActive,
     handleCheckBackendHealth,
     handleStartSession,
+    handleSubmitTextTurn,
     handleEndSession,
     setAssistantState,
   };

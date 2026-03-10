@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type { FormEvent } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 import type { ConversationTurnModel } from './mockConversation';
 import { AssistantPanelChatView } from './AssistantPanelChatView';
 
@@ -11,12 +12,17 @@ describe('AssistantPanelChatView', () => {
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
       />,
     );
 
     expect(screen.getByRole('status', { name: 'Disconnected' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Conversation' })).toBeVisible();
     expect(screen.getByText('No conversation yet')).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Message Livepair' })).toBeVisible();
   });
 
   it('renders populated conversation turns without the empty state copy', () => {
@@ -43,6 +49,10 @@ describe('AssistantPanelChatView', () => {
         turns={turns}
         isConversationEmpty={false}
         lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
       />,
     );
 
@@ -59,6 +69,10 @@ describe('AssistantPanelChatView', () => {
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError="transport offline"
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
       />,
     );
 
@@ -66,5 +80,75 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByText('Session failed')).toBeVisible();
     expect(screen.getByText('transport offline')).toBeVisible();
     expect(screen.getByText(/start the session again/i)).toBeVisible();
+  });
+
+  it('shows inline runtime errors without hiding streamed turns', () => {
+    const turns: ConversationTurnModel[] = [
+      {
+        id: 'turn-1',
+        role: 'assistant',
+        content: 'Partial streamed response',
+        timestamp: '10:16',
+        state: 'error',
+        statusLabel: 'Disconnected',
+      },
+    ];
+
+    render(
+      <AssistantPanelChatView
+        assistantState="error"
+        turns={turns}
+        isConversationEmpty={false}
+        lastRuntimeError="transport offline"
+        draftText="retry prompt"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('transport offline')).toBeVisible();
+    expect(screen.getByText('Partial streamed response')).toBeVisible();
+    expect(screen.getByText('Disconnected')).toBeVisible();
+  });
+
+  it('submits text with Enter and disables the composer while a send is pending', () => {
+    const handleDraftTextChange = () => {};
+    const handleSubmitTextTurn = vi.fn((event?: FormEvent<HTMLFormElement>) => {
+      event?.preventDefault();
+    });
+
+    const { rerender } = render(
+      <AssistantPanelChatView
+        assistantState="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Summarize this"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={handleDraftTextChange}
+        onSubmitTextTurn={handleSubmitTextTurn}
+      />,
+    );
+
+    fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
+
+    expect(handleSubmitTextTurn).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <AssistantPanelChatView
+        assistantState="thinking"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Summarize this"
+        isSubmittingTextTurn={true}
+        onDraftTextChange={handleDraftTextChange}
+        onSubmitTextTurn={handleSubmitTextTurn}
+      />,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Message Livepair' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
   });
 });

@@ -26,6 +26,10 @@ export function AssistantPanel({
     backendLabel,
     tokenFeedback,
     lastRuntimeError,
+    draftText,
+    isSubmittingTextTurn,
+    handleDraftTextChange,
+    handleSubmitTextTurn,
     handleCheckBackendHealth,
     setAssistantState,
   } = useAssistantPanelController();
@@ -53,6 +57,10 @@ export function AssistantPanel({
               turns={conversationTurns}
               isConversationEmpty={isConversationEmpty}
               lastRuntimeError={lastRuntimeError}
+              draftText={draftText}
+              isSubmittingTextTurn={isSubmittingTextTurn}
+              onDraftTextChange={handleDraftTextChange}
+              onSubmitTextTurn={handleSubmitTextTurn}
             />
           ) : null}
 

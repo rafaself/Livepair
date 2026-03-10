@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { useUiStore, type PanelView } from '../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
@@ -20,6 +20,10 @@ export type AssistantPanelController = {
   tokenRequestState: TokenRequestState;
   tokenFeedback: string | null;
   lastRuntimeError: string | null;
+  draftText: string;
+  isSubmittingTextTurn: boolean;
+  handleDraftTextChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  handleSubmitTextTurn: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   handleCheckBackendHealth: () => Promise<void>;
   handleStartTalking: () => Promise<void>;
 };
@@ -41,8 +45,11 @@ export function useAssistantPanelController(): AssistantPanelController {
     isConversationEmpty,
     handleCheckBackendHealth,
     handleStartSession,
+    handleSubmitTextTurn,
     setAssistantState,
   } = useSessionRuntime();
+  const [draftText, setDraftText] = useState('');
+  const [isSubmittingTextTurn, setIsSubmittingTextTurn] = useState(false);
 
   const handleCheckBackendHealthCallback = useCallback(async (): Promise<void> => {
     await handleCheckBackendHealth();
@@ -60,6 +67,35 @@ export function useAssistantPanelController(): AssistantPanelController {
     await handleStartSession();
   }, [handleStartSession]);
 
+  const handleDraftTextChange = useCallback((event: ChangeEvent<HTMLInputElement>): void => {
+    setDraftText(event.currentTarget.value);
+  }, []);
+
+  const handleSubmitTextTurnCallback = useCallback(
+    async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+      event.preventDefault();
+
+      const nextDraft = draftText.trim();
+
+      if (!nextDraft || isSubmittingTextTurn) {
+        return;
+      }
+
+      setIsSubmittingTextTurn(true);
+
+      try {
+        const didSend = await handleSubmitTextTurn(nextDraft);
+
+        if (didSend) {
+          setDraftText('');
+        }
+      } finally {
+        setIsSubmittingTextTurn(false);
+      }
+    },
+    [draftText, handleSubmitTextTurn, isSubmittingTextTurn],
+  );
+
   return {
     assistantState,
     isPanelOpen,
@@ -75,6 +111,10 @@ export function useAssistantPanelController(): AssistantPanelController {
     tokenRequestState,
     tokenFeedback,
     lastRuntimeError,
+    draftText,
+    isSubmittingTextTurn,
+    handleDraftTextChange,
+    handleSubmitTextTurn: handleSubmitTextTurnCallback,
     handleCheckBackendHealth: handleCheckBackendHealthCallback,
     handleStartTalking,
   };

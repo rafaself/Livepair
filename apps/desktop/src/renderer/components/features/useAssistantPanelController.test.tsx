@@ -195,7 +195,7 @@ describe('useAssistantPanelController', () => {
     if (!socket) {
       throw new Error('Expected a realtime socket');
     }
-    expect(socket.url).toContain('BidiGenerateContentConstrained');
+    expect(socket.url).toContain('BidiGenerateContent');
 
     act(() => {
       socket.emit('open', new Event('open'));

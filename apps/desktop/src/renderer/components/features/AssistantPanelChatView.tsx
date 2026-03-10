@@ -1,6 +1,8 @@
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, SendHorizonal, TriangleAlert } from 'lucide-react';
+import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import type { ConversationTurnModel } from '../../runtime/types';
+import { Button, TextInput } from '../primitives';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { ConversationList } from './ConversationList';
 
@@ -9,6 +11,10 @@ export type AssistantPanelChatViewProps = {
   turns: ConversationTurnModel[];
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
+  draftText: string;
+  isSubmittingTextTurn: boolean;
+  onDraftTextChange: ChangeEventHandler<HTMLInputElement>;
+  onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
 };
 
 export function AssistantPanelChatView({
@@ -16,7 +22,13 @@ export function AssistantPanelChatView({
   turns,
   isConversationEmpty,
   lastRuntimeError,
+  draftText,
+  isSubmittingTextTurn,
+  onDraftTextChange,
+  onSubmitTextTurn,
 }: AssistantPanelChatViewProps): JSX.Element {
+  const isComposerDisabled = isSubmittingTextTurn;
+  const canSubmit = draftText.trim().length > 0 && !isComposerDisabled;
   const emptyState = (
     <div className="assistant-panel__conversation-card assistant-panel__conversation-card--empty">
       {assistantState === 'error' && lastRuntimeError ? (
@@ -37,8 +49,7 @@ export function AssistantPanelChatView({
           />
           <p className="assistant-panel__conversation-empty-title">No conversation yet</p>
           <p className="assistant-panel__conversation-empty-body">
-            When you start talking, Livepair will keep the latest exchange here so you can
-            stay oriented in the flow.
+            Send a text prompt to start the realtime loop and keep the latest exchange visible.
           </p>
         </>
       )}
@@ -53,12 +64,42 @@ export function AssistantPanelChatView({
         aria-labelledby="assistant-panel-conversation-title"
       >
         <h3 id="assistant-panel-conversation-title">Conversation</h3>
+        {(lastRuntimeError && !isConversationEmpty) ? (
+          <div className="assistant-panel__runtime-error" role="alert">
+            <TriangleAlert size={16} aria-hidden="true" />
+            <p>{lastRuntimeError}</p>
+          </div>
+        ) : null}
         <ConversationList
           turns={turns}
           emptyState={emptyState}
           className={isConversationEmpty ? undefined : 'assistant-panel__conversation-list'}
         />
         <div className="assistant-panel__bottom-fade" aria-hidden="true" />
+        <form
+          className="assistant-panel__composer"
+          aria-label="Send message to Livepair"
+          onSubmit={onSubmitTextTurn}
+        >
+          <TextInput
+            label="Message Livepair"
+            value={draftText}
+            onChange={onDraftTextChange}
+            disabled={isComposerDisabled}
+            placeholder="Ask a question or describe the next task"
+            className="assistant-panel__composer-input"
+          />
+          <Button
+            type="submit"
+            variant="secondary"
+            className="assistant-panel__composer-submit"
+            disabled={!canSubmit}
+            aria-label="Send message"
+          >
+            <SendHorizonal size={16} aria-hidden="true" />
+            Send
+          </Button>
+        </form>
       </section>
     </div>
   );

@@ -76,6 +76,7 @@ export type DesktopSessionTransportConnectParams = {
 export type DesktopSessionTransport = {
   kind: TransportKind;
   connect: (params: DesktopSessionTransportConnectParams) => Promise<void>;
+  sendText: (text: string) => Promise<void>;
   disconnect: () => Promise<void>;
   subscribe: (listener: (event: TransportEvent) => void) => () => void;
 };

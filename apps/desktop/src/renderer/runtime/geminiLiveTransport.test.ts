@@ -159,6 +159,176 @@ describe('createGeminiLiveTransport', () => {
     expect(events.at(-1)).toEqual({ type: 'transport.lifecycle', state: 'disconnected' });
   });
 
+  it('sends text turns and streams assistant transcript updates', async () => {
+    const socket = new FakeWebSocket();
+    const events: TransportEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      createWebSocket: vi.fn(() => socket as unknown as WebSocket),
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
+      },
+    });
+
+    socket.emit('open', new Event('open'));
+    socket.emit(
+      'message',
+      new MessageEvent('message', {
+        data: JSON.stringify({ setupComplete: {} }),
+      }),
+    );
+    await connectPromise;
+
+    await transport.sendText('Hello from the desktop runtime');
+
+    expect(socket.send).toHaveBeenLastCalledWith(
+      JSON.stringify({
+        clientContent: {
+          turns: [
+            {
+              role: 'user',
+              parts: [{ text: 'Hello from the desktop runtime' }],
+            },
+          ],
+          turnComplete: true,
+        },
+      }),
+    );
+
+    socket.emit(
+      'message',
+      new MessageEvent('message', {
+        data: JSON.stringify({
+          serverContent: {
+            modelTurn: {
+              parts: [{ text: 'Streaming' }],
+            },
+          },
+        }),
+      }),
+    );
+    socket.emit(
+      'message',
+      new MessageEvent('message', {
+        data: JSON.stringify({
+          serverContent: {
+            modelTurn: {
+              parts: [{ text: ' response' }],
+            },
+          },
+        }),
+      }),
+    );
+    socket.emit(
+      'message',
+      new MessageEvent('message', {
+        data: JSON.stringify({
+          serverContent: {
+            turnComplete: true,
+          },
+        }),
+      }),
+    );
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'conversation.turn.appended',
+          turn: expect.objectContaining({
+            role: 'assistant',
+            content: 'Streaming',
+            state: 'streaming',
+          }),
+        },
+        {
+          type: 'conversation.turn.updated',
+          turnId: expect.any(String),
+          content: 'Streaming response',
+          state: 'streaming',
+          statusLabel: 'Responding...',
+        },
+        {
+          type: 'conversation.turn.updated',
+          turnId: expect.any(String),
+          content: 'Streaming response',
+          state: 'complete',
+          statusLabel: undefined,
+        },
+        {
+          type: 'assistant.activity',
+          activity: 'ready',
+        },
+      ]),
+    );
+  });
+
+  it('marks a partial assistant turn as failed when the socket closes mid-stream', async () => {
+    const socket = new FakeWebSocket();
+    const events: TransportEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      createWebSocket: vi.fn(() => socket as unknown as WebSocket),
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
+      },
+    });
+
+    socket.emit('open', new Event('open'));
+    socket.emit(
+      'message',
+      new MessageEvent('message', {
+        data: JSON.stringify({ setupComplete: {} }),
+      }),
+    );
+    await connectPromise;
+    await transport.sendText('Hello from the desktop runtime');
+
+    socket.emit(
+      'message',
+      new MessageEvent('message', {
+        data: JSON.stringify({
+          serverContent: {
+            modelTurn: {
+              parts: [{ text: 'Partial reply' }],
+            },
+          },
+        }),
+      }),
+    );
+    socket.emit('close', new CloseEvent('close', { code: 1011, reason: 'transport offline' }));
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'conversation.turn.updated',
+          turnId: expect.any(String),
+          content: 'Partial reply',
+          state: 'error',
+          statusLabel: 'Disconnected',
+        },
+        {
+          type: 'transport.lifecycle',
+          state: 'error',
+          detail: 'transport offline',
+        },
+      ]),
+    );
+  });
+
   it('emits an error and rejects connect when setup fails', async () => {
     const socket = new FakeWebSocket();
     const events: TransportEvent[] = [];
