@@ -88,6 +88,6 @@ describe('normalizeDesktopSettingsPatch', () => {
       normalizeDesktopSettingsPatch({
         preferredMode: 'thinking' as never,
       }),
-    ).toBeNull();
+    ).toEqual({ preferredMode: 'fast' });
   });
 });

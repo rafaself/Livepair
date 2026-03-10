@@ -35,7 +35,9 @@ function normalizeThemePreference(value: unknown): ThemePreference | null {
 }
 
 function normalizePreferredMode(value: unknown): PreferredMode | null {
-  return value === 'fast' ? value : null;
+  if (value === 'fast') return value;
+  if (value === 'thinking') return 'fast';
+  return null;
 }
 
 export function normalizeDesktopSettings(
