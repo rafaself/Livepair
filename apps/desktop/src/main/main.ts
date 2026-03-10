@@ -5,13 +5,15 @@ import { registerIpcHandlers } from './ipc/registerIpcHandlers';
 import {
   createWindow,
   getMainWindow,
+  getOverlayWindowState,
   handleAppActivate,
   handleWindowAllClosed,
   listAvailableDisplays,
   logDisplaySnapshot,
   lookupDisplayLabel,
   moveWindowToDisplay,
-  setOverlayWindowFocusable,
+  setOverlayWindowHitRegions,
+  setOverlayWindowInteractive,
 } from './window/overlayWindow';
 
 export function createDebouncedHandler(
@@ -33,10 +35,12 @@ export function createDebouncedHandler(
 const settingsService = getDesktopSettingsService();
 registerIpcHandlers({
   getMainWindow,
+  getOverlayWindowState,
   listDisplays: listAvailableDisplays,
   lookupDisplayLabel,
   moveWindowToDisplay,
-  setOverlayWindowFocusable,
+  setOverlayWindowHitRegions,
+  setOverlayWindowInteractive,
   settingsService,
 });
 

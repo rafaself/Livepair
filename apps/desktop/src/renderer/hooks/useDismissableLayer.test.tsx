@@ -100,4 +100,36 @@ describe('useDismissableLayer', () => {
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
+
+  it('treats refs and custom owned targets as a union', () => {
+    const onDismiss = vi.fn();
+
+    const { result } = renderHook(() => {
+      const containerRef = useRef<HTMLDivElement | null>(null);
+      useDismissableLayer({
+        enabled: true,
+        containerRef,
+        containsTarget: (target) => {
+          return target instanceof Element && target.classList.contains('owned-portal');
+        },
+        onDismiss,
+      });
+      return { containerRef };
+    });
+
+    const inside = document.createElement('div');
+    const ownedPortal = document.createElement('div');
+    const outside = document.createElement('div');
+    ownedPortal.className = 'owned-portal';
+    document.body.appendChild(inside);
+    document.body.appendChild(ownedPortal);
+    document.body.appendChild(outside);
+    result.current.containerRef.current = inside;
+
+    fireEvent.pointerDown(inside);
+    fireEvent.pointerDown(ownedPortal);
+    fireEvent.pointerDown(outside);
+
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
 });

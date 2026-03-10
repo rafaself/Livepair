@@ -1,6 +1,9 @@
 import { ipcMain } from 'electron';
-import type { BrowserWindow } from 'electron';
-import type { DesktopDisplayOption } from '../../shared/desktopBridge';
+import type { BrowserWindow, Rectangle } from 'electron';
+import type {
+  DesktopDisplayOption,
+  OverlayWindowState,
+} from '../../shared/desktopBridge';
 import { IPC_CHANNELS } from '../../shared/desktopBridge';
 import type { DesktopSettingsPatch } from '../../shared/settings';
 import type { DesktopSettingsService } from '../settings/settingsService';
@@ -15,7 +18,9 @@ type RegisterIpcHandlersOptions = {
   fetchImpl?: typeof fetch;
   getMainWindow: () => BrowserWindow | null;
   listDisplays?: () => DesktopDisplayOption[];
-  setOverlayWindowFocusable?: (focusable: boolean) => void;
+  setOverlayWindowHitRegions?: (hitRegions: Rectangle[]) => void;
+  setOverlayWindowInteractive?: (interactive: boolean) => void;
+  getOverlayWindowState?: () => OverlayWindowState;
   moveWindowToDisplay?: (target: {
     targetDisplayId?: string | undefined;
     targetDisplayLabel?: string | undefined;
@@ -31,7 +36,13 @@ export function registerIpcHandlers({
   listDisplays = () => [],
   lookupDisplayLabel,
   moveWindowToDisplay = () => undefined,
-  setOverlayWindowFocusable = () => undefined,
+  setOverlayWindowHitRegions = () => undefined,
+  setOverlayWindowInteractive = () => undefined,
+  getOverlayWindowState = () => ({
+    isFocused: false,
+    isVisible: false,
+    isInteractive: false,
+  }),
   platform = process.platform,
   settingsService,
 }: RegisterIpcHandlersOptions): void {
@@ -104,13 +115,7 @@ export function registerIpcHandlers({
       if (platform !== 'linux') {
         return;
       }
-
-      const mainWindow = getMainWindow();
-      if (!mainWindow) {
-        return;
-      }
-
-      mainWindow.setShape(toOverlayRectangles(hitRegions));
+      setOverlayWindowHitRegions(toOverlayRectangles(hitRegions));
     },
   );
 
@@ -139,21 +144,20 @@ export function registerIpcHandlers({
   );
 
   ipcMain.handle(
-    IPC_CHANNELS.setOverlayFocusable,
+    IPC_CHANNELS.setOverlayInteractive,
     (_event, enabled: unknown): void => {
       if (typeof enabled !== 'boolean') {
-        throw new Error('overlay:setFocusable requires a boolean');
+        throw new Error('overlay:setInteractive requires a boolean');
       }
       if (platform !== 'linux') {
         return;
       }
 
-      const mainWindow = getMainWindow();
-      if (!mainWindow) {
-        return;
-      }
-
-      setOverlayWindowFocusable(enabled);
+      setOverlayWindowInteractive(enabled);
     },
   );
+
+  ipcMain.handle(IPC_CHANNELS.getOverlayWindowState, () => {
+    return getOverlayWindowState();
+  });
 }

@@ -32,7 +32,6 @@ function createMainWindowDouble(): BrowserWindow {
   return {
     setShape: vi.fn(),
     setIgnoreMouseEvents: vi.fn(),
-    setFocusable: vi.fn(),
   } as unknown as BrowserWindow;
 }
 
@@ -50,7 +49,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(8);
+    expect(mockHandle).toHaveBeenCalledTimes(9);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -80,7 +79,12 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       8,
-      'overlay:setFocusable',
+      'overlay:setInteractive',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      9,
+      'overlay:getWindowState',
       expect.any(Function),
     );
   });
@@ -231,17 +235,24 @@ describe('registerIpcHandlers', () => {
 
   it('routes overlay operations through the current window with platform-aware behavior', async () => {
     const mainWindow = createMainWindowDouble();
-    const setShape = vi.mocked(mainWindow.setShape);
     const setIgnoreMouseEvents = vi.mocked(mainWindow.setIgnoreMouseEvents);
-    const setFocusable = vi.mocked(mainWindow.setFocusable);
     const getMainWindow = vi.fn(() => mainWindow);
+    const setOverlayWindowHitRegions = vi.fn();
+    const setOverlayWindowInteractive = vi.fn();
+    const getOverlayWindowState = vi.fn(() => ({
+      isFocused: false,
+      isVisible: true,
+      isInteractive: false,
+    }));
     const settingsService = createSettingsServiceDouble();
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
       getMainWindow,
       platform: 'linux',
-      setOverlayWindowFocusable: (focusable) => mainWindow.setFocusable(focusable),
+      setOverlayWindowHitRegions,
+      setOverlayWindowInteractive,
+      getOverlayWindowState,
       settingsService,
     });
 
@@ -250,7 +261,9 @@ describe('registerIpcHandlers', () => {
     )?.[1] as (_event: unknown, regions: unknown) => void;
 
     regionsHandler({}, [{ x: 1.2, y: 2.2, width: 3.1, height: 4.9 }]);
-    expect(setShape).toHaveBeenCalledWith([{ x: 1, y: 2, width: 3, height: 5 }]);
+    expect(setOverlayWindowHitRegions).toHaveBeenCalledWith([
+      { x: 1, y: 2, width: 3, height: 5 },
+    ]);
 
     mockHandle.mockReset();
     registerIpcHandlers({
@@ -277,24 +290,37 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers({
       getMainWindow,
       platform: 'linux',
-      setOverlayWindowFocusable: (focusable) => mainWindow.setFocusable(focusable),
+      setOverlayWindowInteractive,
+      getOverlayWindowState,
       settingsService,
     });
 
-    const focusableHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'overlay:setFocusable',
+    const interactiveHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'overlay:setInteractive',
     )?.[1] as (_event: unknown, enabled: unknown) => void;
 
-    expect(() => focusableHandler({}, 'bad')).toThrow(
-      'overlay:setFocusable requires a boolean',
+    expect(() => interactiveHandler({}, 'bad')).toThrow(
+      'overlay:setInteractive requires a boolean',
     );
 
-    focusableHandler({}, false);
-    expect(setFocusable).toHaveBeenCalledWith(false);
+    interactiveHandler({}, false);
+    expect(setOverlayWindowInteractive).toHaveBeenCalledWith(false);
+
+    const windowStateHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'overlay:getWindowState',
+    )?.[1] as () => unknown;
+
+    expect(windowStateHandler()).toEqual({
+      isFocused: false,
+      isVisible: true,
+      isInteractive: false,
+    });
   });
 
   it('skips overlay work when the active platform does not support that operation', async () => {
     const getMainWindow = vi.fn(() => createMainWindowDouble());
+    const setOverlayWindowHitRegions = vi.fn();
+    const setOverlayWindowInteractive = vi.fn();
     const settingsService = createSettingsServiceDouble();
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
@@ -315,6 +341,13 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers({
       getMainWindow,
       platform: 'linux',
+      setOverlayWindowHitRegions,
+      setOverlayWindowInteractive,
+      getOverlayWindowState: () => ({
+        isFocused: false,
+        isVisible: false,
+        isInteractive: false,
+      }),
       settingsService,
     });
 
@@ -329,25 +362,39 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers({
       getMainWindow,
       platform: 'win32',
+      getOverlayWindowState: () => ({
+        isFocused: false,
+        isVisible: false,
+        isInteractive: false,
+      }),
       settingsService,
     });
 
-    const focusableHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'overlay:setFocusable',
+    const interactiveHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'overlay:setInteractive',
     )?.[1] as (_event: unknown, enabled: unknown) => void;
 
-    focusableHandler({}, false);
+    interactiveHandler({}, false);
     expect(getMainWindow).not.toHaveBeenCalled();
   });
 
   it('no-ops overlay mutations when no main window is available', async () => {
     const getMainWindow = vi.fn(() => null);
+    const setOverlayWindowHitRegions = vi.fn();
+    const setOverlayWindowInteractive = vi.fn();
     const settingsService = createSettingsServiceDouble();
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
       getMainWindow,
       platform: 'linux',
+      setOverlayWindowHitRegions,
+      setOverlayWindowInteractive,
+      getOverlayWindowState: () => ({
+        isFocused: false,
+        isVisible: false,
+        isInteractive: false,
+      }),
       settingsService,
     });
 
@@ -358,7 +405,9 @@ describe('registerIpcHandlers', () => {
     expect(() => {
       regionsHandler({}, [{ x: 1, y: 2, width: 3, height: 4 }]);
     }).not.toThrow();
-    expect(getMainWindow).toHaveBeenCalledTimes(1);
+    expect(setOverlayWindowHitRegions).toHaveBeenCalledWith([
+      { x: 1, y: 2, width: 3, height: 4 },
+    ]);
 
     mockHandle.mockReset();
     registerIpcHandlers({
@@ -374,22 +423,28 @@ describe('registerIpcHandlers', () => {
     expect(() => {
       passthroughHandler({}, true);
     }).not.toThrow();
-    expect(getMainWindow).toHaveBeenCalledTimes(2);
+    expect(getMainWindow).toHaveBeenCalledTimes(1);
 
     mockHandle.mockReset();
     registerIpcHandlers({
       getMainWindow,
       platform: 'linux',
+      setOverlayWindowInteractive,
+      getOverlayWindowState: () => ({
+        isFocused: false,
+        isVisible: false,
+        isInteractive: false,
+      }),
       settingsService,
     });
 
-    const focusableHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'overlay:setFocusable',
+    const interactiveHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'overlay:setInteractive',
     )?.[1] as (_event: unknown, enabled: unknown) => void;
 
     expect(() => {
-      focusableHandler({}, false);
+      interactiveHandler({}, false);
     }).not.toThrow();
-    expect(getMainWindow).toHaveBeenCalledTimes(3);
+    expect(setOverlayWindowInteractive).toHaveBeenCalledWith(false);
   });
 });

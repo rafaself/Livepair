@@ -16,7 +16,9 @@ describe('useOverlayPointerPassthrough', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: mockSetOverlayPointerPassthrough,
-      setOverlayFocusable: vi.fn(),
+      setOverlayInteractive: vi.fn(),
+      getOverlayWindowState: vi.fn(),
+      onOverlayWindowState: vi.fn(() => () => undefined),
     };
   });
 

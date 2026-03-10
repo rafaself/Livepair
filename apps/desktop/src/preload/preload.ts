@@ -15,7 +15,23 @@ export const bridge: DesktopBridge = {
   setOverlayHitRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayHitRegions, regions),
   setOverlayPointerPassthrough: (enabled) =>
     ipcRenderer.invoke(IPC_CHANNELS.setOverlayPointerPassthrough, enabled),
-  setOverlayFocusable: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayFocusable, enabled),
+  setOverlayInteractive: (enabled) =>
+    ipcRenderer.invoke(IPC_CHANNELS.setOverlayInteractive, enabled),
+  getOverlayWindowState: () => ipcRenderer.invoke(IPC_CHANNELS.getOverlayWindowState),
+  onOverlayWindowState: (listener) => {
+    const handleOverlayWindowState = (_event: unknown, state: unknown): void => {
+      listener(state as Awaited<ReturnType<DesktopBridge['getOverlayWindowState']>>);
+    };
+
+    ipcRenderer.on(IPC_CHANNELS.overlayWindowStateChanged, handleOverlayWindowState);
+
+    return () => {
+      ipcRenderer.removeListener(
+        IPC_CHANNELS.overlayWindowStateChanged,
+        handleOverlayWindowState,
+      );
+    };
+  },
 };
 
 contextBridge.exposeInMainWorld('bridge', bridge);

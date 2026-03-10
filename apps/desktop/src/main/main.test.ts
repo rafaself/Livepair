@@ -8,12 +8,15 @@ const mockAppOn = vi.fn();
 const mockWhenReady = vi.fn(() => Promise.resolve());
 const mockQuit = vi.fn();
 const mockLoadURL = vi.fn();
+const mockWebContentsSend = vi.fn();
 const mockSetIgnoreMouseEvents = vi.fn();
 const mockSetShape = vi.fn();
 const mockSetAlwaysOnTop = vi.fn();
 const mockSetVisibleOnAllWorkspaces = vi.fn();
 const mockMoveTop = vi.fn();
-const mockSetFocusable = vi.fn();
+const mockFocus = vi.fn();
+const mockShow = vi.fn();
+const mockHide = vi.fn();
 const mockShowInactive = vi.fn();
 const mockSetBounds = vi.fn();
 const mockSetPosition = vi.fn();
@@ -34,12 +37,15 @@ const browserWindowCtor = vi.fn(() => ({
   webContents: {
     openDevTools: vi.fn(),
     toggleDevTools: vi.fn(),
+    send: mockWebContentsSend,
     on: mockWebContentsOn,
   },
   setAlwaysOnTop: mockSetAlwaysOnTop,
   setVisibleOnAllWorkspaces: mockSetVisibleOnAllWorkspaces,
   moveTop: mockMoveTop,
-  setFocusable: mockSetFocusable,
+  focus: mockFocus,
+  show: mockShow,
+  hide: mockHide,
   showInactive: mockShowInactive,
   setIgnoreMouseEvents: mockSetIgnoreMouseEvents,
   setShape: mockSetShape,
@@ -91,7 +97,7 @@ describe('main process runtime', () => {
     await import('./main');
 
     expect(mockWhenReady).toHaveBeenCalledTimes(1);
-    expect(mockHandle).toHaveBeenCalledTimes(8);
+    expect(mockHandle).toHaveBeenCalledTimes(9);
     expect(mockAppOn).toHaveBeenCalledWith('window-all-closed', expect.any(Function));
   });
 

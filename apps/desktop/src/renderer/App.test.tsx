@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
 import { checkBackendHealth } from './api/backend';
@@ -7,6 +7,7 @@ import { useSettingsStore } from './store/settingsStore';
 import { resetDesktopStores } from './store/testing';
 import { useUiStore } from './store/uiStore';
 import { THEME_MEDIA_QUERY } from './theme';
+import type { OverlayWindowState } from '../shared/desktopBridge';
 
 vi.mock('./api/backend', () => ({
   checkBackendHealth: vi.fn(),
@@ -61,6 +62,8 @@ function installMatchMedia(initialMatches: boolean): {
 }
 
 describe('App', () => {
+  let overlayWindowStateListener: ((state: OverlayWindowState) => void) | null = null;
+
   beforeEach(() => {
     resetDesktopStores();
     useSettingsStore.setState({
@@ -73,6 +76,17 @@ describe('App', () => {
     document.documentElement.dataset['theme'] = '';
     document.documentElement.style.colorScheme = '';
     window.bridge.overlayMode = 'linux-shape';
+    window.bridge.getOverlayWindowState = vi.fn(async () => ({
+      isFocused: false,
+      isVisible: false,
+      isInteractive: false,
+    }));
+    window.bridge.onOverlayWindowState = vi.fn((listener) => {
+      overlayWindowStateListener = listener;
+      return () => {
+        overlayWindowStateListener = null;
+      };
+    });
   });
 
   it('wires control dock and panel visibility through the global stores', () => {
@@ -128,16 +142,66 @@ describe('App', () => {
     expect(window.bridge.setOverlayPointerPassthrough).toHaveBeenCalled();
   });
 
-  it('toggles linux overlay focusability with panel visibility so the passive dock can stay topmost', () => {
+  it('syncs linux overlay interactivity and closes the panel on native blur when unpinned', async () => {
     installMatchMedia(true);
     render(<App />);
 
-    expect(window.bridge.setOverlayFocusable).toHaveBeenCalledWith(false);
+    expect(window.bridge.getOverlayWindowState).toHaveBeenCalledTimes(1);
+    expect(window.bridge.onOverlayWindowState).toHaveBeenCalledTimes(1);
+    expect(window.bridge.setOverlayInteractive).toHaveBeenCalledWith(false);
 
     fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
-    expect(window.bridge.setOverlayFocusable).toHaveBeenLastCalledWith(true);
+    expect(window.bridge.setOverlayInteractive).toHaveBeenLastCalledWith(true);
 
-    fireEvent(window, new Event('blur'));
-    expect(window.bridge.setOverlayFocusable).toHaveBeenLastCalledWith(false);
+    act(() => {
+      overlayWindowStateListener?.({
+        isFocused: false,
+        isVisible: true,
+        isInteractive: true,
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /open panel/i })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
+    });
+    expect(window.bridge.setOverlayInteractive).toHaveBeenLastCalledWith(false);
+  });
+
+  it('closes the unpinned panel when clicking the overlay outside the dock and panel', () => {
+    installMatchMedia(true);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
+    expect(screen.getByRole('button', { name: /close panel/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+
+    const appShell = document.querySelector('.app-shell');
+    expect(appShell).not.toBeNull();
+
+    fireEvent.pointerDown(appShell!);
+
+    expect(screen.getByRole('button', { name: /open panel/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('keeps the panel open when switching to settings inside the panel', () => {
+    installMatchMedia(true);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
+    fireEvent.click(screen.getByRole('button', { name: /settings/i }));
+
+    expect(screen.getByRole('button', { name: /close panel/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.getByRole('heading', { name: /settings/i })).toBeInTheDocument();
   });
 });

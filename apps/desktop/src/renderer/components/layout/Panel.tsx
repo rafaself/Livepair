@@ -1,15 +1,17 @@
-import type { HTMLAttributes, ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode, Ref } from 'react';
 import './Panel.css';
 
 export type PanelProps = {
   isOpen: boolean;
   position?: 'left' | 'right';
+  panelRef?: Ref<HTMLElement> | undefined;
   children: ReactNode;
 } & HTMLAttributes<HTMLElement>;
 
 export function Panel({
   isOpen,
   position = 'right',
+  panelRef,
   className,
   children,
   ...rest
@@ -24,7 +26,7 @@ export function Panel({
     .join(' ');
 
   return (
-    <section className={classes} {...rest}>
+    <section ref={panelRef} className={classes} {...rest}>
       {children}
     </section>
   );

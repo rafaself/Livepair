@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import { OverlayContainer, Panel } from '../layout';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 import { AssistantPanelChatView } from './AssistantPanelChatView';
@@ -9,10 +10,12 @@ import './AssistantPanel.css';
 
 export type AssistantPanelProps = {
   showStateDevControls?: boolean;
+  panelRef?: Ref<HTMLElement> | undefined;
 };
 
 export function AssistantPanel({
   showStateDevControls = false,
+  panelRef,
 }: AssistantPanelProps): JSX.Element {
   const {
     assistantState,
@@ -38,6 +41,7 @@ export function AssistantPanel({
         aria-label="Assistant Panel"
         aria-hidden={!isPanelOpen}
         isOpen={isPanelOpen}
+        panelRef={panelRef}
         className="assistant-panel"
       >
         <AssistantPanelHeader

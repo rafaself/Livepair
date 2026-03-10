@@ -1,5 +1,8 @@
 import { create } from 'zustand';
-import type { DesktopDisplayOption } from '../../shared/desktopBridge';
+import type {
+  DesktopDisplayOption,
+  OverlayWindowState,
+} from '../../shared/desktopBridge';
 import { PRIMARY_DISPLAY_ID } from '../../shared/settings';
 import type { SelectOptionItem } from '../components/primitives';
 import { useSettingsStore } from './settingsStore';
@@ -94,6 +97,7 @@ let displayRefreshRequestId = 0;
 
 export type UiStoreState = {
   isPanelOpen: boolean;
+  overlayWindowState: OverlayWindowState;
   panelView: PanelView;
   isDebugMode: boolean;
   backendUrlDraft: string;
@@ -106,6 +110,7 @@ export type UiStoreState = {
   togglePanel: () => void;
   openPanel: () => void;
   closePanel: () => void;
+  setOverlayWindowState: (overlayWindowState: OverlayWindowState) => void;
   setPanelView: (view: PanelView) => void;
   openSettingsForTarget: (target: SettingsFocusTarget) => void;
   clearSettingsFocusTarget: () => void;
@@ -121,6 +126,11 @@ export type UiStoreState = {
 
 const defaultUiState = {
   isPanelOpen: false,
+  overlayWindowState: {
+    isFocused: false,
+    isVisible: false,
+    isInteractive: false,
+  } as OverlayWindowState,
   panelView: 'chat' as PanelView,
   isDebugMode: false,
   backendUrlDraft: '',
@@ -149,6 +159,7 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
       panelView: 'chat',
       settingsFocusTarget: null,
     }),
+  setOverlayWindowState: (overlayWindowState) => set({ overlayWindowState }),
   setPanelView: (panelView) => set({ panelView }),
   openSettingsForTarget: (settingsFocusTarget) =>
     set({

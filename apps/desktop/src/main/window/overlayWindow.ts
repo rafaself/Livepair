@@ -1,7 +1,11 @@
 import { app, BrowserWindow, screen } from 'electron';
 import type { Display, Rectangle } from 'electron';
 import { join } from 'path';
-import type { DesktopDisplayOption } from '../../shared/desktopBridge';
+import {
+  IPC_CHANNELS,
+  type DesktopDisplayOption,
+  type OverlayWindowState,
+} from '../../shared/desktopBridge';
 import { PRIMARY_DISPLAY_ID } from '../../shared/settings';
 
 type DisplaySnapshotReason = 'create' | 'move' | 'metrics-changed' | 'bounds-drift';
@@ -28,7 +32,12 @@ if (process.platform === 'linux') {
 }
 
 let mainWindow: BrowserWindow | null = null;
-let linuxOverlayFocusable = false;
+let overlayWindowState: OverlayWindowState = {
+  isFocused: false,
+  isVisible: false,
+  isInteractive: false,
+};
+let linuxOverlayHitRegions: Rectangle[] = [];
 
 type NormalizedDisplayTarget = {
   targetDisplayId: string;
@@ -38,6 +47,7 @@ type NormalizedDisplayTarget = {
 const LINUX_BOUNDS_VERIFY_DELAY_MS = 50;
 const LINUX_BOUNDS_RETRY_DELAY_MS = 120;
 const MAX_LINUX_BOUNDS_RETRIES = 3;
+const X11_SESSION_TYPE = 'x11';
 
 let placementRequestId = 0;
 
@@ -159,15 +169,104 @@ function enforceOverlayWindowPriority(window: BrowserWindow): void {
   window.moveTop();
 }
 
-function applyLinuxWindowFocusability(window: BrowserWindow): void {
-  if (process.platform !== 'linux') {
+function isWaylandSession(sessionType: string = process.env['XDG_SESSION_TYPE'] ?? ''): boolean {
+  return sessionType.trim().toLowerCase() === 'wayland';
+}
+
+function resetOverlayWindowState(): void {
+  overlayWindowState = {
+    isFocused: false,
+    isVisible: false,
+    isInteractive: false,
+  };
+}
+
+function emitOverlayWindowState(window: BrowserWindow | null = mainWindow): void {
+  if (!window || window.isDestroyed()) {
     return;
   }
 
-  window.setFocusable(linuxOverlayFocusable);
-  if (!linuxOverlayFocusable) {
-    window.showInactive();
+  window.webContents.send(IPC_CHANNELS.overlayWindowStateChanged, overlayWindowState);
+}
+
+function updateOverlayWindowState(
+  patch: Partial<OverlayWindowState>,
+  window: BrowserWindow,
+): void {
+  const nextState = {
+    ...overlayWindowState,
+    ...patch,
+  };
+
+  if (
+    nextState.isFocused === overlayWindowState.isFocused &&
+    nextState.isVisible === overlayWindowState.isVisible &&
+    nextState.isInteractive === overlayWindowState.isInteractive
+  ) {
+    return;
   }
+
+  overlayWindowState = nextState;
+  emitOverlayWindowState(window);
+}
+
+function registerOverlayWindowStateListeners(window: BrowserWindow): void {
+  window.on('focus', () => {
+    if (mainWindow !== window) {
+      return;
+    }
+    updateOverlayWindowState({ isFocused: true }, window);
+  });
+  window.on('blur', () => {
+    if (mainWindow !== window) {
+      return;
+    }
+    updateOverlayWindowState({ isFocused: false }, window);
+  });
+  window.on('show', () => {
+    if (mainWindow !== window) {
+      return;
+    }
+    updateOverlayWindowState({ isVisible: true }, window);
+  });
+  window.on('hide', () => {
+    if (mainWindow !== window) {
+      return;
+    }
+    updateOverlayWindowState({ isVisible: false, isFocused: false }, window);
+  });
+}
+
+function showLinuxOverlayWindow(window: BrowserWindow): void {
+  if (linuxOverlayHitRegions.length === 0) {
+    return;
+  }
+
+  if (overlayWindowState.isInteractive) {
+    window.show();
+    updateOverlayWindowState({ isVisible: true }, window);
+    window.focus();
+    updateOverlayWindowState({ isFocused: true }, window);
+    return;
+  }
+
+  if (isWaylandSession()) {
+    window.show();
+    updateOverlayWindowState({ isVisible: true }, window);
+    return;
+  }
+
+  window.showInactive();
+  updateOverlayWindowState({ isVisible: true }, window);
+}
+
+function hideLinuxOverlayWindow(window: BrowserWindow): void {
+  if (!overlayWindowState.isVisible) {
+    return;
+  }
+
+  window.hide();
+  updateOverlayWindowState({ isVisible: false, isFocused: false }, window);
 }
 
 function applyWindowPlacement(
@@ -182,7 +281,6 @@ function applyWindowPlacement(
   const bounds = toWindowBounds(resolved);
 
   enforceOverlayWindowPriority(window);
-  applyLinuxWindowFocusability(window);
   applyWindowBounds(window, bounds);
   verifyBoundsAndRetry({
     bounds,
@@ -228,10 +326,11 @@ export function createWindow(
     frame: false,
     alwaysOnTop: true,
     fullscreenable: false,
-    focusable: process.platform === 'linux' ? linuxOverlayFocusable : true,
+    focusable: true,
     resizable: true,
     skipTaskbar: true,
     hasShadow: false,
+    show: process.platform !== 'linux',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -256,17 +355,27 @@ export function createWindow(
 
   if (process.platform !== 'linux') {
     win.setIgnoreMouseEvents(true, { forward: true });
-  } else {
-    win.setShape([]);
   }
 
   // Some window managers ignore constructor placement hints for frameless transparent windows.
   // Re-apply the resolved display bounds immediately so the overlay lands on the intended screen.
   mainWindow = win;
+  linuxOverlayHitRegions = [];
+  resetOverlayWindowState();
+  if (process.platform !== 'linux') {
+    overlayWindowState = {
+      isFocused: false,
+      isVisible: true,
+      isInteractive: false,
+    };
+  }
+  registerOverlayWindowStateListeners(win);
   applyWindowPlacement(win, target, 'create');
   win.on('closed', () => {
     if (mainWindow === win) {
       mainWindow = null;
+      linuxOverlayHitRegions = [];
+      resetOverlayWindowState();
     }
   });
 }
@@ -293,19 +402,79 @@ export function moveWindowToDisplay(
   applyWindowPlacement(window, target, 'move');
 }
 
-export function setOverlayWindowFocusable(focusable: boolean): void {
+export function getOverlayWindowState(): OverlayWindowState {
+  return { ...overlayWindowState };
+}
+
+export function setOverlayWindowHitRegions(hitRegions: Rectangle[]): void {
   if (process.platform !== 'linux') {
     return;
   }
 
-  linuxOverlayFocusable = focusable;
+  linuxOverlayHitRegions = hitRegions.map((hitRegion) => ({ ...hitRegion }));
   const window = getMainWindow();
   if (!window) {
     return;
   }
 
-  applyLinuxWindowFocusability(window);
+  if (linuxOverlayHitRegions.length === 0) {
+    hideLinuxOverlayWindow(window);
+    return;
+  }
+
+  window.setShape(linuxOverlayHitRegions);
+  if (!overlayWindowState.isVisible) {
+    showLinuxOverlayWindow(window);
+    return;
+  }
+
+  if (overlayWindowState.isInteractive) {
+    window.focus();
+    updateOverlayWindowState({ isFocused: true }, window);
+  }
+}
+
+export function setOverlayWindowInteractive(interactive: boolean): void {
+  if (process.platform !== 'linux') {
+    return;
+  }
+
+  if (overlayWindowState.isInteractive === interactive) {
+    return;
+  }
+
+  const window = getMainWindow();
+  overlayWindowState = {
+    ...overlayWindowState,
+    isInteractive: interactive,
+  };
+  if (!window) {
+    return;
+  }
+
+  emitOverlayWindowState(window);
   enforceOverlayWindowPriority(window);
+
+  if (linuxOverlayHitRegions.length === 0) {
+    return;
+  }
+
+  if (interactive) {
+    if (!overlayWindowState.isVisible) {
+      window.setShape(linuxOverlayHitRegions);
+      showLinuxOverlayWindow(window);
+      return;
+    }
+
+    window.focus();
+    updateOverlayWindowState({ isFocused: true }, window);
+    return;
+  }
+
+  if (process.env['XDG_SESSION_TYPE']?.trim().toLowerCase() === X11_SESSION_TYPE) {
+    window.showInactive();
+    updateOverlayWindowState({ isFocused: false, isVisible: true }, window);
+  }
 }
 
 type VerifyBoundsAndRetryOptions = {

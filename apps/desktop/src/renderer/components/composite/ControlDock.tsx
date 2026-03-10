@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, type Ref } from 'react';
 import {
   AlertTriangle,
   ChevronLeft,
@@ -11,58 +11,36 @@ import {
 } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
-import { useSettingsStore } from '../../store/settingsStore';
 import './ControlDock.css';
 
 export type ControlDockProps = {
+  dockRef?: Ref<HTMLDivElement> | undefined;
   isSessionActive: boolean;
   onStartSession: () => Promise<void>;
   onEndSession: () => Promise<void>;
 };
 
 export function ControlDock({
+  dockRef,
   isSessionActive,
   onStartSession,
   onEndSession,
 }: ControlDockProps): JSX.Element {
   const isPanelOpen = useUiStore((state) => state.isPanelOpen);
+  const isOverlayFocused = useUiStore((state) => state.overlayWindowState.isFocused);
   const settingsIssues = useUiStore((state) => state.settingsIssues);
   const openSettingsForTarget = useUiStore((state) => state.openSettingsForTarget);
   const togglePanel = useUiStore((state) => state.togglePanel);
-  const closePanel = useUiStore((state) => state.closePanel);
-  const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
   const primarySettingsIssue = settingsIssues[0] ?? null;
 
   const [isMicActive, setIsMicActive] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [isWindowFocused, setIsWindowFocused] = useState(() => document.hasFocus());
-
-  const shouldDimDock = !isPanelOpen && !isWindowFocused && !isHovered;
-
-  useEffect(() => {
-    const handleWindowFocus = (): void => {
-      setIsWindowFocused(true);
-    };
-
-    const handleWindowBlur = (): void => {
-      setIsWindowFocused(false);
-      if (isPanelOpen && !isPanelPinned) {
-        closePanel();
-      }
-    };
-
-    window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('blur', handleWindowBlur);
-
-    return () => {
-      window.removeEventListener('focus', handleWindowFocus);
-      window.removeEventListener('blur', handleWindowBlur);
-    };
-  }, [closePanel, isPanelOpen, isPanelPinned]);
+  const shouldDimDock = !isOverlayFocused && !isHovered;
 
   return (
     <div
+      ref={dockRef}
       className={`control-dock${isPanelOpen ? ' control-dock--panel-open' : ''}${shouldDimDock ? ' control-dock--dimmed' : ''}`}
       role="toolbar"
       aria-label="Assistant controls"

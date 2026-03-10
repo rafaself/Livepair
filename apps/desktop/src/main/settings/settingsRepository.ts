@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import {
   DEFAULT_DESKTOP_SETTINGS,
+  PRIMARY_DISPLAY_ID,
   normalizeDesktopSettings,
   normalizeDesktopSettingsPatch,
   type DesktopSettings,
@@ -13,12 +14,29 @@ type StoredDesktopSettings = {
   settings: DesktopSettings;
 };
 
-const SETTINGS_SCHEMA_VERSION = 1;
+const SETTINGS_SCHEMA_VERSION = 2;
 
 function createDefaultStoredSettings(): StoredDesktopSettings {
   return {
     version: SETTINGS_SCHEMA_VERSION,
     settings: DEFAULT_DESKTOP_SETTINGS,
+  };
+}
+
+function migrateStoredSettings(
+  version: number,
+  settings: DesktopSettings,
+): StoredDesktopSettings {
+  if (version < SETTINGS_SCHEMA_VERSION) {
+    return {
+      version: SETTINGS_SCHEMA_VERSION,
+      settings: DEFAULT_DESKTOP_SETTINGS,
+    };
+  }
+
+  return {
+    version: SETTINGS_SCHEMA_VERSION,
+    settings,
   };
 }
 
@@ -40,9 +58,27 @@ export class DesktopSettingsRepository {
       }
 
       const storedSettings = await this.readStoredSettings();
-      const nextSettings = normalizeDesktopSettings({
+      const mergedSettings = {
         ...storedSettings.settings,
         ...normalizedPatch,
+      };
+
+      if (
+        normalizedPatch.selectedCaptureDisplayId === PRIMARY_DISPLAY_ID &&
+        !('selectedCaptureDisplayLabel' in normalizedPatch)
+      ) {
+        delete mergedSettings.selectedCaptureDisplayLabel;
+      }
+
+      if (
+        normalizedPatch.selectedOverlayDisplayId === PRIMARY_DISPLAY_ID &&
+        !('selectedOverlayDisplayLabel' in normalizedPatch)
+      ) {
+        delete mergedSettings.selectedOverlayDisplayLabel;
+      }
+
+      const nextSettings = normalizeDesktopSettings({
+        ...mergedSettings,
       });
 
       if (nextSettings === null) {
@@ -73,17 +109,17 @@ export class DesktopSettingsRepository {
       const parsed = JSON.parse(contents) as Partial<StoredDesktopSettings>;
       const normalizedSettings = normalizeDesktopSettings(parsed.settings ?? {});
 
-      if (
-        parsed.version !== SETTINGS_SCHEMA_VERSION ||
-        normalizedSettings === null
-      ) {
+      if (normalizedSettings === null || typeof parsed.version !== 'number') {
         return createDefaultStoredSettings();
       }
 
-      return {
-        version: SETTINGS_SCHEMA_VERSION,
-        settings: normalizedSettings,
-      };
+      const migratedSettings = migrateStoredSettings(parsed.version, normalizedSettings);
+
+      if (migratedSettings.version !== parsed.version) {
+        await this.writeStoredSettings(migratedSettings);
+      }
+
+      return migratedSettings;
     } catch {
       return createDefaultStoredSettings();
     }

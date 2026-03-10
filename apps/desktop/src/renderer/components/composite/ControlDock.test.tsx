@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { useSessionStore } from '../../store/sessionStore';
@@ -103,34 +103,47 @@ describe('ControlDock', () => {
     );
   });
 
-  it('keeps the panel open on blur when the panel is fixed', async () => {
-    renderDock();
-
-    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
-    fireEvent.click(screen.getByRole('switch', { name: /lock panel/i }));
-    await waitFor(() => {
-      expect(screen.getByLabelText('panel-pinned')).toHaveTextContent('true');
+  it('dims the dock when the native overlay is unfocused and restores full opacity on focus', () => {
+    act(() => {
+      useUiStore.getState().setOverlayWindowState({
+        isFocused: false,
+        isVisible: true,
+        isInteractive: false,
+      });
     });
-
-    fireEvent(window, new Event('blur'));
-    expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
-  });
-
-  it('closes the panel on blur when it is not pinned and restores focus styling on focus', () => {
-    const hasFocusSpy = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
     renderDock();
 
     const toolbar = screen.getByRole('toolbar', { name: /assistant controls/i });
     expect(toolbar.className).toContain('control-dock--dimmed');
 
-    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
-    fireEvent(window, new Event('blur'));
-    expect(screen.getByLabelText('panel-open')).toHaveTextContent('false');
+    act(() => {
+      useUiStore.getState().setOverlayWindowState({
+        isFocused: true,
+        isVisible: true,
+        isInteractive: false,
+      });
+    });
+    expect(toolbar.className).not.toContain('control-dock--dimmed');
+  });
 
-    fireEvent(window, new Event('focus'));
+  it('restores full opacity while hovered even when the native overlay is unfocused', () => {
+    act(() => {
+      useUiStore.getState().setOverlayWindowState({
+        isFocused: false,
+        isVisible: true,
+        isInteractive: false,
+      });
+    });
+    renderDock();
+
+    const toolbar = screen.getByRole('toolbar', { name: /assistant controls/i });
+    expect(toolbar.className).toContain('control-dock--dimmed');
+
+    fireEvent.mouseEnter(toolbar);
     expect(toolbar.className).not.toContain('control-dock--dimmed');
 
-    hasFocusSpy.mockRestore();
+    fireEvent.mouseLeave(toolbar);
+    expect(toolbar.className).toContain('control-dock--dimmed');
   });
 
   it('shows a warning button for settings issues and deep-links to settings', () => {

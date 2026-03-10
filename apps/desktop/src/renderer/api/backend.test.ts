@@ -14,7 +14,9 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
-      setOverlayFocusable: vi.fn(),
+      setOverlayInteractive: vi.fn(),
+      getOverlayWindowState: vi.fn(),
+      onOverlayWindowState: vi.fn(() => () => undefined),
     };
 
     await expect(checkBackendHealth()).resolves.toBe(true);
@@ -32,7 +34,9 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
-      setOverlayFocusable: vi.fn(),
+      setOverlayInteractive: vi.fn(),
+      getOverlayWindowState: vi.fn(),
+      onOverlayWindowState: vi.fn(() => () => undefined),
     };
 
     await expect(checkBackendHealth()).resolves.toBe(false);
@@ -46,7 +50,9 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
-      setOverlayFocusable: vi.fn(),
+      setOverlayInteractive: vi.fn(),
+      getOverlayWindowState: vi.fn(),
+      onOverlayWindowState: vi.fn(() => () => undefined),
     };
     await expect(checkBackendHealth()).resolves.toBe(false);
   });
@@ -68,7 +74,9 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
-      setOverlayFocusable: vi.fn(),
+      setOverlayInteractive: vi.fn(),
+      getOverlayWindowState: vi.fn(),
+      onOverlayWindowState: vi.fn(() => () => undefined),
     };
 
     await expect(requestSessionToken({})).resolves.toEqual(tokenResponse);
@@ -88,7 +96,9 @@ describe('renderer backend api helper', () => {
       listDisplays: vi.fn(),
       setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: vi.fn(),
-      setOverlayFocusable: vi.fn(),
+      setOverlayInteractive: vi.fn(),
+      getOverlayWindowState: vi.fn(),
+      onOverlayWindowState: vi.fn(() => () => undefined),
     };
 
     await expect(requestSessionToken({})).rejects.toThrow('token failed');

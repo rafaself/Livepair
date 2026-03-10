@@ -2,11 +2,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockInvoke = vi.fn();
+const mockOn = vi.fn();
+const mockRemoveListener = vi.fn();
 const mockExposeInMainWorld = vi.fn();
 
 vi.mock('electron', () => ({
   ipcRenderer: {
     invoke: mockInvoke,
+    on: mockOn,
+    removeListener: mockRemoveListener,
   },
   contextBridge: {
     exposeInMainWorld: mockExposeInMainWorld,
@@ -35,7 +39,9 @@ describe('preload bridge', () => {
       'listDisplays',
       'setOverlayHitRegions',
       'setOverlayPointerPassthrough',
-      'setOverlayFocusable',
+      'setOverlayInteractive',
+      'getOverlayWindowState',
+      'onOverlayWindowState',
     ]);
     expect(exposedBridge).toEqual({
       overlayMode: expect.any(String),
@@ -46,7 +52,9 @@ describe('preload bridge', () => {
       listDisplays: expect.any(Function),
       setOverlayHitRegions: expect.any(Function),
       setOverlayPointerPassthrough: expect.any(Function),
-      setOverlayFocusable: expect.any(Function),
+      setOverlayInteractive: expect.any(Function),
+      getOverlayWindowState: expect.any(Function),
+      onOverlayWindowState: expect.any(Function),
     });
   });
 
@@ -108,8 +116,16 @@ describe('preload bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith('overlay:setPointerPassthrough', false);
 
     mockInvoke.mockResolvedValueOnce(undefined);
-    await bridge.setOverlayFocusable(false);
-    expect(mockInvoke).toHaveBeenCalledWith('overlay:setFocusable', false);
+    await bridge.setOverlayInteractive(false);
+    expect(mockInvoke).toHaveBeenCalledWith('overlay:setInteractive', false);
+
+    mockInvoke.mockResolvedValueOnce({
+      isFocused: false,
+      isVisible: true,
+      isInteractive: false,
+    });
+    await bridge.getOverlayWindowState();
+    expect(mockInvoke).toHaveBeenCalledWith('overlay:getWindowState');
   });
 
   it('passes explicit empty payload when request has no fields', async () => {
@@ -125,5 +141,40 @@ describe('preload bridge', () => {
     const { bridge } = await import('./preload');
 
     expect(['linux-shape', 'forwarded-pointer']).toContain(bridge.overlayMode);
+  });
+
+  it('subscribes to overlay window state updates without leaking the ipc event', async () => {
+    const { bridge } = await import('./preload');
+    const listener = vi.fn();
+
+    const unsubscribe = bridge.onOverlayWindowState(listener);
+
+    expect(mockOn).toHaveBeenCalledWith(
+      'overlay:windowStateChanged',
+      expect.any(Function),
+    );
+
+    const subscription = mockOn.mock.calls[0]?.[1] as
+      | ((_event: unknown, state: unknown) => void)
+      | undefined;
+
+    subscription?.({}, {
+      isFocused: true,
+      isVisible: true,
+      isInteractive: true,
+    });
+
+    expect(listener).toHaveBeenCalledWith({
+      isFocused: true,
+      isVisible: true,
+      isInteractive: true,
+    });
+
+    unsubscribe();
+
+    expect(mockRemoveListener).toHaveBeenCalledWith(
+      'overlay:windowStateChanged',
+      subscription,
+    );
   });
 });

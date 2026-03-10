@@ -10,12 +10,15 @@ const mockLoadURL = vi.fn();
 const mockLoadFile = vi.fn();
 const mockOpenDevTools = vi.fn();
 const mockToggleDevTools = vi.fn();
+const mockWebContentsSend = vi.fn();
 const mockSetIgnoreMouseEvents = vi.fn();
 const mockSetShape = vi.fn();
 const mockSetAlwaysOnTop = vi.fn();
 const mockSetVisibleOnAllWorkspaces = vi.fn();
 const mockMoveTop = vi.fn();
-const mockSetFocusable = vi.fn();
+const mockFocus = vi.fn();
+const mockShow = vi.fn();
+const mockHide = vi.fn();
 const mockShowInactive = vi.fn();
 const mockSetBounds = vi.fn((bounds: typeof currentBounds) => {
   currentBounds = { ...bounds };
@@ -57,12 +60,15 @@ const browserWindowCtor = vi.fn((options: typeof currentBounds) => {
     webContents: {
       openDevTools: mockOpenDevTools,
       toggleDevTools: mockToggleDevTools,
+      send: mockWebContentsSend,
       on: mockWebContentsOn,
     },
     setAlwaysOnTop: mockSetAlwaysOnTop,
     setVisibleOnAllWorkspaces: mockSetVisibleOnAllWorkspaces,
     moveTop: mockMoveTop,
-    setFocusable: mockSetFocusable,
+    focus: mockFocus,
+    show: mockShow,
+    hide: mockHide,
     showInactive: mockShowInactive,
     setIgnoreMouseEvents: mockSetIgnoreMouseEvents,
     setShape: mockSetShape,
@@ -75,6 +81,14 @@ const browserWindowCtor = vi.fn((options: typeof currentBounds) => {
     on: mockWindowOn,
   };
 });
+
+function getWindowHandler<T extends (...args: never[]) => void>(
+  eventName: string,
+): T | undefined {
+  return mockWindowOn.mock.calls.find(([registeredEventName]) => {
+    return registeredEventName === eventName;
+  })?.[1] as T | undefined;
+}
 
 const mockGetPrimaryDisplay = vi.fn(() => ({
   id: 1,
@@ -142,9 +156,11 @@ describe('overlayWindow', () => {
         frame: false,
         alwaysOnTop: true,
         fullscreenable: false,
+        focusable: true,
         resizable: true,
         skipTaskbar: true,
         hasShadow: false,
+        show: process.platform !== 'linux',
         webPreferences: expect.objectContaining({
           contextIsolation: true,
           nodeIntegration: false,
@@ -159,8 +175,13 @@ describe('overlayWindow', () => {
     });
     expect(mockMoveTop).toHaveBeenCalled();
     if (process.platform === 'linux') {
-      expect(mockSetFocusable).toHaveBeenCalledWith(false);
-      expect(mockShowInactive).toHaveBeenCalled();
+      expect(mockShowInactive).not.toHaveBeenCalled();
+      expect(mockSetShape).not.toHaveBeenCalled();
+      expect(overlayWindow.getOverlayWindowState()).toEqual({
+        isFocused: false,
+        isVisible: false,
+        isInteractive: false,
+      });
     }
     expect(overlayWindow.getMainWindow()).not.toBeNull();
 
@@ -168,8 +189,120 @@ describe('overlayWindow', () => {
       expect(mockSetIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
     } else {
       expect(mockSetIgnoreMouseEvents).not.toHaveBeenCalled();
-      expect(mockSetShape).toHaveBeenCalledWith([]);
     }
+  });
+
+  it('keeps the linux overlay hidden until hit regions are published and hides it again when cleared', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow('primary');
+    overlayWindow.setOverlayWindowHitRegions([{ x: 1500, y: 240, width: 120, height: 220 }]);
+
+    if (process.platform !== 'linux') {
+      expect(mockSetShape).not.toHaveBeenCalled();
+      expect(mockShowInactive).not.toHaveBeenCalled();
+      return;
+    }
+
+    expect(mockSetShape).toHaveBeenCalledWith([{ x: 1500, y: 240, width: 120, height: 220 }]);
+    expect(mockShowInactive).toHaveBeenCalledTimes(1);
+    expect(overlayWindow.getOverlayWindowState()).toEqual({
+      isFocused: false,
+      isVisible: true,
+      isInteractive: false,
+    });
+
+    overlayWindow.setOverlayWindowHitRegions([]);
+
+    expect(mockHide).toHaveBeenCalledTimes(1);
+    expect(overlayWindow.getOverlayWindowState()).toEqual({
+      isFocused: false,
+      isVisible: false,
+      isInteractive: false,
+    });
+  });
+
+  it('focuses the linux overlay only when interactive and relays native state changes', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow('primary');
+
+    if (process.platform !== 'linux') {
+      overlayWindow.setOverlayWindowInteractive(true);
+      expect(mockFocus).not.toHaveBeenCalled();
+      return;
+    }
+
+    overlayWindow.setOverlayWindowHitRegions([{ x: 1500, y: 240, width: 120, height: 220 }]);
+    mockFocus.mockClear();
+    mockWebContentsSend.mockClear();
+
+    overlayWindow.setOverlayWindowInteractive(true);
+
+    expect(mockFocus).toHaveBeenCalledTimes(1);
+    expect(overlayWindow.getOverlayWindowState()).toEqual({
+      isFocused: true,
+      isVisible: true,
+      isInteractive: true,
+    });
+    expect(mockWebContentsSend).toHaveBeenCalledWith('overlay:windowStateChanged', {
+      isFocused: true,
+      isVisible: true,
+      isInteractive: true,
+    });
+
+    const blurHandler = getWindowHandler<() => void>('blur');
+    blurHandler?.();
+
+    expect(overlayWindow.getOverlayWindowState()).toEqual({
+      isFocused: false,
+      isVisible: true,
+      isInteractive: true,
+    });
+    expect(mockWebContentsSend).toHaveBeenLastCalledWith('overlay:windowStateChanged', {
+      isFocused: false,
+      isVisible: true,
+      isInteractive: true,
+    });
+  });
+
+  it('uses x11 passive activation when leaving interactive mode and skips it on wayland', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('XDG_SESSION_TYPE', 'x11');
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow('primary');
+
+    if (process.platform !== 'linux') {
+      overlayWindow.setOverlayWindowInteractive(false);
+      expect(mockShowInactive).not.toHaveBeenCalled();
+      return;
+    }
+
+    overlayWindow.setOverlayWindowHitRegions([{ x: 1500, y: 240, width: 120, height: 220 }]);
+    overlayWindow.setOverlayWindowInteractive(true);
+    mockShowInactive.mockClear();
+
+    overlayWindow.setOverlayWindowInteractive(false);
+    expect(mockShowInactive).toHaveBeenCalledTimes(1);
+
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('XDG_SESSION_TYPE', 'wayland');
+    const waylandOverlayWindow = await import('./overlayWindow');
+
+    waylandOverlayWindow.createWindow('primary');
+    waylandOverlayWindow.setOverlayWindowHitRegions([
+      { x: 1500, y: 240, width: 120, height: 220 },
+    ]);
+    waylandOverlayWindow.setOverlayWindowInteractive(true);
+    mockShowInactive.mockClear();
+
+    waylandOverlayWindow.setOverlayWindowInteractive(false);
+    expect(mockShowInactive).not.toHaveBeenCalled();
   });
 
   it('registers the development devtools shortcut and clears the tracked window when closed', async () => {
@@ -240,23 +373,23 @@ describe('overlayWindow', () => {
     });
   });
 
-  it('reapplies the stored linux focusability when moving between displays', async () => {
+  it('preserves passive visibility when moving between displays on linux', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     const overlayWindow = await import('./overlayWindow');
 
     overlayWindow.createWindow('2');
-    mockSetFocusable.mockClear();
     mockShowInactive.mockClear();
+    mockSetShape.mockClear();
 
-    overlayWindow.setOverlayWindowFocusable(false);
+    overlayWindow.setOverlayWindowHitRegions([{ x: 32, y: 64, width: 120, height: 180 }]);
+    mockSetShape.mockClear();
+    mockShowInactive.mockClear();
     overlayWindow.moveWindowToDisplay('primary');
 
     if (process.platform === 'linux') {
-      expect(mockSetFocusable).toHaveBeenNthCalledWith(1, false);
-      expect(mockSetFocusable).toHaveBeenNthCalledWith(2, false);
-      expect(mockShowInactive).toHaveBeenCalledTimes(2);
+      expect(mockSetShape).not.toHaveBeenCalled();
+      expect(mockShowInactive).not.toHaveBeenCalled();
     } else {
-      expect(mockSetFocusable).not.toHaveBeenCalled();
       expect(mockShowInactive).not.toHaveBeenCalled();
     }
   });

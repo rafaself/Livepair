@@ -4,12 +4,16 @@ export type UseDismissableLayerOptions = {
   enabled: boolean;
   containerRef?: RefObject<HTMLElement | null>;
   extraRefs?: readonly RefObject<HTMLElement | null>[];
+  containsTarget?: (target: Node) => boolean;
   onDismiss: () => void;
   onEscape?: () => void;
   onPointerDown?: (target: Node) => void;
 };
 
-const containsTarget = (target: Node, refs: readonly RefObject<HTMLElement | null>[]): boolean => {
+const containsTargetWithinRefs = (
+  target: Node,
+  refs: readonly RefObject<HTMLElement | null>[],
+): boolean => {
   return refs.some((ref) => {
     return ref.current?.contains(target) ?? false;
   });
@@ -23,6 +27,7 @@ export function useDismissableLayer({
   enabled,
   containerRef,
   extraRefs,
+  containsTarget,
   onDismiss,
   onEscape,
   onPointerDown,
@@ -37,8 +42,13 @@ export function useDismissableLayer({
         return ref !== undefined;
       },
     );
+    const isOwnedTarget = (target: Node): boolean => {
+      const isWithinRefs = containsTargetWithinRefs(target, refs);
+      const isWithinCustomOwnedArea = containsTarget?.(target) ?? false;
+      return isWithinRefs || isWithinCustomOwnedArea;
+    };
     let focusStartedInside =
-      refs.length > 0 && getActiveNode() !== null ? containsTarget(getActiveNode() as Node, refs) : false;
+      getActiveNode() !== null ? isOwnedTarget(getActiveNode() as Node) : false;
 
     const handlePointerDown = (event: PointerEvent): void => {
       const target = event.target;
@@ -52,7 +62,7 @@ export function useDismissableLayer({
         return;
       }
 
-      if (refs.length > 0 && containsTarget(target, refs)) {
+      if (isOwnedTarget(target)) {
         return;
       }
 
@@ -67,7 +77,7 @@ export function useDismissableLayer({
         return;
       }
 
-      if (refs.length > 0 && containsTarget(target, refs)) {
+      if (isOwnedTarget(target)) {
         focusStartedInside = true;
         return;
       }
@@ -98,5 +108,5 @@ export function useDismissableLayer({
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('focusin', handleFocusIn);
     };
-  }, [containerRef, enabled, extraRefs, onDismiss, onEscape, onPointerDown]);
+  }, [containerRef, containsTarget, enabled, extraRefs, onDismiss, onEscape, onPointerDown]);
 }

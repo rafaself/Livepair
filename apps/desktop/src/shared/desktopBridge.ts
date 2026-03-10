@@ -22,6 +22,12 @@ export type OverlayHitRegion = {
 };
 
 export type OverlayMode = 'linux-shape' | 'forwarded-pointer';
+export type OverlayWindowState = {
+  isFocused: boolean;
+  isVisible: boolean;
+  isInteractive: boolean;
+};
+export type OverlayWindowStateListener = (state: OverlayWindowState) => void;
 
 export interface DesktopBridge {
   overlayMode: OverlayMode;
@@ -34,7 +40,9 @@ export interface DesktopBridge {
   listDisplays: () => Promise<DesktopDisplayOption[]>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
   setOverlayPointerPassthrough: (enabled: boolean) => Promise<void>;
-  setOverlayFocusable: (enabled: boolean) => Promise<void>;
+  setOverlayInteractive: (enabled: boolean) => Promise<void>;
+  getOverlayWindowState: () => Promise<OverlayWindowState>;
+  onOverlayWindowState: (listener: OverlayWindowStateListener) => () => void;
 }
 
 export const IPC_CHANNELS = {
@@ -45,7 +53,9 @@ export const IPC_CHANNELS = {
   listDisplays: 'displays:list',
   setOverlayHitRegions: 'overlay:setHitRegions',
   setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
-  setOverlayFocusable: 'overlay:setFocusable',
+  setOverlayInteractive: 'overlay:setInteractive',
+  getOverlayWindowState: 'overlay:getWindowState',
+  overlayWindowStateChanged: 'overlay:windowStateChanged',
 } as const;
 
 export function getOverlayMode(platform: string): OverlayMode {

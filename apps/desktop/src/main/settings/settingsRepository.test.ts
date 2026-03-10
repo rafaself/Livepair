@@ -75,7 +75,7 @@ describe('DesktopSettingsRepository', () => {
     await expect(readFile(settingsFilePath, 'utf8')).resolves.toBe(
       JSON.stringify(
         {
-          version: 1,
+          version: 2,
           settings: {
             ...DEFAULT_DESKTOP_SETTINGS,
             backendUrl: 'https://api.livepair.dev/v1',
@@ -92,7 +92,7 @@ describe('DesktopSettingsRepository', () => {
     vi.resetModules();
 
     let storedContents = JSON.stringify({
-      version: 1,
+      version: 2,
       settings: DEFAULT_DESKTOP_SETTINGS,
     });
     let releaseReads = (): void => undefined;
@@ -162,5 +162,61 @@ describe('DesktopSettingsRepository', () => {
       selectedCaptureDisplayId: 'display-2',
       selectedOverlayDisplayId: 'display-3',
     });
+  });
+
+  it('migrates legacy display-pinned settings back to the primary-display defaults', async () => {
+    const { writeFile } = await import('node:fs/promises');
+
+    await writeFile(
+      settingsFilePath,
+      JSON.stringify({
+        version: 1,
+        settings: {
+          ...DEFAULT_DESKTOP_SETTINGS,
+          selectedCaptureDisplayId: '1881264395124818',
+          selectedCaptureDisplayLabel: 'Built-in display',
+          selectedOverlayDisplayId: '1881264395124818',
+          selectedOverlayDisplayLabel: 'Built-in display',
+        },
+      }),
+    );
+
+    const repository = new DesktopSettingsRepository(settingsFilePath);
+
+    await expect(repository.getSettings()).resolves.toEqual(DEFAULT_DESKTOP_SETTINGS);
+    await expect(readFile(settingsFilePath, 'utf8')).resolves.toBe(
+      JSON.stringify(
+        {
+          version: 2,
+          settings: DEFAULT_DESKTOP_SETTINGS,
+        },
+        null,
+        2,
+      ),
+    );
+  });
+
+  it('clears stale display labels when switching a saved display back to primary', async () => {
+    const { writeFile } = await import('node:fs/promises');
+
+    await writeFile(
+      settingsFilePath,
+      JSON.stringify({
+        version: 2,
+        settings: {
+          ...DEFAULT_DESKTOP_SETTINGS,
+          selectedOverlayDisplayId: 'display-2',
+          selectedOverlayDisplayLabel: 'HDMI-1',
+        },
+      }),
+    );
+
+    const repository = new DesktopSettingsRepository(settingsFilePath);
+
+    await expect(
+      repository.updateSettings({
+        selectedOverlayDisplayId: 'primary',
+      }),
+    ).resolves.toEqual(DEFAULT_DESKTOP_SETTINGS);
   });
 });
