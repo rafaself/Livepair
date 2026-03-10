@@ -6,6 +6,9 @@ describe('IPC_CHANNELS', () => {
     expect(IPC_CHANNELS).toEqual({
       checkHealth: 'health:check',
       requestSessionToken: 'session:requestToken',
+      startTextChatStream: 'session:startTextChat',
+      cancelTextChatStream: 'session:cancelTextChat',
+      textChatEvent: 'session:textChatEvent',
       getSettings: 'settings:get',
       updateSettings: 'settings:update',
       setOverlayHitRegions: 'overlay:setHitRegions',
