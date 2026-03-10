@@ -402,6 +402,10 @@ export function createDesktopSessionController(
       return;
     }
 
+    dependencies.logger.onTransportEvent({ type: 'error', detail: event.detail });
+    dependencies.store
+      .getState()
+      .setLastDebugEvent(createDebugEvent('transport', 'error', event.detail));
     activeTextChatStream = null;
     setErrorState(event.detail, 'Response failed');
   };

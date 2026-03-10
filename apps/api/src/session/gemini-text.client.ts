@@ -98,6 +98,21 @@ function parseSseEventData(eventBlock: string): string | null {
   return dataLines.join('\n');
 }
 
+function normalizeSseBuffer(buffer: string): string {
+  return buffer.replace(/\r\n/g, '\n');
+}
+
+function parseGeminiTextStreamChunk(data: string): GeminiTextStreamChunk {
+  try {
+    return JSON.parse(data) as GeminiTextStreamChunk;
+  } catch {
+    console.error('[session:gemini-text] invalid upstream SSE payload', {
+      rawData: data,
+    });
+    throw new BadGatewayException('Gemini text response was invalid');
+  }
+}
+
 export async function* requestGeminiTextStream({
   apiKey,
   model,
@@ -166,7 +181,7 @@ export async function* requestGeminiTextStream({
       break;
     }
 
-    buffer = `${buffer}${decoder.decode(value, { stream: true })}`;
+    buffer = normalizeSseBuffer(`${buffer}${decoder.decode(value, { stream: true })}`);
     const eventBlocks = buffer.split('\n\n');
     buffer = eventBlocks.pop() ?? '';
 
@@ -177,13 +192,7 @@ export async function* requestGeminiTextStream({
         continue;
       }
 
-      let payload: GeminiTextStreamChunk;
-      try {
-        payload = JSON.parse(data) as GeminiTextStreamChunk;
-      } catch {
-        throw new BadGatewayException('Gemini text response was invalid');
-      }
-
+      const payload = parseGeminiTextStreamChunk(data);
       const text = extractTextFromChunk(payload);
       if (text.length > 0) {
         yield { type: 'text-delta', text };
@@ -191,15 +200,9 @@ export async function* requestGeminiTextStream({
     }
   }
 
-  const trailingData = parseSseEventData(buffer);
+  const trailingData = parseSseEventData(normalizeSseBuffer(buffer));
   if (trailingData && trailingData !== '[DONE]') {
-    let payload: GeminiTextStreamChunk;
-    try {
-      payload = JSON.parse(trailingData) as GeminiTextStreamChunk;
-    } catch {
-      throw new BadGatewayException('Gemini text response was invalid');
-    }
-
+    const payload = parseGeminiTextStreamChunk(trailingData);
     const text = extractTextFromChunk(payload);
     if (text.length > 0) {
       yield { type: 'text-delta', text };

@@ -71,6 +71,72 @@ describe('requestGeminiTextStream', () => {
     );
   });
 
+  it('accepts Gemini SSE streams that use CRLF block separators', async () => {
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              [
+                'data: {"candidates":[{"content":{"parts":[{"text":"Here is "}]} }]}',
+                '',
+                'data: {"candidates":[{"content":{"parts":[{"text":"the summary."}]} }]}',
+                '',
+              ].join('\r\n'),
+            ),
+          );
+          controller.close();
+        },
+      }),
+    } as Response);
+
+    await expect(
+      collectEvents(
+        requestGeminiTextStream({
+          apiKey: 'gemini-key',
+          model: 'gemini-2.5-flash',
+          fetchImpl,
+          messages: [{ role: 'user', content: 'Summarize the current screen' }],
+        }),
+      ),
+    ).resolves.toEqual([
+      { type: 'text-delta', text: 'Here is ' },
+      { type: 'text-delta', text: 'the summary.' },
+      { type: 'completed' },
+    ]);
+  });
+
+  it('logs the raw upstream SSE block when Gemini emits invalid JSON', async () => {
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('data: {"broken":\n\n'));
+          controller.close();
+        },
+      }),
+    } as Response);
+
+    await expect(
+      collectEvents(
+        requestGeminiTextStream({
+          apiKey: 'gemini-key',
+          model: 'gemini-2.5-flash',
+          fetchImpl,
+          messages: [{ role: 'user', content: 'Summarize the current screen' }],
+        }),
+      ),
+    ).rejects.toEqual(new BadGatewayException('Gemini text response was invalid'));
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[session:gemini-text] invalid upstream SSE payload',
+      expect.objectContaining({
+        rawData: '{"broken":',
+      }),
+    );
+  });
+
   it('maps upstream non-ok responses to a bad gateway error', async () => {
     fetchImpl.mockResolvedValue({
       ok: false,

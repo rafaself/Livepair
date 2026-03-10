@@ -193,11 +193,12 @@ describe('createDesktopSessionController', () => {
 
   it('maps backend stream errors into an inline failed assistant turn', async () => {
     const textChat = createTextChatHarness();
+    const logger: RuntimeLogger = {
+      onSessionEvent: vi.fn(),
+      onTransportEvent: vi.fn(),
+    };
     const controller = createDesktopSessionController({
-      logger: {
-        onSessionEvent: vi.fn(),
-        onTransportEvent: vi.fn(),
-      },
+      logger,
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn(),
@@ -224,6 +225,10 @@ describe('createDesktopSessionController', () => {
         statusLabel: 'Response failed',
       }),
     );
+    expect(logger.onTransportEvent).toHaveBeenCalledWith({
+      type: 'error',
+      detail: 'backend overloaded',
+    });
   });
 
   it('does not append a user turn when text chat cannot start', async () => {
