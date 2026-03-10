@@ -16,6 +16,7 @@ import {
   type GeminiLiveSdkServerMessage,
   type GeminiLiveSdkSession,
 } from './geminiLiveSdkClient';
+import { logRuntimeDiagnostic, logRuntimeError } from './logger';
 
 export type CreateGeminiLiveTransportOptions = {
   connectSession?: (
@@ -124,6 +125,13 @@ export class GeminiLiveTransport implements DesktopSession {
     this.closingByClient = false;
     this.pendingOutputText = '';
     this.emit({ type: 'connection-state-changed', state: 'connecting' });
+    logRuntimeDiagnostic('gemini-live-transport', 'connect started', {
+      mode,
+      apiVersion: this.config.apiVersion,
+      model: this.config.model,
+      expireTime: token.expireTime,
+      newSessionExpireTime: token.newSessionExpireTime,
+    });
 
     let liveConnectConfig: GeminiLiveConnectConfig;
 
@@ -131,6 +139,12 @@ export class GeminiLiveTransport implements DesktopSession {
       liveConnectConfig = buildGeminiLiveConnectConfig(this.config, mode);
     } catch (error) {
       const detail = getErrorDetail(error, 'Gemini Live connection failed');
+      logRuntimeError('gemini-live-transport', 'connect config rejected', {
+        detail,
+        mode,
+        apiVersion: this.config.apiVersion,
+        model: this.config.model,
+      });
       this.emit({ type: 'error', detail });
       throw createError(detail);
     }
@@ -181,12 +195,19 @@ export class GeminiLiveTransport implements DesktopSession {
         this.pendingOutputText = '';
         this.session = null;
         this.hasCompletedSetup = false;
+        logRuntimeError('gemini-live-transport', 'unexpected termination', {
+          detail,
+        });
         this.emit({ type: 'error', detail });
       };
 
       const handleSdkMessage = (message: GeminiLiveSdkServerMessage): void => {
         if (message.setupComplete) {
           this.hasCompletedSetup = true;
+          logRuntimeDiagnostic('gemini-live-transport', 'setup complete', {
+            apiVersion: this.config.apiVersion,
+            model: this.config.model,
+          });
           this.emit({ type: 'connection-state-changed', state: 'connected' });
           resolveSetup();
           return;
@@ -199,6 +220,9 @@ export class GeminiLiveTransport implements DesktopSession {
           this.session = null;
           this.hasCompletedSetup = false;
           this.pendingOutputText = '';
+          logRuntimeDiagnostic('gemini-live-transport', 'go-away received', {
+            detail,
+          });
           this.emit({ type: 'go-away', detail });
 
           if (!wasSetupCompleted) {
@@ -248,6 +272,9 @@ export class GeminiLiveTransport implements DesktopSession {
 
       const handleSdkError = (event: ErrorEvent): void => {
         const detail = getErrorEventDetail(event, 'Gemini Live connection failed');
+        logRuntimeError('gemini-live-transport', 'sdk error', {
+          detail,
+        });
 
         if (!this.hasCompletedSetup) {
           failSetup(detail);
@@ -268,6 +295,12 @@ export class GeminiLiveTransport implements DesktopSession {
             ? 'Gemini Live session closed unexpectedly'
             : 'Gemini Live session closed before setup completed',
         );
+        logRuntimeDiagnostic('gemini-live-transport', 'sdk close', {
+          code: event.code,
+          detail,
+          closingByClient: this.closingByClient,
+          hasCompletedSetup: this.hasCompletedSetup,
+        });
 
         if (this.closingByClient) {
           this.session = null;
@@ -307,8 +340,12 @@ export class GeminiLiveTransport implements DesktopSession {
         .then((session) => {
           activeSession = session;
           this.session = session;
+          logRuntimeDiagnostic('gemini-live-transport', 'sdk connect resolved');
         })
         .catch((error: unknown) => {
+          logRuntimeError('gemini-live-transport', 'sdk connect rejected', {
+            detail: getErrorDetail(error, 'Gemini Live connection failed'),
+          });
           failSetup(getErrorDetail(error, 'Gemini Live connection failed'));
         });
     });
@@ -333,6 +370,9 @@ export class GeminiLiveTransport implements DesktopSession {
       this.emit({ type: 'interrupted' });
     }
 
+    logRuntimeDiagnostic('gemini-live-transport', 'send text', {
+      textLength: text.length,
+    });
     session.sendClientContent({
       turns: [
         {
@@ -357,6 +397,7 @@ export class GeminiLiveTransport implements DesktopSession {
     }
 
     this.closingByClient = true;
+    logRuntimeDiagnostic('gemini-live-transport', 'disconnect requested');
 
     await new Promise<void>((resolve) => {
       this.disconnectResolver = () => {

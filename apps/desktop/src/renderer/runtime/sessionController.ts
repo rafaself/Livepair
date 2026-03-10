@@ -1,7 +1,12 @@
 import { checkBackendHealth, requestSessionToken } from '../api/backend';
 import { useSessionStore } from '../store/sessionStore';
 import { LIVE_ADAPTER_KEY } from './liveConfig';
-import { defaultRuntimeLogger } from './logger';
+import {
+  defaultRuntimeLogger,
+  logLifecycleTransition,
+  logRuntimeDiagnostic,
+  logRuntimeError,
+} from './logger';
 import { formatConversationTimestamp } from './conversationTimestamp';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
 import {
@@ -115,10 +120,12 @@ export function createDesktopSessionController(
     event: TextSessionLifecycleEvent,
   ): TextSessionStatus => {
     const store = dependencies.store.getState();
+    const previousStatus = store.textSessionLifecycle.status;
     const nextLifecycle = reduceTextSessionLifecycle(store.textSessionLifecycle, event);
 
-    if (nextLifecycle !== store.textSessionLifecycle) {
+    if (nextLifecycle.status !== previousStatus) {
       store.setTextSessionLifecycle(nextLifecycle);
+      logLifecycleTransition(previousStatus, nextLifecycle.status, event.type);
     }
 
     return nextLifecycle.status;
@@ -261,6 +268,7 @@ export function createDesktopSessionController(
 
   const setGoAwayState = (detail: string): void => {
     applyLifecycleEvent({ type: 'go-away.received' });
+    logRuntimeDiagnostic('session', 'go-away state entered', { detail });
     failPendingAssistantTurn('Session unavailable');
     cleanupTransport();
     const store = dependencies.store.getState();
@@ -271,6 +279,7 @@ export function createDesktopSessionController(
 
   const setErrorState = (detail: string): void => {
     applyLifecycleEvent({ type: 'runtime.failed' });
+    logRuntimeError('session', 'runtime entered error state', { detail });
     failPendingAssistantTurn('Disconnected');
     cleanupTransport();
     const store = dependencies.store.getState();
@@ -412,6 +421,10 @@ export function createDesktopSessionController(
     resetRuntimeState();
     applyLifecycleEvent({ type: 'bootstrap.started' });
     recordSessionEvent({ type: 'session.start.requested', transport: LIVE_ADAPTER_KEY });
+    logRuntimeDiagnostic('session', 'start requested', {
+      mode,
+      transport: LIVE_ADAPTER_KEY,
+    });
 
     const isHealthy = await performBackendHealthCheck(operationId);
 
@@ -422,6 +435,7 @@ export function createDesktopSessionController(
     dependencies.store.getState().setTokenRequestState('loading');
     applyLifecycleEvent({ type: 'bootstrap.started' });
     recordSessionEvent({ type: 'session.token.request.started' });
+    logRuntimeDiagnostic('session', 'requesting ephemeral token');
 
     let token;
     try {
@@ -432,6 +446,10 @@ export function createDesktopSessionController(
       }
 
       dependencies.store.getState().setTokenRequestState('success');
+      logRuntimeDiagnostic('session', 'ephemeral token received', {
+        expireTime: token.expireTime,
+        newSessionExpireTime: token.newSessionExpireTime,
+      });
       recordSessionEvent({
         type: 'session.token.request.succeeded',
         transport: LIVE_ADAPTER_KEY,
@@ -452,6 +470,10 @@ export function createDesktopSessionController(
     unsubscribeTransport = activeTransport.subscribe(handleTransportEvent);
     dependencies.store.getState().setActiveTransport(LIVE_ADAPTER_KEY);
     applyLifecycleEvent({ type: 'bootstrap.started' });
+    logRuntimeDiagnostic('session', 'connecting transport', {
+      mode,
+      transport: LIVE_ADAPTER_KEY,
+    });
 
     try {
       await activeTransport.connect({ token, mode });
@@ -468,6 +490,9 @@ export function createDesktopSessionController(
         return;
       }
 
+      logRuntimeError('session', 'transport connect failed', {
+        detail: asErrorDetail(error, 'Gemini Live connection failed'),
+      });
       setErrorState(asErrorDetail(error, 'Gemini Live connection failed'));
     }
   };
@@ -532,6 +557,9 @@ export function createDesktopSessionController(
       const transport = await ensureConnectedTransport();
 
       if (!transport) {
+        logRuntimeError('session', 'submit aborted because transport is unavailable', {
+          textLength: trimmedText.length,
+        });
         return false;
       }
 
@@ -545,6 +573,9 @@ export function createDesktopSessionController(
       }
 
       appendUserTurn(trimmedText);
+      logRuntimeDiagnostic('session', 'text turn submitted', {
+        textLength: trimmedText.length,
+      });
       dependencies.store.getState().setLastRuntimeError(null);
       return true;
     },

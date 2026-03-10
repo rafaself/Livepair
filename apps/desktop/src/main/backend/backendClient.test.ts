@@ -70,6 +70,15 @@ describe('backendClient', () => {
         request: req,
       },
     );
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '[desktop:backend-client] session token request succeeded',
+      {
+        url: 'http://localhost:3000/session/token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        tokenLength: 'ephemeral-token'.length,
+      },
+    );
   });
 
   it('rejects malformed token responses before bootstrap uses them', async () => {

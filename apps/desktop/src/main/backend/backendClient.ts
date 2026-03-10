@@ -141,7 +141,15 @@ export function createBackendClient({
         );
       }
 
-      return parseCreateEphemeralTokenResponse(await res.json());
+      const parsedResponse = parseCreateEphemeralTokenResponse(await res.json());
+      console.info('[desktop:backend-client] session token request succeeded', {
+        url,
+        expireTime: parsedResponse.expireTime,
+        newSessionExpireTime: parsedResponse.newSessionExpireTime,
+        tokenLength: parsedResponse.token.length,
+      });
+
+      return parsedResponse;
     },
   };
 }
