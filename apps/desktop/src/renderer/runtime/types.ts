@@ -189,6 +189,7 @@ export type DesktopSession = {
   sendText: (text: string) => Promise<void>;
   sendAudioChunk: (chunk: Uint8Array) => Promise<void>;
   sendAudioStreamEnd: () => Promise<void>;
+  sendVideoFrame: (data: Uint8Array, mimeType: string) => Promise<void>;
   disconnect: () => Promise<void>;
   subscribe: (listener: (event: LiveSessionEvent) => void) => () => void;
 };
@@ -196,6 +197,29 @@ export type DesktopSession = {
 export type AssistantAudioPlayback = {
   enqueue: (chunk: Uint8Array) => Promise<void>;
   stop: () => Promise<void>;
+};
+
+export type ScreenCaptureState =
+  | 'disabled'
+  | 'requestingPermission'
+  | 'capturing'
+  | 'stopping'
+  | 'error';
+
+export type ScreenCaptureDiagnostics = {
+  frameCount: number;
+  frameRateHz: number | null;
+  widthPx: number | null;
+  heightPx: number | null;
+  lastError: string | null;
+};
+
+export type LocalScreenFrame = {
+  data: Uint8Array;
+  mimeType: 'image/jpeg';
+  sequence: number;
+  widthPx: number;
+  heightPx: number;
 };
 
 export type RuntimeLogger = {

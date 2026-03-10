@@ -822,4 +822,63 @@ describe('createGeminiLiveTransport', () => {
       detail: 'Assistant audio payload was malformed',
     });
   });
+
+  it('sends video frames through realtime input with base64 encoding', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+    await transport.sendVideoFrame(new Uint8Array([1, 2, 3, 4]), 'image/jpeg');
+
+    expect(sdkHarness.session.sendRealtimeInput).toHaveBeenCalledWith({
+      video: {
+        data: 'AQIDBA==',
+        mimeType: 'image/jpeg',
+      },
+    });
+  });
+
+  it('throws when sendVideoFrame is called without a connected session', async () => {
+    const transport = createGeminiLiveTransport({ config: TEST_LIVE_CONFIG });
+    await expect(
+      transport.sendVideoFrame(new Uint8Array([1, 2]), 'image/jpeg'),
+    ).rejects.toThrow('Gemini Live session is not connected');
+  });
+
+  it('throws when sendVideoFrame is called in text mode', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'text',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    await expect(
+      transport.sendVideoFrame(new Uint8Array([1, 2]), 'image/jpeg'),
+    ).rejects.toThrow('Gemini Live video input requires a voice session');
+  });
 });

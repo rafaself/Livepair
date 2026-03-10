@@ -491,6 +491,29 @@ export class GeminiLiveTransport implements DesktopSession {
     });
   }
 
+  async sendVideoFrame(data: Uint8Array, mimeType: string): Promise<void> {
+    const session = this.session;
+
+    if (!session || !this.hasCompletedSetup) {
+      throw createError('Gemini Live session is not connected');
+    }
+
+    if (this.activeMode !== 'voice') {
+      throw createError('Gemini Live video input requires a voice session');
+    }
+
+    logRuntimeDiagnostic('gemini-live-transport', 'send video frame', {
+      byteLength: data.byteLength,
+      mimeType,
+    });
+    session.sendRealtimeInput({
+      video: {
+        data: encodeChunkToBase64(data),
+        mimeType,
+      },
+    });
+  }
+
   async sendAudioStreamEnd(): Promise<void> {
     const session = this.session;
 

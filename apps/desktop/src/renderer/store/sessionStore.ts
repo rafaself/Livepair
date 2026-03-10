@@ -11,6 +11,8 @@ import type {
   CurrentVoiceTranscript,
   ConversationTurnModel,
   RuntimeDebugEvent,
+  ScreenCaptureDiagnostics,
+  ScreenCaptureState,
   SessionPhase,
   TextSessionLifecycle,
   TextSessionStatus,
@@ -43,6 +45,8 @@ type SessionStoreData = {
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   currentVoiceTranscript: CurrentVoiceTranscript;
+  screenCaptureState: ScreenCaptureState;
+  screenCaptureDiagnostics: ScreenCaptureDiagnostics;
 };
 
 export type SessionStoreState = SessionStoreData & {
@@ -73,6 +77,8 @@ export type SessionStoreState = SessionStoreData & {
     patch: Partial<CurrentVoiceTranscript[keyof CurrentVoiceTranscript]>,
   ) => void;
   clearCurrentVoiceTranscript: () => void;
+  setScreenCaptureState: (screenCaptureState: ScreenCaptureState) => void;
+  setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
   resetTextSessionRuntime: (textSessionStatus?: TextSessionStatus) => void;
   reset: (overrides?: Partial<SessionStoreData>) => void;
@@ -120,6 +126,16 @@ function buildDefaultCurrentVoiceTranscript(): CurrentVoiceTranscript {
   };
 }
 
+function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
+  return {
+    frameCount: 0,
+    frameRateHz: null,
+    widthPx: null,
+    heightPx: null,
+    lastError: null,
+  };
+}
+
 function buildDefaultSessionState(): SessionStoreData {
   return {
     ...withDerivedLifecycleFields(createTextSessionLifecycle()),
@@ -136,6 +152,8 @@ function buildDefaultSessionState(): SessionStoreData {
     voicePlaybackState: 'idle',
     voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+    screenCaptureState: 'disabled',
+    screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
   };
 }
 
@@ -252,6 +270,14 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
     set({
       currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
     }),
+  setScreenCaptureState: (screenCaptureState) => set({ screenCaptureState }),
+  setScreenCaptureDiagnostics: (patch) =>
+    set((state) => ({
+      screenCaptureDiagnostics: {
+        ...state.screenCaptureDiagnostics,
+        ...patch,
+      },
+    })),
   setAssistantState: (assistantState) =>
     set((state) => getDebugRuntimeState(assistantState, state.activeTransport)),
   resetTextSessionRuntime: (textSessionStatus = 'idle') =>
@@ -270,6 +296,8 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       voicePlaybackState: state.voicePlaybackState,
       voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
       currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+      screenCaptureState: 'disabled' as ScreenCaptureState,
+      screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
     })),
   reset: (overrides) =>
     set(() => {
