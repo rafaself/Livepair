@@ -32,6 +32,8 @@ export function AssistantPanel({
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    isVoiceSessionActive,
+    currentVoiceTranscript,
     canSubmitText,
     lastRuntimeError,
     draftText,
@@ -66,6 +68,8 @@ export function AssistantPanel({
               textSessionStatusLabel={textSessionStatusLabel}
               canSubmitText={canSubmitText}
               turns={conversationTurns}
+              isVoiceSessionActive={isVoiceSessionActive}
+              currentVoiceTranscript={currentVoiceTranscript}
               isConversationEmpty={isConversationEmpty}
               lastRuntimeError={lastRuntimeError}
               draftText={draftText}

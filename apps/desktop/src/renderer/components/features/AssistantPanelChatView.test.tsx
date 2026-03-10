@@ -13,6 +13,11 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText=""
@@ -54,6 +59,11 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session ready"
         canSubmitText={true}
         turns={turns}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={false}
         lastRuntimeError={null}
         draftText=""
@@ -78,6 +88,11 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session failed"
         canSubmitText={true}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError="transport offline"
         draftText=""
@@ -112,6 +127,11 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session failed"
         canSubmitText={true}
         turns={turns}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={false}
         lastRuntimeError="transport offline"
         draftText="retry prompt"
@@ -139,6 +159,11 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session ready"
         canSubmitText={true}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Summarize this"
@@ -159,6 +184,11 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Receiving response..."
         canSubmitText={false}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Summarize this"
@@ -180,6 +210,11 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Response complete"
         canSubmitText={true}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Follow up"
@@ -199,6 +234,11 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Preparing text chat..."
         canSubmitText={false}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Follow up"
@@ -210,5 +250,61 @@ describe('AssistantPanelChatView', () => {
 
     expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
     expect(screen.getByText('Preparing text chat...')).toBeVisible();
+  });
+
+  it('renders the current voice transcript section separately from text conversation history', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="speaking"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
+        turns={[]}
+        isVoiceSessionActive={true}
+        currentVoiceTranscript={{
+          user: { text: 'Can you summarize that?' },
+          assistant: { text: 'Here is the summary.' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Current voice turn' })).toBeVisible();
+    expect(screen.getByText('Can you summarize that?')).toBeVisible();
+    expect(screen.getByText('Here is the summary.')).toBeVisible();
+    expect(screen.getByText('Live voice transcript')).toBeVisible();
+    expect(screen.queryByText('Send a text prompt to start the realtime loop and keep the latest exchange visible.')).toBeNull();
+  });
+
+  it('shows voice-specific placeholder copy when voice mode is active before transcript arrives', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
+        turns={[]}
+        isVoiceSessionActive={true}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Live voice transcript')).toBeVisible();
+    expect(screen.getByText('Speak to start the current voice turn transcript.')).toBeVisible();
+    expect(screen.queryByText('No conversation yet')).toBeNull();
   });
 });

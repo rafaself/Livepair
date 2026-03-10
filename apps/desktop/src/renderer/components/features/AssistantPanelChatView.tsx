@@ -1,7 +1,11 @@
 import { MessageCircle, SendHorizonal, TriangleAlert } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
-import type { ConversationTurnModel, TextSessionStatus } from '../../runtime/types';
+import type {
+  ConversationTurnModel,
+  CurrentVoiceTranscript,
+  TextSessionStatus,
+} from '../../runtime/types';
 import { Button, TextInput } from '../primitives';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { ConversationList } from './ConversationList';
@@ -13,6 +17,8 @@ export type AssistantPanelChatViewProps = {
   textSessionStatusLabel: string;
   canSubmitText: boolean;
   turns: ConversationTurnModel[];
+  isVoiceSessionActive: boolean;
+  currentVoiceTranscript: CurrentVoiceTranscript;
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -27,6 +33,8 @@ export function AssistantPanelChatView({
   textSessionStatusLabel,
   canSubmitText,
   turns,
+  isVoiceSessionActive,
+  currentVoiceTranscript,
   isConversationEmpty,
   lastRuntimeError,
   draftText,
@@ -36,6 +44,9 @@ export function AssistantPanelChatView({
 }: AssistantPanelChatViewProps): JSX.Element {
   const isComposerDisabled = isSubmittingTextTurn || !canSubmitText;
   const canSubmit = draftText.trim().length > 0 && !isComposerDisabled;
+  const hasVoiceTranscript =
+    currentVoiceTranscript.user.text.trim().length > 0 ||
+    currentVoiceTranscript.assistant.text.trim().length > 0;
   const emptyState = (
     <div className="assistant-panel__conversation-card assistant-panel__conversation-card--empty">
       {assistantState === 'error' && lastRuntimeError ? (
@@ -54,9 +65,13 @@ export function AssistantPanelChatView({
             className="assistant-panel__conversation-empty-icon"
             aria-hidden="true"
           />
-          <p className="assistant-panel__conversation-empty-title">No conversation yet</p>
+          <p className="assistant-panel__conversation-empty-title">
+            {isVoiceSessionActive ? 'Live voice transcript' : 'No conversation yet'}
+          </p>
           <p className="assistant-panel__conversation-empty-body">
-            Send a text prompt to start the realtime loop and keep the latest exchange visible.
+            {isVoiceSessionActive
+              ? 'Speak to start the current voice turn transcript.'
+              : 'Send a text prompt to start the realtime loop and keep the latest exchange visible.'}
           </p>
         </>
       )}
@@ -90,6 +105,28 @@ export function AssistantPanelChatView({
             )}
           </div>
 
+          {(isVoiceSessionActive || hasVoiceTranscript) ? (
+            <section
+              className="assistant-panel__voice-transcript"
+              aria-label="Current voice turn transcript"
+            >
+              <h3 className="assistant-panel__voice-transcript-title">Current voice turn</h3>
+              <div className="assistant-panel__voice-transcript-rows">
+                <div className="assistant-panel__voice-transcript-row">
+                  <p className="assistant-panel__voice-transcript-label">You</p>
+                  <p className="assistant-panel__voice-transcript-body">
+                    {currentVoiceTranscript.user.text || 'Listening for your speech...'}
+                  </p>
+                </div>
+                <div className="assistant-panel__voice-transcript-row">
+                  <p className="assistant-panel__voice-transcript-label">Assistant</p>
+                  <p className="assistant-panel__voice-transcript-body">
+                    {currentVoiceTranscript.assistant.text || 'Waiting for the assistant response...'}
+                  </p>
+                </div>
+              </div>
+            </section>
+          ) : null}
           <ConversationList
             turns={turns}
             emptyState={emptyState}

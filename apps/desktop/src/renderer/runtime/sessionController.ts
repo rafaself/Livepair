@@ -137,6 +137,7 @@ export function createDesktopSessionController(
   let voiceSendChain = Promise.resolve();
   let voiceInterruptionInFlight: Promise<void> | null = null;
   let voiceInterruptionSequence = 0;
+  let voiceTurnHasCompleted = false;
   const voiceChunkListeners = new Set<(chunk: LocalVoiceChunk) => void>();
 
   const recordSessionEvent = (event: SessionControllerEvent): void => {
@@ -281,6 +282,68 @@ export function createDesktopSessionController(
     dependencies.store.getState().setVoiceSessionStatus(status);
   };
 
+  const clearCurrentVoiceTranscript = (): void => {
+    dependencies.store.getState().clearCurrentVoiceTranscript();
+  };
+
+  const resetVoiceTurnTranscriptState = (): void => {
+    voiceTurnHasCompleted = false;
+    clearCurrentVoiceTranscript();
+  };
+
+  const normalizeTranscriptText = (previous: string, incoming: string): string => {
+    if (incoming.length === 0 || incoming === previous) {
+      return previous;
+    }
+
+    if (previous.length === 0) {
+      return incoming;
+    }
+
+    if (incoming.startsWith(previous) || incoming.length > previous.length) {
+      return incoming;
+    }
+
+    if (incoming.length < previous.length) {
+      return incoming;
+    }
+
+    const overlapLimit = Math.min(previous.length, incoming.length);
+
+    for (let overlap = overlapLimit; overlap > 0; overlap -= 1) {
+      if (previous.endsWith(incoming.slice(0, overlap))) {
+        return `${previous}${incoming.slice(overlap)}`;
+      }
+    }
+
+    return `${previous}${incoming}`;
+  };
+
+  const applyVoiceTranscriptUpdate = (
+    role: 'user' | 'assistant',
+    text: string,
+    isFinal?: boolean,
+  ): void => {
+    const store = dependencies.store.getState();
+
+    if (role === 'user' && voiceTurnHasCompleted) {
+      clearCurrentVoiceTranscript();
+      voiceTurnHasCompleted = false;
+    }
+
+    const previousEntry = store.currentVoiceTranscript[role];
+    const nextText = normalizeTranscriptText(previousEntry.text, text);
+
+    if (nextText === previousEntry.text && isFinal === previousEntry.isFinal) {
+      return;
+    }
+
+    store.setCurrentVoiceTranscriptEntry(role, {
+      text: nextText,
+      ...(isFinal !== undefined ? { isFinal } : {}),
+    });
+  };
+
   const cleanupTransport = (): void => {
     unsubscribeTransport?.();
     unsubscribeTransport = null;
@@ -291,6 +354,7 @@ export function createDesktopSessionController(
     voiceInterruptionSequence += 1;
     releaseTextChatStream();
     clearPendingAssistantTurn();
+    voiceTurnHasCompleted = false;
   };
 
   const beginSessionOperation = (): number => {
@@ -388,6 +452,7 @@ export function createDesktopSessionController(
 
   const resetRuntimeState = (textSessionStatus: TextSessionStatus = 'idle'): void => {
     clearPendingAssistantTurn();
+    voiceTurnHasCompleted = false;
     dependencies.store.getState().resetTextSessionRuntime(textSessionStatus);
   };
 
@@ -409,6 +474,7 @@ export function createDesktopSessionController(
     logRuntimeError('voice-session', 'runtime entered error state', { detail });
     const transport = activeTransport;
     const store = dependencies.store.getState();
+    resetVoiceTurnTranscriptState();
     store.setVoiceSessionStatus('error');
     store.setVoiceCaptureState('error');
     store.setLastRuntimeError(detail);
@@ -547,6 +613,7 @@ export function createDesktopSessionController(
         store.setAssistantActivity('idle');
         store.setActiveTransport(LIVE_ADAPTER_KEY);
         store.setLastRuntimeError(null);
+        resetVoiceTurnTranscriptState();
         setVoicePlaybackState('idle');
         updateVoicePlaybackDiagnostics({
           chunkCount: 0,
@@ -560,6 +627,7 @@ export function createDesktopSessionController(
       }
 
       setVoiceSessionStatus('disconnected');
+      resetVoiceTurnTranscriptState();
       void stopVoicePlayback();
       cleanupTransport();
       store.setAssistantActivity('idle');
@@ -587,7 +655,18 @@ export function createDesktopSessionController(
     }
 
     if (event.type === 'interrupted') {
+      voiceTurnHasCompleted = true;
       handleVoiceInterruption();
+      return;
+    }
+
+    if (event.type === 'input-transcript') {
+      applyVoiceTranscriptUpdate('user', event.text, event.isFinal);
+      return;
+    }
+
+    if (event.type === 'output-transcript') {
+      applyVoiceTranscriptUpdate('assistant', event.text, event.isFinal);
       return;
     }
 
@@ -595,6 +674,11 @@ export function createDesktopSessionController(
       void getVoicePlayback()
         .enqueue(event.chunk)
         .catch(() => {});
+      return;
+    }
+
+    if (event.type === 'turn-complete') {
+      voiceTurnHasCompleted = true;
     }
   };
 

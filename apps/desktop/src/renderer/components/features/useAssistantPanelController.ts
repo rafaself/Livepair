@@ -4,6 +4,7 @@ import { useUiStore, type PanelView } from '../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
 import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 import type {
+  CurrentVoiceTranscript,
   ConversationTurnModel,
   TextSessionStatus,
   VoiceCaptureDiagnostics,
@@ -34,6 +35,8 @@ export type AssistantPanelController = {
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  isVoiceSessionActive: boolean;
+  currentVoiceTranscript: CurrentVoiceTranscript;
   canSubmitText: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -63,6 +66,8 @@ export function useAssistantPanelController(): AssistantPanelController {
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    isVoiceSessionActive,
+    currentVoiceTranscript,
     canSubmitText,
     conversationTurns,
     lastRuntimeError,
@@ -141,6 +146,8 @@ export function useAssistantPanelController(): AssistantPanelController {
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    isVoiceSessionActive,
+    currentVoiceTranscript,
     canSubmitText,
     lastRuntimeError,
     draftText,

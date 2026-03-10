@@ -32,6 +32,7 @@ export function useSessionRuntime() {
   const voiceCaptureDiagnostics = useSessionStore((state) => state.voiceCaptureDiagnostics);
   const voicePlaybackState = useSessionStore((state) => state.voicePlaybackState);
   const voicePlaybackDiagnostics = useSessionStore((state) => state.voicePlaybackDiagnostics);
+  const currentVoiceTranscript = useSessionStore((state) => state.currentVoiceTranscript);
   const controller = getDesktopSessionController();
 
   const handleCheckBackendHealth = useCallback(async (): Promise<void> => {
@@ -90,6 +91,7 @@ export function useSessionRuntime() {
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    currentVoiceTranscript,
     handleCheckBackendHealth,
     handleStartSession,
     handleStartVoiceSession,

@@ -100,6 +100,16 @@ export type VoicePlaybackDiagnostics = {
   lastError: string | null;
 };
 
+export type VoiceTranscriptEntry = {
+  text: string;
+  isFinal?: boolean | undefined;
+};
+
+export type CurrentVoiceTranscript = {
+  user: VoiceTranscriptEntry;
+  assistant: VoiceTranscriptEntry;
+};
+
 export type SessionControllerEvent =
   | { type: 'session.backend.health.started' }
   | { type: 'session.backend.health.succeeded' }

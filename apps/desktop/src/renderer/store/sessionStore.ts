@@ -8,6 +8,7 @@ import {
 } from '../runtime/textSessionLifecycle';
 import type {
   AssistantActivityState,
+  CurrentVoiceTranscript,
   ConversationTurnModel,
   RuntimeDebugEvent,
   SessionPhase,
@@ -41,6 +42,7 @@ type SessionStoreData = {
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  currentVoiceTranscript: CurrentVoiceTranscript;
 };
 
 export type SessionStoreState = SessionStoreData & {
@@ -66,6 +68,11 @@ export type SessionStoreState = SessionStoreData & {
   setVoicePlaybackDiagnostics: (
     patch: Partial<VoicePlaybackDiagnostics>,
   ) => void;
+  setCurrentVoiceTranscriptEntry: (
+    role: keyof CurrentVoiceTranscript,
+    patch: Partial<CurrentVoiceTranscript[keyof CurrentVoiceTranscript]>,
+  ) => void;
+  clearCurrentVoiceTranscript: () => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
   resetTextSessionRuntime: (textSessionStatus?: TextSessionStatus) => void;
   reset: (overrides?: Partial<SessionStoreData>) => void;
@@ -102,6 +109,17 @@ function buildDefaultVoicePlaybackDiagnostics(): VoicePlaybackDiagnostics {
   };
 }
 
+function buildDefaultCurrentVoiceTranscript(): CurrentVoiceTranscript {
+  return {
+    user: {
+      text: '',
+    },
+    assistant: {
+      text: '',
+    },
+  };
+}
+
 function buildDefaultSessionState(): SessionStoreData {
   return {
     ...withDerivedLifecycleFields(createTextSessionLifecycle()),
@@ -117,6 +135,7 @@ function buildDefaultSessionState(): SessionStoreData {
     voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
     voicePlaybackState: 'idle',
     voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
+    currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
   };
 }
 
@@ -219,6 +238,20 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setCurrentVoiceTranscriptEntry: (role, patch) =>
+    set((state) => ({
+      currentVoiceTranscript: {
+        ...state.currentVoiceTranscript,
+        [role]: {
+          ...state.currentVoiceTranscript[role],
+          ...patch,
+        },
+      },
+    })),
+  clearCurrentVoiceTranscript: () =>
+    set({
+      currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+    }),
   setAssistantState: (assistantState) =>
     set((state) => getDebugRuntimeState(assistantState, state.activeTransport)),
   resetTextSessionRuntime: (textSessionStatus = 'idle') =>
@@ -236,6 +269,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
       voicePlaybackState: state.voicePlaybackState,
       voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
+      currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
     })),
   reset: (overrides) =>
     set(() => {

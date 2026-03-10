@@ -659,6 +659,107 @@ describe('createGeminiLiveTransport', () => {
     );
   });
 
+  it('emits input and output transcript events independently from assistant audio playback', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: parseLiveConfig({
+        provider: 'gemini',
+        adapterKey: 'gemini-live',
+        model: 'models/gemini-2.0-flash-exp',
+        apiVersion: 'v1alpha',
+        sessionModes: {
+          text: {
+            responseModality: 'TEXT',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+          voice: {
+            responseModality: 'AUDIO',
+            inputAudioTranscription: true,
+            outputAudioTranscription: true,
+          },
+        },
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        sessionResumptionEnabled: false,
+        contextCompressionEnabled: false,
+      }),
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    await Promise.resolve();
+
+    expect(sdkHarness.getConnectOptions()).toEqual({
+      apiKey: 'auth_tokens/test-token',
+      apiVersion: 'v1alpha',
+      model: 'models/gemini-2.0-flash-exp',
+      config: {
+        responseModalities: ['AUDIO'],
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+      } satisfies GeminiLiveConnectConfig,
+      callbacks: expect.any(Object),
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    sdkHarness.emitMessage({
+      serverContent: {
+        inputTranscription: {
+          text: 'First user phrase',
+        },
+        outputTranscription: {
+          text: 'First assistant phrase',
+        },
+        modelTurn: {
+          role: 'model',
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'audio/pcm;rate=24000',
+                data: 'AQIDBA==',
+              },
+            },
+          ],
+        },
+        turnComplete: true,
+      },
+    });
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'input-transcript',
+          text: 'First user phrase',
+        },
+        {
+          type: 'output-transcript',
+          text: 'First assistant phrase',
+        },
+        {
+          type: 'audio-chunk',
+          chunk: new Uint8Array([1, 2, 3, 4]),
+        },
+        {
+          type: 'turn-complete',
+        },
+      ]),
+    );
+  });
+
   it('emits a non-fatal audio error for malformed or unsupported assistant audio', async () => {
     const sdkHarness = createSdkHarness();
     const events: LiveSessionEvent[] = [];

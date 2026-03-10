@@ -287,6 +287,24 @@ export class GeminiLiveTransport implements DesktopSession {
           return;
         }
 
+        const inputTranscriptText = message.serverContent?.inputTranscription?.text;
+
+        if (inputTranscriptText && inputTranscriptText.length > 0) {
+          this.emit({
+            type: 'input-transcript',
+            text: inputTranscriptText,
+          });
+        }
+
+        const outputTranscriptText = message.serverContent?.outputTranscription?.text;
+
+        if (outputTranscriptText && outputTranscriptText.length > 0) {
+          this.emit({
+            type: 'output-transcript',
+            text: outputTranscriptText,
+          });
+        }
+
         if (this.activeMode === 'voice') {
           const parts = message.serverContent?.modelTurn?.parts ?? [];
 
