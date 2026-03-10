@@ -5,6 +5,7 @@ import type { ConversationTurnModel, TextSessionStatus } from '../../runtime/typ
 import { Button, TextInput } from '../primitives';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { ConversationList } from './ConversationList';
+import './AssistantPanelChatView.css';
 
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;
@@ -66,54 +67,63 @@ export function AssistantPanelChatView({
     <div className="assistant-panel__view-section">
       <AssistantPanelStateHero state={assistantState} />
       <section
-        className="assistant-panel__conversation"
-        aria-labelledby="assistant-panel-conversation-title"
+        className="assistant-panel__chat-container"
+        aria-label="Conversation"
       >
-        <h3 id="assistant-panel-conversation-title">Conversation</h3>
-        <div
-          className={`assistant-panel__text-status assistant-panel__text-status--${textSessionStatus}`}
-          role="status"
-          aria-live="polite"
-        >
-          <p>{textSessionStatusLabel}</p>
-        </div>
-        {(lastRuntimeError && !isConversationEmpty) ? (
-          <div className="assistant-panel__runtime-error" role="alert">
-            <TriangleAlert size={16} aria-hidden="true" />
-            <p>{lastRuntimeError}</p>
+        <div className="assistant-panel__messages-section">
+          <div className="assistant-panel__messages-header">
+            <h3 className="assistant-panel__chat-title" id="assistant-panel-chat-title">
+              Conversation
+            </h3>
+            <div
+              className={`assistant-panel__text-status assistant-panel__text-status--${textSessionStatus}`}
+              role="status"
+              aria-live="polite"
+            >
+              <p>{textSessionStatusLabel}</p>
+            </div>
+            {lastRuntimeError && !isConversationEmpty && (
+              <div className="assistant-panel__runtime-error" role="alert">
+                <TriangleAlert size={16} aria-hidden="true" />
+                <p>{lastRuntimeError}</p>
+              </div>
+            )}
           </div>
-        ) : null}
-        <ConversationList
-          turns={turns}
-          emptyState={emptyState}
-          className={isConversationEmpty ? undefined : 'assistant-panel__conversation-list'}
-        />
-        <div className="assistant-panel__bottom-fade" aria-hidden="true" />
-        <form
-          className="assistant-panel__composer"
-          aria-label="Send message to Livepair"
-          onSubmit={onSubmitTextTurn}
-        >
-          <TextInput
-            value={draftText}
-            onChange={onDraftTextChange}
-            disabled={isComposerDisabled}
-            placeholder="Ask Livepair"
-            className="assistant-panel__composer-input"
-            append={
-              <Button
-                type="submit"
-                variant="ghost"
-                size="sm"
-                className="assistant-panel__composer-submit"
-                disabled={!canSubmit}
-                aria-label="Send message"
-              >
-                <SendHorizonal size={18} aria-hidden="true" />
-              </Button>
-            }
+
+          <ConversationList
+            turns={turns}
+            emptyState={emptyState}
+            className={isConversationEmpty ? undefined : 'assistant-panel__conversation-list'}
           />
-        </form>
+        </div>
+
+        <div className="assistant-panel__composer-section">
+          <form
+            className="assistant-panel__composer"
+            aria-label="Send message to Livepair"
+            onSubmit={onSubmitTextTurn}
+          >
+            <TextInput
+              value={draftText}
+              onChange={onDraftTextChange}
+              disabled={isComposerDisabled}
+              placeholder="Ask Livepair"
+              className="assistant-panel__composer-input"
+              append={
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="sm"
+                  className="assistant-panel__composer-submit"
+                  disabled={!canSubmit}
+                  aria-label="Send message"
+                >
+                  <SendHorizonal size={18} aria-hidden="true" />
+                </Button>
+              }
+            />
+          </form>
+        </div>
       </section>
     </div>
   );

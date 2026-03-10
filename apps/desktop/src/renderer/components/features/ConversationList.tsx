@@ -111,11 +111,6 @@ export function ConversationList({
   if (turns.length === 0) {
     return (
       <div className={classes} {...rest}>
-        <div
-          className="conversation-list__top-fade"
-          data-testid="conversation-list-top-fade"
-          aria-hidden="true"
-        />
         <div className="conversation-list__frame conversation-list__frame--empty">
           <div className="conversation-list__empty">
             {emptyState}
@@ -127,11 +122,6 @@ export function ConversationList({
 
   return (
     <div className={classes} {...rest}>
-      <div
-        className="conversation-list__top-fade"
-        data-testid="conversation-list-top-fade"
-        aria-hidden="true"
-      />
       <div className="conversation-list__frame">
         <div
           ref={viewportRef}
