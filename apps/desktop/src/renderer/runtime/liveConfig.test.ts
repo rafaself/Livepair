@@ -3,7 +3,7 @@ import type { SessionMode } from './types';
 import {
   LIVE_ADAPTER_KEY,
   LIVE_PROVIDER,
-  buildGeminiLiveSetup,
+  buildGeminiLiveConnectConfig,
   parseLiveConfig,
   resolveLiveConfigEnv,
 } from './liveConfig';
@@ -131,10 +131,38 @@ describe('liveConfig', () => {
       sessionResumptionEnabled: false,
       contextCompressionEnabled: false,
     });
-    expect(buildGeminiLiveSetup(config, 'text')).toEqual({
-      model: 'models/gemini-2.0-flash-exp',
-      generationConfig: {
-        responseModalities: ['TEXT'],
+    expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
+      responseModalities: ['TEXT'],
+    });
+  });
+
+  it('rejects non-v1alpha config when building SDK bootstrap config for ephemeral tokens', () => {
+    const config = parseLiveConfig(
+      createRawLiveConfig({
+        apiVersion: 'v1beta',
+      }),
+    );
+
+    expect(() => buildGeminiLiveConnectConfig(config, 'text')).toThrow(
+      'Gemini Live ephemeral-token sessions require VITE_LIVE_API_VERSION to be "v1alpha"',
+    );
+  });
+
+  it('maps optional text-mode SDK connect settings from centralized config', () => {
+    const config = parseLiveConfig(
+      createRawLiveConfig({
+        mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+        sessionResumptionEnabled: true,
+        contextCompressionEnabled: true,
+      }),
+    );
+
+    expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
+      responseModalities: ['TEXT'],
+      mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+      sessionResumption: {},
+      contextWindowCompression: {
+        slidingWindow: {},
       },
     });
   });

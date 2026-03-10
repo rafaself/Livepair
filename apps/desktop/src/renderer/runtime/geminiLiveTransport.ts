@@ -5,92 +5,91 @@ import type {
 } from './types';
 import {
   LIVE_ADAPTER_KEY,
-  buildGeminiLiveSetup,
+  buildGeminiLiveConnectConfig,
   getLiveConfig,
+  type GeminiLiveConnectConfig,
   type LiveConfig,
 } from './liveConfig';
-
-type GeminiSetupCompleteMessage = {
-  setupComplete: Record<string, never>;
-};
-
-type GeminiGoAwayMessage = {
-  goAway: {
-    reason?: string | undefined;
-  };
-};
-
-type GeminiTextPart = {
-  text?: string | undefined;
-};
-
-type GeminiServerContentMessage = {
-  serverContent: {
-    modelTurn?: {
-      parts?: GeminiTextPart[] | undefined;
-    } | undefined;
-    interrupted?: boolean | undefined;
-    turnComplete?: boolean | undefined;
-  };
-};
-
-type GeminiServerMessage =
-  | GeminiSetupCompleteMessage
-  | GeminiGoAwayMessage
-  | GeminiServerContentMessage;
+import {
+  connectGeminiLiveSdkSession,
+  type ConnectGeminiLiveSdkSessionOptions,
+  type GeminiLiveSdkServerMessage,
+  type GeminiLiveSdkSession,
+} from './geminiLiveSdkClient';
 
 export type CreateGeminiLiveTransportOptions = {
-  createWebSocket?: (url: string) => WebSocket;
+  connectSession?: (
+    options: ConnectGeminiLiveSdkSessionOptions,
+  ) => Promise<GeminiLiveSdkSession>;
   config?: LiveConfig;
 };
-
-function isGeminiServerMessage(value: unknown): value is GeminiServerMessage {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  return 'setupComplete' in value || 'goAway' in value || 'serverContent' in value;
-}
-
-function createSessionUrl(url: string, accessToken: string): string {
-  const sessionUrl = new URL(url);
-  sessionUrl.searchParams.set('access_token', accessToken);
-  return sessionUrl.toString();
-}
 
 function createError(detail: string): Error {
   return new Error(detail);
 }
 
-function extractTextContent(parts?: GeminiTextPart[] | undefined): string {
-  if (!parts) {
-    return '';
+function getErrorDetail(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
   }
 
-  return parts
-    .map((part) => part.text ?? '')
-    .filter((text) => text.length > 0)
-    .join('');
+  return fallback;
+}
+
+function getCloseReason(event: CloseEvent, fallback: string): string {
+  return event.reason || fallback;
+}
+
+function getErrorEventDetail(event: ErrorEvent, fallback: string): string {
+  if (event.message) {
+    return event.message;
+  }
+
+  if (event.error instanceof Error && event.error.message.length > 0) {
+    return event.error.message;
+  }
+
+  return fallback;
+}
+
+function getGoAwayDetail(message: GeminiLiveSdkServerMessage): string {
+  const timeLeft = message.goAway?.timeLeft;
+
+  if (message.goAway?.reason) {
+    return message.goAway.reason;
+  }
+
+  if (timeLeft) {
+    return `Gemini Live session is shutting down soon (${timeLeft} remaining)`;
+  }
+
+  return 'Gemini Live session was rejected';
+}
+
+function closeGeminiLiveSdkSession(session: GeminiLiveSdkSession | null): void {
+  session?.close();
 }
 
 export class GeminiLiveTransport implements DesktopSession {
   kind = LIVE_ADAPTER_KEY;
 
   private readonly listeners = new Set<(event: LiveSessionEvent) => void>();
-  private readonly createWebSocket: (url: string) => WebSocket;
+  private readonly connectSession: (
+    options: ConnectGeminiLiveSdkSessionOptions,
+  ) => Promise<GeminiLiveSdkSession>;
   private readonly config: LiveConfig;
 
-  private socket: WebSocket | null = null;
-  private unsubscribeSocket: (() => void) | null = null;
+  private session: GeminiLiveSdkSession | null = null;
   private hasCompletedSetup = false;
   private closingByClient = false;
   private pendingOutputText = '';
+  private disconnectResolver: (() => void) | null = null;
 
   constructor({
-    createWebSocket = (url) => new WebSocket(url),
+    connectSession = connectGeminiLiveSdkSession,
     config = getLiveConfig(),
   }: CreateGeminiLiveTransportOptions = {}) {
-    this.createWebSocket = createWebSocket;
+    this.connectSession = connectSession;
     this.config = config;
   }
 
@@ -115,7 +114,7 @@ export class GeminiLiveTransport implements DesktopSession {
       throw createError(detail);
     }
 
-    if (this.socket) {
+    if (this.session) {
       await this.disconnect();
     }
 
@@ -124,100 +123,177 @@ export class GeminiLiveTransport implements DesktopSession {
     this.pendingOutputText = '';
     this.emit({ type: 'connection-state-changed', state: 'connecting' });
 
-    const socket = this.createWebSocket(createSessionUrl(this.config.url, token.token));
-    this.socket = socket;
+    let liveConnectConfig: GeminiLiveConnectConfig;
 
-    await new Promise<void>((resolve, reject) => {
-      const cleanup = (): void => {
-        this.unsubscribeSocket?.();
-        this.unsubscribeSocket = null;
-      };
+    try {
+      liveConnectConfig = buildGeminiLiveConnectConfig(this.config, mode);
+    } catch (error) {
+      const detail = getErrorDetail(error, 'Gemini Live connection failed');
+      this.emit({ type: 'error', detail });
+      throw createError(detail);
+    }
 
-      const fail = (detail: string): void => {
-        if (this.socket === socket) {
-          this.socket = null;
+    let isSetupSettled = false;
+    let activeSession: GeminiLiveSdkSession | null = null;
+
+    const setupPromise = new Promise<void>((resolve, reject) => {
+      const resolveSetup = (): void => {
+        if (isSetupSettled) {
+          return;
         }
 
-        cleanup();
+        isSetupSettled = true;
+        resolve();
+      };
+
+      const failSetup = (detail: string): void => {
+        if (isSetupSettled) {
+          return;
+        }
+
+        isSetupSettled = true;
+        this.session = null;
+        this.hasCompletedSetup = false;
+        this.pendingOutputText = '';
         this.emit({ type: 'error', detail });
         reject(createError(detail));
       };
 
-      const handleOpen = (): void => {
-        socket.send(
-          JSON.stringify({
-            setup: buildGeminiLiveSetup(this.config, mode),
-          }),
-        );
+      const handleUnexpectedTermination = (detail: string): void => {
+        this.pendingOutputText = '';
+        this.session = null;
+        this.hasCompletedSetup = false;
+        this.emit({ type: 'error', detail });
       };
 
-      const handleMessage = (event: MessageEvent<string>): void => {
-        let payload: unknown;
-
-        try {
-          payload = JSON.parse(event.data);
-        } catch {
-          return;
-        }
-
-        if (!isGeminiServerMessage(payload)) {
-          return;
-        }
-
-        if ('setupComplete' in payload) {
+      const handleSdkMessage = (message: GeminiLiveSdkServerMessage): void => {
+        if (message.setupComplete) {
           this.hasCompletedSetup = true;
-          cleanup();
-          this.unsubscribeSocket = this.attachSocketLifecycle(socket);
           this.emit({ type: 'connection-state-changed', state: 'connected' });
-          resolve();
+          resolveSetup();
           return;
         }
 
-        if ('goAway' in payload) {
-          const detail = payload.goAway.reason ?? 'Gemini Live session was rejected';
+        if (message.goAway) {
+          const detail = getGoAwayDetail(message);
           this.emit({ type: 'go-away', detail });
-          fail(detail);
-        }
-      };
 
-      const handleError = (): void => {
-        if (this.hasCompletedSetup) {
+          if (!this.hasCompletedSetup) {
+            failSetup(detail);
+            return;
+          }
+
+          handleUnexpectedTermination(detail);
           return;
         }
 
-        fail('Gemini Live connection failed');
+        if (message.sessionResumptionUpdate) {
+          this.emit({
+            type: 'session-resumption-update',
+            sessionId: message.sessionResumptionUpdate.newHandle,
+            detail: message.sessionResumptionUpdate.resumable === false
+              ? 'Gemini Live session is not resumable at this point'
+              : undefined,
+          });
+        }
+
+        const textChunk = message.text ?? '';
+
+        if (textChunk.length > 0) {
+          this.pendingOutputText = `${this.pendingOutputText}${textChunk}`;
+          this.emit({ type: 'text-delta', text: textChunk });
+        }
+
+        if (message.serverContent?.interrupted) {
+          this.pendingOutputText = '';
+          this.emit({ type: 'interrupted' });
+          return;
+        }
+
+        if (message.serverContent?.turnComplete) {
+          if (this.pendingOutputText.length > 0) {
+            this.emit({ type: 'text-message', text: this.pendingOutputText });
+            this.pendingOutputText = '';
+          }
+
+          this.emit({ type: 'turn-complete' });
+        }
       };
 
-      const handleClose = (event: CloseEvent): void => {
+      const handleSdkError = (event: ErrorEvent): void => {
+        const detail = getErrorEventDetail(event, 'Gemini Live connection failed');
+
+        if (!this.hasCompletedSetup) {
+          failSetup(detail);
+          return;
+        }
+
         if (this.closingByClient) {
-          cleanup();
-          this.socket = null;
-          this.closingByClient = false;
-          resolve();
           return;
         }
 
-        fail(event.reason || 'Gemini Live session closed before setup completed');
+        handleUnexpectedTermination(detail);
       };
 
-      socket.addEventListener('open', handleOpen);
-      socket.addEventListener('message', handleMessage);
-      socket.addEventListener('error', handleError);
-      socket.addEventListener('close', handleClose);
+      const handleSdkClose = (event: CloseEvent): void => {
+        const detail = getCloseReason(
+          event,
+          this.hasCompletedSetup
+            ? 'Gemini Live session closed unexpectedly'
+            : 'Gemini Live session closed before setup completed',
+        );
 
-      this.unsubscribeSocket = () => {
-        socket.removeEventListener('open', handleOpen);
-        socket.removeEventListener('message', handleMessage);
-        socket.removeEventListener('error', handleError);
-        socket.removeEventListener('close', handleClose);
+        if (this.closingByClient) {
+          this.session = null;
+          this.hasCompletedSetup = false;
+          this.pendingOutputText = '';
+          this.closingByClient = false;
+          this.disconnectResolver?.();
+          this.disconnectResolver = null;
+          return;
+        }
+
+        if (!this.hasCompletedSetup) {
+          failSetup(detail);
+          return;
+        }
+
+        handleUnexpectedTermination(detail);
       };
+
+      void this.connectSession({
+        apiKey: token.token,
+        apiVersion: this.config.apiVersion,
+        model: this.config.model,
+        config: liveConnectConfig,
+        callbacks: {
+          onOpen: () => undefined,
+          onMessage: handleSdkMessage,
+          onError: handleSdkError,
+          onClose: handleSdkClose,
+        },
+      })
+        .then((session) => {
+          activeSession = session;
+          this.session = session;
+        })
+        .catch((error: unknown) => {
+          failSetup(getErrorDetail(error, 'Gemini Live connection failed'));
+        });
     });
+
+    try {
+      await setupPromise;
+    } catch (error) {
+      closeGeminiLiveSdkSession(activeSession);
+      throw error;
+    }
   }
 
   async sendText(text: string): Promise<void> {
-    const socket = this.socket;
+    const session = this.session;
 
-    if (!socket || !this.hasCompletedSetup || socket.readyState !== WebSocket.OPEN) {
+    if (!session || !this.hasCompletedSetup) {
       throw createError('Gemini Live session is not connected');
     }
 
@@ -226,19 +302,15 @@ export class GeminiLiveTransport implements DesktopSession {
       this.emit({ type: 'interrupted' });
     }
 
-    socket.send(
-      JSON.stringify({
-        clientContent: {
-          turns: [
-            {
-              role: 'user',
-              parts: [{ text }],
-            },
-          ],
-          turnComplete: true,
+    session.sendClientContent({
+      turns: [
+        {
+          role: 'user',
+          parts: [{ text }],
         },
-      }),
-    );
+      ],
+      turnComplete: true,
+    });
   }
 
   async sendAudioChunk(_chunk: Uint8Array): Promise<void> {
@@ -246,15 +318,9 @@ export class GeminiLiveTransport implements DesktopSession {
   }
 
   async disconnect(): Promise<void> {
-    const socket = this.socket;
+    const session = this.session;
 
-    if (!socket) {
-      this.emit({ type: 'connection-state-changed', state: 'disconnected' });
-      return;
-    }
-
-    if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
-      this.cleanupSocket();
+    if (!session) {
       this.emit({ type: 'connection-state-changed', state: 'disconnected' });
       return;
     }
@@ -262,114 +328,13 @@ export class GeminiLiveTransport implements DesktopSession {
     this.closingByClient = true;
 
     await new Promise<void>((resolve) => {
-      const handleClose = (): void => {
-        socket.removeEventListener('close', handleClose);
-        this.cleanupSocket();
-        this.closingByClient = false;
+      this.disconnectResolver = () => {
         this.emit({ type: 'connection-state-changed', state: 'disconnected' });
         resolve();
       };
 
-      socket.addEventListener('close', handleClose);
-      socket.close(1000, 'Client ended session');
+      session.close();
     });
-  }
-
-  private attachSocketLifecycle(socket: WebSocket): () => void {
-    const handleMessage = (event: MessageEvent<string>): void => {
-      let payload: unknown;
-
-      try {
-        payload = JSON.parse(event.data);
-      } catch {
-        return;
-      }
-
-      if (!isGeminiServerMessage(payload)) {
-        return;
-      }
-
-      if ('goAway' in payload) {
-        const detail = payload.goAway.reason ?? 'Gemini Live session was rejected';
-        this.pendingOutputText = '';
-        this.emit({ type: 'go-away', detail });
-        this.cleanupSocket();
-        this.emit({ type: 'error', detail });
-        return;
-      }
-
-      if (!('serverContent' in payload)) {
-        return;
-      }
-
-      const textChunk = extractTextContent(payload.serverContent.modelTurn?.parts);
-
-      if (textChunk.length > 0) {
-        this.pendingOutputText = `${this.pendingOutputText}${textChunk}`;
-        this.emit({ type: 'text-delta', text: textChunk });
-      }
-
-      if (payload.serverContent.interrupted) {
-        this.pendingOutputText = '';
-        this.emit({ type: 'interrupted' });
-        return;
-      }
-
-      if (payload.serverContent.turnComplete) {
-        if (this.pendingOutputText.length > 0) {
-          this.emit({ type: 'text-message', text: this.pendingOutputText });
-          this.pendingOutputText = '';
-        }
-
-        this.emit({ type: 'turn-complete' });
-      }
-    };
-
-    const handleClose = (event: CloseEvent): void => {
-      if (this.closingByClient) {
-        return;
-      }
-
-      const detail = event.reason || 'Gemini Live session closed unexpectedly';
-      this.pendingOutputText = '';
-      this.cleanupSocket();
-      this.emit({ type: 'error', detail });
-    };
-
-    const handleError = (): void => {
-      if (this.closingByClient) {
-        return;
-      }
-
-      if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
-        return;
-      }
-
-      this.pendingOutputText = '';
-      this.cleanupSocket();
-      this.emit({
-        type: 'error',
-        detail: 'Gemini Live connection failed',
-      });
-    };
-
-    socket.addEventListener('message', handleMessage);
-    socket.addEventListener('close', handleClose);
-    socket.addEventListener('error', handleError);
-
-    return () => {
-      socket.removeEventListener('message', handleMessage);
-      socket.removeEventListener('close', handleClose);
-      socket.removeEventListener('error', handleError);
-    };
-  }
-
-  private cleanupSocket(): void {
-    this.unsubscribeSocket?.();
-    this.unsubscribeSocket = null;
-    this.socket = null;
-    this.hasCompletedSetup = false;
-    this.pendingOutputText = '';
   }
 
   private emit(event: LiveSessionEvent): void {

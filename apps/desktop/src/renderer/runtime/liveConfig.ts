@@ -58,11 +58,8 @@ type LiveConfigEnv = Partial<Record<
   string
 >>;
 
-type GeminiLiveSetup = {
-  model: string;
-  generationConfig: {
-    responseModalities: [LiveResponseModality];
-  };
+export type GeminiLiveConnectConfig = {
+  responseModalities: [LiveResponseModality];
   inputAudioTranscription?: Record<string, never> | undefined;
   outputAudioTranscription?: Record<string, never> | undefined;
   mediaResolution?: LiveMediaResolution | undefined;
@@ -265,41 +262,44 @@ export function parseLiveConfig(rawConfig: Partial<RawLiveConfig>): LiveConfig {
   };
 }
 
-export function buildGeminiLiveSetup(
+export function buildGeminiLiveConnectConfig(
   config: LiveConfig,
   mode: SessionMode,
-): GeminiLiveSetup {
+): GeminiLiveConnectConfig {
+  if (config.apiVersion !== 'v1alpha') {
+    throw createConfigError(
+      'Gemini Live ephemeral-token sessions require VITE_LIVE_API_VERSION to be "v1alpha"',
+    );
+  }
+
   const modeConfig = config.sessionModes[mode];
-  const setup: GeminiLiveSetup = {
-    model: config.model,
-    generationConfig: {
-      responseModalities: [modeConfig.responseModality],
-    },
+  const liveConnectConfig: GeminiLiveConnectConfig = {
+    responseModalities: [modeConfig.responseModality],
   };
 
   if (modeConfig.inputAudioTranscription) {
-    setup.inputAudioTranscription = {};
+    liveConnectConfig.inputAudioTranscription = {};
   }
 
   if (modeConfig.outputAudioTranscription) {
-    setup.outputAudioTranscription = {};
+    liveConnectConfig.outputAudioTranscription = {};
   }
 
   if (config.mediaResolution !== DEFAULT_MEDIA_RESOLUTION) {
-    setup.mediaResolution = config.mediaResolution;
+    liveConnectConfig.mediaResolution = config.mediaResolution;
   }
 
   if (config.sessionResumptionEnabled) {
-    setup.sessionResumption = {};
+    liveConnectConfig.sessionResumption = {};
   }
 
   if (config.contextCompressionEnabled) {
-    setup.contextWindowCompression = {
+    liveConnectConfig.contextWindowCompression = {
       slidingWindow: {},
     };
   }
 
-  return setup;
+  return liveConnectConfig;
 }
 
 let cachedLiveConfig: LiveConfig | null = null;

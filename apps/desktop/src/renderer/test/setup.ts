@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { __resetGeminiLiveSdkMock } from './geminiLiveSdkMock';
 import { resetDesktopSessionController } from '../runtime/sessionController';
 import { resetDesktopStores } from '../store/testing';
 
@@ -11,6 +12,7 @@ beforeEach(async () => {
 
   await resetDesktopSessionController();
   resetDesktopStores();
+  __resetGeminiLiveSdkMock();
   window.bridge = {
     overlayMode: 'linux-shape',
     checkHealth: vi.fn(),

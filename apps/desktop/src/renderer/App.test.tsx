@@ -6,91 +6,20 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
 import { App } from './App';
+import {
+  __emitGeminiLiveSdkClose,
+  __emitGeminiLiveSdkMessage,
+  __getLastGeminiLiveSdkConnectOptions,
+  __getLastGeminiLiveSdkSession,
+  __resetGeminiLiveSdkMock,
+} from './test/geminiLiveSdkMock';
 import { useSettingsStore } from './store/settingsStore';
 import { resetDesktopStores } from './store/testing';
 import { useUiStore } from './store/uiStore';
 import { THEME_MEDIA_QUERY } from './theme';
-
-class FakeWebSocket {
-  static instances: FakeWebSocket[] = [];
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
-
-  readonly addEventListener = vi.fn(
-    (type: string, listener: EventListenerOrEventListenerObject) => {
-      this.listeners.get(type)?.add(listener);
-    },
-  );
-
-  readonly removeEventListener = vi.fn(
-    (type: string, listener: EventListenerOrEventListenerObject) => {
-      this.listeners.get(type)?.delete(listener);
-    },
-  );
-
-  readonly send = vi.fn();
-  readonly close = vi.fn((code?: number, reason?: string) => {
-    this.readyState = FakeWebSocket.CLOSING;
-    this.emit('close', createCloseEvent(code, reason));
-  });
-
-  readyState = FakeWebSocket.CONNECTING;
-
-  private readonly listeners = new Map<string, Set<EventListenerOrEventListenerObject>>([
-    ['open', new Set()],
-    ['message', new Set()],
-    ['error', new Set()],
-    ['close', new Set()],
-  ]);
-
-  constructor(public readonly url: string) {
-    FakeWebSocket.instances.push(this);
-  }
-
-  emit(type: 'open' | 'error', event: Event): void;
-  emit(type: 'message', event: MessageEvent<string>): void;
-  emit(type: 'close', event: CloseEvent): void;
-  emit(
-    type: 'open' | 'message' | 'error' | 'close',
-    event: Event | MessageEvent<string> | CloseEvent,
-  ): void {
-    if (type === 'open') {
-      this.readyState = FakeWebSocket.OPEN;
-    }
-
-    if (type === 'close') {
-      this.readyState = FakeWebSocket.CLOSED;
-    }
-
-    this.listeners.get(type)?.forEach((listener) => {
-      if (typeof listener === 'function') {
-        listener(event);
-        return;
-      }
-
-      listener.handleEvent(event);
-    });
-  }
-}
-
-function createCloseEvent(code?: number, reason?: string): CloseEvent {
-  const init: CloseEventInit = {};
-
-  if (code !== undefined) {
-    init.code = code;
-  }
-
-  if (reason !== undefined) {
-    init.reason = reason;
-  }
-
-  return new CloseEvent('close', init);
-}
 
 type MatchMediaChangeListener = (event: MediaQueryListEvent) => void;
 
@@ -142,7 +71,7 @@ function installMatchMedia(initialMatches: boolean): {
 describe('App', () => {
   beforeEach(() => {
     resetDesktopStores();
-    FakeWebSocket.instances = [];
+    __resetGeminiLiveSdkMock();
     useSettingsStore.setState({
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
@@ -157,14 +86,9 @@ describe('App', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
-    vi.stubGlobal('WebSocket', FakeWebSocket);
     document.documentElement.dataset['theme'] = '';
     document.documentElement.style.colorScheme = '';
     window.bridge.overlayMode = 'linux-shape';
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
   });
 
   it('wires control dock and panel visibility through the global stores', () => {
@@ -247,82 +171,54 @@ describe('App', () => {
     });
 
     await waitFor(() => {
-      expect(FakeWebSocket.instances).toHaveLength(1);
+      expect(__getLastGeminiLiveSdkConnectOptions()).toBeDefined();
     });
 
-    const [socket] = FakeWebSocket.instances;
-    expect(socket).toBeDefined();
-    if (!socket) {
-      throw new Error('Expected a realtime socket');
-    }
+    const session = __getLastGeminiLiveSdkSession();
 
     act(() => {
-      socket.emit('open', new Event('open'));
-      socket.emit(
-        'message',
-        new MessageEvent('message', {
-          data: JSON.stringify({ setupComplete: {} }),
-        }),
-      );
+      __emitGeminiLiveSdkMessage({ setupComplete: {} });
     });
 
     await waitFor(() => {
-      expect(socket.send).toHaveBeenCalledWith(
-        JSON.stringify({
-          clientContent: {
-            turns: [
-              {
-                role: 'user',
-                parts: [{ text: 'Summarize the current screen' }],
-              },
-            ],
-            turnComplete: true,
+      expect(session.sendClientContent).toHaveBeenCalledWith({
+        turns: [
+          {
+            role: 'user',
+            parts: [{ text: 'Summarize the current screen' }],
           },
-        }),
-      );
+        ],
+        turnComplete: true,
+      });
     });
 
     act(() => {
-      socket.emit(
-        'message',
-        new MessageEvent('message', {
-          data: JSON.stringify({
-            serverContent: {
-              modelTurn: {
-                parts: [{ text: 'Here is the streamed response.' }],
-              },
-            },
-          }),
-        }),
-      );
-      socket.emit(
-        'message',
-        new MessageEvent('message', {
-          data: JSON.stringify({
-            serverContent: {
-              turnComplete: true,
-            },
-          }),
-        }),
-      );
+      __emitGeminiLiveSdkMessage({
+        serverContent: {
+          interrupted: false,
+          turnComplete: false,
+        },
+        text: 'Here is the streamed response.',
+      });
+      __emitGeminiLiveSdkMessage({
+        serverContent: {
+          interrupted: false,
+          turnComplete: true,
+        },
+      });
     });
 
     expect(await screen.findByText('Here is the streamed response.')).toBeVisible();
 
     act(() => {
-      socket.emit(
-        'message',
-        new MessageEvent('message', {
-          data: JSON.stringify({
-            serverContent: {
-              modelTurn: {
-                parts: [{ text: 'Partial retry' }],
-              },
-            },
-          }),
-        }),
-      );
-      socket.emit('close', new CloseEvent('close', { code: 1011, reason: 'transport offline' }));
+      __emitGeminiLiveSdkMessage({
+        serverContent: {
+          interrupted: false,
+          turnComplete: false,
+        },
+        text: 'Partial retry',
+      });
+      __emitGeminiLiveSdkClose('transport offline');
     });
 
     expect(await screen.findByText('transport offline')).toBeVisible();

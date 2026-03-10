@@ -190,6 +190,42 @@ describe('createDesktopSessionController', () => {
     );
   });
 
+  it('maps adapter bootstrap failures into runtime error state', async () => {
+    const transportHarness = createTransportHarness();
+    transportHarness.transport.connect = vi.fn().mockRejectedValue(
+      new Error(
+        'Invalid Live config: Gemini Live ephemeral-token sessions require VITE_LIVE_API_VERSION to be "v1alpha"',
+      ),
+    );
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'ephemeral-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn().mockReturnValue(transportHarness.transport),
+    });
+
+    await controller.startSession({ mode: 'text' });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        sessionPhase: 'error',
+        tokenRequestState: 'success',
+        transportState: 'error',
+        activeTransport: null,
+        lastRuntimeError:
+          'Invalid Live config: Gemini Live ephemeral-token sessions require VITE_LIVE_API_VERSION to be "v1alpha"',
+      }),
+    );
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('error');
+  });
+
   it('auto-starts text mode, sends user text, and stores streamed assistant text through the contract', async () => {
     const transportHarness = createTransportHarness();
     const controller = createDesktopSessionController({
