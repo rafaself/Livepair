@@ -84,9 +84,10 @@ class FakeWebSocket {
 describe('createGeminiLiveTransport', () => {
   it('connects only after the socket opens and setup completes', async () => {
     const socket = new FakeWebSocket();
+    const createWebSocket = vi.fn(() => socket as unknown as WebSocket);
     const events: TransportEvent[] = [];
     const transport = createGeminiLiveTransport({
-      createWebSocket: vi.fn(() => socket as unknown as WebSocket),
+      createWebSocket,
     });
     transport.subscribe((event) => {
       events.push(event);
@@ -101,6 +102,9 @@ describe('createGeminiLiveTransport', () => {
     });
 
     expect(events).toEqual([{ type: 'transport.lifecycle', state: 'connecting' }]);
+    expect(createWebSocket).toHaveBeenCalledWith(
+      'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=auth_tokens%2Ftest-token',
+    );
 
     socket.emit('open', new Event('open'));
 
@@ -108,6 +112,9 @@ describe('createGeminiLiveTransport', () => {
       JSON.stringify({
         setup: {
           model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
+          generationConfig: {
+            responseModalities: ['TEXT'],
+          },
         },
       }),
     );

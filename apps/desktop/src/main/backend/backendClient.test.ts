@@ -10,10 +10,14 @@ import { createBackendClient } from './backendClient';
 describe('backendClient', () => {
   const getBackendUrl = vi.fn(async () => 'http://localhost:3000');
   const fetchImpl = vi.fn();
+  const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
   beforeEach(() => {
     getBackendUrl.mockClear();
     fetchImpl.mockReset();
+    consoleInfoSpy.mockClear();
+    consoleErrorSpy.mockClear();
   });
 
   it('checks backend health through the configured backend URL', async () => {
@@ -59,15 +63,34 @@ describe('backendClient', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
     });
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '[desktop:backend-client] session token request started',
+      {
+        url: 'http://localhost:3000/session/token',
+        request: req,
+      },
+    );
   });
 
   it('throws when the token endpoint returns a non-ok response', async () => {
-    fetchImpl.mockResolvedValue({ ok: false, status: 401 });
+    fetchImpl.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: vi.fn(async () => '{"message":"Gemini token request failed: upstream 400 INVALID_ARGUMENT"}'),
+    });
 
     const client = createBackendClient({ fetchImpl, getBackendUrl });
 
     await expect(client.requestSessionToken({})).rejects.toThrow(
-      'Token request failed: 401',
+      'Token request failed: 401 - Gemini token request failed: upstream 400 INVALID_ARGUMENT',
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[desktop:backend-client] session token request failed',
+      {
+        url: 'http://localhost:3000/session/token',
+        status: 401,
+        detail: 'Gemini token request failed: upstream 400 INVALID_ARGUMENT',
+      },
     );
   });
 });

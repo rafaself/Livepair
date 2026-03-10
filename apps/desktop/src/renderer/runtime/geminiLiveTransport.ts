@@ -6,9 +6,10 @@ import type {
 } from './types';
 import { formatConversationTimestamp } from './conversationTimestamp';
 
-const GEMINI_LIVE_MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
+const GEMINI_LIVE_MODEL =
+  'models/gemini-2.5-flash-native-audio-preview-12-2025';
 const GEMINI_LIVE_URL =
-  'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+  'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained';
 
 type GeminiSetupCompleteMessage = {
   setupComplete: Record<string, never>;
@@ -146,6 +147,9 @@ export class GeminiLiveTransport implements DesktopSessionTransport {
           JSON.stringify({
             setup: {
               model: this.model,
+              generationConfig: {
+                responseModalities: ['TEXT'],
+              },
             },
           }),
         );
