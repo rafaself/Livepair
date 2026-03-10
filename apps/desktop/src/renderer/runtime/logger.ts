@@ -1,15 +1,15 @@
-import type { RuntimeLogger, SessionEvent, TransportEvent } from './types';
+import type { LiveSessionEvent, RuntimeLogger, SessionControllerEvent } from './types';
 
 export const NOOP_RUNTIME_LOGGER: RuntimeLogger = {
   onSessionEvent: () => undefined,
   onTransportEvent: () => undefined,
 };
 
-function logSessionEvent(event: SessionEvent): void {
+function logSessionEvent(event: SessionControllerEvent): void {
   console.debug('[runtime:session]', event.type, event);
 }
 
-function logTransportEvent(event: TransportEvent): void {
+function logTransportEvent(event: LiveSessionEvent): void {
   console.debug('[runtime:transport]', event.type, event);
 }
 

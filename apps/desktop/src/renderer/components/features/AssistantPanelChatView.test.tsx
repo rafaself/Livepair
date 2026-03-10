@@ -22,7 +22,7 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByRole('status', { name: 'Disconnected' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Conversation' })).toBeVisible();
     expect(screen.getByText('No conversation yet')).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Message Livepair' })).toBeVisible();
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeVisible();
   });
 
   it('renders populated conversation turns without the empty state copy', () => {
@@ -148,7 +148,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('textbox', { name: 'Message Livepair' })).toBeDisabled();
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
   });
 });

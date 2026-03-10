@@ -3,6 +3,7 @@ import './OutlinedField.css';
 
 export type OutlinedFieldProps = {
   children: ReactNode;
+  append?: ReactNode | undefined;
   label?: string | undefined;
   htmlFor?: string | undefined;
   size?: 'sm' | 'md' | undefined;
@@ -22,6 +23,7 @@ function findFocusableControl(container: HTMLElement): HTMLElement | null {
 
 export function OutlinedField({
   children,
+  append,
   label,
   htmlFor,
   size = 'md',
@@ -73,7 +75,10 @@ export function OutlinedField({
             {label}
           </label>
         ) : null}
-        <div className="outlined-field__content">{children}</div>
+        <div className="outlined-field__content">
+          {children}
+          {append ? <div className="outlined-field__append">{append}</div> : null}
+        </div>
         <div className="outlined-field__outline" aria-hidden="true">
           <div className="outlined-field__outline-start" />
           {label ? (
