@@ -2,35 +2,30 @@ import {
   BadGatewayException,
   Injectable,
 } from '@nestjs/common';
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 
 const GEMINI_AUTH_TOKEN_URL =
   'https://generativelanguage.googleapis.com/v1alpha/auth_tokens';
 
 type GeminiAuthTokenPayload = {
   name?: unknown;
-  expireTime?: unknown;
-  newSessionExpireTime?: unknown;
 };
 
-function isCreateEphemeralTokenResponse(
+function isNormalizedAuthTokenPayload(
   value: GeminiAuthTokenPayload,
 ): value is {
   name: string;
-  expireTime: string;
-  newSessionExpireTime: string;
 } {
-  return (
-    typeof value.name === 'string' &&
-    typeof value.expireTime === 'string' &&
-    typeof value.newSessionExpireTime === 'string'
-  );
+  return typeof value.name === 'string' && value.name.trim().length > 0;
 }
 
 export type GeminiAuthTokenRequest = {
   apiKey: string;
   newSessionExpireTime: string;
   expireTime: string;
+};
+
+export type GeminiProvisionedToken = {
+  token: string;
 };
 
 type RequestGeminiAuthTokenOptions = GeminiAuthTokenRequest & {
@@ -77,7 +72,7 @@ export async function requestGeminiAuthToken({
   fetchImpl = fetch,
   newSessionExpireTime,
   expireTime,
-}: RequestGeminiAuthTokenOptions): Promise<CreateEphemeralTokenResponse> {
+}: RequestGeminiAuthTokenOptions): Promise<GeminiProvisionedToken> {
   let response: Response;
   try {
     response = await fetchImpl(GEMINI_AUTH_TOKEN_URL, {
@@ -114,14 +109,12 @@ export async function requestGeminiAuthToken({
   }
 
   const payload = (await response.json()) as GeminiAuthTokenPayload;
-  if (!isCreateEphemeralTokenResponse(payload)) {
+  if (!isNormalizedAuthTokenPayload(payload)) {
     throw new BadGatewayException('Gemini token response was invalid');
   }
 
   return {
     token: payload.name,
-    expireTime: payload.expireTime,
-    newSessionExpireTime: payload.newSessionExpireTime,
   };
 }
 
@@ -129,7 +122,7 @@ export async function requestGeminiAuthToken({
 export class GeminiAuthTokenClient {
   async createToken(
     request: GeminiAuthTokenRequest,
-  ): Promise<CreateEphemeralTokenResponse> {
+  ): Promise<GeminiProvisionedToken> {
     return requestGeminiAuthToken(request);
   }
 }

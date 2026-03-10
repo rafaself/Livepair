@@ -55,8 +55,8 @@ describe('preload bridge', () => {
 
     mockInvoke.mockResolvedValueOnce({
       token: 't',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
     await bridge.requestSessionToken({ sessionId: 'session-1' });
     expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {
@@ -103,8 +103,8 @@ describe('preload bridge', () => {
 
     mockInvoke.mockResolvedValueOnce({
       token: 't',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
     await bridge.requestSessionToken({});
 

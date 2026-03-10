@@ -48,8 +48,8 @@ describe('renderer backend api helper', () => {
   it('delegates token request to bridge and returns response', async () => {
     const tokenResponse = {
       token: 't',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     };
     const checkHealth = vi.fn();
     const requestToken = vi.fn().mockResolvedValue(tokenResponse);

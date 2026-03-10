@@ -19,8 +19,6 @@ describe('requestGeminiAuthToken', () => {
       ok: true,
       json: async () => ({
         name: 'auth-tokens/abc123',
-        expireTime: '2026-03-09T12:30:00.000Z',
-        newSessionExpireTime: '2026-03-09T12:01:30.000Z',
       }),
     } as Response);
 
@@ -29,12 +27,10 @@ describe('requestGeminiAuthToken', () => {
         apiKey: 'gemini-key',
         fetchImpl,
         newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        expireTime: '2026-03-09T12:30:00.000Z',
+        expireTime: '2099-03-09T12:30:00.000Z',
       }),
     ).resolves.toEqual({
       token: 'auth-tokens/abc123',
-      expireTime: '2026-03-09T12:30:00.000Z',
-      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
     });
 
     expect(fetchImpl).toHaveBeenCalledWith(
@@ -48,7 +44,7 @@ describe('requestGeminiAuthToken', () => {
         body: JSON.stringify({
           uses: 1,
           newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-          expireTime: '2026-03-09T12:30:00.000Z',
+          expireTime: '2099-03-09T12:30:00.000Z',
         }),
       },
     );
@@ -71,7 +67,7 @@ describe('requestGeminiAuthToken', () => {
         apiKey: 'gemini-key',
         fetchImpl,
         newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        expireTime: '2026-03-09T12:30:00.000Z',
+        expireTime: '2099-03-09T12:30:00.000Z',
       }),
     ).rejects.toEqual(
       new BadGatewayException('Gemini token request failed: upstream 500 - backend unavailable'),
@@ -86,7 +82,7 @@ describe('requestGeminiAuthToken', () => {
         apiKey: 'gemini-key',
         fetchImpl,
         newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        expireTime: '2026-03-09T12:30:00.000Z',
+        expireTime: '2099-03-09T12:30:00.000Z',
       }),
     ).rejects.toEqual(new BadGatewayException('Gemini token request failed: network down'));
   });
@@ -96,7 +92,7 @@ describe('requestGeminiAuthToken', () => {
       ok: true,
       status: 200,
       json: async () => ({
-        expireTime: '2026-03-09T12:30:00.000Z',
+        expireTime: '2099-03-09T12:30:00.000Z',
       }),
     } as Response);
 
@@ -105,8 +101,29 @@ describe('requestGeminiAuthToken', () => {
         apiKey: 'gemini-key',
         fetchImpl,
         newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        expireTime: '2026-03-09T12:30:00.000Z',
+        expireTime: '2099-03-09T12:30:00.000Z',
       }),
     ).rejects.toEqual(new BadGatewayException('Gemini token response was invalid'));
   });
+
+  it('rejects blank upstream token names', async () => {
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        name: '   ',
+        expireTime: '2099-03-09T12:30:00.000Z',
+      }),
+    } as Response);
+
+    await expect(
+      requestGeminiAuthToken({
+        apiKey: 'gemini-key',
+        fetchImpl,
+        newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+        expireTime: '2099-03-09T12:30:00.000Z',
+      }),
+    ).rejects.toEqual(new BadGatewayException('Gemini token response was invalid'));
+  });
+
 });

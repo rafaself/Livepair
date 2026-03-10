@@ -9,6 +9,49 @@ type BackendClientOptions = {
   getBackendUrl: () => Promise<string>;
 };
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
+}
+
+function isExpiredTimestamp(value: string, now = Date.now()): boolean {
+  return Date.parse(value) <= now;
+}
+
+function parseCreateEphemeralTokenResponse(
+  value: unknown,
+): CreateEphemeralTokenResponse {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Token response was invalid');
+  }
+
+  const payload = value as Record<string, unknown>;
+
+  if (
+    !isNonEmptyString(payload['token']) ||
+    !isValidTimestamp(payload['expireTime']) ||
+    !isValidTimestamp(payload['newSessionExpireTime'])
+  ) {
+    throw new Error('Token response was invalid');
+  }
+
+  if (
+    isExpiredTimestamp(payload['expireTime']) ||
+    isExpiredTimestamp(payload['newSessionExpireTime'])
+  ) {
+    throw new Error('Token response was expired before Live connect');
+  }
+
+  return {
+    token: payload['token'],
+    expireTime: payload['expireTime'],
+    newSessionExpireTime: payload['newSessionExpireTime'],
+  };
+}
+
 async function readErrorDetail(response: Response): Promise<string | null> {
   try {
     const text = (await response.text()).trim();
@@ -98,7 +141,7 @@ export function createBackendClient({
         );
       }
 
-      return (await res.json()) as CreateEphemeralTokenResponse;
+      return parseCreateEphemeralTokenResponse(await res.json());
     },
   };
 }

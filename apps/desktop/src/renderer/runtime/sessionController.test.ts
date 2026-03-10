@@ -19,6 +19,12 @@ function createDeferred<T>(): {
   return { promise, resolve };
 }
 
+async function flushMicrotasks(times = 1): Promise<void> {
+  for (let i = 0; i < times; i += 1) {
+    await Promise.resolve();
+  }
+}
+
 function createTransportHarness(): {
   transport: DesktopSession;
   emit: (event: LiveSessionEvent) => void;
@@ -67,8 +73,8 @@ describe('createDesktopSessionController', () => {
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'ephemeral-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
       createTransport: vi.fn((_kind: 'gemini-live') => transportHarness.transport),
     });
@@ -78,8 +84,8 @@ describe('createDesktopSessionController', () => {
     expect(transportHarness.transport.connect).toHaveBeenCalledWith({
       token: {
         token: 'ephemeral-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'text',
     });
@@ -96,6 +102,43 @@ describe('createDesktopSessionController', () => {
     expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
     expect(logger.onSessionEvent).toHaveBeenCalled();
     expect(logger.onTransportEvent).toHaveBeenCalled();
+  });
+
+  it('waits for the token request to finish before opening the live transport', async () => {
+    const transportHarness = createTransportHarness();
+    const deferredToken = createDeferred<{
+      token: string;
+      expireTime: string;
+      newSessionExpireTime: string;
+    }>();
+    const requestSessionToken = vi.fn().mockReturnValue(deferredToken.promise);
+    const createTransport = vi.fn((_kind: 'gemini-live') => transportHarness.transport);
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken,
+      createTransport,
+    });
+
+    const startPromise = controller.startSession({ mode: 'text' });
+    await flushMicrotasks(2);
+
+    expect(requestSessionToken).toHaveBeenCalledTimes(1);
+    expect(createTransport).not.toHaveBeenCalled();
+    expect(transportHarness.transport.connect).not.toHaveBeenCalled();
+
+    deferredToken.resolve({
+      token: 'ephemeral-token',
+      expireTime: '2026-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+    });
+    await startPromise;
+
+    expect(createTransport).toHaveBeenCalledTimes(1);
+    expect(transportHarness.transport.connect).toHaveBeenCalledTimes(1);
   });
 
   it('maps token request failures into runtime error state', async () => {
@@ -122,6 +165,31 @@ describe('createDesktopSessionController', () => {
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('error');
   });
 
+  it('maps invalid token bootstrap responses into runtime error state', async () => {
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockRejectedValue(
+        new Error('Token response was invalid'),
+      ),
+      createTransport: vi.fn(),
+    });
+
+    await controller.startSession({ mode: 'text' });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        sessionPhase: 'error',
+        tokenRequestState: 'error',
+        transportState: 'error',
+        lastRuntimeError: 'Token response was invalid',
+      }),
+    );
+  });
+
   it('auto-starts text mode, sends user text, and stores streamed assistant text through the contract', async () => {
     const transportHarness = createTransportHarness();
     const controller = createDesktopSessionController({
@@ -132,8 +200,8 @@ describe('createDesktopSessionController', () => {
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'ephemeral-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
       createTransport: vi.fn().mockReturnValue(transportHarness.transport),
     });
@@ -144,8 +212,8 @@ describe('createDesktopSessionController', () => {
     expect(transportHarness.transport.connect).toHaveBeenCalledWith({
       token: {
         token: 'ephemeral-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'text',
     });
@@ -218,8 +286,8 @@ describe('createDesktopSessionController', () => {
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'ephemeral-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
       createTransport: vi.fn().mockReturnValue(transportHarness.transport),
     });
@@ -261,8 +329,8 @@ describe('createDesktopSessionController', () => {
       checkBackendHealth: vi.fn().mockImplementation(() => backendHealth.promise),
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'ephemeral-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
       createTransport,
     });
@@ -293,8 +361,8 @@ describe('createDesktopSessionController', () => {
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'ephemeral-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
       createTransport: vi.fn().mockReturnValue(transportHarness.transport),
     });
@@ -328,8 +396,8 @@ describe('createDesktopSessionController', () => {
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'ephemeral-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
       createTransport: vi.fn().mockReturnValue(transportHarness.transport),
     });
@@ -390,8 +458,8 @@ describe('createDesktopSessionController', () => {
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'ephemeral-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
       createTransport: vi.fn().mockReturnValue(transportHarness.transport),
     });

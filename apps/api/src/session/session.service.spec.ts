@@ -1,5 +1,4 @@
 import { BadGatewayException, ServiceUnavailableException } from '@nestjs/common';
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import { env } from '../config/env';
 import { GeminiAuthTokenClient } from './gemini-auth-token.client';
 import { SessionService } from './session.service';
@@ -27,21 +26,20 @@ describe('SessionService', () => {
   });
 
   it('returns a real ephemeral token response', async () => {
-    const response: CreateEphemeralTokenResponse = {
+    createToken.mockResolvedValue({
+      token: 'auth-tokens/abc123',
+    });
+
+    await expect(service.createEphemeralToken({})).resolves.toEqual({
       token: 'auth-tokens/abc123',
       expireTime: '2026-03-09T12:31:30.000Z',
       newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-    };
-    createToken.mockResolvedValue(response);
-
-    await expect(service.createEphemeralToken({})).resolves.toEqual(response);
+    });
   });
 
   it('requests a one-time token with a TTL-derived new session expiry and relative overall expiry', async () => {
     createToken.mockResolvedValue({
       token: 'auth-tokens/abc123',
-      expireTime: '2026-03-09T12:31:30.000Z',
-      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
     });
 
     await service.createEphemeralToken({ sessionId: 'test-session' });

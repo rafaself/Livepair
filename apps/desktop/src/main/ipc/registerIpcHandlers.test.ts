@@ -105,8 +105,8 @@ describe('registerIpcHandlers', () => {
         status: 200,
         json: vi.fn(async () => ({
           token: 'ephemeral-token',
-          expireTime: 'later',
-          newSessionExpireTime: 'soon',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
         })),
       });
     const settingsService = createSettingsServiceDouble();
@@ -138,8 +138,8 @@ describe('registerIpcHandlers', () => {
     await expect(healthHandler()).resolves.toEqual({ status: 'ok', timestamp: 'now' });
     await expect(tokenHandler({}, { sessionId: 'session-1' })).resolves.toEqual({
       token: 'ephemeral-token',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
     await expect(getSettingsHandler()).resolves.toEqual(defaultSettings);
     await expect(

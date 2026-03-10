@@ -97,8 +97,8 @@ describe('createGeminiLiveTransport', () => {
     const connectPromise = transport.connect({
       token: {
         token: 'auth_tokens/test-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'text',
     });
@@ -167,8 +167,8 @@ describe('createGeminiLiveTransport', () => {
     const connectPromise = transport.connect({
       token: {
         token: 'auth_tokens/test-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'text',
     });
@@ -217,8 +217,8 @@ describe('createGeminiLiveTransport', () => {
     const connectPromise = transport.connect({
       token: {
         token: 'auth_tokens/test-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'text',
     });
@@ -253,8 +253,8 @@ describe('createGeminiLiveTransport', () => {
     const connectPromise = transport.connect({
       token: {
         token: 'auth_tokens/test-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'text',
     });
@@ -344,8 +344,8 @@ describe('createGeminiLiveTransport', () => {
     const connectPromise = transport.connect({
       token: {
         token: 'auth_tokens/test-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'text',
     });
@@ -400,8 +400,8 @@ describe('createGeminiLiveTransport', () => {
     const connectPromise = transport.connect({
       token: {
         token: 'auth_tokens/test-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'text',
     });
@@ -453,8 +453,8 @@ describe('createGeminiLiveTransport', () => {
     const connectPromise = transport.connect({
       token: {
         token: 'auth_tokens/test-token',
-        expireTime: 'later',
-        newSessionExpireTime: 'soon',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'text',
     });

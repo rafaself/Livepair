@@ -129,8 +129,8 @@ describe('useAssistantPanelController', () => {
     });
     window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
       token: 'ephemeral-token',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
   });
 

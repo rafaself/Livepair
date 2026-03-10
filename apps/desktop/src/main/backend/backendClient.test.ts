@@ -46,8 +46,8 @@ describe('backendClient', () => {
     const req: CreateEphemeralTokenRequest = { sessionId: 'session-1' };
     const response: CreateEphemeralTokenResponse = {
       token: 'ephemeral-token',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     };
     fetchImpl.mockResolvedValue({
       ok: true,
@@ -70,6 +70,46 @@ describe('backendClient', () => {
         request: req,
       },
     );
+  });
+
+  it('rejects malformed token responses before bootstrap uses them', async () => {
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => ({
+        token: '',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      })),
+    });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(client.requestSessionToken({})).rejects.toThrow(
+      'Token response was invalid',
+    );
+  });
+
+  it('rejects expired token responses before live connect starts', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => ({
+        token: 'ephemeral-token',
+        expireTime: '2026-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2026-03-09T11:59:59.000Z',
+      })),
+    });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(client.requestSessionToken({})).rejects.toThrow(
+      'Token response was expired before Live connect',
+    );
+
+    vi.useRealTimers();
   });
 
   it('throws when the token endpoint returns a non-ok response', async () => {

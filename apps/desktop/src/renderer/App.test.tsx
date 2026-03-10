@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
 import { App } from './App';
@@ -147,8 +154,8 @@ describe('App', () => {
     );
     window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
       token: 'ephemeral-token',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
     vi.stubGlobal('WebSocket', FakeWebSocket);
     document.documentElement.dataset['theme'] = '';
@@ -225,14 +232,18 @@ describe('App', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
     });
+    const composerForm = screen.getByRole('form', {
+      name: 'Send message to Livepair',
+    });
+
     await act(async () => {
-      fireEvent.change(screen.getByRole('textbox', { name: 'Message Livepair' }), {
+      fireEvent.change(within(composerForm).getByRole('textbox'), {
         target: { value: 'Summarize the current screen' },
       });
     });
 
     await act(async () => {
-      fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
+      fireEvent.submit(composerForm);
     });
 
     await waitFor(() => {

@@ -31,10 +31,16 @@ export class SessionService {
       new Date(now + sessionStartWindowMs + 30 * 60 * 1000),
     );
 
-    return this.geminiAuthTokenClient.createToken({
-      apiKey: env.geminiApiKey,
-      newSessionExpireTime,
-      expireTime,
-    });
+    return this.geminiAuthTokenClient
+      .createToken({
+        apiKey: env.geminiApiKey,
+        newSessionExpireTime,
+        expireTime,
+      })
+      .then((token) => ({
+        token: token.token,
+        expireTime,
+        newSessionExpireTime,
+      }));
   }
 }
