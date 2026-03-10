@@ -143,11 +143,17 @@ export function createDesktopSessionController(
     return nextLifecycle.status;
   };
 
+  const releaseTextChatStream = (): void => {
+    const stream = activeTextChatStream;
+    activeTextChatStream = null;
+    stream?.cancel().catch(() => {});
+  };
+
   const cleanupTransport = (): void => {
     unsubscribeTransport?.();
     unsubscribeTransport = null;
     activeTransport = null;
-    activeTextChatStream = null;
+    releaseTextChatStream();
     clearPendingAssistantTurn();
   };
 
@@ -372,7 +378,7 @@ export function createDesktopSessionController(
 
     if (event.type === 'turn-complete') {
       const previousStatus = currentTextSessionStatus();
-      activeTextChatStream = null;
+      releaseTextChatStream();
       applyLifecycleEvent({ type: 'response.turn.completed' });
       completePendingAssistantTurn(
         previousStatus === 'interrupted' ? 'Interrupted' : undefined,
@@ -406,7 +412,7 @@ export function createDesktopSessionController(
     dependencies.store
       .getState()
       .setLastDebugEvent(createDebugEvent('transport', 'error', event.detail));
-    activeTextChatStream = null;
+    releaseTextChatStream();
     setErrorState(event.detail, 'Response failed');
   };
 
@@ -596,7 +602,6 @@ export function createDesktopSessionController(
       applyLifecycleEvent({ type: 'disconnect.requested' });
 
       try {
-        await activeTextChatStream?.cancel();
         await activeTransport?.disconnect();
       } finally {
         cleanupTransport();

@@ -296,6 +296,45 @@ describe('createDesktopSessionController', () => {
     );
   });
 
+  it('calls cancel on the text stream when a turn completes to release IPC listeners', async () => {
+    const textChat = createTextChatHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+    });
+
+    await controller.submitTextTurn('Hello');
+    textChat.emit({ type: 'text-delta', text: 'Hi' });
+    textChat.emit({ type: 'completed' });
+
+    expect(textChat.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls cancel on the text stream when a stream error occurs', async () => {
+    const textChat = createTextChatHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+    });
+
+    await controller.submitTextTurn('Hello');
+    textChat.emit({ type: 'error', detail: 'server error' });
+
+    expect(textChat.cancel).toHaveBeenCalledTimes(1);
+  });
+
   it('cancels an active text stream when the session ends', async () => {
     const textChat = createTextChatHarness();
     const controller = createDesktopSessionController({
