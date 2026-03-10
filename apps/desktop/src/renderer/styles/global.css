@@ -59,6 +59,7 @@ select {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb-idle) transparent;
+  scroll-behavior: smooth;
 }
 
 *:hover,
