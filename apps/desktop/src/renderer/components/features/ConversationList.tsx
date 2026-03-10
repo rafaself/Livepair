@@ -1,7 +1,7 @@
 import { ArrowDown } from 'lucide-react';
 import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { ConversationTurn } from './ConversationTurn';
-import type { ConversationTurnModel } from './mockConversation';
+import type { ConversationTurnModel } from '../../runtime/types';
 import './ConversationList.css';
 
 export type ConversationListProps = {

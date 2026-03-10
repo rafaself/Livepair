@@ -13,7 +13,7 @@ describe('sessionStore', () => {
     useSessionStore.getState().setBackendState('checking');
     useSessionStore.getState().setTokenRequestState('loading');
     useSessionStore.getState().setTransportState('connecting');
-    useSessionStore.getState().setActiveTransport('mock');
+    useSessionStore.getState().setActiveTransport('gemini-live');
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
@@ -22,7 +22,7 @@ describe('sessionStore', () => {
         backendState: 'checking',
         tokenRequestState: 'loading',
         transportState: 'connecting',
-        activeTransport: 'mock',
+        activeTransport: 'gemini-live',
       }),
     );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('listening');
@@ -34,7 +34,7 @@ describe('sessionStore', () => {
     useSessionStore.getState().setBackendState('failed');
     useSessionStore.getState().setTokenRequestState('success');
     useSessionStore.getState().setTransportState('connected');
-    useSessionStore.getState().setActiveTransport('mock');
+    useSessionStore.getState().setActiveTransport('gemini-live');
 
     useSessionStore.getState().reset();
 

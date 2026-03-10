@@ -31,11 +31,10 @@ function createTransportHarness(): {
 
   return {
     transport: {
-      kind: 'mock',
+      kind: 'gemini-live',
       connect: vi.fn(async () => {
         listener?.({ type: 'transport.lifecycle', state: 'connecting' });
         listener?.({ type: 'transport.lifecycle', state: 'connected' });
-        listener?.({ type: 'assistant.activity', activity: 'listening' });
       }),
       disconnect: vi.fn(async () => {
         listener?.({ type: 'transport.lifecycle', state: 'disconnected' });
@@ -59,7 +58,7 @@ describe('createDesktopSessionController', () => {
     useSessionStore.getState().reset();
   });
 
-  it('starts a mock-backed runtime session and derives UI state from runtime fields', async () => {
+  it('starts a gemini-live runtime session and derives UI state from runtime fields', async () => {
     const transportHarness = createTransportHarness();
     const logger: RuntimeLogger = {
       onSessionEvent: vi.fn(),
@@ -73,10 +72,14 @@ describe('createDesktopSessionController', () => {
         expireTime: 'later',
         newSessionExpireTime: 'soon',
       }),
-      createTransport: vi.fn((_kind: 'mock') => transportHarness.transport),
+      createTransport: vi.fn((_kind: 'gemini-live') => transportHarness.transport),
     });
 
     await controller.startSession();
+    transportHarness.emit({
+      type: 'assistant.activity',
+      activity: 'listening',
+    });
     transportHarness.emit({
       type: 'conversation.turn.appended',
       turn: {
@@ -94,7 +97,7 @@ describe('createDesktopSessionController', () => {
         backendState: 'connected',
         tokenRequestState: 'success',
         transportState: 'connected',
-        activeTransport: 'mock',
+        activeTransport: 'gemini-live',
       }),
     );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('listening');
@@ -180,7 +183,7 @@ describe('createDesktopSessionController', () => {
 
   it('cancels an in-flight start when the session is ended mid-request', async () => {
     const backendHealth = createDeferred<boolean>();
-    const createTransport = vi.fn((_kind: 'mock') => createTransportHarness().transport);
+    const createTransport = vi.fn((_kind: 'gemini-live') => createTransportHarness().transport);
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
@@ -209,5 +212,41 @@ describe('createDesktopSessionController', () => {
         transportState: 'idle',
       }),
     );
+  });
+
+  it('maps transport failures into a recoverable runtime error state', async () => {
+    const transportHarness = createTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'ephemeral-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
+      }),
+      createTransport: vi.fn().mockReturnValue(transportHarness.transport),
+    });
+
+    await controller.startSession();
+    transportHarness.emit({
+      type: 'transport.lifecycle',
+      state: 'error',
+      detail: 'socket closed unexpectedly',
+    });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        sessionPhase: 'error',
+        tokenRequestState: 'success',
+        transportState: 'error',
+        activeTransport: null,
+        lastRuntimeError: 'socket closed unexpectedly',
+      }),
+    );
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('error');
+    expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
   });
 });

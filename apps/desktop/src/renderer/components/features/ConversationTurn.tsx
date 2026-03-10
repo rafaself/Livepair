@@ -1,7 +1,7 @@
 import { CircleUserRound, Sparkles } from 'lucide-react';
 import type { HTMLAttributes } from 'react';
 import { Badge } from '../primitives';
-import type { ConversationTurnModel } from './mockConversation';
+import type { ConversationTurnModel } from '../../runtime/types';
 import { TypingIndicator } from './TypingIndicator';
 import './ConversationTurn.css';
 

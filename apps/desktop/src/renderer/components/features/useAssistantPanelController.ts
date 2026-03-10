@@ -19,6 +19,7 @@ export type AssistantPanelController = {
   backendLabel: string;
   tokenRequestState: TokenRequestState;
   tokenFeedback: string | null;
+  lastRuntimeError: string | null;
   handleCheckBackendHealth: () => Promise<void>;
   handleStartTalking: () => Promise<void>;
 };
@@ -36,6 +37,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     tokenRequestState,
     tokenFeedback,
     conversationTurns,
+    lastRuntimeError,
     isConversationEmpty,
     handleCheckBackendHealth,
     handleStartSession,
@@ -72,6 +74,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendLabel,
     tokenRequestState,
     tokenFeedback,
+    lastRuntimeError,
     handleCheckBackendHealth: handleCheckBackendHealthCallback,
     handleStartTalking,
   };

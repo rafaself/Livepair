@@ -25,6 +25,7 @@ export function AssistantPanel({
     backendIndicatorState,
     backendLabel,
     tokenFeedback,
+    lastRuntimeError,
     handleCheckBackendHealth,
     setAssistantState,
   } = useAssistantPanelController();
@@ -51,6 +52,7 @@ export function AssistantPanel({
               assistantState={assistantState}
               turns={conversationTurns}
               isConversationEmpty={isConversationEmpty}
+              lastRuntimeError={lastRuntimeError}
             />
           ) : null}
 

@@ -70,7 +70,7 @@ function getDebugRuntimeState(
       sessionPhase: 'active',
       assistantActivity: 'idle',
       transportState: 'connected',
-      activeTransport: activeTransport ?? 'mock',
+      activeTransport: activeTransport ?? 'gemini-live',
       lastRuntimeError: null,
     };
   }
@@ -80,7 +80,7 @@ function getDebugRuntimeState(
       sessionPhase: 'active',
       assistantActivity: 'listening',
       transportState: 'connected',
-      activeTransport: activeTransport ?? 'mock',
+      activeTransport: activeTransport ?? 'gemini-live',
       lastRuntimeError: null,
     };
   }
@@ -90,7 +90,7 @@ function getDebugRuntimeState(
       sessionPhase: 'starting',
       assistantActivity: 'thinking',
       transportState: 'connecting',
-      activeTransport: activeTransport ?? 'mock',
+      activeTransport: activeTransport ?? 'gemini-live',
       lastRuntimeError: null,
     };
   }
@@ -100,7 +100,7 @@ function getDebugRuntimeState(
       sessionPhase: 'active',
       assistantActivity: 'speaking',
       transportState: 'connected',
-      activeTransport: activeTransport ?? 'mock',
+      activeTransport: activeTransport ?? 'gemini-live',
       lastRuntimeError: null,
     };
   }

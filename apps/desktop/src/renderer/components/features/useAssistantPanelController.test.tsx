@@ -8,6 +8,84 @@ import { useUiStore } from '../../store/uiStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import { selectAssistantRuntimeState } from '../../runtime/selectors';
 
+class FakeWebSocket {
+  static instances: FakeWebSocket[] = [];
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
+
+  readonly addEventListener = vi.fn(
+    (type: string, listener: EventListenerOrEventListenerObject) => {
+      this.listeners.get(type)?.add(listener);
+    },
+  );
+
+  readonly removeEventListener = vi.fn(
+    (type: string, listener: EventListenerOrEventListenerObject) => {
+      this.listeners.get(type)?.delete(listener);
+    },
+  );
+
+  readonly send = vi.fn();
+  readonly close = vi.fn((code?: number, reason?: string) => {
+    this.readyState = FakeWebSocket.CLOSING;
+    this.emit('close', createCloseEvent(code, reason));
+  });
+
+  readyState = FakeWebSocket.CONNECTING;
+
+  private readonly listeners = new Map<string, Set<EventListenerOrEventListenerObject>>([
+    ['open', new Set()],
+    ['message', new Set()],
+    ['error', new Set()],
+    ['close', new Set()],
+  ]);
+
+  constructor(public readonly url: string) {
+    FakeWebSocket.instances.push(this);
+  }
+
+  emit(type: 'open' | 'error', event: Event): void;
+  emit(type: 'message', event: MessageEvent<string>): void;
+  emit(type: 'close', event: CloseEvent): void;
+  emit(
+    type: 'open' | 'message' | 'error' | 'close',
+    event: Event | MessageEvent<string> | CloseEvent,
+  ): void {
+    if (type === 'open') {
+      this.readyState = FakeWebSocket.OPEN;
+    }
+
+    if (type === 'close') {
+      this.readyState = FakeWebSocket.CLOSED;
+    }
+
+    this.listeners.get(type)?.forEach((listener) => {
+      if (typeof listener === 'function') {
+        listener(event);
+        return;
+      }
+
+      listener.handleEvent(event);
+    });
+  }
+}
+
+function createCloseEvent(code?: number, reason?: string): CloseEvent {
+  const init: CloseEventInit = {};
+
+  if (code !== undefined) {
+    init.code = code;
+  }
+
+  if (reason !== undefined) {
+    init.reason = reason;
+  }
+
+  return new CloseEvent('close', init);
+}
+
 function HookHarness(): JSX.Element {
   const togglePanel = useUiStore((state) => state.togglePanel);
   const controller = useAssistantPanelController();
@@ -17,6 +95,7 @@ function HookHarness(): JSX.Element {
       <output aria-label="assistant-state">{controller.assistantState}</output>
       <output aria-label="backend-label">{controller.backendLabel}</output>
       <output aria-label="token-feedback">{controller.tokenFeedback ?? 'none'}</output>
+      <output aria-label="runtime-error">{controller.lastRuntimeError ?? 'none'}</output>
       <output aria-label="panel-view">{controller.panelView}</output>
       <output aria-label="conversation-count">{String(controller.conversationTurns.length)}</output>
       <output aria-label="conversation-empty">{String(controller.isConversationEmpty)}</output>
@@ -40,8 +119,10 @@ function HookHarness(): JSX.Element {
 describe('useAssistantPanelController', () => {
   beforeEach(() => {
     resetDesktopStores();
+    FakeWebSocket.instances = [];
     useSettingsStore.setState({ settings: DEFAULT_DESKTOP_SETTINGS, isReady: true });
     vi.clearAllMocks();
+    vi.stubGlobal('WebSocket', FakeWebSocket);
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
       status: 'ok',
       timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
@@ -55,6 +136,7 @@ describe('useAssistantPanelController', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it('checks backend health when the panel is opened without promoting the session state', async () => {
@@ -93,25 +175,96 @@ describe('useAssistantPanelController', () => {
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
   });
 
-  it('promotes the runtime session through the mock transport when token acquisition succeeds', async () => {
-    vi.useFakeTimers();
-
+  it('derives the assistant state from realtime transport events instead of mock transcript timers', async () => {
     render(<HookHarness />);
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
-      await Promise.resolve();
-      await Promise.resolve();
     });
 
-    expect(window.bridge.requestSessionToken).toHaveBeenCalledTimes(1);
-    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('listening');
-    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Token received');
+    await waitFor(() => {
+      expect(window.bridge.requestSessionToken).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('thinking');
+    expect(screen.getByLabelText('conversation-count')).toHaveTextContent('0');
+    await waitFor(() => {
+      expect(FakeWebSocket.instances).toHaveLength(1);
+    });
+
+    const [socket] = FakeWebSocket.instances;
+    expect(socket).toBeDefined();
+    if (!socket) {
+      throw new Error('Expected a realtime socket');
+    }
+    expect(socket.url).toContain('BidiGenerateContentConstrained');
 
     act(() => {
-      vi.advanceTimersByTime(4000);
+      socket.emit('open', new Event('open'));
+      socket.emit(
+        'message',
+        new MessageEvent('message', {
+          data: JSON.stringify({ setupComplete: {} }),
+        }),
+      );
     });
 
-    expect(useSessionStore.getState().conversationTurns.length).toBeGreaterThan(0);
-    expect(selectAssistantRuntimeState(useSessionStore.getState())).not.toBe('disconnected');
+    await waitFor(() => {
+      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
+    });
+    expect(screen.getByLabelText('conversation-count')).toHaveTextContent('0');
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
+  });
+
+  it('surfaces transport failures and allows the next start to recover cleanly', async () => {
+    render(<HookHarness />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
+    });
+    await waitFor(() => {
+      expect(FakeWebSocket.instances).toHaveLength(1);
+    });
+
+    const [firstSocket] = FakeWebSocket.instances;
+    expect(firstSocket).toBeDefined();
+    if (!firstSocket) {
+      throw new Error('Expected a realtime socket');
+    }
+    act(() => {
+      firstSocket.emit('open', new Event('open'));
+      firstSocket.emit(
+        'close',
+        new CloseEvent('close', { code: 1011, reason: 'transport offline' }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
+    });
+    expect(screen.getByLabelText('runtime-error')).toHaveTextContent('transport offline');
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
+    });
+    await waitFor(() => {
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
+    const secondSocket = FakeWebSocket.instances.at(-1);
+    expect(secondSocket).not.toBe(firstSocket);
+
+    act(() => {
+      secondSocket?.emit('open', new Event('open'));
+      secondSocket?.emit(
+        'message',
+        new MessageEvent('message', {
+          data: JSON.stringify({ setupComplete: {} }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
+    });
+    expect(screen.getByLabelText('runtime-error')).toHaveTextContent('none');
   });
 });

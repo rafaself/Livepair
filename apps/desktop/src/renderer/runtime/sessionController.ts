@@ -1,7 +1,7 @@
 import { checkBackendHealth, requestSessionToken } from '../api/backend';
 import { useSessionStore } from '../store/sessionStore';
 import { defaultRuntimeLogger } from './logger';
-import { createDesktopSessionTransport } from './mockTransport';
+import { createGeminiLiveTransport } from './geminiLiveTransport';
 import type {
   DesktopSessionTransport,
   RuntimeLogger,
@@ -58,7 +58,7 @@ export function createDesktopSessionController(
     logger: defaultRuntimeLogger,
     checkBackendHealth,
     requestSessionToken,
-    createTransport: createDesktopSessionTransport,
+    createTransport: (_kind) => createGeminiLiveTransport(),
     store: useSessionStore,
     ...overrides,
   };
@@ -139,6 +139,7 @@ export function createDesktopSessionController(
       store.setTransportState('error');
       store.setSessionPhase('error');
       store.setAssistantActivity('idle');
+      store.setActiveTransport(null);
       store.setLastRuntimeError(event.detail ?? 'Transport failed');
       cleanupTransport();
       return;
@@ -231,8 +232,7 @@ export function createDesktopSessionController(
       const operationId = beginSessionOperation();
       store.reset();
       store.setSessionPhase('starting');
-      store.setActiveTransport('mock');
-      recordSessionEvent({ type: 'session.start.requested', transport: 'mock' });
+      recordSessionEvent({ type: 'session.start.requested', transport: 'gemini-live' });
 
       const isHealthy = await performBackendHealthCheck(operationId);
 
@@ -243,20 +243,19 @@ export function createDesktopSessionController(
       store.setTokenRequestState('loading');
       recordSessionEvent({ type: 'session.token.request.started' });
 
+      let token;
       try {
-        const token = await dependencies.requestSessionToken({});
+        token = await dependencies.requestSessionToken({});
 
         if (!isCurrentSessionOperation(operationId)) {
           return;
         }
 
         store.setTokenRequestState('success');
-        recordSessionEvent({ type: 'session.token.request.succeeded', transport: 'mock' });
-
-        activeTransport = dependencies.createTransport('mock');
-        unsubscribeTransport = activeTransport.subscribe(handleTransportEvent);
-        store.setTransportState('connecting');
-        await activeTransport.connect({ token });
+        recordSessionEvent({
+          type: 'session.token.request.succeeded',
+          transport: 'gemini-live',
+        });
       } catch (error) {
         if (!isCurrentSessionOperation(operationId)) {
           return;
@@ -266,6 +265,26 @@ export function createDesktopSessionController(
         store.setTokenRequestState('error');
         recordSessionEvent({ type: 'session.token.request.failed', detail });
         setErrorState(detail);
+        return;
+      }
+
+      activeTransport = dependencies.createTransport('gemini-live');
+      unsubscribeTransport = activeTransport.subscribe(handleTransportEvent);
+      store.setActiveTransport('gemini-live');
+      store.setTransportState('connecting');
+
+      try {
+        await activeTransport.connect({ token });
+      } catch (error) {
+        if (!isCurrentSessionOperation(operationId)) {
+          return;
+        }
+
+        if (dependencies.store.getState().sessionPhase === 'error') {
+          return;
+        }
+
+        setErrorState(asErrorDetail(error, 'Gemini Live connection failed'));
       }
     },
     endSession: async () => {

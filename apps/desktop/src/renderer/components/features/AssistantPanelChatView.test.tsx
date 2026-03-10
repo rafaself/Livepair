@@ -10,6 +10,7 @@ describe('AssistantPanelChatView', () => {
         assistantState="disconnected"
         turns={[]}
         isConversationEmpty={true}
+        lastRuntimeError={null}
       />,
     );
 
@@ -41,6 +42,7 @@ describe('AssistantPanelChatView', () => {
         assistantState="ready"
         turns={turns}
         isConversationEmpty={false}
+        lastRuntimeError={null}
       />,
     );
 
@@ -48,5 +50,21 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByText('Check the latest exchange.')).toBeVisible();
     expect(screen.getByText('The latest exchange is visible in the transcript.')).toBeVisible();
     expect(screen.queryByText('No conversation yet')).toBeNull();
+  });
+
+  it('shows a visible runtime error state when the transport fails', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="error"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError="transport offline"
+      />,
+    );
+
+    expect(screen.getByRole('status', { name: 'Error' })).toBeVisible();
+    expect(screen.getByText('Session failed')).toBeVisible();
+    expect(screen.getByText('transport offline')).toBeVisible();
+    expect(screen.getByText(/start the session again/i)).toBeVisible();
   });
 });

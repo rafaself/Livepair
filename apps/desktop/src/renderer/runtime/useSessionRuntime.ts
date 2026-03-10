@@ -18,6 +18,7 @@ export function useSessionRuntime() {
   const tokenRequestState = useSessionStore((state) => state.tokenRequestState);
   const tokenFeedback = useSessionStore(selectTokenFeedback);
   const conversationTurns = useSessionStore((state) => state.conversationTurns);
+  const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
   const isConversationEmpty = useSessionStore(selectIsConversationEmpty);
   const isSessionActive = useSessionStore(selectIsSessionActive);
   const controller = getDesktopSessionController();
@@ -49,6 +50,7 @@ export function useSessionRuntime() {
     tokenRequestState,
     tokenFeedback,
     conversationTurns,
+    lastRuntimeError,
     isConversationEmpty,
     isSessionActive,
     handleCheckBackendHealth,

@@ -103,8 +103,12 @@ export function selectIsConversationEmpty(
 export function selectIsSessionActive(
   state: Pick<SessionStoreState, 'sessionPhase' | 'transportState'>,
 ): boolean {
-  return !(
-    state.sessionPhase === 'idle' &&
-    (state.transportState === 'idle' || state.transportState === 'error')
+  return (
+    state.sessionPhase === 'starting' ||
+    state.sessionPhase === 'active' ||
+    state.sessionPhase === 'ending' ||
+    state.transportState === 'connecting' ||
+    state.transportState === 'connected' ||
+    state.transportState === 'disconnecting'
   );
 }
