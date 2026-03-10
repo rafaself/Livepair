@@ -61,6 +61,7 @@ function createSdkHarness(): {
 
   const session: GeminiLiveSdkSession = {
     sendClientContent: vi.fn(),
+    sendRealtimeInput: vi.fn(),
     close: vi.fn(() => {
       callbacks?.onClose?.(createCloseEvent(1000, 'Client ended session'));
     }),
@@ -189,6 +190,38 @@ describe('createGeminiLiveTransport', () => {
         contextWindowCompression: {
           slidingWindow: {},
         },
+      } satisfies GeminiLiveConnectConfig,
+      callbacks: expect.any(Object),
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+  });
+
+  it('connects voice mode with AUDIO response modality', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    await Promise.resolve();
+
+    expect(sdkHarness.getConnectOptions()).toEqual({
+      apiKey: 'auth_tokens/test-token',
+      apiVersion: 'v1alpha',
+      model: 'models/gemini-2.0-flash-exp',
+      config: {
+        responseModalities: ['AUDIO'],
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });
@@ -513,13 +546,57 @@ describe('createGeminiLiveTransport', () => {
     });
   });
 
-  it('rejects audio upload until voice mode is implemented', async () => {
+  it('sends audio chunks through realtime input with PCM metadata', async () => {
+    const sdkHarness = createSdkHarness();
     const transport = createGeminiLiveTransport({
-      connectSession: vi.fn(),
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
     });
 
-    await expect(transport.sendAudioChunk(new Uint8Array([1, 2, 3]))).rejects.toThrow(
-      'Audio input is not implemented for Gemini Live yet',
-    );
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+    await transport.sendAudioChunk(new Uint8Array([1, 2, 3, 4]));
+
+    expect(sdkHarness.session.sendRealtimeInput).toHaveBeenCalledWith({
+      audio: {
+        data: 'AQIDBA==',
+        mimeType: 'audio/pcm;rate=16000',
+      },
+    });
+  });
+
+  it('sends audioStreamEnd when the local microphone stream stops', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+    await transport.sendAudioChunk(new Uint8Array([1, 2, 3, 4]));
+    await transport.sendAudioStreamEnd();
+
+    expect(sdkHarness.session.sendRealtimeInput).toHaveBeenCalledWith({
+      audioStreamEnd: true,
+    });
   });
 });

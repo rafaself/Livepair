@@ -9,6 +9,7 @@ import {
 } from './logger';
 import { formatConversationTimestamp } from './conversationTimestamp';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
+import { LIVE_ADAPTER_KEY } from './liveConfig';
 import { createLocalVoiceCapture, type LocalVoiceCapture } from './localVoiceCapture';
 import {
   isSessionActiveLifecycle,
@@ -28,6 +29,7 @@ import type {
   TextSessionStatus,
   TransportKind,
   VoiceCaptureDiagnostics,
+  VoiceSessionStatus,
 } from './types';
 import type {
   TextChatMessage,
@@ -36,7 +38,7 @@ import type {
 } from '@livepair/shared-types';
 
 const TEXT_CHAT_ADAPTER_KEY: TransportKind = 'backend-text';
-const VOICE_MODE_UNAVAILABLE_DETAIL = 'Voice mode is not available in this release';
+const VOICE_SESSION_NOT_READY_DETAIL = 'Voice session is not ready';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 type SettingsStoreApi = Pick<typeof useSettingsStore, 'getState'>;
@@ -118,6 +120,7 @@ export function createDesktopSessionController(
   let nextAssistantTurnId = 0;
   let pendingAssistantTurnId: string | null = null;
   let voiceCapture: LocalVoiceCapture | null = null;
+  let voiceSendChain = Promise.resolve();
   const voiceChunkListeners = new Set<(chunk: LocalVoiceChunk) => void>();
 
   const recordSessionEvent = (event: SessionControllerEvent): void => {
@@ -154,12 +157,15 @@ export function createDesktopSessionController(
             chunkDurationMs: chunk.durationMs,
             lastError: null,
           });
+          void enqueueVoiceChunkSend(chunk);
         },
         onDiagnostics: (diagnostics) => {
           dependencies.store.getState().setVoiceCaptureDiagnostics(diagnostics);
         },
         onError: (detail) => {
           dependencies.store.getState().setVoiceCaptureState('error');
+          dependencies.store.getState().setVoiceSessionStatus('error');
+          dependencies.store.getState().setLastRuntimeError(detail);
           dependencies.store.getState().setVoiceCaptureDiagnostics({
             lastError: detail,
           });
@@ -200,10 +206,19 @@ export function createDesktopSessionController(
     stream?.cancel().catch(() => {});
   };
 
+  const currentVoiceSessionStatus = (): VoiceSessionStatus => {
+    return dependencies.store.getState().voiceSessionStatus;
+  };
+
+  const setVoiceSessionStatus = (status: VoiceSessionStatus): void => {
+    dependencies.store.getState().setVoiceSessionStatus(status);
+  };
+
   const cleanupTransport = (): void => {
     unsubscribeTransport?.();
     unsubscribeTransport = null;
     activeTransport = null;
+    voiceSendChain = Promise.resolve();
     releaseTextChatStream();
     clearPendingAssistantTurn();
   };
@@ -269,19 +284,6 @@ export function createDesktopSessionController(
     );
   };
 
-  const upsertAssistantMessage = (
-    text: string,
-    state: ConversationTurnModel['state'] = 'streaming',
-    statusLabel?: string,
-  ): void => {
-    if (!pendingAssistantTurnId) {
-      appendAssistantTurn(text, state, statusLabel);
-      return;
-    }
-
-    updatePendingAssistantTurn(text, state, statusLabel);
-  };
-
   const completePendingAssistantTurn = (statusLabel?: string): void => {
     if (!pendingAssistantTurnId) {
       return;
@@ -296,21 +298,6 @@ export function createDesktopSessionController(
 
     updatePendingAssistantTurn(currentTurn.content, 'complete', statusLabel);
     clearPendingAssistantTurn();
-  };
-
-  const markPendingAssistantTurnInterrupted = (): void => {
-    if (!pendingAssistantTurnId) {
-      return;
-    }
-
-    const currentTurn = getConversationTurn(pendingAssistantTurnId);
-
-    if (!currentTurn) {
-      clearPendingAssistantTurn();
-      return;
-    }
-
-    updatePendingAssistantTurn(currentTurn.content, 'streaming', 'Interrupted');
   };
 
   const failPendingAssistantTurn = (statusLabel: string): void => {
@@ -334,17 +321,6 @@ export function createDesktopSessionController(
     dependencies.store.getState().resetTextSessionRuntime(textSessionStatus);
   };
 
-  const setGoAwayState = (detail: string): void => {
-    applyLifecycleEvent({ type: 'go-away.received' });
-    logRuntimeDiagnostic('session', 'go-away state entered', { detail });
-    failPendingAssistantTurn('Session unavailable');
-    cleanupTransport();
-    const store = dependencies.store.getState();
-    store.setAssistantActivity('idle');
-    store.setActiveTransport(null);
-    store.setLastRuntimeError(detail);
-  };
-
   const setErrorState = (
     detail: string,
     failedTurnStatusLabel = 'Disconnected',
@@ -357,6 +333,52 @@ export function createDesktopSessionController(
     store.setAssistantActivity('idle');
     store.setActiveTransport(null);
     store.setLastRuntimeError(detail);
+  };
+
+  const setVoiceErrorState = (detail: string): void => {
+    logRuntimeError('voice-session', 'runtime entered error state', { detail });
+    const transport = activeTransport;
+    const store = dependencies.store.getState();
+    store.setVoiceSessionStatus('error');
+    store.setVoiceCaptureState('error');
+    store.setLastRuntimeError(detail);
+    store.setActiveTransport(null);
+    cleanupTransport();
+    void transport?.disconnect().catch(() => {});
+  };
+
+  const enqueueVoiceChunkSend = (chunk: LocalVoiceChunk): Promise<void> => {
+    const store = dependencies.store.getState();
+
+    if (!activeTransport || currentVoiceSessionStatus() === 'disconnected') {
+      return Promise.resolve();
+    }
+
+    if (currentVoiceSessionStatus() === 'ready') {
+      setVoiceSessionStatus('capturing');
+    }
+
+    voiceSendChain = voiceSendChain
+      .then(async () => {
+        await activeTransport?.sendAudioChunk(chunk.data);
+        if (currentVoiceSessionStatus() === 'capturing' || currentVoiceSessionStatus() === 'ready') {
+          setVoiceSessionStatus('streaming');
+        }
+      })
+      .catch((error) => {
+        const detail = asErrorDetail(error, 'Failed to stream microphone audio');
+        store.setVoiceCaptureDiagnostics({
+          lastError: detail,
+        });
+        setVoiceErrorState(detail);
+      });
+
+    return voiceSendChain;
+  };
+
+  const flushVoiceAudioInput = async (): Promise<void> => {
+    await voiceSendChain;
+    await activeTransport?.sendAudioStreamEnd();
   };
 
   const handleTransportEvent = (event: LiveSessionEvent): void => {
@@ -373,87 +395,50 @@ export function createDesktopSessionController(
 
     if (event.type === 'connection-state-changed') {
       if (event.state === 'connecting') {
-        applyLifecycleEvent({ type: 'bootstrap.started' });
+        setVoiceSessionStatus('connecting');
         return;
       }
 
       if (event.state === 'connected') {
-        applyLifecycleEvent({ type: 'transport.connected' });
+        setVoiceSessionStatus('ready');
         store.setAssistantActivity('idle');
+        store.setActiveTransport(LIVE_ADAPTER_KEY);
+        store.setLastRuntimeError(null);
         return;
       }
 
-      applyLifecycleEvent({ type: 'transport.disconnected' });
+      setVoiceSessionStatus('disconnected');
       cleanupTransport();
       store.setAssistantActivity('idle');
       store.setActiveTransport(null);
       return;
     }
 
+    if (event.type === 'go-away') {
+      setVoiceErrorState(event.detail ?? 'Voice session unavailable');
+      return;
+    }
+
+    if (event.type === 'error') {
+      setVoiceErrorState(event.detail);
+    }
+  };
+
+  const handleTextChatStreamEvent = (event: TextChatStreamEvent): void => {
     if (event.type === 'text-delta') {
       applyLifecycleEvent({ type: 'response.delta.received' });
       appendAssistantTextDelta(event.text);
       return;
     }
 
-    if (event.type === 'text-message') {
-      upsertAssistantMessage(event.text, 'streaming', 'Responding...');
-      return;
-    }
-
-    if (event.type === 'generation-complete') {
-      applyLifecycleEvent({ type: 'response.generation.completed' });
-
-      if (pendingAssistantTurnId) {
-        const currentTurn = getConversationTurn(pendingAssistantTurnId);
-
-        if (currentTurn) {
-          updatePendingAssistantTurn(
-            currentTurn.content,
-            'streaming',
-            'Finishing response...',
-          );
-        }
-      }
-
-      return;
-    }
-
-    if (event.type === 'interrupted') {
-      applyLifecycleEvent({ type: 'response.interrupted' });
-      markPendingAssistantTurnInterrupted();
-      return;
-    }
-
-    if (event.type === 'turn-complete') {
+    if (event.type === 'completed') {
       const previousStatus = currentTextSessionStatus();
       releaseTextChatStream();
       applyLifecycleEvent({ type: 'response.turn.completed' });
       completePendingAssistantTurn(
         previousStatus === 'interrupted' ? 'Interrupted' : undefined,
       );
-      store.setAssistantActivity('idle');
-      return;
-    }
-
-    if (event.type === 'go-away') {
-      setGoAwayState(event.detail ?? 'Text session unavailable');
-      return;
-    }
-
-    if (event.type === 'error') {
-      setErrorState(event.detail);
-    }
-  };
-
-  const handleTextChatStreamEvent = (event: TextChatStreamEvent): void => {
-    if (event.type === 'text-delta') {
-      handleTransportEvent({ type: 'text-delta', text: event.text });
-      return;
-    }
-
-    if (event.type === 'completed') {
-      handleTransportEvent({ type: 'turn-complete' });
+      dependencies.store.getState().setAssistantActivity('idle');
       return;
     }
 
@@ -511,13 +496,88 @@ export function createDesktopSessionController(
     );
   };
 
+  const requestVoiceSessionToken = async (operationId: number) => {
+    const store = dependencies.store.getState();
+    store.setTokenRequestState('loading');
+    recordSessionEvent({ type: 'session.token.request.started' });
+
+    try {
+      const token = await dependencies.requestSessionToken({});
+
+      if (!isCurrentSessionOperation(operationId)) {
+        return null;
+      }
+
+      store.setTokenRequestState('success');
+      store.setBackendState('connected');
+      recordSessionEvent({
+        type: 'session.token.request.succeeded',
+        transport: LIVE_ADAPTER_KEY,
+      });
+      return token;
+    } catch (error) {
+      if (!isCurrentSessionOperation(operationId)) {
+        return null;
+      }
+
+      const detail = asErrorDetail(error, 'Failed to request voice session token');
+      store.setTokenRequestState('error');
+      store.setBackendState('failed');
+      recordSessionEvent({ type: 'session.token.request.failed', detail });
+      setVoiceErrorState(detail);
+      return null;
+    }
+  };
+
   const startSessionInternal = async ({
     mode,
   }: {
     mode: SessionMode;
   }): Promise<void> => {
     if (mode === 'voice') {
-      setErrorState(VOICE_MODE_UNAVAILABLE_DETAIL, 'Voice unavailable');
+      if (currentVoiceSessionStatus() !== 'disconnected' && currentVoiceSessionStatus() !== 'error') {
+        return;
+      }
+
+      const operationId = beginSessionOperation();
+      const store = dependencies.store.getState();
+      store.setVoiceCaptureState('idle');
+      store.setVoiceCaptureDiagnostics({
+        lastError: null,
+      });
+      setVoiceSessionStatus('connecting');
+      recordSessionEvent({
+        type: 'session.start.requested',
+        transport: LIVE_ADAPTER_KEY,
+      });
+      logRuntimeDiagnostic('voice-session', 'start requested', {
+        transport: LIVE_ADAPTER_KEY,
+      });
+
+      const token = await requestVoiceSessionToken(operationId);
+
+      if (!token || !isCurrentSessionOperation(operationId)) {
+        return;
+      }
+
+      const transport = dependencies.createTransport(LIVE_ADAPTER_KEY);
+      cleanupTransport();
+      activeTransport = transport;
+      unsubscribeTransport = transport.subscribe(handleTransportEvent);
+
+      try {
+        await transport.connect({
+          token,
+          mode: 'voice',
+        });
+      } catch (error) {
+        if (!isCurrentSessionOperation(operationId)) {
+          return;
+        }
+
+        setVoiceErrorState(asErrorDetail(error, 'Failed to connect voice session'));
+      }
+
       return;
     }
 
@@ -607,6 +667,14 @@ export function createDesktopSessionController(
         return;
       }
 
+       if (store.voiceSessionStatus !== 'ready') {
+        store.setVoiceCaptureState('error');
+        store.setVoiceCaptureDiagnostics({
+          lastError: VOICE_SESSION_NOT_READY_DETAIL,
+        });
+        return;
+      }
+
       const selectedInputDeviceId =
         dependencies.settingsStore.getState().settings.selectedInputDeviceId;
       store.setVoiceCaptureState('requestingPermission');
@@ -622,13 +690,16 @@ export function createDesktopSessionController(
       try {
         await getVoiceCapture().start({ selectedInputDeviceId });
         dependencies.store.getState().setVoiceCaptureState('capturing');
+        dependencies.store.getState().setVoiceSessionStatus('capturing');
       } catch (error) {
         const detail = asErrorDetail(error, 'Failed to start microphone capture');
         dependencies.store.getState().setVoiceCaptureState('error');
+        dependencies.store.getState().setVoiceSessionStatus('error');
         dependencies.store.getState().setVoiceCaptureDiagnostics({
           lastError: detail,
           selectedInputDeviceId,
         });
+        dependencies.store.getState().setLastRuntimeError(detail);
       }
     },
     stopVoiceCapture: async () => {
@@ -642,11 +713,16 @@ export function createDesktopSessionController(
       }
 
       store.setVoiceCaptureState('stopping');
+      store.setVoiceSessionStatus('stopping');
 
       try {
+        await flushVoiceAudioInput();
         await getVoiceCapture().stop();
       } finally {
         dependencies.store.getState().setVoiceCaptureState('stopped');
+        dependencies.store
+          .getState()
+          .setVoiceSessionStatus(activeTransport ? 'ready' : 'disconnected');
       }
     },
     subscribeToVoiceChunks: (listener) => {
@@ -703,17 +779,28 @@ export function createDesktopSessionController(
 
       if (!activeTransport && !activeTextChatStream) {
         resetRuntimeState('disconnected');
+        store.setVoiceSessionStatus('disconnected');
         recordSessionEvent({ type: 'session.ended' });
         return;
       }
 
       applyLifecycleEvent({ type: 'disconnect.requested' });
+      store.setVoiceSessionStatus('stopping');
 
       try {
+        if (
+          store.voiceCaptureState === 'capturing' ||
+          store.voiceCaptureState === 'requestingPermission' ||
+          store.voiceCaptureState === 'stopping'
+        ) {
+          await flushVoiceAudioInput();
+          await getVoiceCapture().stop();
+        }
         await activeTransport?.disconnect();
       } finally {
         cleanupTransport();
         resetRuntimeState('disconnected');
+        store.setVoiceSessionStatus('disconnected');
         store.setAssistantActivity('idle');
         recordSessionEvent({ type: 'session.ended' });
       }

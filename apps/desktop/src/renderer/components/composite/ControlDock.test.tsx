@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { useSessionStore } from '../../store/sessionStore';
@@ -7,6 +7,7 @@ import { resetDesktopStores } from '../../store/testing';
 import { useUiStore } from '../../store/uiStore';
 import { selectAssistantRuntimeState } from '../../runtime/selectors';
 import { useSessionRuntime } from '../../runtime/useSessionRuntime';
+import { __emitGeminiLiveSdkMessage } from '../../test/geminiLiveSdkMock';
 import { AssistantPanelSettingsView } from '../features/AssistantPanelSettingsView';
 import { ControlDock } from './ControlDock';
 
@@ -17,10 +18,12 @@ function renderDock() {
     const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
     const {
       handleEndSession,
-      handleStartSession,
+      handleStartVoiceSession,
       handleStartVoiceCapture,
       handleStopVoiceCapture,
       isSessionActive,
+      isVoiceSessionActive,
+      voiceSessionStatus,
       voiceCaptureState,
     } = useSessionRuntime();
 
@@ -31,11 +34,13 @@ function renderDock() {
         <output aria-label="assistant-state">{assistantState}</output>
         <output aria-label="voice-capture-state">{voiceCaptureState}</output>
         <ControlDock
-          isSessionActive={isSessionActive}
+          isTextSessionActive={isSessionActive}
+          isVoiceSessionActive={isVoiceSessionActive}
+          voiceSessionStatus={voiceSessionStatus}
           voiceCaptureState={voiceCaptureState}
+          onStartVoiceSession={handleStartVoiceSession}
           onStartVoiceCapture={handleStartVoiceCapture}
           onStopVoiceCapture={handleStopVoiceCapture}
-          onStartSession={handleStartSession}
           onEndSession={handleEndSession}
         />
         <AssistantPanelSettingsView />
@@ -51,29 +56,51 @@ describe('ControlDock', () => {
     resetDesktopStores();
     useSettingsStore.setState({ settings: DEFAULT_DESKTOP_SETTINGS, isReady: true });
     useUiStore.getState().initializeSettingsUi(DEFAULT_DESKTOP_SETTINGS);
+    window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'auth_tokens/test-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    });
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
       ...patch,
     }));
   });
 
-  it('renders the microphone control and keeps voice session controls unavailable', () => {
+  it('renders voice session controls disconnected by default', () => {
     renderDock();
 
     expect(
-      screen.getByRole('button', { name: /start microphone capture/i }),
-    ).toBeEnabled();
+      screen.getByRole('button', { name: /connect voice session to use microphone/i }),
+    ).toBeDisabled();
     expect(
       screen.getByRole('button', { name: /camera unavailable in text mode/i }),
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /voice mode unavailable in text mode/i }),
-    ).toBeDisabled();
+      screen.getByRole('button', { name: /^connect voice session$/i }),
+    ).toBeEnabled();
     expect(screen.getByRole('button', { name: /open panel/i })).toBeInTheDocument();
   });
 
-  it('toggles local microphone capture from the dock', async () => {
+  it('connects voice mode and then toggles local microphone capture from the dock', async () => {
     renderDock();
+
+    fireEvent.click(screen.getByRole('button', { name: /^connect voice session$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /connecting voice session/i }),
+      ).toBeDisabled();
+    });
+    await act(async () => {
+      __emitGeminiLiveSdkMessage({ setupComplete: {} });
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /start microphone capture/i }),
+      ).toBeEnabled();
+    });
 
     fireEvent.click(screen.getByRole('button', { name: /start microphone capture/i }));
 
@@ -89,6 +116,15 @@ describe('ControlDock', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('stopped');
     });
+  });
+
+  it('keeps voice session controls unavailable while text mode is active', async () => {
+    useSessionStore.getState().setTextSessionLifecycle({ status: 'ready' });
+    renderDock();
+
+    expect(
+      screen.getByRole('button', { name: /voice session unavailable in text mode/i }),
+    ).toBeDisabled();
   });
 
   it('opens and closes the panel', () => {

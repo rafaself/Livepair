@@ -2,6 +2,7 @@ import type {
   DesktopSession,
   DesktopSessionConnectParams,
   LiveSessionEvent,
+  SessionMode,
 } from './types';
 import {
   LIVE_ADAPTER_KEY,
@@ -71,6 +72,18 @@ function closeGeminiLiveSdkSession(session: GeminiLiveSdkSession | null): void {
   session?.close();
 }
 
+const LIVE_AUDIO_PCM_MIME_TYPE = 'audio/pcm;rate=16000';
+
+function encodeChunkToBase64(chunk: Uint8Array): string {
+  let binary = '';
+
+  for (const value of chunk) {
+    binary += String.fromCharCode(value);
+  }
+
+  return btoa(binary);
+}
+
 export class GeminiLiveTransport implements DesktopSession {
   kind = LIVE_ADAPTER_KEY;
 
@@ -86,6 +99,8 @@ export class GeminiLiveTransport implements DesktopSession {
   private closingByClient = false;
   private pendingOutputText = '';
   private disconnectResolver: (() => void) | null = null;
+  private activeMode: SessionMode | null = null;
+  private hasOpenAudioStream = false;
 
   constructor({
     connectSession = connectGeminiLiveSdkSession,
@@ -110,12 +125,6 @@ export class GeminiLiveTransport implements DesktopSession {
       throw createError(detail);
     }
 
-    if (mode === 'voice') {
-      const detail = 'Voice mode is not implemented for Gemini Live yet';
-      this.emit({ type: 'error', detail });
-      throw createError(detail);
-    }
-
     if (this.session) {
       await this.disconnect();
     }
@@ -124,6 +133,8 @@ export class GeminiLiveTransport implements DesktopSession {
     this.hasReceivedGoAway = false;
     this.closingByClient = false;
     this.pendingOutputText = '';
+    this.activeMode = mode;
+    this.hasOpenAudioStream = false;
     this.emit({ type: 'connection-state-changed', state: 'connecting' });
     logRuntimeDiagnostic('gemini-live-transport', 'connect started', {
       mode,
@@ -171,6 +182,8 @@ export class GeminiLiveTransport implements DesktopSession {
         this.session = null;
         this.hasCompletedSetup = false;
         this.pendingOutputText = '';
+        this.activeMode = null;
+        this.hasOpenAudioStream = false;
         this.emit({ type: 'error', detail });
         reject(createError(detail));
       };
@@ -184,6 +197,8 @@ export class GeminiLiveTransport implements DesktopSession {
         this.session = null;
         this.hasCompletedSetup = false;
         this.pendingOutputText = '';
+        this.activeMode = null;
+        this.hasOpenAudioStream = false;
         reject(createError(detail));
       };
 
@@ -195,6 +210,8 @@ export class GeminiLiveTransport implements DesktopSession {
         this.pendingOutputText = '';
         this.session = null;
         this.hasCompletedSetup = false;
+        this.activeMode = null;
+        this.hasOpenAudioStream = false;
         logRuntimeError('gemini-live-transport', 'unexpected termination', {
           detail,
         });
@@ -220,6 +237,8 @@ export class GeminiLiveTransport implements DesktopSession {
           this.session = null;
           this.hasCompletedSetup = false;
           this.pendingOutputText = '';
+          this.activeMode = null;
+          this.hasOpenAudioStream = false;
           logRuntimeDiagnostic('gemini-live-transport', 'go-away received', {
             detail,
           });
@@ -311,6 +330,8 @@ export class GeminiLiveTransport implements DesktopSession {
           this.hasCompletedSetup = false;
           this.hasReceivedGoAway = false;
           this.pendingOutputText = '';
+          this.activeMode = null;
+          this.hasOpenAudioStream = false;
           this.closingByClient = false;
           this.disconnectResolver?.();
           this.disconnectResolver = null;
@@ -389,13 +410,48 @@ export class GeminiLiveTransport implements DesktopSession {
   }
 
   async sendAudioChunk(_chunk: Uint8Array): Promise<void> {
-    throw createError('Audio input is not implemented for Gemini Live yet');
+    const session = this.session;
+
+    if (!session || !this.hasCompletedSetup) {
+      throw createError('Gemini Live session is not connected');
+    }
+
+    if (this.activeMode !== 'voice') {
+      throw createError('Gemini Live audio input requires a voice session');
+    }
+
+    this.hasOpenAudioStream = true;
+    session.sendRealtimeInput({
+      audio: {
+        data: encodeChunkToBase64(_chunk),
+        mimeType: LIVE_AUDIO_PCM_MIME_TYPE,
+      },
+    });
+  }
+
+  async sendAudioStreamEnd(): Promise<void> {
+    const session = this.session;
+
+    if (!session || !this.hasCompletedSetup || this.activeMode !== 'voice') {
+      return;
+    }
+
+    if (!this.hasOpenAudioStream) {
+      return;
+    }
+
+    this.hasOpenAudioStream = false;
+    session.sendRealtimeInput({
+      audioStreamEnd: true,
+    });
   }
 
   async disconnect(): Promise<void> {
     const session = this.session;
 
     if (!session) {
+      this.activeMode = null;
+      this.hasOpenAudioStream = false;
       this.emit({ type: 'connection-state-changed', state: 'disconnected' });
       return;
     }

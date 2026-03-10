@@ -29,7 +29,10 @@ export type GeminiLiveSdkCallbacks = {
   onClose?: ((event: CloseEvent) => void) | undefined;
 };
 
-export type GeminiLiveSdkSession = Pick<Session, 'sendClientContent' | 'close'>;
+export type GeminiLiveSdkSession = Pick<
+  Session,
+  'sendClientContent' | 'sendRealtimeInput' | 'close'
+>;
 
 export type ConnectGeminiLiveSdkSessionOptions = {
   apiKey: string;

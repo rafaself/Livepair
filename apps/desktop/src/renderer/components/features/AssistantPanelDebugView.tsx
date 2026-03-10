@@ -4,7 +4,11 @@ import {
   ASSISTANT_RUNTIME_STATE_LABELS,
   type AssistantRuntimeState,
 } from '../../state/assistantUiState';
-import type { VoiceCaptureDiagnostics, VoiceCaptureState } from '../../runtime/types';
+import type {
+  VoiceCaptureDiagnostics,
+  VoiceCaptureState,
+  VoiceSessionStatus,
+} from '../../runtime/types';
 import { FieldList, StatusIndicator } from '../composite';
 import { ViewSection } from '../layout';
 import { Button } from '../primitives';
@@ -17,6 +21,7 @@ export type AssistantPanelDebugViewProps = {
   backendIndicatorState: AssistantRuntimeState;
   backendLabel: string;
   tokenFeedback: string | null;
+  voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   onRetryBackendHealth: () => Promise<void>;
@@ -31,12 +36,17 @@ function formatVoiceCaptureState(state: VoiceCaptureState): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatVoiceSessionStatus(state: VoiceSessionStatus): string {
+  return state.charAt(0).toUpperCase() + state.slice(1);
+}
+
 export function AssistantPanelDebugView({
   assistantState,
   backendState,
   backendIndicatorState,
   backendLabel,
   tokenFeedback,
+  voiceSessionStatus,
   voiceCaptureState,
   voiceCaptureDiagnostics,
   onRetryBackendHealth,
@@ -90,6 +100,7 @@ export function AssistantPanelDebugView({
       <ViewSection icon={Eye} title="Audio">
         <FieldList
           items={[
+            { label: 'Voice session', value: formatVoiceSessionStatus(voiceSessionStatus) },
             { label: 'Voice capture', value: formatVoiceCaptureState(voiceCaptureState) },
             {
               label: 'Audio format',

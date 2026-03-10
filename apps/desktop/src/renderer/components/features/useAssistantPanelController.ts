@@ -8,6 +8,7 @@ import type {
   TextSessionStatus,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceSessionStatus,
 } from '../../runtime/types';
 
 export type AssistantPanelController = {
@@ -26,6 +27,7 @@ export type AssistantPanelController = {
   tokenFeedback: string | null;
   textSessionStatus: TextSessionStatus;
   textSessionStatusLabel: string;
+  voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   canSubmitText: boolean;
@@ -52,6 +54,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     tokenFeedback,
     textSessionStatus,
     textSessionStatusLabel,
+    voiceSessionStatus,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     canSubmitText,
@@ -127,6 +130,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     tokenFeedback,
     textSessionStatus,
     textSessionStatusLabel,
+    voiceSessionStatus,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     canSubmitText,

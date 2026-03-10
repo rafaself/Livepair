@@ -17,6 +17,7 @@ import type {
   TransportKind,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceSessionStatus,
 } from '../runtime/types';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
@@ -33,6 +34,7 @@ type SessionStoreData = {
   conversationTurns: ConversationTurnModel[];
   lastRuntimeError: string | null;
   lastDebugEvent: RuntimeDebugEvent | null;
+  voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
 };
@@ -51,6 +53,7 @@ export type SessionStoreState = SessionStoreData & {
   clearConversationTurns: () => void;
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
+  setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
   setVoiceCaptureState: (voiceCaptureState: VoiceCaptureState) => void;
   setVoiceCaptureDiagnostics: (
     patch: Partial<VoiceCaptureDiagnostics>,
@@ -91,6 +94,7 @@ function buildDefaultSessionState(): SessionStoreData {
     conversationTurns: [],
     lastRuntimeError: null,
     lastDebugEvent: null,
+    voiceSessionStatus: 'disconnected',
     voiceCaptureState: 'idle',
     voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
   };
@@ -178,6 +182,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   clearConversationTurns: () => set({ conversationTurns: [] }),
   setLastRuntimeError: (lastRuntimeError) => set({ lastRuntimeError }),
   setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
+  setVoiceSessionStatus: (voiceSessionStatus) => set({ voiceSessionStatus }),
   setVoiceCaptureState: (voiceCaptureState) => set({ voiceCaptureState }),
   setVoiceCaptureDiagnostics: (patch) =>
     set((state) => ({
@@ -198,6 +203,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       conversationTurns: [],
       lastRuntimeError: null,
       lastDebugEvent: null,
+      voiceSessionStatus: 'disconnected',
       voiceCaptureState: state.voiceCaptureState,
       voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
     })),

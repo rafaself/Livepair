@@ -3,25 +3,29 @@ import { Ban, ChevronLeft, Mic, MicOff, MonitorOff, PhoneOff } from 'lucide-reac
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import type { VoiceCaptureState } from '../../runtime/types';
+import type { VoiceCaptureState, VoiceSessionStatus } from '../../runtime/types';
 import './ControlDock.css';
 
 export type ControlDockProps = {
-  isSessionActive: boolean;
+  isTextSessionActive: boolean;
+  isVoiceSessionActive: boolean;
+  voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
+  onStartVoiceSession: () => Promise<void>;
   onStartVoiceCapture: () => Promise<void>;
   onStopVoiceCapture: () => Promise<void>;
-  onStartSession: () => Promise<void>;
   onEndSession: () => Promise<void>;
 };
 
 export function ControlDock({
-  isSessionActive,
+  isTextSessionActive,
+  isVoiceSessionActive,
+  voiceSessionStatus,
   voiceCaptureState,
+  onStartVoiceSession,
   onStartVoiceCapture,
   onStopVoiceCapture,
-  onStartSession: _onStartSession,
-  onEndSession: _onEndSession,
+  onEndSession,
 }: ControlDockProps): JSX.Element {
   const isPanelOpen = useUiStore((state) => state.isPanelOpen);
   const togglePanel = useUiStore((state) => state.togglePanel);
@@ -35,19 +39,37 @@ export function ControlDock({
   const isVoiceCaptureBusy =
     voiceCaptureState === 'requestingPermission' || voiceCaptureState === 'stopping';
   const isVoiceCapturing = voiceCaptureState === 'capturing';
+  const isVoiceSessionBusy =
+    voiceSessionStatus === 'connecting' || voiceSessionStatus === 'stopping';
+  const isMicrophoneAvailable =
+    voiceSessionStatus === 'ready' ||
+    voiceSessionStatus === 'capturing' ||
+    voiceSessionStatus === 'streaming' ||
+    voiceSessionStatus === 'stopping';
   const micButtonClassName = [
     isVoiceCapturing ? 'control-dock__btn--active' : '',
     isVoiceCaptureBusy ? 'control-dock__btn--pending' : '',
   ].filter(Boolean).join(' ') || undefined;
-  const microphoneLabel = isVoiceCapturing
-    ? 'Stop microphone capture'
-    : voiceCaptureState === 'requestingPermission'
-      ? 'Requesting microphone permission'
-      : voiceCaptureState === 'stopping'
-        ? 'Stopping microphone capture'
-        : voiceCaptureState === 'error'
-          ? 'Retry microphone capture'
-          : 'Start microphone capture';
+  const microphoneLabel = !isMicrophoneAvailable
+    ? 'Connect voice session to use microphone'
+    : isVoiceCapturing
+      ? 'Stop microphone capture'
+      : voiceCaptureState === 'requestingPermission'
+        ? 'Requesting microphone permission'
+        : voiceCaptureState === 'stopping'
+          ? 'Stopping microphone capture'
+          : voiceCaptureState === 'error'
+            ? 'Retry microphone capture'
+            : 'Start microphone capture';
+  const voiceSessionLabel = isTextSessionActive
+    ? 'Voice session unavailable in text mode'
+    : isVoiceSessionBusy
+      ? voiceSessionStatus === 'connecting'
+        ? 'Connecting voice session'
+        : 'Stopping voice session'
+      : isVoiceSessionActive
+        ? 'Disconnect voice session'
+        : 'Connect voice session';
 
   useEffect(() => {
     const handleWindowFocus = (): void => {
@@ -81,9 +103,9 @@ export function ControlDock({
       <IconButton
         label={microphoneLabel}
         className={micButtonClassName}
-        aria-disabled={isVoiceCaptureBusy}
+        disabled={!isMicrophoneAvailable || isVoiceCaptureBusy}
         onClick={() => {
-          if (isVoiceCaptureBusy) {
+          if (!isMicrophoneAvailable || isVoiceCaptureBusy) {
             return;
           }
 
@@ -106,15 +128,23 @@ export function ControlDock({
       </IconButton>
 
       <IconButton
-        label={
-          isSessionActive
-            ? 'Voice session unavailable in text mode'
-            : 'Voice mode unavailable in text mode'
-        }
-        className={isSessionActive ? 'control-dock__btn--danger' : 'control-dock__btn--start'}
-        disabled
+        label={voiceSessionLabel}
+        className={isVoiceSessionActive ? 'control-dock__btn--danger' : 'control-dock__btn--start'}
+        disabled={isTextSessionActive || isVoiceSessionBusy}
+        onClick={() => {
+          if (isTextSessionActive || isVoiceSessionBusy) {
+            return;
+          }
+
+          if (isVoiceSessionActive) {
+            void onEndSession();
+            return;
+          }
+
+          void onStartVoiceSession();
+        }}
       >
-        {isSessionActive ? <PhoneOff size={18} /> : <Ban size={18} />}
+        {isVoiceSessionActive ? <PhoneOff size={18} /> : <Ban size={18} />}
       </IconButton>
 
       <Divider orientation="horizontal" />

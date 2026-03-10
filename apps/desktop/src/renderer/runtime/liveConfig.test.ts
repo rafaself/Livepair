@@ -117,6 +117,25 @@ describe('liveConfig', () => {
         }),
       ),
     ).toThrow('Live config text mode cannot enable audio transcription');
+
+    expect(() =>
+      parseLiveConfig(
+        createRawLiveConfig({
+          sessionModes: {
+            text: {
+              responseModality: 'TEXT',
+              inputAudioTranscription: false,
+              outputAudioTranscription: false,
+            },
+            voice: {
+              responseModality: 'TEXT',
+              inputAudioTranscription: false,
+              outputAudioTranscription: false,
+            },
+          },
+        }),
+      ),
+    ).toThrow('Live config voice mode must use AUDIO response modality');
   });
 
   it('applies explicit defaults for omitted env overrides', () => {

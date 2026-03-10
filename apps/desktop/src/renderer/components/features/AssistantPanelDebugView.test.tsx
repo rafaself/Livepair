@@ -14,6 +14,7 @@ describe('AssistantPanelDebugView', () => {
         backendIndicatorState="error"
         backendLabel="Not connected"
         tokenFeedback="Connection failed"
+        voiceSessionStatus="streaming"
         voiceCaptureState="capturing"
         voiceCaptureDiagnostics={{
           chunkCount: 3,
@@ -33,6 +34,8 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Token request')).toBeVisible();
     expect(screen.getByText('Mode')).toBeVisible();
     expect(screen.getByText('Fast')).toBeVisible();
+    expect(screen.getByText('Voice session')).toBeVisible();
+    expect(screen.getByText('Streaming')).toBeVisible();
     expect(screen.getByText('Voice capture')).toBeVisible();
     expect(screen.getByText('Capturing')).toBeVisible();
     expect(screen.getByText('Chunk count')).toBeVisible();

@@ -22,6 +22,14 @@ export type VoiceCaptureState =
   | 'stopping'
   | 'stopped'
   | 'error';
+export type VoiceSessionStatus =
+  | 'connecting'
+  | 'ready'
+  | 'capturing'
+  | 'streaming'
+  | 'stopping'
+  | 'disconnected'
+  | 'error';
 
 export type SessionPhase = 'idle' | 'starting' | 'active' | 'ending' | 'error';
 export type TextSessionStatus =
@@ -149,6 +157,7 @@ export type DesktopSession = {
   connect: (params: DesktopSessionConnectParams) => Promise<void>;
   sendText: (text: string) => Promise<void>;
   sendAudioChunk: (chunk: Uint8Array) => Promise<void>;
+  sendAudioStreamEnd: () => Promise<void>;
   disconnect: () => Promise<void>;
   subscribe: (listener: (event: LiveSessionEvent) => void) => () => void;
 };

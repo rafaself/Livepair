@@ -27,6 +27,7 @@ export function AssistantPanel({
     tokenFeedback,
     textSessionStatus,
     textSessionStatusLabel,
+    voiceSessionStatus,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     canSubmitText,
@@ -86,6 +87,7 @@ export function AssistantPanel({
                 backendIndicatorState={backendIndicatorState}
                 backendLabel={backendLabel}
                 tokenFeedback={tokenFeedback}
+                voiceSessionStatus={voiceSessionStatus}
                 voiceCaptureState={voiceCaptureState}
                 voiceCaptureDiagnostics={voiceCaptureDiagnostics}
                 onRetryBackendHealth={handleCheckBackendHealth}
