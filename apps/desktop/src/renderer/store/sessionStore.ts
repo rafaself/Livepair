@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
+import { LIVE_ADAPTER_KEY } from '../runtime/liveConfig';
 import type {
   AssistantActivityState,
   ConversationTurnModel,
@@ -70,7 +71,7 @@ function getDebugRuntimeState(
       sessionPhase: 'active',
       assistantActivity: 'idle',
       transportState: 'connected',
-      activeTransport: activeTransport ?? 'gemini-live',
+      activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }
@@ -80,7 +81,7 @@ function getDebugRuntimeState(
       sessionPhase: 'active',
       assistantActivity: 'listening',
       transportState: 'connected',
-      activeTransport: activeTransport ?? 'gemini-live',
+      activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }
@@ -90,7 +91,7 @@ function getDebugRuntimeState(
       sessionPhase: 'starting',
       assistantActivity: 'thinking',
       transportState: 'connecting',
-      activeTransport: activeTransport ?? 'gemini-live',
+      activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }
@@ -100,7 +101,7 @@ function getDebugRuntimeState(
       sessionPhase: 'active',
       assistantActivity: 'speaking',
       transportState: 'connected',
-      activeTransport: activeTransport ?? 'gemini-live',
+      activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }

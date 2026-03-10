@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
+import { parseLiveConfig } from './liveConfig';
 import type { LiveSessionEvent } from './types';
 
 type WebSocketListenerMap = {
@@ -133,6 +134,74 @@ describe('createGeminiLiveTransport', () => {
       { type: 'connection-state-changed', state: 'connecting' },
       { type: 'connection-state-changed', state: 'connected' },
     ]);
+  });
+
+  it('derives the websocket URL and setup payload from centralized config', async () => {
+    const socket = new FakeWebSocket();
+    const createWebSocket = vi.fn(() => socket as unknown as WebSocket);
+    const transport = createGeminiLiveTransport({
+      config: parseLiveConfig({
+        provider: 'gemini',
+        adapterKey: 'gemini-live',
+        model: 'models/gemini-2.0-flash-live-001',
+        apiVersion: 'v1beta',
+        sessionModes: {
+          text: {
+            responseModality: 'TEXT',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+          voice: {
+            responseModality: 'AUDIO',
+            inputAudioTranscription: true,
+            outputAudioTranscription: true,
+          },
+        },
+        mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+        sessionResumptionEnabled: true,
+        contextCompressionEnabled: true,
+      }),
+      createWebSocket,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: 'later',
+        newSessionExpireTime: 'soon',
+      },
+      mode: 'text',
+    });
+
+    expect(createWebSocket).toHaveBeenCalledWith(
+      'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?access_token=auth_tokens%2Ftest-token',
+    );
+
+    socket.emit('open', new Event('open'));
+
+    expect(socket.send).toHaveBeenCalledWith(
+      JSON.stringify({
+        setup: {
+          model: 'models/gemini-2.0-flash-live-001',
+          generationConfig: {
+            responseModalities: ['TEXT'],
+          },
+          mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+          sessionResumption: {},
+          contextWindowCompression: {
+            slidingWindow: {},
+          },
+        },
+      }),
+    );
+
+    socket.emit(
+      'message',
+      new MessageEvent('message', {
+        data: JSON.stringify({ setupComplete: {} }),
+      }),
+    );
+    await connectPromise;
   });
 
   it('disconnects cleanly and emits a disconnected state change', async () => {

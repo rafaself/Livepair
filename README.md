@@ -327,11 +327,29 @@ Meaning:
 
 ```bash
 OPEN_DEVTOOLS=
+VITE_LIVE_MODEL=
+VITE_LIVE_API_VERSION=
+VITE_LIVE_TEXT_RESPONSE_MODALITY=
+VITE_LIVE_VOICE_RESPONSE_MODALITY=
+VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION=
+VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION=
+VITE_LIVE_MEDIA_RESOLUTION=
+VITE_LIVE_SESSION_RESUMPTION=
+VITE_LIVE_CONTEXT_COMPRESSION=
 ```
 
 Meaning:
 
 - `OPEN_DEVTOOLS`: when `true`, Electron opens devtools automatically in desktop development mode. This is only a local developer convenience flag.
+- `VITE_LIVE_MODEL`: overrides the Gemini Live model resource used by the desktop renderer. Defaults to `models/gemini-2.0-flash-exp`.
+- `VITE_LIVE_API_VERSION`: selects the Gemini Live API version used to derive the websocket endpoint. Supported values are `v1alpha` and `v1beta`; default is `v1alpha`.
+- `VITE_LIVE_TEXT_RESPONSE_MODALITY`: configures the response modality for text sessions. Supported value is `TEXT`.
+- `VITE_LIVE_VOICE_RESPONSE_MODALITY`: configures the response modality for voice sessions. Supported value is `AUDIO`.
+- `VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION`: enables input-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.
+- `VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION`: enables output-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.
+- `VITE_LIVE_MEDIA_RESOLUTION`: selects the Gemini media resolution enum stored in the desktop Live config. Supported values are `MEDIA_RESOLUTION_LOW`, `MEDIA_RESOLUTION_MEDIUM`, and `MEDIA_RESOLUTION_HIGH`; default is `MEDIA_RESOLUTION_LOW`.
+- `VITE_LIVE_SESSION_RESUMPTION`: enables Gemini Live session resumption setup. Supported values are `true` and `false`; default is `false`.
+- `VITE_LIVE_CONTEXT_COMPRESSION`: enables Gemini Live context window compression setup. Supported values are `true` and `false`; default is `false`.
 
 The desktop app must not contain a permanent Gemini API key.
 

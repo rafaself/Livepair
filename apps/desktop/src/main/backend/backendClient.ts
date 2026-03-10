@@ -75,13 +75,24 @@ export function createBackendClient({
       req: CreateEphemeralTokenRequest,
     ): Promise<CreateEphemeralTokenResponse> {
       const backendUrl = await getBackendUrl();
-      const res = await fetchImpl(`${backendUrl}/session/token`, {
+      const url = `${backendUrl}/session/token`;
+      console.info('[desktop:backend-client] session token request started', {
+        url,
+        request: req,
+      });
+
+      const res = await fetchImpl(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
       });
       if (!res.ok) {
         const detail = await readErrorDetail(res);
+        console.error('[desktop:backend-client] session token request failed', {
+          url,
+          status: res.status,
+          detail,
+        });
         throw new Error(
           detail ? `Token request failed: ${res.status} - ${detail}` : `Token request failed: ${res.status}`,
         );

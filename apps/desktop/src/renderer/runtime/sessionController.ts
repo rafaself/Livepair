@@ -1,5 +1,6 @@
 import { checkBackendHealth, requestSessionToken } from '../api/backend';
 import { useSessionStore } from '../store/sessionStore';
+import { LIVE_ADAPTER_KEY } from './liveConfig';
 import { defaultRuntimeLogger } from './logger';
 import { formatConversationTimestamp } from './conversationTimestamp';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
@@ -334,7 +335,7 @@ export function createDesktopSessionController(
     const operationId = beginSessionOperation();
     store.reset();
     store.setSessionPhase('starting');
-    recordSessionEvent({ type: 'session.start.requested', transport: 'gemini-live' });
+    recordSessionEvent({ type: 'session.start.requested', transport: LIVE_ADAPTER_KEY });
 
     const isHealthy = await performBackendHealthCheck(operationId);
 
@@ -356,7 +357,7 @@ export function createDesktopSessionController(
       store.setTokenRequestState('success');
       recordSessionEvent({
         type: 'session.token.request.succeeded',
-        transport: 'gemini-live',
+        transport: LIVE_ADAPTER_KEY,
       });
     } catch (error) {
       if (!isCurrentSessionOperation(operationId)) {
@@ -370,9 +371,9 @@ export function createDesktopSessionController(
       return;
     }
 
-    activeTransport = dependencies.createTransport('gemini-live');
+    activeTransport = dependencies.createTransport(LIVE_ADAPTER_KEY);
     unsubscribeTransport = activeTransport.subscribe(handleTransportEvent);
-    store.setActiveTransport('gemini-live');
+    store.setActiveTransport(LIVE_ADAPTER_KEY);
     store.setTransportState('connecting');
 
     try {

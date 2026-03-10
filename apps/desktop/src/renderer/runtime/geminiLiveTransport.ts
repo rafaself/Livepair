@@ -3,10 +3,12 @@ import type {
   DesktopSessionConnectParams,
   LiveSessionEvent,
 } from './types';
-
-const GEMINI_LIVE_MODEL = 'models/gemini-2.0-flash-exp';
-const GEMINI_LIVE_URL =
-  'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained';
+import {
+  LIVE_ADAPTER_KEY,
+  buildGeminiLiveSetup,
+  getLiveConfig,
+  type LiveConfig,
+} from './liveConfig';
 
 type GeminiSetupCompleteMessage = {
   setupComplete: Record<string, never>;
@@ -39,8 +41,7 @@ type GeminiServerMessage =
 
 export type CreateGeminiLiveTransportOptions = {
   createWebSocket?: (url: string) => WebSocket;
-  model?: string;
-  url?: string;
+  config?: LiveConfig;
 };
 
 function isGeminiServerMessage(value: unknown): value is GeminiServerMessage {
@@ -73,12 +74,11 @@ function extractTextContent(parts?: GeminiTextPart[] | undefined): string {
 }
 
 export class GeminiLiveTransport implements DesktopSession {
-  kind = 'gemini-live' as const;
+  kind = LIVE_ADAPTER_KEY;
 
   private readonly listeners = new Set<(event: LiveSessionEvent) => void>();
   private readonly createWebSocket: (url: string) => WebSocket;
-  private readonly model: string;
-  private readonly url: string;
+  private readonly config: LiveConfig;
 
   private socket: WebSocket | null = null;
   private unsubscribeSocket: (() => void) | null = null;
@@ -88,12 +88,10 @@ export class GeminiLiveTransport implements DesktopSession {
 
   constructor({
     createWebSocket = (url) => new WebSocket(url),
-    model = GEMINI_LIVE_MODEL,
-    url = GEMINI_LIVE_URL,
+    config = getLiveConfig(),
   }: CreateGeminiLiveTransportOptions = {}) {
     this.createWebSocket = createWebSocket;
-    this.model = model;
-    this.url = url;
+    this.config = config;
   }
 
   subscribe(listener: (event: LiveSessionEvent) => void): () => void {
@@ -126,7 +124,7 @@ export class GeminiLiveTransport implements DesktopSession {
     this.pendingOutputText = '';
     this.emit({ type: 'connection-state-changed', state: 'connecting' });
 
-    const socket = this.createWebSocket(createSessionUrl(this.url, token.token));
+    const socket = this.createWebSocket(createSessionUrl(this.config.url, token.token));
     this.socket = socket;
 
     await new Promise<void>((resolve, reject) => {
@@ -148,12 +146,7 @@ export class GeminiLiveTransport implements DesktopSession {
       const handleOpen = (): void => {
         socket.send(
           JSON.stringify({
-            setup: {
-              model: this.model,
-              generationConfig: {
-                responseModalities: ['TEXT'],
-              },
-            },
+            setup: buildGeminiLiveSetup(this.config, mode),
           }),
         );
       };
