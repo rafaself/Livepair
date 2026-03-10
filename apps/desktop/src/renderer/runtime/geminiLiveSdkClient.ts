@@ -72,9 +72,11 @@ export async function connectGeminiLiveSdkSession({
     });
   }
 
-  console.debug('[runtime:gemini-live-sdk] connecting', {
+  console.info('[runtime:gemini-live-sdk] connecting', {
     model,
     apiVersion,
+    responseModalities: config.responseModalities,
+    tokenLength: apiKey.length,
   });
 
   const ai = new GoogleGenAI({

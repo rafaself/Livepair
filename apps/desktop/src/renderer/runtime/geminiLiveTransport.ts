@@ -274,6 +274,8 @@ export class GeminiLiveTransport implements DesktopSession {
         const detail = getErrorEventDetail(event, 'Gemini Live connection failed');
         logRuntimeError('gemini-live-transport', 'sdk error', {
           detail,
+          message: event.message || '(empty)',
+          type: event.type,
         });
 
         if (!this.hasCompletedSetup) {
@@ -297,6 +299,8 @@ export class GeminiLiveTransport implements DesktopSession {
         );
         logRuntimeDiagnostic('gemini-live-transport', 'sdk close', {
           code: event.code,
+          reason: event.reason || '(empty)',
+          wasClean: event.wasClean,
           detail,
           closingByClient: this.closingByClient,
           hasCompletedSetup: this.hasCompletedSetup,
