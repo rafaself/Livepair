@@ -142,10 +142,10 @@ describe('createLocalVoiceCapture', () => {
 
     expect(harness.getUserMedia).toHaveBeenCalledWith({
       audio: {
-        autoGainControl: false,
+        autoGainControl: true,
         channelCount: { ideal: 1 },
-        echoCancellation: false,
-        noiseSuppression: false,
+        echoCancellation: true,
+        noiseSuppression: true,
       },
     });
     expect(harness.audioContext.resume).toHaveBeenCalledTimes(1);
@@ -181,11 +181,11 @@ describe('createLocalVoiceCapture', () => {
 
     expect(harness.getUserMedia).toHaveBeenCalledWith({
       audio: {
-        autoGainControl: false,
+        autoGainControl: true,
         channelCount: { ideal: 1 },
         deviceId: { exact: 'usb-mic' },
-        echoCancellation: false,
-        noiseSuppression: false,
+        echoCancellation: true,
+        noiseSuppression: true,
       },
     });
   });

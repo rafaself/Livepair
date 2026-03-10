@@ -77,9 +77,11 @@ export type CreateLocalVoiceCaptureDependencies = {
 function buildAudioConstraints(selectedInputDeviceId: string): MediaTrackConstraints {
   return {
     channelCount: { ideal: 1 },
-    echoCancellation: false,
-    noiseSuppression: false,
-    autoGainControl: false,
+    // Prefer browser-level cleanup as a lightweight mitigation for false
+    // server-side barge-in from ambient noise until local VAD lands.
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
     ...(selectedInputDeviceId === 'default'
       ? {}
       : { deviceId: { exact: selectedInputDeviceId } }),
