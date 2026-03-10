@@ -13,7 +13,7 @@ export type ConversationTurnModel = {
   statusLabel?: string | undefined;
 };
 
-export type TransportKind = 'gemini-live';
+export type TransportKind = 'backend-text' | 'gemini-live';
 export type SessionMode = 'text' | 'voice';
 
 export type SessionPhase = 'idle' | 'starting' | 'active' | 'ending' | 'error';

@@ -114,11 +114,11 @@ export function selectTextSessionStatusLabel(
   const textSessionStatus = getTextSessionStatus(state);
 
   if (textSessionStatus === 'connecting') {
-    return 'Connecting to text session...';
+    return 'Preparing text chat...';
   }
 
   if (textSessionStatus === 'ready') {
-    return 'Text session ready';
+    return 'Text chat ready';
   }
 
   if (textSessionStatus === 'sending') {
@@ -142,7 +142,7 @@ export function selectTextSessionStatusLabel(
   }
 
   if (textSessionStatus === 'goAway') {
-    return 'Text session unavailable. Start again to reconnect.';
+    return 'Text chat unavailable. Send again to retry.';
   }
 
   if (textSessionStatus === 'disconnecting') {

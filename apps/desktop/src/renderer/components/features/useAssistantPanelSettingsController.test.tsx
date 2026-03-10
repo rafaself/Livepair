@@ -33,8 +33,8 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={controller.togglePanelPinned}>
         toggle pinned
       </button>
-      <button type="button" onClick={() => controller.setPreferredMode('thinking')}>
-        set thinking
+      <button type="button" onClick={() => controller.setPreferredMode('fast')}>
+        set fast
       </button>
       <button type="button" onClick={() => controller.setSelectedInputDeviceId('usb-mic')}>
         set input
@@ -130,8 +130,12 @@ describe('useAssistantPanelSettingsController', () => {
   it('falls back to unavailable device options when the ui store has not hydrated devices', () => {
     render(<HookHarness />);
 
-    expect(screen.getByLabelText('input-options')).toHaveTextContent('No microphone detected');
-    expect(screen.getByLabelText('output-options')).toHaveTextContent('No speaker detected');
+    expect(screen.getByLabelText('input-options')).toHaveTextContent(
+      'Voice input unavailable in text-only release',
+    );
+    expect(screen.getByLabelText('output-options')).toHaveTextContent(
+      'Voice output unavailable in text-only release',
+    );
   });
 
   it('routes settings mutations through the stores and exposes debug mode toggles', async () => {
@@ -139,7 +143,7 @@ describe('useAssistantPanelSettingsController', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle debug' }));
     fireEvent.click(screen.getByRole('button', { name: 'toggle pinned' }));
-    fireEvent.click(screen.getByRole('button', { name: 'set thinking' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set fast' }));
     fireEvent.click(screen.getByRole('button', { name: 'set input' }));
     fireEvent.click(screen.getByRole('button', { name: 'set output' }));
     fireEvent.click(screen.getByRole('button', { name: 'set dark' }));
@@ -148,7 +152,7 @@ describe('useAssistantPanelSettingsController', () => {
       expect(screen.getByLabelText('debug-mode')).toHaveTextContent('false');
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ isPanelPinned: true });
-    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ preferredMode: 'thinking' });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ preferredMode: 'fast' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ selectedInputDeviceId: 'usb-mic' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       selectedOutputDeviceId: 'desk-speakers',

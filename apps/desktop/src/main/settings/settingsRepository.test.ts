@@ -122,18 +122,18 @@ describe('DesktopSettingsRepository', () => {
       const repository = new ConcurrentRepository('/tmp/livepair-settings-race.json');
 
       const themeUpdate = repository.updateSettings({ themePreference: 'dark' });
-      const modeUpdate = repository.updateSettings({ preferredMode: 'thinking' });
+      const pinUpdate = repository.updateSettings({ isPanelPinned: true });
 
       await Promise.resolve();
       await Promise.resolve();
       releaseReads();
 
-      await Promise.all([themeUpdate, modeUpdate]);
+      await Promise.all([themeUpdate, pinUpdate]);
 
       await expect(repository.getSettings()).resolves.toEqual({
         ...DEFAULT_DESKTOP_SETTINGS,
         themePreference: 'dark',
-        preferredMode: 'thinking',
+        isPanelPinned: true,
       });
     } finally {
       vi.doUnmock('node:fs/promises');

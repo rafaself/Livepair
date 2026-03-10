@@ -1,6 +1,5 @@
-import { checkBackendHealth, requestSessionToken } from '../api/backend';
+import { checkBackendHealth, requestSessionToken, startTextChatStream } from '../api/backend';
 import { useSessionStore } from '../store/sessionStore';
-import { LIVE_ADAPTER_KEY } from './liveConfig';
 import {
   defaultRuntimeLogger,
   logLifecycleTransition,
@@ -27,6 +26,14 @@ import type {
   TextSessionStatus,
   TransportKind,
 } from './types';
+import type {
+  TextChatMessage,
+  TextChatRequest,
+  TextChatStreamEvent,
+} from '@livepair/shared-types';
+
+const TEXT_CHAT_ADAPTER_KEY: TransportKind = 'backend-text';
+const VOICE_MODE_UNAVAILABLE_DETAIL = 'Voice mode is not available in this release';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 type DebugAssistantState = Parameters<
@@ -44,6 +51,7 @@ export type DesktopSessionController = {
 export type DesktopSessionControllerDependencies = {
   logger: RuntimeLogger;
   checkBackendHealth: typeof checkBackendHealth;
+  startTextChatStream: typeof startTextChatStream;
   requestSessionToken: typeof requestSessionToken;
   createTransport: (kind: TransportKind) => DesktopSession;
   store: SessionStoreApi;
@@ -76,6 +84,7 @@ export function createDesktopSessionController(
   const dependencies: DesktopSessionControllerDependencies = {
     logger: defaultRuntimeLogger,
     checkBackendHealth,
+    startTextChatStream,
     requestSessionToken,
     createTransport: (_kind) => createGeminiLiveTransport(),
     store: useSessionStore,
@@ -84,6 +93,9 @@ export function createDesktopSessionController(
 
   let activeTransport: DesktopSession | null = null;
   let unsubscribeTransport: (() => void) | null = null;
+  let activeTextChatStream:
+    | Awaited<ReturnType<DesktopSessionControllerDependencies['startTextChatStream']>>
+    | null = null;
   let sessionOperationId = 0;
   let nextUserTurnId = 0;
   let nextAssistantTurnId = 0;
@@ -131,10 +143,17 @@ export function createDesktopSessionController(
     return nextLifecycle.status;
   };
 
+  const releaseTextChatStream = (): void => {
+    const stream = activeTextChatStream;
+    activeTextChatStream = null;
+    stream?.cancel().catch(() => {});
+  };
+
   const cleanupTransport = (): void => {
     unsubscribeTransport?.();
     unsubscribeTransport = null;
     activeTransport = null;
+    releaseTextChatStream();
     clearPendingAssistantTurn();
   };
 
@@ -277,10 +296,13 @@ export function createDesktopSessionController(
     store.setLastRuntimeError(detail);
   };
 
-  const setErrorState = (detail: string): void => {
+  const setErrorState = (
+    detail: string,
+    failedTurnStatusLabel = 'Disconnected',
+  ): void => {
     applyLifecycleEvent({ type: 'runtime.failed' });
     logRuntimeError('session', 'runtime entered error state', { detail });
-    failPendingAssistantTurn('Disconnected');
+    failPendingAssistantTurn(failedTurnStatusLabel);
     cleanupTransport();
     const store = dependencies.store.getState();
     store.setAssistantActivity('idle');
@@ -356,6 +378,7 @@ export function createDesktopSessionController(
 
     if (event.type === 'turn-complete') {
       const previousStatus = currentTextSessionStatus();
+      releaseTextChatStream();
       applyLifecycleEvent({ type: 'response.turn.completed' });
       completePendingAssistantTurn(
         previousStatus === 'interrupted' ? 'Interrupted' : undefined,
@@ -374,6 +397,25 @@ export function createDesktopSessionController(
     }
   };
 
+  const handleTextChatStreamEvent = (event: TextChatStreamEvent): void => {
+    if (event.type === 'text-delta') {
+      handleTransportEvent({ type: 'text-delta', text: event.text });
+      return;
+    }
+
+    if (event.type === 'completed') {
+      handleTransportEvent({ type: 'turn-complete' });
+      return;
+    }
+
+    dependencies.logger.onTransportEvent({ type: 'error', detail: event.detail });
+    dependencies.store
+      .getState()
+      .setLastDebugEvent(createDebugEvent('transport', 'error', event.detail));
+    releaseTextChatStream();
+    setErrorState(event.detail, 'Response failed');
+  };
+
   const appendUserTurn = (content: string): void => {
     dependencies.store.getState().appendConversationTurn({
       id: `user-turn-${++nextUserTurnId}`,
@@ -384,26 +426,40 @@ export function createDesktopSessionController(
     });
   };
 
-  const ensureConnectedTransport = async (): Promise<DesktopSession | null> => {
-    if (
-      activeTransport &&
-      (currentTextSessionStatus() === 'ready' ||
-        currentTextSessionStatus() === 'completed')
-    ) {
-      return activeTransport;
+  const buildTextChatRequest = (text: string): TextChatRequest => {
+    const messages: TextChatMessage[] = dependencies.store
+      .getState()
+      .conversationTurns
+      .filter(
+        (turn) =>
+          (turn.role === 'user' || turn.role === 'assistant') &&
+          turn.content.trim().length > 0 &&
+          turn.state !== 'error',
+      )
+      .map((turn) => ({
+        role: turn.role === 'assistant' ? 'assistant' : 'user',
+        content: turn.content,
+      }));
+
+    messages.push({
+      role: 'user',
+      content: text,
+    });
+
+    return { messages };
+  };
+
+  const ensureTextSessionReady = async (): Promise<boolean> => {
+    if (currentTextSessionStatus() === 'ready' || currentTextSessionStatus() === 'completed') {
+      return true;
     }
 
     await startSessionInternal({ mode: 'text' });
 
-    if (
-      !activeTransport ||
-      (currentTextSessionStatus() !== 'ready' &&
-        currentTextSessionStatus() !== 'completed')
-    ) {
-      return null;
-    }
-
-    return activeTransport;
+    return (
+      currentTextSessionStatus() === 'ready' ||
+      currentTextSessionStatus() === 'completed'
+    );
   };
 
   const startSessionInternal = async ({
@@ -411,6 +467,11 @@ export function createDesktopSessionController(
   }: {
     mode: SessionMode;
   }): Promise<void> => {
+    if (mode === 'voice') {
+      setErrorState(VOICE_MODE_UNAVAILABLE_DETAIL, 'Voice unavailable');
+      return;
+    }
+
     const status = currentTextSessionStatus();
 
     if (!isTextSessionConnectable(status) && isSessionActiveLifecycle(status)) {
@@ -420,10 +481,13 @@ export function createDesktopSessionController(
     const operationId = beginSessionOperation();
     resetRuntimeState();
     applyLifecycleEvent({ type: 'bootstrap.started' });
-    recordSessionEvent({ type: 'session.start.requested', transport: LIVE_ADAPTER_KEY });
+    recordSessionEvent({
+      type: 'session.start.requested',
+      transport: TEXT_CHAT_ADAPTER_KEY,
+    });
     logRuntimeDiagnostic('session', 'start requested', {
       mode,
-      transport: LIVE_ADAPTER_KEY,
+      transport: TEXT_CHAT_ADAPTER_KEY,
     });
 
     const isHealthy = await performBackendHealthCheck(operationId);
@@ -432,69 +496,10 @@ export function createDesktopSessionController(
       return;
     }
 
-    dependencies.store.getState().setTokenRequestState('loading');
-    applyLifecycleEvent({ type: 'bootstrap.started' });
-    recordSessionEvent({ type: 'session.token.request.started' });
-    logRuntimeDiagnostic('session', 'requesting ephemeral token');
-
-    let token;
-    try {
-      token = await dependencies.requestSessionToken({});
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      dependencies.store.getState().setTokenRequestState('success');
-      logRuntimeDiagnostic('session', 'ephemeral token received', {
-        expireTime: token.expireTime,
-        newSessionExpireTime: token.newSessionExpireTime,
-      });
-      recordSessionEvent({
-        type: 'session.token.request.succeeded',
-        transport: LIVE_ADAPTER_KEY,
-      });
-    } catch (error) {
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      const detail = asErrorDetail(error, 'Token request failed');
-      dependencies.store.getState().setTokenRequestState('error');
-      recordSessionEvent({ type: 'session.token.request.failed', detail });
-      setErrorState(detail);
-      return;
-    }
-
-    activeTransport = dependencies.createTransport(LIVE_ADAPTER_KEY);
-    unsubscribeTransport = activeTransport.subscribe(handleTransportEvent);
-    dependencies.store.getState().setActiveTransport(LIVE_ADAPTER_KEY);
-    applyLifecycleEvent({ type: 'bootstrap.started' });
-    logRuntimeDiagnostic('session', 'connecting transport', {
-      mode,
-      transport: LIVE_ADAPTER_KEY,
-    });
-
-    try {
-      await activeTransport.connect({ token, mode });
-    } catch (error) {
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      if (currentTextSessionStatus() === 'goAway') {
-        return;
-      }
-
-      if (currentTextSessionStatus() === 'error') {
-        return;
-      }
-
-      logRuntimeError('session', 'transport connect failed', {
-        detail: asErrorDetail(error, 'Gemini Live connection failed'),
-      });
-      setErrorState(asErrorDetail(error, 'Gemini Live connection failed'));
-    }
+    applyLifecycleEvent({ type: 'transport.connected' });
+    dependencies.store.getState().setActiveTransport(TEXT_CHAT_ADAPTER_KEY);
+    dependencies.store.getState().setAssistantActivity('idle');
+    dependencies.store.getState().setLastRuntimeError(null);
   };
 
   const performBackendHealthCheck = async (operationId?: number): Promise<boolean> => {
@@ -554,10 +559,10 @@ export function createDesktopSessionController(
         return false;
       }
 
-      const transport = await ensureConnectedTransport();
+      const isReady = await ensureTextSessionReady();
 
-      if (!transport) {
-        logRuntimeError('session', 'submit aborted because transport is unavailable', {
+      if (!isReady) {
+        logRuntimeError('session', 'submit aborted because text chat is unavailable', {
           textLength: trimmedText.length,
         });
         return false;
@@ -566,9 +571,12 @@ export function createDesktopSessionController(
       applyLifecycleEvent({ type: 'submit.started' });
 
       try {
-        await transport.sendText(trimmedText);
+        activeTextChatStream = await dependencies.startTextChatStream(
+          buildTextChatRequest(trimmedText),
+          handleTextChatStreamEvent,
+        );
       } catch (error) {
-        setErrorState(asErrorDetail(error, 'Failed to send text turn'));
+        setErrorState(asErrorDetail(error, 'Failed to start text chat'), 'Response failed');
         return false;
       }
 
@@ -585,7 +593,7 @@ export function createDesktopSessionController(
 
       recordSessionEvent({ type: 'session.end.requested' });
 
-      if (!activeTransport) {
+      if (!activeTransport && !activeTextChatStream) {
         resetRuntimeState('disconnected');
         recordSessionEvent({ type: 'session.ended' });
         return;
@@ -594,7 +602,7 @@ export function createDesktopSessionController(
       applyLifecycleEvent({ type: 'disconnect.requested' });
 
       try {
-        await activeTransport.disconnect();
+        await activeTransport?.disconnect();
       } finally {
         cleanupTransport();
         resetRuntimeState('disconnected');

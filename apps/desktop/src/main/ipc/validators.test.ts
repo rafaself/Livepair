@@ -2,10 +2,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Rectangle } from 'electron';
 import type { DesktopSettingsPatch } from '../../shared/settings';
-import type { CreateEphemeralTokenRequest } from '@livepair/shared-types';
+import type { CreateEphemeralTokenRequest, TextChatRequest } from '@livepair/shared-types';
 import {
   isCreateEphemeralTokenRequest,
   isDesktopSettingsPatch,
+  isTextChatCancelRequest,
+  isTextChatRequest,
   toOverlayRectangles,
 } from './validators';
 
@@ -57,7 +59,28 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ bad: true })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedInputDeviceId: '' })).toBe(false);
     expect(isDesktopSettingsPatch({ preferredMode: 'slow' })).toBe(false);
+    expect(isDesktopSettingsPatch({ preferredMode: 'thinking' })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedOutputDeviceId: false })).toBe(false);
     expect(isDesktopSettingsPatch({ isPanelPinned: 'yes' })).toBe(false);
+  });
+
+  it('validates text chat request payloads', () => {
+    const valid: TextChatRequest = {
+      messages: [{ role: 'user', content: 'Summarize the current screen' }],
+    };
+
+    expect(isTextChatRequest(valid)).toBe(true);
+    expect(isTextChatRequest({ messages: [] })).toBe(false);
+    expect(isTextChatRequest({ messages: [{ role: 'system', content: 'bad' }] })).toBe(
+      false,
+    );
+    expect(isTextChatRequest({ messages: [{ role: 'user', content: '' }] })).toBe(false);
+    expect(isTextChatRequest(undefined)).toBe(false);
+  });
+
+  it('validates text chat cancel payloads', () => {
+    expect(isTextChatCancelRequest({ streamId: 'stream-1' })).toBe(true);
+    expect(isTextChatCancelRequest({ streamId: '' })).toBe(false);
+    expect(isTextChatCancelRequest({})).toBe(false);
   });
 });

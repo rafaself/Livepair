@@ -48,12 +48,12 @@ describe('normalizeDesktopSettingsPatch', () => {
     expect(
       normalizeDesktopSettingsPatch({
         backendUrl: ' https://api.livepair.dev/base/ ',
-        preferredMode: 'thinking',
+        preferredMode: 'fast',
         isPanelPinned: true,
       }),
     ).toEqual({
       backendUrl: 'https://api.livepair.dev/base',
-      preferredMode: 'thinking',
+      preferredMode: 'fast',
       isPanelPinned: true,
     });
   });
@@ -84,5 +84,10 @@ describe('normalizeDesktopSettingsPatch', () => {
         selectedInputDeviceId: '',
       }),
     ).toBeNull();
+    expect(
+      normalizeDesktopSettingsPatch({
+        preferredMode: 'thinking' as never,
+      }),
+    ).toEqual({ preferredMode: 'fast' });
   });
 });

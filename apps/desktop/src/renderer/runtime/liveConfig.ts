@@ -1,7 +1,7 @@
-import type { SessionMode, TransportKind } from './types';
+import type { SessionMode } from './types';
 
 export const LIVE_PROVIDER = 'gemini' as const;
-export const LIVE_ADAPTER_KEY: TransportKind = 'gemini-live';
+export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
 
 export type LiveApiVersion = 'v1alpha' | 'v1beta';
 export type LiveResponseModality = 'TEXT' | 'AUDIO';

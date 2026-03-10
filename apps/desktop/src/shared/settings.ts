@@ -4,7 +4,7 @@ import {
 } from './backendBaseUrl';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
-export type PreferredMode = 'fast' | 'thinking';
+export type PreferredMode = 'fast';
 
 export type DesktopSettings = {
   themePreference: ThemePreference;
@@ -35,7 +35,9 @@ function normalizeThemePreference(value: unknown): ThemePreference | null {
 }
 
 function normalizePreferredMode(value: unknown): PreferredMode | null {
-  return value === 'fast' || value === 'thinking' ? value : null;
+  if (value === 'fast') return value;
+  if (value === 'thinking') return 'fast';
+  return null;
 }
 
 export function normalizeDesktopSettings(

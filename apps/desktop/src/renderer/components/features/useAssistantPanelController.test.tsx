@@ -1,17 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
-import {
-  __emitGeminiLiveSdkMessage,
-  __getLastGeminiLiveSdkConnectOptions,
-  __resetGeminiLiveSdkMock,
-} from '../../test/geminiLiveSdkMock';
-import { useSessionStore } from '../../store/sessionStore';
-import { useSettingsStore } from '../../store/settingsStore';
 import { resetDesktopStores } from '../../store/testing';
+import { useSettingsStore } from '../../store/settingsStore';
 import { useUiStore } from '../../store/uiStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
-import { selectAssistantRuntimeState } from '../../runtime/selectors';
 
 function HookHarness(): JSX.Element {
   const togglePanel = useUiStore((state) => state.togglePanel);
@@ -49,22 +42,20 @@ function HookHarness(): JSX.Element {
 describe('useAssistantPanelController', () => {
   beforeEach(() => {
     resetDesktopStores();
-    __resetGeminiLiveSdkMock();
     useSettingsStore.setState({ settings: DEFAULT_DESKTOP_SETTINGS, isReady: true });
     vi.clearAllMocks();
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
       status: 'ok',
       timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
     });
+    window.bridge.startTextChatStream = vi.fn(async () => ({
+      cancel: vi.fn(async () => undefined),
+    }));
     window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
       token: 'ephemeral-token',
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it('checks backend health when the panel is opened without promoting the session state', async () => {
@@ -79,19 +70,24 @@ describe('useAssistantPanelController', () => {
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
   });
 
-  it('maps token request failures to the error state', async () => {
-    window.bridge.requestSessionToken = vi.fn().mockRejectedValueOnce(new Error('token failed'));
-
+  it('starts text mode without requesting a Live token', async () => {
     render(<HookHarness />);
-    fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
     });
-    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('Connection failed');
+
+    expect(window.bridge.checkHealth).toHaveBeenCalledTimes(1);
+    expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
+    expect(window.bridge.startTextChatStream).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
+    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('ready');
+    expect(screen.getByLabelText('text-session-label')).toHaveTextContent('Text chat ready');
+    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('true');
+    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('none');
   });
 
-  it('maps healthy and unhealthy backend checks into the derived labels and states', async () => {
+  it('maps unhealthy backend checks into the derived labels and states', async () => {
     window.bridge.checkHealth = vi.fn().mockRejectedValueOnce(new Error('backend down'));
 
     render(<HookHarness />);
@@ -103,146 +99,13 @@ describe('useAssistantPanelController', () => {
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
   });
 
-  it('derives the assistant state from realtime transport events instead of mock transcript timers', async () => {
-    render(<HookHarness />);
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
-    });
-
-    await waitFor(() => {
-      expect(window.bridge.requestSessionToken).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-      expect(__getLastGeminiLiveSdkConnectOptions()).toBeDefined();
-    });
-    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('connecting');
-    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
-      'Connecting to text session...',
-    );
-    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('false');
-    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('thinking');
-    expect(screen.getByLabelText('conversation-count')).toHaveTextContent('0');
-
-    act(() => {
-      __emitGeminiLiveSdkMessage({ setupComplete: {} });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
-    });
-    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('ready');
-    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
-      'Text session ready',
-    );
-    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('true');
-    expect(screen.getByLabelText('conversation-count')).toHaveTextContent('0');
-    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
-  });
-
-  it('surfaces generation-complete and interrupted as explicit lifecycle-driven status labels', async () => {
-    render(<HookHarness />);
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
-    });
-
-    await waitFor(() => {
-      expect(__getLastGeminiLiveSdkConnectOptions()).toBeDefined();
-    });
-
-    act(() => {
-      __emitGeminiLiveSdkMessage({ setupComplete: {} });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('text-session-status')).toHaveTextContent('ready');
-    });
-
-    act(() => {
-      useSessionStore.getState().appendConversationTurn({
-        id: 'user-turn-1',
-        role: 'user',
-        content: 'First turn',
-        timestamp: '10:00',
-        state: 'complete',
-      });
-      useSessionStore.getState().setTextSessionLifecycle({
-        status: 'receiving',
-      });
-    });
-
-    act(() => {
-      __emitGeminiLiveSdkMessage({
-        serverContent: {
-          generationComplete: true,
-          interrupted: false,
-          turnComplete: false,
-        },
-      });
-    });
-
-    expect(screen.getByLabelText('text-session-status')).toHaveTextContent(
-      'generationCompleted',
-    );
-    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
-      'Response generated, waiting for turn completion...',
-    );
-    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('false');
-
-    act(() => {
-      useSessionStore.getState().setTextSessionLifecycle({
-        status: 'interrupted',
-      });
-    });
-
-    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('interrupted');
-    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
-      'Response interrupted',
-    );
-    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('false');
-  });
-
-  it('surfaces transport failures and allows the next start to recover cleanly', async () => {
+  it('routes panel view and debug state mutations through the controller', async () => {
     render(<HookHarness />);
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
-    });
-    await waitFor(() => {
-      expect(__getLastGeminiLiveSdkConnectOptions()).toBeDefined();
-    });
-    act(() => {
-      __emitGeminiLiveSdkMessage({
-        goAway: {
-          reason: 'transport offline',
-        },
-      });
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'open debug' }));
+    fireEvent.click(screen.getByRole('button', { name: 'start mock session' }));
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
-    });
-    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('goAway');
-    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
-      'Text session unavailable. Start again to reconnect.',
-    );
-    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('true');
-    expect(screen.getByLabelText('runtime-error')).toHaveTextContent('transport offline');
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
-    });
-    await waitFor(() => {
-      expect(__getLastGeminiLiveSdkConnectOptions()).toBeDefined();
-    });
-
-    act(() => {
-      __emitGeminiLiveSdkMessage({ setupComplete: {} });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
-    });
-    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('ready');
-    expect(screen.getByLabelText('runtime-error')).toHaveTextContent('none');
+    expect(screen.getByLabelText('panel-view')).toHaveTextContent('debug');
+    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('listening');
   });
 });

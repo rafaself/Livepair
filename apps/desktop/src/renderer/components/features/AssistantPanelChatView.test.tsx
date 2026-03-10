@@ -196,7 +196,7 @@ describe('AssistantPanelChatView', () => {
       <AssistantPanelChatView
         assistantState="thinking"
         textSessionStatus="connecting"
-        textSessionStatusLabel="Connecting to text session..."
+        textSessionStatusLabel="Preparing text chat..."
         canSubmitText={false}
         turns={[]}
         isConversationEmpty={true}
@@ -209,6 +209,6 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
-    expect(screen.getByText('Connecting to text session...')).toBeVisible();
+    expect(screen.getByText('Preparing text chat...')).toBeVisible();
   });
 });

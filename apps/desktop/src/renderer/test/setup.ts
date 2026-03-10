@@ -17,6 +17,9 @@ beforeEach(async () => {
     overlayMode: 'linux-shape',
     checkHealth: vi.fn(),
     requestSessionToken: vi.fn(),
+    startTextChatStream: vi.fn(async () => ({
+      cancel: vi.fn(async () => undefined),
+    })),
     getSettings: vi.fn(async () => DEFAULT_DESKTOP_SETTINGS),
     updateSettings: vi.fn(async (patch) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...patch })),
     setOverlayHitRegions: vi.fn(),
