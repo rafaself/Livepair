@@ -145,7 +145,7 @@ describe('useAssistantPanelSettingsController', () => {
     fireEvent.click(screen.getByRole('button', { name: 'set dark' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('debug-mode')).toHaveTextContent('true');
+      expect(screen.getByLabelText('debug-mode')).toHaveTextContent('false');
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ isPanelPinned: true });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ preferredMode: 'thinking' });

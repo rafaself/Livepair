@@ -11,6 +11,28 @@ import type {
 } from './geminiLiveSdkClient';
 import type { LiveSessionEvent } from './types';
 
+const TEST_LIVE_CONFIG = parseLiveConfig({
+  provider: 'gemini',
+  adapterKey: 'gemini-live',
+  model: 'models/gemini-2.0-flash-exp',
+  apiVersion: 'v1alpha',
+  sessionModes: {
+    text: {
+      responseModality: 'TEXT',
+      inputAudioTranscription: false,
+      outputAudioTranscription: false,
+    },
+    voice: {
+      responseModality: 'AUDIO',
+      inputAudioTranscription: false,
+      outputAudioTranscription: false,
+    },
+  },
+  mediaResolution: 'MEDIA_RESOLUTION_LOW',
+  sessionResumptionEnabled: false,
+  contextCompressionEnabled: false,
+});
+
 function createCloseEvent(code?: number, reason?: string): CloseEvent {
   const init: CloseEventInit = {};
 
@@ -78,6 +100,7 @@ describe('createGeminiLiveTransport', () => {
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
     });
     transport.subscribe((event) => {
       events.push(event);

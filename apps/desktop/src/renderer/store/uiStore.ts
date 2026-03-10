@@ -64,7 +64,7 @@ export type UiStoreState = {
 const defaultUiState = {
   isPanelOpen: false,
   panelView: 'chat' as PanelView,
-  isDebugMode: false,
+  isDebugMode: import.meta.env.DEV as boolean,
   backendUrlDraft: '',
   backendUrlError: null,
   inputDeviceOptions: [] as readonly SelectOptionItem[],
