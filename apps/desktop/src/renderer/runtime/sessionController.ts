@@ -4,6 +4,14 @@ import { LIVE_ADAPTER_KEY } from './liveConfig';
 import { defaultRuntimeLogger } from './logger';
 import { formatConversationTimestamp } from './conversationTimestamp';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
+import {
+  createTextSessionLifecycle,
+  isSessionActiveLifecycle,
+  isTextSessionConnectable,
+  isTextTurnInFlight,
+  reduceTextSessionLifecycle,
+  type TextSessionLifecycleEvent,
+} from './textSessionLifecycle';
 import type {
   ConversationTurnModel,
   DesktopSession,
@@ -99,8 +107,22 @@ export function createDesktopSessionController(
     pendingAssistantTurnId = null;
   };
 
-  const isTextTurnInFlight = (status: TextSessionStatus): boolean =>
-    status === 'connecting' || status === 'sending' || status === 'receiving';
+  const currentTextSessionStatus = (): TextSessionStatus => {
+    return dependencies.store.getState().textSessionLifecycle.status;
+  };
+
+  const applyLifecycleEvent = (
+    event: TextSessionLifecycleEvent,
+  ): TextSessionStatus => {
+    const store = dependencies.store.getState();
+    const nextLifecycle = reduceTextSessionLifecycle(store.textSessionLifecycle, event);
+
+    if (nextLifecycle !== store.textSessionLifecycle) {
+      store.setTextSessionLifecycle(nextLifecycle);
+    }
+
+    return nextLifecycle.status;
+  };
 
   const cleanupTransport = (): void => {
     unsubscribeTransport?.();
@@ -170,13 +192,17 @@ export function createDesktopSessionController(
     );
   };
 
-  const upsertAssistantMessage = (text: string): void => {
+  const upsertAssistantMessage = (
+    text: string,
+    state: ConversationTurnModel['state'] = 'streaming',
+    statusLabel?: string,
+  ): void => {
     if (!pendingAssistantTurnId) {
-      appendAssistantTurn(text, 'complete');
+      appendAssistantTurn(text, state, statusLabel);
       return;
     }
 
-    updatePendingAssistantTurn(text, 'complete');
+    updatePendingAssistantTurn(text, state, statusLabel);
   };
 
   const completePendingAssistantTurn = (statusLabel?: string): void => {
@@ -195,6 +221,21 @@ export function createDesktopSessionController(
     clearPendingAssistantTurn();
   };
 
+  const markPendingAssistantTurnInterrupted = (): void => {
+    if (!pendingAssistantTurnId) {
+      return;
+    }
+
+    const currentTurn = getConversationTurn(pendingAssistantTurnId);
+
+    if (!currentTurn) {
+      clearPendingAssistantTurn();
+      return;
+    }
+
+    updatePendingAssistantTurn(currentTurn.content, 'streaming', 'Interrupted');
+  };
+
   const failPendingAssistantTurn = (statusLabel: string): void => {
     if (!pendingAssistantTurnId) {
       return;
@@ -211,14 +252,29 @@ export function createDesktopSessionController(
     clearPendingAssistantTurn();
   };
 
+  const resetRuntimeState = (textSessionStatus: TextSessionStatus = 'idle'): void => {
+    clearPendingAssistantTurn();
+    dependencies.store.getState().reset({
+      textSessionLifecycle: createTextSessionLifecycle(textSessionStatus),
+    });
+  };
+
+  const setGoAwayState = (detail: string): void => {
+    applyLifecycleEvent({ type: 'go-away.received' });
+    failPendingAssistantTurn('Session unavailable');
+    cleanupTransport();
+    const store = dependencies.store.getState();
+    store.setAssistantActivity('idle');
+    store.setActiveTransport(null);
+    store.setLastRuntimeError(detail);
+  };
+
   const setErrorState = (detail: string): void => {
+    applyLifecycleEvent({ type: 'runtime.failed' });
     failPendingAssistantTurn('Disconnected');
     cleanupTransport();
     const store = dependencies.store.getState();
-    store.setSessionPhase('error');
     store.setAssistantActivity('idle');
-    store.setTransportState('error');
-    store.setTextSessionStatus('error');
     store.setActiveTransport(null);
     store.setLastRuntimeError(detail);
   };
@@ -237,63 +293,75 @@ export function createDesktopSessionController(
 
     if (event.type === 'connection-state-changed') {
       if (event.state === 'connecting') {
-        store.setTransportState('connecting');
-        store.setTextSessionStatus('connecting');
+        applyLifecycleEvent({ type: 'bootstrap.started' });
         return;
       }
 
       if (event.state === 'connected') {
-        store.setTransportState('connected');
-        store.setSessionPhase('active');
+        applyLifecycleEvent({ type: 'transport.connected' });
         store.setAssistantActivity('idle');
-        store.setTextSessionStatus('ready');
         return;
       }
 
+      applyLifecycleEvent({ type: 'transport.disconnected' });
       cleanupTransport();
-      store.setTransportState('idle');
       store.setAssistantActivity('idle');
-      store.setTextSessionStatus('disconnected');
       store.setActiveTransport(null);
-
-      if (store.sessionPhase !== 'ending') {
-        store.setSessionPhase('idle');
-      }
-
       return;
     }
 
     if (event.type === 'text-delta') {
-      store.setSessionPhase('active');
-      store.setAssistantActivity('thinking');
-      store.setTextSessionStatus('receiving');
+      applyLifecycleEvent({ type: 'response.delta.received' });
       appendAssistantTextDelta(event.text);
       return;
     }
 
     if (event.type === 'text-message') {
-      store.setSessionPhase('active');
-      store.setTextSessionStatus('receiving');
-      upsertAssistantMessage(event.text);
+      upsertAssistantMessage(event.text, 'streaming', 'Responding...');
+      return;
+    }
+
+    if (event.type === 'generation-complete') {
+      applyLifecycleEvent({ type: 'response.generation.completed' });
+
+      if (pendingAssistantTurnId) {
+        const currentTurn = getConversationTurn(pendingAssistantTurnId);
+
+        if (currentTurn) {
+          updatePendingAssistantTurn(
+            currentTurn.content,
+            'streaming',
+            'Finishing response...',
+          );
+        }
+      }
+
       return;
     }
 
     if (event.type === 'interrupted') {
-      completePendingAssistantTurn('Interrupted');
-      store.setAssistantActivity('idle');
-      store.setTextSessionStatus('completed');
+      applyLifecycleEvent({ type: 'response.interrupted' });
+      markPendingAssistantTurnInterrupted();
       return;
     }
 
     if (event.type === 'turn-complete') {
-      completePendingAssistantTurn();
+      const previousStatus = currentTextSessionStatus();
+      applyLifecycleEvent({ type: 'response.turn.completed' });
+      completePendingAssistantTurn(
+        previousStatus === 'interrupted' ? 'Interrupted' : undefined,
+      );
       store.setAssistantActivity('idle');
-      store.setTextSessionStatus('completed');
       return;
     }
 
-    if (event.type === 'go-away' || event.type === 'error') {
-      setErrorState(event.detail ?? 'Transport failed');
+    if (event.type === 'go-away') {
+      setGoAwayState(event.detail ?? 'Text session unavailable');
+      return;
+    }
+
+    if (event.type === 'error') {
+      setErrorState(event.detail);
     }
   };
 
@@ -308,27 +376,20 @@ export function createDesktopSessionController(
   };
 
   const ensureConnectedTransport = async (): Promise<DesktopSession | null> => {
-    const store = dependencies.store.getState();
-
     if (
       activeTransport &&
-      store.transportState === 'connected' &&
-      store.sessionPhase === 'active' &&
-      (store.textSessionStatus === 'ready' || store.textSessionStatus === 'completed')
+      (currentTextSessionStatus() === 'ready' ||
+        currentTextSessionStatus() === 'completed')
     ) {
       return activeTransport;
     }
 
     await startSessionInternal({ mode: 'text' });
 
-    const nextStore = dependencies.store.getState();
-
     if (
       !activeTransport ||
-      nextStore.transportState !== 'connected' ||
-      nextStore.sessionPhase !== 'active' ||
-      (nextStore.textSessionStatus !== 'ready' &&
-        nextStore.textSessionStatus !== 'completed')
+      (currentTextSessionStatus() !== 'ready' &&
+        currentTextSessionStatus() !== 'completed')
     ) {
       return null;
     }
@@ -341,16 +402,15 @@ export function createDesktopSessionController(
   }: {
     mode: SessionMode;
   }): Promise<void> => {
-    const store = dependencies.store.getState();
+    const status = currentTextSessionStatus();
 
-    if (store.sessionPhase === 'starting' || store.sessionPhase === 'active') {
+    if (!isTextSessionConnectable(status) && isSessionActiveLifecycle(status)) {
       return;
     }
 
     const operationId = beginSessionOperation();
-    store.reset();
-    store.setSessionPhase('starting');
-    store.setTextSessionStatus('connecting');
+    resetRuntimeState();
+    applyLifecycleEvent({ type: 'bootstrap.started' });
     recordSessionEvent({ type: 'session.start.requested', transport: LIVE_ADAPTER_KEY });
 
     const isHealthy = await performBackendHealthCheck(operationId);
@@ -359,8 +419,8 @@ export function createDesktopSessionController(
       return;
     }
 
-    store.setTokenRequestState('loading');
-    store.setTextSessionStatus('connecting');
+    dependencies.store.getState().setTokenRequestState('loading');
+    applyLifecycleEvent({ type: 'bootstrap.started' });
     recordSessionEvent({ type: 'session.token.request.started' });
 
     let token;
@@ -371,7 +431,7 @@ export function createDesktopSessionController(
         return;
       }
 
-      store.setTokenRequestState('success');
+      dependencies.store.getState().setTokenRequestState('success');
       recordSessionEvent({
         type: 'session.token.request.succeeded',
         transport: LIVE_ADAPTER_KEY,
@@ -382,7 +442,7 @@ export function createDesktopSessionController(
       }
 
       const detail = asErrorDetail(error, 'Token request failed');
-      store.setTokenRequestState('error');
+      dependencies.store.getState().setTokenRequestState('error');
       recordSessionEvent({ type: 'session.token.request.failed', detail });
       setErrorState(detail);
       return;
@@ -390,9 +450,8 @@ export function createDesktopSessionController(
 
     activeTransport = dependencies.createTransport(LIVE_ADAPTER_KEY);
     unsubscribeTransport = activeTransport.subscribe(handleTransportEvent);
-    store.setActiveTransport(LIVE_ADAPTER_KEY);
-    store.setTransportState('connecting');
-    store.setTextSessionStatus('connecting');
+    dependencies.store.getState().setActiveTransport(LIVE_ADAPTER_KEY);
+    applyLifecycleEvent({ type: 'bootstrap.started' });
 
     try {
       await activeTransport.connect({ token, mode });
@@ -401,7 +460,11 @@ export function createDesktopSessionController(
         return;
       }
 
-      if (dependencies.store.getState().sessionPhase === 'error') {
+      if (currentTextSessionStatus() === 'goAway') {
+        return;
+      }
+
+      if (currentTextSessionStatus() === 'error') {
         return;
       }
 
@@ -425,9 +488,8 @@ export function createDesktopSessionController(
       if (!isHealthy) {
         const detail = 'Backend health check failed';
         store.setBackendState('failed');
-        store.setSessionPhase('error');
-        store.setTextSessionStatus('error');
         store.setLastRuntimeError(detail);
+        applyLifecycleEvent({ type: 'runtime.failed' });
         recordSessionEvent({ type: 'session.backend.health.failed', detail });
         return false;
       }
@@ -442,9 +504,8 @@ export function createDesktopSessionController(
 
       const detail = asErrorDetail(error, 'Backend health check failed');
       store.setBackendState('failed');
-      store.setSessionPhase('error');
-      store.setTextSessionStatus('error');
       store.setLastRuntimeError(detail);
+      applyLifecycleEvent({ type: 'runtime.failed' });
       recordSessionEvent({ type: 'session.backend.health.failed', detail });
       return false;
     }
@@ -459,13 +520,12 @@ export function createDesktopSessionController(
     },
     submitTextTurn: async (text: string) => {
       const trimmedText = text.trim();
-      const store = dependencies.store.getState();
 
       if (!trimmedText) {
         return false;
       }
 
-      if (isTextTurnInFlight(store.textSessionStatus)) {
+      if (isTextTurnInFlight(currentTextSessionStatus())) {
         return false;
       }
 
@@ -475,7 +535,7 @@ export function createDesktopSessionController(
         return false;
       }
 
-      store.setTextSessionStatus('sending');
+      applyLifecycleEvent({ type: 'submit.started' });
 
       try {
         await transport.sendText(trimmedText);
@@ -485,8 +545,7 @@ export function createDesktopSessionController(
       }
 
       appendUserTurn(trimmedText);
-      store.setLastRuntimeError(null);
-      store.setAssistantActivity('thinking');
+      dependencies.store.getState().setLastRuntimeError(null);
       return true;
     },
     endSession: async () => {
@@ -496,20 +555,19 @@ export function createDesktopSessionController(
       recordSessionEvent({ type: 'session.end.requested' });
 
       if (!activeTransport) {
-        store.reset();
+        resetRuntimeState('disconnected');
         recordSessionEvent({ type: 'session.ended' });
         return;
       }
 
-      store.setSessionPhase('ending');
-      store.setTransportState('disconnecting');
-      store.setTextSessionStatus('disconnected');
+      applyLifecycleEvent({ type: 'disconnect.requested' });
 
       try {
         await activeTransport.disconnect();
       } finally {
         cleanupTransport();
-        store.reset();
+        resetRuntimeState('disconnected');
+        store.setAssistantActivity('idle');
         recordSessionEvent({ type: 'session.ended' });
       }
     },
@@ -533,10 +591,6 @@ export function getDesktopSessionController(): DesktopSessionController {
   return desktopSessionController;
 }
 
-export async function resetDesktopSessionController(): Promise<void> {
-  if (desktopSessionController) {
-    await desktopSessionController.endSession();
-  }
-
+export function resetDesktopSessionController(): void {
   desktopSessionController = null;
 }

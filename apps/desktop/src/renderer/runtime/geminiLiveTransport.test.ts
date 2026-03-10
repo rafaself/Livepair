@@ -274,6 +274,56 @@ describe('createGeminiLiveTransport', () => {
     );
   });
 
+  it('emits generation-complete before turn-complete when Gemini signals both distinctly', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'text',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+    await transport.sendText('Hello from the desktop runtime');
+
+    sdkHarness.emitMessage({
+      serverContent: {
+        generationComplete: true,
+        interrupted: false,
+        turnComplete: true,
+      },
+      text: 'Done',
+    });
+
+    expect(events.slice(-4)).toEqual([
+      {
+        type: 'text-delta',
+        text: 'Done',
+      },
+      {
+        type: 'generation-complete',
+      },
+      {
+        type: 'text-message',
+        text: 'Done',
+      },
+      {
+        type: 'turn-complete',
+      },
+    ]);
+  });
+
   it('emits interrupted when Gemini marks the current turn as interrupted', async () => {
     const sdkHarness = createSdkHarness();
     const events: LiveSessionEvent[] = [];
@@ -318,7 +368,7 @@ describe('createGeminiLiveTransport', () => {
     );
   });
 
-  it('emits go-away and error when Gemini rejects an active session', async () => {
+  it('emits go-away without downgrading the same session to a generic error', async () => {
     const sdkHarness = createSdkHarness();
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
@@ -352,12 +402,12 @@ describe('createGeminiLiveTransport', () => {
           type: 'go-away',
           detail: 'transport offline',
         },
-        {
-          type: 'error',
-          detail: 'transport offline',
-        },
       ]),
     );
+    expect(events).not.toContainEqual({
+      type: 'error',
+      detail: 'transport offline',
+    });
   });
 
   it('emits an error and rejects connect when setup fails', async () => {

@@ -1,11 +1,17 @@
 import { create } from 'zustand';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
 import { LIVE_ADAPTER_KEY } from '../runtime/liveConfig';
+import {
+  createTextSessionLifecycle,
+  deriveSessionPhaseFromLifecycle,
+  deriveTransportStateFromLifecycle,
+} from '../runtime/textSessionLifecycle';
 import type {
   AssistantActivityState,
   ConversationTurnModel,
   RuntimeDebugEvent,
   SessionPhase,
+  TextSessionLifecycle,
   TextSessionStatus,
   TransportConnectionState,
   TransportKind,
@@ -20,7 +26,7 @@ type SessionStoreData = {
   backendState: BackendConnectionState;
   tokenRequestState: TokenRequestState;
   transportState: TransportConnectionState;
-  textSessionStatus: TextSessionStatus;
+  textSessionLifecycle: TextSessionLifecycle;
   activeTransport: TransportKind | null;
   conversationTurns: ConversationTurnModel[];
   lastRuntimeError: string | null;
@@ -28,12 +34,10 @@ type SessionStoreData = {
 };
 
 export type SessionStoreState = SessionStoreData & {
-  setSessionPhase: (sessionPhase: SessionPhase) => void;
   setAssistantActivity: (assistantActivity: AssistantActivityState) => void;
   setBackendState: (backendState: BackendConnectionState) => void;
   setTokenRequestState: (tokenRequestState: TokenRequestState) => void;
-  setTransportState: (transportState: TransportConnectionState) => void;
-  setTextSessionStatus: (textSessionStatus: TextSessionStatus) => void;
+  setTextSessionLifecycle: (textSessionLifecycle: TextSessionLifecycle) => void;
   setActiveTransport: (activeTransport: TransportKind | null) => void;
   appendConversationTurn: (turn: ConversationTurnModel) => void;
   updateConversationTurn: (
@@ -44,21 +48,31 @@ export type SessionStoreState = SessionStoreData & {
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
-  reset: () => void;
+  reset: (overrides?: Partial<SessionStoreData>) => void;
 };
 
-const defaultSessionState: SessionStoreData = {
-  sessionPhase: 'idle',
-  assistantActivity: 'idle',
-  backendState: 'idle',
-  tokenRequestState: 'idle',
-  transportState: 'idle',
-  textSessionStatus: 'disconnected',
-  activeTransport: null,
-  conversationTurns: [],
-  lastRuntimeError: null,
-  lastDebugEvent: null,
-};
+function withDerivedLifecycleFields(
+  textSessionLifecycle: TextSessionLifecycle,
+): Pick<SessionStoreData, 'sessionPhase' | 'textSessionLifecycle' | 'transportState'> {
+  return {
+    sessionPhase: deriveSessionPhaseFromLifecycle(textSessionLifecycle.status),
+    textSessionLifecycle,
+    transportState: deriveTransportStateFromLifecycle(textSessionLifecycle.status),
+  };
+}
+
+function buildDefaultSessionState(): SessionStoreData {
+  return {
+    ...withDerivedLifecycleFields(createTextSessionLifecycle()),
+    assistantActivity: 'idle',
+    backendState: 'idle',
+    tokenRequestState: 'idle',
+    activeTransport: null,
+    conversationTurns: [],
+    lastRuntimeError: null,
+    lastDebugEvent: null,
+  };
+}
 
 function getDebugRuntimeState(
   assistantState: AssistantRuntimeState,
@@ -66,16 +80,14 @@ function getDebugRuntimeState(
 ): Partial<SessionStoreData> {
   if (assistantState === 'disconnected') {
     return {
-      ...defaultSessionState,
+      ...buildDefaultSessionState(),
     };
   }
 
   if (assistantState === 'ready') {
     return {
-      sessionPhase: 'active',
+      ...withDerivedLifecycleFields(createTextSessionLifecycle('ready')),
       assistantActivity: 'idle',
-      transportState: 'connected',
-      textSessionStatus: 'ready',
       activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
@@ -83,10 +95,8 @@ function getDebugRuntimeState(
 
   if (assistantState === 'listening') {
     return {
-      sessionPhase: 'active',
+      ...withDerivedLifecycleFields(createTextSessionLifecycle('ready')),
       assistantActivity: 'listening',
-      transportState: 'connected',
-      textSessionStatus: 'ready',
       activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
@@ -94,10 +104,8 @@ function getDebugRuntimeState(
 
   if (assistantState === 'thinking') {
     return {
-      sessionPhase: 'starting',
+      ...withDerivedLifecycleFields(createTextSessionLifecycle('connecting')),
       assistantActivity: 'thinking',
-      transportState: 'connecting',
-      textSessionStatus: 'connecting',
       activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
@@ -105,31 +113,35 @@ function getDebugRuntimeState(
 
   if (assistantState === 'speaking') {
     return {
-      sessionPhase: 'active',
+      ...withDerivedLifecycleFields(createTextSessionLifecycle('receiving')),
       assistantActivity: 'speaking',
-      transportState: 'connected',
-      textSessionStatus: 'receiving',
       activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }
 
-    return {
-      sessionPhase: 'error',
-      assistantActivity: 'idle',
-      textSessionStatus: 'error',
-      lastRuntimeError: 'Runtime forced into error state',
-    };
-  }
+  return {
+    ...withDerivedLifecycleFields(createTextSessionLifecycle('error')),
+    assistantActivity: 'idle',
+    lastRuntimeError: 'Runtime forced into error state',
+  };
+}
+
+export function getTextSessionStatus(
+  state: Pick<SessionStoreState, 'textSessionLifecycle'>,
+): TextSessionStatus {
+  return state.textSessionLifecycle.status;
+}
+
+const defaultSessionState = buildDefaultSessionState();
 
 export const useSessionStore = create<SessionStoreState>((set) => ({
   ...defaultSessionState,
-  setSessionPhase: (sessionPhase) => set({ sessionPhase }),
   setAssistantActivity: (assistantActivity) => set({ assistantActivity }),
   setBackendState: (backendState) => set({ backendState }),
   setTokenRequestState: (tokenRequestState) => set({ tokenRequestState }),
-  setTransportState: (transportState) => set({ transportState }),
-  setTextSessionStatus: (textSessionStatus) => set({ textSessionStatus }),
+  setTextSessionLifecycle: (textSessionLifecycle) =>
+    set(withDerivedLifecycleFields(textSessionLifecycle)),
   setActiveTransport: (activeTransport) => set({ activeTransport }),
   appendConversationTurn: (turn) =>
     set((state) => ({
@@ -146,5 +158,20 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
   setAssistantState: (assistantState) =>
     set((state) => getDebugRuntimeState(assistantState, state.activeTransport)),
-  reset: () => set(defaultSessionState),
+  reset: (overrides) =>
+    set(() => {
+      const nextState = {
+        ...buildDefaultSessionState(),
+        ...overrides,
+      };
+
+      if (overrides?.textSessionLifecycle) {
+        return {
+          ...nextState,
+          ...withDerivedLifecycleFields(overrides.textSessionLifecycle),
+        };
+      }
+
+      return nextState;
+    }),
 }));

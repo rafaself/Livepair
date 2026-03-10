@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import {
-  __emitGeminiLiveSdkClose,
   __emitGeminiLiveSdkMessage,
   __getLastGeminiLiveSdkConnectOptions,
   __resetGeminiLiveSdkMock,
@@ -140,6 +139,68 @@ describe('useAssistantPanelController', () => {
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
   });
 
+  it('surfaces generation-complete and interrupted as explicit lifecycle-driven status labels', async () => {
+    render(<HookHarness />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
+    });
+
+    await waitFor(() => {
+      expect(__getLastGeminiLiveSdkConnectOptions()).toBeDefined();
+    });
+
+    act(() => {
+      __emitGeminiLiveSdkMessage({ setupComplete: {} });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('text-session-status')).toHaveTextContent('ready');
+    });
+
+    act(() => {
+      useSessionStore.getState().appendConversationTurn({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'First turn',
+        timestamp: '10:00',
+        state: 'complete',
+      });
+      useSessionStore.getState().setTextSessionLifecycle({
+        status: 'receiving',
+      });
+    });
+
+    act(() => {
+      __emitGeminiLiveSdkMessage({
+        serverContent: {
+          generationComplete: true,
+          interrupted: false,
+          turnComplete: false,
+        },
+      });
+    });
+
+    expect(screen.getByLabelText('text-session-status')).toHaveTextContent(
+      'generationCompleted',
+    );
+    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
+      'Response generated, waiting for turn completion...',
+    );
+    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('false');
+
+    act(() => {
+      useSessionStore.getState().setTextSessionLifecycle({
+        status: 'interrupted',
+      });
+    });
+
+    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('interrupted');
+    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
+      'Response interrupted',
+    );
+    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('false');
+  });
+
   it('surfaces transport failures and allows the next start to recover cleanly', async () => {
     render(<HookHarness />);
 
@@ -150,13 +211,20 @@ describe('useAssistantPanelController', () => {
       expect(__getLastGeminiLiveSdkConnectOptions()).toBeDefined();
     });
     act(() => {
-      __emitGeminiLiveSdkClose('transport offline');
+      __emitGeminiLiveSdkMessage({
+        goAway: {
+          reason: 'transport offline',
+        },
+      });
     });
 
     await waitFor(() => {
       expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
     });
-    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('error');
+    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('goAway');
+    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
+      'Text session unavailable. Start again to reconnect.',
+    );
     expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('true');
     expect(screen.getByLabelText('runtime-error')).toHaveTextContent('transport offline');
 

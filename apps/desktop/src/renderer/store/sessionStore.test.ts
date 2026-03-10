@@ -7,21 +7,21 @@ describe('sessionStore', () => {
     useSessionStore.getState().reset();
   });
 
-  it('tracks runtime session fields independently and derives the UI assistant state', () => {
-    useSessionStore.getState().setSessionPhase('active');
+  it('tracks lifecycle state centrally and derives the UI assistant state from it', () => {
+    useSessionStore.getState().setTextSessionLifecycle({ status: 'receiving' });
     useSessionStore.getState().setAssistantActivity('listening');
     useSessionStore.getState().setBackendState('checking');
     useSessionStore.getState().setTokenRequestState('loading');
-    useSessionStore.getState().setTransportState('connecting');
     useSessionStore.getState().setActiveTransport('gemini-live');
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        sessionPhase: 'active',
+        textSessionLifecycle: expect.objectContaining({
+          status: 'receiving',
+        }),
         assistantActivity: 'listening',
         backendState: 'checking',
         tokenRequestState: 'loading',
-        transportState: 'connecting',
         activeTransport: 'gemini-live',
       }),
     );
@@ -29,22 +29,22 @@ describe('sessionStore', () => {
   });
 
   it('resets all runtime state back to its defaults', () => {
-    useSessionStore.getState().setSessionPhase('error');
+    useSessionStore.getState().setTextSessionLifecycle({ status: 'error' });
     useSessionStore.getState().setAssistantActivity('speaking');
     useSessionStore.getState().setBackendState('failed');
     useSessionStore.getState().setTokenRequestState('success');
-    useSessionStore.getState().setTransportState('connected');
     useSessionStore.getState().setActiveTransport('gemini-live');
 
     useSessionStore.getState().reset();
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        sessionPhase: 'idle',
+        textSessionLifecycle: expect.objectContaining({
+          status: 'idle',
+        }),
         assistantActivity: 'idle',
         backendState: 'idle',
         tokenRequestState: 'idle',
-        transportState: 'idle',
         activeTransport: null,
         conversationTurns: [],
         lastRuntimeError: null,

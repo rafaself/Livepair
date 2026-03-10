@@ -91,11 +91,13 @@ describe('createDesktopSessionController', () => {
     });
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'ready',
+        }),
         sessionPhase: 'active',
         backendState: 'connected',
         tokenRequestState: 'success',
         transportState: 'connected',
-        textSessionStatus: 'ready',
         activeTransport: 'gemini-live',
       }),
     );
@@ -157,6 +159,9 @@ describe('createDesktopSessionController', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'error',
+        }),
         sessionPhase: 'error',
         tokenRequestState: 'error',
         transportState: 'error',
@@ -183,6 +188,9 @@ describe('createDesktopSessionController', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'error',
+        }),
         sessionPhase: 'error',
         tokenRequestState: 'error',
         transportState: 'error',
@@ -216,6 +224,9 @@ describe('createDesktopSessionController', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'error',
+        }),
         sessionPhase: 'error',
         tokenRequestState: 'success',
         transportState: 'error',
@@ -257,7 +268,7 @@ describe('createDesktopSessionController', () => {
     expect(transportHarness.transport.sendText).toHaveBeenCalledWith(
       'Summarize the current screen',
     );
-    expect(useSessionStore.getState().textSessionStatus).toBe('sending');
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('sending');
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         role: 'user',
@@ -271,11 +282,17 @@ describe('createDesktopSessionController', () => {
       type: 'text-delta',
       text: 'Here is',
     });
-    expect(useSessionStore.getState().textSessionStatus).toBe('receiving');
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('receiving');
     transportHarness.emit({
       type: 'text-delta',
       text: ' the current screen summary.',
     });
+    transportHarness.emit({
+      type: 'generation-complete',
+    });
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe(
+      'generationCompleted',
+    );
     transportHarness.emit({
       type: 'text-message',
       text: 'Here is the current screen summary.',
@@ -295,7 +312,7 @@ describe('createDesktopSessionController', () => {
         state: 'complete',
       }),
     ]);
-    expect(useSessionStore.getState().textSessionStatus).toBe('completed');
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('completed');
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
   });
 
@@ -342,7 +359,7 @@ describe('createDesktopSessionController', () => {
     const submitPromise = controller.submitTextTurn('Wait until ready');
     await flushMicrotasks(2);
 
-    expect(useSessionStore.getState().textSessionStatus).toBe('connecting');
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('connecting');
     expect(transport.sendText).not.toHaveBeenCalled();
 
     emit({ type: 'connection-state-changed', state: 'connected' });
@@ -350,7 +367,7 @@ describe('createDesktopSessionController', () => {
     await submitPromise;
 
     expect(transport.sendText).toHaveBeenCalledWith('Wait until ready');
-    expect(useSessionStore.getState().textSessionStatus).toBe('sending');
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('sending');
   });
 
   it('blocks a second submit while the current text turn is still in flight', async () => {
@@ -378,7 +395,7 @@ describe('createDesktopSessionController', () => {
     await flushMicrotasks(2);
 
     expect(transportHarness.transport.sendText).toHaveBeenCalledTimes(1);
-    expect(useSessionStore.getState().textSessionStatus).toBe('sending');
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('sending');
 
     const secondDidSend = await controller.submitTextTurn('Second turn');
     expect(secondDidSend).toBe(false);
@@ -434,11 +451,13 @@ describe('createDesktopSessionController', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'disconnected',
+        }),
         sessionPhase: 'idle',
         backendState: 'idle',
         tokenRequestState: 'idle',
         transportState: 'idle',
-        textSessionStatus: 'disconnected',
         activeTransport: null,
         conversationTurns: [],
         lastRuntimeError: null,
@@ -473,6 +492,9 @@ describe('createDesktopSessionController', () => {
     expect(createTransport).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'disconnected',
+        }),
         sessionPhase: 'idle',
         backendState: 'idle',
         tokenRequestState: 'idle',
@@ -505,10 +527,12 @@ describe('createDesktopSessionController', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'error',
+        }),
         sessionPhase: 'error',
         tokenRequestState: 'success',
         transportState: 'error',
-        textSessionStatus: 'error',
         activeTransport: null,
         lastRuntimeError: 'socket closed unexpectedly',
       }),
@@ -517,7 +541,7 @@ describe('createDesktopSessionController', () => {
     expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
   });
 
-  it('handles interrupted and turn-complete events at the contract boundary', async () => {
+  it('keeps interrupted turns explicit until turn completion arrives', async () => {
     const transportHarness = createTransportHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -542,6 +566,7 @@ describe('createDesktopSessionController', () => {
       type: 'interrupted',
     });
 
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('interrupted');
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         role: 'user',
@@ -550,10 +575,25 @@ describe('createDesktopSessionController', () => {
       expect.objectContaining({
         role: 'assistant',
         content: 'Partial response',
-        state: 'complete',
+        state: 'streaming',
         statusLabel: 'Interrupted',
       }),
     ]);
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('thinking');
+
+    transportHarness.emit({
+      type: 'turn-complete',
+    });
+
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('completed');
+    expect(useSessionStore.getState().conversationTurns.at(-1)).toEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Partial response',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+      }),
+    );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
 
     await controller.submitTextTurn('Try again');
@@ -605,6 +645,7 @@ describe('createDesktopSessionController', () => {
       detail: 'transport offline',
     });
 
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('goAway');
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         role: 'user',
@@ -614,9 +655,38 @@ describe('createDesktopSessionController', () => {
         role: 'assistant',
         content: 'Partial response',
         state: 'error',
-        statusLabel: 'Disconnected',
+        statusLabel: 'Session unavailable',
       }),
     ]);
     expect(useSessionStore.getState().lastRuntimeError).toBe('transport offline');
+  });
+
+  it('starts a fresh session after go-away', async () => {
+    const transportHarness = createTransportHarness();
+    const createTransport = vi.fn().mockReturnValue(transportHarness.transport);
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'ephemeral-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport,
+    });
+
+    await controller.submitTextTurn('First turn');
+    transportHarness.emit({
+      type: 'go-away',
+      detail: 'transport offline',
+    });
+
+    await controller.submitTextTurn('Second turn');
+
+    expect(createTransport).toHaveBeenCalledTimes(2);
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('sending');
   });
 });

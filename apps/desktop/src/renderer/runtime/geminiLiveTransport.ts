@@ -81,6 +81,7 @@ export class GeminiLiveTransport implements DesktopSession {
 
   private session: GeminiLiveSdkSession | null = null;
   private hasCompletedSetup = false;
+  private hasReceivedGoAway = false;
   private closingByClient = false;
   private pendingOutputText = '';
   private disconnectResolver: (() => void) | null = null;
@@ -119,6 +120,7 @@ export class GeminiLiveTransport implements DesktopSession {
     }
 
     this.hasCompletedSetup = false;
+    this.hasReceivedGoAway = false;
     this.closingByClient = false;
     this.pendingOutputText = '';
     this.emit({ type: 'connection-state-changed', state: 'connecting' });
@@ -159,7 +161,23 @@ export class GeminiLiveTransport implements DesktopSession {
         reject(createError(detail));
       };
 
+      const rejectSetup = (detail: string): void => {
+        if (isSetupSettled) {
+          return;
+        }
+
+        isSetupSettled = true;
+        this.session = null;
+        this.hasCompletedSetup = false;
+        this.pendingOutputText = '';
+        reject(createError(detail));
+      };
+
       const handleUnexpectedTermination = (detail: string): void => {
+        if (this.hasReceivedGoAway) {
+          return;
+        }
+
         this.pendingOutputText = '';
         this.session = null;
         this.hasCompletedSetup = false;
@@ -176,14 +194,18 @@ export class GeminiLiveTransport implements DesktopSession {
 
         if (message.goAway) {
           const detail = getGoAwayDetail(message);
+          const wasSetupCompleted = this.hasCompletedSetup;
+          this.hasReceivedGoAway = true;
+          this.session = null;
+          this.hasCompletedSetup = false;
+          this.pendingOutputText = '';
           this.emit({ type: 'go-away', detail });
 
-          if (!this.hasCompletedSetup) {
-            failSetup(detail);
+          if (!wasSetupCompleted) {
+            rejectSetup(detail);
             return;
           }
 
-          handleUnexpectedTermination(detail);
           return;
         }
 
@@ -208,6 +230,10 @@ export class GeminiLiveTransport implements DesktopSession {
           this.pendingOutputText = '';
           this.emit({ type: 'interrupted' });
           return;
+        }
+
+        if (message.serverContent?.generationComplete) {
+          this.emit({ type: 'generation-complete' });
         }
 
         if (message.serverContent?.turnComplete) {
@@ -246,10 +272,15 @@ export class GeminiLiveTransport implements DesktopSession {
         if (this.closingByClient) {
           this.session = null;
           this.hasCompletedSetup = false;
+          this.hasReceivedGoAway = false;
           this.pendingOutputText = '';
           this.closingByClient = false;
           this.disconnectResolver?.();
           this.disconnectResolver = null;
+          return;
+        }
+
+        if (this.hasReceivedGoAway) {
           return;
         }
 

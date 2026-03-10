@@ -18,13 +18,21 @@ export type SessionMode = 'text' | 'voice';
 
 export type SessionPhase = 'idle' | 'starting' | 'active' | 'ending' | 'error';
 export type TextSessionStatus =
+  | 'idle'
   | 'connecting'
   | 'ready'
   | 'sending'
   | 'receiving'
+  | 'generationCompleted'
   | 'completed'
+  | 'interrupted'
+  | 'goAway'
+  | 'disconnecting'
   | 'disconnected'
   | 'error';
+export type TextSessionLifecycle = {
+  status: TextSessionStatus;
+};
 
 export type AssistantActivityState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
@@ -85,6 +93,9 @@ export type LiveSessionEvent =
     }
   | {
       type: 'interrupted';
+    }
+  | {
+      type: 'generation-complete';
     }
   | {
       type: 'turn-complete';
