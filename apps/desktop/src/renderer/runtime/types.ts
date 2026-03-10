@@ -14,6 +14,7 @@ export type ConversationTurnModel = {
 };
 
 export type TransportKind = 'gemini-live';
+export type SessionMode = 'text' | 'voice';
 
 export type SessionPhase = 'idle' | 'starting' | 'active' | 'ending' | 'error';
 
@@ -26,8 +27,6 @@ export type TransportConnectionState =
   | 'disconnecting'
   | 'error';
 
-export type TransportAssistantActivity = Exclude<AssistantActivityState, 'idle'> | 'ready';
-
 export type RuntimeDebugEvent = {
   scope: 'session' | 'transport';
   type: string;
@@ -35,7 +34,7 @@ export type RuntimeDebugEvent = {
   detail?: string | undefined;
 };
 
-export type SessionEvent =
+export type SessionControllerEvent =
   | { type: 'session.backend.health.started' }
   | { type: 'session.backend.health.succeeded' }
   | { type: 'session.backend.health.failed'; detail: string }
@@ -47,41 +46,70 @@ export type SessionEvent =
   | { type: 'session.ended' }
   | { type: 'session.debug.state.set'; detail: string };
 
-export type TransportEvent =
+export type SessionConnectionState = 'connecting' | 'connected' | 'disconnected';
+
+export type LiveSessionEvent =
   | {
-      type: 'transport.lifecycle';
-      state: 'connecting' | 'connected' | 'disconnected' | 'error';
+      type: 'connection-state-changed';
+      state: SessionConnectionState;
+    }
+  | {
+      type: 'text-delta';
+      text: string;
+    }
+  | {
+      type: 'text-message';
+      text: string;
+    }
+  | {
+      type: 'audio-chunk';
+      chunk: Uint8Array;
+    }
+  | {
+      type: 'input-transcript';
+      text: string;
+      isFinal?: boolean | undefined;
+    }
+  | {
+      type: 'output-transcript';
+      text: string;
+      isFinal?: boolean | undefined;
+    }
+  | {
+      type: 'interrupted';
+    }
+  | {
+      type: 'turn-complete';
+    }
+  | {
+      type: 'go-away';
       detail?: string | undefined;
     }
   | {
-      type: 'assistant.activity';
-      activity: TransportAssistantActivity;
+      type: 'session-resumption-update';
+      sessionId?: string | undefined;
+      detail?: string | undefined;
     }
   | {
-      type: 'conversation.turn.appended';
-      turn: ConversationTurnModel;
-    }
-  | {
-      type: 'conversation.turn.updated';
-      turnId: string;
-      content: string;
-      state: ConversationTurnState;
-      statusLabel?: string | undefined;
+      type: 'error';
+      detail: string;
     };
 
-export type DesktopSessionTransportConnectParams = {
+export type DesktopSessionConnectParams = {
   token: CreateEphemeralTokenResponse;
+  mode: SessionMode;
 };
 
-export type DesktopSessionTransport = {
+export type DesktopSession = {
   kind: TransportKind;
-  connect: (params: DesktopSessionTransportConnectParams) => Promise<void>;
+  connect: (params: DesktopSessionConnectParams) => Promise<void>;
   sendText: (text: string) => Promise<void>;
+  sendAudioChunk: (chunk: Uint8Array) => Promise<void>;
   disconnect: () => Promise<void>;
-  subscribe: (listener: (event: TransportEvent) => void) => () => void;
+  subscribe: (listener: (event: LiveSessionEvent) => void) => () => void;
 };
 
 export type RuntimeLogger = {
-  onSessionEvent: (event: SessionEvent) => void;
-  onTransportEvent: (event: TransportEvent) => void;
+  onSessionEvent: (event: SessionControllerEvent) => void;
+  onTransportEvent: (event: LiveSessionEvent) => void;
 };

@@ -4,10 +4,12 @@ import { defaultRuntimeLogger } from './logger';
 import { formatConversationTimestamp } from './conversationTimestamp';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
 import type {
-  DesktopSessionTransport,
+  ConversationTurnModel,
+  DesktopSession,
+  LiveSessionEvent,
   RuntimeLogger,
-  SessionEvent,
-  TransportEvent,
+  SessionControllerEvent,
+  SessionMode,
   TransportKind,
 } from './types';
 
@@ -18,7 +20,7 @@ type DebugAssistantState = Parameters<
 
 export type DesktopSessionController = {
   checkBackendHealth: () => Promise<void>;
-  startSession: () => Promise<void>;
+  startSession: (options: { mode: SessionMode }) => Promise<void>;
   submitTextTurn: (text: string) => Promise<boolean>;
   endSession: () => Promise<void>;
   setAssistantState: (assistantState: DebugAssistantState) => void;
@@ -28,7 +30,7 @@ export type DesktopSessionControllerDependencies = {
   logger: RuntimeLogger;
   checkBackendHealth: typeof checkBackendHealth;
   requestSessionToken: typeof requestSessionToken;
-  createTransport: (kind: TransportKind) => DesktopSessionTransport;
+  createTransport: (kind: TransportKind) => DesktopSession;
   store: SessionStoreApi;
 };
 
@@ -65,12 +67,14 @@ export function createDesktopSessionController(
     ...overrides,
   };
 
-  let activeTransport: DesktopSessionTransport | null = null;
+  let activeTransport: DesktopSession | null = null;
   let unsubscribeTransport: (() => void) | null = null;
   let sessionOperationId = 0;
   let nextUserTurnId = 0;
+  let nextAssistantTurnId = 0;
+  let pendingAssistantTurnId: string | null = null;
 
-  const recordSessionEvent = (event: SessionEvent): void => {
+  const recordSessionEvent = (event: SessionControllerEvent): void => {
     dependencies.logger.onSessionEvent(event);
     dependencies.store
       .getState()
@@ -83,10 +87,21 @@ export function createDesktopSessionController(
       );
   };
 
+  const getConversationTurn = (turnId: string): ConversationTurnModel | undefined => {
+    return dependencies.store
+      .getState()
+      .conversationTurns.find((turn) => turn.id === turnId);
+  };
+
+  const clearPendingAssistantTurn = (): void => {
+    pendingAssistantTurnId = null;
+  };
+
   const cleanupTransport = (): void => {
     unsubscribeTransport?.();
     unsubscribeTransport = null;
     activeTransport = null;
+    clearPendingAssistantTurn();
   };
 
   const beginSessionOperation = (): number => {
@@ -97,7 +112,112 @@ export function createDesktopSessionController(
   const isCurrentSessionOperation = (operationId: number): boolean =>
     operationId === sessionOperationId;
 
-  const handleTransportEvent = (event: TransportEvent): void => {
+  const updatePendingAssistantTurn = (
+    content: string,
+    state: ConversationTurnModel['state'],
+    statusLabel?: string,
+  ): void => {
+    if (!pendingAssistantTurnId) {
+      return;
+    }
+
+    dependencies.store.getState().updateConversationTurn(pendingAssistantTurnId, {
+      content,
+      state,
+      statusLabel,
+    });
+  };
+
+  const appendAssistantTurn = (
+    content: string,
+    state: ConversationTurnModel['state'],
+    statusLabel?: string,
+  ): void => {
+    const turnId = `assistant-turn-${++nextAssistantTurnId}`;
+    pendingAssistantTurnId = turnId;
+    dependencies.store.getState().appendConversationTurn({
+      id: turnId,
+      role: 'assistant',
+      content,
+      timestamp: formatConversationTimestamp(),
+      state,
+      statusLabel,
+    });
+  };
+
+  const appendAssistantTextDelta = (text: string): void => {
+    if (!pendingAssistantTurnId) {
+      appendAssistantTurn(text, 'streaming', 'Responding...');
+      return;
+    }
+
+    const currentTurn = getConversationTurn(pendingAssistantTurnId);
+
+    if (!currentTurn) {
+      appendAssistantTurn(text, 'streaming', 'Responding...');
+      return;
+    }
+
+    updatePendingAssistantTurn(
+      `${currentTurn.content}${text}`,
+      'streaming',
+      'Responding...',
+    );
+  };
+
+  const upsertAssistantMessage = (text: string): void => {
+    if (!pendingAssistantTurnId) {
+      appendAssistantTurn(text, 'complete');
+      return;
+    }
+
+    updatePendingAssistantTurn(text, 'complete');
+  };
+
+  const completePendingAssistantTurn = (statusLabel?: string): void => {
+    if (!pendingAssistantTurnId) {
+      return;
+    }
+
+    const currentTurn = getConversationTurn(pendingAssistantTurnId);
+
+    if (!currentTurn) {
+      clearPendingAssistantTurn();
+      return;
+    }
+
+    updatePendingAssistantTurn(currentTurn.content, 'complete', statusLabel);
+    clearPendingAssistantTurn();
+  };
+
+  const failPendingAssistantTurn = (statusLabel: string): void => {
+    if (!pendingAssistantTurnId) {
+      return;
+    }
+
+    const currentTurn = getConversationTurn(pendingAssistantTurnId);
+
+    if (!currentTurn) {
+      clearPendingAssistantTurn();
+      return;
+    }
+
+    updatePendingAssistantTurn(currentTurn.content, 'error', statusLabel);
+    clearPendingAssistantTurn();
+  };
+
+  const setErrorState = (detail: string): void => {
+    failPendingAssistantTurn('Disconnected');
+    cleanupTransport();
+    const store = dependencies.store.getState();
+    store.setSessionPhase('error');
+    store.setAssistantActivity('idle');
+    store.setTransportState('error');
+    store.setActiveTransport(null);
+    store.setLastRuntimeError(detail);
+  };
+
+  const handleTransportEvent = (event: LiveSessionEvent): void => {
     const store = dependencies.store.getState();
 
     dependencies.logger.onTransportEvent(event);
@@ -105,15 +225,11 @@ export function createDesktopSessionController(
       createDebugEvent(
         'transport',
         event.type,
-        'detail' in event
-          ? event.detail
-          : 'activity' in event
-            ? event.activity
-            : undefined,
+        'detail' in event ? event.detail : undefined,
       ),
     );
 
-    if (event.type === 'transport.lifecycle') {
+    if (event.type === 'connection-state-changed') {
       if (event.state === 'connecting') {
         store.setTransportState('connecting');
         return;
@@ -126,60 +242,46 @@ export function createDesktopSessionController(
         return;
       }
 
-      if (event.state === 'disconnected') {
-        cleanupTransport();
-        store.setTransportState('idle');
-        store.setAssistantActivity('idle');
-        store.setActiveTransport(null);
-
-        if (store.sessionPhase !== 'ending') {
-          store.setSessionPhase('idle');
-        }
-
-        return;
-      }
-
-      store.setTransportState('error');
-      store.setSessionPhase('error');
+      cleanupTransport();
+      store.setTransportState('idle');
       store.setAssistantActivity('idle');
       store.setActiveTransport(null);
-      store.setLastRuntimeError(event.detail ?? 'Transport failed');
-      cleanupTransport();
-      return;
-    }
 
-    if (event.type === 'assistant.activity') {
-      store.setSessionPhase('active');
-
-      if (event.activity === 'ready') {
-        store.setAssistantActivity('idle');
-        return;
+      if (store.sessionPhase !== 'ending') {
+        store.setSessionPhase('idle');
       }
 
-      store.setAssistantActivity(event.activity);
       return;
     }
 
-    if (event.type === 'conversation.turn.appended') {
-      store.appendConversationTurn(event.turn);
+    if (event.type === 'text-delta') {
+      store.setSessionPhase('active');
+      store.setAssistantActivity('thinking');
+      appendAssistantTextDelta(event.text);
       return;
     }
 
-    store.updateConversationTurn(event.turnId, {
-      content: event.content,
-      state: event.state,
-      statusLabel: event.statusLabel,
-    });
-  };
+    if (event.type === 'text-message') {
+      store.setSessionPhase('active');
+      upsertAssistantMessage(event.text);
+      return;
+    }
 
-  const setErrorState = (detail: string): void => {
-    cleanupTransport();
-    const store = dependencies.store.getState();
-    store.setSessionPhase('error');
-    store.setAssistantActivity('idle');
-    store.setTransportState('idle');
-    store.setActiveTransport(null);
-    store.setLastRuntimeError(detail);
+    if (event.type === 'interrupted') {
+      completePendingAssistantTurn('Interrupted');
+      store.setAssistantActivity('idle');
+      return;
+    }
+
+    if (event.type === 'turn-complete') {
+      completePendingAssistantTurn();
+      store.setAssistantActivity('idle');
+      return;
+    }
+
+    if (event.type === 'go-away' || event.type === 'error') {
+      setErrorState(event.detail ?? 'Transport failed');
+    }
   };
 
   const appendUserTurn = (content: string): void => {
@@ -192,7 +294,7 @@ export function createDesktopSessionController(
     });
   };
 
-  const ensureConnectedTransport = async (): Promise<DesktopSessionTransport | null> => {
+  const ensureConnectedTransport = async (): Promise<DesktopSession | null> => {
     const store = dependencies.store.getState();
 
     if (
@@ -203,7 +305,7 @@ export function createDesktopSessionController(
       return activeTransport;
     }
 
-    await startSessionInternal();
+    await startSessionInternal({ mode: 'text' });
 
     const nextStore = dependencies.store.getState();
 
@@ -218,7 +320,11 @@ export function createDesktopSessionController(
     return activeTransport;
   };
 
-  const startSessionInternal = async (): Promise<void> => {
+  const startSessionInternal = async ({
+    mode,
+  }: {
+    mode: SessionMode;
+  }): Promise<void> => {
     const store = dependencies.store.getState();
 
     if (store.sessionPhase === 'starting' || store.sessionPhase === 'active') {
@@ -270,7 +376,7 @@ export function createDesktopSessionController(
     store.setTransportState('connecting');
 
     try {
-      await activeTransport.connect({ token });
+      await activeTransport.connect({ token, mode });
     } catch (error) {
       if (!isCurrentSessionOperation(operationId)) {
         return;
@@ -327,8 +433,8 @@ export function createDesktopSessionController(
     checkBackendHealth: async () => {
       await performBackendHealthCheck();
     },
-    startSession: async () => {
-      await startSessionInternal();
+    startSession: async ({ mode }) => {
+      await startSessionInternal({ mode });
     },
     submitTextTurn: async (text: string) => {
       const trimmedText = text.trim();
