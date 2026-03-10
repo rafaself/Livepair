@@ -30,6 +30,7 @@ function isCreateEphemeralTokenResponse(
 export type GeminiAuthTokenRequest = {
   apiKey: string;
   newSessionExpireTime: string;
+  expireTime: string;
 };
 
 type RequestGeminiAuthTokenOptions = GeminiAuthTokenRequest & {
@@ -75,6 +76,7 @@ export async function requestGeminiAuthToken({
   apiKey,
   fetchImpl = fetch,
   newSessionExpireTime,
+  expireTime,
 }: RequestGeminiAuthTokenOptions): Promise<CreateEphemeralTokenResponse> {
   let response: Response;
   try {
@@ -87,6 +89,7 @@ export async function requestGeminiAuthToken({
       body: JSON.stringify({
         uses: 1,
         newSessionExpireTime,
+        expireTime,
       }),
     });
   } catch (error) {

@@ -18,13 +18,23 @@ export class SessionService {
       throw new ServiceUnavailableException('Gemini API key is not configured');
     }
 
+    const now = Date.now();
+    
+    // Window to initiate the session (default 60s)
+    const sessionStartWindowMs = env.ephemeralTokenTtlSeconds * 1000;
     const newSessionExpireTime = formatTimestamp(
-      new Date(Date.now() + env.ephemeralTokenTtlSeconds * 1000),
+      new Date(now + sessionStartWindowMs),
+    );
+
+    // Absolute token validity (defaulting to 30m beyond the start window for the session duration)
+    const expireTime = formatTimestamp(
+      new Date(now + sessionStartWindowMs + 30 * 60 * 1000),
     );
 
     return this.geminiAuthTokenClient.createToken({
       apiKey: env.geminiApiKey,
       newSessionExpireTime,
+      expireTime,
     });
   }
 }

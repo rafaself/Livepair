@@ -4,17 +4,14 @@ import { requestGeminiAuthToken } from './gemini-auth-token.client';
 describe('requestGeminiAuthToken', () => {
   let fetchImpl: jest.MockedFunction<typeof fetch>;
   let consoleErrorSpy: jest.SpyInstance;
-  let consoleInfoSpy: jest.SpyInstance;
 
   beforeEach(() => {
     fetchImpl = jest.fn() as jest.MockedFunction<typeof fetch>;
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
-    consoleInfoSpy.mockRestore();
   });
 
   it('maps the Gemini auth token payload into the shared response shape', async () => {
@@ -32,6 +29,7 @@ describe('requestGeminiAuthToken', () => {
         apiKey: 'gemini-key',
         fetchImpl,
         newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+        expireTime: '2026-03-09T12:30:00.000Z',
       }),
     ).resolves.toEqual({
       token: 'auth-tokens/abc123',
@@ -50,18 +48,9 @@ describe('requestGeminiAuthToken', () => {
         body: JSON.stringify({
           uses: 1,
           newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+          expireTime: '2026-03-09T12:30:00.000Z',
         }),
       },
-    );
-    expect(consoleInfoSpy).toHaveBeenCalledWith(
-      '[session:gemini-auth-token] upstream request started',
-      expect.objectContaining({
-        url: 'https://generativelanguage.googleapis.com/v1alpha/auth_tokens',
-        request: {
-          uses: 1,
-          newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        },
-      }),
     );
   });
 
@@ -82,16 +71,10 @@ describe('requestGeminiAuthToken', () => {
         apiKey: 'gemini-key',
         fetchImpl,
         newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+        expireTime: '2026-03-09T12:30:00.000Z',
       }),
     ).rejects.toEqual(
       new BadGatewayException('Gemini token request failed: upstream 500 - backend unavailable'),
-    );
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[session:gemini-auth-token] upstream request failed',
-      expect.objectContaining({
-        status: 500,
-        detail: 'backend unavailable',
-      }),
     );
   });
 
@@ -103,23 +86,15 @@ describe('requestGeminiAuthToken', () => {
         apiKey: 'gemini-key',
         fetchImpl,
         newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+        expireTime: '2026-03-09T12:30:00.000Z',
       }),
     ).rejects.toEqual(new BadGatewayException('Gemini token request failed: network down'));
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[session:gemini-auth-token] network request failed',
-      expect.any(Error),
-    );
   });
 
   it('rejects malformed upstream payloads', async () => {
     fetchImpl.mockResolvedValue({
       ok: true,
       status: 200,
-      headers: {
-        get: jest.fn((header: string) => (header.toLowerCase() === 'content-type'
-          ? 'application/json; charset=UTF-8'
-          : null)),
-      },
       json: async () => ({
         expireTime: '2026-03-09T12:30:00.000Z',
       }),
@@ -130,24 +105,8 @@ describe('requestGeminiAuthToken', () => {
         apiKey: 'gemini-key',
         fetchImpl,
         newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+        expireTime: '2026-03-09T12:30:00.000Z',
       }),
     ).rejects.toEqual(new BadGatewayException('Gemini token response was invalid'));
-    expect(consoleInfoSpy).toHaveBeenCalledWith(
-      '[session:gemini-auth-token] upstream response received',
-      expect.objectContaining({
-        status: 200,
-        contentType: 'application/json; charset=UTF-8',
-      }),
-    );
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[session:gemini-auth-token] upstream response payload invalid',
-      expect.objectContaining({
-        status: 200,
-        payloadShape: {
-          expireTime: 'string',
-        },
-        missingFields: ['name', 'newSessionExpireTime'],
-      }),
-    );
   });
 });

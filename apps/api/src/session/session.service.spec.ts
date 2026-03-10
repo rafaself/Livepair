@@ -29,7 +29,7 @@ describe('SessionService', () => {
   it('returns a real ephemeral token response', async () => {
     const response: CreateEphemeralTokenResponse = {
       token: 'auth-tokens/abc123',
-      expireTime: '2026-03-09T12:30:00.000Z',
+      expireTime: '2026-03-09T12:31:30.000Z',
       newSessionExpireTime: '2026-03-09T12:01:30.000Z',
     };
     createToken.mockResolvedValue(response);
@@ -37,10 +37,10 @@ describe('SessionService', () => {
     await expect(service.createEphemeralToken({})).resolves.toEqual(response);
   });
 
-  it('requests a one-time token with a TTL-derived new session expiry', async () => {
+  it('requests a one-time token with a TTL-derived new session expiry and relative overall expiry', async () => {
     createToken.mockResolvedValue({
       token: 'auth-tokens/abc123',
-      expireTime: '2026-03-09T12:30:00.000Z',
+      expireTime: '2026-03-09T12:31:30.000Z',
       newSessionExpireTime: '2026-03-09T12:01:30.000Z',
     });
 
@@ -49,6 +49,7 @@ describe('SessionService', () => {
     expect(createToken).toHaveBeenCalledWith({
       apiKey: 'gemini-key',
       newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+      expireTime: '2026-03-09T12:31:30.000Z',
     });
   });
 
