@@ -30,7 +30,7 @@
 }
 
 .control-dock--panel-open {
-  right: calc(min(340px, calc(100vw - var(--space-4))) + var(--space-3));
+  right: calc(min(420px, calc(100vw - var(--space-4))) + var(--space-3));
 }
 
 .control-dock__btn--active {

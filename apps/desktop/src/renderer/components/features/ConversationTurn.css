@@ -30,6 +30,14 @@
   margin: 0 var(--space-2);
 }
 
+.conversation-turn--assistant .conversation-turn__icon {
+  margin-left: 0;
+}
+
+.conversation-turn--user .conversation-turn__icon {
+  margin-right: 0;
+}
+
 .conversation-turn__bubble {
   position: relative;
   max-width: 85%;
