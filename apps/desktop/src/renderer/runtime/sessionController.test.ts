@@ -95,6 +95,7 @@ describe('createDesktopSessionController', () => {
         backendState: 'connected',
         tokenRequestState: 'success',
         transportState: 'connected',
+        textSessionStatus: 'ready',
         activeTransport: 'gemini-live',
       }),
     );
@@ -256,6 +257,7 @@ describe('createDesktopSessionController', () => {
     expect(transportHarness.transport.sendText).toHaveBeenCalledWith(
       'Summarize the current screen',
     );
+    expect(useSessionStore.getState().textSessionStatus).toBe('sending');
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         role: 'user',
@@ -269,6 +271,7 @@ describe('createDesktopSessionController', () => {
       type: 'text-delta',
       text: 'Here is',
     });
+    expect(useSessionStore.getState().textSessionStatus).toBe('receiving');
     transportHarness.emit({
       type: 'text-delta',
       text: ' the current screen summary.',
@@ -292,7 +295,97 @@ describe('createDesktopSessionController', () => {
         state: 'complete',
       }),
     ]);
+    expect(useSessionStore.getState().textSessionStatus).toBe('completed');
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
+  });
+
+  it('waits for readiness before sending the first text turn', async () => {
+    let listener: ((event: LiveSessionEvent) => void) | null = null;
+    const connectDeferred = createDeferred<void>();
+    const emit = (event: LiveSessionEvent): void => {
+      const currentListener = listener as ((event: LiveSessionEvent) => void) | null;
+      currentListener?.(event);
+    };
+    const transport: DesktopSession = {
+      kind: 'gemini-live',
+      connect: vi.fn(async () => {
+        emit({ type: 'connection-state-changed', state: 'connecting' });
+        await connectDeferred.promise;
+      }),
+      sendText: vi.fn(async () => {}),
+      sendAudioChunk: vi.fn(async () => {}),
+      disconnect: vi.fn(async () => {
+        emit({ type: 'connection-state-changed', state: 'disconnected' });
+      }),
+      subscribe: vi.fn((nextListener) => {
+        listener = nextListener;
+
+        return () => {
+          listener = null;
+        };
+      }),
+    };
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'ephemeral-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn().mockReturnValue(transport),
+    });
+
+    const submitPromise = controller.submitTextTurn('Wait until ready');
+    await flushMicrotasks(2);
+
+    expect(useSessionStore.getState().textSessionStatus).toBe('connecting');
+    expect(transport.sendText).not.toHaveBeenCalled();
+
+    emit({ type: 'connection-state-changed', state: 'connected' });
+    connectDeferred.resolve();
+    await submitPromise;
+
+    expect(transport.sendText).toHaveBeenCalledWith('Wait until ready');
+    expect(useSessionStore.getState().textSessionStatus).toBe('sending');
+  });
+
+  it('blocks a second submit while the current text turn is still in flight', async () => {
+    const sendDeferred = createDeferred<void>();
+    const transportHarness = createTransportHarness();
+    transportHarness.transport.sendText = vi.fn(async () => {
+      await sendDeferred.promise;
+    });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'ephemeral-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn().mockReturnValue(transportHarness.transport),
+    });
+
+    await controller.startSession({ mode: 'text' });
+    const firstSubmit = controller.submitTextTurn('First turn');
+    await flushMicrotasks(2);
+
+    expect(transportHarness.transport.sendText).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().textSessionStatus).toBe('sending');
+
+    const secondDidSend = await controller.submitTextTurn('Second turn');
+    expect(secondDidSend).toBe(false);
+
+    sendDeferred.resolve();
+    await firstSubmit;
+    expect(transportHarness.transport.sendText).toHaveBeenCalledTimes(1);
   });
 
   it('does not append a user turn when submitTextTurn cannot start a session', async () => {
@@ -345,6 +438,7 @@ describe('createDesktopSessionController', () => {
         backendState: 'idle',
         tokenRequestState: 'idle',
         transportState: 'idle',
+        textSessionStatus: 'disconnected',
         activeTransport: null,
         conversationTurns: [],
         lastRuntimeError: null,
@@ -414,6 +508,7 @@ describe('createDesktopSessionController', () => {
         sessionPhase: 'error',
         tokenRequestState: 'success',
         transportState: 'error',
+        textSessionStatus: 'error',
         activeTransport: null,
         lastRuntimeError: 'socket closed unexpectedly',
       }),

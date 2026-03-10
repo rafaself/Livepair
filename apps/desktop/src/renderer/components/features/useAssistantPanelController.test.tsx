@@ -24,6 +24,9 @@ function HookHarness(): JSX.Element {
       <output aria-label="backend-label">{controller.backendLabel}</output>
       <output aria-label="token-feedback">{controller.tokenFeedback ?? 'none'}</output>
       <output aria-label="runtime-error">{controller.lastRuntimeError ?? 'none'}</output>
+      <output aria-label="text-session-status">{controller.textSessionStatus}</output>
+      <output aria-label="text-session-label">{controller.textSessionStatusLabel}</output>
+      <output aria-label="can-submit-text">{String(controller.canSubmitText)}</output>
       <output aria-label="panel-view">{controller.panelView}</output>
       <output aria-label="conversation-count">{String(controller.conversationTurns.length)}</output>
       <output aria-label="conversation-empty">{String(controller.isConversationEmpty)}</output>
@@ -113,6 +116,11 @@ describe('useAssistantPanelController', () => {
     await waitFor(() => {
       expect(__getLastGeminiLiveSdkConnectOptions()).toBeDefined();
     });
+    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('connecting');
+    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
+      'Connecting to text session...',
+    );
+    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('false');
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('thinking');
     expect(screen.getByLabelText('conversation-count')).toHaveTextContent('0');
 
@@ -123,6 +131,11 @@ describe('useAssistantPanelController', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
     });
+    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('ready');
+    expect(screen.getByLabelText('text-session-label')).toHaveTextContent(
+      'Text session ready',
+    );
+    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('true');
     expect(screen.getByLabelText('conversation-count')).toHaveTextContent('0');
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
   });
@@ -143,6 +156,8 @@ describe('useAssistantPanelController', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('assistant-state')).toHaveTextContent('error');
     });
+    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('error');
+    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('true');
     expect(screen.getByLabelText('runtime-error')).toHaveTextContent('transport offline');
 
     await act(async () => {
@@ -159,6 +174,7 @@ describe('useAssistantPanelController', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
     });
+    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('ready');
     expect(screen.getByLabelText('runtime-error')).toHaveTextContent('none');
   });
 });

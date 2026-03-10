@@ -25,6 +25,9 @@ export function AssistantPanel({
     backendIndicatorState,
     backendLabel,
     tokenFeedback,
+    textSessionStatus,
+    textSessionStatusLabel,
+    canSubmitText,
     lastRuntimeError,
     draftText,
     isSubmittingTextTurn,
@@ -54,6 +57,9 @@ export function AssistantPanel({
           {panelView === 'chat' ? (
             <AssistantPanelChatView
               assistantState={assistantState}
+              textSessionStatus={textSessionStatus}
+              textSessionStatusLabel={textSessionStatusLabel}
+              canSubmitText={canSubmitText}
               turns={conversationTurns}
               isConversationEmpty={isConversationEmpty}
               lastRuntimeError={lastRuntimeError}

@@ -3,7 +3,7 @@ import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { useUiStore, type PanelView } from '../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
 import { useSessionRuntime } from '../../runtime/useSessionRuntime';
-import type { ConversationTurnModel } from '../../runtime/types';
+import type { ConversationTurnModel, TextSessionStatus } from '../../runtime/types';
 
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
@@ -19,6 +19,9 @@ export type AssistantPanelController = {
   backendLabel: string;
   tokenRequestState: TokenRequestState;
   tokenFeedback: string | null;
+  textSessionStatus: TextSessionStatus;
+  textSessionStatusLabel: string;
+  canSubmitText: boolean;
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
@@ -40,6 +43,9 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendLabel,
     tokenRequestState,
     tokenFeedback,
+    textSessionStatus,
+    textSessionStatusLabel,
+    canSubmitText,
     conversationTurns,
     lastRuntimeError,
     isConversationEmpty,
@@ -110,6 +116,9 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendLabel,
     tokenRequestState,
     tokenFeedback,
+    textSessionStatus,
+    textSessionStatusLabel,
+    canSubmitText,
     lastRuntimeError,
     draftText,
     isSubmittingTextTurn,

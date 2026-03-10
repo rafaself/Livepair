@@ -4,14 +4,20 @@ import type { SessionStoreState } from '../store/sessionStore';
 export function selectAssistantRuntimeState(
   state: Pick<
     SessionStoreState,
-    'assistantActivity' | 'backendState' | 'sessionPhase' | 'tokenRequestState' | 'transportState'
+    | 'assistantActivity'
+    | 'backendState'
+    | 'sessionPhase'
+    | 'textSessionStatus'
+    | 'tokenRequestState'
+    | 'transportState'
   >,
 ): AssistantRuntimeState {
   if (
     state.sessionPhase === 'error' ||
     state.backendState === 'failed' ||
     state.tokenRequestState === 'error' ||
-    state.transportState === 'error'
+    state.transportState === 'error' ||
+    state.textSessionStatus === 'error'
   ) {
     return 'error';
   }
@@ -28,7 +34,23 @@ export function selectAssistantRuntimeState(
     return 'listening';
   }
 
-  if (state.transportState === 'connected' || state.sessionPhase === 'active') {
+  if (state.textSessionStatus === 'connecting') {
+    return 'thinking';
+  }
+
+  if (
+    state.textSessionStatus === 'sending' ||
+    state.textSessionStatus === 'receiving'
+  ) {
+    return 'thinking';
+  }
+
+  if (
+    state.textSessionStatus === 'ready' ||
+    state.textSessionStatus === 'completed' ||
+    state.transportState === 'connected' ||
+    state.sessionPhase === 'active'
+  ) {
     return 'ready';
   }
 
@@ -92,6 +114,46 @@ export function selectTokenFeedback(
   }
 
   return null;
+}
+
+export function selectTextSessionStatusLabel(
+  state: Pick<SessionStoreState, 'textSessionStatus'>,
+): string {
+  if (state.textSessionStatus === 'connecting') {
+    return 'Connecting to text session...';
+  }
+
+  if (state.textSessionStatus === 'ready') {
+    return 'Text session ready';
+  }
+
+  if (state.textSessionStatus === 'sending') {
+    return 'Sending message...';
+  }
+
+  if (state.textSessionStatus === 'receiving') {
+    return 'Receiving response...';
+  }
+
+  if (state.textSessionStatus === 'completed') {
+    return 'Response complete';
+  }
+
+  if (state.textSessionStatus === 'error') {
+    return 'Text session failed';
+  }
+
+  return 'Text session disconnected';
+}
+
+export function selectCanSubmitText(
+  state: Pick<SessionStoreState, 'textSessionStatus'>,
+): boolean {
+  return !(
+    state.textSessionStatus === 'connecting' ||
+    state.textSessionStatus === 'sending' ||
+    state.textSessionStatus === 'receiving'
+  );
 }
 
 export function selectIsConversationEmpty(

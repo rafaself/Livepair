@@ -9,6 +9,9 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="disconnected"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError={null}
@@ -21,6 +24,7 @@ describe('AssistantPanelChatView', () => {
 
     expect(screen.getByRole('status', { name: 'Disconnected' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Conversation' })).toBeVisible();
+    expect(screen.getByText('Text session disconnected')).toBeVisible();
     expect(screen.getByText('No conversation yet')).toBeVisible();
     expect(screen.getByPlaceholderText('Ask Livepair')).toBeVisible();
   });
@@ -46,6 +50,9 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
+        textSessionStatus="ready"
+        textSessionStatusLabel="Text session ready"
+        canSubmitText={true}
         turns={turns}
         isConversationEmpty={false}
         lastRuntimeError={null}
@@ -57,6 +64,7 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.getByRole('status', { name: 'Ready' })).toBeVisible();
+    expect(screen.getByText('Text session ready')).toBeVisible();
     expect(screen.getByText('Check the latest exchange.')).toBeVisible();
     expect(screen.getByText('The latest exchange is visible in the transcript.')).toBeVisible();
     expect(screen.queryByText('No conversation yet')).toBeNull();
@@ -66,6 +74,9 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
+        textSessionStatus="error"
+        textSessionStatusLabel="Text session failed"
+        canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError="transport offline"
@@ -97,6 +108,9 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
+        textSessionStatus="error"
+        textSessionStatusLabel="Text session failed"
+        canSubmitText={true}
         turns={turns}
         isConversationEmpty={false}
         lastRuntimeError="transport offline"
@@ -121,6 +135,9 @@ describe('AssistantPanelChatView', () => {
     const { rerender } = render(
       <AssistantPanelChatView
         assistantState="ready"
+        textSessionStatus="ready"
+        textSessionStatusLabel="Text session ready"
+        canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError={null}
@@ -138,6 +155,9 @@ describe('AssistantPanelChatView', () => {
     rerender(
       <AssistantPanelChatView
         assistantState="thinking"
+        textSessionStatus="receiving"
+        textSessionStatusLabel="Receiving response..."
+        canSubmitText={false}
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError={null}
@@ -150,5 +170,45 @@ describe('AssistantPanelChatView', () => {
 
     expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+  });
+
+  it('keeps the composer enabled after a completed turn and disables it while connecting', () => {
+    const { rerender } = render(
+      <AssistantPanelChatView
+        assistantState="ready"
+        textSessionStatus="completed"
+        textSessionStatusLabel="Response complete"
+        canSubmitText={true}
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Follow up"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeEnabled();
+    expect(screen.getByText('Response complete')).toBeVisible();
+
+    rerender(
+      <AssistantPanelChatView
+        assistantState="thinking"
+        textSessionStatus="connecting"
+        textSessionStatusLabel="Connecting to text session..."
+        canSubmitText={false}
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Follow up"
+        isSubmittingTextTurn={true}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
+    expect(screen.getByText('Connecting to text session...')).toBeVisible();
   });
 });

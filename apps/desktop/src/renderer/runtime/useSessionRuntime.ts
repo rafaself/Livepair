@@ -3,8 +3,10 @@ import {
   selectAssistantRuntimeState,
   selectBackendIndicatorState,
   selectBackendLabel,
+  selectCanSubmitText,
   selectIsConversationEmpty,
   selectIsSessionActive,
+  selectTextSessionStatusLabel,
   selectTokenFeedback,
 } from './selectors';
 import { getDesktopSessionController } from './sessionController';
@@ -17,6 +19,9 @@ export function useSessionRuntime() {
   const backendLabel = useSessionStore(selectBackendLabel);
   const tokenRequestState = useSessionStore((state) => state.tokenRequestState);
   const tokenFeedback = useSessionStore(selectTokenFeedback);
+  const textSessionStatus = useSessionStore((state) => state.textSessionStatus);
+  const textSessionStatusLabel = useSessionStore(selectTextSessionStatusLabel);
+  const canSubmitText = useSessionStore(selectCanSubmitText);
   const conversationTurns = useSessionStore((state) => state.conversationTurns);
   const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
   const isConversationEmpty = useSessionStore(selectIsConversationEmpty);
@@ -53,6 +58,9 @@ export function useSessionRuntime() {
     backendLabel,
     tokenRequestState,
     tokenFeedback,
+    textSessionStatus,
+    textSessionStatusLabel,
+    canSubmitText,
     conversationTurns,
     lastRuntimeError,
     isConversationEmpty,

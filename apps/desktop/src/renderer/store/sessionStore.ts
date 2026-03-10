@@ -6,6 +6,7 @@ import type {
   ConversationTurnModel,
   RuntimeDebugEvent,
   SessionPhase,
+  TextSessionStatus,
   TransportConnectionState,
   TransportKind,
 } from '../runtime/types';
@@ -19,6 +20,7 @@ type SessionStoreData = {
   backendState: BackendConnectionState;
   tokenRequestState: TokenRequestState;
   transportState: TransportConnectionState;
+  textSessionStatus: TextSessionStatus;
   activeTransport: TransportKind | null;
   conversationTurns: ConversationTurnModel[];
   lastRuntimeError: string | null;
@@ -31,6 +33,7 @@ export type SessionStoreState = SessionStoreData & {
   setBackendState: (backendState: BackendConnectionState) => void;
   setTokenRequestState: (tokenRequestState: TokenRequestState) => void;
   setTransportState: (transportState: TransportConnectionState) => void;
+  setTextSessionStatus: (textSessionStatus: TextSessionStatus) => void;
   setActiveTransport: (activeTransport: TransportKind | null) => void;
   appendConversationTurn: (turn: ConversationTurnModel) => void;
   updateConversationTurn: (
@@ -50,6 +53,7 @@ const defaultSessionState: SessionStoreData = {
   backendState: 'idle',
   tokenRequestState: 'idle',
   transportState: 'idle',
+  textSessionStatus: 'disconnected',
   activeTransport: null,
   conversationTurns: [],
   lastRuntimeError: null,
@@ -71,6 +75,7 @@ function getDebugRuntimeState(
       sessionPhase: 'active',
       assistantActivity: 'idle',
       transportState: 'connected',
+      textSessionStatus: 'ready',
       activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
@@ -81,6 +86,7 @@ function getDebugRuntimeState(
       sessionPhase: 'active',
       assistantActivity: 'listening',
       transportState: 'connected',
+      textSessionStatus: 'ready',
       activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
@@ -91,6 +97,7 @@ function getDebugRuntimeState(
       sessionPhase: 'starting',
       assistantActivity: 'thinking',
       transportState: 'connecting',
+      textSessionStatus: 'connecting',
       activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
@@ -101,17 +108,19 @@ function getDebugRuntimeState(
       sessionPhase: 'active',
       assistantActivity: 'speaking',
       transportState: 'connected',
+      textSessionStatus: 'receiving',
       activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }
 
-  return {
-    sessionPhase: 'error',
-    assistantActivity: 'idle',
-    lastRuntimeError: 'Runtime forced into error state',
-  };
-}
+    return {
+      sessionPhase: 'error',
+      assistantActivity: 'idle',
+      textSessionStatus: 'error',
+      lastRuntimeError: 'Runtime forced into error state',
+    };
+  }
 
 export const useSessionStore = create<SessionStoreState>((set) => ({
   ...defaultSessionState,
@@ -120,6 +129,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   setBackendState: (backendState) => set({ backendState }),
   setTokenRequestState: (tokenRequestState) => set({ tokenRequestState }),
   setTransportState: (transportState) => set({ transportState }),
+  setTextSessionStatus: (textSessionStatus) => set({ textSessionStatus }),
   setActiveTransport: (activeTransport) => set({ activeTransport }),
   appendConversationTurn: (turn) =>
     set((state) => ({

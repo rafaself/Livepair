@@ -1,13 +1,16 @@
 import { MessageCircle, SendHorizonal, TriangleAlert } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
-import type { ConversationTurnModel } from '../../runtime/types';
+import type { ConversationTurnModel, TextSessionStatus } from '../../runtime/types';
 import { Button, TextInput } from '../primitives';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { ConversationList } from './ConversationList';
 
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;
+  textSessionStatus: TextSessionStatus;
+  textSessionStatusLabel: string;
+  canSubmitText: boolean;
   turns: ConversationTurnModel[];
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
@@ -19,6 +22,9 @@ export type AssistantPanelChatViewProps = {
 
 export function AssistantPanelChatView({
   assistantState,
+  textSessionStatus,
+  textSessionStatusLabel,
+  canSubmitText,
   turns,
   isConversationEmpty,
   lastRuntimeError,
@@ -27,7 +33,7 @@ export function AssistantPanelChatView({
   onDraftTextChange,
   onSubmitTextTurn,
 }: AssistantPanelChatViewProps): JSX.Element {
-  const isComposerDisabled = isSubmittingTextTurn;
+  const isComposerDisabled = isSubmittingTextTurn || !canSubmitText;
   const canSubmit = draftText.trim().length > 0 && !isComposerDisabled;
   const emptyState = (
     <div className="assistant-panel__conversation-card assistant-panel__conversation-card--empty">
@@ -64,6 +70,13 @@ export function AssistantPanelChatView({
         aria-labelledby="assistant-panel-conversation-title"
       >
         <h3 id="assistant-panel-conversation-title">Conversation</h3>
+        <div
+          className={`assistant-panel__text-status assistant-panel__text-status--${textSessionStatus}`}
+          role="status"
+          aria-live="polite"
+        >
+          <p>{textSessionStatusLabel}</p>
+        </div>
         {(lastRuntimeError && !isConversationEmpty) ? (
           <div className="assistant-panel__runtime-error" role="alert">
             <TriangleAlert size={16} aria-hidden="true" />

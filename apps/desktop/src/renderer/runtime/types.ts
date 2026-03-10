@@ -17,6 +17,14 @@ export type TransportKind = 'gemini-live';
 export type SessionMode = 'text' | 'voice';
 
 export type SessionPhase = 'idle' | 'starting' | 'active' | 'ending' | 'error';
+export type TextSessionStatus =
+  | 'connecting'
+  | 'ready'
+  | 'sending'
+  | 'receiving'
+  | 'completed'
+  | 'disconnected'
+  | 'error';
 
 export type AssistantActivityState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
