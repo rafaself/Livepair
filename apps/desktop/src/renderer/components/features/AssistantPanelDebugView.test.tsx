@@ -15,6 +15,12 @@ describe('AssistantPanelDebugView', () => {
         backendLabel="Not connected"
         tokenFeedback="Connection failed"
         voiceSessionStatus="streaming"
+        voiceSessionResumption={{
+          status: 'resumed',
+          latestHandle: 'handles/voice-session-2',
+          resumable: true,
+          lastDetail: 'server draining',
+        }}
         voiceCaptureState="capturing"
         voiceCaptureDiagnostics={{
           chunkCount: 3,
@@ -55,6 +61,10 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Fast')).toBeVisible();
     expect(screen.getByText('Voice session')).toBeVisible();
     expect(screen.getAllByText('Streaming')).toHaveLength(2);
+    expect(screen.getByText('Session resumption')).toBeVisible();
+    expect(screen.getByText('Resumed')).toBeVisible();
+    expect(screen.getByText('Handle available')).toBeVisible();
+    expect(screen.getByText('Yes')).toBeVisible();
     expect(screen.getByText('Voice capture')).toBeVisible();
     expect(screen.getByText('Capturing')).toBeVisible();
     expect(screen.getByText('Voice playback')).toBeVisible();

@@ -63,7 +63,11 @@ export type GeminiLiveConnectConfig = {
   inputAudioTranscription?: Record<string, never> | undefined;
   outputAudioTranscription?: Record<string, never> | undefined;
   mediaResolution?: LiveMediaResolution | undefined;
-  sessionResumption?: Record<string, never> | undefined;
+  sessionResumption?:
+    | {
+        handle?: string;
+      }
+    | undefined;
   contextWindowCompression?:
     | {
         slidingWindow: Record<string, never>;
@@ -206,7 +210,7 @@ export function resolveLiveConfigEnv(
     sessionResumptionEnabled: parseBooleanEnv(
       env.VITE_LIVE_SESSION_RESUMPTION,
       'VITE_LIVE_SESSION_RESUMPTION',
-      false,
+      true,
     ),
     contextCompressionEnabled: parseBooleanEnv(
       env.VITE_LIVE_CONTEXT_COMPRESSION,
@@ -265,6 +269,9 @@ export function parseLiveConfig(rawConfig: Partial<RawLiveConfig>): LiveConfig {
 export function buildGeminiLiveConnectConfig(
   config: LiveConfig,
   mode: SessionMode,
+  options: {
+    resumeHandle?: string | undefined;
+  } = {},
 ): GeminiLiveConnectConfig {
   if (config.apiVersion !== 'v1alpha') {
     throw createConfigError(
@@ -289,8 +296,12 @@ export function buildGeminiLiveConnectConfig(
     liveConnectConfig.mediaResolution = config.mediaResolution;
   }
 
-  if (config.sessionResumptionEnabled) {
-    liveConnectConfig.sessionResumption = {};
+  if (mode === 'voice' && config.sessionResumptionEnabled) {
+    liveConnectConfig.sessionResumption = options.resumeHandle
+      ? {
+          handle: options.resumeHandle,
+        }
+      : {};
   }
 
   if (config.contextCompressionEnabled) {

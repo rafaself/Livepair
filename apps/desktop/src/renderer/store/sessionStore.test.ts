@@ -48,9 +48,33 @@ describe('sessionStore', () => {
         activeTransport: null,
         conversationTurns: [],
         lastRuntimeError: null,
+        voiceSessionResumption: {
+          status: 'idle',
+          latestHandle: null,
+          resumable: false,
+          lastDetail: null,
+        },
       }),
     );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('disconnected');
+  });
+
+  it('tracks resumption diagnostics separately from voice session status', () => {
+    useSessionStore.getState().setVoiceSessionStatus('streaming');
+    useSessionStore.getState().setVoiceSessionResumption({
+      status: 'reconnecting',
+      latestHandle: 'handles/voice-session-2',
+      resumable: true,
+      lastDetail: 'GoAway received',
+    });
+
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('streaming');
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'reconnecting',
+      latestHandle: 'handles/voice-session-2',
+      resumable: true,
+      lastDetail: 'GoAway received',
+    });
   });
 
   describe('screen capture slice', () => {

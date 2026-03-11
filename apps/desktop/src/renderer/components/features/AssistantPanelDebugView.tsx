@@ -11,6 +11,7 @@ import type {
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
+  VoiceSessionResumptionState,
   VoiceSessionStatus,
 } from '../../runtime/types';
 import { FieldList, StatusIndicator } from '../composite';
@@ -26,6 +27,7 @@ export type AssistantPanelDebugViewProps = {
   backendLabel: string;
   tokenFeedback: string | null;
   voiceSessionStatus: VoiceSessionStatus;
+  voiceSessionResumption: VoiceSessionResumptionState;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
@@ -48,6 +50,36 @@ function formatVoiceSessionStatus(state: VoiceSessionStatus): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatVoiceSessionResumptionStatus(
+  state: VoiceSessionResumptionState['status'],
+): string {
+  if (state === 'goAway') {
+    return 'GoAway';
+  }
+
+  if (state === 'resumeFailed') {
+    return 'Resume failed';
+  }
+
+  if (state === 'reconnecting') {
+    return 'Reconnecting';
+  }
+
+  return state.charAt(0).toUpperCase() + state.slice(1);
+}
+
+function truncateHandle(handle: string | null): string {
+  if (!handle) {
+    return 'None';
+  }
+
+  if (handle.length <= 24) {
+    return handle;
+  }
+
+  return `${handle.slice(0, 12)}...${handle.slice(-8)}`;
+}
+
 function formatVoicePlaybackState(state: VoicePlaybackState): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
@@ -67,6 +99,7 @@ export function AssistantPanelDebugView({
   backendLabel,
   tokenFeedback,
   voiceSessionStatus,
+  voiceSessionResumption,
   voiceCaptureState,
   voiceCaptureDiagnostics,
   voicePlaybackState,
@@ -125,6 +158,22 @@ export function AssistantPanelDebugView({
         <FieldList
           items={[
             { label: 'Voice session', value: formatVoiceSessionStatus(voiceSessionStatus) },
+            {
+              label: 'Session resumption',
+              value: formatVoiceSessionResumptionStatus(voiceSessionResumption.status),
+            },
+            {
+              label: 'Handle available',
+              value: voiceSessionResumption.latestHandle ? 'Yes' : 'No',
+            },
+            {
+              label: 'Latest handle',
+              value: truncateHandle(voiceSessionResumption.latestHandle),
+            },
+            {
+              label: 'Resumption detail',
+              value: voiceSessionResumption.lastDetail ?? 'None',
+            },
             { label: 'Voice capture', value: formatVoiceCaptureState(voiceCaptureState) },
             {
               label: 'Audio format',

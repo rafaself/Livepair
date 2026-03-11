@@ -7,6 +7,7 @@ import type {
   DesktopSession,
   LocalVoiceChunk,
   RuntimeLogger,
+  VoiceSessionResumptionState,
   VoiceCaptureDiagnostics,
   VoicePlaybackState,
 } from './types';
@@ -74,6 +75,15 @@ function createVoiceTransportHarness(): {
     emit: (event) => {
       listener?.(event);
     },
+  };
+}
+
+function expectDefaultResumptionState(): VoiceSessionResumptionState {
+  return {
+    status: 'idle',
+    latestHandle: null,
+    resumable: false,
+    lastDetail: null,
   };
 }
 
@@ -321,6 +331,12 @@ describe('createDesktopSessionController', () => {
         tokenRequestState: 'success',
         activeTransport: 'gemini-live',
         voiceSessionStatus: 'ready',
+        voiceSessionResumption: {
+          status: 'connected',
+          latestHandle: null,
+          resumable: false,
+          lastDetail: null,
+        },
         lastRuntimeError: null,
       }),
     );
@@ -874,6 +890,130 @@ describe('createDesktopSessionController', () => {
         text: '',
       },
     });
+  });
+
+  it('stores the latest resumption handle and reconnects after go-away without requesting a new token', async () => {
+    const firstTransport = createVoiceTransportHarness();
+    const resumedTransport = createVoiceTransportHarness();
+    const requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'auth_tokens/test-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken,
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(resumedTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: 'handles/voice-session-1',
+      resumable: true,
+    });
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: 'handles/voice-session-2',
+      resumable: true,
+    });
+    firstTransport.emit({
+      type: 'go-away',
+      detail: 'server draining',
+    });
+
+    await vi.waitFor(() => {
+      expect(resumedTransport.connect).toHaveBeenCalledWith({
+        token: {
+          token: 'auth_tokens/test-token',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        },
+        mode: 'voice',
+        resumeHandle: 'handles/voice-session-2',
+      });
+    });
+
+    expect(requestSessionToken).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'resumed',
+      latestHandle: 'handles/voice-session-2',
+      resumable: true,
+      lastDetail: 'server draining',
+    });
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+  });
+
+  it('falls back to resumeFailed when a voice disconnect has no usable handle', async () => {
+    const firstTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => firstTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: null,
+      resumable: false,
+      detail: 'Gemini Live session is not resumable at this point',
+    });
+    firstTransport.emit({
+      type: 'connection-terminated',
+      detail: 'transport recycled',
+    });
+
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+        status: 'resumeFailed',
+        latestHandle: null,
+        resumable: false,
+        lastDetail: 'transport recycled',
+      });
+    });
+
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('error');
+    expect(useSessionStore.getState().lastRuntimeError).toBe('transport recycled');
+  });
+
+  it('keeps text mode resumption state idle', async () => {
+    const textChat = createTextChatHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+    });
+
+    await controller.startSession({ mode: 'text' });
+    await controller.submitTextTurn('Hello');
+
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual(
+      expectDefaultResumptionState(),
+    );
   });
 
   it('normalizes corrective transcript updates and clears voice transcripts on session end', async () => {

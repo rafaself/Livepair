@@ -28,6 +28,7 @@ export function useSessionRuntime() {
   const isConversationEmpty = useSessionStore(selectIsConversationEmpty);
   const isSessionActive = useSessionStore(selectIsSessionActive);
   const voiceSessionStatus = useSessionStore((state) => state.voiceSessionStatus);
+  const voiceSessionResumption = useSessionStore((state) => state.voiceSessionResumption);
   const voiceCaptureState = useSessionStore((state) => state.voiceCaptureState);
   const voiceCaptureDiagnostics = useSessionStore((state) => state.voiceCaptureDiagnostics);
   const voicePlaybackState = useSessionStore((state) => state.voicePlaybackState);
@@ -97,6 +98,7 @@ export function useSessionRuntime() {
     isVoiceSessionActive:
       voiceSessionStatus !== 'disconnected' && voiceSessionStatus !== 'error',
     voiceSessionStatus,
+    voiceSessionResumption,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,

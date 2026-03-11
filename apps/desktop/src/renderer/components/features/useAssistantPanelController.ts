@@ -13,6 +13,7 @@ import type {
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
+  VoiceSessionResumptionState,
   VoiceSessionStatus,
 } from '../../runtime/types';
 
@@ -33,6 +34,7 @@ export type AssistantPanelController = {
   textSessionStatus: TextSessionStatus;
   textSessionStatusLabel: string;
   voiceSessionStatus: VoiceSessionStatus;
+  voiceSessionResumption: VoiceSessionResumptionState;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
@@ -66,6 +68,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     textSessionStatus,
     textSessionStatusLabel,
     voiceSessionStatus,
+    voiceSessionResumption,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,
@@ -148,6 +151,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     textSessionStatus,
     textSessionStatusLabel,
     voiceSessionStatus,
+    voiceSessionResumption,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,

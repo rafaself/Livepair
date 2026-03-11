@@ -147,11 +147,15 @@ describe('liveConfig', () => {
       model: 'models/gemini-2.0-flash-exp',
       apiVersion: 'v1alpha',
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
-      sessionResumptionEnabled: false,
+      sessionResumptionEnabled: true,
       contextCompressionEnabled: false,
     });
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
       responseModalities: ['TEXT'],
+    });
+    expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
+      responseModalities: ['AUDIO'],
+      sessionResumption: {},
     });
   });
 
@@ -179,9 +183,27 @@ describe('liveConfig', () => {
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
       responseModalities: ['TEXT'],
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
-      sessionResumption: {},
       contextWindowCompression: {
         slidingWindow: {},
+      },
+    });
+  });
+
+  it('passes a resumption handle only for voice reconnects', () => {
+    const config = parseLiveConfig(
+      createRawLiveConfig({
+        sessionResumptionEnabled: true,
+      }),
+    );
+
+    expect(
+      buildGeminiLiveConnectConfig(config, 'voice', {
+        resumeHandle: 'handles/latest-voice-handle',
+      }),
+    ).toEqual({
+      responseModalities: ['AUDIO'],
+      sessionResumption: {
+        handle: 'handles/latest-voice-handle',
       },
     });
   });

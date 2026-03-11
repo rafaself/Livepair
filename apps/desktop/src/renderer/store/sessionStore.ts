@@ -22,6 +22,7 @@ import type {
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
+  VoiceSessionResumptionState,
   VoiceSessionStatus,
 } from '../runtime/types';
 
@@ -40,6 +41,7 @@ type SessionStoreData = {
   lastRuntimeError: string | null;
   lastDebugEvent: RuntimeDebugEvent | null;
   voiceSessionStatus: VoiceSessionStatus;
+  voiceSessionResumption: VoiceSessionResumptionState;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
@@ -64,6 +66,7 @@ export type SessionStoreState = SessionStoreData & {
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
   setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
+  setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
   setVoiceCaptureState: (voiceCaptureState: VoiceCaptureState) => void;
   setVoiceCaptureDiagnostics: (
     patch: Partial<VoiceCaptureDiagnostics>,
@@ -126,6 +129,15 @@ function buildDefaultCurrentVoiceTranscript(): CurrentVoiceTranscript {
   };
 }
 
+function buildDefaultVoiceSessionResumption(): VoiceSessionResumptionState {
+  return {
+    status: 'idle',
+    latestHandle: null,
+    resumable: false,
+    lastDetail: null,
+  };
+}
+
 function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
   return {
     captureSource: null,
@@ -150,6 +162,7 @@ function buildDefaultSessionState(): SessionStoreData {
     lastRuntimeError: null,
     lastDebugEvent: null,
     voiceSessionStatus: 'disconnected',
+    voiceSessionResumption: buildDefaultVoiceSessionResumption(),
     voiceCaptureState: 'idle',
     voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
     voicePlaybackState: 'idle',
@@ -243,6 +256,13 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   setLastRuntimeError: (lastRuntimeError) => set({ lastRuntimeError }),
   setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
   setVoiceSessionStatus: (voiceSessionStatus) => set({ voiceSessionStatus }),
+  setVoiceSessionResumption: (patch) =>
+    set((state) => ({
+      voiceSessionResumption: {
+        ...state.voiceSessionResumption,
+        ...patch,
+      },
+    })),
   setVoiceCaptureState: (voiceCaptureState) => set({ voiceCaptureState }),
   setVoiceCaptureDiagnostics: (patch) =>
     set((state) => ({
@@ -294,6 +314,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       lastRuntimeError: null,
       lastDebugEvent: null,
       voiceSessionStatus: 'disconnected',
+      voiceSessionResumption: buildDefaultVoiceSessionResumption(),
       voiceCaptureState: state.voiceCaptureState,
       voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
       voicePlaybackState: state.voicePlaybackState,
