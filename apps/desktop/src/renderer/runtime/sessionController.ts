@@ -7,7 +7,6 @@ import {
   logRuntimeDiagnostic,
   logRuntimeError,
 } from './logger';
-import { formatConversationTimestamp } from './conversationTimestamp';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
 import { LIVE_ADAPTER_KEY } from './liveConfig';
 import {
@@ -26,6 +25,23 @@ import {
   reduceSpeechSessionLifecycle,
   type SpeechSessionLifecycleEvent,
 } from './speechSessionLifecycle';
+import { normalizeTranscriptText } from './voiceTranscript';
+import {
+  appendAssistantTextDelta as appendAssistantTextDeltaCtx,
+  appendAssistantTurn as appendAssistantTurnCtx,
+  appendUserTurn as appendUserTurnCtx,
+  buildTextChatRequest as buildTextChatRequestCtx,
+  clearPendingAssistantTurn as clearPendingAssistantTurnCtx,
+  completePendingAssistantTurn as completePendingAssistantTurnCtx,
+  createConversationContext,
+  failPendingAssistantTurn as failPendingAssistantTurnCtx,
+} from './conversationTurnManager';
+import { isTokenValidForReconnect } from './voiceSessionToken';
+import {
+  createDefaultVoiceSessionDurabilityState,
+  createDefaultVoiceSessionResumptionState,
+  createDefaultVoiceToolState,
+} from './defaults';
 import {
   isSessionActiveLifecycle,
   isTextSessionConnectable,
@@ -34,7 +50,6 @@ import {
   type TextSessionLifecycleEvent,
 } from './textSessionLifecycle';
 import type {
-  ConversationTurnModel,
   DesktopSession,
   LocalVoiceChunk,
   LocalScreenFrame,
@@ -59,44 +74,12 @@ import type {
 } from './types';
 import type {
   CreateEphemeralTokenResponse,
-  TextChatMessage,
   TextChatRequest,
   TextChatStreamEvent,
 } from '@livepair/shared-types';
 
 const TEXT_CHAT_ADAPTER_KEY: TransportKind = 'backend-text';
 const VOICE_SESSION_NOT_READY_DETAIL = 'Voice session is not ready';
-const TOKEN_REFRESH_LEEWAY_MS = 60_000;
-
-function createDefaultVoiceSessionResumptionState(): VoiceSessionResumptionState {
-  return {
-    status: 'idle' as const,
-    latestHandle: null,
-    resumable: false,
-    lastDetail: null,
-  };
-}
-
-function createDefaultVoiceSessionDurabilityState(): VoiceSessionDurabilityState {
-  return {
-    compressionEnabled: false,
-    tokenValid: false,
-    tokenRefreshing: false,
-    tokenRefreshFailed: false,
-    expireTime: null,
-    newSessionExpireTime: null,
-    lastDetail: null,
-  };
-}
-
-function createDefaultVoiceToolState(): VoiceToolState {
-  return {
-    status: 'idle',
-    toolName: null,
-    callId: null,
-    lastError: null,
-  };
-}
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 type SettingsStoreApi = Pick<typeof useSettingsStore, 'getState'>;
@@ -184,9 +167,7 @@ export function createDesktopSessionController(
     | Awaited<ReturnType<DesktopSessionControllerDependencies['startTextChatStream']>>
     | null = null;
   let sessionOperationId = 0;
-  let nextUserTurnId = 0;
-  let nextAssistantTurnId = 0;
-  let pendingAssistantTurnId: string | null = null;
+  const conversationCtx = createConversationContext(dependencies.store);
   let voiceCapture: LocalVoiceCapture | null = null;
   let voicePlayback: AssistantAudioPlayback | null = null;
   let screenCapture: LocalScreenCapture | null = null;
@@ -215,10 +196,8 @@ export function createDesktopSessionController(
       );
   };
 
-  const getConversationTurn = (turnId: string): ConversationTurnModel | undefined => {
-    return dependencies.store
-      .getState()
-      .conversationTurns.find((turn) => turn.id === turnId);
+  const clearPendingAssistantTurn = (): void => {
+    clearPendingAssistantTurnCtx(conversationCtx);
   };
 
   const getVoiceCapture = (): LocalVoiceCapture => {
@@ -305,10 +284,6 @@ export function createDesktopSessionController(
     }
 
     return voicePlayback;
-  };
-
-  const clearPendingAssistantTurn = (): void => {
-    pendingAssistantTurnId = null;
   };
 
   const currentTextSessionStatus = (): TextSessionStatus => {
@@ -481,34 +456,6 @@ export function createDesktopSessionController(
     clearCurrentVoiceTranscript();
   };
 
-  const normalizeTranscriptText = (previous: string, incoming: string): string => {
-    if (incoming.length === 0 || incoming === previous) {
-      return previous;
-    }
-
-    if (previous.length === 0) {
-      return incoming;
-    }
-
-    if (incoming.startsWith(previous) || incoming.length > previous.length) {
-      return incoming;
-    }
-
-    if (incoming.length < previous.length) {
-      return incoming;
-    }
-
-    const overlapLimit = Math.min(previous.length, incoming.length);
-
-    for (let overlap = overlapLimit; overlap > 0; overlap -= 1) {
-      if (previous.endsWith(incoming.slice(0, overlap))) {
-        return `${previous}${incoming.slice(overlap)}`;
-      }
-    }
-
-    return `${previous}${incoming}`;
-  };
-
   const applyVoiceTranscriptUpdate = (
     role: 'user' | 'assistant',
     text: string,
@@ -559,89 +506,16 @@ export function createDesktopSessionController(
   const isCurrentSessionOperation = (operationId: number): boolean =>
     operationId === sessionOperationId;
 
-  const updatePendingAssistantTurn = (
-    content: string,
-    state: ConversationTurnModel['state'],
-    statusLabel?: string,
-  ): void => {
-    if (!pendingAssistantTurnId) {
-      return;
-    }
-
-    dependencies.store.getState().updateConversationTurn(pendingAssistantTurnId, {
-      content,
-      state,
-      statusLabel,
-    });
-  };
-
-  const appendAssistantTurn = (
-    content: string,
-    state: ConversationTurnModel['state'],
-    statusLabel?: string,
-  ): void => {
-    const turnId = `assistant-turn-${++nextAssistantTurnId}`;
-    pendingAssistantTurnId = turnId;
-    dependencies.store.getState().appendConversationTurn({
-      id: turnId,
-      role: 'assistant',
-      content,
-      timestamp: formatConversationTimestamp(),
-      state,
-      statusLabel,
-    });
-  };
-
   const appendAssistantTextDelta = (text: string): void => {
-    if (!pendingAssistantTurnId) {
-      appendAssistantTurn(text, 'streaming', 'Responding...');
-      return;
-    }
-
-    const currentTurn = getConversationTurn(pendingAssistantTurnId);
-
-    if (!currentTurn) {
-      appendAssistantTurn(text, 'streaming', 'Responding...');
-      return;
-    }
-
-    updatePendingAssistantTurn(
-      `${currentTurn.content}${text}`,
-      'streaming',
-      'Responding...',
-    );
+    appendAssistantTextDeltaCtx(conversationCtx, text);
   };
 
   const completePendingAssistantTurn = (statusLabel?: string): void => {
-    if (!pendingAssistantTurnId) {
-      return;
-    }
-
-    const currentTurn = getConversationTurn(pendingAssistantTurnId);
-
-    if (!currentTurn) {
-      clearPendingAssistantTurn();
-      return;
-    }
-
-    updatePendingAssistantTurn(currentTurn.content, 'complete', statusLabel);
-    clearPendingAssistantTurn();
+    completePendingAssistantTurnCtx(conversationCtx, statusLabel);
   };
 
   const failPendingAssistantTurn = (statusLabel: string): void => {
-    if (!pendingAssistantTurnId) {
-      return;
-    }
-
-    const currentTurn = getConversationTurn(pendingAssistantTurnId);
-
-    if (!currentTurn) {
-      clearPendingAssistantTurn();
-      return;
-    }
-
-    updatePendingAssistantTurn(currentTurn.content, 'error', statusLabel);
-    clearPendingAssistantTurn();
+    failPendingAssistantTurnCtx(conversationCtx, statusLabel);
   };
 
   const resetRuntimeState = (textSessionStatus: TextSessionStatus = 'idle'): void => {
@@ -661,17 +535,6 @@ export function createDesktopSessionController(
       voiceCaptureState: store.voiceCaptureState,
       voicePlaybackState: store.voicePlaybackState,
     };
-  };
-
-  const isTokenValidForReconnect = (
-    token: CreateEphemeralTokenResponse | null,
-    now = Date.now(),
-  ): boolean => {
-    if (!token) {
-      return false;
-    }
-
-    return Date.parse(token.expireTime) - now > TOKEN_REFRESH_LEEWAY_MS;
   };
 
   const syncVoiceDurabilityState = (
@@ -1318,36 +1181,11 @@ export function createDesktopSessionController(
   };
 
   const appendUserTurn = (content: string): void => {
-    dependencies.store.getState().appendConversationTurn({
-      id: `user-turn-${++nextUserTurnId}`,
-      role: 'user',
-      content,
-      timestamp: formatConversationTimestamp(),
-      state: 'complete',
-    });
+    appendUserTurnCtx(conversationCtx, content);
   };
 
   const buildTextChatRequest = (text: string): TextChatRequest => {
-    const messages: TextChatMessage[] = dependencies.store
-      .getState()
-      .conversationTurns
-      .filter(
-        (turn) =>
-          (turn.role === 'user' || turn.role === 'assistant') &&
-          turn.content.trim().length > 0 &&
-          turn.state !== 'error',
-      )
-      .map((turn) => ({
-        role: turn.role === 'assistant' ? 'assistant' : 'user',
-        content: turn.content,
-      }));
-
-    messages.push({
-      role: 'user',
-      content: text,
-    });
-
-    return { messages };
+    return buildTextChatRequestCtx(conversationCtx, text);
   };
 
   const ensureTextSessionReady = async (): Promise<boolean> => {
