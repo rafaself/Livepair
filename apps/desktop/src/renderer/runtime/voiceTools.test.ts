@@ -9,6 +9,7 @@ function createSnapshot(
   overrides: Partial<VoiceToolExecutionSnapshot> = {},
 ): VoiceToolExecutionSnapshot {
   return {
+    currentMode: 'text',
     textSessionStatus: 'idle',
     voiceSessionStatus: 'disconnected',
     voiceCaptureState: 'idle',
@@ -18,10 +19,17 @@ function createSnapshot(
 }
 
 describe('voiceTools', () => {
-  it('derives the current mode from the existing session runtime state', () => {
-    expect(deriveCurrentMode(createSnapshot())).toBe('idle');
-    expect(deriveCurrentMode(createSnapshot({ textSessionStatus: 'ready' }))).toBe('text');
-    expect(deriveCurrentMode(createSnapshot({ voiceSessionStatus: 'ready' }))).toBe('voice');
+  it('returns the explicit product mode from the snapshot', () => {
+    expect(deriveCurrentMode(createSnapshot())).toBe('text');
+    expect(
+      deriveCurrentMode(
+        createSnapshot({
+          currentMode: 'speech',
+          textSessionStatus: 'ready',
+          voiceSessionStatus: 'ready',
+        }),
+      ),
+    ).toBe('speech');
   });
 
   it('executes get_current_mode with a deterministic response payload', async () => {
@@ -32,14 +40,17 @@ describe('voiceTools', () => {
           name: 'get_current_mode',
           arguments: {},
         },
-        createSnapshot({ voiceSessionStatus: 'streaming' }),
+        createSnapshot({
+          currentMode: 'speech',
+          voiceSessionStatus: 'streaming',
+        }),
       ),
     ).resolves.toEqual({
       id: 'call-1',
       name: 'get_current_mode',
       response: {
         ok: true,
-        mode: 'voice',
+        mode: 'speech',
       },
     });
   });

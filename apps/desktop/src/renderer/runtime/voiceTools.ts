@@ -1,4 +1,5 @@
 import type {
+  ProductMode,
   TextSessionStatus,
   VoiceCaptureState,
   VoicePlaybackState,
@@ -10,6 +11,7 @@ import type {
 export type VoiceToolName = 'get_current_mode' | 'get_voice_session_status';
 
 export type VoiceToolExecutionSnapshot = {
+  currentMode: ProductMode;
   textSessionStatus: TextSessionStatus;
   voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
@@ -37,17 +39,6 @@ export const VOICE_TOOL_DECLARATIONS = [
   },
 ] as const;
 
-const TEXT_MODE_STATUSES = new Set<TextSessionStatus>([
-  'connecting',
-  'ready',
-  'sending',
-  'receiving',
-  'generationCompleted',
-  'completed',
-  'interrupted',
-  'disconnecting',
-]);
-
 function createToolErrorResponse(
   call: Pick<VoiceToolCall, 'id' | 'name'>,
   code: string,
@@ -66,21 +57,8 @@ function createToolErrorResponse(
   };
 }
 
-export function deriveCurrentMode(
-  snapshot: VoiceToolExecutionSnapshot,
-): 'idle' | 'text' | 'voice' {
-  if (
-    snapshot.voiceSessionStatus !== 'disconnected' &&
-    snapshot.voiceSessionStatus !== 'error'
-  ) {
-    return 'voice';
-  }
-
-  if (TEXT_MODE_STATUSES.has(snapshot.textSessionStatus)) {
-    return 'text';
-  }
-
-  return 'idle';
+export function deriveCurrentMode(snapshot: VoiceToolExecutionSnapshot): ProductMode {
+  return snapshot.currentMode;
 }
 
 export async function executeLocalVoiceTool(
