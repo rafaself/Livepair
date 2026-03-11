@@ -25,7 +25,9 @@ import {
   reduceSpeechSessionLifecycle,
   type SpeechSessionLifecycleEvent,
 } from './speechSessionLifecycle';
-import { normalizeTranscriptText } from './voiceTranscript';
+import { createVoiceTranscriptController } from './voiceTranscriptController';
+import { createVoicePlaybackController } from './voicePlaybackController';
+import { createScreenCaptureController } from './screenCaptureController';
 import {
   appendAssistantTextDelta as appendAssistantTextDeltaCtx,
   appendAssistantTurn as appendAssistantTurnCtx,
@@ -54,11 +56,9 @@ import {
 import type {
   DesktopSession,
   LocalVoiceChunk,
-  LocalScreenFrame,
   AssistantAudioPlayback,
   LiveSessionEvent,
   RuntimeLogger,
-  ScreenCaptureDiagnostics,
   SessionControllerEvent,
   SpeechLifecycleStatus,
   SessionMode,
@@ -150,14 +150,21 @@ export function createDesktopSessionController(
   let sessionOperationId = 0;
   const conversationCtx = createConversationContext(dependencies.store);
   let voiceCapture: LocalVoiceCapture | null = null;
-  let voicePlayback: AssistantAudioPlayback | null = null;
-  let screenCapture: LocalScreenCapture | null = null;
+  const playbackCtrl = createVoicePlaybackController(
+    dependencies.store,
+    dependencies.settingsStore,
+    dependencies.createVoicePlayback,
+  );
+  const screenCtrl = createScreenCaptureController(
+    dependencies.store,
+    dependencies.createScreenCapture,
+    () => activeTransport,
+  );
   let voiceSendChain = Promise.resolve();
   let voiceToolChain = Promise.resolve();
-  let screenSendChain = Promise.resolve();
   let voiceInterruptionInFlight: Promise<void> | null = null;
   let voiceInterruptionSequence = 0;
-  let voiceTurnHasCompleted = false;
+  const voiceTranscript = createVoiceTranscriptController(dependencies.store);
   let activeVoiceToken: CreateEphemeralTokenResponse | null = null;
   let voiceResumptionInFlight = false;
   let speechRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -219,52 +226,15 @@ export function createDesktopSessionController(
   const updateVoicePlaybackDiagnostics = (
     patch: Partial<VoicePlaybackDiagnostics>,
   ): void => {
-    dependencies.store.getState().setVoicePlaybackDiagnostics(patch);
+    playbackCtrl.updateDiagnostics(patch);
   };
 
   const setVoicePlaybackState = (state: VoicePlaybackState): void => {
-    dependencies.store.getState().setVoicePlaybackState(state);
-
-    if (state === 'playing' || state === 'buffering') {
-      dependencies.store.getState().setAssistantActivity('speaking');
-      return;
-    }
-
-    if (state === 'stopped' || state === 'idle' || state === 'error') {
-      dependencies.store.getState().setAssistantActivity('idle');
-    }
+    playbackCtrl.setState(state);
   };
 
   const getVoicePlayback = (): AssistantAudioPlayback => {
-    if (!voicePlayback) {
-      const selectedOutputDeviceId =
-        dependencies.settingsStore.getState().settings.selectedOutputDeviceId;
-      voicePlayback = dependencies.createVoicePlayback(
-        {
-          onStateChange: (state) => {
-            setVoicePlaybackState(state);
-          },
-          onDiagnostics: (diagnostics) => {
-            updateVoicePlaybackDiagnostics(diagnostics);
-          },
-          onError: (detail) => {
-            updateVoicePlaybackDiagnostics({
-              lastError: detail,
-            });
-            setVoicePlaybackState('error');
-            dependencies.store.getState().setLastRuntimeError(detail);
-          },
-        },
-        {
-          selectedOutputDeviceId,
-        },
-      );
-      updateVoicePlaybackDiagnostics({
-        selectedOutputDeviceId,
-      });
-    }
-
-    return voicePlayback;
+    return playbackCtrl.getOrCreate();
   };
 
   const currentTextSessionStatus = (): TextSessionStatus => {
@@ -416,12 +386,11 @@ export function createDesktopSessionController(
   };
 
   const clearCurrentVoiceTranscript = (): void => {
-    dependencies.store.getState().clearCurrentVoiceTranscript();
+    voiceTranscript.clearTranscript();
   };
 
   const resetVoiceTurnTranscriptState = (): void => {
-    voiceTurnHasCompleted = false;
-    clearCurrentVoiceTranscript();
+    voiceTranscript.resetTurnTranscriptState();
   };
 
   const applyVoiceTranscriptUpdate = (
@@ -429,41 +398,24 @@ export function createDesktopSessionController(
     text: string,
     isFinal?: boolean,
   ): void => {
-    const store = dependencies.store.getState();
-
-    if (role === 'user' && voiceTurnHasCompleted) {
-      clearCurrentVoiceTranscript();
-      voiceTurnHasCompleted = false;
-    }
-
-    const previousEntry = store.currentVoiceTranscript[role];
-    const nextText = normalizeTranscriptText(previousEntry.text, text);
-
-    if (nextText === previousEntry.text && isFinal === previousEntry.isFinal) {
-      return;
-    }
-
-    store.setCurrentVoiceTranscriptEntry(role, {
-      text: nextText,
-      ...(isFinal !== undefined ? { isFinal } : {}),
-    });
+    voiceTranscript.applyTranscriptUpdate(role, text, isFinal);
   };
 
   const cleanupTransport = (): void => {
     unsubscribeTransport?.();
     unsubscribeTransport = null;
     activeTransport = null;
-    voicePlayback = null;
+    playbackCtrl.release();
     voiceSendChain = Promise.resolve();
     voiceToolChain = Promise.resolve();
-    screenSendChain = Promise.resolve();
+    screenCtrl.resetSendChain();
     voiceInterruptionInFlight = null;
     voiceInterruptionSequence += 1;
     releaseTextChatStream();
     clearSpeechRecoveryTimer();
     clearSpeechSilenceTimeout();
     clearPendingAssistantTurn();
-    voiceTurnHasCompleted = false;
+    voiceTranscript.resetTurnCompletedFlag();
   };
 
   const beginSessionOperation = (): number => {
@@ -488,7 +440,7 @@ export function createDesktopSessionController(
 
   const resetRuntimeState = (textSessionStatus: TextSessionStatus = 'idle'): void => {
     clearPendingAssistantTurn();
-    voiceTurnHasCompleted = false;
+    voiceTranscript.resetTurnCompletedFlag();
     dependencies.store.getState().resetTextSessionRuntime(textSessionStatus);
   };
 
@@ -560,39 +512,14 @@ export function createDesktopSessionController(
     });
   };
 
-  const stopVoicePlayback = async (
+  const stopVoicePlayback = (
     nextState: VoicePlaybackState = 'stopped',
   ): Promise<void> => {
-    const playback = voicePlayback;
-    voicePlayback = null;
-
-    if (!playback) {
-      setVoicePlaybackState(nextState);
-      updateVoicePlaybackDiagnostics({
-        queueDepth: 0,
-      });
-      return;
-    }
-
-    setVoicePlaybackState('stopping');
-    await playback.stop();
-    setVoicePlaybackState(nextState);
-    updateVoicePlaybackDiagnostics({
-      queueDepth: 0,
-    });
+    return playbackCtrl.stop(nextState);
   };
 
   const resetScreenCaptureDiagnostics = (): void => {
-    dependencies.store.getState().setScreenCaptureDiagnostics({
-      captureSource: null,
-      frameCount: 0,
-      frameRateHz: null,
-      widthPx: null,
-      heightPx: null,
-      lastFrameAt: null,
-      lastUploadStatus: 'idle',
-      lastError: null,
-    });
+    screenCtrl.resetDiagnostics();
   };
 
   const stopScreenCaptureInternal = (
@@ -603,42 +530,7 @@ export function createDesktopSessionController(
       uploadStatus?: 'idle' | 'error';
     } = {},
   ): void => {
-    const {
-      nextState = 'disabled',
-      detail = null,
-      preserveDiagnostics = false,
-      uploadStatus = 'idle',
-    } = options;
-    const capture = screenCapture;
-    screenCapture = null;
-
-    if (!capture) {
-      dependencies.store.getState().setScreenCaptureState(nextState);
-      if (preserveDiagnostics) {
-        dependencies.store.getState().setScreenCaptureDiagnostics({
-          lastUploadStatus: uploadStatus,
-          lastError: detail,
-        });
-      } else {
-        resetScreenCaptureDiagnostics();
-      }
-      return;
-    }
-
-    dependencies.store.getState().setScreenCaptureState('stopping');
-    void capture.stop()
-      .catch(() => undefined)
-      .finally(() => {
-        dependencies.store.getState().setScreenCaptureState(nextState);
-        if (preserveDiagnostics) {
-          dependencies.store.getState().setScreenCaptureDiagnostics({
-            lastUploadStatus: uploadStatus,
-            lastError: detail,
-          });
-        } else {
-          resetScreenCaptureDiagnostics();
-        }
-      });
+    screenCtrl.stopInternal(options);
   };
 
   const handleVoiceInterruption = (): void => {
@@ -716,45 +608,6 @@ export function createDesktopSessionController(
       });
 
     return voiceSendChain;
-  };
-
-  const enqueueScreenFrameSend = (frame: LocalScreenFrame): Promise<void> => {
-    if (!activeTransport || !screenCapture || currentVoiceSessionStatus() === 'disconnected') {
-      return Promise.resolve();
-    }
-
-    dependencies.store.getState().setScreenCaptureDiagnostics({
-      lastUploadStatus: 'sending',
-      lastError: null,
-    });
-
-    screenSendChain = screenSendChain
-      .then(async () => {
-        await activeTransport?.sendVideoFrame(frame.data, frame.mimeType);
-
-        if (!screenCapture) {
-          return;
-        }
-
-        dependencies.store.getState().setScreenCaptureState('streaming');
-        dependencies.store.getState().setScreenCaptureDiagnostics({
-          lastUploadStatus: 'sent',
-          lastError: null,
-        });
-      })
-      .catch((error) => {
-        const detail = asErrorDetail(error, 'Failed to send screen frame');
-        logRuntimeError('screen-capture', 'video frame send failed', { detail });
-        dependencies.store.getState().setLastRuntimeError(detail);
-        stopScreenCaptureInternal({
-          nextState: 'error',
-          detail,
-          preserveDiagnostics: true,
-          uploadStatus: 'error',
-        });
-      });
-
-    return screenSendChain;
   };
 
   const flushVoiceAudioInput = async (): Promise<void> => {
@@ -891,11 +744,11 @@ export function createDesktopSessionController(
     unsubscribeTransport = null;
     activeTransport = null;
     voiceSendChain = Promise.resolve();
-    screenSendChain = Promise.resolve();
+    screenCtrl.resetSendChain();
     voiceInterruptionInFlight = null;
     voiceInterruptionSequence += 1;
     clearPendingAssistantTurn();
-    voiceTurnHasCompleted = false;
+    voiceTranscript.resetTurnCompletedFlag();
 
     try {
       await stopVoicePlayback();
@@ -1079,7 +932,7 @@ export function createDesktopSessionController(
     }
 
     if (event.type === 'interrupted') {
-      voiceTurnHasCompleted = true;
+      voiceTranscript.markTurnCompleted();
       handleVoiceInterruption();
       return;
     }
@@ -1110,7 +963,7 @@ export function createDesktopSessionController(
     }
 
     if (event.type === 'turn-complete') {
-      voiceTurnHasCompleted = true;
+      voiceTranscript.markTurnCompleted();
       if (currentSpeechLifecycleStatus() === 'assistantSpeaking') {
         applySpeechLifecycleEvent({ type: 'assistant.turn.completed' });
         return;
@@ -1567,8 +1420,8 @@ export function createDesktopSessionController(
       activeTransport !== null ||
       activeTextChatStream !== null ||
       voiceCapture !== null ||
-      voicePlayback !== null ||
-      screenCapture !== null ||
+      playbackCtrl.isActive() ||
+      screenCtrl.isActive() ||
       hasSpeechRuntimeActivity() ||
       hasTextRuntimeActivity();
 
@@ -1750,104 +1603,11 @@ export function createDesktopSessionController(
           .setVoiceSessionStatus(activeTransport ? 'ready' : 'disconnected');
       }
     },
-    startScreenCapture: async () => {
-      const store = dependencies.store.getState();
-      const voiceStatus = store.voiceSessionStatus;
-
-      if (
-        voiceStatus !== 'ready' &&
-        voiceStatus !== 'capturing' &&
-        voiceStatus !== 'streaming' &&
-        voiceStatus !== 'recovering' &&
-        voiceStatus !== 'interrupted'
-      ) {
-        const detail = 'Screen context requires an active voice session';
-        store.setScreenCaptureState('error');
-        store.setScreenCaptureDiagnostics({
-          lastError: detail,
-          lastUploadStatus: 'error',
-        });
-        store.setLastRuntimeError(detail);
-        return;
-      }
-
-      if (
-        store.screenCaptureState === 'ready' ||
-        store.screenCaptureState === 'capturing' ||
-        store.screenCaptureState === 'streaming' ||
-        store.screenCaptureState === 'requestingPermission'
-      ) {
-        return;
-      }
-
-      store.setScreenCaptureState('requestingPermission');
-      resetScreenCaptureDiagnostics();
-
-      screenCapture = dependencies.createScreenCapture({
-        onFrame: (frame: LocalScreenFrame) => {
-          if (!activeTransport || !screenCapture) {
-            return;
-          }
-
-          void enqueueScreenFrameSend(frame);
-        },
-        onDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => {
-          dependencies.store.getState().setScreenCaptureDiagnostics(patch);
-        },
-        onError: (detail: string) => {
-          logRuntimeError('screen-capture', 'capture error', { detail });
-          dependencies.store.getState().setLastRuntimeError(detail);
-          stopScreenCaptureInternal({
-            nextState: 'error',
-            detail,
-            preserveDiagnostics: true,
-            uploadStatus: 'error',
-          });
-        },
-      });
-
-      try {
-        await screenCapture.start({});
-        dependencies.store.getState().setScreenCaptureState('ready');
-        dependencies.store.getState().setScreenCaptureState('capturing');
-      } catch (error) {
-        const detail = asErrorDetail(error, 'Screen capture failed to start');
-        dependencies.store.getState().setScreenCaptureState('error');
-        dependencies.store.getState().setScreenCaptureDiagnostics({
-          lastError: detail,
-          lastUploadStatus: 'error',
-        });
-        dependencies.store.getState().setLastRuntimeError(detail);
-        screenCapture = null;
-      }
+    startScreenCapture: () => {
+      return screenCtrl.start();
     },
-    stopScreenCapture: async () => {
-      const store = dependencies.store.getState();
-
-      if (
-        store.screenCaptureState === 'disabled' ||
-        store.screenCaptureState === 'stopping'
-      ) {
-        return;
-      }
-
-      const capture = screenCapture;
-      screenCapture = null;
-
-      if (!capture) {
-        store.setScreenCaptureState('disabled');
-        resetScreenCaptureDiagnostics();
-        return;
-      }
-
-      store.setScreenCaptureState('stopping');
-
-      try {
-        await capture.stop();
-      } finally {
-        dependencies.store.getState().setScreenCaptureState('disabled');
-        resetScreenCaptureDiagnostics();
-      }
+    stopScreenCapture: () => {
+      return screenCtrl.stop();
     },
     subscribeToVoiceChunks: (listener) => {
       voiceChunkListeners.add(listener);
