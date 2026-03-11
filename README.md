@@ -11,16 +11,25 @@ This application captures microphone input and full-screen context, sends the re
 
 * Electron overlay shell with React renderer
 * Typed preload bridge and IPC surface
-* Backend health and stub session token path
+* Text mode backed by backend streaming (`POST /session/chat`) using Gemini text models
+* Voice mode backed by Gemini Live API via an SDK-backed transport
+* Backend health (`GET /health`) and real Gemini Live ephemeral token issuance (`POST /session/token`)
+* Local microphone capture pipeline and assistant audio playback
+* Interruption / barge-in behavior (local detection + playback stop)
+* Speech transcription event handling and transcript state wiring
+* Manual screen-context capture (explicit start/stop) and frame upload via transport
+* Session resumption + durability state (resume handles, token refresh, explicit failure paths)
+* Mode and lifecycle exclusivity locks (S1 complete, S4 complete)
+* Product state sources of truth: `currentMode` (mode) and `speechLifecycle` (speech-state)
 * Desktop settings persistence and overlay interaction behavior
 * Unit and component tests across shared packages, API, and desktop
 
 ### Planned next
 
-* real ephemeral token issuance
-* desktop session controller and transport adapter
-* text-first realtime turn
-* audio, interruption, checkpointing, and screen streaming
+* Stabilization + hardening: tighter error UX, more diagnostics, and perf measurement
+* Session checkpoint persistence + restore (backend + shared contracts)
+* Tool endpoints (e.g. HD screenshot / visual summary) behind typed bridges
+* Screen-context upgrades (adaptive capture policy, tuning, and guardrails)
 
 ## 🎯 Goals
 
@@ -84,25 +93,16 @@ Desktop client → Gemini Live API
 
 ## 🔄 High-Level Flow
 
-1. The desktop app requests an ephemeral token from the backend.
-2. The backend returns a short-lived token for Live API usage.
-3. The desktop client opens a realtime session directly with Gemini Live API.
-4. The client streams:
+Text mode (backend-mediated):
+1. The desktop app starts a streaming chat request to the backend (`POST /session/chat`).
+2. The backend streams NDJSON events from a Gemini text model back to the desktop.
 
-   * microphone audio
-   * compressed screen frames
-5. The model returns:
-
-   * response audio
-   * text/transcript events
-   * realtime guidance
-6. The backend is used only when needed for:
-
-   * token refresh
-   * HD screenshot tooling
-   * visual summary generation
-   * session checkpointing
-   * error reporting
+Speech mode (direct realtime):
+1. The desktop app requests an ephemeral token from the backend (`POST /session/token`).
+2. The backend returns a short-lived token for Gemini Live usage.
+3. The desktop client opens a realtime session directly with Gemini Live API (SDK transport).
+4. The client streams microphone audio and (optionally) manual screen frames.
+5. The model returns response audio plus transcript/text events; local interruption stops playback promptly.
 
 ## 📁 Repository Layout
 
@@ -133,11 +133,16 @@ Desktop client → Gemini Live API
 
 ## 🔌 Backend Responsibilities
 
-* `POST /session/token`
-* Planned: `POST /session/checkpoint`
-* Planned: `POST /tool/screenshot-hd`
-* Planned: `POST /tool/visual-summary`
-* Planned: `POST /session/error`
+Implemented:
+* `GET /health`
+* `POST /session/token` (Gemini Live ephemeral token issuance)
+* `POST /session/chat` (backend-mediated text chat stream)
+
+Planned:
+* `POST /session/checkpoint`
+* `POST /tool/screenshot-hd`
+* `POST /tool/visual-summary`
+* `POST /session/error`
 
 The backend should remain small, modular, and focused.
 
@@ -152,6 +157,10 @@ Internally, the app should treat realtime sessions as resumable and lightweight:
 * maintain a compressed summary
 * preserve the current goal
 * keep the last relevant visual context
+
+Product state rules:
+* `currentMode` is the product-level mode source of truth
+* `speechLifecycle` is the product-level speech-state source of truth
 
 ## 🖼️ Screen Capture Strategy
 

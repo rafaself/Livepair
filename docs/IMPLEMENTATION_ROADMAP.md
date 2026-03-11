@@ -2,11 +2,21 @@
 
 ## Summary
 
-This roadmap assumes the UI shell is mostly complete and the next work should focus on replacing mocks with a real, low-latency MVP runtime in small, PR-sized releases. The sequence stays aligned with the current architecture: desktop client connects directly to Gemini Live API, while the backend remains limited to token issuance, lightweight tools, checkpointing, and error reporting.
+This roadmap reflects the **current repo state** and the remaining work to stabilize and ship a low-latency MVP.
 
-Suggested target path for the future document: `docs/IMPLEMENTATION_ROADMAP.md`.
+As of 2026-03-11, the repo already contains:
 
-Decision-complete specs for the next critical releases:
+- backend-mediated **text mode** (`POST /session/chat`, streaming NDJSON via Gemini text models)
+- backend **Gemini Live ephemeral token issuance** (`POST /session/token`)
+- an **SDK-backed Gemini Live transport** in the desktop runtime
+- a local **microphone/audio pipeline**, **assistant audio playback**, and **interruption/barge-in** behavior
+- **speech transcription** event handling and transcript state wiring
+- **manual screen-context capture** (explicit start/stop) with frame upload via transport
+- **session resumption/durability** state (resume handles, token refresh, explicit failure paths)
+- S1 complete (mode exclusivity lock) and S4 complete (speech lifecycle lock)
+- product state sources of truth: `currentMode` (mode) and `speechLifecycle` (speech-state)
+
+Decision-complete specs for foundational releases (now implemented):
 
 - [Release 0: Runtime Infrastructure](../specs/release-0-runtime-infrastructure.md)
 - [Release 1: Real Token Issuance](../specs/release-1-real-token-issuance.md)
@@ -21,11 +31,13 @@ Decision-complete specs for the next critical releases:
 
 ## Release 0: Runtime Infrastructure
 
+**Status:** Implemented (core runtime scaffolding is present in the repo).
+
 **Purpose:** Prepare the desktop runtime layer for upcoming realtime features.
 
-**Short description:** Add the base runtime scaffolding needed to support realtime work without yet connecting the full product flow.
+**Short description:** The base runtime scaffolding exists to support realtime work and ongoing stabilization.
 
-**Suggested implementation approach:** Introduce a session controller scaffold, a transport adapter interface, a runtime state store, and lightweight logging hooks that can be reused by later releases.
+**Suggested implementation approach:** Keep the abstractions small and reuse the existing session controller, transport adapter interface, runtime state store, and logging hooks.
 
 **Expected outcome:** The desktop app has a clean runtime foundation for session lifecycle, transport integration, and observability.
 
@@ -41,11 +53,13 @@ Decision-complete specs for the next critical releases:
 
 ## Release 1: Real Token Issuance
 
-**Purpose:** Replace the stubbed backend auth flow with a real ephemeral token path.
+**Status:** Implemented (`POST /session/token` issues Gemini Live ephemeral tokens).
 
-**Short description:** The backend currently returns a placeholder token. This release makes `/session/token` production-real so the desktop can authenticate a real Gemini Live session.
+**Purpose:** Replace the previously stubbed backend auth flow with a real ephemeral token path.
 
-**Suggested implementation approach:** Keep the existing endpoint shape and service boundary, replace the stub service logic with Gemini ephemeral token issuance, and update shared types so the response no longer advertises itself as stub-only.
+**Short description:** `/session/token` is production-real so the desktop can authenticate a Gemini Live session without embedding permanent credentials.
+
+**Suggested implementation approach:** Keep the existing endpoint shape and service boundary, keep Gemini ephemeral token issuance production-real, and keep shared types aligned with the current response.
 
 **Expected outcome:** The desktop can request a usable short-lived token from the backend.
 
@@ -61,9 +75,11 @@ Decision-complete specs for the next critical releases:
 
 ## Release 2: Desktop Realtime Session Skeleton
 
+**Status:** Implemented (desktop session controller + Gemini Live transport are present).
+
 **Purpose:** Introduce the real session controller and transport layer without yet tackling full AV complexity.
 
-**Short description:** Replace the “request token then flip UI state” behavior with a real desktop session lifecycle: request token, connect, track connection state, surface failures.
+**Short description:** The desktop session lifecycle exists (request token, connect, track connection state, surface failures) and should be stabilized with small, test-backed changes.
 
 **Suggested implementation approach:** Add a dedicated Gemini transport adapter and a session controller module in the desktop app. Keep model-specific logic isolated there and feed normalized runtime state into the existing UI.
 
@@ -81,9 +97,11 @@ Decision-complete specs for the next critical releases:
 
 ## Release 3: Text-First Realtime Turn
 
+**Status:** Implemented (text mode is backend-mediated via `POST /session/chat`; voice mode uses Gemini Live transport).
+
 **Purpose:** Prove a real end-to-end interaction before adding audio and vision.
 
-**Short description:** Add a minimal text/event loop so one real user input can produce one real model response through the new session controller.
+**Short description:** A streaming text loop exists; keep it reliable and explicit about errors and lifecycle state.
 
 **Suggested implementation approach:** Start with the smallest reliable loop: send text input, receive streamed text events, update transcript state, and surface recoverable errors.
 
@@ -101,9 +119,11 @@ Decision-complete specs for the next critical releases:
 
 ## Release 4: Microphone Capture and Playback
 
+**Status:** Implemented (local voice capture + chunk upload + assistant playback are present).
+
 **Purpose:** Add the first real voice interaction path.
 
-**Short description:** Introduce microphone capture, chunked audio upload, and assistant audio playback so the app can support live spoken interaction.
+**Short description:** Microphone capture, chunked audio upload, and assistant audio playback exist and should be kept low-latency and well-instrumented.
 
 **Suggested implementation approach:** Build a small audio pipeline around capture, encoding/chunking, output playback, and queue management. Keep the pipeline separate from the UI and driven by the session controller.
 
@@ -121,9 +141,11 @@ Decision-complete specs for the next critical releases:
 
 ## Release 5: Local VAD and Interruption Handling
 
+**Status:** Implemented (local interruption behavior is present and covered by targeted tests).
+
 **Purpose:** Make voice interaction feel immediate instead of demo-fragile.
 
-**Short description:** Add local speech detection so assistant playback stops as soon as the user starts speaking again.
+**Short description:** Local speech detection and interruption handling exist; prioritize correctness and fast recovery under edge cases.
 
 **Suggested implementation approach:** Introduce local VAD in the desktop client, wire it to session interruption and playback cancellation, and keep the decision local rather than relying only on model-side behavior.
 
@@ -140,6 +162,8 @@ Decision-complete specs for the next critical releases:
 ---
 
 ## Release 6: Session Checkpointing and Recovery
+
+**Status:** Not implemented yet (planned).
 
 **Purpose:** Make sessions resilient enough for real demos and longer usage.
 
@@ -161,6 +185,8 @@ Decision-complete specs for the next critical releases:
 
 ## Release 7: Lightweight Screen Streaming
 
+**Status:** Partially implemented (manual start/stop screen-context capture + frame upload exist; adaptive policy + tuning remain).
+
 **Purpose:** Add the multimodal context the product is built around.
 
 **Short description:** Start streaming compressed screen frames to the model using conservative defaults.
@@ -180,6 +206,8 @@ Decision-complete specs for the next critical releases:
 ---
 
 ## Release 8: Error Reporting and Operational Hardening
+
+**Status:** Partially implemented (token expiry/resumption and explicit degraded-state handling exist; backend error-report endpoint is planned).
 
 **Purpose:** Make failures diagnosable before broader testing or demos.
 
@@ -201,6 +229,8 @@ Decision-complete specs for the next critical releases:
 
 ## Release 9: One Demo-Critical Tool
 
+**Status:** Not implemented yet (planned).
+
 **Purpose:** Add only the smallest tool surface needed for the chosen demo.
 
 **Short description:** Implement a single tool such as `screenshot-hd` only if the main demo scenario truly needs it.
@@ -221,6 +251,8 @@ Decision-complete specs for the next critical releases:
 
 ## Release 10: Demo Readiness Pass
 
+**Status:** Planned (run once the remaining gaps are closed).
+
 **Purpose:** Convert a technically working MVP into a reliable demo build.
 
 **Short description:** Validate the main scenario, tighten UX rough edges, and confirm the app meets the documented MVP boundaries.
@@ -239,18 +271,17 @@ Decision-complete specs for the next critical releases:
 
 ## Public Interfaces / Contract Changes Expected Across The Roadmap
 
-- `CreateEphemeralTokenResponse` should evolve from stub-only to real token metadata
 - new shared contracts will likely be needed for:
-  - session connection/runtime state
   - checkpoint save/load payloads
   - error reporting payloads
   - one approved tool request/response
 - privileged desktop capabilities must remain behind typed preload APIs only
+- `currentMode` and `speechLifecycle` remain the product-level sources of truth for mode + speech-state
 
 ## Test Plan
 
-- API unit/integration tests for token issuance, checkpointing, and error reporting
-- Desktop runtime tests for session state transitions, interruption handling, and reconnect logic
+- API unit/integration tests for token issuance and text chat streaming; extend for checkpointing and error reporting when added
+- Desktop runtime tests for session state transitions, interruption handling, screen-context capture, and reconnect/resumption logic
 - Contract/type tests for shared payloads
 - Small smoke tests for each release boundary:
   - token request works

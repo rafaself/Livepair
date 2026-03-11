@@ -11,15 +11,23 @@ Implemented today:
 
 - Electron overlay shell and renderer UI
 - typed preload bridge and strict IPC boundary
-- backend health endpoint and stub token issuance path
+- backend health endpoint (`GET /health`)
+- real Gemini Live ephemeral token issuance (`POST /session/token`)
+- backend-mediated text chat streaming (`POST /session/chat`, NDJSON)
 - desktop settings persistence and overlay interaction behavior
+- desktop session controller orchestrating text + voice lifecycles
+- SDK-backed Gemini Live transport adapter
+- local microphone capture pipeline and assistant audio playback
+- local interruption / barge-in behavior (playback stop + recovery)
+- speech transcription event handling and transcript state wiring
+- manual screen-context capture (explicit start/stop) with frame upload via transport
+- session resumption/durability state (resume handles, token refresh, explicit failure paths)
+- mode/lifecycle exclusivity locks (S1 complete, S4 complete)
+- product state sources of truth: `currentMode` (mode) and `speechLifecycle` (speech-state)
 
 Planned target:
 
-- real Gemini ephemeral token issuance
-- desktop session controller and transport adapter
-- reconnect and checkpoint flows
-- audio, interruption, and vision pipelines
+- session checkpoint persistence + restore
 - backend tool and error-report endpoints beyond the current health/token path
 
 ## 1. System Overview
@@ -64,25 +72,26 @@ Major components:
 Responsibilities:
 
 * User interface (`Implemented today`)
-* Audio capture and playback (`Planned target`)
-* Screen capture pipeline (`Planned target`)
-* Session orchestration (`Planned target`)
-* LLM transport adapter (`Planned target`)
+* Audio capture and playback (`Implemented today`)
+* Screen capture pipeline (`Implemented today`, manual start/stop; adaptive policy is a `Planned target`)
+* Session orchestration (`Implemented today`)
+* LLM transport adapter (`Implemented today`)
 
 Internal modules:
 
 * UI Layer (`Implemented today`)
-* Audio Pipeline (`Planned target`)
-* Vision Pipeline (`Planned target`)
-* Session Controller (`Planned target`)
-* LLM Transport Adapter (`Planned target`)
-* Tool Bridge (`Planned target`)
+* Audio Pipeline (`Implemented today`)
+* Vision Pipeline (`Implemented today`, manual capture; adaptive streaming is a `Planned target`)
+* Session Controller (`Implemented today`)
+* LLM Transport Adapter (`Implemented today`)
+* Tool Bridge (`Implemented today` for typed IPC/preload boundaries; backend tool endpoints are a `Planned target`)
 
 ### Backend API (NestJS)
 
 Responsibilities:
 
-* Ephemeral token generation (`Implemented today` as a stub, `Planned target` as a real provider path)
+* Ephemeral token generation (`Implemented today` as a real provider path)
+* Text chat streaming (`Implemented today`)
 * Tool execution (`Planned target`)
 * Session checkpoint persistence (`Planned target`)
 * Logging and analytics (`Planned target`)
@@ -113,6 +122,20 @@ Responsibilities:
 3. Backend issues token
 4. Client opens WebSocket session with Gemini
 
+Product state rules:
+
+- `currentMode` is the product-level mode source of truth
+- `speechLifecycle` is the product-level speech-state source of truth
+
+Mode/lifecycle safety:
+
+- S1: mode exclusivity lock is complete (no overlapping product-level mode transitions)
+- S4: speech lifecycle lock is complete (no overlapping speech lifecycle transitions)
+
+### Text Mode Flow (backend-mediated)
+
+Desktop client → Backend (`POST /session/chat`, NDJSON) → Gemini text model → Backend stream → Desktop UI
+
 ### Audio Interaction Flow
 
 Microphone capture → VAD detection → PCM chunk generation → Gemini Live API → Response audio → Client playback
@@ -125,7 +148,7 @@ User speech detected → Interrupt event → Stop assistant playback → Resume 
 
 Screen capture → Frame resize → JPEG compression → Frame stream → Gemini
 
-Adaptive mode increases frame rate temporarily when screen changes significantly.
+Adaptive mode increases frame rate temporarily when screen changes significantly (`Planned target`).
 
 ### Tool Invocation
 
@@ -183,8 +206,9 @@ This layer isolates the application from model-specific APIs.
 
 Implemented today:
 
-- `POST /health`
-- `POST /session/token` (stub token path)
+- `GET /health`
+- `POST /session/token` (Gemini Live ephemeral token issuance)
+- `POST /session/chat` (Gemini text streaming via NDJSON)
 
 Planned target:
 
