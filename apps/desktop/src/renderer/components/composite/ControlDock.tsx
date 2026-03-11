@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Ban, ChevronLeft, Mic, MicOff, MonitorOff, PhoneOff } from 'lucide-react';
+import { Ban, ChevronLeft, Mic, MicOff, Monitor, MonitorOff, PhoneOff } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import type { VoiceCaptureState, VoiceSessionStatus } from '../../runtime/types';
+import type {
+  ScreenCaptureState,
+  VoiceCaptureState,
+  VoiceSessionStatus,
+} from '../../runtime/types';
 import './ControlDock.css';
 
 export type ControlDockProps = {
@@ -11,9 +15,12 @@ export type ControlDockProps = {
   isVoiceSessionActive: boolean;
   voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
+  screenCaptureState: ScreenCaptureState;
   onStartVoiceSession: () => Promise<void>;
   onStartVoiceCapture: () => Promise<void>;
   onStopVoiceCapture: () => Promise<void>;
+  onStartScreenCapture: () => Promise<void>;
+  onStopScreenCapture: () => Promise<void>;
   onEndSession: () => Promise<void>;
 };
 
@@ -22,9 +29,12 @@ export function ControlDock({
   isVoiceSessionActive,
   voiceSessionStatus,
   voiceCaptureState,
+  screenCaptureState,
   onStartVoiceSession,
   onStartVoiceCapture,
   onStopVoiceCapture,
+  onStartScreenCapture,
+  onStopScreenCapture,
   onEndSession,
 }: ControlDockProps): JSX.Element {
   const isPanelOpen = useUiStore((state) => state.isPanelOpen);
@@ -46,11 +56,21 @@ export function ControlDock({
     voiceSessionStatus === 'interrupted' ||
     voiceSessionStatus === 'recovering' ||
     voiceSessionStatus === 'capturing' ||
-    voiceSessionStatus === 'streaming' ||
-    voiceSessionStatus === 'stopping';
+    voiceSessionStatus === 'streaming';
+  const isScreenContextBusy =
+    screenCaptureState === 'requestingPermission' || screenCaptureState === 'stopping';
+  const isScreenContextActive =
+    screenCaptureState === 'ready' ||
+    screenCaptureState === 'capturing' ||
+    screenCaptureState === 'streaming';
+  const isScreenContextAvailable = isMicrophoneAvailable;
   const micButtonClassName = [
     isVoiceCapturing ? 'control-dock__btn--active' : '',
     isVoiceCaptureBusy ? 'control-dock__btn--pending' : '',
+  ].filter(Boolean).join(' ') || undefined;
+  const screenButtonClassName = [
+    isScreenContextActive ? 'control-dock__btn--active' : '',
+    isScreenContextBusy ? 'control-dock__btn--pending' : '',
   ].filter(Boolean).join(' ') || undefined;
   const microphoneLabel = !isMicrophoneAvailable
     ? 'Connect voice session to use microphone'
@@ -63,6 +83,19 @@ export function ControlDock({
           : voiceCaptureState === 'error'
             ? 'Retry microphone capture'
             : 'Start microphone capture';
+  const screenContextLabel = isTextSessionActive
+    ? 'Screen context unavailable in text mode'
+    : !isScreenContextAvailable
+      ? 'Connect voice session to use screen context'
+      : isScreenContextActive
+        ? 'Stop screen context'
+        : screenCaptureState === 'requestingPermission'
+          ? 'Requesting screen permission'
+          : screenCaptureState === 'stopping'
+            ? 'Stopping screen context'
+            : screenCaptureState === 'error'
+              ? 'Retry screen context'
+              : 'Start screen context';
   const voiceSessionLabel = isTextSessionActive
     ? 'Voice session unavailable in text mode'
     : isVoiceSessionBusy
@@ -123,10 +156,23 @@ export function ControlDock({
       </IconButton>
 
       <IconButton
-        label="Camera unavailable in text mode"
-        disabled
+        label={screenContextLabel}
+        className={screenButtonClassName}
+        disabled={isTextSessionActive || !isScreenContextAvailable || isScreenContextBusy}
+        onClick={() => {
+          if (isTextSessionActive || !isScreenContextAvailable || isScreenContextBusy) {
+            return;
+          }
+
+          if (isScreenContextActive) {
+            void onStopScreenCapture();
+            return;
+          }
+
+          void onStartScreenCapture();
+        }}
       >
-        <MonitorOff size={18} />
+        {isScreenContextActive ? <Monitor size={18} /> : <MonitorOff size={18} />}
       </IconButton>
 
       <IconButton

@@ -21,10 +21,13 @@ function renderDock() {
       handleStartVoiceSession,
       handleStartVoiceCapture,
       handleStopVoiceCapture,
+      handleStartScreenCapture,
+      handleStopScreenCapture,
       isSessionActive,
       isVoiceSessionActive,
       voiceSessionStatus,
       voiceCaptureState,
+      screenCaptureState,
     } = useSessionRuntime();
 
     return (
@@ -33,14 +36,18 @@ function renderDock() {
         <output aria-label="panel-pinned">{String(isPanelPinned)}</output>
         <output aria-label="assistant-state">{assistantState}</output>
         <output aria-label="voice-capture-state">{voiceCaptureState}</output>
+        <output aria-label="screen-capture-state">{screenCaptureState}</output>
         <ControlDock
           isTextSessionActive={isSessionActive}
           isVoiceSessionActive={isVoiceSessionActive}
           voiceSessionStatus={voiceSessionStatus}
           voiceCaptureState={voiceCaptureState}
+          screenCaptureState={screenCaptureState}
           onStartVoiceSession={handleStartVoiceSession}
           onStartVoiceCapture={handleStartVoiceCapture}
           onStopVoiceCapture={handleStopVoiceCapture}
+          onStartScreenCapture={handleStartScreenCapture}
+          onStopScreenCapture={handleStopScreenCapture}
           onEndSession={handleEndSession}
         />
         <AssistantPanelSettingsView />
@@ -74,7 +81,7 @@ describe('ControlDock', () => {
       screen.getByRole('button', { name: /connect voice session to use microphone/i }),
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /camera unavailable in text mode/i }),
+      screen.getByRole('button', { name: /connect voice session to use screen context/i }),
     ).toBeDisabled();
     expect(
       screen.getByRole('button', { name: /^connect voice session$/i }),
@@ -90,15 +97,21 @@ describe('ControlDock', () => {
         isVoiceSessionActive
         voiceSessionStatus="interrupted"
         voiceCaptureState="stopped"
+        screenCaptureState="disabled"
         onStartVoiceSession={noop}
         onStartVoiceCapture={noop}
         onStopVoiceCapture={noop}
+        onStartScreenCapture={noop}
+        onStopScreenCapture={noop}
         onEndSession={noop}
       />,
     );
 
     expect(
       screen.getByRole('button', { name: /start microphone capture/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /start screen context/i }),
     ).toBeEnabled();
     expect(
       screen.getByRole('button', { name: /disconnect voice session/i }),
@@ -110,15 +123,21 @@ describe('ControlDock', () => {
         isVoiceSessionActive
         voiceSessionStatus="recovering"
         voiceCaptureState="stopped"
+        screenCaptureState="disabled"
         onStartVoiceSession={noop}
         onStartVoiceCapture={noop}
         onStopVoiceCapture={noop}
+        onStartScreenCapture={noop}
+        onStopScreenCapture={noop}
         onEndSession={noop}
       />,
     );
 
     expect(
       screen.getByRole('button', { name: /start microphone capture/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /start screen context/i }),
     ).toBeEnabled();
     expect(
       screen.getByRole('button', { name: /disconnect voice session/i }),
@@ -158,6 +177,39 @@ describe('ControlDock', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('stopped');
+    });
+  });
+
+  it('toggles screen context from the dock during an active voice session', async () => {
+    renderDock();
+
+    fireEvent.click(screen.getByRole('button', { name: /^connect voice session$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /connecting voice session/i }),
+      ).toBeDisabled();
+    });
+    await act(async () => {
+      __emitGeminiLiveSdkMessage({ setupComplete: {} });
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /start screen context/i }),
+      ).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /start screen context/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('screen-capture-state')).toHaveTextContent(/capturing|streaming/);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /stop screen context/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('screen-capture-state')).toHaveTextContent('disabled');
     });
   });
 
