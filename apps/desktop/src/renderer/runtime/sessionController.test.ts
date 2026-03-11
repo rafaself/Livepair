@@ -320,6 +320,46 @@ describe('createDesktopSessionController', () => {
     });
   });
 
+  it('switches from text mode to speech mode by tearing down text first', async () => {
+    const textChat = createTextChatHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'auth_tokens/test-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken,
+      createTransport: vi.fn(() => voiceTransport.transport),
+    });
+
+    await controller.submitTextTurn('Summarize the current screen');
+
+    expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('sending');
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(textChat.cancel).toHaveBeenCalledTimes(1);
+    expect(requestSessionToken).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        currentMode: 'speech',
+        voiceSessionStatus: 'ready',
+        activeTransport: 'gemini-live',
+        textSessionLifecycle: expect.objectContaining({
+          status: 'disconnected',
+        }),
+      }),
+    );
+  });
+
   it('bootstraps a Gemini Live voice session with an ephemeral token', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const requestSessionToken = vi.fn().mockResolvedValue({
@@ -374,6 +414,58 @@ describe('createDesktopSessionController', () => {
     });
   });
 
+  it('switches from speech mode to text mode by tearing down voice runtime first', async () => {
+    const textChat = createTextChatHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const voiceCapture = createVoiceCaptureHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.startVoiceCapture();
+    voiceCapture.emitChunk();
+    await Promise.resolve();
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    await Promise.resolve();
+
+    await controller.submitTextTurn('Switch to text');
+
+    expect(voiceCapture.stop).toHaveBeenCalledTimes(1);
+    expect(voiceTransport.sendAudioStreamEnd).toHaveBeenCalledTimes(1);
+    expect(voiceTransport.disconnect).toHaveBeenCalledTimes(1);
+    expect(voicePlayback.stop).toHaveBeenCalledTimes(1);
+    expect(textChat.getLastRequest()).toEqual({
+      messages: [{ role: 'user', content: 'Switch to text' }],
+    });
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        currentMode: 'text',
+        textSessionLifecycle: expect.objectContaining({
+          status: 'sending',
+        }),
+        voiceSessionStatus: 'disconnected',
+        voiceCaptureState: 'stopped',
+        screenCaptureState: 'disabled',
+      }),
+    );
+  });
+
   it('executes local voice tools and responds without breaking the session', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({
@@ -411,7 +503,7 @@ describe('createDesktopSessionController', () => {
           name: 'get_current_mode',
           response: {
             ok: true,
-            mode: 'voice',
+            mode: 'speech',
           },
         },
       ]);
@@ -831,9 +923,10 @@ describe('createDesktopSessionController', () => {
     expect(voicePlayback.enqueue).toHaveBeenCalledWith(new Uint8Array([1, 2, 3, 4]));
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        currentMode: 'speech',
         voicePlaybackState: 'playing',
         assistantActivity: 'speaking',
-        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+        textSessionLifecycle: expect.objectContaining({ status: 'disconnected' }),
       }),
     );
     expect(useSessionStore.getState().voicePlaybackDiagnostics).toEqual(
@@ -898,6 +991,40 @@ describe('createDesktopSessionController', () => {
     ]);
     expect(useSessionStore.getState().textSessionLifecycle.status).toBe('completed');
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
+  });
+
+  it('never persists simultaneous active text and speech runtime state after a text submit switch', async () => {
+    const textChat = createTextChatHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const voiceCapture = createVoiceCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.startVoiceCapture();
+    voiceCapture.emitChunk();
+    await Promise.resolve();
+
+    await controller.submitTextTurn('hello from text');
+
+    expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('sending');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
+    expect(useSessionStore.getState().activeTransport).toBe('backend-text');
   });
 
   it('sends the full completed conversation history on each turn', async () => {
@@ -1156,9 +1283,10 @@ describe('createDesktopSessionController', () => {
     });
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        currentMode: 'speech',
         voiceCaptureState: 'capturing',
         voiceSessionStatus: 'streaming',
-        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+        textSessionLifecycle: expect.objectContaining({ status: 'disconnected' }),
       }),
     );
     expect(useSessionStore.getState().voiceCaptureDiagnostics).toEqual(
@@ -1245,9 +1373,10 @@ describe('createDesktopSessionController', () => {
     expect(voicePlayback.stop).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        currentMode: 'speech',
         voicePlaybackState: 'stopped',
         voiceSessionStatus: 'disconnected',
-        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+        textSessionLifecycle: expect.objectContaining({ status: 'disconnected' }),
       }),
     );
 
@@ -1530,11 +1659,12 @@ describe('createDesktopSessionController', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        currentMode: 'speech',
         voiceSessionStatus: 'interrupted',
         assistantActivity: 'idle',
         activeTransport: 'gemini-live',
         lastRuntimeError: null,
-        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+        textSessionLifecycle: expect.objectContaining({ status: 'disconnected' }),
       }),
     );
     expect(voicePlayback.stop).toHaveBeenCalledTimes(1);
@@ -1793,12 +1923,13 @@ describe('createDesktopSessionController', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        currentMode: 'speech',
         voiceCaptureState: 'error',
         voiceSessionStatus: 'error',
         voiceCaptureDiagnostics: expect.objectContaining({
           lastError: 'Microphone permission was denied',
         }),
-        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+        textSessionLifecycle: expect.objectContaining({ status: 'disconnected' }),
       }),
     );
   });

@@ -39,6 +39,7 @@ import type {
   ScreenCaptureDiagnostics,
   SessionControllerEvent,
   SessionMode,
+  ProductMode,
   TextSessionStatus,
   TransportKind,
   VoiceCaptureDiagnostics,
@@ -331,6 +332,18 @@ export function createDesktopSessionController(
     return dependencies.store.getState().voiceSessionStatus;
   };
 
+  const currentProductMode = (): ProductMode => {
+    return dependencies.store.getState().currentMode;
+  };
+
+  const setCurrentMode = (mode: ProductMode): void => {
+    dependencies.store.getState().setCurrentMode(mode);
+  };
+
+  const resolveProductMode = (mode: SessionMode): ProductMode => {
+    return mode === 'voice' ? 'speech' : 'text';
+  };
+
   const setVoiceSessionStatus = (status: VoiceSessionStatus): void => {
     dependencies.store.getState().setVoiceSessionStatus(status);
   };
@@ -547,6 +560,7 @@ export function createDesktopSessionController(
     const store = dependencies.store.getState();
 
     return {
+      currentMode: store.currentMode,
       textSessionStatus: store.textSessionLifecycle.status,
       voiceSessionStatus: store.voiceSessionStatus,
       voiceCaptureState: store.voiceCaptureState,
@@ -1337,12 +1351,20 @@ export function createDesktopSessionController(
   }: {
     mode: SessionMode;
   }): Promise<void> => {
+    const targetMode = resolveProductMode(mode);
+
     if (mode === 'voice') {
+      const operationId = beginSessionOperation();
+      await ensureExclusiveMode(targetMode, operationId);
+
+      if (!isCurrentSessionOperation(operationId)) {
+        return;
+      }
+
       if (currentVoiceSessionStatus() !== 'disconnected' && currentVoiceSessionStatus() !== 'error') {
         return;
       }
 
-      const operationId = beginSessionOperation();
       const store = dependencies.store.getState();
       store.setVoiceCaptureState('idle');
       store.setVoiceCaptureDiagnostics({
@@ -1403,11 +1425,22 @@ export function createDesktopSessionController(
 
     const status = currentTextSessionStatus();
 
-    if (!isTextSessionConnectable(status) && isSessionActiveLifecycle(status)) {
+    if (
+      currentProductMode() === 'text' &&
+      !hasSpeechRuntimeActivity() &&
+      !isTextSessionConnectable(status) &&
+      isSessionActiveLifecycle(status)
+    ) {
       return;
     }
 
     const operationId = beginSessionOperation();
+    await ensureExclusiveMode(targetMode, operationId);
+
+    if (!isCurrentSessionOperation(operationId)) {
+      return;
+    }
+
     resetRuntimeState();
     applyLifecycleEvent({ type: 'bootstrap.started' });
     recordSessionEvent({
@@ -1468,6 +1501,129 @@ export function createDesktopSessionController(
       recordSessionEvent({ type: 'session.backend.health.failed', detail });
       return false;
     }
+  };
+
+  const hasSpeechRuntimeActivity = (): boolean => {
+    const store = dependencies.store.getState();
+
+    return (
+      (
+        store.voiceSessionStatus !== 'disconnected' &&
+        store.voiceSessionStatus !== 'error'
+      ) ||
+      (
+        store.voiceCaptureState !== 'idle' &&
+        store.voiceCaptureState !== 'stopped' &&
+        store.voiceCaptureState !== 'error'
+      ) ||
+      (
+        store.voicePlaybackState !== 'idle' &&
+        store.voicePlaybackState !== 'stopped' &&
+        store.voicePlaybackState !== 'error'
+      ) ||
+      (
+        store.screenCaptureState !== 'disabled' &&
+        store.screenCaptureState !== 'error'
+      ) ||
+      activeTransport?.kind === LIVE_ADAPTER_KEY
+    );
+  };
+
+  const hasTextRuntimeActivity = (): boolean => {
+    return (
+      activeTextChatStream !== null ||
+      isSessionActiveLifecycle(currentTextSessionStatus()) ||
+      dependencies.store.getState().activeTransport === TEXT_CHAT_ADAPTER_KEY
+    );
+  };
+
+  const teardownActiveRuntime = async (
+    textSessionStatus: TextSessionStatus = 'disconnected',
+  ): Promise<void> => {
+    const store = dependencies.store.getState();
+    const hasActiveRuntime =
+      activeTransport !== null ||
+      activeTextChatStream !== null ||
+      voiceCapture !== null ||
+      voicePlayback !== null ||
+      screenCapture !== null ||
+      hasSpeechRuntimeActivity() ||
+      hasTextRuntimeActivity();
+
+    if (!hasActiveRuntime) {
+      resetRuntimeState(textSessionStatus);
+      store.setVoiceSessionStatus('disconnected');
+      store.setAssistantActivity('idle');
+      activeVoiceToken = null;
+      voiceResumptionInFlight = false;
+      resetVoiceSessionResumption();
+      resetVoiceSessionDurability();
+      resetVoiceToolState();
+      clearCurrentVoiceTranscript();
+      return;
+    }
+
+    if (activeTextChatStream || isSessionActiveLifecycle(currentTextSessionStatus())) {
+      applyLifecycleEvent({ type: 'disconnect.requested' });
+    }
+
+    if (hasSpeechRuntimeActivity()) {
+      store.setVoiceSessionStatus('stopping');
+    }
+
+    try {
+      const capture = voiceCapture;
+      if (
+        capture &&
+        (
+          store.voiceCaptureState === 'capturing' ||
+          store.voiceCaptureState === 'requestingPermission' ||
+          store.voiceCaptureState === 'stopping'
+        )
+      ) {
+        await flushVoiceAudioInput();
+        await capture.stop();
+      }
+
+      stopScreenCaptureInternal();
+      await activeTransport?.disconnect();
+      await stopVoicePlayback();
+    } finally {
+      cleanupTransport();
+      resetRuntimeState(textSessionStatus);
+      activeVoiceToken = null;
+      voiceResumptionInFlight = false;
+      resetVoiceSessionResumption();
+      resetVoiceSessionDurability();
+      resetVoiceToolState();
+      clearCurrentVoiceTranscript();
+      store.setVoiceCaptureState(voiceCapture ? 'stopped' : 'idle');
+      store.setVoicePlaybackState('stopped');
+      store.setVoiceSessionStatus('disconnected');
+      store.setAssistantActivity('idle');
+    }
+  };
+
+  const ensureExclusiveMode = async (
+    targetMode: ProductMode,
+    operationId: number,
+  ): Promise<void> => {
+    const shouldTearDownSpeech =
+      targetMode === 'text' &&
+      (currentProductMode() !== 'text' || hasSpeechRuntimeActivity());
+    const shouldTearDownText =
+      targetMode === 'speech' &&
+      (currentProductMode() !== 'speech' || hasTextRuntimeActivity());
+
+    if (shouldTearDownSpeech || shouldTearDownText) {
+      await teardownActiveRuntime('disconnected');
+
+      if (!isCurrentSessionOperation(operationId)) {
+        return;
+      }
+    }
+
+    setCurrentMode(targetMode);
   };
 
   return {
@@ -1668,7 +1824,10 @@ export function createDesktopSessionController(
         return false;
       }
 
-      if (isTextTurnInFlight(currentTextSessionStatus())) {
+      if (
+        currentProductMode() === 'text' &&
+        isTextTurnInFlight(currentTextSessionStatus())
+      ) {
         return false;
       }
 
@@ -1701,48 +1860,12 @@ export function createDesktopSessionController(
       return true;
     },
     endSession: async () => {
-      const store = dependencies.store.getState();
       beginSessionOperation();
 
       recordSessionEvent({ type: 'session.end.requested' });
-
-      if (!activeTransport && !activeTextChatStream) {
-        resetRuntimeState('disconnected');
-        store.setVoiceSessionStatus('disconnected');
-        activeVoiceToken = null;
-        voiceResumptionInFlight = false;
-        resetVoiceSessionResumption();
-        resetVoiceSessionDurability();
-        recordSessionEvent({ type: 'session.ended' });
-        return;
-      }
-
-      applyLifecycleEvent({ type: 'disconnect.requested' });
-      store.setVoiceSessionStatus('stopping');
-
-      try {
-        if (
-          store.voiceCaptureState === 'capturing' ||
-          store.voiceCaptureState === 'requestingPermission' ||
-          store.voiceCaptureState === 'stopping'
-        ) {
-          await flushVoiceAudioInput();
-          await getVoiceCapture().stop();
-        }
-        stopScreenCaptureInternal();
-        await activeTransport?.disconnect();
-        await stopVoicePlayback();
-      } finally {
-        cleanupTransport();
-        resetRuntimeState('disconnected');
-        activeVoiceToken = null;
-        voiceResumptionInFlight = false;
-        resetVoiceSessionResumption();
-        resetVoiceSessionDurability();
-        store.setVoiceSessionStatus('disconnected');
-        store.setAssistantActivity('idle');
-        recordSessionEvent({ type: 'session.ended' });
-      }
+      await teardownActiveRuntime('disconnected');
+      setCurrentMode('text');
+      recordSessionEvent({ type: 'session.ended' });
     },
     setAssistantState: (assistantState: DebugAssistantState) => {
       dependencies.store.getState().setAssistantState(assistantState);
