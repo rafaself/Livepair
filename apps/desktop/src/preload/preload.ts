@@ -10,9 +10,11 @@ export const bridge: DesktopBridge = {
   checkHealth: () => ipcRenderer.invoke(IPC_CHANNELS.checkHealth),
   requestSessionToken: (req) => ipcRenderer.invoke(IPC_CHANNELS.requestSessionToken, req),
   startTextChatStream: async (req, onEvent) => {
-    const { streamId } = await ipcRenderer.invoke(IPC_CHANNELS.startTextChatStream, req) as {
+    const pendingEvents: Array<{
       streamId: string;
-    };
+      event: Parameters<typeof onEvent>[0];
+    }> = [];
+    let streamId: string | null = null;
 
     const listener = (
       _event: Electron.IpcRendererEvent,
@@ -21,6 +23,11 @@ export const bridge: DesktopBridge = {
         event: Parameters<typeof onEvent>[0];
       },
     ): void => {
+      if (streamId === null) {
+        pendingEvents.push(payload);
+        return;
+      }
+
       if (payload.streamId !== streamId) {
         return;
       }
@@ -29,6 +36,22 @@ export const bridge: DesktopBridge = {
     };
 
     ipcRenderer.on(IPC_CHANNELS.textChatEvent, listener);
+
+    try {
+      const response = await ipcRenderer.invoke(IPC_CHANNELS.startTextChatStream, req) as {
+        streamId: string;
+      };
+      streamId = response.streamId;
+    } catch (error) {
+      ipcRenderer.off(IPC_CHANNELS.textChatEvent, listener);
+      throw error;
+    }
+
+    for (const pendingEvent of pendingEvents) {
+      if (pendingEvent.streamId === streamId) {
+        onEvent(pendingEvent.event);
+      }
+    }
 
     return {
       cancel: async () => {
