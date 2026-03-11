@@ -14,6 +14,7 @@ import type {
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
   SessionPhase,
+  ProductMode,
   TextSessionLifecycle,
   TextSessionStatus,
   TransportConnectionState,
@@ -32,6 +33,7 @@ export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed
 export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
 
 type SessionStoreData = {
+  currentMode: ProductMode;
   sessionPhase: SessionPhase;
   assistantActivity: AssistantActivityState;
   backendState: BackendConnectionState;
@@ -56,6 +58,7 @@ type SessionStoreData = {
 };
 
 export type SessionStoreState = SessionStoreData & {
+  setCurrentMode: (currentMode: ProductMode) => void;
   setAssistantActivity: (assistantActivity: AssistantActivityState) => void;
   setBackendState: (backendState: BackendConnectionState) => void;
   setTokenRequestState: (tokenRequestState: TokenRequestState) => void;
@@ -180,6 +183,7 @@ function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
 
 function buildDefaultSessionState(): SessionStoreData {
   return {
+    currentMode: 'text',
     ...withDerivedLifecycleFields(createTextSessionLifecycle()),
     assistantActivity: 'idle',
     backendState: 'idle',
@@ -265,6 +269,7 @@ const defaultSessionState = buildDefaultSessionState();
 
 export const useSessionStore = create<SessionStoreState>((set) => ({
   ...defaultSessionState,
+  setCurrentMode: (currentMode) => set({ currentMode }),
   setAssistantActivity: (assistantActivity) => set({ assistantActivity }),
   setBackendState: (backendState) => set({ backendState }),
   setTokenRequestState: (tokenRequestState) => set({ tokenRequestState }),
@@ -345,9 +350,13 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       },
     })),
   setAssistantState: (assistantState) =>
-    set((state) => getDebugRuntimeState(assistantState, state.activeTransport)),
+    set((state) => ({
+      ...getDebugRuntimeState(assistantState, state.activeTransport),
+      currentMode: state.currentMode,
+    })),
   resetTextSessionRuntime: (textSessionStatus = 'idle') =>
     set((state) => ({
+      currentMode: state.currentMode,
       ...withDerivedLifecycleFields(createTextSessionLifecycle(textSessionStatus)),
       assistantActivity: 'idle',
       backendState: 'idle',

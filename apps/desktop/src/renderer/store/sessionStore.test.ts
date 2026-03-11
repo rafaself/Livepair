@@ -7,6 +7,24 @@ describe('sessionStore', () => {
     useSessionStore.getState().reset();
   });
 
+  it('defaults currentMode to text and lets it change independently from runtime diagnostics', () => {
+    expect(useSessionStore.getState().currentMode).toBe('text');
+
+    useSessionStore.getState().setCurrentMode('speech');
+    useSessionStore.getState().setVoiceSessionStatus('ready');
+    useSessionStore.getState().setTextSessionLifecycle({ status: 'receiving' });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        currentMode: 'speech',
+        voiceSessionStatus: 'ready',
+        textSessionLifecycle: expect.objectContaining({
+          status: 'receiving',
+        }),
+      }),
+    );
+  });
+
   it('tracks lifecycle state centrally and derives the UI assistant state from it', () => {
     useSessionStore.getState().setTextSessionLifecycle({ status: 'receiving' });
     useSessionStore.getState().setAssistantActivity('listening');
@@ -44,6 +62,7 @@ describe('sessionStore', () => {
         textSessionLifecycle: expect.objectContaining({
           status: 'idle',
         }),
+        currentMode: 'text',
         assistantActivity: 'idle',
         backendState: 'idle',
         tokenRequestState: 'idle',
