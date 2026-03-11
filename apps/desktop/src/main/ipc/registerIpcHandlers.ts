@@ -6,6 +6,8 @@ import { createBackendClient } from '../backend/backendClient';
 import {
   isCreateEphemeralTokenRequest,
   isDesktopSettingsPatch,
+  isTextChatCancelRequest,
+  isTextChatRequest,
   toOverlayRectangles,
 } from './validators';
 
@@ -26,6 +28,7 @@ export function registerIpcHandlers({
     fetchImpl,
     getBackendUrl: async () => (await settingsService.getSettings()).backendUrl,
   });
+  const activeTextChatStreams = new Map<string, ReturnType<ReturnType<typeof createBackendClient>['startTextChatStream']>>();
 
   ipcMain.handle(IPC_CHANNELS.checkHealth, async () => {
     return backendClient.checkHealth();
@@ -39,6 +42,46 @@ export function registerIpcHandlers({
       }
 
       return backendClient.requestSessionToken(req);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.startTextChatStream,
+    async (event, req: unknown) => {
+      if (!isTextChatRequest(req)) {
+        throw new Error('Invalid text chat request payload');
+      }
+
+      const streamId = `text-stream-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const handle = backendClient.startTextChatStream(req, {
+        onEvent: (streamEvent) => {
+          event.sender.send(IPC_CHANNELS.textChatEvent, {
+            streamId,
+            event: streamEvent,
+          });
+        },
+      });
+
+      activeTextChatStreams.set(streamId, handle);
+      void handle.done.finally(() => {
+        activeTextChatStreams.delete(streamId);
+      });
+
+      return { streamId };
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.cancelTextChatStream,
+    async (_event, req: unknown) => {
+      if (!isTextChatCancelRequest(req)) {
+        throw new Error('Invalid text chat cancel payload');
+      }
+
+      const activeStream = activeTextChatStreams.get(req.streamId);
+      activeStream?.cancel();
+      await activeStream?.done;
+      activeTextChatStreams.delete(req.streamId);
     },
   );
 

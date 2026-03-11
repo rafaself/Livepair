@@ -3,7 +3,19 @@ import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { useUiStore, type PanelView } from '../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
 import { useSessionRuntime } from '../../runtime/useSessionRuntime';
-import type { ConversationTurnModel } from '../../runtime/types';
+import type {
+  CurrentVoiceTranscript,
+  ConversationTurnModel,
+  ScreenCaptureDiagnostics,
+  ScreenCaptureState,
+  TextSessionStatus,
+  VoiceCaptureDiagnostics,
+  VoiceCaptureState,
+  VoicePlaybackDiagnostics,
+  VoicePlaybackState,
+  VoiceSessionResumptionState,
+  VoiceSessionStatus,
+} from '../../runtime/types';
 
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
@@ -19,6 +31,19 @@ export type AssistantPanelController = {
   backendLabel: string;
   tokenRequestState: TokenRequestState;
   tokenFeedback: string | null;
+  textSessionStatus: TextSessionStatus;
+  textSessionStatusLabel: string;
+  voiceSessionStatus: VoiceSessionStatus;
+  voiceSessionResumption: VoiceSessionResumptionState;
+  voiceCaptureState: VoiceCaptureState;
+  voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
+  voicePlaybackState: VoicePlaybackState;
+  voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  screenCaptureState: ScreenCaptureState;
+  screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  isVoiceSessionActive: boolean;
+  currentVoiceTranscript: CurrentVoiceTranscript;
+  canSubmitText: boolean;
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
@@ -40,6 +65,19 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendLabel,
     tokenRequestState,
     tokenFeedback,
+    textSessionStatus,
+    textSessionStatusLabel,
+    voiceSessionStatus,
+    voiceSessionResumption,
+    voiceCaptureState,
+    voiceCaptureDiagnostics,
+    voicePlaybackState,
+    voicePlaybackDiagnostics,
+    screenCaptureState,
+    screenCaptureDiagnostics,
+    isVoiceSessionActive,
+    currentVoiceTranscript,
+    canSubmitText,
     conversationTurns,
     lastRuntimeError,
     isConversationEmpty,
@@ -110,6 +148,19 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendLabel,
     tokenRequestState,
     tokenFeedback,
+    textSessionStatus,
+    textSessionStatusLabel,
+    voiceSessionStatus,
+    voiceSessionResumption,
+    voiceCaptureState,
+    voiceCaptureDiagnostics,
+    voicePlaybackState,
+    voicePlaybackDiagnostics,
+    screenCaptureState,
+    screenCaptureDiagnostics,
+    isVoiceSessionActive,
+    currentVoiceTranscript,
+    canSubmitText,
     lastRuntimeError,
     draftText,
     isSubmittingTextTurn,

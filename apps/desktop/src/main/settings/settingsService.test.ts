@@ -55,7 +55,7 @@ describe('DesktopSettingsService', () => {
       updateSettings: vi.fn(async () => ({
         backendUrl: 'https://api.livepair.dev',
         isPanelPinned: true,
-        preferredMode: 'thinking' as const,
+        preferredMode: 'fast' as const,
         selectedInputDeviceId: 'usb-mic',
         selectedOutputDeviceId: 'desk-speakers',
         themePreference: 'dark' as const,

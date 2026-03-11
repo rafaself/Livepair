@@ -1,5 +1,5 @@
 import type { Rectangle } from 'electron';
-import type { CreateEphemeralTokenRequest } from '@livepair/shared-types';
+import type { CreateEphemeralTokenRequest, TextChatRequest } from '@livepair/shared-types';
 import type { DesktopSettingsPatch } from '../../shared/settings';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -27,7 +27,7 @@ function isThemePreference(value: unknown): boolean {
 }
 
 function isPreferredMode(value: unknown): boolean {
-  return value === 'fast' || value === 'thinking';
+  return value === 'fast';
 }
 
 function isNonEmptyString(value: unknown): boolean {
@@ -40,6 +40,9 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
   'preferredMode',
   'selectedInputDeviceId',
   'selectedOutputDeviceId',
+  'voiceEchoCancellationEnabled',
+  'voiceNoiseSuppressionEnabled',
+  'voiceAutoGainControlEnabled',
   'isPanelPinned',
 ] as const;
 
@@ -97,6 +100,27 @@ export function isCreateEphemeralTokenRequest(
   return typeof sessionId === 'string' || typeof sessionId === 'undefined';
 }
 
+export function isTextChatRequest(req: unknown): req is TextChatRequest {
+  if (!isPlainRecord(req) || !Array.isArray(req['messages']) || req['messages'].length === 0) {
+    return false;
+  }
+
+  return req['messages'].every((message) => {
+    if (!isPlainRecord(message)) {
+      return false;
+    }
+
+    return (
+      (message['role'] === 'user' || message['role'] === 'assistant') &&
+      isNonEmptyString(message['content'])
+    );
+  });
+}
+
+export function isTextChatCancelRequest(value: unknown): value is { streamId: string } {
+  return isPlainRecord(value) && isNonEmptyString(value['streamId']);
+}
+
 export function isDesktopSettingsPatch(value: unknown): value is DesktopSettingsPatch {
   if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, DESKTOP_SETTINGS_PATCH_KEYS)) {
     return false;
@@ -121,6 +145,27 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
   if (
     'selectedOutputDeviceId' in value &&
     !isNonEmptyString(value['selectedOutputDeviceId'])
+  ) {
+    return false;
+  }
+
+  if (
+    'voiceEchoCancellationEnabled' in value &&
+    typeof value['voiceEchoCancellationEnabled'] !== 'boolean'
+  ) {
+    return false;
+  }
+
+  if (
+    'voiceNoiseSuppressionEnabled' in value &&
+    typeof value['voiceNoiseSuppressionEnabled'] !== 'boolean'
+  ) {
+    return false;
+  }
+
+  if (
+    'voiceAutoGainControlEnabled' in value &&
+    typeof value['voiceAutoGainControlEnabled'] !== 'boolean'
   ) {
     return false;
   }

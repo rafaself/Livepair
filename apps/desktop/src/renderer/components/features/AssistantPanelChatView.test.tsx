@@ -9,7 +9,15 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="disconnected"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText=""
@@ -21,8 +29,9 @@ describe('AssistantPanelChatView', () => {
 
     expect(screen.getByRole('status', { name: 'Disconnected' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Conversation' })).toBeVisible();
+    expect(screen.getByText('Text session disconnected')).toBeVisible();
     expect(screen.getByText('No conversation yet')).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Message Livepair' })).toBeVisible();
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeVisible();
   });
 
   it('renders populated conversation turns without the empty state copy', () => {
@@ -46,7 +55,15 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
+        textSessionStatus="ready"
+        textSessionStatusLabel="Text session ready"
+        canSubmitText={true}
         turns={turns}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={false}
         lastRuntimeError={null}
         draftText=""
@@ -57,6 +74,7 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.getByRole('status', { name: 'Ready' })).toBeVisible();
+    expect(screen.getByText('Text session ready')).toBeVisible();
     expect(screen.getByText('Check the latest exchange.')).toBeVisible();
     expect(screen.getByText('The latest exchange is visible in the transcript.')).toBeVisible();
     expect(screen.queryByText('No conversation yet')).toBeNull();
@@ -66,7 +84,15 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
+        textSessionStatus="error"
+        textSessionStatusLabel="Text session failed"
+        canSubmitText={true}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError="transport offline"
         draftText=""
@@ -97,7 +123,15 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
+        textSessionStatus="error"
+        textSessionStatusLabel="Text session failed"
+        canSubmitText={true}
         turns={turns}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={false}
         lastRuntimeError="transport offline"
         draftText="retry prompt"
@@ -121,7 +155,15 @@ describe('AssistantPanelChatView', () => {
     const { rerender } = render(
       <AssistantPanelChatView
         assistantState="ready"
+        textSessionStatus="ready"
+        textSessionStatusLabel="Text session ready"
+        canSubmitText={true}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Summarize this"
@@ -138,7 +180,15 @@ describe('AssistantPanelChatView', () => {
     rerender(
       <AssistantPanelChatView
         assistantState="thinking"
+        textSessionStatus="receiving"
+        textSessionStatusLabel="Receiving response..."
+        canSubmitText={false}
         turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Summarize this"
@@ -148,7 +198,113 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('textbox', { name: 'Message Livepair' })).toBeDisabled();
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+  });
+
+  it('keeps the composer enabled after a completed turn and disables it while connecting', () => {
+    const { rerender } = render(
+      <AssistantPanelChatView
+        assistantState="ready"
+        textSessionStatus="completed"
+        textSessionStatusLabel="Response complete"
+        canSubmitText={true}
+        turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Follow up"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeEnabled();
+    expect(screen.getByText('Response complete')).toBeVisible();
+
+    rerender(
+      <AssistantPanelChatView
+        assistantState="thinking"
+        textSessionStatus="connecting"
+        textSessionStatusLabel="Preparing text chat..."
+        canSubmitText={false}
+        turns={[]}
+        isVoiceSessionActive={false}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Follow up"
+        isSubmittingTextTurn={true}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
+    expect(screen.getByText('Preparing text chat...')).toBeVisible();
+  });
+
+  it('renders the current voice transcript section separately from text conversation history', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="speaking"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
+        turns={[]}
+        isVoiceSessionActive={true}
+        currentVoiceTranscript={{
+          user: { text: 'Can you summarize that?' },
+          assistant: { text: 'Here is the summary.' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Current voice turn' })).toBeVisible();
+    expect(screen.getByText('Can you summarize that?')).toBeVisible();
+    expect(screen.getByText('Here is the summary.')).toBeVisible();
+    expect(screen.getByText('Live voice transcript')).toBeVisible();
+    expect(screen.queryByText('Send a text prompt to start the realtime loop and keep the latest exchange visible.')).toBeNull();
+  });
+
+  it('shows voice-specific placeholder copy when voice mode is active before transcript arrives', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
+        turns={[]}
+        isVoiceSessionActive={true}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Live voice transcript')).toBeVisible();
+    expect(screen.getByText('Speak to start the current voice turn transcript.')).toBeVisible();
+    expect(screen.queryByText('No conversation yet')).toBeNull();
   });
 });

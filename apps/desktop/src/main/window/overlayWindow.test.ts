@@ -162,4 +162,34 @@ describe('overlayWindow', () => {
     overlayWindow.handleWindowAllClosed('darwin');
     expect(mockQuit).not.toHaveBeenCalled();
   });
+
+  it('relays renderer console messages to the main process console', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow();
+
+    const consoleHandler = mockWebContentsOn.mock.calls.find(
+      ([eventName]) => eventName === 'console-message',
+    )?.[1] as ((_event: unknown, level: number, message: string) => void) | undefined;
+
+    expect(consoleHandler).toBeTypeOf('function');
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    consoleHandler?.({}, 3, 'renderer error');
+    expect(errorSpy).toHaveBeenCalledWith('[renderer]', 'renderer error');
+
+    consoleHandler?.({}, 2, 'renderer warning');
+    expect(warnSpy).toHaveBeenCalledWith('[renderer]', 'renderer warning');
+
+    consoleHandler?.({}, 1, 'renderer info');
+    expect(logSpy).toHaveBeenCalledWith('[renderer]', 'renderer info');
+
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
 });

@@ -3,10 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockInvoke = vi.fn();
 const mockExposeInMainWorld = vi.fn();
+const mockOn = vi.fn();
+const mockOff = vi.fn();
 
 vi.mock('electron', () => ({
   ipcRenderer: {
     invoke: mockInvoke,
+    on: mockOn,
+    off: mockOff,
   },
   contextBridge: {
     exposeInMainWorld: mockExposeInMainWorld,
@@ -30,6 +34,7 @@ describe('preload bridge', () => {
       'overlayMode',
       'checkHealth',
       'requestSessionToken',
+      'startTextChatStream',
       'getSettings',
       'updateSettings',
       'setOverlayHitRegions',
@@ -39,6 +44,7 @@ describe('preload bridge', () => {
       overlayMode: expect.any(String),
       checkHealth: expect.any(Function),
       requestSessionToken: expect.any(Function),
+      startTextChatStream: expect.any(Function),
       getSettings: expect.any(Function),
       updateSettings: expect.any(Function),
       setOverlayHitRegions: expect.any(Function),
@@ -55,13 +61,42 @@ describe('preload bridge', () => {
 
     mockInvoke.mockResolvedValueOnce({
       token: 't',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
     await bridge.requestSessionToken({ sessionId: 'session-1' });
     expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {
       sessionId: 'session-1',
     });
+
+    mockInvoke.mockResolvedValueOnce({ streamId: 'stream-1' });
+    const onEvent = vi.fn();
+    const streamHandle = await bridge.startTextChatStream(
+      {
+        messages: [{ role: 'user', content: 'Summarize the current screen' }],
+      },
+      onEvent,
+    );
+    expect(mockOn).toHaveBeenCalledWith('session:textChatEvent', expect.any(Function));
+    expect(mockInvoke).toHaveBeenCalledWith('session:startTextChat', {
+      messages: [{ role: 'user', content: 'Summarize the current screen' }],
+    });
+
+    const eventListener = mockOn.mock.calls.find(
+      ([channel]) => channel === 'session:textChatEvent',
+    )?.[1] as (_event: unknown, payload: unknown) => void;
+
+    eventListener({}, { streamId: 'stream-2', event: { type: 'completed' } });
+    expect(onEvent).not.toHaveBeenCalled();
+
+    eventListener({}, { streamId: 'stream-1', event: { type: 'text-delta', text: 'Hi' } });
+    expect(onEvent).toHaveBeenCalledWith({ type: 'text-delta', text: 'Hi' });
+
+    await streamHandle.cancel();
+    expect(mockInvoke).toHaveBeenCalledWith('session:cancelTextChat', {
+      streamId: 'stream-1',
+    });
+    expect(mockOff).toHaveBeenCalledWith('session:textChatEvent', eventListener);
 
     mockInvoke.mockResolvedValueOnce({
       backendUrl: 'http://localhost:3000',
@@ -103,8 +138,8 @@ describe('preload bridge', () => {
 
     mockInvoke.mockResolvedValueOnce({
       token: 't',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
     await bridge.requestSessionToken({});
 

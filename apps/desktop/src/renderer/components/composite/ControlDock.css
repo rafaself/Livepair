@@ -30,13 +30,18 @@
 }
 
 .control-dock--panel-open {
-  right: calc(min(340px, calc(100vw - var(--space-4))) + var(--space-3));
+  right: calc(min(420px, calc(100vw - var(--space-4))) + var(--space-3));
 }
 
 .control-dock__btn--active {
   color: var(--color-accent) !important;
   background: rgba(76, 141, 255, 0.12) !important;
   border-radius: var(--radius-full) !important;
+}
+
+.control-dock__btn--pending {
+  cursor: pointer !important;
+  opacity: 0.72;
 }
 
 .control-dock__btn--start {

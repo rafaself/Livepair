@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { __resetGeminiLiveSdkMock } from './geminiLiveSdkMock';
 import { resetDesktopSessionController } from '../runtime/sessionController';
 import { resetDesktopStores } from '../store/testing';
 
@@ -9,12 +10,89 @@ beforeEach(async () => {
     return;
   }
 
+  const mediaTrack = {
+    stop: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  };
+  const mediaStream = {
+    getTracks: vi.fn(() => [mediaTrack]),
+  };
+  const mediaDevicesEvents = new EventTarget();
+  Object.defineProperty(window.navigator, 'mediaDevices', {
+    configurable: true,
+    value: {
+      enumerateDevices: vi.fn(async () => []),
+      getDisplayMedia: vi.fn(async () => mediaStream),
+      getUserMedia: vi.fn(async () => mediaStream),
+      addEventListener: mediaDevicesEvents.addEventListener.bind(mediaDevicesEvents),
+      removeEventListener: mediaDevicesEvents.removeEventListener.bind(mediaDevicesEvents),
+    },
+  });
+
+  class FakeAudioWorkletNode {
+    readonly port = {
+      onmessage: null as ((event: MessageEvent) => void) | null,
+      onmessageerror: null as ((event: MessageEvent) => void) | null,
+    };
+
+    connect = vi.fn();
+    disconnect = vi.fn();
+  }
+
+  class FakeAudioContext {
+    readonly sampleRate = 48_000;
+    readonly audioWorklet = {
+      addModule: vi.fn(async () => undefined),
+    };
+
+    createMediaStreamSource = vi.fn(() => ({
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    }));
+    resume = vi.fn(async () => undefined);
+    close = vi.fn(async () => undefined);
+  }
+
+  Object.defineProperty(window, 'AudioContext', {
+    configurable: true,
+    value: FakeAudioContext,
+  });
+  Object.defineProperty(window, 'AudioWorkletNode', {
+    configurable: true,
+    value: FakeAudioWorkletNode,
+  });
+  Object.defineProperty(globalThis, 'AudioWorkletNode', {
+    configurable: true,
+    value: FakeAudioWorkletNode,
+  });
+  Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+    configurable: true,
+    value: vi.fn(async () => undefined),
+  });
+  Object.defineProperty(HTMLMediaElement.prototype, 'pause', {
+    configurable: true,
+    value: vi.fn(),
+  });
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: vi.fn(() => 'blob:livepair-test-worklet'),
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: vi.fn(),
+  });
+
   await resetDesktopSessionController();
   resetDesktopStores();
+  __resetGeminiLiveSdkMock();
   window.bridge = {
     overlayMode: 'linux-shape',
     checkHealth: vi.fn(),
     requestSessionToken: vi.fn(),
+    startTextChatStream: vi.fn(async () => ({
+      cancel: vi.fn(async () => undefined),
+    })),
     getSettings: vi.fn(async () => DEFAULT_DESKTOP_SETTINGS),
     updateSettings: vi.fn(async (patch) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...patch })),
     setOverlayHitRegions: vi.fn(),

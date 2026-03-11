@@ -1,12 +1,29 @@
 import { create } from 'zustand';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
+import { LIVE_ADAPTER_KEY } from '../runtime/liveConfig';
+import {
+  createTextSessionLifecycle,
+  deriveSessionPhaseFromLifecycle,
+  deriveTransportStateFromLifecycle,
+} from '../runtime/textSessionLifecycle';
 import type {
   AssistantActivityState,
+  CurrentVoiceTranscript,
   ConversationTurnModel,
   RuntimeDebugEvent,
+  ScreenCaptureDiagnostics,
+  ScreenCaptureState,
   SessionPhase,
+  TextSessionLifecycle,
+  TextSessionStatus,
   TransportConnectionState,
   TransportKind,
+  VoiceCaptureDiagnostics,
+  VoiceCaptureState,
+  VoicePlaybackDiagnostics,
+  VoicePlaybackState,
+  VoiceSessionResumptionState,
+  VoiceSessionStatus,
 } from '../runtime/types';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
@@ -18,18 +35,27 @@ type SessionStoreData = {
   backendState: BackendConnectionState;
   tokenRequestState: TokenRequestState;
   transportState: TransportConnectionState;
+  textSessionLifecycle: TextSessionLifecycle;
   activeTransport: TransportKind | null;
   conversationTurns: ConversationTurnModel[];
   lastRuntimeError: string | null;
   lastDebugEvent: RuntimeDebugEvent | null;
+  voiceSessionStatus: VoiceSessionStatus;
+  voiceSessionResumption: VoiceSessionResumptionState;
+  voiceCaptureState: VoiceCaptureState;
+  voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
+  voicePlaybackState: VoicePlaybackState;
+  voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  currentVoiceTranscript: CurrentVoiceTranscript;
+  screenCaptureState: ScreenCaptureState;
+  screenCaptureDiagnostics: ScreenCaptureDiagnostics;
 };
 
 export type SessionStoreState = SessionStoreData & {
-  setSessionPhase: (sessionPhase: SessionPhase) => void;
   setAssistantActivity: (assistantActivity: AssistantActivityState) => void;
   setBackendState: (backendState: BackendConnectionState) => void;
   setTokenRequestState: (tokenRequestState: TokenRequestState) => void;
-  setTransportState: (transportState: TransportConnectionState) => void;
+  setTextSessionLifecycle: (textSessionLifecycle: TextSessionLifecycle) => void;
   setActiveTransport: (activeTransport: TransportKind | null) => void;
   appendConversationTurn: (turn: ConversationTurnModel) => void;
   updateConversationTurn: (
@@ -39,21 +65,113 @@ export type SessionStoreState = SessionStoreData & {
   clearConversationTurns: () => void;
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
+  setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
+  setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
+  setVoiceCaptureState: (voiceCaptureState: VoiceCaptureState) => void;
+  setVoiceCaptureDiagnostics: (
+    patch: Partial<VoiceCaptureDiagnostics>,
+  ) => void;
+  setVoicePlaybackState: (voicePlaybackState: VoicePlaybackState) => void;
+  setVoicePlaybackDiagnostics: (
+    patch: Partial<VoicePlaybackDiagnostics>,
+  ) => void;
+  setCurrentVoiceTranscriptEntry: (
+    role: keyof CurrentVoiceTranscript,
+    patch: Partial<CurrentVoiceTranscript[keyof CurrentVoiceTranscript]>,
+  ) => void;
+  clearCurrentVoiceTranscript: () => void;
+  setScreenCaptureState: (screenCaptureState: ScreenCaptureState) => void;
+  setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
-  reset: () => void;
+  resetTextSessionRuntime: (textSessionStatus?: TextSessionStatus) => void;
+  reset: (overrides?: Partial<SessionStoreData>) => void;
 };
 
-const defaultSessionState: SessionStoreData = {
-  sessionPhase: 'idle',
-  assistantActivity: 'idle',
-  backendState: 'idle',
-  tokenRequestState: 'idle',
-  transportState: 'idle',
-  activeTransport: null,
-  conversationTurns: [],
-  lastRuntimeError: null,
-  lastDebugEvent: null,
-};
+function withDerivedLifecycleFields(
+  textSessionLifecycle: TextSessionLifecycle,
+): Pick<SessionStoreData, 'sessionPhase' | 'textSessionLifecycle' | 'transportState'> {
+  return {
+    sessionPhase: deriveSessionPhaseFromLifecycle(textSessionLifecycle.status),
+    textSessionLifecycle,
+    transportState: deriveTransportStateFromLifecycle(textSessionLifecycle.status),
+  };
+}
+
+function buildDefaultVoiceCaptureDiagnostics(): VoiceCaptureDiagnostics {
+  return {
+    chunkCount: 0,
+    sampleRateHz: null,
+    bytesPerChunk: null,
+    chunkDurationMs: null,
+    selectedInputDeviceId: null,
+    lastError: null,
+  };
+}
+
+function buildDefaultVoicePlaybackDiagnostics(): VoicePlaybackDiagnostics {
+  return {
+    chunkCount: 0,
+    queueDepth: 0,
+    sampleRateHz: null,
+    selectedOutputDeviceId: null,
+    lastError: null,
+  };
+}
+
+function buildDefaultCurrentVoiceTranscript(): CurrentVoiceTranscript {
+  return {
+    user: {
+      text: '',
+    },
+    assistant: {
+      text: '',
+    },
+  };
+}
+
+function buildDefaultVoiceSessionResumption(): VoiceSessionResumptionState {
+  return {
+    status: 'idle',
+    latestHandle: null,
+    resumable: false,
+    lastDetail: null,
+  };
+}
+
+function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
+  return {
+    captureSource: null,
+    frameCount: 0,
+    frameRateHz: null,
+    widthPx: null,
+    heightPx: null,
+    lastFrameAt: null,
+    lastUploadStatus: 'idle',
+    lastError: null,
+  };
+}
+
+function buildDefaultSessionState(): SessionStoreData {
+  return {
+    ...withDerivedLifecycleFields(createTextSessionLifecycle()),
+    assistantActivity: 'idle',
+    backendState: 'idle',
+    tokenRequestState: 'idle',
+    activeTransport: null,
+    conversationTurns: [],
+    lastRuntimeError: null,
+    lastDebugEvent: null,
+    voiceSessionStatus: 'disconnected',
+    voiceSessionResumption: buildDefaultVoiceSessionResumption(),
+    voiceCaptureState: 'idle',
+    voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
+    voicePlaybackState: 'idle',
+    voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
+    currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+    screenCaptureState: 'disabled',
+    screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+  };
+}
 
 function getDebugRuntimeState(
   assistantState: AssistantRuntimeState,
@@ -61,64 +179,68 @@ function getDebugRuntimeState(
 ): Partial<SessionStoreData> {
   if (assistantState === 'disconnected') {
     return {
-      ...defaultSessionState,
+      ...buildDefaultSessionState(),
     };
   }
 
   if (assistantState === 'ready') {
     return {
-      sessionPhase: 'active',
+      ...withDerivedLifecycleFields(createTextSessionLifecycle('ready')),
       assistantActivity: 'idle',
-      transportState: 'connected',
-      activeTransport: activeTransport ?? 'gemini-live',
+      activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }
 
   if (assistantState === 'listening') {
     return {
-      sessionPhase: 'active',
+      ...withDerivedLifecycleFields(createTextSessionLifecycle('ready')),
       assistantActivity: 'listening',
-      transportState: 'connected',
-      activeTransport: activeTransport ?? 'gemini-live',
+      activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }
 
   if (assistantState === 'thinking') {
     return {
-      sessionPhase: 'starting',
+      ...withDerivedLifecycleFields(createTextSessionLifecycle('connecting')),
       assistantActivity: 'thinking',
-      transportState: 'connecting',
-      activeTransport: activeTransport ?? 'gemini-live',
+      activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }
 
   if (assistantState === 'speaking') {
     return {
-      sessionPhase: 'active',
+      ...withDerivedLifecycleFields(createTextSessionLifecycle('receiving')),
       assistantActivity: 'speaking',
-      transportState: 'connected',
-      activeTransport: activeTransport ?? 'gemini-live',
+      activeTransport: activeTransport ?? LIVE_ADAPTER_KEY,
       lastRuntimeError: null,
     };
   }
 
   return {
-    sessionPhase: 'error',
+    ...withDerivedLifecycleFields(createTextSessionLifecycle('error')),
     assistantActivity: 'idle',
     lastRuntimeError: 'Runtime forced into error state',
   };
 }
 
+export function getTextSessionStatus(
+  state: Pick<SessionStoreState, 'textSessionLifecycle'>,
+): TextSessionStatus {
+  return state.textSessionLifecycle.status;
+}
+
+const defaultSessionState = buildDefaultSessionState();
+
 export const useSessionStore = create<SessionStoreState>((set) => ({
   ...defaultSessionState,
-  setSessionPhase: (sessionPhase) => set({ sessionPhase }),
   setAssistantActivity: (assistantActivity) => set({ assistantActivity }),
   setBackendState: (backendState) => set({ backendState }),
   setTokenRequestState: (tokenRequestState) => set({ tokenRequestState }),
-  setTransportState: (transportState) => set({ transportState }),
+  setTextSessionLifecycle: (textSessionLifecycle) =>
+    set(withDerivedLifecycleFields(textSessionLifecycle)),
   setActiveTransport: (activeTransport) => set({ activeTransport }),
   appendConversationTurn: (turn) =>
     set((state) => ({
@@ -133,7 +255,88 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   clearConversationTurns: () => set({ conversationTurns: [] }),
   setLastRuntimeError: (lastRuntimeError) => set({ lastRuntimeError }),
   setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
+  setVoiceSessionStatus: (voiceSessionStatus) => set({ voiceSessionStatus }),
+  setVoiceSessionResumption: (patch) =>
+    set((state) => ({
+      voiceSessionResumption: {
+        ...state.voiceSessionResumption,
+        ...patch,
+      },
+    })),
+  setVoiceCaptureState: (voiceCaptureState) => set({ voiceCaptureState }),
+  setVoiceCaptureDiagnostics: (patch) =>
+    set((state) => ({
+      voiceCaptureDiagnostics: {
+        ...state.voiceCaptureDiagnostics,
+        ...patch,
+      },
+    })),
+  setVoicePlaybackState: (voicePlaybackState) => set({ voicePlaybackState }),
+  setVoicePlaybackDiagnostics: (patch) =>
+    set((state) => ({
+      voicePlaybackDiagnostics: {
+        ...state.voicePlaybackDiagnostics,
+        ...patch,
+      },
+    })),
+  setCurrentVoiceTranscriptEntry: (role, patch) =>
+    set((state) => ({
+      currentVoiceTranscript: {
+        ...state.currentVoiceTranscript,
+        [role]: {
+          ...state.currentVoiceTranscript[role],
+          ...patch,
+        },
+      },
+    })),
+  clearCurrentVoiceTranscript: () =>
+    set({
+      currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+    }),
+  setScreenCaptureState: (screenCaptureState) => set({ screenCaptureState }),
+  setScreenCaptureDiagnostics: (patch) =>
+    set((state) => ({
+      screenCaptureDiagnostics: {
+        ...state.screenCaptureDiagnostics,
+        ...patch,
+      },
+    })),
   setAssistantState: (assistantState) =>
     set((state) => getDebugRuntimeState(assistantState, state.activeTransport)),
-  reset: () => set(defaultSessionState),
+  resetTextSessionRuntime: (textSessionStatus = 'idle') =>
+    set((state) => ({
+      ...withDerivedLifecycleFields(createTextSessionLifecycle(textSessionStatus)),
+      assistantActivity: 'idle',
+      backendState: 'idle',
+      tokenRequestState: 'idle',
+      activeTransport: null,
+      conversationTurns: [],
+      lastRuntimeError: null,
+      lastDebugEvent: null,
+      voiceSessionStatus: 'disconnected',
+      voiceSessionResumption: buildDefaultVoiceSessionResumption(),
+      voiceCaptureState: state.voiceCaptureState,
+      voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
+      voicePlaybackState: state.voicePlaybackState,
+      voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
+      currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+      screenCaptureState: 'disabled' as ScreenCaptureState,
+      screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+    })),
+  reset: (overrides) =>
+    set(() => {
+      const nextState = {
+        ...buildDefaultSessionState(),
+        ...overrides,
+      };
+
+      if (overrides?.textSessionLifecycle) {
+        return {
+          ...nextState,
+          ...withDerivedLifecycleFields(overrides.textSessionLifecycle),
+        };
+      }
+
+      return nextState;
+    }),
 }));

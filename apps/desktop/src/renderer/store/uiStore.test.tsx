@@ -91,10 +91,10 @@ describe('uiStore', () => {
   it('keeps runtime assistant state in the session store', () => {
     useSessionStore.getState().setAssistantState('speaking');
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('speaking');
-    expect(useUiStore.getState().isDebugMode).toBe(false);
+    expect(useUiStore.getState().isDebugMode).toBe(true);
 
     useUiStore.getState().toggleDebugMode();
-    expect(useUiStore.getState().isDebugMode).toBe(true);
+    expect(useUiStore.getState().isDebugMode).toBe(false);
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('speaking');
   });
 
@@ -126,7 +126,7 @@ describe('uiStore', () => {
       expect.objectContaining({
         isPanelOpen: false,
         panelView: 'chat',
-        isDebugMode: false,
+        isDebugMode: true,
         backendUrlDraft: '',
         backendUrlError: null,
         inputDeviceOptions: [],

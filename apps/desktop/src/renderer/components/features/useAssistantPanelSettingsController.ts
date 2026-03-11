@@ -1,22 +1,25 @@
 import { normalizeBackendBaseUrl } from '../../../shared/backendBaseUrl';
-import type { ThemePreference } from '../../../shared/settings';
+import type { PreferredMode, ThemePreference } from '../../../shared/settings';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUiStore } from '../../store/uiStore';
 import type { SelectOptionItem } from '../primitives';
 
 const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
-  { value: 'unavailable', label: 'No microphone detected' },
+  { value: 'unavailable', label: 'Voice input unavailable in text-only release' },
 ];
 const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
-  { value: 'unavailable', label: 'No speaker detected' },
+  { value: 'unavailable', label: 'Voice output unavailable in text-only release' },
 ];
 
 export type AssistantPanelSettingsController = {
   isDebugMode: boolean;
   isPanelPinned: boolean;
-  preferredMode: 'fast' | 'thinking';
+  preferredMode: PreferredMode;
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
+  voiceEchoCancellationEnabled: boolean;
+  voiceNoiseSuppressionEnabled: boolean;
+  voiceAutoGainControlEnabled: boolean;
   themePreference: ThemePreference;
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
@@ -24,9 +27,12 @@ export type AssistantPanelSettingsController = {
   backendUrlError: string | null;
   toggleDebugMode: () => void;
   togglePanelPinned: () => void;
-  setPreferredMode: (mode: 'fast' | 'thinking') => void;
+  setPreferredMode: (mode: PreferredMode) => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
   setSelectedOutputDeviceId: (deviceId: string) => void;
+  setVoiceEchoCancellationEnabled: (enabled: boolean) => void;
+  setVoiceNoiseSuppressionEnabled: (enabled: boolean) => void;
+  setVoiceAutoGainControlEnabled: (enabled: boolean) => void;
   setThemePreference: (themePreference: ThemePreference) => void;
   handleBackendUrlChange: (value: string) => void;
   handleBackendUrlBlur: () => Promise<void>;
@@ -48,12 +54,6 @@ export function useAssistantPanelSettingsController({
   const backendUrlError = useUiStore((state) => state.backendUrlError);
   const setBackendUrlDraft = useUiStore((state) => state.setBackendUrlDraft);
   const setBackendUrlError = useUiStore((state) => state.setBackendUrlError);
-  const inputDeviceOptions = useUiStore((state) =>
-    state.inputDeviceOptions.length > 0 ? state.inputDeviceOptions : UNAVAILABLE_INPUT_OPTION,
-  );
-  const outputDeviceOptions = useUiStore((state) =>
-    state.outputDeviceOptions.length > 0 ? state.outputDeviceOptions : UNAVAILABLE_OUTPUT_OPTION,
-  );
   const resolvedBackendUrlDraft = backendUrlDraft || settings.backendUrl;
 
   const handleBackendUrlBlur = async (): Promise<void> => {
@@ -90,9 +90,12 @@ export function useAssistantPanelSettingsController({
     preferredMode: settings.preferredMode,
     selectedInputDeviceId: settings.selectedInputDeviceId,
     selectedOutputDeviceId: settings.selectedOutputDeviceId,
+    voiceEchoCancellationEnabled: settings.voiceEchoCancellationEnabled,
+    voiceNoiseSuppressionEnabled: settings.voiceNoiseSuppressionEnabled,
+    voiceAutoGainControlEnabled: settings.voiceAutoGainControlEnabled,
     themePreference: settings.themePreference,
-    inputDeviceOptions,
-    outputDeviceOptions,
+    inputDeviceOptions: UNAVAILABLE_INPUT_OPTION,
+    outputDeviceOptions: UNAVAILABLE_OUTPUT_OPTION,
     backendUrlDraft: resolvedBackendUrlDraft,
     backendUrlError,
     toggleDebugMode,
@@ -107,6 +110,15 @@ export function useAssistantPanelSettingsController({
     },
     setSelectedOutputDeviceId: (selectedOutputDeviceId) => {
       void updateSetting('selectedOutputDeviceId', selectedOutputDeviceId);
+    },
+    setVoiceEchoCancellationEnabled: (voiceEchoCancellationEnabled) => {
+      void updateSetting('voiceEchoCancellationEnabled', voiceEchoCancellationEnabled);
+    },
+    setVoiceNoiseSuppressionEnabled: (voiceNoiseSuppressionEnabled) => {
+      void updateSetting('voiceNoiseSuppressionEnabled', voiceNoiseSuppressionEnabled);
+    },
+    setVoiceAutoGainControlEnabled: (voiceAutoGainControlEnabled) => {
+      void updateSetting('voiceAutoGainControlEnabled', voiceAutoGainControlEnabled);
     },
     setThemePreference: (themePreference) => {
       void updateSetting('themePreference', themePreference);

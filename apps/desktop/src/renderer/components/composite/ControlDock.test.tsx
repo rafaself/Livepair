@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { useSessionStore } from '../../store/sessionStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -7,125 +7,47 @@ import { resetDesktopStores } from '../../store/testing';
 import { useUiStore } from '../../store/uiStore';
 import { selectAssistantRuntimeState } from '../../runtime/selectors';
 import { useSessionRuntime } from '../../runtime/useSessionRuntime';
+import { __emitGeminiLiveSdkMessage } from '../../test/geminiLiveSdkMock';
 import { AssistantPanelSettingsView } from '../features/AssistantPanelSettingsView';
 import { ControlDock } from './ControlDock';
-
-function createCloseEvent(code?: number, reason?: string): CloseEvent {
-  const init: CloseEventInit = {};
-
-  if (code !== undefined) {
-    init.code = code;
-  }
-
-  if (reason !== undefined) {
-    init.reason = reason;
-  }
-
-  return new CloseEvent('close', init);
-}
-
-class FakeWebSocket {
-  static instances: FakeWebSocket[] = [];
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
-
-  readonly addEventListener = vi.fn(
-    (type: string, listener: EventListenerOrEventListenerObject) => {
-      this.listeners.get(type)?.add(listener);
-    },
-  );
-
-  readonly removeEventListener = vi.fn(
-    (type: string, listener: EventListenerOrEventListenerObject) => {
-      this.listeners.get(type)?.delete(listener);
-    },
-  );
-
-  readonly send = vi.fn();
-  readonly close = vi.fn((code?: number, reason?: string) => {
-    this.readyState = FakeWebSocket.CLOSING;
-    this.emit('close', createCloseEvent(code, reason));
-  });
-
-  readyState = FakeWebSocket.CONNECTING;
-
-  private readonly listeners = new Map<string, Set<EventListenerOrEventListenerObject>>([
-    ['open', new Set()],
-    ['message', new Set()],
-    ['error', new Set()],
-    ['close', new Set()],
-  ]);
-
-  constructor(public readonly url: string) {
-    FakeWebSocket.instances.push(this);
-  }
-
-  emit(type: 'open' | 'error', event: Event): void;
-  emit(type: 'message', event: MessageEvent<string>): void;
-  emit(type: 'close', event: CloseEvent): void;
-  emit(
-    type: 'open' | 'message' | 'error' | 'close',
-    event: Event | MessageEvent<string> | CloseEvent,
-  ): void {
-    if (type === 'open') {
-      this.readyState = FakeWebSocket.OPEN;
-    }
-
-    if (type === 'close') {
-      this.readyState = FakeWebSocket.CLOSED;
-    }
-
-    this.listeners.get(type)?.forEach((listener) => {
-      if (typeof listener === 'function') {
-        listener(event);
-        return;
-      }
-
-      listener.handleEvent(event);
-    });
-  }
-}
-
-async function connectLatestSocket(): Promise<FakeWebSocket> {
-  await waitFor(() => {
-    expect(FakeWebSocket.instances.length).toBeGreaterThan(0);
-  });
-
-  const socket = FakeWebSocket.instances.at(-1);
-  if (!socket) {
-    throw new Error('Expected a realtime socket');
-  }
-
-  act(() => {
-    socket.emit('open', new Event('open'));
-    socket.emit(
-      'message',
-      new MessageEvent('message', {
-        data: JSON.stringify({ setupComplete: {} }),
-      }),
-    );
-  });
-
-  return socket;
-}
 
 function renderDock() {
   function DockHarness(): JSX.Element {
     const assistantState = useSessionStore(selectAssistantRuntimeState);
     const isPanelOpen = useUiStore((state) => state.isPanelOpen);
     const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
-    const { handleEndSession, handleStartSession, isSessionActive } = useSessionRuntime();
+    const {
+      handleEndSession,
+      handleStartVoiceSession,
+      handleStartVoiceCapture,
+      handleStopVoiceCapture,
+      handleStartScreenCapture,
+      handleStopScreenCapture,
+      isSessionActive,
+      isVoiceSessionActive,
+      voiceSessionStatus,
+      voiceCaptureState,
+      screenCaptureState,
+    } = useSessionRuntime();
 
     return (
       <>
         <output aria-label="panel-open">{String(isPanelOpen)}</output>
         <output aria-label="panel-pinned">{String(isPanelPinned)}</output>
         <output aria-label="assistant-state">{assistantState}</output>
+        <output aria-label="voice-capture-state">{voiceCaptureState}</output>
+        <output aria-label="screen-capture-state">{screenCaptureState}</output>
         <ControlDock
-          isSessionActive={isSessionActive}
-          onStartSession={handleStartSession}
+          isTextSessionActive={isSessionActive}
+          isVoiceSessionActive={isVoiceSessionActive}
+          voiceSessionStatus={voiceSessionStatus}
+          voiceCaptureState={voiceCaptureState}
+          screenCaptureState={screenCaptureState}
+          onStartVoiceSession={handleStartVoiceSession}
+          onStartVoiceCapture={handleStartVoiceCapture}
+          onStopVoiceCapture={handleStopVoiceCapture}
+          onStartScreenCapture={handleStartScreenCapture}
+          onStopScreenCapture={handleStopScreenCapture}
           onEndSession={handleEndSession}
         />
         <AssistantPanelSettingsView />
@@ -139,63 +61,165 @@ function renderDock() {
 describe('ControlDock', () => {
   beforeEach(() => {
     resetDesktopStores();
-    FakeWebSocket.instances = [];
-    vi.stubGlobal('WebSocket', FakeWebSocket);
     useSettingsStore.setState({ settings: DEFAULT_DESKTOP_SETTINGS, isReady: true });
     useUiStore.getState().initializeSettingsUi(DEFAULT_DESKTOP_SETTINGS);
+    window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'auth_tokens/test-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    });
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
       ...patch,
     }));
-    window.bridge.checkHealth = vi.fn().mockResolvedValue({
-      status: 'ok',
-      timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
-    });
-    window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
-      token: 'ephemeral-token',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
-    });
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('renders all four control buttons', () => {
+  it('renders voice session controls disconnected by default', () => {
     renderDock();
-    expect(screen.getByRole('button', { name: /unmute microphone/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /enable camera/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /start session/i })).toBeInTheDocument();
+
+    expect(
+      screen.getByRole('button', { name: /connect voice session to use microphone/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /connect voice session to use screen context/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /^connect voice session$/i }),
+    ).toBeEnabled();
     expect(screen.getByRole('button', { name: /open panel/i })).toBeInTheDocument();
   });
 
-  it('shows start session button when disconnected and end session when active', async () => {
+  it('keeps microphone controls available during interrupted and recovering voice states', () => {
+    const noop = vi.fn(async () => undefined);
+    const { rerender } = render(
+      <ControlDock
+        isTextSessionActive={false}
+        isVoiceSessionActive
+        voiceSessionStatus="interrupted"
+        voiceCaptureState="stopped"
+        screenCaptureState="disabled"
+        onStartVoiceSession={noop}
+        onStartVoiceCapture={noop}
+        onStopVoiceCapture={noop}
+        onStartScreenCapture={noop}
+        onStopScreenCapture={noop}
+        onEndSession={noop}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /start microphone capture/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /start screen context/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /disconnect voice session/i }),
+    ).toBeEnabled();
+
+    rerender(
+      <ControlDock
+        isTextSessionActive={false}
+        isVoiceSessionActive
+        voiceSessionStatus="recovering"
+        voiceCaptureState="stopped"
+        screenCaptureState="disabled"
+        onStartVoiceSession={noop}
+        onStartVoiceCapture={noop}
+        onStopVoiceCapture={noop}
+        onStartScreenCapture={noop}
+        onStopScreenCapture={noop}
+        onEndSession={noop}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /start microphone capture/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /start screen context/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: /disconnect voice session/i }),
+    ).toBeEnabled();
+  });
+
+  it('connects voice mode and then toggles local microphone capture from the dock', async () => {
     renderDock();
-    fireEvent.click(screen.getByRole('button', { name: /start session/i }));
-    await connectLatestSocket();
+
+    fireEvent.click(screen.getByRole('button', { name: /^connect voice session$/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
-      expect(screen.getByRole('button', { name: /end session/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /connecting voice session/i }),
+      ).toBeDisabled();
+    });
+    await act(async () => {
+      __emitGeminiLiveSdkMessage({ setupComplete: {} });
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /start microphone capture/i }),
+      ).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /start microphone capture/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('capturing');
+    });
+    expect(
+      screen.getByRole('button', { name: /stop microphone capture/i }),
+    ).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /stop microphone capture/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('stopped');
     });
   });
 
-  it('toggles microphone and camera state labels and can end an active session', async () => {
+  it('toggles screen context from the dock during an active voice session', async () => {
     renderDock();
 
-    fireEvent.click(screen.getByRole('button', { name: /unmute microphone/i }));
-    expect(screen.getByRole('button', { name: /mute microphone/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^connect voice session$/i }));
 
-    fireEvent.click(screen.getByRole('button', { name: /enable camera/i }));
-    expect(screen.getByRole('button', { name: /disable camera/i })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /start session/i }));
-    await connectLatestSocket();
-    fireEvent.click(screen.getByRole('button', { name: /end session/i }));
     await waitFor(() => {
-      expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
+      expect(
+        screen.getByRole('button', { name: /connecting voice session/i }),
+      ).toBeDisabled();
     });
+    await act(async () => {
+      __emitGeminiLiveSdkMessage({ setupComplete: {} });
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /start screen context/i }),
+      ).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /start screen context/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('screen-capture-state')).toHaveTextContent(/capturing|streaming/);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /stop screen context/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('screen-capture-state')).toHaveTextContent('disabled');
+    });
+  });
+
+  it('keeps voice session controls unavailable while text mode is active', async () => {
+    useSessionStore.getState().setTextSessionLifecycle({ status: 'ready' });
+    renderDock();
+
+    expect(
+      screen.getByRole('button', { name: /voice session unavailable in text mode/i }),
+    ).toBeDisabled();
   });
 
   it('opens and closes the panel', () => {

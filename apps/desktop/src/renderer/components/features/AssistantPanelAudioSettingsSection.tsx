@@ -2,7 +2,7 @@ import { AudioLines } from 'lucide-react';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
 import { FieldList } from '../composite';
 import { ViewSection } from '../layout';
-import { Select } from '../primitives';
+import { Select, Switch } from '../primitives';
 
 type AudioSettingsController = Pick<
   AssistantPanelSettingsController,
@@ -10,8 +10,14 @@ type AudioSettingsController = Pick<
   | 'outputDeviceOptions'
   | 'selectedInputDeviceId'
   | 'selectedOutputDeviceId'
+  | 'voiceEchoCancellationEnabled'
+  | 'voiceNoiseSuppressionEnabled'
+  | 'voiceAutoGainControlEnabled'
   | 'setSelectedInputDeviceId'
   | 'setSelectedOutputDeviceId'
+  | 'setVoiceEchoCancellationEnabled'
+  | 'setVoiceNoiseSuppressionEnabled'
+  | 'setVoiceAutoGainControlEnabled'
 >;
 
 export type AssistantPanelAudioSettingsSectionProps = {
@@ -26,8 +32,14 @@ export function AssistantPanelAudioSettingsSection({
     outputDeviceOptions,
     selectedInputDeviceId,
     selectedOutputDeviceId,
+    voiceEchoCancellationEnabled,
+    voiceNoiseSuppressionEnabled,
+    voiceAutoGainControlEnabled,
     setSelectedInputDeviceId,
     setSelectedOutputDeviceId,
+    setVoiceEchoCancellationEnabled,
+    setVoiceNoiseSuppressionEnabled,
+    setVoiceAutoGainControlEnabled,
   } = controller;
   const isInputUnavailable = inputDeviceOptions[0]?.value === 'unavailable';
   const isOutputUnavailable = outputDeviceOptions[0]?.value === 'unavailable';
@@ -66,6 +78,39 @@ export function AssistantPanelAudioSettingsSection({
                 }}
                 disabled={isOutputUnavailable}
                 size="sm"
+              />
+            ),
+          },
+          {
+            label: 'Echo cancellation',
+            value: (
+              <Switch
+                aria-label="Echo cancellation"
+                checked={voiceEchoCancellationEnabled}
+                className="assistant-panel__settings-switch"
+                onCheckedChange={setVoiceEchoCancellationEnabled}
+              />
+            ),
+          },
+          {
+            label: 'Noise suppression',
+            value: (
+              <Switch
+                aria-label="Noise suppression"
+                checked={voiceNoiseSuppressionEnabled}
+                className="assistant-panel__settings-switch"
+                onCheckedChange={setVoiceNoiseSuppressionEnabled}
+              />
+            ),
+          },
+          {
+            label: 'Auto gain control',
+            value: (
+              <Switch
+                aria-label="Auto gain control"
+                checked={voiceAutoGainControlEnabled}
+                className="assistant-panel__settings-switch"
+                onCheckedChange={setVoiceAutoGainControlEnabled}
               />
             ),
           },

@@ -13,9 +13,50 @@ export type ConversationTurnModel = {
   statusLabel?: string | undefined;
 };
 
-export type TransportKind = 'gemini-live';
+export type TransportKind = 'backend-text' | 'gemini-live';
+export type SessionMode = 'text' | 'voice';
+export type VoiceCaptureState =
+  | 'idle'
+  | 'requestingPermission'
+  | 'capturing'
+  | 'stopping'
+  | 'stopped'
+  | 'error';
+export type VoicePlaybackState =
+  | 'idle'
+  | 'buffering'
+  | 'playing'
+  | 'stopping'
+  | 'stopped'
+  | 'error';
+export type VoiceSessionStatus =
+  | 'connecting'
+  | 'ready'
+  | 'interrupted'
+  | 'recovering'
+  | 'capturing'
+  | 'streaming'
+  | 'stopping'
+  | 'disconnected'
+  | 'error';
 
 export type SessionPhase = 'idle' | 'starting' | 'active' | 'ending' | 'error';
+export type TextSessionStatus =
+  | 'idle'
+  | 'connecting'
+  | 'ready'
+  | 'sending'
+  | 'receiving'
+  | 'generationCompleted'
+  | 'completed'
+  | 'interrupted'
+  | 'goAway'
+  | 'disconnecting'
+  | 'disconnected'
+  | 'error';
+export type TextSessionLifecycle = {
+  status: TextSessionStatus;
+};
 
 export type AssistantActivityState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
@@ -26,8 +67,6 @@ export type TransportConnectionState =
   | 'disconnecting'
   | 'error';
 
-export type TransportAssistantActivity = Exclude<AssistantActivityState, 'idle'> | 'ready';
-
 export type RuntimeDebugEvent = {
   scope: 'session' | 'transport';
   type: string;
@@ -35,7 +74,58 @@ export type RuntimeDebugEvent = {
   detail?: string | undefined;
 };
 
-export type SessionEvent =
+export type LocalVoiceChunk = {
+  data: Uint8Array;
+  sampleRateHz: 16_000;
+  channels: 1;
+  encoding: 'pcm_s16le';
+  durationMs: 20;
+  sequence: number;
+};
+
+export type VoiceCaptureDiagnostics = {
+  chunkCount: number;
+  sampleRateHz: number | null;
+  bytesPerChunk: number | null;
+  chunkDurationMs: number | null;
+  selectedInputDeviceId: string | null;
+  lastError: string | null;
+};
+
+export type VoicePlaybackDiagnostics = {
+  chunkCount: number;
+  queueDepth: number;
+  sampleRateHz: number | null;
+  selectedOutputDeviceId: string | null;
+  lastError: string | null;
+};
+
+export type VoiceTranscriptEntry = {
+  text: string;
+  isFinal?: boolean | undefined;
+};
+
+export type CurrentVoiceTranscript = {
+  user: VoiceTranscriptEntry;
+  assistant: VoiceTranscriptEntry;
+};
+
+export type VoiceSessionResumptionStatus =
+  | 'idle'
+  | 'connected'
+  | 'goAway'
+  | 'reconnecting'
+  | 'resumed'
+  | 'resumeFailed';
+
+export type VoiceSessionResumptionState = {
+  status: VoiceSessionResumptionStatus;
+  latestHandle: string | null;
+  resumable: boolean;
+  lastDetail: string | null;
+};
+
+export type SessionControllerEvent =
   | { type: 'session.backend.health.started' }
   | { type: 'session.backend.health.succeeded' }
   | { type: 'session.backend.health.failed'; detail: string }
@@ -47,41 +137,120 @@ export type SessionEvent =
   | { type: 'session.ended' }
   | { type: 'session.debug.state.set'; detail: string };
 
-export type TransportEvent =
+export type SessionConnectionState = 'connecting' | 'connected' | 'disconnected';
+
+export type LiveSessionEvent =
   | {
-      type: 'transport.lifecycle';
-      state: 'connecting' | 'connected' | 'disconnected' | 'error';
+      type: 'connection-state-changed';
+      state: SessionConnectionState;
+    }
+  | {
+      type: 'text-delta';
+      text: string;
+    }
+  | {
+      type: 'text-message';
+      text: string;
+    }
+  | {
+      type: 'audio-chunk';
+      chunk: Uint8Array;
+    }
+  | {
+      type: 'audio-error';
+      detail: string;
+    }
+  | {
+      type: 'input-transcript';
+      text: string;
+      isFinal?: boolean | undefined;
+    }
+  | {
+      type: 'output-transcript';
+      text: string;
+      isFinal?: boolean | undefined;
+    }
+  | {
+      type: 'interrupted';
+    }
+  | {
+      type: 'generation-complete';
+    }
+  | {
+      type: 'turn-complete';
+    }
+  | {
+      type: 'go-away';
       detail?: string | undefined;
     }
   | {
-      type: 'assistant.activity';
-      activity: TransportAssistantActivity;
+      type: 'connection-terminated';
+      detail: string;
     }
   | {
-      type: 'conversation.turn.appended';
-      turn: ConversationTurnModel;
+      type: 'session-resumption-update';
+      handle: string | null;
+      resumable: boolean;
+      detail?: string | undefined;
     }
   | {
-      type: 'conversation.turn.updated';
-      turnId: string;
-      content: string;
-      state: ConversationTurnState;
-      statusLabel?: string | undefined;
+      type: 'error';
+      detail: string;
     };
 
-export type DesktopSessionTransportConnectParams = {
+export type DesktopSessionConnectParams = {
   token: CreateEphemeralTokenResponse;
+  mode: SessionMode;
+  resumeHandle?: string | undefined;
 };
 
-export type DesktopSessionTransport = {
+export type DesktopSession = {
   kind: TransportKind;
-  connect: (params: DesktopSessionTransportConnectParams) => Promise<void>;
+  connect: (params: DesktopSessionConnectParams) => Promise<void>;
   sendText: (text: string) => Promise<void>;
+  sendAudioChunk: (chunk: Uint8Array) => Promise<void>;
+  sendAudioStreamEnd: () => Promise<void>;
+  sendVideoFrame: (data: Uint8Array, mimeType: string) => Promise<void>;
   disconnect: () => Promise<void>;
-  subscribe: (listener: (event: TransportEvent) => void) => () => void;
+  subscribe: (listener: (event: LiveSessionEvent) => void) => () => void;
+};
+
+export type AssistantAudioPlayback = {
+  enqueue: (chunk: Uint8Array) => Promise<void>;
+  stop: () => Promise<void>;
+};
+
+export type ScreenCaptureState =
+  | 'disabled'
+  | 'requestingPermission'
+  | 'ready'
+  | 'capturing'
+  | 'streaming'
+  | 'stopping'
+  | 'error';
+
+export type ScreenFrameUploadStatus = 'idle' | 'sending' | 'sent' | 'error';
+
+export type ScreenCaptureDiagnostics = {
+  captureSource: string | null;
+  frameCount: number;
+  frameRateHz: number | null;
+  widthPx: number | null;
+  heightPx: number | null;
+  lastFrameAt: string | null;
+  lastUploadStatus: ScreenFrameUploadStatus;
+  lastError: string | null;
+};
+
+export type LocalScreenFrame = {
+  data: Uint8Array;
+  mimeType: 'image/jpeg';
+  sequence: number;
+  widthPx: number;
+  heightPx: number;
 };
 
 export type RuntimeLogger = {
-  onSessionEvent: (event: SessionEvent) => void;
-  onTransportEvent: (event: TransportEvent) => void;
+  onSessionEvent: (event: SessionControllerEvent) => void;
+  onTransportEvent: (event: LiveSessionEvent) => void;
 };

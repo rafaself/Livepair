@@ -1,17 +1,23 @@
 import type { AssistantRuntimeState } from '../state/assistantUiState';
 import type { SessionStoreState } from '../store/sessionStore';
+import {
+  getTextSessionStatus,
+} from '../store/sessionStore';
+import { isSessionActiveLifecycle, isTextTurnInFlight } from './textSessionLifecycle';
 
 export function selectAssistantRuntimeState(
   state: Pick<
     SessionStoreState,
-    'assistantActivity' | 'backendState' | 'sessionPhase' | 'tokenRequestState' | 'transportState'
+    'assistantActivity' | 'backendState' | 'textSessionLifecycle' | 'tokenRequestState'
   >,
 ): AssistantRuntimeState {
+  const textSessionStatus = getTextSessionStatus(state);
+
   if (
-    state.sessionPhase === 'error' ||
     state.backendState === 'failed' ||
     state.tokenRequestState === 'error' ||
-    state.transportState === 'error'
+    textSessionStatus === 'error' ||
+    textSessionStatus === 'goAway'
   ) {
     return 'error';
   }
@@ -20,24 +26,26 @@ export function selectAssistantRuntimeState(
     return 'speaking';
   }
 
-  if (state.assistantActivity === 'thinking') {
-    return 'thinking';
-  }
-
   if (state.assistantActivity === 'listening') {
     return 'listening';
   }
 
-  if (state.transportState === 'connected' || state.sessionPhase === 'active') {
+  if (
+    textSessionStatus === 'connecting' ||
+    textSessionStatus === 'sending' ||
+    textSessionStatus === 'receiving' ||
+    textSessionStatus === 'generationCompleted' ||
+    textSessionStatus === 'interrupted' ||
+    textSessionStatus === 'disconnecting'
+  ) {
+    return 'thinking';
+  }
+
+  if (textSessionStatus === 'ready' || textSessionStatus === 'completed') {
     return 'ready';
   }
 
-  if (
-    state.sessionPhase === 'starting' ||
-    state.backendState === 'checking' ||
-    state.tokenRequestState === 'loading' ||
-    state.transportState === 'connecting'
-  ) {
+  if (state.backendState === 'checking' || state.tokenRequestState === 'loading') {
     return 'thinking';
   }
 
@@ -94,6 +102,66 @@ export function selectTokenFeedback(
   return null;
 }
 
+export function selectTextSessionStatus(
+  state: Pick<SessionStoreState, 'textSessionLifecycle'>,
+) {
+  return getTextSessionStatus(state);
+}
+
+export function selectTextSessionStatusLabel(
+  state: Pick<SessionStoreState, 'textSessionLifecycle'>,
+): string {
+  const textSessionStatus = getTextSessionStatus(state);
+
+  if (textSessionStatus === 'connecting') {
+    return 'Preparing text chat...';
+  }
+
+  if (textSessionStatus === 'ready') {
+    return 'Text chat ready';
+  }
+
+  if (textSessionStatus === 'sending') {
+    return 'Sending message...';
+  }
+
+  if (textSessionStatus === 'receiving') {
+    return 'Receiving response...';
+  }
+
+  if (textSessionStatus === 'generationCompleted') {
+    return 'Response generated, waiting for turn completion...';
+  }
+
+  if (textSessionStatus === 'completed') {
+    return 'Response complete';
+  }
+
+  if (textSessionStatus === 'interrupted') {
+    return 'Response interrupted';
+  }
+
+  if (textSessionStatus === 'goAway') {
+    return 'Text chat unavailable. Send again to retry.';
+  }
+
+  if (textSessionStatus === 'disconnecting') {
+    return 'Disconnecting text session...';
+  }
+
+  if (textSessionStatus === 'error') {
+    return 'Text session failed';
+  }
+
+  return 'Text session disconnected';
+}
+
+export function selectCanSubmitText(
+  state: Pick<SessionStoreState, 'textSessionLifecycle'>,
+): boolean {
+  return !isTextTurnInFlight(getTextSessionStatus(state));
+}
+
 export function selectIsConversationEmpty(
   state: Pick<SessionStoreState, 'conversationTurns'>,
 ): boolean {
@@ -101,14 +169,7 @@ export function selectIsConversationEmpty(
 }
 
 export function selectIsSessionActive(
-  state: Pick<SessionStoreState, 'sessionPhase' | 'transportState'>,
+  state: Pick<SessionStoreState, 'textSessionLifecycle'>,
 ): boolean {
-  return (
-    state.sessionPhase === 'starting' ||
-    state.sessionPhase === 'active' ||
-    state.sessionPhase === 'ending' ||
-    state.transportState === 'connecting' ||
-    state.transportState === 'connected' ||
-    state.transportState === 'disconnecting'
-  );
+  return isSessionActiveLifecycle(getTextSessionStatus(state));
 }

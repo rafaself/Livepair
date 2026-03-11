@@ -60,7 +60,15 @@ function AppShell(): JSX.Element {
   const overlayMode = window.bridge?.overlayMode ?? 'linux-shape';
   const {
     isSessionActive,
-    handleStartSession,
+    isVoiceSessionActive,
+    voiceSessionStatus,
+    voiceCaptureState,
+    screenCaptureState,
+    handleStartVoiceSession,
+    handleStartVoiceCapture,
+    handleStopVoiceCapture,
+    handleStartScreenCapture,
+    handleStopScreenCapture,
     handleEndSession,
   } = useSessionRuntime();
 
@@ -70,8 +78,16 @@ function AppShell(): JSX.Element {
       <OverlayInteractionManager overlayMode={overlayMode} />
       <AssistantPanel showStateDevControls={import.meta.env.DEV} />
       <ControlDock
-        isSessionActive={isSessionActive}
-        onStartSession={handleStartSession}
+        isTextSessionActive={isSessionActive}
+        isVoiceSessionActive={isVoiceSessionActive}
+        voiceSessionStatus={voiceSessionStatus}
+        voiceCaptureState={voiceCaptureState}
+        screenCaptureState={screenCaptureState}
+        onStartVoiceSession={handleStartVoiceSession}
+        onStartVoiceCapture={handleStartVoiceCapture}
+        onStopVoiceCapture={handleStopVoiceCapture}
+        onStartScreenCapture={handleStartScreenCapture}
+        onStopScreenCapture={handleStopScreenCapture}
         onEndSession={handleEndSession}
       />
     </div>

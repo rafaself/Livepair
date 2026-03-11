@@ -33,14 +33,26 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={controller.togglePanelPinned}>
         toggle pinned
       </button>
-      <button type="button" onClick={() => controller.setPreferredMode('thinking')}>
-        set thinking
+      <button type="button" onClick={() => controller.setPreferredMode('fast')}>
+        set fast
       </button>
       <button type="button" onClick={() => controller.setSelectedInputDeviceId('usb-mic')}>
         set input
       </button>
       <button type="button" onClick={() => controller.setSelectedOutputDeviceId('desk-speakers')}>
         set output
+      </button>
+      <output aria-label="echo-cancellation">{String(controller.voiceEchoCancellationEnabled)}</output>
+      <output aria-label="noise-suppression">{String(controller.voiceNoiseSuppressionEnabled)}</output>
+      <output aria-label="auto-gain-control">{String(controller.voiceAutoGainControlEnabled)}</output>
+      <button type="button" onClick={() => controller.setVoiceEchoCancellationEnabled(false)}>
+        disable echo cancellation
+      </button>
+      <button type="button" onClick={() => controller.setVoiceNoiseSuppressionEnabled(false)}>
+        disable noise suppression
+      </button>
+      <button type="button" onClick={() => controller.setVoiceAutoGainControlEnabled(false)}>
+        disable auto gain control
       </button>
       <button type="button" onClick={() => controller.setThemePreference('dark')}>
         set dark
@@ -130,8 +142,12 @@ describe('useAssistantPanelSettingsController', () => {
   it('falls back to unavailable device options when the ui store has not hydrated devices', () => {
     render(<HookHarness />);
 
-    expect(screen.getByLabelText('input-options')).toHaveTextContent('No microphone detected');
-    expect(screen.getByLabelText('output-options')).toHaveTextContent('No speaker detected');
+    expect(screen.getByLabelText('input-options')).toHaveTextContent(
+      'Voice input unavailable in text-only release',
+    );
+    expect(screen.getByLabelText('output-options')).toHaveTextContent(
+      'Voice output unavailable in text-only release',
+    );
   });
 
   it('routes settings mutations through the stores and exposes debug mode toggles', async () => {
@@ -139,19 +155,31 @@ describe('useAssistantPanelSettingsController', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle debug' }));
     fireEvent.click(screen.getByRole('button', { name: 'toggle pinned' }));
-    fireEvent.click(screen.getByRole('button', { name: 'set thinking' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set fast' }));
     fireEvent.click(screen.getByRole('button', { name: 'set input' }));
     fireEvent.click(screen.getByRole('button', { name: 'set output' }));
+    fireEvent.click(screen.getByRole('button', { name: 'disable echo cancellation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'disable noise suppression' }));
+    fireEvent.click(screen.getByRole('button', { name: 'disable auto gain control' }));
     fireEvent.click(screen.getByRole('button', { name: 'set dark' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('debug-mode')).toHaveTextContent('true');
+      expect(screen.getByLabelText('debug-mode')).toHaveTextContent('false');
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ isPanelPinned: true });
-    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ preferredMode: 'thinking' });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ preferredMode: 'fast' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ selectedInputDeviceId: 'usb-mic' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       selectedOutputDeviceId: 'desk-speakers',
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceEchoCancellationEnabled: false,
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceNoiseSuppressionEnabled: false,
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceAutoGainControlEnabled: false,
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
   });

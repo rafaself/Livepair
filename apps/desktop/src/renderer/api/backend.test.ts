@@ -1,86 +1,79 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkBackendHealth, requestSessionToken } from './backend';
+import {
+  checkBackendHealth,
+  requestSessionToken,
+  startTextChatStream,
+} from './backend';
+
+function createBridge() {
+  return {
+    overlayMode: 'linux-shape' as const,
+    checkHealth: vi.fn(),
+    requestSessionToken: vi.fn(),
+    startTextChatStream: vi.fn(),
+    getSettings: vi.fn(),
+    updateSettings: vi.fn(),
+    setOverlayHitRegions: vi.fn(),
+    setOverlayPointerPassthrough: vi.fn(),
+  };
+}
 
 describe('renderer backend api helper', () => {
   it('returns true when bridge health responds with status ok', async () => {
-    const checkHealth = vi.fn().mockResolvedValue({ status: 'ok', timestamp: 'now' });
-    const requestToken = vi.fn();
-    window.bridge = {
-      overlayMode: 'linux-shape',
-      checkHealth,
-      requestSessionToken: requestToken,
-      getSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setOverlayHitRegions: vi.fn(),
-      setOverlayPointerPassthrough: vi.fn(),
-    };
+    const bridge = createBridge();
+    bridge.checkHealth.mockResolvedValue({ status: 'ok', timestamp: 'now' });
+    window.bridge = bridge;
 
     await expect(checkBackendHealth()).resolves.toBe(true);
-    expect(checkHealth).toHaveBeenCalledTimes(1);
+    expect(bridge.checkHealth).toHaveBeenCalledTimes(1);
   });
 
   it('returns false when bridge health rejects or returns a non-ok payload', async () => {
-    const requestToken = vi.fn();
-    window.bridge = {
-      overlayMode: 'linux-shape',
-      checkHealth: vi.fn().mockResolvedValue({ status: 'bad', timestamp: 'now' }),
-      requestSessionToken: requestToken,
-      getSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setOverlayHitRegions: vi.fn(),
-      setOverlayPointerPassthrough: vi.fn(),
-    };
+    const bridge = createBridge();
+    bridge.checkHealth.mockResolvedValue({ status: 'bad', timestamp: 'now' });
+    window.bridge = bridge;
 
     await expect(checkBackendHealth()).resolves.toBe(false);
 
-    window.bridge = {
-      overlayMode: 'linux-shape',
-      checkHealth: vi.fn().mockRejectedValue(new Error('network')),
-      requestSessionToken: requestToken,
-      getSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setOverlayHitRegions: vi.fn(),
-      setOverlayPointerPassthrough: vi.fn(),
-    };
+    bridge.checkHealth.mockRejectedValue(new Error('network'));
     await expect(checkBackendHealth()).resolves.toBe(false);
   });
 
   it('delegates token request to bridge and returns response', async () => {
     const tokenResponse = {
       token: 't',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     };
-    const checkHealth = vi.fn();
-    const requestToken = vi.fn().mockResolvedValue(tokenResponse);
-    window.bridge = {
-      overlayMode: 'linux-shape',
-      checkHealth,
-      requestSessionToken: requestToken,
-      getSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setOverlayHitRegions: vi.fn(),
-      setOverlayPointerPassthrough: vi.fn(),
-    };
+    const bridge = createBridge();
+    bridge.requestSessionToken.mockResolvedValue(tokenResponse);
+    window.bridge = bridge;
 
     await expect(requestSessionToken({})).resolves.toEqual(tokenResponse);
-    expect(requestToken).toHaveBeenCalledTimes(1);
-    expect(requestToken).toHaveBeenCalledWith({});
+    expect(bridge.requestSessionToken).toHaveBeenCalledWith({});
   });
 
   it('propagates token request failures', async () => {
-    const checkHealth = vi.fn();
-    const requestToken = vi.fn().mockRejectedValue(new Error('token failed'));
-    window.bridge = {
-      overlayMode: 'linux-shape',
-      checkHealth,
-      requestSessionToken: requestToken,
-      getSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setOverlayHitRegions: vi.fn(),
-      setOverlayPointerPassthrough: vi.fn(),
-    };
+    const bridge = createBridge();
+    bridge.requestSessionToken.mockRejectedValue(new Error('token failed'));
+    window.bridge = bridge;
 
     await expect(requestSessionToken({})).rejects.toThrow('token failed');
+  });
+
+  it('delegates text stream startup to the bridge and returns the handle', async () => {
+    const handle = {
+      cancel: vi.fn(async () => undefined),
+    };
+    const onEvent = vi.fn();
+    const bridge = createBridge();
+    bridge.startTextChatStream.mockResolvedValue(handle);
+    window.bridge = bridge;
+    const request = {
+      messages: [{ role: 'user' as const, content: 'Summarize the current screen' }],
+    };
+
+    await expect(startTextChatStream(request, onEvent)).resolves.toBe(handle);
+    expect(bridge.startTextChatStream).toHaveBeenCalledWith(request, onEvent);
   });
 });

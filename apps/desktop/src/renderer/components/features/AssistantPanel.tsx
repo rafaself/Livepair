@@ -25,6 +25,19 @@ export function AssistantPanel({
     backendIndicatorState,
     backendLabel,
     tokenFeedback,
+    textSessionStatus,
+    textSessionStatusLabel,
+    voiceSessionStatus,
+    voiceSessionResumption,
+    voiceCaptureState,
+    voiceCaptureDiagnostics,
+    voicePlaybackState,
+    voicePlaybackDiagnostics,
+    screenCaptureState,
+    screenCaptureDiagnostics,
+    isVoiceSessionActive,
+    currentVoiceTranscript,
+    canSubmitText,
     lastRuntimeError,
     draftText,
     isSubmittingTextTurn,
@@ -54,7 +67,12 @@ export function AssistantPanel({
           {panelView === 'chat' ? (
             <AssistantPanelChatView
               assistantState={assistantState}
+              textSessionStatus={textSessionStatus}
+              textSessionStatusLabel={textSessionStatusLabel}
+              canSubmitText={canSubmitText}
               turns={conversationTurns}
+              isVoiceSessionActive={isVoiceSessionActive}
+              currentVoiceTranscript={currentVoiceTranscript}
               isConversationEmpty={isConversationEmpty}
               lastRuntimeError={lastRuntimeError}
               draftText={draftText}
@@ -78,6 +96,14 @@ export function AssistantPanel({
                 backendIndicatorState={backendIndicatorState}
                 backendLabel={backendLabel}
                 tokenFeedback={tokenFeedback}
+                voiceSessionStatus={voiceSessionStatus}
+                voiceSessionResumption={voiceSessionResumption}
+                voiceCaptureState={voiceCaptureState}
+                voiceCaptureDiagnostics={voiceCaptureDiagnostics}
+                voicePlaybackState={voicePlaybackState}
+                voicePlaybackDiagnostics={voicePlaybackDiagnostics}
+                screenCaptureState={screenCaptureState}
+                screenCaptureDiagnostics={screenCaptureDiagnostics}
                 onRetryBackendHealth={handleCheckBackendHealth}
                 onSetAssistantState={setAssistantState}
               />

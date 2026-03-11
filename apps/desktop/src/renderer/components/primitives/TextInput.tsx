@@ -4,6 +4,7 @@ import {
   useState,
   type FocusEvent,
   type InputHTMLAttributes,
+  type ReactNode,
 } from 'react';
 import { OutlinedField } from './OutlinedField';
 import './TextInput.css';
@@ -15,6 +16,7 @@ export type TextInputValidateOn = 'input' | 'blur';
 export type TextInputProps = {
   size?: 'sm' | 'md' | undefined;
   label?: string | undefined;
+  append?: ReactNode | undefined;
   invalid?: boolean | undefined;
   error?: string | undefined;
   hint?: string | undefined;
@@ -83,6 +85,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   {
     size = 'md',
     label,
+    append,
     invalid = false,
     error,
     hint,
@@ -183,6 +186,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
     <div className={['text-input__root', className].filter(Boolean).join(' ')}>
       <OutlinedField
         label={label}
+        append={append}
         htmlFor={inputId}
         size={size}
         focused={isFocused}

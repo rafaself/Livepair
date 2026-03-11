@@ -33,6 +33,16 @@ export function createWindow(): void {
     },
   });
 
+  win.webContents.on('console-message', (_event, level, message) => {
+    if (level >= 3) {
+      console.error('[renderer]', message);
+    } else if (level >= 2) {
+      console.warn('[renderer]', message);
+    } else if (level >= 1) {
+      console.log('[renderer]', message);
+    }
+  });
+
   if (process.env['NODE_ENV'] === 'development') {
     win.loadURL('http://localhost:5173');
     if (process.env['OPEN_DEVTOOLS'] === 'true') {

@@ -62,6 +62,18 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('textbox', { name: /backend url/i })).toHaveValue(
       'https://runtime.livepair.dev/api',
     );
+    expect(screen.getByRole('switch', { name: 'Echo cancellation' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('switch', { name: 'Noise suppression' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('switch', { name: 'Auto gain control' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 
   it('applies a valid backend URL override on blur through the settings store', async () => {
@@ -96,21 +108,16 @@ describe('AssistantPanelSettingsView', () => {
     expect(backendUrlInput).toHaveValue('ftp://bad.example.com');
   });
 
-  it('updates persisted theme and preferred mode selections', async () => {
+  it('updates persisted theme and keeps preferred mode locked to fast', async () => {
     await renderSettings();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('radio', { name: 'Use dark theme' }));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /preferred mode/i }));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('option', { name: 'Thinking' }));
-    });
 
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
-    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ preferredMode: 'thinking' });
+    expect(screen.getByRole('button', { name: /preferred mode/i })).toHaveTextContent('Fast');
+    expect(screen.getByRole('button', { name: /preferred mode/i })).toBeDisabled();
   });
 
   it('renders enumerated devices and resets invalid stored selections to default', async () => {
@@ -156,11 +163,13 @@ describe('AssistantPanelSettingsView', () => {
       selectedOutputDeviceId: 'default',
     });
     expect(screen.getByRole('button', { name: /input device/i })).toHaveTextContent(
-      'System default',
+      'Voice input unavailable in text-only release',
     );
     expect(screen.getByRole('button', { name: /output device/i })).toHaveTextContent(
-      'System default',
+      'Voice output unavailable in text-only release',
     );
+    expect(screen.getByRole('button', { name: /input device/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /output device/i })).toBeDisabled();
   });
 
   it('refreshes device options after a devicechange event', async () => {
@@ -195,6 +204,26 @@ describe('AssistantPanelSettingsView', () => {
 
     await waitFor(() => {
       expect(enumerateDevices).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('persists browser audio cleanup toggles from the audio section', async () => {
+    await renderSettings();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', { name: 'Echo cancellation' }));
+      fireEvent.click(screen.getByRole('switch', { name: 'Noise suppression' }));
+      fireEvent.click(screen.getByRole('switch', { name: 'Auto gain control' }));
+    });
+
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceEchoCancellationEnabled: false,
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceNoiseSuppressionEnabled: false,
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      voiceAutoGainControlEnabled: false,
     });
   });
 });

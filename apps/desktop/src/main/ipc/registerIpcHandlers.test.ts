@@ -16,6 +16,9 @@ const defaultSettings: DesktopSettings = {
   preferredMode: 'fast',
   selectedInputDeviceId: 'default',
   selectedOutputDeviceId: 'default',
+  voiceEchoCancellationEnabled: true,
+  voiceNoiseSuppressionEnabled: true,
+  voiceAutoGainControlEnabled: true,
   isPanelPinned: false,
 };
 
@@ -47,26 +50,36 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(6);
+    expect(mockHandle).toHaveBeenCalledTimes(8);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
       'session:requestToken',
       expect.any(Function),
     );
-    expect(mockHandle).toHaveBeenNthCalledWith(3, 'settings:get', expect.any(Function));
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      3,
+      'session:startTextChat',
+      expect.any(Function),
+    );
     expect(mockHandle).toHaveBeenNthCalledWith(
       4,
+      'session:cancelTextChat',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(5, 'settings:get', expect.any(Function));
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      6,
       'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      5,
+      7,
       'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      6,
+      8,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
@@ -105,8 +118,8 @@ describe('registerIpcHandlers', () => {
         status: 200,
         json: vi.fn(async () => ({
           token: 'ephemeral-token',
-          expireTime: 'later',
-          newSessionExpireTime: 'soon',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
         })),
       });
     const settingsService = createSettingsServiceDouble();
@@ -138,8 +151,8 @@ describe('registerIpcHandlers', () => {
     await expect(healthHandler()).resolves.toEqual({ status: 'ok', timestamp: 'now' });
     await expect(tokenHandler({}, { sessionId: 'session-1' })).resolves.toEqual({
       token: 'ephemeral-token',
-      expireTime: 'later',
-      newSessionExpireTime: 'soon',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
     await expect(getSettingsHandler()).resolves.toEqual(defaultSettings);
     await expect(
@@ -159,6 +172,94 @@ describe('registerIpcHandlers', () => {
     expect(settingsService.updateSettings).toHaveBeenCalledWith({
       backendUrl: 'https://api.livepair.dev',
     });
+  });
+
+  it('validates text chat payloads before delegating to the backend client', async () => {
+    const fetchImpl = vi.fn();
+    const settingsService = createSettingsServiceDouble();
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      getMainWindow: () => null,
+      settingsService,
+    });
+
+    const startTextChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'session:startTextChat',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<unknown>;
+    const cancelTextChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'session:cancelTextChat',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<unknown>;
+
+    await expect(startTextChatHandler({}, { messages: [] })).rejects.toThrow(
+      'Invalid text chat request payload',
+    );
+    await expect(cancelTextChatHandler({}, { streamId: '' })).rejects.toThrow(
+      'Invalid text chat cancel payload',
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('streams backend text chat events through the IPC sender and supports cancellation', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              [
+                '{"type":"text-delta","text":"Here is "}',
+                '{"type":"completed"}',
+              ].join('\n'),
+            ),
+          );
+          controller.close();
+        },
+      }),
+    });
+    const sender = {
+      send: vi.fn(),
+    };
+    const settingsService = createSettingsServiceDouble();
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      getMainWindow: () => null,
+      settingsService,
+    });
+
+    const startTextChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'session:startTextChat',
+    )?.[1] as (
+      event: { sender: { send: (channel: string, payload: unknown) => void } },
+      req: unknown,
+    ) => Promise<{ streamId: string }>;
+    const cancelTextChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'session:cancelTextChat',
+    )?.[1] as (_event: unknown, req: { streamId: string }) => Promise<void>;
+
+    const { streamId } = await startTextChatHandler(
+      { sender },
+      {
+        messages: [{ role: 'user', content: 'Summarize the current screen' }],
+      },
+    );
+
+    await vi.waitFor(() => {
+      expect(sender.send).toHaveBeenCalledWith('session:textChatEvent', {
+        streamId,
+        event: { type: 'text-delta', text: 'Here is ' },
+      });
+      expect(sender.send).toHaveBeenCalledWith('session:textChatEvent', {
+        streamId,
+        event: { type: 'completed' },
+      });
+    });
+
+    await expect(cancelTextChatHandler({}, { streamId })).resolves.toBeUndefined();
   });
 
   it('rejects invalid settings updates before touching the settings service', async () => {
