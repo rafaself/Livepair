@@ -52,4 +52,38 @@ describe('sessionStore', () => {
     );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('disconnected');
   });
+
+  it('tracks voice resumption and durability state separately', () => {
+    useSessionStore.getState().setVoiceSessionResumption({
+      status: 'reconnecting',
+      latestHandle: 'handles/voice-session-2',
+      resumable: true,
+      lastDetail: 'server draining',
+    });
+    useSessionStore.getState().setVoiceSessionDurability({
+      compressionEnabled: true,
+      tokenValid: false,
+      tokenRefreshing: true,
+      tokenRefreshFailed: false,
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      lastDetail: 'Refreshing token before resume',
+    });
+
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'reconnecting',
+      latestHandle: 'handles/voice-session-2',
+      resumable: true,
+      lastDetail: 'server draining',
+    });
+    expect(useSessionStore.getState().voiceSessionDurability).toEqual({
+      compressionEnabled: true,
+      tokenValid: false,
+      tokenRefreshing: true,
+      tokenRefreshFailed: false,
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      lastDetail: 'Refreshing token before resume',
+    });
+  });
 });

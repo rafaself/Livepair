@@ -110,6 +110,31 @@ export type CurrentVoiceTranscript = {
   assistant: VoiceTranscriptEntry;
 };
 
+export type VoiceSessionResumptionStatus =
+  | 'idle'
+  | 'connected'
+  | 'goAway'
+  | 'reconnecting'
+  | 'resumed'
+  | 'resumeFailed';
+
+export type VoiceSessionResumptionState = {
+  status: VoiceSessionResumptionStatus;
+  latestHandle: string | null;
+  resumable: boolean;
+  lastDetail: string | null;
+};
+
+export type VoiceSessionDurabilityState = {
+  compressionEnabled: boolean;
+  tokenValid: boolean;
+  tokenRefreshing: boolean;
+  tokenRefreshFailed: boolean;
+  expireTime: string | null;
+  newSessionExpireTime: string | null;
+  lastDetail: string | null;
+};
+
 export type SessionControllerEvent =
   | { type: 'session.backend.health.started' }
   | { type: 'session.backend.health.succeeded' }
@@ -170,7 +195,12 @@ export type LiveSessionEvent =
     }
   | {
       type: 'session-resumption-update';
-      sessionId?: string | undefined;
+      handle: string | null;
+      resumable: boolean;
+      detail?: string | undefined;
+    }
+  | {
+      type: 'connection-terminated';
       detail?: string | undefined;
     }
   | {
@@ -181,6 +211,7 @@ export type LiveSessionEvent =
 export type DesktopSessionConnectParams = {
   token: CreateEphemeralTokenResponse;
   mode: SessionMode;
+  resumeHandle?: string | undefined;
 };
 
 export type DesktopSession = {
