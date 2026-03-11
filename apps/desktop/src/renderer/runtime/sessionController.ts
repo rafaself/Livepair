@@ -28,6 +28,7 @@ import { createVoiceTranscriptController } from './voiceTranscriptController';
 import { createVoicePlaybackController } from './voicePlaybackController';
 import { createScreenCaptureController } from './screenCaptureController';
 import { createVoiceToolController } from './voiceToolController';
+import { createVoiceInterruptionController } from './voiceInterruptionController';
 import {
   appendAssistantTextDelta as appendAssistantTextDeltaCtx,
   appendAssistantTurn as appendAssistantTurnCtx,
@@ -166,8 +167,14 @@ export function createDesktopSessionController(
     (detail) => setVoiceErrorState(detail),
   );
   let voiceSendChain = Promise.resolve();
-  let voiceInterruptionInFlight: Promise<void> | null = null;
-  let voiceInterruptionSequence = 0;
+  const interruptionCtrl = createVoiceInterruptionController(
+    dependencies.store,
+    () => activeTransport,
+    () => currentVoiceSessionStatus(),
+    (status) => setVoiceSessionStatus(status),
+    (event) => applySpeechLifecycleEvent(event),
+    () => stopVoicePlayback(),
+  );
   const voiceTranscript = createVoiceTranscriptController(dependencies.store);
   let activeVoiceToken: CreateEphemeralTokenResponse | null = null;
   let voiceResumptionInFlight = false;
@@ -413,8 +420,7 @@ export function createDesktopSessionController(
     voiceSendChain = Promise.resolve();
     voiceToolCtrl.resetChain();
     screenCtrl.resetSendChain();
-    voiceInterruptionInFlight = null;
-    voiceInterruptionSequence += 1;
+    interruptionCtrl.reset();
     releaseTextChatStream();
     clearSpeechRecoveryTimer();
     clearSpeechSilenceTimeout();
@@ -538,42 +544,7 @@ export function createDesktopSessionController(
   };
 
   const handleVoiceInterruption = (): void => {
-    if (voiceInterruptionInFlight) {
-      return;
-    }
-
-    voiceInterruptionSequence += 1;
-    const interruptionSequence = voiceInterruptionSequence;
-    setVoiceSessionStatus('interrupted');
-    applySpeechLifecycleEvent({ type: 'interruption.detected' });
-    dependencies.store.getState().setAssistantActivity('idle');
-
-    voiceInterruptionInFlight = (async () => {
-      try {
-        await stopVoicePlayback();
-      } catch {
-        // Ignore playback teardown errors while recovering from interruption.
-      }
-
-      if (voiceInterruptionSequence !== interruptionSequence) {
-        return;
-      }
-
-      voiceInterruptionInFlight = null;
-
-      if (!activeTransport || currentVoiceSessionStatus() !== 'interrupted') {
-        return;
-      }
-
-      if (dependencies.store.getState().voiceCaptureState === 'capturing') {
-        setVoiceSessionStatus('recovering');
-        applySpeechLifecycleEvent({ type: 'recovery.started' });
-        return;
-      }
-
-      setVoiceSessionStatus('ready');
-      applySpeechLifecycleEvent({ type: 'recovery.completed' });
-    })();
+    interruptionCtrl.handle();
   };
 
   const enqueueVoiceChunkSend = (chunk: LocalVoiceChunk): Promise<void> => {
@@ -664,8 +635,7 @@ export function createDesktopSessionController(
     activeTransport = null;
     voiceSendChain = Promise.resolve();
     screenCtrl.resetSendChain();
-    voiceInterruptionInFlight = null;
-    voiceInterruptionSequence += 1;
+    interruptionCtrl.reset();
     clearPendingAssistantTurn();
     voiceTranscript.resetTurnCompletedFlag();
 
