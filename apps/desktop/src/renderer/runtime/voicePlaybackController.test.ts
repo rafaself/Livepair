@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVoicePlaybackController } from './voicePlaybackController';
+import type { AssistantAudioPlaybackObserver } from './assistantAudioPlayback';
 
 function createHarness() {
   const setVoicePlaybackState = vi.fn();
@@ -20,16 +21,18 @@ function createHarness() {
     }),
   };
 
-  let capturedObserver: any = null;
+  let capturedObserver: AssistantAudioPlaybackObserver | null = null;
   const mockPlayback = {
     enqueue: vi.fn(() => Promise.resolve()),
     stop: vi.fn(() => Promise.resolve()),
     clearQueue: vi.fn(),
   };
-  const createPlayback = vi.fn((observer: any, _opts: any) => {
-    capturedObserver = observer;
-    return mockPlayback;
-  });
+  const createPlayback = vi.fn(
+    (observer: AssistantAudioPlaybackObserver, _opts: { selectedOutputDeviceId: string }) => {
+      capturedObserver = observer;
+      return mockPlayback;
+    },
+  );
 
   const ctrl = createVoicePlaybackController(store, settingsStore, createPlayback);
 
@@ -186,7 +189,7 @@ describe('createVoicePlaybackController', () => {
     const { ctrl, store, getObserver } = createHarness();
 
     ctrl.getOrCreate();
-    getObserver().onStateChange('playing');
+    getObserver()!.onStateChange('playing');
 
     expect(store.setVoicePlaybackState).toHaveBeenCalledWith('playing');
   });
@@ -195,7 +198,7 @@ describe('createVoicePlaybackController', () => {
     const { ctrl, store, getObserver } = createHarness();
 
     ctrl.getOrCreate();
-    getObserver().onDiagnostics({ chunkCount: 5 });
+    getObserver()!.onDiagnostics({ chunkCount: 5 });
 
     expect(store.setVoicePlaybackDiagnostics).toHaveBeenCalledWith({ chunkCount: 5 });
   });
@@ -204,7 +207,7 @@ describe('createVoicePlaybackController', () => {
     const { ctrl, store, getObserver } = createHarness();
 
     ctrl.getOrCreate();
-    getObserver().onError('audio decode failed');
+    getObserver()!.onError('audio decode failed');
 
     expect(store.setVoicePlaybackDiagnostics).toHaveBeenCalledWith({
       lastError: 'audio decode failed',

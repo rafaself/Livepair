@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVoiceInterruptionController } from './voiceInterruptionController';
-import type { VoiceSessionStatus } from './types';
+import type { DesktopSession, VoiceCaptureState, VoiceSessionStatus } from './types';
 
-function createHarness(options: { captureState?: string } = {}) {
+function createHarness(options: { captureState?: VoiceCaptureState } = {}) {
   const { captureState = 'idle' } = options;
-  let currentCaptureState = captureState;
+  let currentCaptureState: VoiceCaptureState = captureState;
 
   const setAssistantActivity = vi.fn();
   const store = {
@@ -14,8 +14,8 @@ function createHarness(options: { captureState?: string } = {}) {
     }),
   };
 
-  const transport = { fake: true } as any;
-  let currentTransport: any = transport;
+  const transport = { fake: true } as unknown as DesktopSession;
+  let currentTransport: DesktopSession | null = transport;
   let currentStatus: VoiceSessionStatus = 'ready';
 
   const setVoiceSessionStatus = vi.fn((s: VoiceSessionStatus) => {
@@ -39,9 +39,9 @@ function createHarness(options: { captureState?: string } = {}) {
     setVoiceSessionStatus,
     applySpeechLifecycleEvent,
     stopPlayback,
-    setTransport: (t: any) => { currentTransport = t; },
+    setTransport: (t: DesktopSession | null) => { currentTransport = t; },
     setStatus: (s: VoiceSessionStatus) => { currentStatus = s; },
-    setCaptureState: (s: string) => { currentCaptureState = s; },
+    setCaptureState: (s: VoiceCaptureState) => { currentCaptureState = s; },
   };
 }
 
@@ -146,7 +146,8 @@ describe('createVoiceInterruptionController', () => {
   });
 
   it('reset invalidates in-flight handler', async () => {
-    const { resolve, promise } = Promise.withResolvers<void>();
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => { resolve = r; });
     const h = createHarness();
     h.stopPlayback.mockReturnValue(promise);
 

@@ -3,17 +3,17 @@ import { createVoiceTranscriptController } from './voiceTranscriptController';
 
 function createMockStore() {
   const transcript = {
-    user: { text: '', isFinal: undefined as boolean | undefined },
-    assistant: { text: '', isFinal: undefined as boolean | undefined },
+    user: { text: '' } as { text: string; isFinal?: boolean | undefined },
+    assistant: { text: '' } as { text: string; isFinal?: boolean | undefined },
   };
   const setCurrentVoiceTranscriptEntry = vi.fn(
-    (role: 'user' | 'assistant', entry: { text: string; isFinal?: boolean }) => {
+    (role: 'user' | 'assistant', entry: { text: string; isFinal?: boolean | undefined }) => {
       transcript[role] = { ...transcript[role], ...entry };
     },
   );
   const clearCurrentVoiceTranscript = vi.fn(() => {
-    transcript.user = { text: '', isFinal: undefined };
-    transcript.assistant = { text: '', isFinal: undefined };
+    transcript.user = { text: '' };
+    transcript.assistant = { text: '' };
   });
 
   return {

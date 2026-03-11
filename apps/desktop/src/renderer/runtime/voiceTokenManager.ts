@@ -3,13 +3,15 @@ import { asErrorDetail } from './runtimeUtils';
 import type {
   VoiceSessionDurabilityState,
   SessionControllerEvent,
+  TransportKind,
 } from './types';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type { TokenRequestState, BackendConnectionState } from '../store/sessionStore';
 
 type TokenStoreApi = {
   getState: () => {
-    setTokenRequestState: (state: string) => void;
-    setBackendState: (state: string) => void;
+    setTokenRequestState: (state: TokenRequestState) => void;
+    setBackendState: (state: BackendConnectionState) => void;
   };
 };
 
@@ -35,7 +37,7 @@ export function createVoiceTokenManager(
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void,
   recordSessionEvent: (event: SessionControllerEvent) => void,
   onError: (detail: string) => void,
-  liveAdapterKey: string,
+  liveAdapterKey: TransportKind,
 ): VoiceTokenManager {
   let activeVoiceToken: CreateEphemeralTokenResponse | null = null;
 

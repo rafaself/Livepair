@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { createSpeechSilenceController } from './speechSilenceController';
+import type { SpeechSilenceTimeoutSetting } from './speechSilenceTimeout';
 
 describe('createSpeechSilenceController', () => {
   beforeEach(() => {
@@ -10,7 +11,7 @@ describe('createSpeechSilenceController', () => {
     vi.useRealTimers();
   });
 
-  function createHarness(timeout: string | number = '30s') {
+  function createHarness(timeout: SpeechSilenceTimeoutSetting = '30s') {
     const onTimeout = vi.fn();
     const onRecoveryComplete = vi.fn();
     const settingsStore = {

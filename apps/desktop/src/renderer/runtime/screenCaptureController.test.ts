@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createScreenCaptureController } from './screenCaptureController';
-import type { DesktopSession, VoiceSessionStatus } from './types';
+import type { DesktopSession, ScreenCaptureState, VoiceSessionStatus } from './types';
 import type { LocalScreenCaptureObserver } from './localScreenCapture';
 
-function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; screenCaptureState?: string } = {}) {
+function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; screenCaptureState?: ScreenCaptureState } = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
-  let currentScreenState = screenCaptureState;
+  let currentScreenState: ScreenCaptureState = screenCaptureState;
   let currentVoiceStatus: VoiceSessionStatus = voiceSessionStatus;
 
-  const setScreenCaptureState = vi.fn((s: string) => { currentScreenState = s; });
+  const setScreenCaptureState = vi.fn((s: ScreenCaptureState) => { currentScreenState = s; });
   const setScreenCaptureDiagnostics = vi.fn();
   const setLastRuntimeError = vi.fn();
   const store = {
@@ -46,7 +46,7 @@ function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; scree
     getObserver: () => capturedObserver,
     setTransport: (t: DesktopSession | null) => { currentTransport = t; },
     setVoiceStatus: (s: VoiceSessionStatus) => { currentVoiceStatus = s; },
-    setScreenState: (s: string) => { currentScreenState = s; },
+    setScreenState: (s: ScreenCaptureState) => { currentScreenState = s; },
   };
 }
 
@@ -181,7 +181,7 @@ describe('createScreenCaptureController', () => {
     const { ctrl, sendVideoFrame, store } = createHarness();
 
     await ctrl.start();
-    const frame = { data: new Uint8Array([1, 2]), mimeType: 'image/jpeg' };
+    const frame = { data: new Uint8Array([1, 2]), mimeType: 'image/jpeg' as const, sequence: 1, widthPx: 640, heightPx: 480 };
     await ctrl.enqueueFrameSend(frame);
 
     expect(sendVideoFrame).toHaveBeenCalledWith(frame.data, frame.mimeType);
@@ -196,7 +196,7 @@ describe('createScreenCaptureController', () => {
 
     await ctrl.start();
     setTransport(null);
-    const frame = { data: new Uint8Array([1]), mimeType: 'image/png' };
+    const frame = { data: new Uint8Array([1]), mimeType: 'image/jpeg' as const, sequence: 1, widthPx: 320, heightPx: 240 };
     const result = await ctrl.enqueueFrameSend(frame);
 
     expect(result).toBeUndefined();
@@ -207,7 +207,7 @@ describe('createScreenCaptureController', () => {
     const { ctrl, sendVideoFrame } = createHarness();
 
     // Not started, so no capture
-    const frame = { data: new Uint8Array([1]), mimeType: 'image/png' };
+    const frame = { data: new Uint8Array([1]), mimeType: 'image/jpeg' as const, sequence: 1, widthPx: 320, heightPx: 240 };
     await ctrl.enqueueFrameSend(frame);
 
     expect(sendVideoFrame).not.toHaveBeenCalled();

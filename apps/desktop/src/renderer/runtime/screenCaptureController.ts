@@ -4,6 +4,7 @@ import type {
   DesktopSession,
   LocalScreenFrame,
   ScreenCaptureDiagnostics,
+  ScreenCaptureState,
   VoiceSessionStatus,
 } from './types';
 import type {
@@ -14,8 +15,8 @@ import type {
 type ScreenCaptureStoreApi = {
   getState: () => {
     voiceSessionStatus: VoiceSessionStatus;
-    screenCaptureState: string;
-    setScreenCaptureState: (state: string) => void;
+    screenCaptureState: ScreenCaptureState;
+    setScreenCaptureState: (state: ScreenCaptureState) => void;
     setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
     setLastRuntimeError: (error: string | null) => void;
   };

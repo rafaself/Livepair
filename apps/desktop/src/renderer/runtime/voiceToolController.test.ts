@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { createVoiceToolController } from './voiceToolController';
-import type { DesktopSession, VoiceToolCall } from './types';
+import type { DesktopSession, ProductMode, VoiceToolCall } from './types';
+import type { VoiceToolExecutionSnapshot } from './voiceTools';
 import * as voiceToolsModule from './voiceTools';
 
 function createHarness() {
@@ -11,13 +12,13 @@ function createHarness() {
   const transport = { sendToolResponses } as unknown as DesktopSession;
   let currentTransport: DesktopSession | null = transport;
 
-  const snapshot = {
-    currentMode: 'voice' as const,
-    textSessionStatus: 'idle' as const,
-    speechLifecycleStatus: 'listening' as const,
-    voiceSessionStatus: 'ready' as const,
+  const snapshot: VoiceToolExecutionSnapshot = {
+    currentMode: 'speech' as ProductMode,
+    textSessionStatus: 'idle',
+    speechLifecycleStatus: 'listening',
+    voiceSessionStatus: 'ready',
     voiceCaptureState: 'capturing',
-    voicePlaybackState: 'idle' as const,
+    voicePlaybackState: 'idle',
   };
   const getSnapshot = vi.fn(() => snapshot);
   const onError = vi.fn();
@@ -41,7 +42,7 @@ function createHarness() {
 }
 
 function makeCall(id = 'call-1', name = 'get_current_mode'): VoiceToolCall {
-  return { id, name, args: {} };
+  return { id, name, arguments: {} };
 }
 
 function defaultMockExecute(call: VoiceToolCall) {
@@ -49,11 +50,11 @@ function defaultMockExecute(call: VoiceToolCall) {
 }
 
 describe('createVoiceToolController', () => {
-  let mockedExecute: ReturnType<typeof vi.spyOn<typeof voiceToolsModule, 'executeLocalVoiceTool'>>;
+  let mockedExecute: MockInstance;
 
   beforeEach(() => {
     mockedExecute = vi.spyOn(voiceToolsModule, 'executeLocalVoiceTool')
-      .mockImplementation(defaultMockExecute as any);
+      .mockImplementation(defaultMockExecute as typeof voiceToolsModule.executeLocalVoiceTool);
   });
 
   it('setState delegates to store', () => {
@@ -148,7 +149,7 @@ describe('createVoiceToolController', () => {
     const { ctrl, setTransport, sendToolResponses } = createHarness();
 
     mockedExecute.mockImplementation(async (call) => {
-      setTransport({ sendToolResponses: vi.fn() } as any);
+      setTransport({ sendToolResponses: vi.fn() } as unknown as DesktopSession);
       return { id: call.id, name: call.name, response: { ok: true } };
     });
 

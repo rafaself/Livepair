@@ -489,10 +489,6 @@ export function createDesktopSessionController(
     return playbackCtrl.stop(nextState);
   };
 
-  const resetScreenCaptureDiagnostics = (): void => {
-    screenCtrl.resetDiagnostics();
-  };
-
   const stopScreenCaptureInternal = (
     options: {
       nextState?: 'disabled' | 'error';

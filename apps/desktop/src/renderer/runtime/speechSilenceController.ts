@@ -1,10 +1,13 @@
-import { resolveSpeechSilenceTimeoutMs } from './speechSilenceTimeout';
+import {
+  resolveSpeechSilenceTimeoutMs,
+  type SpeechSilenceTimeoutSetting,
+} from './speechSilenceTimeout';
 import type { SpeechLifecycleStatus } from './types';
 
 type SilenceSettingsApi = {
   getState: () => {
     settings: {
-      speechSilenceTimeout: string | number;
+      speechSilenceTimeout: SpeechSilenceTimeoutSetting;
     };
   };
 };
