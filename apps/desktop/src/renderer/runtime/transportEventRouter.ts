@@ -1,0 +1,221 @@
+import { LIVE_ADAPTER_KEY } from './liveConfig';
+import { isTokenValidForReconnect } from './voiceSessionToken';
+import { createDebugEvent } from './runtimeUtils';
+import type { SpeechSessionLifecycleEvent } from './speechSessionLifecycle';
+import type {
+  AssistantAudioPlayback,
+  LiveSessionEvent,
+  RuntimeLogger,
+  SpeechLifecycleStatus,
+  VoicePlaybackDiagnostics,
+  VoicePlaybackState,
+  VoiceSessionDurabilityState,
+  VoiceSessionResumptionState,
+  VoiceSessionStatus,
+  VoiceToolCall,
+} from './types';
+import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type { SessionStoreApi, SettingsStoreApi } from './sessionControllerTypes';
+
+export type TransportEventRouterOps = {
+  store: SessionStoreApi;
+  settingsStore: SettingsStoreApi;
+  logger: RuntimeLogger;
+  // State accessors
+  isVoiceResumptionInFlight: () => boolean;
+  setVoiceResumptionInFlight: (value: boolean) => void;
+  currentVoiceSessionStatus: () => VoiceSessionStatus;
+  currentSpeechLifecycleStatus: () => SpeechLifecycleStatus;
+  getToken: () => CreateEphemeralTokenResponse | null;
+  // Voice session state setters
+  setVoiceSessionStatus: (status: VoiceSessionStatus) => void;
+  setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
+  setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;
+  syncVoiceDurabilityState: (
+    token: CreateEphemeralTokenResponse | null,
+    patch?: Partial<VoiceSessionDurabilityState>,
+  ) => void;
+  // Voice playback
+  setVoicePlaybackState: (state: VoicePlaybackState) => void;
+  updateVoicePlaybackDiagnostics: (patch: Partial<VoicePlaybackDiagnostics>) => void;
+  getVoicePlayback: () => AssistantAudioPlayback;
+  stopVoicePlayback: (nextState?: VoicePlaybackState) => Promise<void>;
+  // Voice controllers
+  resetVoiceToolState: () => void;
+  resetVoiceTurnTranscriptState: () => void;
+  markTurnCompleted: () => void;
+  enqueueVoiceToolCalls: (calls: VoiceToolCall[]) => void;
+  handleVoiceInterruption: () => void;
+  // Lifecycle events
+  applySpeechLifecycleEvent: (event: SpeechSessionLifecycleEvent) => SpeechLifecycleStatus;
+  applyVoiceTranscriptUpdate: (role: 'user' | 'assistant', text: string, isFinal?: boolean) => void;
+  // Error and cleanup
+  setVoiceErrorState: (detail: string) => void;
+  cleanupTransport: () => void;
+  resumeVoiceSession: (detail: string) => Promise<void>;
+};
+
+export function createTransportEventRouter(ops: TransportEventRouterOps) {
+  const handleTransportEvent = (event: LiveSessionEvent): void => {
+    const store = ops.store.getState();
+
+    ops.logger.onTransportEvent(event);
+    store.setLastDebugEvent(
+      createDebugEvent(
+        'transport',
+        event.type,
+        'detail' in event ? event.detail : undefined,
+      ),
+    );
+
+    if (event.type === 'connection-state-changed') {
+      if (event.state === 'connecting') {
+        ops.setVoiceSessionStatus(ops.isVoiceResumptionInFlight() ? 'recovering' : 'connecting');
+        return;
+      }
+
+      if (event.state === 'connected') {
+        ops.setVoiceSessionStatus('ready');
+        ops.resetVoiceToolState();
+        store.setAssistantActivity('idle');
+        store.setActiveTransport(LIVE_ADAPTER_KEY);
+        store.setLastRuntimeError(null);
+        ops.resetVoiceTurnTranscriptState();
+        ops.setVoiceSessionResumption({
+          status: ops.isVoiceResumptionInFlight() ? 'resumed' : 'connected',
+          lastDetail:
+            ops.isVoiceResumptionInFlight()
+              ? store.voiceSessionResumption.lastDetail
+              : null,
+        });
+        ops.syncVoiceDurabilityState(ops.getToken(), {
+          lastDetail: store.voiceSessionDurability.lastDetail,
+        });
+        ops.setVoiceResumptionInFlight(false);
+        ops.setVoicePlaybackState('idle');
+        ops.updateVoicePlaybackDiagnostics({
+          chunkCount: 0,
+          queueDepth: 0,
+          sampleRateHz: null,
+          lastError: null,
+          selectedOutputDeviceId:
+            ops.settingsStore.getState().settings.selectedOutputDeviceId,
+        });
+        return;
+      }
+
+      if (ops.isVoiceResumptionInFlight()) {
+        ops.setVoiceSessionStatus('recovering');
+        return;
+      }
+
+      ops.setVoiceSessionStatus('disconnected');
+      ops.resetVoiceTurnTranscriptState();
+      ops.resetVoiceToolState();
+      void ops.stopVoicePlayback();
+      ops.cleanupTransport();
+      store.setAssistantActivity('idle');
+      store.setActiveTransport(null);
+      return;
+    }
+
+    if (event.type === 'go-away') {
+      const detail = event.detail ?? 'Voice session unavailable';
+      ops.setVoiceSessionResumption({
+        status: 'goAway',
+        lastDetail: detail,
+      });
+      ops.setVoiceSessionDurability({
+        tokenValid: isTokenValidForReconnect(ops.getToken()),
+        lastDetail: detail,
+      });
+      void ops.resumeVoiceSession(detail);
+      return;
+    }
+
+    if (event.type === 'connection-terminated') {
+      if (
+        ops.currentVoiceSessionStatus() === 'stopping' ||
+        ops.currentVoiceSessionStatus() === 'disconnected' ||
+        ops.currentVoiceSessionStatus() === 'error'
+      ) {
+        return;
+      }
+
+      ops.setVoiceSessionDurability({
+        tokenValid: isTokenValidForReconnect(ops.getToken()),
+        lastDetail: event.detail ?? 'Voice session unavailable',
+      });
+      void ops.resumeVoiceSession(event.detail ?? 'Voice session unavailable');
+      return;
+    }
+
+    if (event.type === 'error') {
+      ops.setVoiceErrorState(event.detail);
+      return;
+    }
+
+    if (event.type === 'session-resumption-update') {
+      ops.setVoiceSessionResumption({
+        latestHandle: event.handle ?? store.voiceSessionResumption.latestHandle,
+        resumable: event.resumable,
+        lastDetail: event.detail ?? store.voiceSessionResumption.lastDetail,
+      });
+      return;
+    }
+
+    if (event.type === 'audio-error') {
+      ops.updateVoicePlaybackDiagnostics({
+        lastError: event.detail,
+      });
+      ops.store.getState().setLastRuntimeError(event.detail);
+      void ops.stopVoicePlayback('error');
+      return;
+    }
+
+    if (event.type === 'interrupted') {
+      ops.markTurnCompleted();
+      ops.handleVoiceInterruption();
+      return;
+    }
+
+    if (event.type === 'input-transcript') {
+      ops.applySpeechLifecycleEvent({ type: 'user.speech.detected' });
+      ops.applyVoiceTranscriptUpdate('user', event.text, event.isFinal);
+      return;
+    }
+
+    if (event.type === 'output-transcript') {
+      ops.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
+      ops.applyVoiceTranscriptUpdate('assistant', event.text, event.isFinal);
+      return;
+    }
+
+    if (event.type === 'audio-chunk') {
+      ops.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
+      void ops.getVoicePlayback()
+        .enqueue(event.chunk)
+        .catch(() => {});
+      return;
+    }
+
+    if (event.type === 'tool-call') {
+      ops.enqueueVoiceToolCalls(event.calls);
+      return;
+    }
+
+    if (event.type === 'turn-complete') {
+      ops.markTurnCompleted();
+      if (ops.currentSpeechLifecycleStatus() === 'assistantSpeaking') {
+        ops.applySpeechLifecycleEvent({ type: 'assistant.turn.completed' });
+        return;
+      }
+
+      if (ops.currentSpeechLifecycleStatus() === 'userSpeaking') {
+        ops.applySpeechLifecycleEvent({ type: 'user.turn.settled' });
+      }
+    }
+  };
+
+  return { handleTransportEvent };
+}
