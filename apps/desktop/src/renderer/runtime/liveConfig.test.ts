@@ -148,10 +148,16 @@ describe('liveConfig', () => {
       apiVersion: 'v1alpha',
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
       sessionResumptionEnabled: false,
-      contextCompressionEnabled: false,
+      contextCompressionEnabled: true,
     });
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
       responseModalities: ['TEXT'],
+    });
+    expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
+      responseModalities: ['AUDIO'],
+      contextWindowCompression: {
+        slidingWindow: {},
+      },
     });
   });
 
@@ -167,7 +173,7 @@ describe('liveConfig', () => {
     );
   });
 
-  it('maps optional text-mode SDK connect settings from centralized config', () => {
+  it('maps optional text-mode SDK connect settings from centralized config without voice-only features', () => {
     const config = parseLiveConfig(
       createRawLiveConfig({
         mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
@@ -179,7 +185,28 @@ describe('liveConfig', () => {
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
       responseModalities: ['TEXT'],
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
-      sessionResumption: {},
+    });
+  });
+
+  it('maps optional voice-mode SDK connect settings from centralized config', () => {
+    const config = parseLiveConfig(
+      createRawLiveConfig({
+        mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+        sessionResumptionEnabled: true,
+        contextCompressionEnabled: true,
+      }),
+    );
+
+    expect(
+      buildGeminiLiveConnectConfig(config, 'voice', {
+        resumeHandle: 'handles/latest-voice-handle',
+      }),
+    ).toEqual({
+      responseModalities: ['AUDIO'],
+      mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+      sessionResumption: {
+        handle: 'handles/latest-voice-handle',
+      },
       contextWindowCompression: {
         slidingWindow: {},
       },
