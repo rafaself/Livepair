@@ -3,7 +3,7 @@ import type { SessionStoreState } from '../store/sessionStore';
 import {
   getTextSessionStatus,
 } from '../store/sessionStore';
-import { isSessionActiveLifecycle, isTextTurnInFlight } from './textSessionLifecycle';
+import { isSessionActiveLifecycle, isTextTurnInFlight } from './text/textSessionLifecycle';
 
 export function selectAssistantRuntimeState(
   state: Pick<

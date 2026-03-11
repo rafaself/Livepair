@@ -13,6 +13,7 @@ function HookHarness(): JSX.Element {
   return (
     <div>
       <output aria-label="assistant-state">{controller.assistantState}</output>
+      <output aria-label="current-mode">{controller.currentMode}</output>
       <output aria-label="backend-label">{controller.backendLabel}</output>
       <output aria-label="token-feedback">{controller.tokenFeedback ?? 'none'}</output>
       <output aria-label="runtime-error">{controller.lastRuntimeError ?? 'none'}</output>
@@ -80,6 +81,7 @@ describe('useAssistantPanelController', () => {
     expect(window.bridge.checkHealth).toHaveBeenCalledTimes(1);
     expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
     expect(window.bridge.startTextChatStream).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('current-mode')).toHaveTextContent('text');
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
     expect(screen.getByLabelText('text-session-status')).toHaveTextContent('ready');
     expect(screen.getByLabelText('text-session-label')).toHaveTextContent('Text chat ready');

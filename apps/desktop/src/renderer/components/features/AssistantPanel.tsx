@@ -24,6 +24,7 @@ export function AssistantPanel({
     backendState,
     backendIndicatorState,
     backendLabel,
+    currentMode,
     tokenFeedback,
     textSessionStatus,
     textSessionStatusLabel,
@@ -37,7 +38,6 @@ export function AssistantPanel({
     voiceToolState,
     screenCaptureState,
     screenCaptureDiagnostics,
-    isVoiceSessionActive,
     currentVoiceTranscript,
     canSubmitText,
     lastRuntimeError,
@@ -69,11 +69,11 @@ export function AssistantPanel({
           {panelView === 'chat' ? (
             <AssistantPanelChatView
               assistantState={assistantState}
+              currentMode={currentMode}
               textSessionStatus={textSessionStatus}
               textSessionStatusLabel={textSessionStatusLabel}
               canSubmitText={canSubmitText}
               turns={conversationTurns}
-              isVoiceSessionActive={isVoiceSessionActive}
               currentVoiceTranscript={currentVoiceTranscript}
               isConversationEmpty={isConversationEmpty}
               lastRuntimeError={lastRuntimeError}

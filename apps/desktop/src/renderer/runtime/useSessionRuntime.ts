@@ -11,10 +11,12 @@ import {
   selectTokenFeedback,
 } from './selectors';
 import { getDesktopSessionController } from './sessionController';
+import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
 import { useSessionStore } from '../store/sessionStore';
 
 export function useSessionRuntime() {
   const assistantState = useSessionStore(selectAssistantRuntimeState);
+  const currentMode = useSessionStore((state) => state.currentMode);
   const backendState = useSessionStore((state) => state.backendState);
   const backendIndicatorState = useSessionStore(selectBackendIndicatorState);
   const backendLabel = useSessionStore(selectBackendLabel);
@@ -27,6 +29,7 @@ export function useSessionRuntime() {
   const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
   const isConversationEmpty = useSessionStore(selectIsConversationEmpty);
   const isSessionActive = useSessionStore(selectIsSessionActive);
+  const speechLifecycleStatus = useSessionStore((state) => state.speechLifecycle.status);
   const voiceSessionStatus = useSessionStore((state) => state.voiceSessionStatus);
   const voiceSessionResumption = useSessionStore((state) => state.voiceSessionResumption);
   const voiceSessionDurability = useSessionStore((state) => state.voiceSessionDurability);
@@ -85,6 +88,9 @@ export function useSessionRuntime() {
 
   return {
     assistantState,
+    currentMode,
+    isTextMode: currentMode === 'text',
+    isSpeechMode: currentMode === 'speech',
     backendState,
     backendIndicatorState,
     backendLabel,
@@ -97,8 +103,8 @@ export function useSessionRuntime() {
     lastRuntimeError,
     isConversationEmpty,
     isSessionActive,
-    isVoiceSessionActive:
-      voiceSessionStatus !== 'disconnected' && voiceSessionStatus !== 'error',
+    isVoiceSessionActive: isSpeechLifecycleActive(speechLifecycleStatus),
+    speechLifecycleStatus,
     voiceSessionStatus,
     voiceSessionResumption,
     voiceSessionDurability,

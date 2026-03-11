@@ -5,11 +5,13 @@ import {
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type PreferredMode = 'fast';
+export type SpeechSilenceTimeout = 'never' | '30s' | '3m';
 
 export type DesktopSettings = {
   themePreference: ThemePreference;
   backendUrl: string;
   preferredMode: PreferredMode;
+  speechSilenceTimeout: SpeechSilenceTimeout;
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
   voiceEchoCancellationEnabled: boolean;
@@ -24,6 +26,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   themePreference: 'system',
   backendUrl: DEFAULT_API_BASE_URL,
   preferredMode: 'fast',
+  speechSilenceTimeout: 'never',
   selectedInputDeviceId: 'default',
   selectedOutputDeviceId: 'default',
   voiceEchoCancellationEnabled: true,
@@ -46,6 +49,10 @@ function normalizePreferredMode(value: unknown): PreferredMode | null {
   return null;
 }
 
+function normalizeSpeechSilenceTimeout(value: unknown): SpeechSilenceTimeout | null {
+  return value === 'never' || value === '30s' || value === '3m' ? value : null;
+}
+
 export function normalizeDesktopSettings(
   settings: Partial<DesktopSettings>,
 ): DesktopSettings | null {
@@ -57,6 +64,9 @@ export function normalizeDesktopSettings(
   );
   const preferredMode = normalizePreferredMode(
     settings.preferredMode ?? DEFAULT_DESKTOP_SETTINGS.preferredMode,
+  );
+  const speechSilenceTimeout = normalizeSpeechSilenceTimeout(
+    settings.speechSilenceTimeout ?? DEFAULT_DESKTOP_SETTINGS.speechSilenceTimeout,
   );
   const selectedInputDeviceId =
     settings.selectedInputDeviceId ?? DEFAULT_DESKTOP_SETTINGS.selectedInputDeviceId;
@@ -77,6 +87,7 @@ export function normalizeDesktopSettings(
     themePreference === null ||
     backendUrl === null ||
     preferredMode === null ||
+    speechSilenceTimeout === null ||
     !isNonEmptyString(selectedInputDeviceId) ||
     !isNonEmptyString(selectedOutputDeviceId) ||
     typeof voiceEchoCancellationEnabled !== 'boolean' ||
@@ -91,6 +102,7 @@ export function normalizeDesktopSettings(
     themePreference,
     backendUrl,
     preferredMode,
+    speechSilenceTimeout,
     selectedInputDeviceId,
     selectedOutputDeviceId,
     voiceEchoCancellationEnabled,
@@ -127,6 +139,14 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.preferredMode = preferredMode;
+  }
+
+  if ('speechSilenceTimeout' in patch) {
+    const speechSilenceTimeout = normalizeSpeechSilenceTimeout(patch.speechSilenceTimeout);
+    if (speechSilenceTimeout === null) {
+      return null;
+    }
+    normalizedPatch.speechSilenceTimeout = speechSilenceTimeout;
   }
 
   if ('selectedInputDeviceId' in patch) {

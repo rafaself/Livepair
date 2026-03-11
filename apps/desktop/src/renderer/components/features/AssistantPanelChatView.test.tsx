@@ -9,11 +9,11 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="disconnected"
+        currentMode="text"
         textSessionStatus="disconnected"
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
-        isVoiceSessionActive={false}
         currentVoiceTranscript={{
           user: { text: '' },
           assistant: { text: '' },
@@ -55,11 +55,11 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
+        currentMode="text"
         textSessionStatus="ready"
         textSessionStatusLabel="Text session ready"
         canSubmitText={true}
         turns={turns}
-        isVoiceSessionActive={false}
         currentVoiceTranscript={{
           user: { text: '' },
           assistant: { text: '' },
@@ -84,11 +84,11 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
+        currentMode="text"
         textSessionStatus="error"
         textSessionStatusLabel="Text session failed"
         canSubmitText={true}
         turns={[]}
-        isVoiceSessionActive={false}
         currentVoiceTranscript={{
           user: { text: '' },
           assistant: { text: '' },
@@ -123,11 +123,11 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
+        currentMode="text"
         textSessionStatus="error"
         textSessionStatusLabel="Text session failed"
         canSubmitText={true}
         turns={turns}
-        isVoiceSessionActive={false}
         currentVoiceTranscript={{
           user: { text: '' },
           assistant: { text: '' },
@@ -155,11 +155,11 @@ describe('AssistantPanelChatView', () => {
     const { rerender } = render(
       <AssistantPanelChatView
         assistantState="ready"
+        currentMode="text"
         textSessionStatus="ready"
         textSessionStatusLabel="Text session ready"
         canSubmitText={true}
         turns={[]}
-        isVoiceSessionActive={false}
         currentVoiceTranscript={{
           user: { text: '' },
           assistant: { text: '' },
@@ -180,11 +180,11 @@ describe('AssistantPanelChatView', () => {
     rerender(
       <AssistantPanelChatView
         assistantState="thinking"
+        currentMode="text"
         textSessionStatus="receiving"
         textSessionStatusLabel="Receiving response..."
         canSubmitText={false}
         turns={[]}
-        isVoiceSessionActive={false}
         currentVoiceTranscript={{
           user: { text: '' },
           assistant: { text: '' },
@@ -206,11 +206,11 @@ describe('AssistantPanelChatView', () => {
     const { rerender } = render(
       <AssistantPanelChatView
         assistantState="ready"
+        currentMode="text"
         textSessionStatus="completed"
         textSessionStatusLabel="Response complete"
         canSubmitText={true}
         turns={[]}
-        isVoiceSessionActive={false}
         currentVoiceTranscript={{
           user: { text: '' },
           assistant: { text: '' },
@@ -230,11 +230,11 @@ describe('AssistantPanelChatView', () => {
     rerender(
       <AssistantPanelChatView
         assistantState="thinking"
+        currentMode="text"
         textSessionStatus="connecting"
         textSessionStatusLabel="Preparing text chat..."
         canSubmitText={false}
         turns={[]}
-        isVoiceSessionActive={false}
         currentVoiceTranscript={{
           user: { text: '' },
           assistant: { text: '' },
@@ -256,11 +256,11 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="speaking"
+        currentMode="speech"
         textSessionStatus="disconnected"
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
-        isVoiceSessionActive={true}
         currentVoiceTranscript={{
           user: { text: 'Can you summarize that?' },
           assistant: { text: 'Here is the summary.' },
@@ -285,11 +285,11 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="listening"
+        currentMode="speech"
         textSessionStatus="disconnected"
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
-        isVoiceSessionActive={true}
         currentVoiceTranscript={{
           user: { text: '' },
           assistant: { text: '' },

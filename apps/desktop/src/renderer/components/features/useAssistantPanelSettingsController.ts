@@ -1,5 +1,9 @@
 import { normalizeBackendBaseUrl } from '../../../shared/backendBaseUrl';
-import type { PreferredMode, ThemePreference } from '../../../shared/settings';
+import type {
+  PreferredMode,
+  SpeechSilenceTimeout,
+  ThemePreference,
+} from '../../../shared/settings';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUiStore } from '../../store/uiStore';
 import type { SelectOptionItem } from '../primitives';
@@ -17,6 +21,7 @@ export type AssistantPanelSettingsController = {
   preferredMode: PreferredMode;
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
+  speechSilenceTimeout: SpeechSilenceTimeout;
   voiceEchoCancellationEnabled: boolean;
   voiceNoiseSuppressionEnabled: boolean;
   voiceAutoGainControlEnabled: boolean;
@@ -30,6 +35,7 @@ export type AssistantPanelSettingsController = {
   setPreferredMode: (mode: PreferredMode) => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
   setSelectedOutputDeviceId: (deviceId: string) => void;
+  setSpeechSilenceTimeout: (timeout: SpeechSilenceTimeout) => void;
   setVoiceEchoCancellationEnabled: (enabled: boolean) => void;
   setVoiceNoiseSuppressionEnabled: (enabled: boolean) => void;
   setVoiceAutoGainControlEnabled: (enabled: boolean) => void;
@@ -90,6 +96,7 @@ export function useAssistantPanelSettingsController({
     preferredMode: settings.preferredMode,
     selectedInputDeviceId: settings.selectedInputDeviceId,
     selectedOutputDeviceId: settings.selectedOutputDeviceId,
+    speechSilenceTimeout: settings.speechSilenceTimeout,
     voiceEchoCancellationEnabled: settings.voiceEchoCancellationEnabled,
     voiceNoiseSuppressionEnabled: settings.voiceNoiseSuppressionEnabled,
     voiceAutoGainControlEnabled: settings.voiceAutoGainControlEnabled,
@@ -110,6 +117,9 @@ export function useAssistantPanelSettingsController({
     },
     setSelectedOutputDeviceId: (selectedOutputDeviceId) => {
       void updateSetting('selectedOutputDeviceId', selectedOutputDeviceId);
+    },
+    setSpeechSilenceTimeout: (speechSilenceTimeout) => {
+      void updateSetting('speechSilenceTimeout', speechSilenceTimeout);
     },
     setVoiceEchoCancellationEnabled: (voiceEchoCancellationEnabled) => {
       void updateSetting('voiceEchoCancellationEnabled', voiceEchoCancellationEnabled);

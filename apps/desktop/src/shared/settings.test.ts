@@ -11,12 +11,14 @@ describe('normalizeDesktopSettings', () => {
       normalizeDesktopSettings({
         backendUrl: ' https://api.livepair.dev/base/ ',
         themePreference: 'dark',
+        speechSilenceTimeout: '30s',
         voiceNoiseSuppressionEnabled: false,
       }),
     ).toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
       backendUrl: 'https://api.livepair.dev/base',
       themePreference: 'dark',
+      speechSilenceTimeout: '30s',
       voiceNoiseSuppressionEnabled: false,
     });
   });
@@ -47,6 +49,11 @@ describe('normalizeDesktopSettings', () => {
         voiceAutoGainControlEnabled: 'yes' as never,
       }),
     ).toBeNull();
+    expect(
+      normalizeDesktopSettings({
+        speechSilenceTimeout: '5m' as never,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -56,12 +63,14 @@ describe('normalizeDesktopSettingsPatch', () => {
       normalizeDesktopSettingsPatch({
         backendUrl: ' https://api.livepair.dev/base/ ',
         preferredMode: 'fast',
+        speechSilenceTimeout: '3m',
         voiceEchoCancellationEnabled: false,
         isPanelPinned: true,
       }),
     ).toEqual({
       backendUrl: 'https://api.livepair.dev/base',
       preferredMode: 'fast',
+      speechSilenceTimeout: '3m',
       voiceEchoCancellationEnabled: false,
       isPanelPinned: true,
     });
@@ -101,6 +110,11 @@ describe('normalizeDesktopSettingsPatch', () => {
     expect(
       normalizeDesktopSettingsPatch({
         voiceNoiseSuppressionEnabled: 'no' as never,
+      }),
+    ).toBeNull();
+    expect(
+      normalizeDesktopSettingsPatch({
+        speechSilenceTimeout: '5m' as never,
       }),
     ).toBeNull();
   });
