@@ -30,6 +30,7 @@ import { createScreenCaptureController } from './screenCaptureController';
 import { createVoiceToolController } from './voiceToolController';
 import { createVoiceInterruptionController } from './voiceInterruptionController';
 import { createVoiceTokenManager } from './voiceTokenManager';
+import { createSpeechSilenceController } from './speechSilenceController';
 import {
   appendAssistantTextDelta as appendAssistantTextDeltaCtx,
   appendAssistantTurn as appendAssistantTurnCtx,
@@ -45,7 +46,6 @@ import {
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
 } from './defaults';
-import { resolveSpeechSilenceTimeoutMs } from './speechSilenceTimeout';
 import { asErrorDetail, createDebugEvent } from './runtimeUtils';
 import {
   isSessionActiveLifecycle,
@@ -187,8 +187,11 @@ export function createDesktopSessionController(
     LIVE_ADAPTER_KEY,
   );
   let voiceResumptionInFlight = false;
-  let speechRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
-  let speechSilenceTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+  const silenceCtrl = createSpeechSilenceController(
+    dependencies.settingsStore,
+    () => void endSessionInternal(),
+    () => applySpeechLifecycleEvent({ type: 'recovery.completed' }),
+  );
   const voiceChunkListeners = new Set<(chunk: LocalVoiceChunk) => void>();
 
   const recordSessionEvent = (event: SessionControllerEvent): void => {
@@ -276,59 +279,18 @@ export function createDesktopSessionController(
     return nextLifecycle.status;
   };
 
-  const clearSpeechRecoveryTimer = (): void => {
-    if (speechRecoveryTimer !== null) {
-      clearTimeout(speechRecoveryTimer);
-      speechRecoveryTimer = null;
-    }
-  };
-
-  const clearSpeechSilenceTimeout = (): void => {
-    if (speechSilenceTimeoutTimer !== null) {
-      clearTimeout(speechSilenceTimeoutTimer);
-      speechSilenceTimeoutTimer = null;
-    }
-  };
-
   const currentSpeechLifecycleStatus = (): SpeechLifecycleStatus => {
     return dependencies.store.getState().speechLifecycle.status;
   };
 
   const syncSpeechSilenceTimeout = (status: SpeechLifecycleStatus): void => {
-    clearSpeechSilenceTimeout();
-
-    if (status !== 'listening') {
-      return;
-    }
-
-    const timeoutMs = resolveSpeechSilenceTimeoutMs(
-      dependencies.settingsStore.getState().settings.speechSilenceTimeout,
-    );
-
-    if (timeoutMs === null) {
-      return;
-    }
-
-    speechSilenceTimeoutTimer = setTimeout(() => {
-      speechSilenceTimeoutTimer = null;
-      void endSessionInternal();
-    }, timeoutMs);
+    silenceCtrl.syncTimeout(status);
   };
 
   const handleSpeechLifecycleStatusChange = (
     status: SpeechLifecycleStatus,
   ): void => {
-    if (status === 'recovering') {
-      clearSpeechRecoveryTimer();
-      speechRecoveryTimer = setTimeout(() => {
-        speechRecoveryTimer = null;
-        applySpeechLifecycleEvent({ type: 'recovery.completed' });
-      }, 0);
-    } else {
-      clearSpeechRecoveryTimer();
-    }
-
-    syncSpeechSilenceTimeout(status);
+    silenceCtrl.handleStatusChange(status);
   };
 
   const applySpeechLifecycleEvent = (
@@ -431,8 +393,7 @@ export function createDesktopSessionController(
     screenCtrl.resetSendChain();
     interruptionCtrl.reset();
     releaseTextChatStream();
-    clearSpeechRecoveryTimer();
-    clearSpeechSilenceTimeout();
+    silenceCtrl.clearAll();
     clearPendingAssistantTurn();
     voiceTranscript.resetTurnCompletedFlag();
   };
