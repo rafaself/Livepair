@@ -9,14 +9,19 @@ describe('sessionStore', () => {
 
   it('defaults currentMode to text and lets it change independently from runtime diagnostics', () => {
     expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
 
     useSessionStore.getState().setCurrentMode('speech');
+    useSessionStore.getState().setSpeechLifecycle({ status: 'starting' });
     useSessionStore.getState().setVoiceSessionStatus('ready');
     useSessionStore.getState().setTextSessionLifecycle({ status: 'receiving' });
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
         currentMode: 'speech',
+        speechLifecycle: expect.objectContaining({
+          status: 'starting',
+        }),
         voiceSessionStatus: 'ready',
         textSessionLifecycle: expect.objectContaining({
           status: 'receiving',
@@ -63,6 +68,9 @@ describe('sessionStore', () => {
           status: 'idle',
         }),
         currentMode: 'text',
+        speechLifecycle: expect.objectContaining({
+          status: 'off',
+        }),
         assistantActivity: 'idle',
         backendState: 'idle',
         tokenRequestState: 'idle',
@@ -139,6 +147,18 @@ describe('sessionStore', () => {
       callId: 'call-2',
       lastError: null,
     });
+  });
+
+  it('tracks the speech lifecycle separately from low-level voice diagnostics', () => {
+    useSessionStore.getState().setSpeechLifecycle({ status: 'assistantSpeaking' });
+    useSessionStore.getState().setVoiceSessionStatus('streaming');
+    useSessionStore.getState().setVoiceCaptureState('capturing');
+
+    expect(useSessionStore.getState().speechLifecycle).toEqual({
+      status: 'assistantSpeaking',
+    });
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('streaming');
+    expect(useSessionStore.getState().voiceCaptureState).toBe('capturing');
   });
 
   describe('screen capture slice', () => {

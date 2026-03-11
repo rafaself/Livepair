@@ -16,6 +16,18 @@ export type ConversationTurnModel = {
 export type TransportKind = 'backend-text' | 'gemini-live';
 export type SessionMode = 'text' | 'voice';
 export type ProductMode = 'text' | 'speech';
+export type SpeechLifecycleStatus =
+  | 'off'
+  | 'starting'
+  | 'listening'
+  | 'userSpeaking'
+  | 'assistantSpeaking'
+  | 'interrupted'
+  | 'recovering'
+  | 'ending';
+export type SpeechLifecycle = {
+  status: SpeechLifecycleStatus;
+};
 export type VoiceCaptureState =
   | 'idle'
   | 'requestingPermission'

@@ -11,6 +11,7 @@ function createSnapshot(
   return {
     currentMode: 'text',
     textSessionStatus: 'idle',
+    speechLifecycleStatus: 'off',
     voiceSessionStatus: 'disconnected',
     voiceCaptureState: 'idle',
     voicePlaybackState: 'idle',
@@ -26,6 +27,7 @@ describe('voiceTools', () => {
         createSnapshot({
           currentMode: 'speech',
           textSessionStatus: 'ready',
+          speechLifecycleStatus: 'listening',
           voiceSessionStatus: 'ready',
         }),
       ),
@@ -42,6 +44,7 @@ describe('voiceTools', () => {
         },
         createSnapshot({
           currentMode: 'speech',
+          speechLifecycleStatus: 'assistantSpeaking',
           voiceSessionStatus: 'streaming',
         }),
       ),
@@ -65,6 +68,7 @@ describe('voiceTools', () => {
         },
         createSnapshot({
           voiceSessionStatus: 'recovering',
+          speechLifecycleStatus: 'recovering',
           voiceCaptureState: 'capturing',
           voicePlaybackState: 'buffering',
         }),
@@ -74,6 +78,7 @@ describe('voiceTools', () => {
       name: 'get_voice_session_status',
       response: {
         ok: true,
+        speechLifecycleStatus: 'recovering',
         voiceSessionStatus: 'recovering',
         voiceCaptureState: 'capturing',
         voicePlaybackState: 'buffering',

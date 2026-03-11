@@ -61,7 +61,7 @@ function AppShell(): JSX.Element {
   const {
     currentMode,
     isVoiceSessionActive,
-    voiceSessionStatus,
+    speechLifecycleStatus,
     voiceCaptureState,
     screenCaptureState,
     handleStartVoiceSession,
@@ -80,7 +80,7 @@ function AppShell(): JSX.Element {
       <ControlDock
         currentMode={currentMode}
         isVoiceSessionActive={isVoiceSessionActive}
-        voiceSessionStatus={voiceSessionStatus}
+        speechLifecycleStatus={speechLifecycleStatus}
         voiceCaptureState={voiceCaptureState}
         screenCaptureState={screenCaptureState}
         onStartVoiceSession={handleStartVoiceSession}

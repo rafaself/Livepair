@@ -45,6 +45,7 @@ function HookHarness(): JSX.Element {
       <output aria-label="echo-cancellation">{String(controller.voiceEchoCancellationEnabled)}</output>
       <output aria-label="noise-suppression">{String(controller.voiceNoiseSuppressionEnabled)}</output>
       <output aria-label="auto-gain-control">{String(controller.voiceAutoGainControlEnabled)}</output>
+      <output aria-label="speech-silence-timeout">{controller.speechSilenceTimeout}</output>
       <button type="button" onClick={() => controller.setVoiceEchoCancellationEnabled(false)}>
         disable echo cancellation
       </button>
@@ -56,6 +57,9 @@ function HookHarness(): JSX.Element {
       </button>
       <button type="button" onClick={() => controller.setThemePreference('dark')}>
         set dark
+      </button>
+      <button type="button" onClick={() => controller.setSpeechSilenceTimeout('3m')}>
+        set speech timeout
       </button>
     </div>
   );
@@ -162,6 +166,7 @@ describe('useAssistantPanelSettingsController', () => {
     fireEvent.click(screen.getByRole('button', { name: 'disable noise suppression' }));
     fireEvent.click(screen.getByRole('button', { name: 'disable auto gain control' }));
     fireEvent.click(screen.getByRole('button', { name: 'set dark' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set speech timeout' }));
 
     await waitFor(() => {
       expect(screen.getByLabelText('debug-mode')).toHaveTextContent('false');
@@ -182,5 +187,7 @@ describe('useAssistantPanelSettingsController', () => {
       voiceAutoGainControlEnabled: false,
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ speechSilenceTimeout: '3m' });
+    expect(screen.getByLabelText('speech-silence-timeout')).toHaveTextContent('3m');
   });
 });

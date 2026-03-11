@@ -74,6 +74,9 @@ describe('AssistantPanelSettingsView', () => {
       'aria-checked',
       'true',
     );
+    expect(screen.getByRole('button', { name: 'Silence timeout' })).toHaveTextContent(
+      'Never',
+    );
   });
 
   it('applies a valid backend URL override on blur through the settings store', async () => {
@@ -224,6 +227,21 @@ describe('AssistantPanelSettingsView', () => {
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       voiceAutoGainControlEnabled: false,
+    });
+  });
+
+  it('persists the speech silence timeout from the audio section', async () => {
+    await renderSettings();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Silence timeout' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: '3 minutes' }));
+    });
+
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      speechSilenceTimeout: '3m',
     });
   });
 });

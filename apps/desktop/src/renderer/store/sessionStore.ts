@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
 import { LIVE_ADAPTER_KEY } from '../runtime/liveConfig';
+import { createSpeechSessionLifecycle } from '../runtime/speechSessionLifecycle';
 import {
   createTextSessionLifecycle,
   deriveSessionPhaseFromLifecycle,
@@ -13,6 +14,7 @@ import type {
   RuntimeDebugEvent,
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
+  SpeechLifecycle,
   SessionPhase,
   ProductMode,
   TextSessionLifecycle,
@@ -44,6 +46,7 @@ type SessionStoreData = {
   conversationTurns: ConversationTurnModel[];
   lastRuntimeError: string | null;
   lastDebugEvent: RuntimeDebugEvent | null;
+  speechLifecycle: SpeechLifecycle;
   voiceSessionStatus: VoiceSessionStatus;
   voiceSessionResumption: VoiceSessionResumptionState;
   voiceSessionDurability: VoiceSessionDurabilityState;
@@ -72,6 +75,7 @@ export type SessionStoreState = SessionStoreData & {
   clearConversationTurns: () => void;
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
+  setSpeechLifecycle: (speechLifecycle: SpeechLifecycle) => void;
   setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
   setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;
@@ -192,6 +196,7 @@ function buildDefaultSessionState(): SessionStoreData {
     conversationTurns: [],
     lastRuntimeError: null,
     lastDebugEvent: null,
+    speechLifecycle: createSpeechSessionLifecycle(),
     voiceSessionStatus: 'disconnected',
     voiceSessionResumption: buildDefaultVoiceSessionResumption(),
     voiceSessionDurability: buildDefaultVoiceSessionDurability(),
@@ -289,6 +294,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   clearConversationTurns: () => set({ conversationTurns: [] }),
   setLastRuntimeError: (lastRuntimeError) => set({ lastRuntimeError }),
   setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
+  setSpeechLifecycle: (speechLifecycle) => set({ speechLifecycle }),
   setVoiceSessionStatus: (voiceSessionStatus) => set({ voiceSessionStatus }),
   setVoiceSessionResumption: (patch) =>
     set((state) => ({
@@ -365,6 +371,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       conversationTurns: [],
       lastRuntimeError: null,
       lastDebugEvent: null,
+      speechLifecycle: createSpeechSessionLifecycle(),
       voiceSessionStatus: 'disconnected',
       voiceSessionResumption: buildDefaultVoiceSessionResumption(),
       voiceSessionDurability: buildDefaultVoiceSessionDurability(),

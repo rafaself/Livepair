@@ -22,6 +22,11 @@ import {
   type LocalScreenCaptureObserver,
 } from './localScreenCapture';
 import {
+  isSpeechLifecycleActive,
+  reduceSpeechSessionLifecycle,
+  type SpeechSessionLifecycleEvent,
+} from './speechSessionLifecycle';
+import {
   isSessionActiveLifecycle,
   isTextSessionConnectable,
   isTextTurnInFlight,
@@ -38,6 +43,7 @@ import type {
   RuntimeLogger,
   ScreenCaptureDiagnostics,
   SessionControllerEvent,
+  SpeechLifecycleStatus,
   SessionMode,
   ProductMode,
   TextSessionStatus,
@@ -192,6 +198,8 @@ export function createDesktopSessionController(
   let voiceTurnHasCompleted = false;
   let activeVoiceToken: CreateEphemeralTokenResponse | null = null;
   let voiceResumptionInFlight = false;
+  let speechRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  let speechSilenceTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
   const voiceChunkListeners = new Set<(chunk: LocalVoiceChunk) => void>();
 
   const recordSessionEvent = (event: SessionControllerEvent): void => {
@@ -317,6 +325,90 @@ export function createDesktopSessionController(
     if (nextLifecycle.status !== previousStatus) {
       store.setTextSessionLifecycle(nextLifecycle);
       logLifecycleTransition(previousStatus, nextLifecycle.status, event.type);
+    }
+
+    return nextLifecycle.status;
+  };
+
+  const clearSpeechRecoveryTimer = (): void => {
+    if (speechRecoveryTimer !== null) {
+      clearTimeout(speechRecoveryTimer);
+      speechRecoveryTimer = null;
+    }
+  };
+
+  const clearSpeechSilenceTimeout = (): void => {
+    if (speechSilenceTimeoutTimer !== null) {
+      clearTimeout(speechSilenceTimeoutTimer);
+      speechSilenceTimeoutTimer = null;
+    }
+  };
+
+  const currentSpeechLifecycleStatus = (): SpeechLifecycleStatus => {
+    return dependencies.store.getState().speechLifecycle.status;
+  };
+
+  const resolveSpeechSilenceTimeoutMs = (): number | null => {
+    const speechSilenceTimeout =
+      dependencies.settingsStore.getState().settings.speechSilenceTimeout;
+
+    if (speechSilenceTimeout === '30s') {
+      return 30_000;
+    }
+
+    if (speechSilenceTimeout === '3m') {
+      return 3 * 60_000;
+    }
+
+    return null;
+  };
+
+  const syncSpeechSilenceTimeout = (status: SpeechLifecycleStatus): void => {
+    clearSpeechSilenceTimeout();
+
+    if (status !== 'listening') {
+      return;
+    }
+
+    const timeoutMs = resolveSpeechSilenceTimeoutMs();
+
+    if (timeoutMs === null) {
+      return;
+    }
+
+    speechSilenceTimeoutTimer = setTimeout(() => {
+      speechSilenceTimeoutTimer = null;
+      void endSessionInternal();
+    }, timeoutMs);
+  };
+
+  const handleSpeechLifecycleStatusChange = (
+    status: SpeechLifecycleStatus,
+  ): void => {
+    if (status === 'recovering') {
+      clearSpeechRecoveryTimer();
+      speechRecoveryTimer = setTimeout(() => {
+        speechRecoveryTimer = null;
+        applySpeechLifecycleEvent({ type: 'recovery.completed' });
+      }, 0);
+    } else {
+      clearSpeechRecoveryTimer();
+    }
+
+    syncSpeechSilenceTimeout(status);
+  };
+
+  const applySpeechLifecycleEvent = (
+    event: SpeechSessionLifecycleEvent,
+  ): SpeechLifecycleStatus => {
+    const store = dependencies.store.getState();
+    const previousStatus = store.speechLifecycle.status;
+    const nextLifecycle = reduceSpeechSessionLifecycle(store.speechLifecycle, event);
+
+    if (nextLifecycle.status !== previousStatus) {
+      store.setSpeechLifecycle(nextLifecycle);
+      logLifecycleTransition(previousStatus, nextLifecycle.status, event.type);
+      handleSpeechLifecycleStatusChange(nextLifecycle.status);
     }
 
     return nextLifecycle.status;
@@ -453,6 +545,8 @@ export function createDesktopSessionController(
     voiceInterruptionInFlight = null;
     voiceInterruptionSequence += 1;
     releaseTextChatStream();
+    clearSpeechRecoveryTimer();
+    clearSpeechSilenceTimeout();
     clearPendingAssistantTurn();
     voiceTurnHasCompleted = false;
   };
@@ -562,6 +656,7 @@ export function createDesktopSessionController(
     return {
       currentMode: store.currentMode,
       textSessionStatus: store.textSessionLifecycle.status,
+      speechLifecycleStatus: store.speechLifecycle.status,
       voiceSessionStatus: store.voiceSessionStatus,
       voiceCaptureState: store.voiceCaptureState,
       voicePlaybackState: store.voicePlaybackState,
@@ -611,7 +706,6 @@ export function createDesktopSessionController(
 
   const setVoiceErrorState = (detail: string): void => {
     logRuntimeError('voice-session', 'runtime entered error state', { detail });
-    const transport = activeTransport;
     const store = dependencies.store.getState();
     resetVoiceTurnTranscriptState();
     voiceResumptionInFlight = false;
@@ -624,24 +718,15 @@ export function createDesktopSessionController(
       });
     }
     store.setVoiceSessionStatus('error');
-    store.setVoiceCaptureState('error');
     store.setLastRuntimeError(detail);
-    store.setActiveTransport(null);
-    setVoicePlaybackState('stopped');
-    updateVoicePlaybackDiagnostics({
-      queueDepth: 0,
-    });
     setVoiceToolState({
       status: 'toolError',
       lastError: detail,
     });
-    store.setAssistantActivity('idle');
-    void voiceCapture?.stop().catch(() => {});
-    void voicePlayback?.stop().catch(() => {});
-    voicePlayback = null;
-    stopScreenCaptureInternal();
-    cleanupTransport();
-    void transport?.disconnect().catch(() => {});
+    void endSessionInternal({
+      preserveLastRuntimeError: detail,
+      preserveVoiceRuntimeDiagnostics: true,
+    });
   };
 
   const stopVoicePlayback = async (
@@ -733,6 +818,7 @@ export function createDesktopSessionController(
     voiceInterruptionSequence += 1;
     const interruptionSequence = voiceInterruptionSequence;
     setVoiceSessionStatus('interrupted');
+    applySpeechLifecycleEvent({ type: 'interruption.detected' });
     dependencies.store.getState().setAssistantActivity('idle');
 
     voiceInterruptionInFlight = (async () => {
@@ -752,11 +838,14 @@ export function createDesktopSessionController(
         return;
       }
 
-      setVoiceSessionStatus(
-        dependencies.store.getState().voiceCaptureState === 'capturing'
-          ? 'recovering'
-          : 'ready',
-      );
+      if (dependencies.store.getState().voiceCaptureState === 'capturing') {
+        setVoiceSessionStatus('recovering');
+        applySpeechLifecycleEvent({ type: 'recovery.started' });
+        return;
+      }
+
+      setVoiceSessionStatus('ready');
+      applySpeechLifecycleEvent({ type: 'recovery.completed' });
     })();
   };
 
@@ -1060,9 +1149,7 @@ export function createDesktopSessionController(
       }
 
       if (event.state === 'connected') {
-        setVoiceSessionStatus(
-          store.voiceCaptureState === 'capturing' ? 'capturing' : 'ready',
-        );
+        setVoiceSessionStatus('ready');
         resetVoiceToolState();
         store.setAssistantActivity('idle');
         store.setActiveTransport(LIVE_ADAPTER_KEY);
@@ -1167,16 +1254,19 @@ export function createDesktopSessionController(
     }
 
     if (event.type === 'input-transcript') {
+      applySpeechLifecycleEvent({ type: 'user.speech.detected' });
       applyVoiceTranscriptUpdate('user', event.text, event.isFinal);
       return;
     }
 
     if (event.type === 'output-transcript') {
+      applySpeechLifecycleEvent({ type: 'assistant.output.started' });
       applyVoiceTranscriptUpdate('assistant', event.text, event.isFinal);
       return;
     }
 
     if (event.type === 'audio-chunk') {
+      applySpeechLifecycleEvent({ type: 'assistant.output.started' });
       void getVoicePlayback()
         .enqueue(event.chunk)
         .catch(() => {});
@@ -1190,6 +1280,14 @@ export function createDesktopSessionController(
 
     if (event.type === 'turn-complete') {
       voiceTurnHasCompleted = true;
+      if (currentSpeechLifecycleStatus() === 'assistantSpeaking') {
+        applySpeechLifecycleEvent({ type: 'assistant.turn.completed' });
+        return;
+      }
+
+      if (currentSpeechLifecycleStatus() === 'userSpeaking') {
+        applySpeechLifecycleEvent({ type: 'user.turn.settled' });
+      }
     }
   };
 
@@ -1346,6 +1444,91 @@ export function createDesktopSessionController(
     }
   };
 
+  const startVoiceCaptureInternal = async (
+    options: {
+      shutdownOnFailure?: boolean;
+    } = {},
+  ): Promise<boolean> => {
+    const { shutdownOnFailure = false } = options;
+    const store = dependencies.store.getState();
+
+    if (
+      store.voiceCaptureState === 'requestingPermission' ||
+      store.voiceCaptureState === 'capturing'
+    ) {
+      return true;
+    }
+
+    if (
+      store.voiceSessionStatus !== 'ready' &&
+      store.voiceSessionStatus !== 'interrupted' &&
+      store.voiceSessionStatus !== 'recovering'
+    ) {
+      store.setVoiceCaptureState('error');
+      store.setVoiceCaptureDiagnostics({
+        lastError: VOICE_SESSION_NOT_READY_DETAIL,
+      });
+
+      if (shutdownOnFailure) {
+        store.setVoiceSessionStatus('error');
+        store.setLastRuntimeError(VOICE_SESSION_NOT_READY_DETAIL);
+        void endSessionInternal({
+          preserveLastRuntimeError: VOICE_SESSION_NOT_READY_DETAIL,
+          preserveVoiceRuntimeDiagnostics: true,
+        });
+      }
+
+      return false;
+    }
+
+    const selectedInputDeviceId =
+      dependencies.settingsStore.getState().settings.selectedInputDeviceId;
+    const {
+      voiceEchoCancellationEnabled,
+      voiceNoiseSuppressionEnabled,
+      voiceAutoGainControlEnabled,
+    } = dependencies.settingsStore.getState().settings;
+    store.setVoiceCaptureState('requestingPermission');
+    store.setVoiceCaptureDiagnostics({
+      chunkCount: 0,
+      sampleRateHz: 16_000,
+      bytesPerChunk: 640,
+      chunkDurationMs: 20,
+      selectedInputDeviceId,
+      lastError: null,
+    });
+
+    try {
+      await getVoiceCapture().start({
+        selectedInputDeviceId,
+        echoCancellationEnabled: voiceEchoCancellationEnabled,
+        noiseSuppressionEnabled: voiceNoiseSuppressionEnabled,
+        autoGainControlEnabled: voiceAutoGainControlEnabled,
+      });
+      dependencies.store.getState().setVoiceCaptureState('capturing');
+      dependencies.store.getState().setVoiceSessionStatus('ready');
+      return true;
+    } catch (error) {
+      const detail = asErrorDetail(error, 'Failed to start microphone capture');
+      dependencies.store.getState().setVoiceCaptureState('error');
+      dependencies.store.getState().setVoiceSessionStatus('error');
+      dependencies.store.getState().setVoiceCaptureDiagnostics({
+        lastError: detail,
+        selectedInputDeviceId,
+      });
+      dependencies.store.getState().setLastRuntimeError(detail);
+
+      if (shutdownOnFailure) {
+        void endSessionInternal({
+          preserveLastRuntimeError: detail,
+          preserveVoiceRuntimeDiagnostics: true,
+        });
+      }
+
+      return false;
+    }
+  };
+
   const startSessionInternal = async ({
     mode,
   }: {
@@ -1366,6 +1549,7 @@ export function createDesktopSessionController(
       }
 
       const store = dependencies.store.getState();
+      applySpeechLifecycleEvent({ type: 'session.start.requested' });
       store.setVoiceCaptureState('idle');
       store.setVoiceCaptureDiagnostics({
         lastError: null,
@@ -1412,6 +1596,20 @@ export function createDesktopSessionController(
           token,
           mode: 'voice',
         });
+
+        if (!isCurrentSessionOperation(operationId)) {
+          return;
+        }
+
+        const didStartVoiceCapture = await startVoiceCaptureInternal({
+          shutdownOnFailure: true,
+        });
+
+        if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
+          return;
+        }
+
+        applySpeechLifecycleEvent({ type: 'session.ready' });
       } catch (error) {
         if (!isCurrentSessionOperation(operationId)) {
           return;
@@ -1507,6 +1705,7 @@ export function createDesktopSessionController(
     const store = dependencies.store.getState();
 
     return (
+      isSpeechLifecycleActive(store.speechLifecycle.status) ||
       (
         store.voiceSessionStatus !== 'disconnected' &&
         store.voiceSessionStatus !== 'error'
@@ -1538,9 +1737,26 @@ export function createDesktopSessionController(
   };
 
   const teardownActiveRuntime = async (
-    textSessionStatus: TextSessionStatus = 'disconnected',
+    {
+      textSessionStatus = 'disconnected',
+      preserveLastRuntimeError = null,
+      preserveVoiceRuntimeDiagnostics = false,
+    }: {
+      textSessionStatus?: TextSessionStatus;
+      preserveLastRuntimeError?: string | null;
+      preserveVoiceRuntimeDiagnostics?: boolean;
+    } = {},
   ): Promise<void> => {
     const store = dependencies.store.getState();
+    const preservedVoiceSessionResumption = preserveVoiceRuntimeDiagnostics
+      ? store.voiceSessionResumption
+      : null;
+    const preservedVoiceSessionDurability = preserveVoiceRuntimeDiagnostics
+      ? store.voiceSessionDurability
+      : null;
+    const preservedVoiceToolState = preserveVoiceRuntimeDiagnostics
+      ? store.voiceToolState
+      : null;
     const hasActiveRuntime =
       activeTransport !== null ||
       activeTextChatStream !== null ||
@@ -1551,15 +1767,34 @@ export function createDesktopSessionController(
       hasTextRuntimeActivity();
 
     if (!hasActiveRuntime) {
+      if (isSpeechLifecycleActive(currentSpeechLifecycleStatus())) {
+        applySpeechLifecycleEvent({ type: 'session.end.requested' });
+        applySpeechLifecycleEvent({ type: 'session.ended' });
+      }
       resetRuntimeState(textSessionStatus);
       store.setVoiceSessionStatus('disconnected');
       store.setAssistantActivity('idle');
       activeVoiceToken = null;
       voiceResumptionInFlight = false;
-      resetVoiceSessionResumption();
-      resetVoiceSessionDurability();
-      resetVoiceToolState();
+      if (preserveVoiceRuntimeDiagnostics) {
+        if (preservedVoiceSessionResumption) {
+          store.setVoiceSessionResumption(preservedVoiceSessionResumption);
+        }
+        if (preservedVoiceSessionDurability) {
+          store.setVoiceSessionDurability(preservedVoiceSessionDurability);
+        }
+        if (preservedVoiceToolState) {
+          store.setVoiceToolState(preservedVoiceToolState);
+        }
+      } else {
+        resetVoiceSessionResumption();
+        resetVoiceSessionDurability();
+        resetVoiceToolState();
+      }
       clearCurrentVoiceTranscript();
+      if (preserveLastRuntimeError !== null) {
+        store.setLastRuntimeError(preserveLastRuntimeError);
+      }
       return;
     }
 
@@ -1568,6 +1803,7 @@ export function createDesktopSessionController(
     }
 
     if (hasSpeechRuntimeActivity()) {
+      applySpeechLifecycleEvent({ type: 'session.end.requested' });
       store.setVoiceSessionStatus('stopping');
     }
 
@@ -1589,18 +1825,65 @@ export function createDesktopSessionController(
       await activeTransport?.disconnect();
       await stopVoicePlayback();
     } finally {
+      applySpeechLifecycleEvent({ type: 'session.ended' });
       cleanupTransport();
       resetRuntimeState(textSessionStatus);
       activeVoiceToken = null;
       voiceResumptionInFlight = false;
-      resetVoiceSessionResumption();
-      resetVoiceSessionDurability();
-      resetVoiceToolState();
+      if (preserveVoiceRuntimeDiagnostics) {
+        if (preservedVoiceSessionResumption) {
+          store.setVoiceSessionResumption(preservedVoiceSessionResumption);
+        }
+        if (preservedVoiceSessionDurability) {
+          store.setVoiceSessionDurability(preservedVoiceSessionDurability);
+        }
+        if (preservedVoiceToolState) {
+          store.setVoiceToolState(preservedVoiceToolState);
+        }
+      } else {
+        resetVoiceSessionResumption();
+        resetVoiceSessionDurability();
+        resetVoiceToolState();
+      }
       clearCurrentVoiceTranscript();
       store.setVoiceCaptureState(voiceCapture ? 'stopped' : 'idle');
       store.setVoicePlaybackState('stopped');
       store.setVoiceSessionStatus('disconnected');
       store.setAssistantActivity('idle');
+      if (preserveLastRuntimeError !== null) {
+        store.setLastRuntimeError(preserveLastRuntimeError);
+      }
+    }
+  };
+
+  const endSessionInternal = async (
+    options: {
+      preserveLastRuntimeError?: string | null;
+      recordEvents?: boolean;
+      preserveVoiceRuntimeDiagnostics?: boolean;
+    } = {},
+  ): Promise<void> => {
+    const {
+      preserveLastRuntimeError = null,
+      recordEvents = false,
+      preserveVoiceRuntimeDiagnostics = false,
+    } = options;
+
+    beginSessionOperation();
+
+    if (recordEvents) {
+      recordSessionEvent({ type: 'session.end.requested' });
+    }
+
+    await teardownActiveRuntime({
+      textSessionStatus: 'disconnected',
+      preserveLastRuntimeError,
+      preserveVoiceRuntimeDiagnostics,
+    });
+    setCurrentMode('text');
+
+    if (recordEvents) {
+      recordSessionEvent({ type: 'session.ended' });
     }
   };
 
@@ -1616,7 +1899,9 @@ export function createDesktopSessionController(
       (currentProductMode() !== 'speech' || hasTextRuntimeActivity());
 
     if (shouldTearDownSpeech || shouldTearDownText) {
-      await teardownActiveRuntime('disconnected');
+      await teardownActiveRuntime({
+        textSessionStatus: 'disconnected',
+      });
 
       if (!isCurrentSessionOperation(operationId)) {
         return;
@@ -1634,59 +1919,7 @@ export function createDesktopSessionController(
       await startSessionInternal({ mode });
     },
     startVoiceCapture: async () => {
-      const store = dependencies.store.getState();
-
-      if (
-        store.voiceCaptureState === 'requestingPermission' ||
-        store.voiceCaptureState === 'capturing'
-      ) {
-        return;
-      }
-
-      if (store.voiceSessionStatus !== 'ready') {
-        store.setVoiceCaptureState('error');
-        store.setVoiceCaptureDiagnostics({
-          lastError: VOICE_SESSION_NOT_READY_DETAIL,
-        });
-        return;
-      }
-
-      const selectedInputDeviceId =
-        dependencies.settingsStore.getState().settings.selectedInputDeviceId;
-      const {
-        voiceEchoCancellationEnabled,
-        voiceNoiseSuppressionEnabled,
-        voiceAutoGainControlEnabled,
-      } = dependencies.settingsStore.getState().settings;
-      store.setVoiceCaptureState('requestingPermission');
-      store.setVoiceCaptureDiagnostics({
-        chunkCount: 0,
-        sampleRateHz: 16_000,
-        bytesPerChunk: 640,
-        chunkDurationMs: 20,
-        selectedInputDeviceId,
-        lastError: null,
-      });
-
-      try {
-        await getVoiceCapture().start({
-          selectedInputDeviceId,
-          echoCancellationEnabled: voiceEchoCancellationEnabled,
-          noiseSuppressionEnabled: voiceNoiseSuppressionEnabled,
-          autoGainControlEnabled: voiceAutoGainControlEnabled,
-        });
-        dependencies.store.getState().setVoiceCaptureState('capturing');
-        dependencies.store.getState().setVoiceSessionStatus('capturing');
-      } catch (error) {
-        const detail = asErrorDetail(error, 'Failed to start microphone capture');
-        dependencies.store.getState().setVoiceCaptureState('error');
-        dependencies.store.getState().setVoiceSessionStatus('error');
-        dependencies.store.getState().setVoiceCaptureDiagnostics({
-          lastError: detail,
-          selectedInputDeviceId,
-        });
-        dependencies.store.getState().setLastRuntimeError(detail);
-      }
+      await startVoiceCaptureInternal();
     },
     stopVoiceCapture: async () => {
       const store = dependencies.store.getState();
@@ -1824,6 +2057,28 @@ export function createDesktopSessionController(
         return false;
       }
 
+      if (isSpeechLifecycleActive(currentSpeechLifecycleStatus())) {
+        if (!activeTransport || activeTransport.kind !== LIVE_ADAPTER_KEY) {
+          logRuntimeError('voice-session', 'submit aborted because voice transport is unavailable', {
+            textLength: trimmedText.length,
+          });
+          return false;
+        }
+
+        try {
+          appendUserTurn(trimmedText);
+          dependencies.store.getState().setLastRuntimeError(null);
+          await activeTransport.sendText(trimmedText);
+          syncSpeechSilenceTimeout(currentSpeechLifecycleStatus());
+          return true;
+        } catch (error) {
+          const detail = asErrorDetail(error, 'Failed to send speech-mode text turn');
+          dependencies.store.getState().setLastRuntimeError(detail);
+          setVoiceErrorState(detail);
+          return false;
+        }
+      }
+
       if (
         currentProductMode() === 'text' &&
         isTextTurnInFlight(currentTextSessionStatus())
@@ -1860,12 +2115,7 @@ export function createDesktopSessionController(
       return true;
     },
     endSession: async () => {
-      beginSessionOperation();
-
-      recordSessionEvent({ type: 'session.end.requested' });
-      await teardownActiveRuntime('disconnected');
-      setCurrentMode('text');
-      recordSessionEvent({ type: 'session.ended' });
+      await endSessionInternal({ recordEvents: true });
     },
     setAssistantState: (assistantState: DebugAssistantState) => {
       dependencies.store.getState().setAssistantState(assistantState);

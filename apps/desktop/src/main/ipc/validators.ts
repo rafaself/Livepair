@@ -30,6 +30,10 @@ function isPreferredMode(value: unknown): boolean {
   return value === 'fast';
 }
 
+function isSpeechSilenceTimeout(value: unknown): boolean {
+  return value === 'never' || value === '30s' || value === '3m';
+}
+
 function isNonEmptyString(value: unknown): boolean {
   return typeof value === 'string' && value.length > 0;
 }
@@ -38,6 +42,7 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
   'themePreference',
   'backendUrl',
   'preferredMode',
+  'speechSilenceTimeout',
   'selectedInputDeviceId',
   'selectedOutputDeviceId',
   'voiceEchoCancellationEnabled',
@@ -135,6 +140,13 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
   }
 
   if ('preferredMode' in value && !isPreferredMode(value['preferredMode'])) {
+    return false;
+  }
+
+  if (
+    'speechSilenceTimeout' in value &&
+    !isSpeechSilenceTimeout(value['speechSilenceTimeout'])
+  ) {
     return false;
   }
 

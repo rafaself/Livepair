@@ -44,6 +44,7 @@ describe('ipc validators', () => {
     const valid: DesktopSettingsPatch = {
       backendUrl: 'http://localhost:3000',
       preferredMode: 'fast',
+      speechSilenceTimeout: '30s',
       voiceNoiseSuppressionEnabled: true,
       isPanelPinned: true,
     };
@@ -64,6 +65,7 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ selectedOutputDeviceId: false })).toBe(false);
     expect(isDesktopSettingsPatch({ voiceEchoCancellationEnabled: 'yes' })).toBe(false);
     expect(isDesktopSettingsPatch({ isPanelPinned: 'yes' })).toBe(false);
+    expect(isDesktopSettingsPatch({ speechSilenceTimeout: '5m' })).toBe(false);
   });
 
   it('validates text chat request payloads', () => {

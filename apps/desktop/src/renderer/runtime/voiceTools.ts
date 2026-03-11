@@ -1,5 +1,6 @@
 import type {
   ProductMode,
+  SpeechLifecycleStatus,
   TextSessionStatus,
   VoiceCaptureState,
   VoicePlaybackState,
@@ -13,6 +14,7 @@ export type VoiceToolName = 'get_current_mode' | 'get_voice_session_status';
 export type VoiceToolExecutionSnapshot = {
   currentMode: ProductMode;
   textSessionStatus: TextSessionStatus;
+  speechLifecycleStatus: SpeechLifecycleStatus;
   voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   voicePlaybackState: VoicePlaybackState;
@@ -83,6 +85,7 @@ export async function executeLocalVoiceTool(
         name: call.name,
         response: {
           ok: true,
+          speechLifecycleStatus: snapshot.speechLifecycleStatus,
           voiceSessionStatus: snapshot.voiceSessionStatus,
           voiceCaptureState: snapshot.voiceCaptureState,
           voicePlaybackState: snapshot.voicePlaybackState,
