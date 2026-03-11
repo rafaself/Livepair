@@ -1,18 +1,17 @@
 # apps/api AGENTS.md
 
 ## Purpose
-NestJS backend. Issues ephemeral tokens, exposes lightweight tools, stores short session checkpoints, receives error reports. Stays out of the audio/video hot path.
+NestJS backend (control-plane). Stays out of the audio/video hot path.
 
-## Architecture — Modular Monolith
-- One module per domain: `health`, `session`, `tools` (future), `logging` (future).
-- Thin controllers — no business logic in controllers.
-- Business logic lives in services (`*.service.ts`).
-- Do not split into microservices without explicit approval.
+## Structure (Modular Monolith)
+- Current domains live in `src/health/`, `src/session/`, `src/config/`.
+- Add new domains as their own Nest modules (folder-per-module).
+- Keep controllers thin; put business logic in services.
 
 ## Shared Contracts
 - All API payload types come from `@livepair/shared-types`.
 - DTOs implement the shared request interface and add validation decorators.
-- Never duplicate type definitions here — update `packages/shared-types` and import.
+- Never duplicate API shapes in `apps/api`.
 
 ## Config
 - All env vars are accessed through `src/config/env.ts`.
@@ -25,12 +24,8 @@ NestJS backend. Issues ephemeral tokens, exposes lightweight tools, stores short
 - Validate all external input at the controller boundary.
 
 ## Testing
-- TDD for service logic whenever practical.
-- Use `@nestjs/testing` and `ts-jest`.
-- Health and session behaviors must have tests.
-- Use `supertest` for integration-style controller tests when the setup cost is low.
+- Prefer TDD for service logic when practical.
+- Use `@nestjs/testing`/`ts-jest`; use `supertest` for cheap controller integration tests.
 
-## Change Discipline
-- Run `typecheck` and `test` after every change.
-- Do not add Redis, session checkpointing, or real Gemini token issuance until the relevant task is scoped.
-- Keep the backend small and focused. No premature abstractions.
+## Verification
+- Prefer `pnpm verify:api` after changes (lint + typecheck + test).

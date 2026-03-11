@@ -1,19 +1,19 @@
 # apps/desktop AGENTS.md
 
 ## Purpose
-Electron + React desktop app. Captures audio/screen, connects directly to Gemini Live API using ephemeral tokens from the backend.
+Electron main + preload + React renderer. The renderer connects directly to Gemini Live; the backend is control-plane only (health/settings/token requests).
 
 ## Security — Non-Negotiable
-- `contextIsolation: true` and `nodeIntegration: false` must never be changed.
-- All privileged access (IPC, file system, native APIs) goes through `src/preload/preload.ts` only.
-- The renderer (`src/renderer/`) must never import Electron or Node APIs directly.
-- Add only minimal, typed entries to `contextBridge.exposeInMainWorld`.
-- CSP must remain in `index.html`.
+- `contextIsolation: true` and `nodeIntegration: false` must never be changed (see `src/main/window/overlayWindow.ts`).
+- All privileged access goes through `src/preload/preload.ts` and a typed `window.bridge`.
+- The renderer (`src/renderer/`) must never import Electron or Node built-ins.
+- Keep the renderer CSP in `src/renderer/index.html`.
 
 ## IPC Discipline
-- Every IPC channel must be declared in the preload bridge interface (`DesktopBridge`).
-- IPC handlers live in `src/main/main.ts` (or sub-modules imported from main).
-- Channel names follow `domain:action` (e.g. `health:check`, `session:requestToken`).
+- Single source of truth for IPC contracts: `src/shared/desktopBridge.ts` (`DesktopBridge` + `IPC_CHANNELS`).
+- IPC handlers are registered in `src/main/ipc/registerIpcHandlers.ts` (called from `src/main/main.ts`).
+- Validate IPC payloads in `src/main/ipc/validators.ts` before doing work.
+- Channel names follow `domain:action` (see `IPC_CHANNELS`).
 - Do not expose generic pass-through IPC or eval-style channels.
 
 ## Renderer Rules
@@ -22,20 +22,14 @@ Electron + React desktop app. Captures audio/screen, connects directly to Gemini
 - State stays local to the component unless a shared store is clearly justified.
 
 ## Design System
-- All visual values (colors, spacing, radius, shadow, z-index, motion) come from CSS custom properties defined in `src/renderer/styles/tokens.css` and `src/renderer/styles/motion.css`. Never hardcode these values in component CSS or inline styles.
+- Prefer CSS custom properties from `src/renderer/styles/tokens.css` and `src/renderer/styles/motion.css` (especially for colors, spacing, radius, shadows, motion).
 - The style entry point is `src/renderer/styles/index.css` — imported once in `main.tsx`. Do not add additional global CSS imports.
-- Component CSS lives co-located with its `.tsx` file and is imported directly in that file. No global `components.css`.
+- Component CSS lives under `src/renderer/components/` and is imported by the relevant component(s). Avoid new global `components.css`.
 - See `src/renderer/components/AGENTS.md` for component architecture rules.
-
-## Shared Contracts
-- Import types from `@livepair/shared-types` — never redefine API shapes locally.
-- Any new IPC channel must update `DesktopBridge` in preload and the type declaration in App or a dedicated types file.
 
 ## Testing
 - TDD for IPC handler logic when practical.
 - Renderer component tests are optional for the MVP; add them when testing UI state machines.
 
-## Change Discipline
-- Run `typecheck` after every change.
-- Run `build` before declaring a feature complete.
-- Do not add Gemini or audio/video pipeline code until the relevant task is scoped.
+## Verification
+- Prefer `pnpm verify:desktop` after changes (lint + typecheck + test).
