@@ -47,6 +47,12 @@ describe('AssistantPanelDebugView', () => {
           selectedOutputDeviceId: 'desk-speakers',
           lastError: null,
         }}
+        voiceToolState={{
+          status: 'toolResponding',
+          toolName: 'get_current_mode',
+          callId: 'call-1',
+          lastError: null,
+        }}
         onRetryBackendHealth={onRetryBackendHealth}
         onSetAssistantState={onSetAssistantState}
       />,
@@ -69,6 +75,10 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Capturing')).toBeVisible();
     expect(screen.getByText('Voice playback')).toBeVisible();
     expect(screen.getByText('Playing')).toBeVisible();
+    expect(screen.getByText('Tool state')).toBeVisible();
+    expect(screen.getByText('Tool responding')).toBeVisible();
+    expect(screen.getByText('Current tool')).toBeVisible();
+    expect(screen.getByText('get_current_mode')).toBeVisible();
     expect(screen.getByText('Chunk count')).toBeVisible();
     expect(screen.getByText('3')).toBeVisible();
     expect(screen.getByText('Audio format')).toBeVisible();

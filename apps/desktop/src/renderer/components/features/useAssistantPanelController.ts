@@ -14,6 +14,7 @@ import type {
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionStatus,
+  VoiceToolState,
 } from '../../runtime/types';
 
 export type AssistantPanelController = {
@@ -39,6 +40,7 @@ export type AssistantPanelController = {
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  voiceToolState: VoiceToolState;
   isVoiceSessionActive: boolean;
   currentVoiceTranscript: CurrentVoiceTranscript;
   canSubmitText: boolean;
@@ -72,6 +74,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    voiceToolState,
     isVoiceSessionActive,
     currentVoiceTranscript,
     canSubmitText,
@@ -154,6 +157,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    voiceToolState,
     isVoiceSessionActive,
     currentVoiceTranscript,
     canSubmitText,

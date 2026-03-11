@@ -12,6 +12,7 @@ import type {
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionStatus,
+  VoiceToolState,
 } from '../../runtime/types';
 import { FieldList, StatusIndicator } from '../composite';
 import { ViewSection } from '../layout';
@@ -32,6 +33,7 @@ export type AssistantPanelDebugViewProps = {
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  voiceToolState: VoiceToolState;
   onRetryBackendHealth: () => Promise<void>;
   onSetAssistantState: (state: AssistantRuntimeState) => void;
 };
@@ -70,6 +72,26 @@ function formatVoicePlaybackState(state: VoicePlaybackState): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatVoiceToolState(state: VoiceToolState['status']): string {
+  if (state === 'toolCallPending') {
+    return 'Tool call pending';
+  }
+
+  if (state === 'toolExecuting') {
+    return 'Tool executing';
+  }
+
+  if (state === 'toolResponding') {
+    return 'Tool responding';
+  }
+
+  if (state === 'toolError') {
+    return 'Tool error';
+  }
+
+  return 'Idle';
+}
+
 export function AssistantPanelDebugView({
   assistantState,
   backendState,
@@ -83,6 +105,7 @@ export function AssistantPanelDebugView({
   voiceCaptureDiagnostics,
   voicePlaybackState,
   voicePlaybackDiagnostics,
+  voiceToolState,
   onRetryBackendHealth,
   onSetAssistantState,
 }: AssistantPanelDebugViewProps): JSX.Element {
@@ -170,6 +193,10 @@ export function AssistantPanelDebugView({
                 voiceSessionResumption.lastDetail ??
                 'None',
             },
+            { label: 'Tool state', value: formatVoiceToolState(voiceToolState.status) },
+            { label: 'Current tool', value: voiceToolState.toolName ?? 'None' },
+            { label: 'Tool call', value: voiceToolState.callId ?? 'None' },
+            { label: 'Tool error', value: voiceToolState.lastError ?? 'None' },
             { label: 'Voice capture', value: formatVoiceCaptureState(voiceCaptureState) },
             {
               label: 'Audio format',
