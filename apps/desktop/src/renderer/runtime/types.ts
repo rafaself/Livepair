@@ -135,6 +135,32 @@ export type VoiceSessionDurabilityState = {
   lastDetail: string | null;
 };
 
+export type VoiceToolStatus =
+  | 'idle'
+  | 'toolCallPending'
+  | 'toolExecuting'
+  | 'toolResponding'
+  | 'toolError';
+
+export type VoiceToolState = {
+  status: VoiceToolStatus;
+  toolName: string | null;
+  callId: string | null;
+  lastError: string | null;
+};
+
+export type VoiceToolCall = {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+};
+
+export type VoiceToolResponse = {
+  id: string;
+  name: string;
+  response: Record<string, unknown>;
+};
+
 export type SessionControllerEvent =
   | { type: 'session.backend.health.started' }
   | { type: 'session.backend.health.succeeded' }
@@ -204,6 +230,10 @@ export type LiveSessionEvent =
       detail?: string | undefined;
     }
   | {
+      type: 'tool-call';
+      calls: VoiceToolCall[];
+    }
+  | {
       type: 'error';
       detail: string;
     };
@@ -220,6 +250,7 @@ export type DesktopSession = {
   sendText: (text: string) => Promise<void>;
   sendAudioChunk: (chunk: Uint8Array) => Promise<void>;
   sendAudioStreamEnd: () => Promise<void>;
+  sendToolResponses: (responses: VoiceToolResponse[]) => Promise<void>;
   disconnect: () => Promise<void>;
   subscribe: (listener: (event: LiveSessionEvent) => void) => () => void;
 };
