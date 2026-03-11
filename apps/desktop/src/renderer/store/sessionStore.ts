@@ -23,6 +23,7 @@ import type {
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionStatus,
+  VoiceToolState,
 } from '../runtime/types';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
@@ -47,6 +48,7 @@ type SessionStoreData = {
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   currentVoiceTranscript: CurrentVoiceTranscript;
+  voiceToolState: VoiceToolState;
 };
 
 export type SessionStoreState = SessionStoreData & {
@@ -74,6 +76,7 @@ export type SessionStoreState = SessionStoreData & {
   setVoicePlaybackDiagnostics: (
     patch: Partial<VoicePlaybackDiagnostics>,
   ) => void;
+  setVoiceToolState: (patch: Partial<VoiceToolState>) => void;
   setCurrentVoiceTranscriptEntry: (
     role: keyof CurrentVoiceTranscript,
     patch: Partial<CurrentVoiceTranscript[keyof CurrentVoiceTranscript]>,
@@ -147,6 +150,15 @@ function buildDefaultVoiceSessionDurability(): VoiceSessionDurabilityState {
   };
 }
 
+function buildDefaultVoiceToolState(): VoiceToolState {
+  return {
+    status: 'idle',
+    toolName: null,
+    callId: null,
+    lastError: null,
+  };
+}
+
 function buildDefaultSessionState(): SessionStoreData {
   return {
     ...withDerivedLifecycleFields(createTextSessionLifecycle()),
@@ -165,6 +177,7 @@ function buildDefaultSessionState(): SessionStoreData {
     voicePlaybackState: 'idle',
     voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+    voiceToolState: buildDefaultVoiceToolState(),
   };
 }
 
@@ -281,6 +294,13 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setVoiceToolState: (patch) =>
+    set((state) => ({
+      voiceToolState: {
+        ...state.voiceToolState,
+        ...patch,
+      },
+    })),
   setCurrentVoiceTranscriptEntry: (role, patch) =>
     set((state) => ({
       currentVoiceTranscript: {
@@ -315,6 +335,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       voicePlaybackState: state.voicePlaybackState,
       voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
       currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+      voiceToolState: buildDefaultVoiceToolState(),
     })),
   reset: (overrides) =>
     set(() => {

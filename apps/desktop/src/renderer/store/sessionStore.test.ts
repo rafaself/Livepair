@@ -86,4 +86,20 @@ describe('sessionStore', () => {
       lastDetail: 'Refreshing token before resume',
     });
   });
+
+  it('tracks voice tool runtime state separately from the voice session lifecycle', () => {
+    useSessionStore.getState().setVoiceToolState({
+      status: 'toolExecuting',
+      toolName: 'get_voice_session_status',
+      callId: 'call-2',
+      lastError: null,
+    });
+
+    expect(useSessionStore.getState().voiceToolState).toEqual({
+      status: 'toolExecuting',
+      toolName: 'get_voice_session_status',
+      callId: 'call-2',
+      lastError: null,
+    });
+  });
 });

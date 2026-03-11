@@ -15,6 +15,7 @@ import {
   type AssistantAudioPlaybackObserver,
 } from './assistantAudioPlayback';
 import { createLocalVoiceCapture, type LocalVoiceCapture } from './localVoiceCapture';
+import { executeLocalVoiceTool } from './voiceTools';
 import {
   isSessionActiveLifecycle,
   isTextSessionConnectable,
@@ -39,6 +40,8 @@ import type {
   VoiceSessionStatus,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
+  VoiceToolCall,
+  VoiceToolState,
 } from './types';
 import type {
   CreateEphemeralTokenResponse,
@@ -69,6 +72,15 @@ function createDefaultVoiceSessionDurabilityState(): VoiceSessionDurabilityState
     expireTime: null,
     newSessionExpireTime: null,
     lastDetail: null,
+  };
+}
+
+function createDefaultVoiceToolState(): VoiceToolState {
+  return {
+    status: 'idle',
+    toolName: null,
+    callId: null,
+    lastError: null,
   };
 }
 
@@ -160,6 +172,7 @@ export function createDesktopSessionController(
   let voiceCapture: LocalVoiceCapture | null = null;
   let voicePlayback: AssistantAudioPlayback | null = null;
   let voiceSendChain = Promise.resolve();
+  let voiceToolChain = Promise.resolve();
   let voiceInterruptionInFlight: Promise<void> | null = null;
   let voiceInterruptionSequence = 0;
   let voiceTurnHasCompleted = false;
@@ -333,6 +346,16 @@ export function createDesktopSessionController(
       .setVoiceSessionDurability(createDefaultVoiceSessionDurabilityState());
   };
 
+  const setVoiceToolState = (
+    patch: Partial<VoiceToolState>,
+  ): void => {
+    dependencies.store.getState().setVoiceToolState(patch);
+  };
+
+  const resetVoiceToolState = (): void => {
+    dependencies.store.getState().setVoiceToolState(createDefaultVoiceToolState());
+  };
+
   const clearCurrentVoiceTranscript = (): void => {
     dependencies.store.getState().clearCurrentVoiceTranscript();
   };
@@ -401,6 +424,7 @@ export function createDesktopSessionController(
     activeTransport = null;
     voicePlayback = null;
     voiceSendChain = Promise.resolve();
+    voiceToolChain = Promise.resolve();
     voiceInterruptionInFlight = null;
     voiceInterruptionSequence += 1;
     releaseTextChatStream();
@@ -507,6 +531,17 @@ export function createDesktopSessionController(
     dependencies.store.getState().resetTextSessionRuntime(textSessionStatus);
   };
 
+  const createVoiceToolExecutionSnapshot = () => {
+    const store = dependencies.store.getState();
+
+    return {
+      textSessionStatus: store.textSessionLifecycle.status,
+      voiceSessionStatus: store.voiceSessionStatus,
+      voiceCaptureState: store.voiceCaptureState,
+      voicePlaybackState: store.voicePlaybackState,
+    };
+  };
+
   const isTokenValidForReconnect = (
     token: CreateEphemeralTokenResponse | null,
     now = Date.now(),
@@ -560,6 +595,10 @@ export function createDesktopSessionController(
     setVoicePlaybackState('stopped');
     updateVoicePlaybackDiagnostics({
       queueDepth: 0,
+    });
+    setVoiceToolState({
+      status: 'toolError',
+      lastError: detail,
     });
     store.setAssistantActivity('idle');
     void voicePlayback?.stop().catch(() => {});
@@ -666,6 +705,95 @@ export function createDesktopSessionController(
   const flushVoiceAudioInput = async (): Promise<void> => {
     await voiceSendChain;
     await activeTransport?.sendAudioStreamEnd();
+  };
+
+  const handleVoiceToolCalls = async (
+    calls: VoiceToolCall[],
+  ): Promise<void> => {
+    const transport = activeTransport;
+
+    if (!transport || calls.length === 0) {
+      return;
+    }
+
+    const responses = [];
+    let lastError: string | null = null;
+
+    for (const call of calls) {
+      if (transport !== activeTransport) {
+        return;
+      }
+
+      setVoiceToolState({
+        status: 'toolCallPending',
+        toolName: call.name,
+        callId: call.id,
+        lastError: null,
+      });
+      setVoiceToolState({
+        status: 'toolExecuting',
+        toolName: call.name,
+        callId: call.id,
+      });
+
+      const response = await executeLocalVoiceTool(
+        call,
+        createVoiceToolExecutionSnapshot(),
+      );
+      responses.push(response);
+
+      const errorDetail = response.response['error'];
+
+      if (
+        errorDetail &&
+        typeof errorDetail === 'object' &&
+        'message' in errorDetail &&
+        typeof errorDetail.message === 'string'
+      ) {
+        lastError = errorDetail.message;
+      }
+    }
+
+    setVoiceToolState({
+      status: 'toolResponding',
+      toolName: calls.at(-1)?.name ?? null,
+      callId: calls.at(-1)?.id ?? null,
+      lastError,
+    });
+
+    try {
+      await transport.sendToolResponses(responses);
+    } catch (error) {
+      const detail = asErrorDetail(error, 'Failed to respond to voice tool call');
+      setVoiceToolState({
+        status: 'toolError',
+        toolName: calls.at(-1)?.name ?? null,
+        callId: calls.at(-1)?.id ?? null,
+        lastError: detail,
+      });
+      setVoiceErrorState(detail);
+      return;
+    }
+
+    setVoiceToolState({
+      status: lastError ? 'toolError' : 'idle',
+      toolName: calls.at(-1)?.name ?? null,
+      callId: calls.at(-1)?.id ?? null,
+      lastError,
+    });
+  };
+
+  const enqueueVoiceToolCalls = (calls: VoiceToolCall[]): void => {
+    voiceToolChain = voiceToolChain
+      .then(() => handleVoiceToolCalls(calls))
+      .catch((error) => {
+        const detail = asErrorDetail(error, 'Failed to handle voice tool call');
+        setVoiceToolState({
+          status: 'toolError',
+          lastError: detail,
+        });
+        setVoiceErrorState(detail);
+      });
   };
 
   const resumeVoiceSession = async (detail: string): Promise<void> => {
@@ -794,6 +922,7 @@ export function createDesktopSessionController(
 
       if (event.state === 'connected') {
         setVoiceSessionStatus('ready');
+        resetVoiceToolState();
         store.setAssistantActivity('idle');
         store.setActiveTransport(LIVE_ADAPTER_KEY);
         store.setLastRuntimeError(null);
@@ -828,6 +957,7 @@ export function createDesktopSessionController(
 
       setVoiceSessionStatus('disconnected');
       resetVoiceTurnTranscriptState();
+      resetVoiceToolState();
       void stopVoicePlayback();
       cleanupTransport();
       store.setAssistantActivity('idle');
@@ -918,6 +1048,11 @@ export function createDesktopSessionController(
       void getVoicePlayback()
         .enqueue(event.chunk)
         .catch(() => {});
+      return;
+    }
+
+    if (event.type === 'tool-call') {
+      enqueueVoiceToolCalls(event.calls);
       return;
     }
 
@@ -1107,6 +1242,7 @@ export function createDesktopSessionController(
       setVoiceSessionStatus('connecting');
       resetVoiceSessionResumption();
       resetVoiceSessionDurability();
+      resetVoiceToolState();
       recordSessionEvent({
         type: 'session.start.requested',
         transport: LIVE_ADAPTER_KEY,

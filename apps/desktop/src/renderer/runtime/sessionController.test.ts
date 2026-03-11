@@ -21,6 +21,7 @@ function createUnusedTransport(): DesktopSession {
     sendText: vi.fn(async () => undefined),
     sendAudioChunk: vi.fn(async () => undefined),
     sendAudioStreamEnd: vi.fn(async () => undefined),
+    sendToolResponses: vi.fn(async () => undefined),
     disconnect: vi.fn(async () => undefined),
     subscribe: vi.fn(() => vi.fn()),
   };
@@ -31,6 +32,7 @@ function createVoiceTransportHarness(): {
   connect: ReturnType<typeof vi.fn>;
   sendAudioChunk: ReturnType<typeof vi.fn>;
   sendAudioStreamEnd: ReturnType<typeof vi.fn>;
+  sendToolResponses: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
   setConnectError: (error: Error | null) => void;
   emit: (event: Parameters<Parameters<DesktopSession['subscribe']>[0]>[0]) => void;
@@ -39,6 +41,7 @@ function createVoiceTransportHarness(): {
     | null = null;
   const sendAudioChunk = vi.fn(async () => undefined);
   const sendAudioStreamEnd = vi.fn(async () => undefined);
+  const sendToolResponses = vi.fn(async () => undefined);
   let connectError: Error | null = null;
   const disconnect = vi.fn(async () => {
     listener?.({ type: 'connection-state-changed', state: 'disconnected' });
@@ -59,6 +62,7 @@ function createVoiceTransportHarness(): {
       sendText: vi.fn(async () => undefined),
       sendAudioChunk,
       sendAudioStreamEnd,
+      sendToolResponses,
       disconnect,
       subscribe: vi.fn((nextListener) => {
         listener = nextListener;
@@ -71,6 +75,7 @@ function createVoiceTransportHarness(): {
     connect,
     sendAudioChunk,
     sendAudioStreamEnd,
+    sendToolResponses,
     disconnect,
     setConnectError: (error) => {
       connectError = error;
@@ -310,6 +315,121 @@ describe('createDesktopSessionController', () => {
       },
       mode: 'voice',
     });
+  });
+
+  it('executes local voice tools and responds without breaking the session', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({
+      type: 'tool-call',
+      calls: [
+        {
+          id: 'call-1',
+          name: 'get_current_mode',
+          arguments: {},
+        },
+      ],
+    });
+
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendToolResponses).toHaveBeenCalledWith([
+        {
+          id: 'call-1',
+          name: 'get_current_mode',
+          response: {
+            ok: true,
+            mode: 'voice',
+          },
+        },
+      ]);
+    });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voiceSessionStatus: 'ready',
+        voiceToolState: {
+          status: 'idle',
+          toolName: 'get_current_mode',
+          callId: 'call-1',
+          lastError: null,
+        },
+      }),
+    );
+  });
+
+  it('surfaces local tool failures without crashing the voice session', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({
+      type: 'tool-call',
+      calls: [
+        {
+          id: 'call-2',
+          name: 'unknown_tool',
+          arguments: {},
+        },
+      ],
+    });
+
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendToolResponses).toHaveBeenCalledWith([
+        {
+          id: 'call-2',
+          name: 'unknown_tool',
+          response: {
+            ok: false,
+            error: {
+              code: 'tool_not_supported',
+              message: 'Tool "unknown_tool" is not supported in voice mode',
+            },
+          },
+        },
+      ]);
+    });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voiceSessionStatus: 'ready',
+        voiceToolState: {
+          status: 'toolError',
+          toolName: 'unknown_tool',
+          callId: 'call-2',
+          lastError: 'Tool "unknown_tool" is not supported in voice mode',
+        },
+      }),
+    );
   });
 
   it('stores the latest resumption handle and resumes after go-away with the existing token when still valid', async () => {
