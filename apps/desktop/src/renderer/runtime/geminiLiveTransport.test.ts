@@ -186,10 +186,6 @@ describe('createGeminiLiveTransport', () => {
       config: {
         responseModalities: ['TEXT'],
         mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
-        sessionResumption: {},
-        contextWindowCompression: {
-          slidingWindow: {},
-        },
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });
@@ -222,6 +218,65 @@ describe('createGeminiLiveTransport', () => {
       model: 'models/gemini-2.0-flash-exp',
       config: {
         responseModalities: ['AUDIO'],
+      } satisfies GeminiLiveConnectConfig,
+      callbacks: expect.any(Object),
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+  });
+
+  it('passes voice-only compression and resume handle into the SDK connect config', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: parseLiveConfig({
+        provider: 'gemini',
+        adapterKey: 'gemini-live',
+        model: 'models/gemini-2.0-flash-exp',
+        apiVersion: 'v1alpha',
+        sessionModes: {
+          text: {
+            responseModality: 'TEXT',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+          voice: {
+            responseModality: 'AUDIO',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+        },
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        sessionResumptionEnabled: true,
+        contextCompressionEnabled: true,
+      }),
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      resumeHandle: 'handles/latest-voice-handle',
+    });
+
+    await Promise.resolve();
+
+    expect(sdkHarness.getConnectOptions()).toEqual({
+      apiKey: 'auth_tokens/test-token',
+      apiVersion: 'v1alpha',
+      model: 'models/gemini-2.0-flash-exp',
+      config: {
+        responseModalities: ['AUDIO'],
+        sessionResumption: {
+          handle: 'handles/latest-voice-handle',
+        },
+        contextWindowCompression: {
+          slidingWindow: {},
+        },
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });
@@ -464,6 +519,80 @@ describe('createGeminiLiveTransport', () => {
       type: 'error',
       detail: 'transport offline',
     });
+  });
+
+  it('normalizes Gemini session resumption updates into handle and resumable flags', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: parseLiveConfig({
+        provider: 'gemini',
+        adapterKey: 'gemini-live',
+        model: 'models/gemini-2.0-flash-exp',
+        apiVersion: 'v1alpha',
+        sessionModes: {
+          text: {
+            responseModality: 'TEXT',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+          voice: {
+            responseModality: 'AUDIO',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+        },
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        sessionResumptionEnabled: true,
+        contextCompressionEnabled: false,
+      }),
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    sdkHarness.emitMessage({
+      sessionResumptionUpdate: {
+        newHandle: 'handles/voice-session-2',
+        resumable: true,
+      },
+    });
+    sdkHarness.emitMessage({
+      sessionResumptionUpdate: {
+        newHandle: 'handles/voice-session-3',
+        resumable: false,
+      },
+    });
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'session-resumption-update',
+          handle: 'handles/voice-session-2',
+          resumable: true,
+          detail: undefined,
+        },
+        {
+          type: 'session-resumption-update',
+          handle: 'handles/voice-session-3',
+          resumable: false,
+          detail: 'Gemini Live session is not resumable at this point',
+        },
+      ]),
+    );
   });
 
   it('emits an error and rejects connect when setup fails', async () => {

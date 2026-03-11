@@ -105,7 +105,9 @@ export async function connectGeminiLiveSdkSession({
   }
 
   if (config.sessionResumption) {
-    liveConnectConfig.sessionResumption = config.sessionResumption;
+    liveConnectConfig.sessionResumption = config.sessionResumption.handle
+      ? { handle: config.sessionResumption.handle }
+      : {};
   }
 
   if (config.contextWindowCompression) {

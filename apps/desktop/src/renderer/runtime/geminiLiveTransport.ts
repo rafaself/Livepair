@@ -130,7 +130,7 @@ export class GeminiLiveTransport implements DesktopSession {
     };
   }
 
-  async connect({ token, mode }: DesktopSessionConnectParams): Promise<void> {
+  async connect({ token, mode, resumeHandle }: DesktopSessionConnectParams): Promise<void> {
     if (!token.token) {
       const detail = 'Gemini Live token was missing';
       this.emit({ type: 'error', detail });
@@ -159,7 +159,9 @@ export class GeminiLiveTransport implements DesktopSession {
     let liveConnectConfig: GeminiLiveConnectConfig;
 
     try {
-      liveConnectConfig = buildGeminiLiveConnectConfig(this.config, mode);
+      liveConnectConfig = buildGeminiLiveConnectConfig(this.config, mode, {
+        resumeHandle,
+      });
     } catch (error) {
       const detail = getErrorDetail(error, 'Gemini Live connection failed');
       logRuntimeError('gemini-live-transport', 'connect config rejected', {
@@ -224,10 +226,10 @@ export class GeminiLiveTransport implements DesktopSession {
         this.hasCompletedSetup = false;
         this.activeMode = null;
         this.hasOpenAudioStream = false;
-        logRuntimeError('gemini-live-transport', 'unexpected termination', {
+        logRuntimeDiagnostic('gemini-live-transport', 'connection terminated', {
           detail,
         });
-        this.emit({ type: 'error', detail });
+        this.emit({ type: 'connection-terminated', detail });
       };
 
       const handleSdkMessage = (message: GeminiLiveSdkServerMessage): void => {
@@ -267,7 +269,8 @@ export class GeminiLiveTransport implements DesktopSession {
         if (message.sessionResumptionUpdate) {
           this.emit({
             type: 'session-resumption-update',
-            sessionId: message.sessionResumptionUpdate.newHandle,
+            handle: message.sessionResumptionUpdate.newHandle ?? null,
+            resumable: message.sessionResumptionUpdate.resumable !== false,
             detail: message.sessionResumptionUpdate.resumable === false
               ? 'Gemini Live session is not resumable at this point'
               : undefined,
