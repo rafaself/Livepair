@@ -29,6 +29,7 @@ import { createVoicePlaybackController } from './voicePlaybackController';
 import { createScreenCaptureController } from './screenCaptureController';
 import { createVoiceToolController } from './voiceToolController';
 import { createVoiceInterruptionController } from './voiceInterruptionController';
+import { createVoiceTokenManager } from './voiceTokenManager';
 import {
   appendAssistantTextDelta as appendAssistantTextDeltaCtx,
   appendAssistantTurn as appendAssistantTurnCtx,
@@ -176,7 +177,15 @@ export function createDesktopSessionController(
     () => stopVoicePlayback(),
   );
   const voiceTranscript = createVoiceTranscriptController(dependencies.store);
-  let activeVoiceToken: CreateEphemeralTokenResponse | null = null;
+  const tokenMgr = createVoiceTokenManager(
+    dependencies.store,
+    dependencies.requestSessionToken,
+    (id) => isCurrentSessionOperation(id),
+    (patch) => setVoiceSessionDurability(patch),
+    (event) => recordSessionEvent(event),
+    (detail) => setVoiceErrorState(detail),
+    LIVE_ADAPTER_KEY,
+  );
   let voiceResumptionInFlight = false;
   let speechRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   let speechSilenceTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -471,16 +480,7 @@ export function createDesktopSessionController(
     token: CreateEphemeralTokenResponse | null,
     patch: Partial<VoiceSessionDurabilityState> = {},
   ): void => {
-    setVoiceSessionDurability({
-      compressionEnabled: true,
-      tokenValid: isTokenValidForReconnect(token),
-      tokenRefreshing: false,
-      tokenRefreshFailed: false,
-      expireTime: token?.expireTime ?? null,
-      newSessionExpireTime: token?.newSessionExpireTime ?? null,
-      lastDetail: null,
-      ...patch,
-    });
+    tokenMgr.syncDurabilityState(token, patch);
   };
 
   const setErrorState = (
@@ -502,7 +502,7 @@ export function createDesktopSessionController(
     const store = dependencies.store.getState();
     resetVoiceTurnTranscriptState();
     voiceResumptionInFlight = false;
-    activeVoiceToken = null;
+    tokenMgr.clear();
     if (store.voiceSessionResumption.status !== 'idle') {
       setVoiceSessionResumption({
         status: 'resumeFailed',
@@ -597,7 +597,7 @@ export function createDesktopSessionController(
   const resumeVoiceSession = async (detail: string): Promise<void> => {
     const store = dependencies.store.getState();
     const resumeHandle = store.voiceSessionResumption.latestHandle;
-    let tokenToUse: CreateEphemeralTokenResponse | null = activeVoiceToken;
+    let tokenToUse: CreateEphemeralTokenResponse | null = tokenMgr.get();
 
     if (!resumeHandle || !store.voiceSessionResumption.resumable) {
       setVoiceSessionResumption({
@@ -605,7 +605,7 @@ export function createDesktopSessionController(
         lastDetail: detail,
       });
       setVoiceSessionDurability({
-        tokenValid: isTokenValidForReconnect(activeVoiceToken),
+        tokenValid: isTokenValidForReconnect(tokenMgr.get()),
         lastDetail: detail,
       });
       setVoiceErrorState(detail);
@@ -622,7 +622,7 @@ export function createDesktopSessionController(
       lastDetail: detail,
     });
     setVoiceSessionDurability({
-      tokenValid: isTokenValidForReconnect(activeVoiceToken),
+      tokenValid: isTokenValidForReconnect(tokenMgr.get()),
       tokenRefreshing: false,
       tokenRefreshFailed: false,
       lastDetail: detail,
@@ -735,7 +735,7 @@ export function createDesktopSessionController(
               ? store.voiceSessionResumption.lastDetail
               : null,
         });
-        syncVoiceDurabilityState(activeVoiceToken, {
+        syncVoiceDurabilityState(tokenMgr.get(), {
           lastDetail: store.voiceSessionDurability.lastDetail,
         });
         voiceResumptionInFlight = false;
@@ -773,7 +773,7 @@ export function createDesktopSessionController(
         lastDetail: detail,
       });
       setVoiceSessionDurability({
-        tokenValid: isTokenValidForReconnect(activeVoiceToken),
+        tokenValid: isTokenValidForReconnect(tokenMgr.get()),
         lastDetail: detail,
       });
       void resumeVoiceSession(detail);
@@ -790,7 +790,7 @@ export function createDesktopSessionController(
       }
 
       setVoiceSessionDurability({
-        tokenValid: isTokenValidForReconnect(activeVoiceToken),
+        tokenValid: isTokenValidForReconnect(tokenMgr.get()),
         lastDetail: event.detail ?? 'Voice session unavailable',
       });
       void resumeVoiceSession(event.detail ?? 'Voice session unavailable');
@@ -911,85 +911,15 @@ export function createDesktopSessionController(
     );
   };
 
-  const requestVoiceSessionToken = async (operationId: number) => {
-    const store = dependencies.store.getState();
-    store.setTokenRequestState('loading');
-    recordSessionEvent({ type: 'session.token.request.started' });
-
-    try {
-      const token = await dependencies.requestSessionToken({});
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return null;
-      }
-
-      store.setTokenRequestState('success');
-      store.setBackendState('connected');
-      recordSessionEvent({
-        type: 'session.token.request.succeeded',
-        transport: LIVE_ADAPTER_KEY,
-      });
-      activeVoiceToken = token;
-      syncVoiceDurabilityState(token);
-      return token;
-    } catch (error) {
-      if (!isCurrentSessionOperation(operationId)) {
-        return null;
-      }
-
-      const detail = asErrorDetail(error, 'Failed to request voice session token');
-      store.setTokenRequestState('error');
-      store.setBackendState('failed');
-      recordSessionEvent({ type: 'session.token.request.failed', detail });
-      setVoiceSessionDurability({
-        tokenValid: false,
-        tokenRefreshing: false,
-        tokenRefreshFailed: true,
-        lastDetail: detail,
-      });
-      setVoiceErrorState(detail);
-      return null;
-    }
+  const requestVoiceSessionToken = (operationId: number) => {
+    return tokenMgr.request(operationId);
   };
 
-  const refreshVoiceSessionToken = async (
+  const refreshVoiceSessionToken = (
     operationId: number,
     detail: string,
   ): Promise<CreateEphemeralTokenResponse | null> => {
-    setVoiceSessionDurability({
-      tokenRefreshing: true,
-      tokenRefreshFailed: false,
-      lastDetail: detail,
-    });
-
-    try {
-      const token = await dependencies.requestSessionToken({});
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return null;
-      }
-
-      activeVoiceToken = token;
-      syncVoiceDurabilityState(token, {
-        tokenRefreshing: false,
-        lastDetail: detail,
-      });
-      return token;
-    } catch (error) {
-      const refreshDetail = asErrorDetail(error, 'Failed to refresh voice session token');
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return null;
-      }
-
-      setVoiceSessionDurability({
-        tokenValid: false,
-        tokenRefreshing: false,
-        tokenRefreshFailed: true,
-        lastDetail: refreshDetail,
-      });
-      return null;
-    }
+    return tokenMgr.refresh(operationId, detail);
   };
 
   const startVoiceCaptureInternal = async (
@@ -1129,7 +1059,7 @@ export function createDesktopSessionController(
         return;
       }
 
-      activeVoiceToken = token;
+      tokenMgr.set(token);
       syncVoiceDurabilityState(token);
       voiceResumptionInFlight = false;
       resetVoiceSessionResumption();
@@ -1322,7 +1252,7 @@ export function createDesktopSessionController(
       resetRuntimeState(textSessionStatus);
       store.setVoiceSessionStatus('disconnected');
       store.setAssistantActivity('idle');
-      activeVoiceToken = null;
+      tokenMgr.clear();
       voiceResumptionInFlight = false;
       if (preserveVoiceRuntimeDiagnostics) {
         if (preservedVoiceSessionResumption) {
@@ -1376,7 +1306,7 @@ export function createDesktopSessionController(
       applySpeechLifecycleEvent({ type: 'session.ended' });
       cleanupTransport();
       resetRuntimeState(textSessionStatus);
-      activeVoiceToken = null;
+      tokenMgr.clear();
       voiceResumptionInFlight = false;
       if (preserveVoiceRuntimeDiagnostics) {
         if (preservedVoiceSessionResumption) {
