@@ -25,7 +25,7 @@ function renderDock() {
       handleStartScreenCapture,
       handleStopScreenCapture,
       isVoiceSessionActive,
-      voiceSessionStatus,
+      speechLifecycleStatus,
       voiceCaptureState,
       screenCaptureState,
     } = useSessionRuntime();
@@ -36,12 +36,13 @@ function renderDock() {
         <output aria-label="panel-pinned">{String(isPanelPinned)}</output>
         <output aria-label="assistant-state">{assistantState}</output>
         <output aria-label="current-mode">{currentMode}</output>
+        <output aria-label="speech-lifecycle-status">{speechLifecycleStatus}</output>
         <output aria-label="voice-capture-state">{voiceCaptureState}</output>
         <output aria-label="screen-capture-state">{screenCaptureState}</output>
         <ControlDock
           currentMode={currentMode}
           isVoiceSessionActive={isVoiceSessionActive}
-          voiceSessionStatus={voiceSessionStatus}
+          speechLifecycleStatus={speechLifecycleStatus}
           voiceCaptureState={voiceCaptureState}
           screenCaptureState={screenCaptureState}
           onStartVoiceSession={handleStartVoiceSession}
@@ -96,7 +97,7 @@ describe('ControlDock', () => {
       <ControlDock
         currentMode="speech"
         isVoiceSessionActive
-        voiceSessionStatus="interrupted"
+        speechLifecycleStatus="interrupted"
         voiceCaptureState="stopped"
         screenCaptureState="disabled"
         onStartVoiceSession={noop}
@@ -122,7 +123,7 @@ describe('ControlDock', () => {
       <ControlDock
         currentMode="speech"
         isVoiceSessionActive
-        voiceSessionStatus="recovering"
+        speechLifecycleStatus="recovering"
         voiceCaptureState="stopped"
         screenCaptureState="disabled"
         onStartVoiceSession={noop}
@@ -151,23 +152,15 @@ describe('ControlDock', () => {
     fireEvent.click(screen.getByRole('button', { name: /^switch to speech mode$/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /connecting voice session/i }),
-      ).toBeDisabled();
+      expect(screen.getByLabelText('current-mode')).toHaveTextContent('speech');
+      expect(screen.getByLabelText('speech-lifecycle-status')).toHaveTextContent('starting');
     });
     await act(async () => {
       __emitGeminiLiveSdkMessage({ setupComplete: {} });
     });
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /start microphone capture/i }),
-      ).toBeEnabled();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /start microphone capture/i }));
-
-    await waitFor(() => {
+      expect(screen.getByLabelText('speech-lifecycle-status')).toHaveTextContent('listening');
       expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('capturing');
     });
     expect(
@@ -187,9 +180,8 @@ describe('ControlDock', () => {
     fireEvent.click(screen.getByRole('button', { name: /^switch to speech mode$/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /connecting voice session/i }),
-      ).toBeDisabled();
+      expect(screen.getByLabelText('current-mode')).toHaveTextContent('speech');
+      expect(screen.getByLabelText('speech-lifecycle-status')).toHaveTextContent('starting');
     });
     await act(async () => {
       __emitGeminiLiveSdkMessage({ setupComplete: {} });
@@ -199,6 +191,7 @@ describe('ControlDock', () => {
       expect(
         screen.getByRole('button', { name: /start screen context/i }),
       ).toBeEnabled();
+      expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('capturing');
     });
 
     fireEvent.click(screen.getByRole('button', { name: /start screen context/i }));

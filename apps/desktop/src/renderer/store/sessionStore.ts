@@ -1,24 +1,24 @@
 import { create } from 'zustand';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
-import { LIVE_ADAPTER_KEY } from '../runtime/liveConfig';
+import { LIVE_ADAPTER_KEY } from '../runtime/transport/liveConfig';
+import { createSpeechSessionLifecycle } from '../runtime/speech/speechSessionLifecycle';
 import {
   createTextSessionLifecycle,
   deriveSessionPhaseFromLifecycle,
   deriveTransportStateFromLifecycle,
-} from '../runtime/textSessionLifecycle';
+} from '../runtime/text/textSessionLifecycle';
 import type {
   AssistantActivityState,
-  CurrentVoiceTranscript,
-  ConversationTurnModel,
-  RuntimeDebugEvent,
-  ScreenCaptureDiagnostics,
-  ScreenCaptureState,
-  SessionPhase,
   ProductMode,
-  TextSessionLifecycle,
-  TextSessionStatus,
+  SessionPhase,
+  RuntimeDebugEvent,
+} from '../runtime/core/session.types';
+import type {
   TransportConnectionState,
   TransportKind,
+} from '../runtime/transport/transport.types';
+import type {
+  CurrentVoiceTranscript,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
   VoiceSessionDurabilityState,
@@ -27,7 +27,21 @@ import type {
   VoicePlaybackState,
   VoiceSessionStatus,
   VoiceToolState,
-} from '../runtime/types';
+} from '../runtime/voice/voice.types';
+import type {
+  ConversationTurnModel,
+} from '../runtime/conversation/conversation.types';
+import type {
+  ScreenCaptureDiagnostics,
+  ScreenCaptureState,
+} from '../runtime/screen/screen.types';
+import type {
+  SpeechLifecycle,
+} from '../runtime/speech/speech.types';
+import type {
+  TextSessionLifecycle,
+  TextSessionStatus,
+} from '../runtime/text/text.types';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
 export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
@@ -44,6 +58,7 @@ type SessionStoreData = {
   conversationTurns: ConversationTurnModel[];
   lastRuntimeError: string | null;
   lastDebugEvent: RuntimeDebugEvent | null;
+  speechLifecycle: SpeechLifecycle;
   voiceSessionStatus: VoiceSessionStatus;
   voiceSessionResumption: VoiceSessionResumptionState;
   voiceSessionDurability: VoiceSessionDurabilityState;
@@ -72,6 +87,7 @@ export type SessionStoreState = SessionStoreData & {
   clearConversationTurns: () => void;
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
+  setSpeechLifecycle: (speechLifecycle: SpeechLifecycle) => void;
   setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
   setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;
@@ -192,6 +208,7 @@ function buildDefaultSessionState(): SessionStoreData {
     conversationTurns: [],
     lastRuntimeError: null,
     lastDebugEvent: null,
+    speechLifecycle: createSpeechSessionLifecycle(),
     voiceSessionStatus: 'disconnected',
     voiceSessionResumption: buildDefaultVoiceSessionResumption(),
     voiceSessionDurability: buildDefaultVoiceSessionDurability(),
@@ -289,6 +306,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   clearConversationTurns: () => set({ conversationTurns: [] }),
   setLastRuntimeError: (lastRuntimeError) => set({ lastRuntimeError }),
   setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
+  setSpeechLifecycle: (speechLifecycle) => set({ speechLifecycle }),
   setVoiceSessionStatus: (voiceSessionStatus) => set({ voiceSessionStatus }),
   setVoiceSessionResumption: (patch) =>
     set((state) => ({
@@ -365,6 +383,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       conversationTurns: [],
       lastRuntimeError: null,
       lastDebugEvent: null,
+      speechLifecycle: createSpeechSessionLifecycle(),
       voiceSessionStatus: 'disconnected',
       voiceSessionResumption: buildDefaultVoiceSessionResumption(),
       voiceSessionDurability: buildDefaultVoiceSessionDurability(),

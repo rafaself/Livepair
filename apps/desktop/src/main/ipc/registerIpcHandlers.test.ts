@@ -19,6 +19,7 @@ const defaultSettings: DesktopSettings = {
   voiceEchoCancellationEnabled: true,
   voiceNoiseSuppressionEnabled: true,
   voiceAutoGainControlEnabled: true,
+  speechSilenceTimeout: 'never',
   isPanelPinned: false,
 };
 

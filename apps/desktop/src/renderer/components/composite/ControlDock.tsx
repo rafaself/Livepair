@@ -3,18 +3,16 @@ import { Ban, ChevronLeft, Mic, MicOff, Monitor, MonitorOff, PhoneOff } from 'lu
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import type {
-  ProductMode,
-  ScreenCaptureState,
-  VoiceCaptureState,
-  VoiceSessionStatus,
-} from '../../runtime/types';
+import type { ProductMode } from '../../runtime/core/session.types';
+import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
+import type { ScreenCaptureState } from '../../runtime/screen/screen.types';
+import type { VoiceCaptureState } from '../../runtime/voice/voice.types';
 import './ControlDock.css';
 
 export type ControlDockProps = {
   currentMode: ProductMode;
   isVoiceSessionActive: boolean;
-  voiceSessionStatus: VoiceSessionStatus;
+  speechLifecycleStatus: SpeechLifecycleStatus;
   voiceCaptureState: VoiceCaptureState;
   screenCaptureState: ScreenCaptureState;
   onStartVoiceSession: () => Promise<void>;
@@ -28,7 +26,7 @@ export type ControlDockProps = {
 export function ControlDock({
   currentMode,
   isVoiceSessionActive,
-  voiceSessionStatus,
+  speechLifecycleStatus,
   voiceCaptureState,
   screenCaptureState,
   onStartVoiceSession,
@@ -52,13 +50,11 @@ export function ControlDock({
     voiceCaptureState === 'requestingPermission' || voiceCaptureState === 'stopping';
   const isVoiceCapturing = voiceCaptureState === 'capturing';
   const isVoiceSessionBusy =
-    voiceSessionStatus === 'connecting' || voiceSessionStatus === 'stopping';
+    speechLifecycleStatus === 'starting' || speechLifecycleStatus === 'ending';
   const isMicrophoneAvailable =
-    voiceSessionStatus === 'ready' ||
-    voiceSessionStatus === 'interrupted' ||
-    voiceSessionStatus === 'recovering' ||
-    voiceSessionStatus === 'capturing' ||
-    voiceSessionStatus === 'streaming';
+    speechLifecycleStatus !== 'off' &&
+    speechLifecycleStatus !== 'starting' &&
+    speechLifecycleStatus !== 'ending';
   const isScreenContextBusy =
     screenCaptureState === 'requestingPermission' || screenCaptureState === 'stopping';
   const isScreenContextActive =
@@ -103,7 +99,7 @@ export function ControlDock({
   const voiceSessionLabel = !isSpeechMode
     ? 'Switch to speech mode'
     : isVoiceSessionBusy
-      ? voiceSessionStatus === 'connecting'
+      ? speechLifecycleStatus === 'starting'
         ? 'Connecting voice session'
         : 'Stopping voice session'
       : isVoiceSessionActive

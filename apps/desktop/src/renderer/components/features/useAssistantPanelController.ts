@@ -3,13 +3,10 @@ import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import { useUiStore, type PanelView } from '../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
 import { useSessionRuntime } from '../../runtime/useSessionRuntime';
+import type { ProductMode } from '../../runtime/core/session.types';
+import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
 import type {
   CurrentVoiceTranscript,
-  ConversationTurnModel,
-  ProductMode,
-  ScreenCaptureDiagnostics,
-  ScreenCaptureState,
-  TextSessionStatus,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
   VoiceSessionDurabilityState,
@@ -18,7 +15,12 @@ import type {
   VoicePlaybackState,
   VoiceSessionStatus,
   VoiceToolState,
-} from '../../runtime/types';
+} from '../../runtime/voice/voice.types';
+import type {
+  ScreenCaptureDiagnostics,
+  ScreenCaptureState,
+} from '../../runtime/screen/screen.types';
+import type { TextSessionStatus } from '../../runtime/text/text.types';
 
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;

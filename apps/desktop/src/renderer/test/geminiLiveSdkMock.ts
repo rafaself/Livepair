@@ -3,8 +3,8 @@ import type {
   ConnectGeminiLiveSdkSessionOptions,
   GeminiLiveSdkServerMessage,
   GeminiLiveSdkSession,
-} from '../runtime/geminiLiveSdkClient';
-import { setGeminiLiveSdkSessionConnectorForTests } from '../runtime/geminiLiveSdkClient';
+} from '../runtime/transport/geminiLiveSdkClient';
+import { setGeminiLiveSdkSessionConnectorForTests } from '../runtime/transport/geminiLiveSdkClient';
 
 function createCloseEvent(code?: number, reason?: string): CloseEvent {
   const init: CloseEventInit = {};
