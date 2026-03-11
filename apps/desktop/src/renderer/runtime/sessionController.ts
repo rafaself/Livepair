@@ -14,7 +14,6 @@ import { createLocalVoiceCapture } from './audio/localVoiceCapture';
 import { createLocalScreenCapture } from './screen/localScreenCapture';
 import {
   isSpeechLifecycleActive,
-  reduceSpeechSessionLifecycle,
   type SpeechSessionLifecycleEvent,
 } from './speech/speechSessionLifecycle';
 import { createVoiceTranscriptController } from './voice/voiceTranscriptController';
@@ -29,15 +28,12 @@ import { createTextChatController } from './text/textChatController';
 import { createTransportEventRouter } from './transport/transportEventRouter';
 import { createVoiceChunkPipeline } from './voice/voiceChunkPipeline';
 import { createVoiceResumeController } from './voice/voiceResumeController';
-import {
-  createDefaultVoiceSessionDurabilityState,
-  createDefaultVoiceSessionResumptionState,
-} from './core/defaults';
+import { createSessionControllerErrorHandling } from './sessionControllerErrorHandling';
+import { createSessionControllerLifecycle } from './sessionControllerLifecycle';
+import { createSessionControllerModeSwitching } from './sessionControllerModeSwitching';
+import { createSessionControllerTeardown } from './sessionControllerTeardown';
 import { asErrorDetail, createDebugEvent } from './core/runtimeUtils';
-import {
-  isSessionActiveLifecycle,
-  isTextSessionConnectable,
-} from './text/textSessionLifecycle';
+import { createSessionControllerStateSync } from './sessionControllerStateSync';
 import type {
   SessionControllerEvent,
   SessionMode,
@@ -52,15 +48,12 @@ import type {
 import type {
   TextSessionStatus,
 } from './text/text.types';
-import type { AssistantAudioPlayback } from './audio/audio.types';
 import type {
   VoiceSessionDurabilityState,
-  VoiceSessionResumptionState,
   VoiceSessionStatus,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceToolCall,
-  VoiceToolState,
 } from './voice/voice.types';
 import type {
   CreateEphemeralTokenResponse,
@@ -99,6 +92,12 @@ export function createDesktopSessionController(
   let unsubscribeTransport: (() => void) | null = null;
   let sessionOperationId = 0;
   const conversationCtx = createConversationContext(dependencies.store);
+  let performBackendHealthCheck = async (_operationId?: number): Promise<boolean> => {
+    throw new Error('performBackendHealthCheck called before initialization');
+  };
+  let startSessionInternal = async (_options: { mode: SessionMode }): Promise<void> => {
+    throw new Error('startSessionInternal called before initialization');
+  };
   const playbackCtrl = createVoicePlaybackController(
     dependencies.store,
     dependencies.settingsStore,
@@ -109,10 +108,19 @@ export function createDesktopSessionController(
     dependencies.createScreenCapture,
     () => activeTransport,
   );
+  let setErrorState = (
+    _detail: string,
+    _failedTurnStatusLabel = 'Disconnected',
+  ): void => {
+    throw new Error('setErrorState called before initialization');
+  };
+  let setVoiceErrorState = (_detail: string): void => {
+    throw new Error('setVoiceErrorState called before initialization');
+  };
   const voiceToolCtrl = createVoiceToolController(
     dependencies.store,
     () => activeTransport,
-    () => createVoiceToolExecutionSnapshot(),
+    () => stateSync.createVoiceToolExecutionSnapshot(),
     (detail) => setVoiceErrorState(detail),
   );
   const interruptionCtrl = createVoiceInterruptionController(
@@ -186,6 +194,41 @@ export function createDesktopSessionController(
     cleanupTransport: () => cleanupTransport(),
     resumeVoiceSession: (d) => voiceResumeCtrl.resume(d),
   });
+  const stateSync = createSessionControllerStateSync({
+    store: dependencies.store,
+    settingsStore: dependencies.settingsStore,
+    onSpeechLifecycleTransition: (previousStatus, nextStatus, eventType) => {
+      logLifecycleTransition(previousStatus, nextStatus, eventType);
+    },
+    handleSpeechLifecycleStatusChange: (status) => {
+      silenceCtrl.handleStatusChange(status);
+    },
+    updateVoicePlaybackDiagnostics: (patch) => {
+      playbackCtrl.updateDiagnostics(patch);
+    },
+    setVoicePlaybackState: (state) => {
+      playbackCtrl.setState(state);
+    },
+    getVoicePlayback: () => playbackCtrl.getOrCreate(),
+    setVoiceToolState: (patch) => {
+      voiceToolCtrl.setState(patch);
+    },
+    resetVoiceToolState: () => {
+      voiceToolCtrl.reset();
+    },
+    clearCurrentVoiceTranscript: () => {
+      voiceTranscript.clearTranscript();
+    },
+    resetVoiceTurnTranscriptState: () => {
+      voiceTranscript.resetTurnTranscriptState();
+    },
+    applyVoiceTranscriptUpdate: (role, text, isFinal) => {
+      voiceTranscript.applyTranscriptUpdate(role, text, isFinal);
+    },
+    syncVoiceDurabilityState: (token, patch) => {
+      tokenMgr.syncDurabilityState(token, patch);
+    },
+  });
   const voiceResumeCtrl = createVoiceResumeController({
     store: dependencies.store,
     createTransport: dependencies.createTransport,
@@ -232,105 +275,79 @@ export function createDesktopSessionController(
   const updateVoicePlaybackDiagnostics = (
     patch: Partial<VoicePlaybackDiagnostics>,
   ): void => {
-    playbackCtrl.updateDiagnostics(patch);
+    stateSync.updateVoicePlaybackDiagnostics(patch);
   };
 
   const setVoicePlaybackState = (state: VoicePlaybackState): void => {
-    playbackCtrl.setState(state);
+    stateSync.setVoicePlaybackState(state);
   };
 
-  const getVoicePlayback = (): AssistantAudioPlayback => {
-    return playbackCtrl.getOrCreate();
-  };
+  const getVoicePlayback = () => stateSync.getVoicePlayback();
 
   const currentSpeechLifecycleStatus = (): SpeechLifecycleStatus => {
-    return dependencies.store.getState().speechLifecycle.status;
+    return stateSync.currentSpeechLifecycleStatus();
   };
 
   const syncSpeechSilenceTimeout = (status: SpeechLifecycleStatus): void => {
     silenceCtrl.syncTimeout(status);
   };
 
-  const handleSpeechLifecycleStatusChange = (
-    status: SpeechLifecycleStatus,
-  ): void => {
-    silenceCtrl.handleStatusChange(status);
-  };
-
   const applySpeechLifecycleEvent = (
     event: SpeechSessionLifecycleEvent,
   ): SpeechLifecycleStatus => {
-    const store = dependencies.store.getState();
-    const previousStatus = store.speechLifecycle.status;
-    const nextLifecycle = reduceSpeechSessionLifecycle(store.speechLifecycle, event);
-
-    if (nextLifecycle.status !== previousStatus) {
-      store.setSpeechLifecycle(nextLifecycle);
-      logLifecycleTransition(previousStatus, nextLifecycle.status, event.type);
-      handleSpeechLifecycleStatusChange(nextLifecycle.status);
-    }
-
-    return nextLifecycle.status;
+    return stateSync.applySpeechLifecycleEvent(event);
   };
 
   const currentVoiceSessionStatus = (): VoiceSessionStatus => {
-    return dependencies.store.getState().voiceSessionStatus;
+    return stateSync.currentVoiceSessionStatus();
   };
 
-  const currentProductMode = (): ProductMode => {
-    return dependencies.store.getState().currentMode;
+  const currentProductMode = () => stateSync.currentProductMode();
+
+  const setCurrentMode = (mode: ReturnType<typeof stateSync.resolveProductMode>): void => {
+    stateSync.setCurrentMode(mode);
   };
 
-  const setCurrentMode = (mode: ProductMode): void => {
-    dependencies.store.getState().setCurrentMode(mode);
-  };
-
-  const resolveProductMode = (mode: SessionMode): ProductMode => {
-    return mode === 'voice' ? 'speech' : 'text';
-  };
+  const resolveProductMode = (mode: SessionMode) => stateSync.resolveProductMode(mode);
 
   const setVoiceSessionStatus = (status: VoiceSessionStatus): void => {
-    dependencies.store.getState().setVoiceSessionStatus(status);
+    stateSync.setVoiceSessionStatus(status);
   };
 
   const setVoiceSessionResumption = (
-    patch: Partial<VoiceSessionResumptionState>,
+    patch: Parameters<typeof stateSync.setVoiceSessionResumption>[0],
   ): void => {
-    dependencies.store.getState().setVoiceSessionResumption(patch);
+    stateSync.setVoiceSessionResumption(patch);
   };
 
   const resetVoiceSessionResumption = (): void => {
-    setVoiceSessionResumption(createDefaultVoiceSessionResumptionState());
+    stateSync.resetVoiceSessionResumption();
   };
 
   const setVoiceSessionDurability = (
     patch: Partial<VoiceSessionDurabilityState>,
   ): void => {
-    dependencies.store.getState().setVoiceSessionDurability(patch);
+    stateSync.setVoiceSessionDurability(patch);
   };
 
   const resetVoiceSessionDurability = (): void => {
-    dependencies.store
-      .getState()
-      .setVoiceSessionDurability(createDefaultVoiceSessionDurabilityState());
+    stateSync.resetVoiceSessionDurability();
   };
 
-  const setVoiceToolState = (
-    patch: Partial<VoiceToolState>,
-  ): void => {
-    voiceToolCtrl.setState(patch);
+  const setVoiceToolState = (patch: Parameters<typeof stateSync.setVoiceToolState>[0]): void => {
+    stateSync.setVoiceToolState(patch);
   };
 
   const resetVoiceToolState = (): void => {
-    voiceToolCtrl.reset();
+    stateSync.resetVoiceToolState();
   };
 
   const clearCurrentVoiceTranscript = (): void => {
-    voiceTranscript.clearTranscript();
+    stateSync.clearCurrentVoiceTranscript();
   };
 
   const resetVoiceTurnTranscriptState = (): void => {
-    voiceTranscript.resetTurnTranscriptState();
+    stateSync.resetVoiceTurnTranscriptState();
   };
 
   const applyVoiceTranscriptUpdate = (
@@ -338,7 +355,7 @@ export function createDesktopSessionController(
     text: string,
     isFinal?: boolean,
   ): void => {
-    voiceTranscript.applyTranscriptUpdate(role, text, isFinal);
+    stateSync.applyVoiceTranscriptUpdate(role, text, isFinal);
   };
 
   const cleanupTransport = (): void => {
@@ -369,63 +386,11 @@ export function createDesktopSessionController(
     voiceTranscript.resetTurnCompletedFlag();
   };
 
-  const createVoiceToolExecutionSnapshot = () => {
-    const store = dependencies.store.getState();
-
-    return {
-      currentMode: store.currentMode,
-      textSessionStatus: store.textSessionLifecycle.status,
-      speechLifecycleStatus: store.speechLifecycle.status,
-      voiceSessionStatus: store.voiceSessionStatus,
-      voiceCaptureState: store.voiceCaptureState,
-      voicePlaybackState: store.voicePlaybackState,
-    };
-  };
-
   const syncVoiceDurabilityState = (
     token: CreateEphemeralTokenResponse | null,
     patch: Partial<VoiceSessionDurabilityState> = {},
   ): void => {
-    tokenMgr.syncDurabilityState(token, patch);
-  };
-
-  const setErrorState = (
-    detail: string,
-    failedTurnStatusLabel = 'Disconnected',
-  ): void => {
-    textChatCtrl.applyLifecycleEvent({ type: 'runtime.failed' });
-    logRuntimeError('session', 'runtime entered error state', { detail });
-    textChatCtrl.failPendingAssistantTurn(failedTurnStatusLabel);
-    cleanupTransport();
-    const store = dependencies.store.getState();
-    store.setAssistantActivity('idle');
-    store.setActiveTransport(null);
-    store.setLastRuntimeError(detail);
-  };
-
-  const setVoiceErrorState = (detail: string): void => {
-    logRuntimeError('voice-session', 'runtime entered error state', { detail });
-    const store = dependencies.store.getState();
-    resetVoiceTurnTranscriptState();
-    voiceResumptionInFlight = false;
-    tokenMgr.clear();
-    if (store.voiceSessionResumption.status !== 'idle') {
-      setVoiceSessionResumption({
-        status: 'resumeFailed',
-        resumable: false,
-        lastDetail: detail,
-      });
-    }
-    store.setVoiceSessionStatus('error');
-    store.setLastRuntimeError(detail);
-    setVoiceToolState({
-      status: 'toolError',
-      lastError: detail,
-    });
-    void endSessionInternal({
-      preserveLastRuntimeError: detail,
-      preserveVoiceRuntimeDiagnostics: true,
-    });
+    stateSync.syncVoiceDurabilityState(token, patch);
   };
 
   const stopVoicePlayback = (
@@ -452,6 +417,61 @@ export function createDesktopSessionController(
   const enqueueVoiceToolCalls = (calls: VoiceToolCall[]): void => {
     voiceToolCtrl.enqueue(calls);
   };
+  const teardown = createSessionControllerTeardown({
+    store: dependencies.store,
+    currentSpeechLifecycleStatus: () => currentSpeechLifecycleStatus(),
+    currentTextSessionStatus: () => textChatCtrl.currentStatus(),
+    applySpeechLifecycleEvent: (event) => {
+      applySpeechLifecycleEvent(event as SpeechSessionLifecycleEvent);
+    },
+    clearToken: () => {
+      tokenMgr.clear();
+    },
+    clearCurrentVoiceTranscript: () => clearCurrentVoiceTranscript(),
+    cleanupTransport: () => cleanupTransport(),
+    getActiveTransport: () => activeTransport,
+    getVoiceCapture: () => voiceChunkCtrl.getVoiceCapture(),
+    hasActiveTextStream: () => textChatCtrl.hasActiveStream(),
+    hasScreenCapture: () => screenCtrl.isActive(),
+    hasTextRuntimeActivity: () => textChatCtrl.hasRuntimeActivity(),
+    hasVoiceCapture: () => voiceChunkCtrl.hasCapture(),
+    hasVoicePlayback: () => playbackCtrl.isActive(),
+    resetRuntimeState: (textSessionStatus) => resetRuntimeState(textSessionStatus),
+    resetVoiceSessionDurability: () => resetVoiceSessionDurability(),
+    resetVoiceSessionResumption: () => resetVoiceSessionResumption(),
+    resetVoiceToolState: () => resetVoiceToolState(),
+    setVoiceCaptureState: (state) => {
+      dependencies.store.getState().setVoiceCaptureState(state);
+    },
+    setVoicePlaybackState: (state) => {
+      dependencies.store.getState().setVoicePlaybackState(state);
+    },
+    setVoiceResumptionInFlight: (value) => {
+      voiceResumptionInFlight = value;
+    },
+    setVoiceSessionDurability: (value) => {
+      dependencies.store.getState().setVoiceSessionDurability(value);
+    },
+    setVoiceSessionResumption: (value) => {
+      dependencies.store.getState().setVoiceSessionResumption(value);
+    },
+    setVoiceSessionStatus: (status) => {
+      dependencies.store.getState().setVoiceSessionStatus(status);
+    },
+    setVoiceToolStateSnapshot: (value) => {
+      dependencies.store.getState().setVoiceToolState(value);
+    },
+    stopScreenCaptureInternal: () => {
+      stopScreenCaptureInternal();
+    },
+    stopVoiceCapture: async () => {
+      await voiceChunkCtrl.flush();
+    },
+    stopVoicePlayback: () => stopVoicePlayback(),
+    textDisconnectRequested: () => {
+      textChatCtrl.applyLifecycleEvent({ type: 'disconnect.requested' });
+    },
+  });
 
   const { handleTransportEvent } = transportRouter;
 
@@ -466,204 +486,75 @@ export function createDesktopSessionController(
     return tokenMgr.refresh(operationId, detail);
   };
 
-  const startSessionInternal = async ({
-    mode,
-  }: {
-    mode: SessionMode;
-  }): Promise<void> => {
-    const targetMode = resolveProductMode(mode);
-
-    if (mode === 'voice') {
-      const operationId = beginSessionOperation();
-      await ensureExclusiveMode(targetMode, operationId);
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      if (currentVoiceSessionStatus() !== 'disconnected' && currentVoiceSessionStatus() !== 'error') {
-        return;
-      }
-
-      const store = dependencies.store.getState();
-      applySpeechLifecycleEvent({ type: 'session.start.requested' });
-      store.setVoiceCaptureState('idle');
-      store.setVoiceCaptureDiagnostics({
-        lastError: null,
-      });
-      setVoicePlaybackState('idle');
-      updateVoicePlaybackDiagnostics({
-        chunkCount: 0,
-        queueDepth: 0,
-        sampleRateHz: null,
-        selectedOutputDeviceId:
-          dependencies.settingsStore.getState().settings.selectedOutputDeviceId,
-        lastError: null,
-      });
-      setVoiceSessionStatus('connecting');
-      resetVoiceSessionResumption();
-      resetVoiceSessionDurability();
-      resetVoiceToolState();
-      recordSessionEvent({
-        type: 'session.start.requested',
-        transport: LIVE_ADAPTER_KEY,
-      });
-      logRuntimeDiagnostic('voice-session', 'start requested', {
-        transport: LIVE_ADAPTER_KEY,
-      });
-
-      const token = await requestVoiceSessionToken(operationId);
-
-      if (!token || !isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
+  const lifecycle = createSessionControllerLifecycle({
+    store: dependencies.store,
+    beginSessionOperation: () => beginSessionOperation(),
+    isCurrentSessionOperation: (operationId) => isCurrentSessionOperation(operationId),
+    ensureExclusiveMode: (targetMode, operationId) => ensureExclusiveMode(targetMode, operationId),
+    resolveProductMode: (mode) => resolveProductMode(mode),
+    currentProductMode: () => currentProductMode(),
+    currentVoiceSessionStatus: () => currentVoiceSessionStatus(),
+    currentTextSessionStatus: () => textChatCtrl.currentStatus(),
+    hasSpeechRuntimeActivity: () => hasSpeechRuntimeActivity(),
+    resetRuntimeState: (textSessionStatus) => resetRuntimeState(textSessionStatus),
+    recordSessionEvent: (event) => recordSessionEvent(event),
+    applySpeechLifecycleEvent: (event) => {
+      applySpeechLifecycleEvent(event as SpeechSessionLifecycleEvent);
+    },
+    setVoiceCaptureState: (state) => {
+      dependencies.store.getState().setVoiceCaptureState(state);
+    },
+    setVoiceCaptureDiagnostics: (patch) => {
+      dependencies.store.getState().setVoiceCaptureDiagnostics(patch);
+    },
+    setVoicePlaybackState: (state) => {
+      setVoicePlaybackState(state);
+    },
+    updateVoicePlaybackDiagnostics: (patch) => {
+      updateVoicePlaybackDiagnostics(patch);
+    },
+    selectedOutputDeviceId: () => stateSync.selectedOutputDeviceId(),
+    setVoiceSessionStatus: (status) => {
+      setVoiceSessionStatus(status);
+    },
+    resetVoiceSessionResumption: () => resetVoiceSessionResumption(),
+    resetVoiceSessionDurability: () => resetVoiceSessionDurability(),
+    resetVoiceToolState: () => resetVoiceToolState(),
+    requestVoiceSessionToken: (operationId) => requestVoiceSessionToken(operationId),
+    setCachedVoiceToken: (token) => {
       tokenMgr.set(token);
-      syncVoiceDurabilityState(token);
-      voiceResumptionInFlight = false;
-      resetVoiceSessionResumption();
-
-      const transport = dependencies.createTransport(LIVE_ADAPTER_KEY);
+    },
+    syncVoiceDurabilityState: (token, patch) => syncVoiceDurabilityState(token, patch),
+    setVoiceResumptionInFlight: (value) => {
+      voiceResumptionInFlight = value;
+    },
+    createTransport: () => dependencies.createTransport(LIVE_ADAPTER_KEY),
+    activateVoiceTransport: (transport) => {
       cleanupTransport();
       activeTransport = transport;
       unsubscribeTransport = transport.subscribe(handleTransportEvent);
-
-      try {
-        await transport.connect({
-          token,
-          mode: 'voice',
-        });
-
-        if (!isCurrentSessionOperation(operationId)) {
-          return;
-        }
-
-        const didStartVoiceCapture = await voiceChunkCtrl.startCapture({
-          shutdownOnFailure: true,
-        });
-
-        if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
-          return;
-        }
-
-        applySpeechLifecycleEvent({ type: 'session.ready' });
-      } catch (error) {
-        if (!isCurrentSessionOperation(operationId)) {
-          return;
-        }
-
-        setVoiceErrorState(asErrorDetail(error, 'Failed to connect voice session'));
-      }
-
-      return;
-    }
-
-    const status = textChatCtrl.currentStatus();
-
-    if (
-      currentProductMode() === 'text' &&
-      !hasSpeechRuntimeActivity() &&
-      !isTextSessionConnectable(status) &&
-      isSessionActiveLifecycle(status)
-    ) {
-      return;
-    }
-
-    const operationId = beginSessionOperation();
-    await ensureExclusiveMode(targetMode, operationId);
-
-    if (!isCurrentSessionOperation(operationId)) {
-      return;
-    }
-
-    resetRuntimeState();
-    textChatCtrl.applyLifecycleEvent({ type: 'bootstrap.started' });
-    recordSessionEvent({
-      type: 'session.start.requested',
-      transport: textChatCtrl.TEXT_CHAT_ADAPTER_KEY,
-    });
-    logRuntimeDiagnostic('session', 'start requested', {
-      mode,
-      transport: textChatCtrl.TEXT_CHAT_ADAPTER_KEY,
-    });
-
-    const isHealthy = await performBackendHealthCheck(operationId);
-
-    if (!isHealthy || !isCurrentSessionOperation(operationId)) {
-      return;
-    }
-
-    textChatCtrl.applyLifecycleEvent({ type: 'transport.connected' });
-    dependencies.store.getState().setActiveTransport(textChatCtrl.TEXT_CHAT_ADAPTER_KEY);
-    dependencies.store.getState().setAssistantActivity('idle');
-    dependencies.store.getState().setLastRuntimeError(null);
-  };
-
-  const performBackendHealthCheck = async (operationId?: number): Promise<boolean> => {
-    const store = dependencies.store.getState();
-
-    recordSessionEvent({ type: 'session.backend.health.started' });
-    store.setBackendState('checking');
-
-    try {
-      const isHealthy = await dependencies.checkBackendHealth();
-
-      if (operationId && !isCurrentSessionOperation(operationId)) {
-        return false;
-      }
-
-      if (!isHealthy) {
-        const detail = 'Backend health check failed';
-        store.setBackendState('failed');
-        store.setLastRuntimeError(detail);
-        textChatCtrl.applyLifecycleEvent({ type: 'runtime.failed' });
-        recordSessionEvent({ type: 'session.backend.health.failed', detail });
-        return false;
-      }
-
-      store.setBackendState('connected');
-      recordSessionEvent({ type: 'session.backend.health.succeeded' });
-      return true;
-    } catch (error) {
-      if (operationId && !isCurrentSessionOperation(operationId)) {
-        return false;
-      }
-
-      const detail = asErrorDetail(error, 'Backend health check failed');
-      store.setBackendState('failed');
-      store.setLastRuntimeError(detail);
+    },
+    startVoiceCapture: () => voiceChunkCtrl.startCapture({ shutdownOnFailure: true }),
+    setVoiceErrorState: (detail) => {
+      setVoiceErrorState(detail);
+    },
+    checkBackendHealth: () => dependencies.checkBackendHealth(),
+    textBootstrapStarted: () => {
+      textChatCtrl.applyLifecycleEvent({ type: 'bootstrap.started' });
+    },
+    textRuntimeFailed: () => {
       textChatCtrl.applyLifecycleEvent({ type: 'runtime.failed' });
-      recordSessionEvent({ type: 'session.backend.health.failed', detail });
-      return false;
-    }
-  };
+    },
+    textTransportConnected: () => {
+      textChatCtrl.applyLifecycleEvent({ type: 'transport.connected' });
+    },
+    textAdapterKey: textChatCtrl.TEXT_CHAT_ADAPTER_KEY,
+    logRuntimeDiagnostic,
+  });
+  performBackendHealthCheck = lifecycle.performBackendHealthCheck;
+  startSessionInternal = lifecycle.startSessionInternal;
 
-  const hasSpeechRuntimeActivity = (): boolean => {
-    const store = dependencies.store.getState();
-
-    return (
-      isSpeechLifecycleActive(store.speechLifecycle.status) ||
-      (
-        store.voiceSessionStatus !== 'disconnected' &&
-        store.voiceSessionStatus !== 'error'
-      ) ||
-      (
-        store.voiceCaptureState !== 'idle' &&
-        store.voiceCaptureState !== 'stopped' &&
-        store.voiceCaptureState !== 'error'
-      ) ||
-      (
-        store.voicePlaybackState !== 'idle' &&
-        store.voicePlaybackState !== 'stopped' &&
-        store.voicePlaybackState !== 'error'
-      ) ||
-      (
-        store.screenCaptureState !== 'disabled' &&
-        store.screenCaptureState !== 'error'
-      ) ||
-      activeTransport?.kind === LIVE_ADAPTER_KEY
-    );
-  };
+  const hasSpeechRuntimeActivity = (): boolean => teardown.hasSpeechRuntimeActivity();
 
   const teardownActiveRuntime = async (
     {
@@ -676,112 +567,11 @@ export function createDesktopSessionController(
       preserveVoiceRuntimeDiagnostics?: boolean;
     } = {},
   ): Promise<void> => {
-    const store = dependencies.store.getState();
-    const preservedVoiceSessionResumption = preserveVoiceRuntimeDiagnostics
-      ? store.voiceSessionResumption
-      : null;
-    const preservedVoiceSessionDurability = preserveVoiceRuntimeDiagnostics
-      ? store.voiceSessionDurability
-      : null;
-    const preservedVoiceToolState = preserveVoiceRuntimeDiagnostics
-      ? store.voiceToolState
-      : null;
-    const hasActiveRuntime =
-      activeTransport !== null ||
-      textChatCtrl.hasActiveStream() ||
-      voiceChunkCtrl.hasCapture() ||
-      playbackCtrl.isActive() ||
-      screenCtrl.isActive() ||
-      hasSpeechRuntimeActivity() ||
-      textChatCtrl.hasRuntimeActivity();
-
-    if (!hasActiveRuntime) {
-      if (isSpeechLifecycleActive(currentSpeechLifecycleStatus())) {
-        applySpeechLifecycleEvent({ type: 'session.end.requested' });
-        applySpeechLifecycleEvent({ type: 'session.ended' });
-      }
-      resetRuntimeState(textSessionStatus);
-      store.setVoiceSessionStatus('disconnected');
-      store.setAssistantActivity('idle');
-      tokenMgr.clear();
-      voiceResumptionInFlight = false;
-      if (preserveVoiceRuntimeDiagnostics) {
-        if (preservedVoiceSessionResumption) {
-          store.setVoiceSessionResumption(preservedVoiceSessionResumption);
-        }
-        if (preservedVoiceSessionDurability) {
-          store.setVoiceSessionDurability(preservedVoiceSessionDurability);
-        }
-        if (preservedVoiceToolState) {
-          store.setVoiceToolState(preservedVoiceToolState);
-        }
-      } else {
-        resetVoiceSessionResumption();
-        resetVoiceSessionDurability();
-        resetVoiceToolState();
-      }
-      clearCurrentVoiceTranscript();
-      if (preserveLastRuntimeError !== null) {
-        store.setLastRuntimeError(preserveLastRuntimeError);
-      }
-      return;
-    }
-
-    if (textChatCtrl.hasActiveStream() || isSessionActiveLifecycle(textChatCtrl.currentStatus())) {
-      textChatCtrl.applyLifecycleEvent({ type: 'disconnect.requested' });
-    }
-
-    if (hasSpeechRuntimeActivity()) {
-      applySpeechLifecycleEvent({ type: 'session.end.requested' });
-      store.setVoiceSessionStatus('stopping');
-    }
-
-    try {
-      if (
-        voiceChunkCtrl.hasCapture() &&
-        (
-          store.voiceCaptureState === 'capturing' ||
-          store.voiceCaptureState === 'requestingPermission' ||
-          store.voiceCaptureState === 'stopping'
-        )
-      ) {
-        await voiceChunkCtrl.flush();
-        await voiceChunkCtrl.getVoiceCapture().stop();
-      }
-
-      stopScreenCaptureInternal();
-      await activeTransport?.disconnect();
-      await stopVoicePlayback();
-    } finally {
-      applySpeechLifecycleEvent({ type: 'session.ended' });
-      cleanupTransport();
-      resetRuntimeState(textSessionStatus);
-      tokenMgr.clear();
-      voiceResumptionInFlight = false;
-      if (preserveVoiceRuntimeDiagnostics) {
-        if (preservedVoiceSessionResumption) {
-          store.setVoiceSessionResumption(preservedVoiceSessionResumption);
-        }
-        if (preservedVoiceSessionDurability) {
-          store.setVoiceSessionDurability(preservedVoiceSessionDurability);
-        }
-        if (preservedVoiceToolState) {
-          store.setVoiceToolState(preservedVoiceToolState);
-        }
-      } else {
-        resetVoiceSessionResumption();
-        resetVoiceSessionDurability();
-        resetVoiceToolState();
-      }
-      clearCurrentVoiceTranscript();
-      store.setVoiceCaptureState(voiceChunkCtrl.hasCapture() ? 'stopped' : 'idle');
-      store.setVoicePlaybackState('stopped');
-      store.setVoiceSessionStatus('disconnected');
-      store.setAssistantActivity('idle');
-      if (preserveLastRuntimeError !== null) {
-        store.setLastRuntimeError(preserveLastRuntimeError);
-      }
-    }
+    await teardown.teardownActiveRuntime({
+      textSessionStatus,
+      preserveLastRuntimeError,
+      preserveVoiceRuntimeDiagnostics,
+    });
   };
 
   const endSessionInternal = async (
@@ -814,29 +604,63 @@ export function createDesktopSessionController(
       recordSessionEvent({ type: 'session.ended' });
     }
   };
+  ({ setErrorState, setVoiceErrorState } = createSessionControllerErrorHandling({
+    clearToken: () => {
+      tokenMgr.clear();
+    },
+    cleanupTransport: () => cleanupTransport(),
+    endSessionInternal: (options) => endSessionInternal(options),
+    logRuntimeError,
+    resetVoiceTurnTranscriptState: () => resetVoiceTurnTranscriptState(),
+    setLastRuntimeError: (detail) => {
+      dependencies.store.getState().setLastRuntimeError(detail);
+    },
+    setAssistantActivity: (activity) => {
+      dependencies.store.getState().setAssistantActivity(activity);
+    },
+    setActiveTransport: (transport) => {
+      dependencies.store.getState().setActiveTransport(transport);
+    },
+    setCurrentMode: (mode) => {
+      dependencies.store.getState().setCurrentMode(mode);
+    },
+    setVoiceResumptionInFlight: (value) => {
+      voiceResumptionInFlight = value;
+    },
+    getVoiceSessionResumptionStatus: () =>
+      dependencies.store.getState().voiceSessionResumption.status,
+    setVoiceSessionResumption: (patch) => {
+      setVoiceSessionResumption(patch);
+    },
+    setVoiceSessionStatus: (status) => {
+      dependencies.store.getState().setVoiceSessionStatus(status);
+    },
+    setVoiceToolState: (patch) => {
+      setVoiceToolState(patch);
+    },
+    textRuntimeFailed: () => {
+      textChatCtrl.applyLifecycleEvent({ type: 'runtime.failed' });
+    },
+    failPendingAssistantTurn: (statusLabel) => {
+      textChatCtrl.failPendingAssistantTurn(statusLabel);
+    },
+  }));
+  const modeSwitching = createSessionControllerModeSwitching({
+    currentProductMode: () => currentProductMode(),
+    hasSpeechRuntimeActivity: () => hasSpeechRuntimeActivity(),
+    hasTextRuntimeActivity: () => textChatCtrl.hasRuntimeActivity(),
+    isCurrentSessionOperation: (operationId) => isCurrentSessionOperation(operationId),
+    setCurrentMode: (mode) => {
+      setCurrentMode(mode);
+    },
+    teardownActiveRuntime: (options) => teardownActiveRuntime(options),
+  });
 
   const ensureExclusiveMode = async (
     targetMode: ProductMode,
     operationId: number,
   ): Promise<void> => {
-    const shouldTearDownSpeech =
-      targetMode === 'text' &&
-      (currentProductMode() !== 'text' || hasSpeechRuntimeActivity());
-    const shouldTearDownText =
-      targetMode === 'speech' &&
-      (currentProductMode() !== 'speech' || textChatCtrl.hasRuntimeActivity());
-
-    if (shouldTearDownSpeech || shouldTearDownText) {
-      await teardownActiveRuntime({
-        textSessionStatus: 'disconnected',
-      });
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-    }
-
-    setCurrentMode(targetMode);
+    await modeSwitching.ensureExclusiveMode(targetMode, operationId);
   };
 
   return {
