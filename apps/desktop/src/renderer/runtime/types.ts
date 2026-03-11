@@ -160,7 +160,6 @@ export type VoiceToolResponse = {
   name: string;
   response: Record<string, unknown>;
 };
-
 export type SessionControllerEvent =
   | { type: 'session.backend.health.started' }
   | { type: 'session.backend.health.succeeded' }
@@ -251,6 +250,7 @@ export type DesktopSession = {
   sendAudioChunk: (chunk: Uint8Array) => Promise<void>;
   sendAudioStreamEnd: () => Promise<void>;
   sendToolResponses: (responses: VoiceToolResponse[]) => Promise<void>;
+  sendVideoFrame: (data: Uint8Array, mimeType: string) => Promise<void>;
   disconnect: () => Promise<void>;
   subscribe: (listener: (event: LiveSessionEvent) => void) => () => void;
 };
@@ -258,6 +258,36 @@ export type DesktopSession = {
 export type AssistantAudioPlayback = {
   enqueue: (chunk: Uint8Array) => Promise<void>;
   stop: () => Promise<void>;
+};
+
+export type ScreenCaptureState =
+  | 'disabled'
+  | 'requestingPermission'
+  | 'ready'
+  | 'capturing'
+  | 'streaming'
+  | 'stopping'
+  | 'error';
+
+export type ScreenFrameUploadStatus = 'idle' | 'sending' | 'sent' | 'error';
+
+export type ScreenCaptureDiagnostics = {
+  captureSource: string | null;
+  frameCount: number;
+  frameRateHz: number | null;
+  widthPx: number | null;
+  heightPx: number | null;
+  lastFrameAt: string | null;
+  lastUploadStatus: ScreenFrameUploadStatus;
+  lastError: string | null;
+};
+
+export type LocalScreenFrame = {
+  data: Uint8Array;
+  mimeType: 'image/jpeg';
+  sequence: number;
+  widthPx: number;
+  heightPx: number;
 };
 
 export type RuntimeLogger = {

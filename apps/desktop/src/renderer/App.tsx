@@ -63,9 +63,12 @@ function AppShell(): JSX.Element {
     isVoiceSessionActive,
     voiceSessionStatus,
     voiceCaptureState,
+    screenCaptureState,
     handleStartVoiceSession,
     handleStartVoiceCapture,
     handleStopVoiceCapture,
+    handleStartScreenCapture,
+    handleStopScreenCapture,
     handleEndSession,
   } = useSessionRuntime();
 
@@ -79,9 +82,12 @@ function AppShell(): JSX.Element {
         isVoiceSessionActive={isVoiceSessionActive}
         voiceSessionStatus={voiceSessionStatus}
         voiceCaptureState={voiceCaptureState}
+        screenCaptureState={screenCaptureState}
         onStartVoiceSession={handleStartVoiceSession}
         onStartVoiceCapture={handleStartVoiceCapture}
         onStopVoiceCapture={handleStopVoiceCapture}
+        onStartScreenCapture={handleStartScreenCapture}
+        onStopScreenCapture={handleStopScreenCapture}
         onEndSession={handleEndSession}
       />
     </div>

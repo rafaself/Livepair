@@ -53,6 +53,17 @@ describe('AssistantPanelDebugView', () => {
           callId: 'call-1',
           lastError: null,
         }}
+        screenCaptureState="streaming"
+        screenCaptureDiagnostics={{
+          captureSource: 'Entire screen',
+          frameCount: 4,
+          frameRateHz: 1,
+          widthPx: 640,
+          heightPx: 360,
+          lastFrameAt: '2026-03-10T10:15:00.000Z',
+          lastUploadStatus: 'sent',
+          lastError: null,
+        }}
         onRetryBackendHealth={onRetryBackendHealth}
         onSetAssistantState={onSetAssistantState}
       />,
@@ -64,21 +75,24 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Mode')).toBeVisible();
     expect(screen.getByText('Fast')).toBeVisible();
     expect(screen.getByText('Voice session')).toBeVisible();
-    expect(screen.getByText('Streaming')).toBeVisible();
+    expect(screen.getAllByText('Streaming').length).toBeGreaterThan(0);
     expect(screen.getByText('Session resumption')).toBeVisible();
     expect(screen.getByText('Reconnecting')).toBeVisible();
     expect(screen.getByText('Compression')).toBeVisible();
     expect(screen.getByText('Enabled')).toBeVisible();
     expect(screen.getByText('Token valid')).toBeVisible();
-    expect(screen.getAllByText('No').length).toBeGreaterThan(0);
-    expect(screen.getByText('Voice capture')).toBeVisible();
-    expect(screen.getByText('Capturing')).toBeVisible();
-    expect(screen.getByText('Voice playback')).toBeVisible();
-    expect(screen.getByText('Playing')).toBeVisible();
+    expect(screen.getByText('Token refreshing')).toBeVisible();
     expect(screen.getByText('Tool state')).toBeVisible();
     expect(screen.getByText('Tool responding')).toBeVisible();
     expect(screen.getByText('Current tool')).toBeVisible();
     expect(screen.getByText('get_current_mode')).toBeVisible();
+    expect(screen.getByText('Voice capture')).toBeVisible();
+    expect(screen.getByText('Capturing')).toBeVisible();
+    expect(screen.getByText('Voice playback')).toBeVisible();
+    expect(screen.getByText('Playing')).toBeVisible();
+    expect(screen.getByText('Screen context')).toBeVisible();
+    expect(screen.getByText('Sent')).toBeVisible();
+    expect(screen.getByText('Entire screen')).toBeVisible();
     expect(screen.getByText('Chunk count')).toBeVisible();
     expect(screen.getByText('3')).toBeVisible();
     expect(screen.getByText('Audio format')).toBeVisible();

@@ -348,8 +348,8 @@ Meaning:
 - `VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION`: enables input-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.
 - `VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION`: enables output-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.
 - `VITE_LIVE_MEDIA_RESOLUTION`: selects the Gemini media resolution enum stored in the desktop Live config. Supported values are `MEDIA_RESOLUTION_LOW`, `MEDIA_RESOLUTION_MEDIUM`, and `MEDIA_RESOLUTION_HIGH`; default is `MEDIA_RESOLUTION_LOW`.
-- `VITE_LIVE_SESSION_RESUMPTION`: enables Gemini Live session resumption setup. Supported values are `true` and `false`; default is `false`.
-- `VITE_LIVE_CONTEXT_COMPRESSION`: enables Gemini Live context window compression setup for voice sessions. Supported values are `true` and `false`; default is `true` for voice sessions and text mode remains unaffected.
+- `VITE_LIVE_SESSION_RESUMPTION`: enables Gemini Live session resumption for voice sessions. Supported values are `true` and `false`; default is `true`.
+- `VITE_LIVE_CONTEXT_COMPRESSION`: enables Gemini Live context window compression setup for voice sessions. Supported values are `true` and `false`; default is `true`.
 
 The desktop app must not contain a permanent Gemini API key.
 

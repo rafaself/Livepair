@@ -66,7 +66,7 @@ export type GeminiLiveConnectConfig = {
   mediaResolution?: LiveMediaResolution | undefined;
   sessionResumption?:
     | {
-        handle?: string | undefined;
+        handle?: string;
       }
     | undefined;
   contextWindowCompression?:
@@ -218,7 +218,7 @@ export function resolveLiveConfigEnv(
     sessionResumptionEnabled: parseBooleanEnv(
       env.VITE_LIVE_SESSION_RESUMPTION,
       'VITE_LIVE_SESSION_RESUMPTION',
-      false,
+      true,
     ),
     contextCompressionEnabled: parseBooleanEnv(
       env.VITE_LIVE_CONTEXT_COMPRESSION,

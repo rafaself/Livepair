@@ -296,7 +296,11 @@ export class GeminiLiveTransport implements DesktopSession {
         if (message.sessionResumptionUpdate) {
           this.emit({
             type: 'session-resumption-update',
-            handle: message.sessionResumptionUpdate.newHandle ?? null,
+            handle:
+              typeof message.sessionResumptionUpdate.newHandle === 'string' &&
+              message.sessionResumptionUpdate.newHandle.length > 0
+                ? message.sessionResumptionUpdate.newHandle
+                : null,
             resumable: message.sessionResumptionUpdate.resumable !== false,
             detail: message.sessionResumptionUpdate.resumable === false
               ? 'Gemini Live session is not resumable at this point'
@@ -526,6 +530,29 @@ export class GeminiLiveTransport implements DesktopSession {
       audio: {
         data: encodeChunkToBase64(_chunk),
         mimeType: LIVE_AUDIO_PCM_MIME_TYPE,
+      },
+    });
+  }
+
+  async sendVideoFrame(data: Uint8Array, mimeType: string): Promise<void> {
+    const session = this.session;
+
+    if (!session || !this.hasCompletedSetup) {
+      throw createError('Gemini Live session is not connected');
+    }
+
+    if (this.activeMode !== 'voice') {
+      throw createError('Gemini Live video input requires a voice session');
+    }
+
+    logRuntimeDiagnostic('gemini-live-transport', 'send video frame', {
+      byteLength: data.byteLength,
+      mimeType,
+    });
+    session.sendRealtimeInput({
+      video: {
+        data: encodeChunkToBase64(data),
+        mimeType,
       },
     });
   }

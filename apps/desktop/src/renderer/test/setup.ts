@@ -23,6 +23,7 @@ beforeEach(async () => {
     configurable: true,
     value: {
       enumerateDevices: vi.fn(async () => []),
+      getDisplayMedia: vi.fn(async () => mediaStream),
       getUserMedia: vi.fn(async () => mediaStream),
       addEventListener: mediaDevicesEvents.addEventListener.bind(mediaDevicesEvents),
       removeEventListener: mediaDevicesEvents.removeEventListener.bind(mediaDevicesEvents),
@@ -64,6 +65,14 @@ beforeEach(async () => {
   Object.defineProperty(globalThis, 'AudioWorkletNode', {
     configurable: true,
     value: FakeAudioWorkletNode,
+  });
+  Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+    configurable: true,
+    value: vi.fn(async () => undefined),
+  });
+  Object.defineProperty(HTMLMediaElement.prototype, 'pause', {
+    configurable: true,
+    value: vi.fn(),
   });
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,

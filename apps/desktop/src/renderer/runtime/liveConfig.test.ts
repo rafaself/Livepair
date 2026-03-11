@@ -147,7 +147,7 @@ describe('liveConfig', () => {
       model: 'models/gemini-2.0-flash-exp',
       apiVersion: 'v1alpha',
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
-      sessionResumptionEnabled: false,
+      sessionResumptionEnabled: true,
       contextCompressionEnabled: true,
     });
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
@@ -155,6 +155,7 @@ describe('liveConfig', () => {
     });
     expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
       responseModalities: ['AUDIO'],
+      sessionResumption: {},
       contextWindowCompression: {
         slidingWindow: {},
       },

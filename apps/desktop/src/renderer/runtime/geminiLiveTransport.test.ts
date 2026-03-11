@@ -615,6 +615,63 @@ describe('createGeminiLiveTransport', () => {
     });
   });
 
+  it('passes the latest resume handle into the SDK connect config', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: parseLiveConfig({
+        provider: 'gemini',
+        adapterKey: 'gemini-live',
+        model: 'models/gemini-2.0-flash-exp',
+        apiVersion: 'v1alpha',
+        sessionModes: {
+          text: {
+            responseModality: 'TEXT',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+          voice: {
+            responseModality: 'AUDIO',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+        },
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        sessionResumptionEnabled: true,
+        contextCompressionEnabled: false,
+      }),
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      resumeHandle: 'handles/latest-voice-handle',
+    });
+
+    await Promise.resolve();
+
+    expect(sdkHarness.getConnectOptions()).toEqual({
+      apiKey: 'auth_tokens/test-token',
+      apiVersion: 'v1alpha',
+      model: 'models/gemini-2.0-flash-exp',
+      config: {
+        responseModalities: ['AUDIO'],
+        sessionResumption: {
+          handle: 'handles/latest-voice-handle',
+        },
+        tools: expect.any(Array),
+      } satisfies GeminiLiveConnectConfig,
+      callbacks: expect.any(Object),
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+  });
+
   it('normalizes Gemini session resumption updates into handle and resumable flags', async () => {
     const sdkHarness = createSdkHarness();
     const events: LiveSessionEvent[] = [];
@@ -677,7 +734,6 @@ describe('createGeminiLiveTransport', () => {
           type: 'session-resumption-update',
           handle: 'handles/voice-session-2',
           resumable: true,
-          detail: undefined,
         },
         {
           type: 'session-resumption-update',
@@ -687,6 +743,64 @@ describe('createGeminiLiveTransport', () => {
         },
       ]),
     );
+  });
+
+  it('emits connection termination separately from fatal errors after setup', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: parseLiveConfig({
+        provider: 'gemini',
+        adapterKey: 'gemini-live',
+        model: 'models/gemini-2.0-flash-exp',
+        apiVersion: 'v1alpha',
+        sessionModes: {
+          text: {
+            responseModality: 'TEXT',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+          voice: {
+            responseModality: 'AUDIO',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+        },
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        sessionResumptionEnabled: true,
+        contextCompressionEnabled: false,
+      }),
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+    sdkHarness.emitClose('transport recycled');
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'connection-terminated',
+          detail: 'transport recycled',
+        },
+      ]),
+    );
+    expect(events).not.toContainEqual({
+      type: 'error',
+      detail: 'transport recycled',
+    });
   });
 
   it('emits an error and rejects connect when setup fails', async () => {
@@ -1045,5 +1159,64 @@ describe('createGeminiLiveTransport', () => {
       type: 'error',
       detail: 'Assistant audio payload was malformed',
     });
+  });
+
+  it('sends video frames through realtime input with base64 encoding', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+    await transport.sendVideoFrame(new Uint8Array([1, 2, 3, 4]), 'image/jpeg');
+
+    expect(sdkHarness.session.sendRealtimeInput).toHaveBeenCalledWith({
+      video: {
+        data: 'AQIDBA==',
+        mimeType: 'image/jpeg',
+      },
+    });
+  });
+
+  it('throws when sendVideoFrame is called without a connected session', async () => {
+    const transport = createGeminiLiveTransport({ config: TEST_LIVE_CONFIG });
+    await expect(
+      transport.sendVideoFrame(new Uint8Array([1, 2]), 'image/jpeg'),
+    ).rejects.toThrow('Gemini Live session is not connected');
+  });
+
+  it('throws when sendVideoFrame is called in text mode', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'text',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    await expect(
+      transport.sendVideoFrame(new Uint8Array([1, 2]), 'image/jpeg'),
+    ).rejects.toThrow('Gemini Live video input requires a voice session');
   });
 });
