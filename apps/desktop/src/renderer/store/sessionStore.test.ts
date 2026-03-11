@@ -57,17 +57,26 @@ describe('sessionStore', () => {
     it('initialises screen capture state to disabled with zero diagnostics', () => {
       expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
       expect(useSessionStore.getState().screenCaptureDiagnostics).toEqual({
+        captureSource: null,
         frameCount: 0,
         frameRateHz: null,
         widthPx: null,
         heightPx: null,
+        lastFrameAt: null,
+        lastUploadStatus: 'idle',
         lastError: null,
       });
     });
 
     it('updates screenCaptureState through the dedicated setter', () => {
+      useSessionStore.getState().setScreenCaptureState('ready');
+      expect(useSessionStore.getState().screenCaptureState).toBe('ready');
+
       useSessionStore.getState().setScreenCaptureState('capturing');
       expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
+
+      useSessionStore.getState().setScreenCaptureState('streaming');
+      expect(useSessionStore.getState().screenCaptureState).toBe('streaming');
 
       useSessionStore.getState().setScreenCaptureState('error');
       expect(useSessionStore.getState().screenCaptureState).toBe('error');
@@ -77,14 +86,26 @@ describe('sessionStore', () => {
     });
 
     it('patches screenCaptureDiagnostics without clobbering unrelated fields', () => {
-      useSessionStore.getState().setScreenCaptureDiagnostics({ frameCount: 5, frameRateHz: 1 });
-      useSessionStore.getState().setScreenCaptureDiagnostics({ widthPx: 640, heightPx: 360 });
+      useSessionStore.getState().setScreenCaptureDiagnostics({
+        captureSource: 'Entire screen',
+        frameCount: 5,
+        frameRateHz: 1,
+        lastUploadStatus: 'sending',
+      });
+      useSessionStore.getState().setScreenCaptureDiagnostics({
+        widthPx: 640,
+        heightPx: 360,
+        lastFrameAt: '2026-03-10T00:00:00.000Z',
+      });
 
       expect(useSessionStore.getState().screenCaptureDiagnostics).toEqual({
+        captureSource: 'Entire screen',
         frameCount: 5,
         frameRateHz: 1,
         widthPx: 640,
         heightPx: 360,
+        lastFrameAt: '2026-03-10T00:00:00.000Z',
+        lastUploadStatus: 'sending',
         lastError: null,
       });
     });
@@ -97,10 +118,13 @@ describe('sessionStore', () => {
 
       expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
       expect(useSessionStore.getState().screenCaptureDiagnostics).toEqual({
+        captureSource: null,
         frameCount: 0,
         frameRateHz: null,
         widthPx: null,
         heightPx: null,
+        lastFrameAt: null,
+        lastUploadStatus: 'idle',
         lastError: null,
       });
     });

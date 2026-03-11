@@ -6,6 +6,8 @@ import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 import type {
   CurrentVoiceTranscript,
   ConversationTurnModel,
+  ScreenCaptureDiagnostics,
+  ScreenCaptureState,
   TextSessionStatus,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
@@ -35,6 +37,8 @@ export type AssistantPanelController = {
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  screenCaptureState: ScreenCaptureState;
+  screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   isVoiceSessionActive: boolean;
   currentVoiceTranscript: CurrentVoiceTranscript;
   canSubmitText: boolean;
@@ -66,6 +70,8 @@ export function useAssistantPanelController(): AssistantPanelController {
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    screenCaptureState,
+    screenCaptureDiagnostics,
     isVoiceSessionActive,
     currentVoiceTranscript,
     canSubmitText,
@@ -146,6 +152,8 @@ export function useAssistantPanelController(): AssistantPanelController {
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    screenCaptureState,
+    screenCaptureDiagnostics,
     isVoiceSessionActive,
     currentVoiceTranscript,
     canSubmitText,

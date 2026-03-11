@@ -25,6 +25,7 @@ type VideoElementLike = {
 };
 
 type TrackLike = {
+  label?: string;
   stop: () => void;
   addEventListener: (type: 'ended', listener: () => void) => void;
   removeEventListener: (type: 'ended', listener: () => void) => void;
@@ -183,6 +184,7 @@ export function createLocalScreenCapture(
       frameCount: sequence,
       widthPx: cvs.width,
       heightPx: cvs.height,
+      lastFrameAt: new Date().toISOString(),
     });
   }
 
@@ -254,10 +256,13 @@ export function createLocalScreenCapture(
     }
 
     observer.onDiagnostics({
+      captureSource: videoTrack?.label || null,
       frameRateHz,
       frameCount: 0,
       widthPx: null,
       heightPx: null,
+      lastFrameAt: null,
+      lastUploadStatus: 'idle',
       lastError: null,
     });
 

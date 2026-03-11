@@ -11,6 +11,7 @@ import {
 } from './localScreenCapture';
 
 type TrackLike = {
+  label: string;
   stop: ReturnType<typeof vi.fn>;
   addEventListener: ReturnType<typeof vi.fn>;
   removeEventListener: ReturnType<typeof vi.fn>;
@@ -51,6 +52,7 @@ function createObserver(): {
 
 function createTrack(): TrackLike {
   return {
+    label: 'Entire screen',
     stop: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
@@ -119,7 +121,10 @@ function createHarness(opts: {
     getDisplayMedia: getDisplayMedia as unknown as () => Promise<MediaStream>,
     createCanvas: () => canvas as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createCanvas']>>,
     createVideoElement: () => video as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createVideoElement']>>,
-    createInterval: createInterval as unknown as CreateLocalScreenCaptureDependencies['createInterval'],
+    createInterval:
+      createInterval as unknown as NonNullable<
+        CreateLocalScreenCaptureDependencies['createInterval']
+      >,
   };
 
   const capture = createLocalScreenCapture(obs.observer, deps);
@@ -155,7 +160,13 @@ describe('createLocalScreenCapture', () => {
       const { capture, obs } = createHarness();
       await capture.start({ frameRateHz: 1 });
       expect(obs.onDiagnostics).toHaveBeenCalledWith(
-        expect.objectContaining({ frameRateHz: 1, frameCount: 0, lastError: null }),
+        expect.objectContaining({
+          captureSource: 'Entire screen',
+          frameRateHz: 1,
+          frameCount: 0,
+          lastError: null,
+          lastUploadStatus: 'idle',
+        }),
       );
     });
 
@@ -227,8 +238,8 @@ describe('createLocalScreenCapture', () => {
       tickInterval();
       tickInterval();
       expect(obs.onFrame).toHaveBeenCalledTimes(2);
-      expect(obs.onFrame.mock.calls[0][0]).toMatchObject({ sequence: 1 });
-      expect(obs.onFrame.mock.calls[1][0]).toMatchObject({ sequence: 2 });
+      expect(obs.onFrame.mock.calls[0]?.[0]).toMatchObject({ sequence: 1 });
+      expect(obs.onFrame.mock.calls[1]?.[0]).toMatchObject({ sequence: 2 });
     });
 
     it('emits onDiagnostics with frame count on each frame', async () => {
@@ -238,7 +249,10 @@ describe('createLocalScreenCapture', () => {
       tickInterval();
       expect(obs.onDiagnostics).toHaveBeenCalledTimes(initialCallCount + 1);
       expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
-        expect.objectContaining({ frameCount: 1 }),
+        expect.objectContaining({
+          frameCount: 1,
+          lastFrameAt: expect.any(String),
+        }),
       );
     });
 
@@ -304,7 +318,7 @@ describe('createLocalScreenCapture', () => {
       await capture.start({});
 
       const [, endedListener] = track.addEventListener.mock.calls.find(
-        ([type]: [string]) => type === 'ended',
+        (call) => call[0] === 'ended',
       ) ?? [];
       (endedListener as () => void)();
 
@@ -316,7 +330,7 @@ describe('createLocalScreenCapture', () => {
       await capture.start({});
 
       const [, endedListener] = track.addEventListener.mock.calls.find(
-        ([type]: [string]) => type === 'ended',
+        (call) => call[0] === 'ended',
       ) ?? [];
 
       await capture.stop();

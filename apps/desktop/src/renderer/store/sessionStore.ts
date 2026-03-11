@@ -128,10 +128,13 @@ function buildDefaultCurrentVoiceTranscript(): CurrentVoiceTranscript {
 
 function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
   return {
+    captureSource: null,
     frameCount: 0,
     frameRateHz: null,
     widthPx: null,
     heightPx: null,
+    lastFrameAt: null,
+    lastUploadStatus: 'idle',
     lastError: null,
   };
 }
