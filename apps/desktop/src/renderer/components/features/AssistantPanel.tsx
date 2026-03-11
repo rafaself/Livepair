@@ -32,6 +32,8 @@ export function AssistantPanel({
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    screenCaptureState,
+    screenCaptureDiagnostics,
     isVoiceSessionActive,
     currentVoiceTranscript,
     canSubmitText,
@@ -98,6 +100,8 @@ export function AssistantPanel({
                 voiceCaptureDiagnostics={voiceCaptureDiagnostics}
                 voicePlaybackState={voicePlaybackState}
                 voicePlaybackDiagnostics={voicePlaybackDiagnostics}
+                screenCaptureState={screenCaptureState}
+                screenCaptureDiagnostics={screenCaptureDiagnostics}
                 onRetryBackendHealth={handleCheckBackendHealth}
                 onSetAssistantState={setAssistantState}
               />

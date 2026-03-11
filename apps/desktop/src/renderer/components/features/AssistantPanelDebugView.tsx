@@ -1,10 +1,12 @@
-import { Eye, SlidersHorizontal, Wifi } from 'lucide-react';
+import { Eye, Monitor, SlidersHorizontal, Wifi } from 'lucide-react';
 import {
   ASSISTANT_RUNTIME_STATES,
   ASSISTANT_RUNTIME_STATE_LABELS,
   type AssistantRuntimeState,
 } from '../../state/assistantUiState';
 import type {
+  ScreenCaptureDiagnostics,
+  ScreenCaptureState,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
@@ -28,6 +30,8 @@ export type AssistantPanelDebugViewProps = {
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  screenCaptureState: ScreenCaptureState;
+  screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   onRetryBackendHealth: () => Promise<void>;
   onSetAssistantState: (state: AssistantRuntimeState) => void;
 };
@@ -48,6 +52,14 @@ function formatVoicePlaybackState(state: VoicePlaybackState): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatScreenCaptureState(state: ScreenCaptureState): string {
+  if (state === 'requestingPermission') {
+    return 'Requesting permission';
+  }
+
+  return state.charAt(0).toUpperCase() + state.slice(1);
+}
+
 export function AssistantPanelDebugView({
   assistantState,
   backendState,
@@ -59,6 +71,8 @@ export function AssistantPanelDebugView({
   voiceCaptureDiagnostics,
   voicePlaybackState,
   voicePlaybackDiagnostics,
+  screenCaptureState,
+  screenCaptureDiagnostics,
   onRetryBackendHealth,
   onSetAssistantState,
 }: AssistantPanelDebugViewProps): JSX.Element {
@@ -161,6 +175,47 @@ export function AssistantPanelDebugView({
             {
               label: 'Playback error',
               value: voicePlaybackDiagnostics.lastError ?? 'None',
+            },
+          ]}
+        />
+      </ViewSection>
+
+      <ViewSection icon={Monitor} title="Screen context">
+        <FieldList
+          items={[
+            { label: 'Screen state', value: formatScreenCaptureState(screenCaptureState) },
+            {
+              label: 'Capture source',
+              value: screenCaptureDiagnostics.captureSource ?? 'Unknown',
+            },
+            {
+              label: 'Frame rate',
+              value: screenCaptureDiagnostics.frameRateHz
+                ? `${screenCaptureDiagnostics.frameRateHz} fps`
+                : 'Not started',
+            },
+            {
+              label: 'Frame count',
+              value: String(screenCaptureDiagnostics.frameCount),
+            },
+            {
+              label: 'Frame size',
+              value: screenCaptureDiagnostics.widthPx && screenCaptureDiagnostics.heightPx
+                ? `${screenCaptureDiagnostics.widthPx} x ${screenCaptureDiagnostics.heightPx}`
+                : 'Not started',
+            },
+            {
+              label: 'Last frame',
+              value: screenCaptureDiagnostics.lastFrameAt ?? 'None',
+            },
+            {
+              label: 'Last upload',
+              value: screenCaptureDiagnostics.lastUploadStatus.charAt(0).toUpperCase()
+                + screenCaptureDiagnostics.lastUploadStatus.slice(1),
+            },
+            {
+              label: 'Screen error',
+              value: screenCaptureDiagnostics.lastError ?? 'None',
             },
           ]}
         />
