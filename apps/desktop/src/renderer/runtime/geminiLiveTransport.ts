@@ -3,6 +3,8 @@ import type {
   DesktopSessionConnectParams,
   LiveSessionEvent,
   SessionMode,
+  VoiceToolCall,
+  VoiceToolResponse,
 } from './types';
 import {
   LIVE_ADAPTER_KEY,
@@ -12,6 +14,7 @@ import {
   type LiveConfig,
 } from './liveConfig';
 import {
+  buildGeminiLiveSdkToolResponse,
   connectGeminiLiveSdkSession,
   type ConnectGeminiLiveSdkSessionOptions,
   type GeminiLiveSdkServerMessage,
@@ -70,6 +73,30 @@ function getGoAwayDetail(message: GeminiLiveSdkServerMessage): string {
 
 function closeGeminiLiveSdkSession(session: GeminiLiveSdkSession | null): void {
   session?.close();
+}
+
+function normalizeToolCallArguments(
+  value: unknown,
+): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  return {};
+}
+
+function normalizeToolCalls(message: GeminiLiveSdkServerMessage): VoiceToolCall[] {
+  const functionCalls = message.toolCall?.functionCalls;
+
+  if (!functionCalls?.length) {
+    return [];
+  }
+
+  return functionCalls.map((call) => ({
+    id: call.id ?? call.name ?? crypto.randomUUID(),
+    name: call.name ?? 'unknown_tool',
+    arguments: normalizeToolCallArguments(call.args),
+  }));
 }
 
 const LIVE_AUDIO_PCM_MIME_TYPE = 'audio/pcm;rate=16000';
@@ -274,6 +301,15 @@ export class GeminiLiveTransport implements DesktopSession {
             detail: message.sessionResumptionUpdate.resumable === false
               ? 'Gemini Live session is not resumable at this point'
               : undefined,
+          });
+        }
+
+        const toolCalls = normalizeToolCalls(message);
+
+        if (toolCalls.length > 0) {
+          this.emit({
+            type: 'tool-call',
+            calls: toolCalls,
           });
         }
 
@@ -509,6 +545,20 @@ export class GeminiLiveTransport implements DesktopSession {
     session.sendRealtimeInput({
       audioStreamEnd: true,
     });
+  }
+
+  async sendToolResponses(responses: VoiceToolResponse[]): Promise<void> {
+    const session = this.session;
+
+    if (!session || !this.hasCompletedSetup) {
+      throw createError('Gemini Live session is not connected');
+    }
+
+    if (responses.length === 0) {
+      return;
+    }
+
+    session.sendToolResponse(buildGeminiLiveSdkToolResponse(responses));
   }
 
   async disconnect(): Promise<void> {

@@ -62,6 +62,7 @@ function createSdkHarness(): {
   const session: GeminiLiveSdkSession = {
     sendClientContent: vi.fn(),
     sendRealtimeInput: vi.fn(),
+    sendToolResponse: vi.fn(),
     close: vi.fn(() => {
       callbacks?.onClose?.(createCloseEvent(1000, 'Client ended session'));
     }),
@@ -218,6 +219,7 @@ describe('createGeminiLiveTransport', () => {
       model: 'models/gemini-2.0-flash-exp',
       config: {
         responseModalities: ['AUDIO'],
+        tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });
@@ -277,6 +279,7 @@ describe('createGeminiLiveTransport', () => {
         contextWindowCompression: {
           slidingWindow: {},
         },
+        tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });
@@ -383,6 +386,97 @@ describe('createGeminiLiveTransport', () => {
         },
       ]),
     );
+  });
+
+  it('normalizes Gemini tool calls into runtime events', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    sdkHarness.emitMessage({
+      toolCall: {
+        functionCalls: [
+          {
+            id: 'call-1',
+            name: 'get_current_mode',
+            args: {},
+          },
+        ],
+      },
+    });
+
+    expect(events).toContainEqual({
+      type: 'tool-call',
+      calls: [
+        {
+          id: 'call-1',
+          name: 'get_current_mode',
+          arguments: {},
+        },
+      ],
+    });
+  });
+
+  it('forwards normalized tool responses through the Gemini session', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    await transport.sendToolResponses([
+      {
+        id: 'call-1',
+        name: 'get_current_mode',
+        response: {
+          ok: true,
+          mode: 'voice',
+        },
+      },
+    ]);
+
+    expect(sdkHarness.session.sendToolResponse).toHaveBeenCalledWith({
+      functionResponses: [
+        {
+          id: 'call-1',
+          name: 'get_current_mode',
+          response: {
+            ok: true,
+            mode: 'voice',
+          },
+        },
+      ],
+    });
   });
 
   it('emits generation-complete before turn-complete when Gemini signals both distinctly', async () => {
@@ -838,6 +932,7 @@ describe('createGeminiLiveTransport', () => {
         responseModalities: ['AUDIO'],
         inputAudioTranscription: {},
         outputAudioTranscription: {},
+        tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });

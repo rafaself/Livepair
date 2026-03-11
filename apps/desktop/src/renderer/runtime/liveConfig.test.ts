@@ -158,6 +158,11 @@ describe('liveConfig', () => {
       contextWindowCompression: {
         slidingWindow: {},
       },
+      tools: [
+        {
+          functionDeclarations: expect.any(Array),
+        },
+      ],
     });
   });
 
@@ -210,6 +215,11 @@ describe('liveConfig', () => {
       contextWindowCompression: {
         slidingWindow: {},
       },
+      tools: [
+        {
+          functionDeclarations: expect.any(Array),
+        },
+      ],
     });
   });
 });
