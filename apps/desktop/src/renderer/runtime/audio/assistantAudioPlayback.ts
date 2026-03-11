@@ -1,8 +1,8 @@
+import type { AssistantAudioPlayback as AssistantAudioPlaybackContract } from './audio.types';
 import type {
-  AssistantAudioPlayback as AssistantAudioPlaybackContract,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
-} from '../core/types';
+} from '../voice/voice.types';
 
 const ASSISTANT_PLAYBACK_SAMPLE_RATE_HZ = 24_000;
 const DEFAULT_OUTPUT_DEVICE_ID = 'default';

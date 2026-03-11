@@ -1,7 +1,7 @@
 import type {
   SpeechLifecycle,
   SpeechLifecycleStatus,
-} from '../core/types';
+} from './speech.types';
 
 export type SpeechSessionLifecycleEvent =
   | { type: 'session.start.requested' }

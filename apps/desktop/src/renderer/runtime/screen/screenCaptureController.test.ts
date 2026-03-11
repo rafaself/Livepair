@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createScreenCaptureController } from './screenCaptureController';
-import type { DesktopSession, ScreenCaptureState, VoiceSessionStatus } from '../core/types';
+import type { DesktopSession } from '../transport/transport.types';
+import type { VoiceSessionStatus } from '../voice/voice.types';
+import type { ScreenCaptureState } from './screen.types';
 import type { LocalScreenCaptureObserver } from './localScreenCapture';
 
 function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; screenCaptureState?: ScreenCaptureState } = {}) {

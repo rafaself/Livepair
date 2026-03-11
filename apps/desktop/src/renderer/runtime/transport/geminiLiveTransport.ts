@@ -2,10 +2,9 @@ import type {
   DesktopSession,
   DesktopSessionConnectParams,
   LiveSessionEvent,
-  SessionMode,
-  VoiceToolCall,
-  VoiceToolResponse,
-} from '../core/types';
+} from './transport.types';
+import type { SessionMode } from '../core/session.types';
+import type { VoiceToolCall, VoiceToolResponse } from '../voice/voice.types';
 import {
   LIVE_ADAPTER_KEY,
   buildGeminiLiveConnectConfig,

@@ -1,6 +1,6 @@
 import { formatConversationTimestamp } from './conversationTimestamp';
 import type { useSessionStore } from '../../store/sessionStore';
-import type { ConversationTurnModel } from '../core/types';
+import type { ConversationTurnModel } from './conversation.types';
 import type { TextChatMessage, TextChatRequest } from '@livepair/shared-types';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;

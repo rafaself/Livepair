@@ -9,7 +9,7 @@ import type {
   GeminiLiveSdkServerMessage,
   GeminiLiveSdkSession,
 } from './geminiLiveSdkClient';
-import type { LiveSessionEvent } from '../core/types';
+import type { LiveSessionEvent } from './transport.types';
 
 const TEST_LIVE_CONFIG = parseLiveConfig({
   provider: 'gemini',

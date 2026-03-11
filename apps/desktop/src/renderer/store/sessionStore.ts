@@ -9,18 +9,16 @@ import {
 } from '../runtime/text/textSessionLifecycle';
 import type {
   AssistantActivityState,
-  CurrentVoiceTranscript,
-  ConversationTurnModel,
-  RuntimeDebugEvent,
-  ScreenCaptureDiagnostics,
-  ScreenCaptureState,
-  SpeechLifecycle,
-  SessionPhase,
   ProductMode,
-  TextSessionLifecycle,
-  TextSessionStatus,
+  SessionPhase,
+  RuntimeDebugEvent,
+} from '../runtime/core/session.types';
+import type {
   TransportConnectionState,
   TransportKind,
+} from '../runtime/transport/transport.types';
+import type {
+  CurrentVoiceTranscript,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
   VoiceSessionDurabilityState,
@@ -29,7 +27,21 @@ import type {
   VoicePlaybackState,
   VoiceSessionStatus,
   VoiceToolState,
-} from '../runtime/core/types';
+} from '../runtime/voice/voice.types';
+import type {
+  ConversationTurnModel,
+} from '../runtime/conversation/conversation.types';
+import type {
+  ScreenCaptureDiagnostics,
+  ScreenCaptureState,
+} from '../runtime/screen/screen.types';
+import type {
+  SpeechLifecycle,
+} from '../runtime/speech/speech.types';
+import type {
+  TextSessionLifecycle,
+  TextSessionStatus,
+} from '../runtime/text/text.types';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
 export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';

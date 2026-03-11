@@ -1,5 +1,6 @@
 import { useUiStore } from '../../store/uiStore';
-import type { LiveSessionEvent, RuntimeLogger, SessionControllerEvent } from './types';
+import type { LiveSessionEvent } from '../transport/transport.types';
+import type { RuntimeLogger, SessionControllerEvent } from './session.types';
 
 export const NOOP_RUNTIME_LOGGER: RuntimeLogger = {
   onSessionEvent: () => undefined,

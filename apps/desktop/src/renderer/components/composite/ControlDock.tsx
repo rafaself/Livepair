@@ -3,12 +3,10 @@ import { Ban, ChevronLeft, Mic, MicOff, Monitor, MonitorOff, PhoneOff } from 'lu
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import type {
-  ProductMode,
-  ScreenCaptureState,
-  SpeechLifecycleStatus,
-  VoiceCaptureState,
-} from '../../runtime/core/types';
+import type { ProductMode } from '../../runtime/core/session.types';
+import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
+import type { ScreenCaptureState } from '../../runtime/screen/screen.types';
+import type { VoiceCaptureState } from '../../runtime/voice/voice.types';
 import './ControlDock.css';
 
 export type ControlDockProps = {

@@ -1,9 +1,9 @@
 import type { LocalVoiceCapture, LocalVoiceCaptureObserver } from '../audio/localVoiceCapture';
+import type { DesktopSession } from '../transport/transport.types';
 import type {
-  DesktopSession,
   LocalVoiceChunk,
   VoiceSessionStatus,
-} from '../core/types';
+} from './voice.types';
 import { asErrorDetail } from '../core/runtimeUtils';
 import type { SessionStoreApi, SettingsStoreApi } from '../core/sessionControllerTypes';
 

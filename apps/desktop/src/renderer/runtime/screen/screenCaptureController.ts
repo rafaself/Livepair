@@ -1,12 +1,12 @@
 import { logRuntimeError } from '../core/logger';
 import { asErrorDetail } from '../core/runtimeUtils';
+import type { DesktopSession } from '../transport/transport.types';
+import type { VoiceSessionStatus } from '../voice/voice.types';
 import type {
-  DesktopSession,
   LocalScreenFrame,
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
-  VoiceSessionStatus,
-} from '../core/types';
+} from './screen.types';
 import type {
   LocalScreenCapture,
   LocalScreenCaptureObserver,

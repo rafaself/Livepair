@@ -1,11 +1,13 @@
 import type {
   DesktopSession,
+  LiveSessionEvent,
+  TransportKind,
+} from '../transport/transport.types';
+import type {
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
-  LiveSessionEvent,
-  TransportKind,
-} from '../core/types';
+} from './voice.types';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import { asErrorDetail } from '../core/runtimeUtils';
 import { isTokenValidForReconnect } from './voiceSessionToken';

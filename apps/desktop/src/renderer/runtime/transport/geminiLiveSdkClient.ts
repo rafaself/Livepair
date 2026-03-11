@@ -9,7 +9,7 @@ import type {
   GeminiLiveConnectConfig,
   LiveApiVersion,
 } from './liveConfig';
-import type { VoiceToolResponse } from '../core/types';
+import type { VoiceToolResponse } from '../voice/voice.types';
 
 export type GeminiLiveSdkServerMessage = {
   setupComplete?: LiveServerMessage['setupComplete'] | undefined;

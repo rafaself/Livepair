@@ -1,12 +1,10 @@
 import { MessageCircle, SendHorizonal, TriangleAlert } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
-import type {
-  ConversationTurnModel,
-  CurrentVoiceTranscript,
-  ProductMode,
-  TextSessionStatus,
-} from '../../runtime/core/types';
+import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
+import type { CurrentVoiceTranscript } from '../../runtime/voice/voice.types';
+import type { ProductMode } from '../../runtime/core/session.types';
+import type { TextSessionStatus } from '../../runtime/text/text.types';
 import { Button, TextInput } from '../primitives';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { ConversationList } from './ConversationList';

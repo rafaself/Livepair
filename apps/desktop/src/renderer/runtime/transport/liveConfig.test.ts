@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionMode } from '../core/types';
+import type { SessionMode } from '../core/session.types';
 import {
   LIVE_ADAPTER_KEY,
   LIVE_PROVIDER,

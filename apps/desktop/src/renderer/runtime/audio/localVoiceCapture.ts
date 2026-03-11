@@ -7,7 +7,7 @@ import {
   encodePcm16Le,
   mixToMono,
 } from './audioProcessing';
-import type { LocalVoiceChunk, VoiceCaptureDiagnostics } from '../core/types';
+import type { LocalVoiceChunk, VoiceCaptureDiagnostics } from '../voice/voice.types';
 
 const CAPTURE_WORKLET_PROCESSOR_NAME = 'livepair-local-voice-capture';
 const CAPTURE_WORKLET_MODULE_URL = new URL(

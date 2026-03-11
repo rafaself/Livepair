@@ -2,11 +2,11 @@ import { asErrorDetail } from '../core/runtimeUtils';
 import { createDefaultVoiceToolState } from '../core/defaults';
 import { executeLocalVoiceTool } from './voiceTools';
 import type { VoiceToolExecutionSnapshot } from './voiceTools';
+import type { DesktopSession } from '../transport/transport.types';
 import type {
-  DesktopSession,
   VoiceToolCall,
   VoiceToolState,
-} from '../core/types';
+} from './voice.types';
 
 type VoiceToolStoreApi = {
   getState: () => {

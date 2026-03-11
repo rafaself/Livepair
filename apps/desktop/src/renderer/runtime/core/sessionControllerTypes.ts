@@ -6,13 +6,19 @@ import type { LocalScreenCaptureObserver, LocalScreenCapture } from '../screen/l
 import type { LocalVoiceCapture } from '../audio/localVoiceCapture';
 import type {
   AssistantAudioPlayback,
+} from '../audio/audio.types';
+import type {
   DesktopSession,
+  TransportKind,
+} from '../transport/transport.types';
+import type {
   LocalVoiceChunk,
+  VoiceCaptureDiagnostics,
+} from '../voice/voice.types';
+import type {
   RuntimeLogger,
   SessionMode,
-  TransportKind,
-  VoiceCaptureDiagnostics,
-} from './types';
+} from './session.types';
 
 export type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 export type SettingsStoreApi = Pick<typeof useSettingsStore, 'getState'>;

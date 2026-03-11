@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVoiceInterruptionController } from './voiceInterruptionController';
-import type { DesktopSession, VoiceCaptureState, VoiceSessionStatus } from '../core/types';
+import type { DesktopSession } from '../transport/transport.types';
+import type { VoiceCaptureState, VoiceSessionStatus } from './voice.types';
 
 function createHarness(options: { captureState?: VoiceCaptureState } = {}) {
   const { captureState = 'idle' } = options;

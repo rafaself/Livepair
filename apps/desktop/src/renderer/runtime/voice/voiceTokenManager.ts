@@ -1,10 +1,10 @@
 import { isTokenValidForReconnect } from './voiceSessionToken';
 import { asErrorDetail } from '../core/runtimeUtils';
+import type { SessionControllerEvent } from '../core/session.types';
+import type { TransportKind } from '../transport/transport.types';
 import type {
   VoiceSessionDurabilityState,
-  SessionControllerEvent,
-  TransportKind,
-} from '../core/types';
+} from './voice.types';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import type { TokenRequestState, BackendConnectionState } from '../../store/sessionStore';
 

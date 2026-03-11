@@ -1,4 +1,4 @@
-import type { SessionMode } from '../core/types';
+import type { SessionMode } from '../core/session.types';
 import { VOICE_TOOL_DECLARATIONS } from '../voice/voiceTools';
 
 export const LIVE_PROVIDER = 'gemini' as const;

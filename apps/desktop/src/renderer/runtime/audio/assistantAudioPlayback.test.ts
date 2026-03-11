@@ -4,7 +4,7 @@ import {
   type AssistantAudioPlayback,
   type AssistantAudioPlaybackObserver,
 } from './assistantAudioPlayback';
-import type { VoicePlaybackDiagnostics, VoicePlaybackState } from '../core/types';
+import type { VoicePlaybackDiagnostics, VoicePlaybackState } from '../voice/voice.types';
 
 type FakeAudioBuffer = {
   getChannelData: ReturnType<typeof vi.fn>;

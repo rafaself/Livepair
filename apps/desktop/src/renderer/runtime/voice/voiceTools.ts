@@ -1,13 +1,13 @@
+import type { ProductMode } from '../core/session.types';
+import type { SpeechLifecycleStatus } from '../speech/speech.types';
+import type { TextSessionStatus } from '../text/text.types';
 import type {
-  ProductMode,
-  SpeechLifecycleStatus,
-  TextSessionStatus,
   VoiceCaptureState,
   VoicePlaybackState,
   VoiceSessionStatus,
   VoiceToolCall,
   VoiceToolResponse,
-} from '../core/types';
+} from './voice.types';
 
 export type VoiceToolName = 'get_current_mode' | 'get_voice_session_status';
 

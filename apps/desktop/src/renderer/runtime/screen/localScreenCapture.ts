@@ -1,4 +1,4 @@
-import type { LocalScreenFrame, ScreenCaptureDiagnostics } from '../core/types';
+import type { LocalScreenFrame, ScreenCaptureDiagnostics } from './screen.types';
 
 export const SCREEN_CAPTURE_FRAME_RATE_HZ = 1;
 export const SCREEN_CAPTURE_MAX_WIDTH_PX = 640;

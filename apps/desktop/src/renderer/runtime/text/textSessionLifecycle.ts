@@ -1,9 +1,9 @@
+import type { SessionPhase } from '../core/session.types';
+import type { TransportConnectionState } from '../transport/transport.types';
 import type {
-  SessionPhase,
   TextSessionLifecycle,
   TextSessionStatus,
-  TransportConnectionState,
-} from '../core/types';
+} from './text.types';
 
 export type TextSessionLifecycleEvent =
   | { type: 'bootstrap.started' }

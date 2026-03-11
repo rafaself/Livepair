@@ -2,7 +2,7 @@ import {
   resolveSpeechSilenceTimeoutMs,
   type SpeechSilenceTimeoutSetting,
 } from './speechSilenceTimeout';
-import type { SpeechLifecycleStatus } from '../core/types';
+import type { SpeechLifecycleStatus } from './speech.types';
 
 type SilenceSettingsApi = {
   getState: () => {

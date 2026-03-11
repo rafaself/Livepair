@@ -18,9 +18,9 @@ import {
 import type {
   RuntimeLogger,
   SessionMode,
-  TextSessionStatus,
-  TransportKind,
-} from '../core/types';
+} from '../core/session.types';
+import type { TransportKind } from '../transport/transport.types';
+import type { TextSessionStatus } from './text.types';
 import type { TextChatRequest, TextChatStreamEvent } from '@livepair/shared-types';
 import type {
   DesktopSessionControllerDependencies,

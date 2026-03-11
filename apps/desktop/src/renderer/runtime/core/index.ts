@@ -1,4 +1,4 @@
-export * from './types';
+export * from './session.types';
 export * from './sessionControllerTypes';
 export * from './defaults';
 export * from './runtimeUtils';

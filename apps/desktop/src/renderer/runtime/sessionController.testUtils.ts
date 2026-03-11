@@ -1,13 +1,13 @@
 import { vi } from 'vitest';
 import type { TextChatRequest, TextChatStreamEvent } from '@livepair/shared-types';
 import type { AssistantAudioPlaybackObserver } from './audio/assistantAudioPlayback';
+import type { DesktopSession } from './transport/transport.types';
 import type {
-  DesktopSession,
   LocalVoiceChunk,
   VoiceCaptureDiagnostics,
   VoicePlaybackState,
   VoiceSessionResumptionState,
-} from './core/types';
+} from './voice/voice.types';
 
 export function createUnusedTransport(): DesktopSession {
   return {

@@ -2,7 +2,7 @@ import type {
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceToolState,
-} from './types';
+} from '../voice/voice.types';
 
 export function createDefaultVoiceSessionResumptionState(): VoiceSessionResumptionState {
   return {

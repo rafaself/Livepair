@@ -2,18 +2,18 @@ import { LIVE_ADAPTER_KEY } from './liveConfig';
 import { isTokenValidForReconnect } from '../voice/voiceSessionToken';
 import { createDebugEvent } from '../core/runtimeUtils';
 import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
+import type { LiveSessionEvent } from './transport.types';
+import type { RuntimeLogger } from '../core/session.types';
+import type { SpeechLifecycleStatus } from '../speech/speech.types';
+import type { AssistantAudioPlayback } from '../audio/audio.types';
 import type {
-  AssistantAudioPlayback,
-  LiveSessionEvent,
-  RuntimeLogger,
-  SpeechLifecycleStatus,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
   VoiceToolCall,
-} from '../core/types';
+} from '../voice/voice.types';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import type { SessionStoreApi, SettingsStoreApi } from '../core/sessionControllerTypes';
 

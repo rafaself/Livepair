@@ -1,9 +1,9 @@
+import type { AssistantActivityState } from '../core/session.types';
+import type { DesktopSession } from '../transport/transport.types';
 import type {
-  AssistantActivityState,
-  DesktopSession,
   VoiceCaptureState,
   VoiceSessionStatus,
-} from '../core/types';
+} from './voice.types';
 import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
 
 type InterruptionStoreApi = {

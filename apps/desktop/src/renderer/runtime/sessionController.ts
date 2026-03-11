@@ -39,13 +39,21 @@ import {
   isTextSessionConnectable,
 } from './text/textSessionLifecycle';
 import type {
-  DesktopSession,
-  AssistantAudioPlayback,
   SessionControllerEvent,
-  SpeechLifecycleStatus,
   SessionMode,
   ProductMode,
+} from './core/session.types';
+import type {
+  DesktopSession,
+} from './transport/transport.types';
+import type {
+  SpeechLifecycleStatus,
+} from './speech/speech.types';
+import type {
   TextSessionStatus,
+} from './text/text.types';
+import type { AssistantAudioPlayback } from './audio/audio.types';
+import type {
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
@@ -53,7 +61,7 @@ import type {
   VoicePlaybackState,
   VoiceToolCall,
   VoiceToolState,
-} from './core/types';
+} from './voice/voice.types';
 import type {
   CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
