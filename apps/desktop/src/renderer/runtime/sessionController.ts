@@ -42,6 +42,7 @@ import {
   createDefaultVoiceSessionResumptionState,
   createDefaultVoiceToolState,
 } from './defaults';
+import { resolveSpeechSilenceTimeoutMs } from './speechSilenceTimeout';
 import {
   isSessionActiveLifecycle,
   isTextSessionConnectable,
@@ -323,21 +324,6 @@ export function createDesktopSessionController(
     return dependencies.store.getState().speechLifecycle.status;
   };
 
-  const resolveSpeechSilenceTimeoutMs = (): number | null => {
-    const speechSilenceTimeout =
-      dependencies.settingsStore.getState().settings.speechSilenceTimeout;
-
-    if (speechSilenceTimeout === '30s') {
-      return 30_000;
-    }
-
-    if (speechSilenceTimeout === '3m') {
-      return 3 * 60_000;
-    }
-
-    return null;
-  };
-
   const syncSpeechSilenceTimeout = (status: SpeechLifecycleStatus): void => {
     clearSpeechSilenceTimeout();
 
@@ -345,7 +331,9 @@ export function createDesktopSessionController(
       return;
     }
 
-    const timeoutMs = resolveSpeechSilenceTimeoutMs();
+    const timeoutMs = resolveSpeechSilenceTimeoutMs(
+      dependencies.settingsStore.getState().settings.speechSilenceTimeout,
+    );
 
     if (timeoutMs === null) {
       return;
