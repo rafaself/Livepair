@@ -14,7 +14,6 @@ import {
   type AssistantAudioPlaybackObserver,
 } from './assistantAudioPlayback';
 import { createLocalVoiceCapture, type LocalVoiceCapture } from './localVoiceCapture';
-import { executeLocalVoiceTool } from './voiceTools';
 import {
   createLocalScreenCapture,
   type LocalScreenCapture,
@@ -28,6 +27,7 @@ import {
 import { createVoiceTranscriptController } from './voiceTranscriptController';
 import { createVoicePlaybackController } from './voicePlaybackController';
 import { createScreenCaptureController } from './screenCaptureController';
+import { createVoiceToolController } from './voiceToolController';
 import {
   appendAssistantTextDelta as appendAssistantTextDeltaCtx,
   appendAssistantTurn as appendAssistantTurnCtx,
@@ -42,7 +42,6 @@ import { isTokenValidForReconnect } from './voiceSessionToken';
 import {
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
-  createDefaultVoiceToolState,
 } from './defaults';
 import { resolveSpeechSilenceTimeoutMs } from './speechSilenceTimeout';
 import { asErrorDetail, createDebugEvent } from './runtimeUtils';
@@ -160,8 +159,13 @@ export function createDesktopSessionController(
     dependencies.createScreenCapture,
     () => activeTransport,
   );
+  const voiceToolCtrl = createVoiceToolController(
+    dependencies.store,
+    () => activeTransport,
+    () => createVoiceToolExecutionSnapshot(),
+    (detail) => setVoiceErrorState(detail),
+  );
   let voiceSendChain = Promise.resolve();
-  let voiceToolChain = Promise.resolve();
   let voiceInterruptionInFlight: Promise<void> | null = null;
   let voiceInterruptionSequence = 0;
   const voiceTranscript = createVoiceTranscriptController(dependencies.store);
@@ -378,11 +382,11 @@ export function createDesktopSessionController(
   const setVoiceToolState = (
     patch: Partial<VoiceToolState>,
   ): void => {
-    dependencies.store.getState().setVoiceToolState(patch);
+    voiceToolCtrl.setState(patch);
   };
 
   const resetVoiceToolState = (): void => {
-    dependencies.store.getState().setVoiceToolState(createDefaultVoiceToolState());
+    voiceToolCtrl.reset();
   };
 
   const clearCurrentVoiceTranscript = (): void => {
@@ -407,7 +411,7 @@ export function createDesktopSessionController(
     activeTransport = null;
     playbackCtrl.release();
     voiceSendChain = Promise.resolve();
-    voiceToolChain = Promise.resolve();
+    voiceToolCtrl.resetChain();
     screenCtrl.resetSendChain();
     voiceInterruptionInFlight = null;
     voiceInterruptionSequence += 1;
@@ -615,93 +619,8 @@ export function createDesktopSessionController(
     await activeTransport?.sendAudioStreamEnd();
   };
 
-  const handleVoiceToolCalls = async (
-    calls: VoiceToolCall[],
-  ): Promise<void> => {
-    const transport = activeTransport;
-
-    if (!transport || calls.length === 0) {
-      return;
-    }
-
-    const responses = [];
-    let lastError: string | null = null;
-
-    for (const call of calls) {
-      if (transport !== activeTransport) {
-        return;
-      }
-
-      setVoiceToolState({
-        status: 'toolCallPending',
-        toolName: call.name,
-        callId: call.id,
-        lastError: null,
-      });
-      setVoiceToolState({
-        status: 'toolExecuting',
-        toolName: call.name,
-        callId: call.id,
-      });
-
-      const response = await executeLocalVoiceTool(
-        call,
-        createVoiceToolExecutionSnapshot(),
-      );
-      responses.push(response);
-
-      const errorDetail = response.response['error'];
-
-      if (
-        errorDetail &&
-        typeof errorDetail === 'object' &&
-        'message' in errorDetail &&
-        typeof errorDetail.message === 'string'
-      ) {
-        lastError = errorDetail.message;
-      }
-    }
-
-    setVoiceToolState({
-      status: 'toolResponding',
-      toolName: calls.at(-1)?.name ?? null,
-      callId: calls.at(-1)?.id ?? null,
-      lastError,
-    });
-
-    try {
-      await transport.sendToolResponses(responses);
-    } catch (error) {
-      const detail = asErrorDetail(error, 'Failed to respond to voice tool call');
-      setVoiceToolState({
-        status: 'toolError',
-        toolName: calls.at(-1)?.name ?? null,
-        callId: calls.at(-1)?.id ?? null,
-        lastError: detail,
-      });
-      setVoiceErrorState(detail);
-      return;
-    }
-
-    setVoiceToolState({
-      status: lastError ? 'toolError' : 'idle',
-      toolName: calls.at(-1)?.name ?? null,
-      callId: calls.at(-1)?.id ?? null,
-      lastError,
-    });
-  };
-
   const enqueueVoiceToolCalls = (calls: VoiceToolCall[]): void => {
-    voiceToolChain = voiceToolChain
-      .then(() => handleVoiceToolCalls(calls))
-      .catch((error) => {
-        const detail = asErrorDetail(error, 'Failed to handle voice tool call');
-        setVoiceToolState({
-          status: 'toolError',
-          lastError: detail,
-        });
-        setVoiceErrorState(detail);
-      });
+    voiceToolCtrl.enqueue(calls);
   };
 
   const resumeVoiceSession = async (detail: string): Promise<void> => {
