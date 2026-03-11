@@ -8,7 +8,7 @@ import type {
   ScreenCaptureState,
   SpeechLifecycleStatus,
   VoiceCaptureState,
-} from '../../runtime/types';
+} from '../../runtime/core/types';
 import './ControlDock.css';
 
 export type ControlDockProps = {

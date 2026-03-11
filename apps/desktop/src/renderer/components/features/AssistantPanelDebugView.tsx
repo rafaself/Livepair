@@ -15,7 +15,7 @@ import type {
   VoiceSessionResumptionState,
   VoiceSessionStatus,
   VoiceToolState,
-} from '../../runtime/types';
+} from '../../runtime/core/types';
 import { FieldList, StatusIndicator } from '../composite';
 import { ViewSection } from '../layout';
 import { Button } from '../primitives';

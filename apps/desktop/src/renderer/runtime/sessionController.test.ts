@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RuntimeLogger } from './types';
+import type { RuntimeLogger } from './core/types';
 import { createDesktopSessionController } from './sessionController';
 import { selectAssistantRuntimeState, selectIsConversationEmpty } from './selectors';
 import { useSessionStore } from '../store/sessionStore';

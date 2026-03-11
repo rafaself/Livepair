@@ -6,38 +6,38 @@ import {
   logLifecycleTransition,
   logRuntimeDiagnostic,
   logRuntimeError,
-} from './logger';
-import { createGeminiLiveTransport } from './geminiLiveTransport';
-import { LIVE_ADAPTER_KEY } from './liveConfig';
-import { createAssistantAudioPlayback } from './assistantAudioPlayback';
-import { createLocalVoiceCapture } from './localVoiceCapture';
-import { createLocalScreenCapture } from './localScreenCapture';
+} from './core/logger';
+import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
+import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
+import { createAssistantAudioPlayback } from './audio/assistantAudioPlayback';
+import { createLocalVoiceCapture } from './audio/localVoiceCapture';
+import { createLocalScreenCapture } from './screen/localScreenCapture';
 import {
   isSpeechLifecycleActive,
   reduceSpeechSessionLifecycle,
   type SpeechSessionLifecycleEvent,
-} from './speechSessionLifecycle';
-import { createVoiceTranscriptController } from './voiceTranscriptController';
-import { createVoicePlaybackController } from './voicePlaybackController';
-import { createScreenCaptureController } from './screenCaptureController';
-import { createVoiceToolController } from './voiceToolController';
-import { createVoiceInterruptionController } from './voiceInterruptionController';
-import { createVoiceTokenManager } from './voiceTokenManager';
-import { createSpeechSilenceController } from './speechSilenceController';
-import { createConversationContext } from './conversationTurnManager';
-import { createTextChatController } from './textChatController';
-import { createTransportEventRouter } from './transportEventRouter';
-import { createVoiceChunkPipeline } from './voiceChunkPipeline';
-import { createVoiceResumeController } from './voiceResumeController';
+} from './speech/speechSessionLifecycle';
+import { createVoiceTranscriptController } from './voice/voiceTranscriptController';
+import { createVoicePlaybackController } from './voice/voicePlaybackController';
+import { createScreenCaptureController } from './screen/screenCaptureController';
+import { createVoiceToolController } from './voice/voiceToolController';
+import { createVoiceInterruptionController } from './voice/voiceInterruptionController';
+import { createVoiceTokenManager } from './voice/voiceTokenManager';
+import { createSpeechSilenceController } from './speech/speechSilenceController';
+import { createConversationContext } from './conversation/conversationTurnManager';
+import { createTextChatController } from './text/textChatController';
+import { createTransportEventRouter } from './transport/transportEventRouter';
+import { createVoiceChunkPipeline } from './voice/voiceChunkPipeline';
+import { createVoiceResumeController } from './voice/voiceResumeController';
 import {
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
-} from './defaults';
-import { asErrorDetail, createDebugEvent } from './runtimeUtils';
+} from './core/defaults';
+import { asErrorDetail, createDebugEvent } from './core/runtimeUtils';
 import {
   isSessionActiveLifecycle,
   isTextSessionConnectable,
-} from './textSessionLifecycle';
+} from './text/textSessionLifecycle';
 import type {
   DesktopSession,
   AssistantAudioPlayback,
@@ -53,7 +53,7 @@ import type {
   VoicePlaybackState,
   VoiceToolCall,
   VoiceToolState,
-} from './types';
+} from './core/types';
 import type {
   CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
@@ -61,12 +61,12 @@ import type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
   DebugAssistantState,
-} from './sessionControllerTypes';
+} from './core/sessionControllerTypes';
 
 export type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
-} from './sessionControllerTypes';
+} from './core/sessionControllerTypes';
 
 
 export function createDesktopSessionController(

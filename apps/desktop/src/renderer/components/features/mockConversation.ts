@@ -2,8 +2,8 @@ export type {
   ConversationRole,
   ConversationTurnModel,
   ConversationTurnState,
-} from '../../runtime/types';
+} from '../../runtime/core/types';
 export {
   MOCK_CONVERSATION_TURNS,
   MOCK_SESSION_SCRIPT,
-} from '../../runtime/mockConversationData';
+} from '../../runtime/conversation/mockConversationData';

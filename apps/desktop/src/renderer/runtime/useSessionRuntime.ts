@@ -11,7 +11,7 @@ import {
   selectTokenFeedback,
 } from './selectors';
 import { getDesktopSessionController } from './sessionController';
-import { isSpeechLifecycleActive } from './speechSessionLifecycle';
+import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
 import { useSessionStore } from '../store/sessionStore';
 
 export function useSessionRuntime() {

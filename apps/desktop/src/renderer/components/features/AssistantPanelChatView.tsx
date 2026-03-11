@@ -6,7 +6,7 @@ import type {
   CurrentVoiceTranscript,
   ProductMode,
   TextSessionStatus,
-} from '../../runtime/types';
+} from '../../runtime/core/types';
 import { Button, TextInput } from '../primitives';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { ConversationList } from './ConversationList';

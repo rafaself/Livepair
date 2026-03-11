@@ -18,7 +18,7 @@ import type {
   VoicePlaybackState,
   VoiceSessionStatus,
   VoiceToolState,
-} from '../../runtime/types';
+} from '../../runtime/core/types';
 
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;

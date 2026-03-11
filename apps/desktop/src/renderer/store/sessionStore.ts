@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
-import { LIVE_ADAPTER_KEY } from '../runtime/liveConfig';
-import { createSpeechSessionLifecycle } from '../runtime/speechSessionLifecycle';
+import { LIVE_ADAPTER_KEY } from '../runtime/transport/liveConfig';
+import { createSpeechSessionLifecycle } from '../runtime/speech/speechSessionLifecycle';
 import {
   createTextSessionLifecycle,
   deriveSessionPhaseFromLifecycle,
   deriveTransportStateFromLifecycle,
-} from '../runtime/textSessionLifecycle';
+} from '../runtime/text/textSessionLifecycle';
 import type {
   AssistantActivityState,
   CurrentVoiceTranscript,
@@ -29,7 +29,7 @@ import type {
   VoicePlaybackState,
   VoiceSessionStatus,
   VoiceToolState,
-} from '../runtime/types';
+} from '../runtime/core/types';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
 export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
