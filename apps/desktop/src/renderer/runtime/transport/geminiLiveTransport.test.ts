@@ -615,6 +615,42 @@ describe('createGeminiLiveTransport', () => {
     });
   });
 
+  it('rejects connect on go-away before setup completes without emitting a generic error', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'text',
+    });
+
+    sdkHarness.emitMessage({
+      goAway: {
+        reason: 'setup rejected',
+      },
+    });
+
+    await expect(connectPromise).rejects.toThrow('setup rejected');
+    expect(events).toContainEqual({
+      type: 'go-away',
+      detail: 'setup rejected',
+    });
+    expect(events).not.toContainEqual({
+      type: 'error',
+      detail: 'setup rejected',
+    });
+  });
+
   it('passes the latest resume handle into the SDK connect config', async () => {
     const sdkHarness = createSdkHarness();
     const transport = createGeminiLiveTransport({
