@@ -34,6 +34,8 @@ describe('sessionStore', () => {
     useSessionStore.getState().setBackendState('failed');
     useSessionStore.getState().setTokenRequestState('success');
     useSessionStore.getState().setActiveTransport('gemini-live');
+    useSessionStore.getState().setScreenCaptureState('streaming');
+    useSessionStore.getState().setScreenCaptureDiagnostics({ frameCount: 10 });
 
     useSessionStore.getState().reset();
 
@@ -54,26 +56,69 @@ describe('sessionStore', () => {
           resumable: false,
           lastDetail: null,
         },
+        screenCaptureState: 'disabled',
+        screenCaptureDiagnostics: {
+          captureSource: null,
+          frameCount: 0,
+          frameRateHz: null,
+          widthPx: null,
+          heightPx: null,
+          lastFrameAt: null,
+          lastUploadStatus: 'idle',
+          lastError: null,
+        },
       }),
     );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('disconnected');
   });
 
-  it('tracks resumption diagnostics separately from voice session status', () => {
-    useSessionStore.getState().setVoiceSessionStatus('streaming');
+  it('tracks voice resumption and durability state separately', () => {
     useSessionStore.getState().setVoiceSessionResumption({
       status: 'reconnecting',
       latestHandle: 'handles/voice-session-2',
       resumable: true,
-      lastDetail: 'GoAway received',
+      lastDetail: 'server draining',
+    });
+    useSessionStore.getState().setVoiceSessionDurability({
+      compressionEnabled: true,
+      tokenValid: false,
+      tokenRefreshing: true,
+      tokenRefreshFailed: false,
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      lastDetail: 'Refreshing token before resume',
     });
 
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('streaming');
     expect(useSessionStore.getState().voiceSessionResumption).toEqual({
       status: 'reconnecting',
       latestHandle: 'handles/voice-session-2',
       resumable: true,
-      lastDetail: 'GoAway received',
+      lastDetail: 'server draining',
+    });
+    expect(useSessionStore.getState().voiceSessionDurability).toEqual({
+      compressionEnabled: true,
+      tokenValid: false,
+      tokenRefreshing: true,
+      tokenRefreshFailed: false,
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      lastDetail: 'Refreshing token before resume',
+    });
+  });
+
+  it('tracks voice tool runtime state separately from the voice session lifecycle', () => {
+    useSessionStore.getState().setVoiceToolState({
+      status: 'toolExecuting',
+      toolName: 'get_voice_session_status',
+      callId: 'call-2',
+      lastError: null,
+    });
+
+    expect(useSessionStore.getState().voiceToolState).toEqual({
+      status: 'toolExecuting',
+      toolName: 'get_voice_session_status',
+      callId: 'call-2',
+      lastError: null,
     });
   });
 
@@ -136,7 +181,10 @@ describe('sessionStore', () => {
 
     it('resets screen capture to disabled on reset()', () => {
       useSessionStore.getState().setScreenCaptureState('capturing');
-      useSessionStore.getState().setScreenCaptureDiagnostics({ frameCount: 10, lastError: 'oops' });
+      useSessionStore.getState().setScreenCaptureDiagnostics({
+        frameCount: 10,
+        lastError: 'oops',
+      });
 
       useSessionStore.getState().reset();
 

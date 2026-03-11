@@ -29,11 +29,13 @@ export function useSessionRuntime() {
   const isSessionActive = useSessionStore(selectIsSessionActive);
   const voiceSessionStatus = useSessionStore((state) => state.voiceSessionStatus);
   const voiceSessionResumption = useSessionStore((state) => state.voiceSessionResumption);
+  const voiceSessionDurability = useSessionStore((state) => state.voiceSessionDurability);
   const voiceCaptureState = useSessionStore((state) => state.voiceCaptureState);
   const voiceCaptureDiagnostics = useSessionStore((state) => state.voiceCaptureDiagnostics);
   const voicePlaybackState = useSessionStore((state) => state.voicePlaybackState);
   const voicePlaybackDiagnostics = useSessionStore((state) => state.voicePlaybackDiagnostics);
   const currentVoiceTranscript = useSessionStore((state) => state.currentVoiceTranscript);
+  const voiceToolState = useSessionStore((state) => state.voiceToolState);
   const screenCaptureState = useSessionStore((state) => state.screenCaptureState);
   const screenCaptureDiagnostics = useSessionStore((state) => state.screenCaptureDiagnostics);
   const controller = getDesktopSessionController();
@@ -99,11 +101,13 @@ export function useSessionRuntime() {
       voiceSessionStatus !== 'disconnected' && voiceSessionStatus !== 'error',
     voiceSessionStatus,
     voiceSessionResumption,
+    voiceSessionDurability,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
     currentVoiceTranscript,
+    voiceToolState,
     screenCaptureState,
     screenCaptureDiagnostics,
     handleCheckBackendHealth,

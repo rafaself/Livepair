@@ -6,3 +6,4 @@ export * from './localVoiceCapture';
 export * from './textSessionLifecycle';
 export * from './types';
 export * from './useSessionRuntime';
+export * from './voiceTools';

@@ -15,6 +15,7 @@ import {
   type AssistantAudioPlaybackObserver,
 } from './assistantAudioPlayback';
 import { createLocalVoiceCapture, type LocalVoiceCapture } from './localVoiceCapture';
+import { executeLocalVoiceTool } from './voiceTools';
 import {
   createLocalScreenCapture,
   type LocalScreenCapture,
@@ -41,10 +42,13 @@ import type {
   TextSessionStatus,
   TransportKind,
   VoiceCaptureDiagnostics,
+  VoiceSessionDurabilityState,
+  VoiceSessionResumptionState,
   VoiceSessionStatus,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
-  VoiceSessionResumptionState,
+  VoiceToolCall,
+  VoiceToolState,
 } from './types';
 import type {
   CreateEphemeralTokenResponse,
@@ -55,6 +59,7 @@ import type {
 
 const TEXT_CHAT_ADAPTER_KEY: TransportKind = 'backend-text';
 const VOICE_SESSION_NOT_READY_DETAIL = 'Voice session is not ready';
+const TOKEN_REFRESH_LEEWAY_MS = 60_000;
 
 function createDefaultVoiceSessionResumptionState(): VoiceSessionResumptionState {
   return {
@@ -62,6 +67,27 @@ function createDefaultVoiceSessionResumptionState(): VoiceSessionResumptionState
     latestHandle: null,
     resumable: false,
     lastDetail: null,
+  };
+}
+
+function createDefaultVoiceSessionDurabilityState(): VoiceSessionDurabilityState {
+  return {
+    compressionEnabled: false,
+    tokenValid: false,
+    tokenRefreshing: false,
+    tokenRefreshFailed: false,
+    expireTime: null,
+    newSessionExpireTime: null,
+    lastDetail: null,
+  };
+}
+
+function createDefaultVoiceToolState(): VoiceToolState {
+  return {
+    status: 'idle',
+    toolName: null,
+    callId: null,
+    lastError: null,
   };
 }
 
@@ -158,6 +184,7 @@ export function createDesktopSessionController(
   let voicePlayback: AssistantAudioPlayback | null = null;
   let screenCapture: LocalScreenCapture | null = null;
   let voiceSendChain = Promise.resolve();
+  let voiceToolChain = Promise.resolve();
   let screenSendChain = Promise.resolve();
   let voiceInterruptionInFlight: Promise<void> | null = null;
   let voiceInterruptionSequence = 0;
@@ -309,13 +336,35 @@ export function createDesktopSessionController(
   };
 
   const setVoiceSessionResumption = (
-    patch: Partial<ReturnType<typeof createDefaultVoiceSessionResumptionState>>,
+    patch: Partial<VoiceSessionResumptionState>,
   ): void => {
     dependencies.store.getState().setVoiceSessionResumption(patch);
   };
 
   const resetVoiceSessionResumption = (): void => {
     setVoiceSessionResumption(createDefaultVoiceSessionResumptionState());
+  };
+
+  const setVoiceSessionDurability = (
+    patch: Partial<VoiceSessionDurabilityState>,
+  ): void => {
+    dependencies.store.getState().setVoiceSessionDurability(patch);
+  };
+
+  const resetVoiceSessionDurability = (): void => {
+    dependencies.store
+      .getState()
+      .setVoiceSessionDurability(createDefaultVoiceSessionDurabilityState());
+  };
+
+  const setVoiceToolState = (
+    patch: Partial<VoiceToolState>,
+  ): void => {
+    dependencies.store.getState().setVoiceToolState(patch);
+  };
+
+  const resetVoiceToolState = (): void => {
+    dependencies.store.getState().setVoiceToolState(createDefaultVoiceToolState());
   };
 
   const clearCurrentVoiceTranscript = (): void => {
@@ -386,6 +435,7 @@ export function createDesktopSessionController(
     activeTransport = null;
     voicePlayback = null;
     voiceSendChain = Promise.resolve();
+    voiceToolChain = Promise.resolve();
     screenSendChain = Promise.resolve();
     voiceInterruptionInFlight = null;
     voiceInterruptionSequence += 1;
@@ -493,6 +543,44 @@ export function createDesktopSessionController(
     dependencies.store.getState().resetTextSessionRuntime(textSessionStatus);
   };
 
+  const createVoiceToolExecutionSnapshot = () => {
+    const store = dependencies.store.getState();
+
+    return {
+      textSessionStatus: store.textSessionLifecycle.status,
+      voiceSessionStatus: store.voiceSessionStatus,
+      voiceCaptureState: store.voiceCaptureState,
+      voicePlaybackState: store.voicePlaybackState,
+    };
+  };
+
+  const isTokenValidForReconnect = (
+    token: CreateEphemeralTokenResponse | null,
+    now = Date.now(),
+  ): boolean => {
+    if (!token) {
+      return false;
+    }
+
+    return Date.parse(token.expireTime) - now > TOKEN_REFRESH_LEEWAY_MS;
+  };
+
+  const syncVoiceDurabilityState = (
+    token: CreateEphemeralTokenResponse | null,
+    patch: Partial<VoiceSessionDurabilityState> = {},
+  ): void => {
+    setVoiceSessionDurability({
+      compressionEnabled: true,
+      tokenValid: isTokenValidForReconnect(token),
+      tokenRefreshing: false,
+      tokenRefreshFailed: false,
+      expireTime: token?.expireTime ?? null,
+      newSessionExpireTime: token?.newSessionExpireTime ?? null,
+      lastDetail: null,
+      ...patch,
+    });
+  };
+
   const setErrorState = (
     detail: string,
     failedTurnStatusLabel = 'Disconnected',
@@ -528,6 +616,10 @@ export function createDesktopSessionController(
     setVoicePlaybackState('stopped');
     updateVoicePlaybackDiagnostics({
       queueDepth: 0,
+    });
+    setVoiceToolState({
+      status: 'toolError',
+      lastError: detail,
     });
     store.setAssistantActivity('idle');
     void voiceCapture?.stop().catch(() => {});
@@ -736,16 +828,107 @@ export function createDesktopSessionController(
     await activeTransport?.sendAudioStreamEnd();
   };
 
+  const handleVoiceToolCalls = async (
+    calls: VoiceToolCall[],
+  ): Promise<void> => {
+    const transport = activeTransport;
+
+    if (!transport || calls.length === 0) {
+      return;
+    }
+
+    const responses = [];
+    let lastError: string | null = null;
+
+    for (const call of calls) {
+      if (transport !== activeTransport) {
+        return;
+      }
+
+      setVoiceToolState({
+        status: 'toolCallPending',
+        toolName: call.name,
+        callId: call.id,
+        lastError: null,
+      });
+      setVoiceToolState({
+        status: 'toolExecuting',
+        toolName: call.name,
+        callId: call.id,
+      });
+
+      const response = await executeLocalVoiceTool(
+        call,
+        createVoiceToolExecutionSnapshot(),
+      );
+      responses.push(response);
+
+      const errorDetail = response.response['error'];
+
+      if (
+        errorDetail &&
+        typeof errorDetail === 'object' &&
+        'message' in errorDetail &&
+        typeof errorDetail.message === 'string'
+      ) {
+        lastError = errorDetail.message;
+      }
+    }
+
+    setVoiceToolState({
+      status: 'toolResponding',
+      toolName: calls.at(-1)?.name ?? null,
+      callId: calls.at(-1)?.id ?? null,
+      lastError,
+    });
+
+    try {
+      await transport.sendToolResponses(responses);
+    } catch (error) {
+      const detail = asErrorDetail(error, 'Failed to respond to voice tool call');
+      setVoiceToolState({
+        status: 'toolError',
+        toolName: calls.at(-1)?.name ?? null,
+        callId: calls.at(-1)?.id ?? null,
+        lastError: detail,
+      });
+      setVoiceErrorState(detail);
+      return;
+    }
+
+    setVoiceToolState({
+      status: lastError ? 'toolError' : 'idle',
+      toolName: calls.at(-1)?.name ?? null,
+      callId: calls.at(-1)?.id ?? null,
+      lastError,
+    });
+  };
+
+  const enqueueVoiceToolCalls = (calls: VoiceToolCall[]): void => {
+    voiceToolChain = voiceToolChain
+      .then(() => handleVoiceToolCalls(calls))
+      .catch((error) => {
+        const detail = asErrorDetail(error, 'Failed to handle voice tool call');
+        setVoiceToolState({
+          status: 'toolError',
+          lastError: detail,
+        });
+        setVoiceErrorState(detail);
+      });
+  };
+
   const resumeVoiceSession = async (detail: string): Promise<void> => {
     const store = dependencies.store.getState();
     const resumeHandle = store.voiceSessionResumption.latestHandle;
-    const token = activeVoiceToken;
+    let tokenToUse: CreateEphemeralTokenResponse | null = activeVoiceToken;
 
-    if (!token || !resumeHandle || !store.voiceSessionResumption.resumable) {
+    if (!resumeHandle || !store.voiceSessionResumption.resumable) {
       setVoiceSessionResumption({
         status: 'resumeFailed',
-        latestHandle: resumeHandle ?? null,
-        resumable: false,
+        lastDetail: detail,
+      });
+      setVoiceSessionDurability({
+        tokenValid: isTokenValidForReconnect(activeVoiceToken),
         lastDetail: detail,
       });
       setVoiceErrorState(detail);
@@ -759,6 +942,12 @@ export function createDesktopSessionController(
     setVoiceSessionStatus('recovering');
     setVoiceSessionResumption({
       status: 'reconnecting',
+      lastDetail: detail,
+    });
+    setVoiceSessionDurability({
+      tokenValid: isTokenValidForReconnect(activeVoiceToken),
+      tokenRefreshing: false,
+      tokenRefreshFailed: false,
       lastDetail: detail,
     });
     store.setLastRuntimeError(null);
@@ -782,13 +971,34 @@ export function createDesktopSessionController(
 
     void previousTransport?.disconnect().catch(() => undefined);
 
+    if (!isTokenValidForReconnect(tokenToUse)) {
+      tokenToUse = await refreshVoiceSessionToken(operationId, detail);
+
+      if (!tokenToUse || !isCurrentSessionOperation(operationId)) {
+        if (isCurrentSessionOperation(operationId)) {
+          const failureDetail =
+            dependencies.store.getState().voiceSessionDurability.lastDetail ?? detail;
+          setVoiceSessionResumption({
+            status: 'resumeFailed',
+            lastDetail: failureDetail,
+          });
+          voiceResumptionInFlight = false;
+          setVoiceErrorState(failureDetail);
+        }
+        return;
+      }
+    }
     const transport = dependencies.createTransport(LIVE_ADAPTER_KEY);
     activeTransport = transport;
     unsubscribeTransport = transport.subscribe(handleTransportEvent);
 
     try {
+      if (!tokenToUse) {
+        throw new Error('Voice session token was unavailable for resume');
+      }
+
       await transport.connect({
-        token,
+        token: tokenToUse,
         mode: 'voice',
         resumeHandle,
       });
@@ -804,7 +1014,12 @@ export function createDesktopSessionController(
       const resumeDetail = asErrorDetail(error, 'Failed to resume voice session');
       setVoiceSessionResumption({
         status: 'resumeFailed',
-        resumable: false,
+        lastDetail: resumeDetail,
+      });
+      setVoiceSessionDurability({
+        tokenValid: isTokenValidForReconnect(tokenToUse),
+        tokenRefreshing: false,
+        tokenRefreshFailed: false,
         lastDetail: resumeDetail,
       });
       voiceResumptionInFlight = false;
@@ -834,12 +1049,20 @@ export function createDesktopSessionController(
         setVoiceSessionStatus(
           store.voiceCaptureState === 'capturing' ? 'capturing' : 'ready',
         );
+        resetVoiceToolState();
         store.setAssistantActivity('idle');
         store.setActiveTransport(LIVE_ADAPTER_KEY);
         store.setLastRuntimeError(null);
         resetVoiceTurnTranscriptState();
         setVoiceSessionResumption({
           status: voiceResumptionInFlight ? 'resumed' : 'connected',
+          lastDetail:
+            voiceResumptionInFlight
+              ? store.voiceSessionResumption.lastDetail
+              : null,
+        });
+        syncVoiceDurabilityState(activeVoiceToken, {
+          lastDetail: store.voiceSessionDurability.lastDetail,
         });
         voiceResumptionInFlight = false;
         setVoicePlaybackState('idle');
@@ -861,6 +1084,7 @@ export function createDesktopSessionController(
 
       setVoiceSessionStatus('disconnected');
       resetVoiceTurnTranscriptState();
+      resetVoiceToolState();
       void stopVoicePlayback();
       cleanupTransport();
       store.setAssistantActivity('idle');
@@ -869,11 +1093,16 @@ export function createDesktopSessionController(
     }
 
     if (event.type === 'go-away') {
+      const detail = event.detail ?? 'Voice session unavailable';
       setVoiceSessionResumption({
         status: 'goAway',
-        lastDetail: event.detail ?? 'Voice session unavailable',
+        lastDetail: detail,
       });
-      void resumeVoiceSession(event.detail ?? 'Voice session unavailable');
+      setVoiceSessionDurability({
+        tokenValid: isTokenValidForReconnect(activeVoiceToken),
+        lastDetail: detail,
+      });
+      void resumeVoiceSession(detail);
       return;
     }
 
@@ -886,7 +1115,11 @@ export function createDesktopSessionController(
         return;
       }
 
-      void resumeVoiceSession(event.detail);
+      setVoiceSessionDurability({
+        tokenValid: isTokenValidForReconnect(activeVoiceToken),
+        lastDetail: event.detail ?? 'Voice session unavailable',
+      });
+      void resumeVoiceSession(event.detail ?? 'Voice session unavailable');
       return;
     }
 
@@ -896,18 +1129,9 @@ export function createDesktopSessionController(
     }
 
     if (event.type === 'session-resumption-update') {
-      if (!event.resumable) {
-        setVoiceSessionResumption({
-          latestHandle: null,
-          resumable: false,
-          lastDetail: event.detail ?? null,
-        });
-        return;
-      }
-
       setVoiceSessionResumption({
         latestHandle: event.handle ?? store.voiceSessionResumption.latestHandle,
-        resumable: true,
+        resumable: event.resumable,
         lastDetail: event.detail ?? store.voiceSessionResumption.lastDetail,
       });
       return;
@@ -942,6 +1166,11 @@ export function createDesktopSessionController(
       void getVoicePlayback()
         .enqueue(event.chunk)
         .catch(() => {});
+      return;
+    }
+
+    if (event.type === 'tool-call') {
+      enqueueVoiceToolCalls(event.calls);
       return;
     }
 
@@ -1040,6 +1269,8 @@ export function createDesktopSessionController(
         type: 'session.token.request.succeeded',
         transport: LIVE_ADAPTER_KEY,
       });
+      activeVoiceToken = token;
+      syncVoiceDurabilityState(token);
       return token;
     } catch (error) {
       if (!isCurrentSessionOperation(operationId)) {
@@ -1050,7 +1281,53 @@ export function createDesktopSessionController(
       store.setTokenRequestState('error');
       store.setBackendState('failed');
       recordSessionEvent({ type: 'session.token.request.failed', detail });
+      setVoiceSessionDurability({
+        tokenValid: false,
+        tokenRefreshing: false,
+        tokenRefreshFailed: true,
+        lastDetail: detail,
+      });
       setVoiceErrorState(detail);
+      return null;
+    }
+  };
+
+  const refreshVoiceSessionToken = async (
+    operationId: number,
+    detail: string,
+  ): Promise<CreateEphemeralTokenResponse | null> => {
+    setVoiceSessionDurability({
+      tokenRefreshing: true,
+      tokenRefreshFailed: false,
+      lastDetail: detail,
+    });
+
+    try {
+      const token = await dependencies.requestSessionToken({});
+
+      if (!isCurrentSessionOperation(operationId)) {
+        return null;
+      }
+
+      activeVoiceToken = token;
+      syncVoiceDurabilityState(token, {
+        tokenRefreshing: false,
+        lastDetail: detail,
+      });
+      return token;
+    } catch (error) {
+      const refreshDetail = asErrorDetail(error, 'Failed to refresh voice session token');
+
+      if (!isCurrentSessionOperation(operationId)) {
+        return null;
+      }
+
+      setVoiceSessionDurability({
+        tokenValid: false,
+        tokenRefreshing: false,
+        tokenRefreshFailed: true,
+        lastDetail: refreshDetail,
+      });
       return null;
     }
   };
@@ -1081,6 +1358,9 @@ export function createDesktopSessionController(
         lastError: null,
       });
       setVoiceSessionStatus('connecting');
+      resetVoiceSessionResumption();
+      resetVoiceSessionDurability();
+      resetVoiceToolState();
       recordSessionEvent({
         type: 'session.start.requested',
         transport: LIVE_ADAPTER_KEY,
@@ -1096,6 +1376,7 @@ export function createDesktopSessionController(
       }
 
       activeVoiceToken = token;
+      syncVoiceDurabilityState(token);
       voiceResumptionInFlight = false;
       resetVoiceSessionResumption();
 
@@ -1431,6 +1712,7 @@ export function createDesktopSessionController(
         activeVoiceToken = null;
         voiceResumptionInFlight = false;
         resetVoiceSessionResumption();
+        resetVoiceSessionDurability();
         recordSessionEvent({ type: 'session.ended' });
         return;
       }
@@ -1456,6 +1738,7 @@ export function createDesktopSessionController(
         activeVoiceToken = null;
         voiceResumptionInFlight = false;
         resetVoiceSessionResumption();
+        resetVoiceSessionDurability();
         store.setVoiceSessionStatus('disconnected');
         store.setAssistantActivity('idle');
         recordSessionEvent({ type: 'session.ended' });

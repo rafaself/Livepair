@@ -1,4 +1,5 @@
 import type { SessionMode } from './types';
+import { VOICE_TOOL_DECLARATIONS } from './voiceTools';
 
 export const LIVE_PROVIDER = 'gemini' as const;
 export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
@@ -72,6 +73,13 @@ export type GeminiLiveConnectConfig = {
     | {
         slidingWindow: Record<string, never>;
       }
+    | undefined;
+  tools?:
+    | [
+        {
+          functionDeclarations: typeof VOICE_TOOL_DECLARATIONS;
+        },
+      ]
     | undefined;
 };
 
@@ -215,7 +223,7 @@ export function resolveLiveConfigEnv(
     contextCompressionEnabled: parseBooleanEnv(
       env.VITE_LIVE_CONTEXT_COMPRESSION,
       'VITE_LIVE_CONTEXT_COMPRESSION',
-      false,
+      true,
     ),
   };
 }
@@ -304,10 +312,18 @@ export function buildGeminiLiveConnectConfig(
       : {};
   }
 
-  if (config.contextCompressionEnabled) {
+  if (mode === 'voice' && config.contextCompressionEnabled) {
     liveConnectConfig.contextWindowCompression = {
       slidingWindow: {},
     };
+  }
+
+  if (mode === 'voice') {
+    liveConnectConfig.tools = [
+      {
+        functionDeclarations: VOICE_TOOL_DECLARATIONS,
+      },
+    ];
   }
 
   return liveConnectConfig;

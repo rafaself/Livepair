@@ -11,8 +11,10 @@ import type {
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
+  VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
+  VoiceToolState,
 } from '../../runtime/types';
 import { FieldList, StatusIndicator } from '../composite';
 import { ViewSection } from '../layout';
@@ -28,10 +30,12 @@ export type AssistantPanelDebugViewProps = {
   tokenFeedback: string | null;
   voiceSessionStatus: VoiceSessionStatus;
   voiceSessionResumption: VoiceSessionResumptionState;
+  voiceSessionDurability: VoiceSessionDurabilityState;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  voiceToolState: VoiceToolState;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   onRetryBackendHealth: () => Promise<void>;
@@ -84,6 +88,26 @@ function formatVoicePlaybackState(state: VoicePlaybackState): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatVoiceToolState(state: VoiceToolState['status']): string {
+  if (state === 'toolCallPending') {
+    return 'Tool call pending';
+  }
+
+  if (state === 'toolExecuting') {
+    return 'Tool executing';
+  }
+
+  if (state === 'toolResponding') {
+    return 'Tool responding';
+  }
+
+  if (state === 'toolError') {
+    return 'Tool error';
+  }
+
+  return 'Idle';
+}
+
 function formatScreenCaptureState(state: ScreenCaptureState): string {
   if (state === 'requestingPermission') {
     return 'Requesting permission';
@@ -100,10 +124,12 @@ export function AssistantPanelDebugView({
   tokenFeedback,
   voiceSessionStatus,
   voiceSessionResumption,
+  voiceSessionDurability,
   voiceCaptureState,
   voiceCaptureDiagnostics,
   voicePlaybackState,
   voicePlaybackDiagnostics,
+  voiceToolState,
   screenCaptureState,
   screenCaptureDiagnostics,
   onRetryBackendHealth,
@@ -163,6 +189,10 @@ export function AssistantPanelDebugView({
               value: formatVoiceSessionResumptionStatus(voiceSessionResumption.status),
             },
             {
+              label: 'Resumable',
+              value: voiceSessionResumption.resumable ? 'Yes' : 'No',
+            },
+            {
               label: 'Handle available',
               value: voiceSessionResumption.latestHandle ? 'Yes' : 'No',
             },
@@ -171,9 +201,33 @@ export function AssistantPanelDebugView({
               value: truncateHandle(voiceSessionResumption.latestHandle),
             },
             {
+              label: 'Compression',
+              value: voiceSessionDurability.compressionEnabled ? 'Enabled' : 'Disabled',
+            },
+            {
+              label: 'Token valid',
+              value: voiceSessionDurability.tokenValid ? 'Yes' : 'No',
+            },
+            {
+              label: 'Token refreshing',
+              value: voiceSessionDurability.tokenRefreshing ? 'Yes' : 'No',
+            },
+            {
+              label: 'Token refresh failed',
+              value: voiceSessionDurability.tokenRefreshFailed ? 'Yes' : 'No',
+            },
+            {
               label: 'Resumption detail',
               value: voiceSessionResumption.lastDetail ?? 'None',
             },
+            {
+              label: 'Durability detail',
+              value: voiceSessionDurability.lastDetail ?? 'None',
+            },
+            { label: 'Tool state', value: formatVoiceToolState(voiceToolState.status) },
+            { label: 'Current tool', value: voiceToolState.toolName ?? 'None' },
+            { label: 'Tool call', value: voiceToolState.callId ?? 'None' },
+            { label: 'Tool error', value: voiceToolState.lastError ?? 'None' },
             { label: 'Voice capture', value: formatVoiceCaptureState(voiceCaptureState) },
             {
               label: 'Audio format',

@@ -11,10 +11,12 @@ import type {
   TextSessionStatus,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceSessionDurabilityState,
+  VoiceSessionResumptionState,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
-  VoiceSessionResumptionState,
   VoiceSessionStatus,
+  VoiceToolState,
 } from '../../runtime/types';
 
 export type AssistantPanelController = {
@@ -35,10 +37,12 @@ export type AssistantPanelController = {
   textSessionStatusLabel: string;
   voiceSessionStatus: VoiceSessionStatus;
   voiceSessionResumption: VoiceSessionResumptionState;
+  voiceSessionDurability: VoiceSessionDurabilityState;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
+  voiceToolState: VoiceToolState;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   isVoiceSessionActive: boolean;
@@ -69,10 +73,12 @@ export function useAssistantPanelController(): AssistantPanelController {
     textSessionStatusLabel,
     voiceSessionStatus,
     voiceSessionResumption,
+    voiceSessionDurability,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    voiceToolState,
     screenCaptureState,
     screenCaptureDiagnostics,
     isVoiceSessionActive,
@@ -152,10 +158,12 @@ export function useAssistantPanelController(): AssistantPanelController {
     textSessionStatusLabel,
     voiceSessionStatus,
     voiceSessionResumption,
+    voiceSessionDurability,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    voiceToolState,
     screenCaptureState,
     screenCaptureDiagnostics,
     isVoiceSessionActive,

@@ -22,6 +22,7 @@ function createUnusedTransport(): DesktopSession {
     sendText: vi.fn(async () => undefined),
     sendAudioChunk: vi.fn(async () => undefined),
     sendAudioStreamEnd: vi.fn(async () => undefined),
+    sendToolResponses: vi.fn(async () => undefined),
     sendVideoFrame: vi.fn(async () => undefined),
     disconnect: vi.fn(async () => undefined),
     subscribe: vi.fn(() => vi.fn()),
@@ -33,19 +34,27 @@ function createVoiceTransportHarness(): {
   connect: ReturnType<typeof vi.fn>;
   sendAudioChunk: ReturnType<typeof vi.fn>;
   sendAudioStreamEnd: ReturnType<typeof vi.fn>;
+  sendToolResponses: ReturnType<typeof vi.fn>;
   sendVideoFrame: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
+  setConnectError: (error: Error | null) => void;
   emit: (event: Parameters<Parameters<DesktopSession['subscribe']>[0]>[0]) => void;
 } {
   let listener: ((event: Parameters<Parameters<DesktopSession['subscribe']>[0]>[0]) => void)
     | null = null;
   const sendAudioChunk = vi.fn(async () => undefined);
   const sendAudioStreamEnd = vi.fn(async () => undefined);
+  const sendToolResponses = vi.fn(async () => undefined);
   const sendVideoFrame = vi.fn(async () => undefined);
+  let connectError: Error | null = null;
   const disconnect = vi.fn(async () => {
     listener?.({ type: 'connection-state-changed', state: 'disconnected' });
   });
   const connect = vi.fn(async () => {
+    if (connectError) {
+      throw connectError;
+    }
+
     listener?.({ type: 'connection-state-changed', state: 'connecting' });
     listener?.({ type: 'connection-state-changed', state: 'connected' });
   });
@@ -57,6 +66,7 @@ function createVoiceTransportHarness(): {
       sendText: vi.fn(async () => undefined),
       sendAudioChunk,
       sendAudioStreamEnd,
+      sendToolResponses,
       sendVideoFrame,
       disconnect,
       subscribe: vi.fn((nextListener) => {
@@ -70,8 +80,12 @@ function createVoiceTransportHarness(): {
     connect,
     sendAudioChunk,
     sendAudioStreamEnd,
+    sendToolResponses,
     sendVideoFrame,
     disconnect,
+    setConnectError: (error) => {
+      connectError = error;
+    },
     emit: (event) => {
       listener?.(event);
     },
@@ -338,6 +352,15 @@ describe('createDesktopSessionController', () => {
           lastDetail: null,
         },
         lastRuntimeError: null,
+        voiceSessionDurability: {
+          compressionEnabled: true,
+          tokenValid: true,
+          tokenRefreshing: false,
+          tokenRefreshFailed: false,
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+          lastDetail: null,
+        },
       }),
     );
     expect(requestSessionToken).toHaveBeenCalledWith({});
@@ -348,6 +371,413 @@ describe('createDesktopSessionController', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
+    });
+  });
+
+  it('executes local voice tools and responds without breaking the session', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({
+      type: 'tool-call',
+      calls: [
+        {
+          id: 'call-1',
+          name: 'get_current_mode',
+          arguments: {},
+        },
+      ],
+    });
+
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendToolResponses).toHaveBeenCalledWith([
+        {
+          id: 'call-1',
+          name: 'get_current_mode',
+          response: {
+            ok: true,
+            mode: 'voice',
+          },
+        },
+      ]);
+    });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voiceSessionStatus: 'ready',
+        voiceToolState: {
+          status: 'idle',
+          toolName: 'get_current_mode',
+          callId: 'call-1',
+          lastError: null,
+        },
+      }),
+    );
+  });
+
+  it('surfaces local tool failures without crashing the voice session', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({
+      type: 'tool-call',
+      calls: [
+        {
+          id: 'call-2',
+          name: 'unknown_tool',
+          arguments: {},
+        },
+      ],
+    });
+
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendToolResponses).toHaveBeenCalledWith([
+        {
+          id: 'call-2',
+          name: 'unknown_tool',
+          response: {
+            ok: false,
+            error: {
+              code: 'tool_not_supported',
+              message: 'Tool "unknown_tool" is not supported in voice mode',
+            },
+          },
+        },
+      ]);
+    });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        voiceSessionStatus: 'ready',
+        voiceToolState: {
+          status: 'toolError',
+          toolName: 'unknown_tool',
+          callId: 'call-2',
+          lastError: 'Tool "unknown_tool" is not supported in voice mode',
+        },
+      }),
+    );
+  });
+
+  it('stores the latest resumption handle and resumes after go-away with the existing token when still valid', async () => {
+    const firstTransport = createVoiceTransportHarness();
+    const resumedTransport = createVoiceTransportHarness();
+    const requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'auth_tokens/test-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken,
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(resumedTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: 'handles/voice-session-2',
+      resumable: true,
+    });
+    firstTransport.emit({
+      type: 'go-away',
+      detail: 'server draining',
+    });
+
+    await vi.waitFor(() => {
+      expect(resumedTransport.connect).toHaveBeenCalledWith({
+        token: {
+          token: 'auth_tokens/test-token',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        },
+        mode: 'voice',
+        resumeHandle: 'handles/voice-session-2',
+      });
+    });
+
+    expect(requestSessionToken).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'resumed',
+      latestHandle: 'handles/voice-session-2',
+      resumable: true,
+      lastDetail: 'server draining',
+    });
+    expect(useSessionStore.getState().voiceSessionDurability).toEqual(
+      expect.objectContaining({
+        tokenValid: true,
+        tokenRefreshing: false,
+        tokenRefreshFailed: false,
+      }),
+    );
+  });
+
+  it('refreshes the token before resume when the existing token is near expiry', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
+
+    const firstTransport = createVoiceTransportHarness();
+    const resumedTransport = createVoiceTransportHarness();
+    const requestSessionToken = vi
+      .fn()
+      .mockResolvedValueOnce({
+        token: 'auth_tokens/near-expiry-token',
+        expireTime: '2026-03-09T12:00:30.000Z',
+        newSessionExpireTime: '2026-03-09T12:00:20.000Z',
+      })
+      .mockResolvedValueOnce({
+        token: 'auth_tokens/refreshed-token',
+        expireTime: '2026-03-09T12:31:30.000Z',
+        newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+      });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken,
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(resumedTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: 'handles/voice-session-2',
+      resumable: true,
+    });
+    firstTransport.emit({
+      type: 'connection-terminated',
+      detail: 'transport recycled',
+    });
+
+    await vi.waitFor(() => {
+      expect(resumedTransport.connect).toHaveBeenCalledWith({
+        token: {
+          token: 'auth_tokens/refreshed-token',
+          expireTime: '2026-03-09T12:31:30.000Z',
+          newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+        },
+        mode: 'voice',
+        resumeHandle: 'handles/voice-session-2',
+      });
+    });
+
+    expect(requestSessionToken).toHaveBeenCalledTimes(2);
+    expect(useSessionStore.getState().voiceSessionDurability).toEqual({
+      compressionEnabled: true,
+      tokenValid: true,
+      tokenRefreshing: false,
+      tokenRefreshFailed: false,
+      expireTime: '2026-03-09T12:31:30.000Z',
+      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+      lastDetail: 'transport recycled',
+    });
+
+    vi.useRealTimers();
+  });
+
+  it('handles token refresh failure explicitly when resume needs a new token', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
+
+    const firstTransport = createVoiceTransportHarness();
+    const requestSessionToken = vi
+      .fn()
+      .mockResolvedValueOnce({
+        token: 'auth_tokens/near-expiry-token',
+        expireTime: '2026-03-09T12:00:30.000Z',
+        newSessionExpireTime: '2026-03-09T12:00:20.000Z',
+      })
+      .mockRejectedValueOnce(new Error('token refresh failed'));
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken,
+      createTransport: vi.fn(() => firstTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: 'handles/voice-session-2',
+      resumable: true,
+    });
+    firstTransport.emit({
+      type: 'go-away',
+      detail: 'server draining',
+    });
+
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState().voiceSessionStatus).toBe('error');
+    });
+
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'resumeFailed',
+      latestHandle: 'handles/voice-session-2',
+      resumable: false,
+      lastDetail: 'token refresh failed',
+    });
+    expect(useSessionStore.getState().voiceSessionDurability).toEqual({
+      compressionEnabled: true,
+      tokenValid: false,
+      tokenRefreshing: false,
+      tokenRefreshFailed: true,
+      expireTime: '2026-03-09T12:00:30.000Z',
+      newSessionExpireTime: '2026-03-09T12:00:20.000Z',
+      lastDetail: 'token refresh failed',
+    });
+
+    vi.useRealTimers();
+  });
+
+  it('handles resume failure after a successful token refresh', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
+
+    const firstTransport = createVoiceTransportHarness();
+    const resumedTransport = createVoiceTransportHarness();
+    resumedTransport.setConnectError(new Error('resume rejected'));
+    const requestSessionToken = vi
+      .fn()
+      .mockResolvedValueOnce({
+        token: 'auth_tokens/near-expiry-token',
+        expireTime: '2026-03-09T12:00:30.000Z',
+        newSessionExpireTime: '2026-03-09T12:00:20.000Z',
+      })
+      .mockResolvedValueOnce({
+        token: 'auth_tokens/refreshed-token',
+        expireTime: '2026-03-09T12:31:30.000Z',
+        newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+      });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken,
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(resumedTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: 'handles/voice-session-2',
+      resumable: true,
+    });
+    firstTransport.emit({
+      type: 'connection-terminated',
+      detail: 'transport recycled',
+    });
+
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState().voiceSessionStatus).toBe('error');
+    });
+
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'resumeFailed',
+      latestHandle: 'handles/voice-session-2',
+      resumable: false,
+      lastDetail: 'resume rejected',
+    });
+    expect(useSessionStore.getState().voiceSessionDurability).toEqual({
+      compressionEnabled: true,
+      tokenValid: true,
+      tokenRefreshing: false,
+      tokenRefreshFailed: false,
+      expireTime: '2026-03-09T12:31:30.000Z',
+      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+      lastDetail: 'resume rejected',
+    });
+
+    vi.useRealTimers();
+  });
+
+  it('keeps text mode durability state idle', async () => {
+    const textChat = createTextChatHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+    });
+
+    await controller.startSession({ mode: 'text' });
+    await controller.submitTextTurn('Hello');
+
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'idle',
+      latestHandle: null,
+      resumable: false,
+      lastDetail: null,
+    });
+    expect(useSessionStore.getState().voiceSessionDurability).toEqual({
+      compressionEnabled: false,
+      tokenValid: false,
+      tokenRefreshing: false,
+      tokenRefreshFailed: false,
+      expireTime: null,
+      newSessionExpireTime: null,
+      lastDetail: null,
     });
   });
 

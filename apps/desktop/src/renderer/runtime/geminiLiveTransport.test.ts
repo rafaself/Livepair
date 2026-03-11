@@ -62,6 +62,7 @@ function createSdkHarness(): {
   const session: GeminiLiveSdkSession = {
     sendClientContent: vi.fn(),
     sendRealtimeInput: vi.fn(),
+    sendToolResponse: vi.fn(),
     close: vi.fn(() => {
       callbacks?.onClose?.(createCloseEvent(1000, 'Client ended session'));
     }),
@@ -186,9 +187,6 @@ describe('createGeminiLiveTransport', () => {
       config: {
         responseModalities: ['TEXT'],
         mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
-        contextWindowCompression: {
-          slidingWindow: {},
-        },
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });
@@ -221,6 +219,67 @@ describe('createGeminiLiveTransport', () => {
       model: 'models/gemini-2.0-flash-exp',
       config: {
         responseModalities: ['AUDIO'],
+        tools: expect.any(Array),
+      } satisfies GeminiLiveConnectConfig,
+      callbacks: expect.any(Object),
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+  });
+
+  it('passes voice-only compression and resume handle into the SDK connect config', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: parseLiveConfig({
+        provider: 'gemini',
+        adapterKey: 'gemini-live',
+        model: 'models/gemini-2.0-flash-exp',
+        apiVersion: 'v1alpha',
+        sessionModes: {
+          text: {
+            responseModality: 'TEXT',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+          voice: {
+            responseModality: 'AUDIO',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+        },
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        sessionResumptionEnabled: true,
+        contextCompressionEnabled: true,
+      }),
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      resumeHandle: 'handles/latest-voice-handle',
+    });
+
+    await Promise.resolve();
+
+    expect(sdkHarness.getConnectOptions()).toEqual({
+      apiKey: 'auth_tokens/test-token',
+      apiVersion: 'v1alpha',
+      model: 'models/gemini-2.0-flash-exp',
+      config: {
+        responseModalities: ['AUDIO'],
+        sessionResumption: {
+          handle: 'handles/latest-voice-handle',
+        },
+        contextWindowCompression: {
+          slidingWindow: {},
+        },
+        tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });
@@ -327,6 +386,97 @@ describe('createGeminiLiveTransport', () => {
         },
       ]),
     );
+  });
+
+  it('normalizes Gemini tool calls into runtime events', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    sdkHarness.emitMessage({
+      toolCall: {
+        functionCalls: [
+          {
+            id: 'call-1',
+            name: 'get_current_mode',
+            args: {},
+          },
+        ],
+      },
+    });
+
+    expect(events).toContainEqual({
+      type: 'tool-call',
+      calls: [
+        {
+          id: 'call-1',
+          name: 'get_current_mode',
+          arguments: {},
+        },
+      ],
+    });
+  });
+
+  it('forwards normalized tool responses through the Gemini session', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    await transport.sendToolResponses([
+      {
+        id: 'call-1',
+        name: 'get_current_mode',
+        response: {
+          ok: true,
+          mode: 'voice',
+        },
+      },
+    ]);
+
+    expect(sdkHarness.session.sendToolResponse).toHaveBeenCalledWith({
+      functionResponses: [
+        {
+          id: 'call-1',
+          name: 'get_current_mode',
+          response: {
+            ok: true,
+            mode: 'voice',
+          },
+        },
+      ],
+    });
   });
 
   it('emits generation-complete before turn-complete when Gemini signals both distinctly', async () => {
@@ -513,6 +663,7 @@ describe('createGeminiLiveTransport', () => {
         sessionResumption: {
           handle: 'handles/latest-voice-handle',
         },
+        tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });
@@ -521,7 +672,7 @@ describe('createGeminiLiveTransport', () => {
     await connectPromise;
   });
 
-  it('normalizes resumption updates and setup-complete termination separately from fatal errors', async () => {
+  it('normalizes Gemini session resumption updates into handle and resumable flags', async () => {
     const sdkHarness = createSdkHarness();
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
@@ -570,7 +721,12 @@ describe('createGeminiLiveTransport', () => {
         resumable: true,
       },
     });
-    sdkHarness.emitClose('transport recycled');
+    sdkHarness.emitMessage({
+      sessionResumptionUpdate: {
+        newHandle: 'handles/voice-session-3',
+        resumable: false,
+      },
+    });
 
     expect(events).toEqual(
       expect.arrayContaining([
@@ -579,6 +735,62 @@ describe('createGeminiLiveTransport', () => {
           handle: 'handles/voice-session-2',
           resumable: true,
         },
+        {
+          type: 'session-resumption-update',
+          handle: 'handles/voice-session-3',
+          resumable: false,
+          detail: 'Gemini Live session is not resumable at this point',
+        },
+      ]),
+    );
+  });
+
+  it('emits connection termination separately from fatal errors after setup', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: parseLiveConfig({
+        provider: 'gemini',
+        adapterKey: 'gemini-live',
+        model: 'models/gemini-2.0-flash-exp',
+        apiVersion: 'v1alpha',
+        sessionModes: {
+          text: {
+            responseModality: 'TEXT',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+          voice: {
+            responseModality: 'AUDIO',
+            inputAudioTranscription: false,
+            outputAudioTranscription: false,
+          },
+        },
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        sessionResumptionEnabled: true,
+        contextCompressionEnabled: false,
+      }),
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+    sdkHarness.emitClose('transport recycled');
+
+    expect(events).toEqual(
+      expect.arrayContaining([
         {
           type: 'connection-terminated',
           detail: 'transport recycled',
@@ -834,6 +1046,7 @@ describe('createGeminiLiveTransport', () => {
         responseModalities: ['AUDIO'],
         inputAudioTranscription: {},
         outputAudioTranscription: {},
+        tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });

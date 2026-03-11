@@ -29,10 +29,12 @@ export function AssistantPanel({
     textSessionStatusLabel,
     voiceSessionStatus,
     voiceSessionResumption,
+    voiceSessionDurability,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
+    voiceToolState,
     screenCaptureState,
     screenCaptureDiagnostics,
     isVoiceSessionActive,
@@ -98,10 +100,12 @@ export function AssistantPanel({
                 tokenFeedback={tokenFeedback}
                 voiceSessionStatus={voiceSessionStatus}
                 voiceSessionResumption={voiceSessionResumption}
+                voiceSessionDurability={voiceSessionDurability}
                 voiceCaptureState={voiceCaptureState}
                 voiceCaptureDiagnostics={voiceCaptureDiagnostics}
                 voicePlaybackState={voicePlaybackState}
                 voicePlaybackDiagnostics={voicePlaybackDiagnostics}
+                voiceToolState={voiceToolState}
                 screenCaptureState={screenCaptureState}
                 screenCaptureDiagnostics={screenCaptureDiagnostics}
                 onRetryBackendHealth={handleCheckBackendHealth}

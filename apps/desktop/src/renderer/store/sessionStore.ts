@@ -20,10 +20,12 @@ import type {
   TransportKind,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceSessionDurabilityState,
+  VoiceSessionResumptionState,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
-  VoiceSessionResumptionState,
   VoiceSessionStatus,
+  VoiceToolState,
 } from '../runtime/types';
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
@@ -42,11 +44,13 @@ type SessionStoreData = {
   lastDebugEvent: RuntimeDebugEvent | null;
   voiceSessionStatus: VoiceSessionStatus;
   voiceSessionResumption: VoiceSessionResumptionState;
+  voiceSessionDurability: VoiceSessionDurabilityState;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   currentVoiceTranscript: CurrentVoiceTranscript;
+  voiceToolState: VoiceToolState;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
 };
@@ -67,6 +71,7 @@ export type SessionStoreState = SessionStoreData & {
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
   setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
   setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
+  setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;
   setVoiceCaptureState: (voiceCaptureState: VoiceCaptureState) => void;
   setVoiceCaptureDiagnostics: (
     patch: Partial<VoiceCaptureDiagnostics>,
@@ -75,6 +80,7 @@ export type SessionStoreState = SessionStoreData & {
   setVoicePlaybackDiagnostics: (
     patch: Partial<VoicePlaybackDiagnostics>,
   ) => void;
+  setVoiceToolState: (patch: Partial<VoiceToolState>) => void;
   setCurrentVoiceTranscriptEntry: (
     role: keyof CurrentVoiceTranscript,
     patch: Partial<CurrentVoiceTranscript[keyof CurrentVoiceTranscript]>,
@@ -138,6 +144,27 @@ function buildDefaultVoiceSessionResumption(): VoiceSessionResumptionState {
   };
 }
 
+function buildDefaultVoiceSessionDurability(): VoiceSessionDurabilityState {
+  return {
+    compressionEnabled: false,
+    tokenValid: false,
+    tokenRefreshing: false,
+    tokenRefreshFailed: false,
+    expireTime: null,
+    newSessionExpireTime: null,
+    lastDetail: null,
+  };
+}
+
+function buildDefaultVoiceToolState(): VoiceToolState {
+  return {
+    status: 'idle',
+    toolName: null,
+    callId: null,
+    lastError: null,
+  };
+}
+
 function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
   return {
     captureSource: null,
@@ -163,11 +190,13 @@ function buildDefaultSessionState(): SessionStoreData {
     lastDebugEvent: null,
     voiceSessionStatus: 'disconnected',
     voiceSessionResumption: buildDefaultVoiceSessionResumption(),
+    voiceSessionDurability: buildDefaultVoiceSessionDurability(),
     voiceCaptureState: 'idle',
     voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
     voicePlaybackState: 'idle',
     voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+    voiceToolState: buildDefaultVoiceToolState(),
     screenCaptureState: 'disabled',
     screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
   };
@@ -263,6 +292,13 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setVoiceSessionDurability: (patch) =>
+    set((state) => ({
+      voiceSessionDurability: {
+        ...state.voiceSessionDurability,
+        ...patch,
+      },
+    })),
   setVoiceCaptureState: (voiceCaptureState) => set({ voiceCaptureState }),
   setVoiceCaptureDiagnostics: (patch) =>
     set((state) => ({
@@ -276,6 +312,13 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
     set((state) => ({
       voicePlaybackDiagnostics: {
         ...state.voicePlaybackDiagnostics,
+        ...patch,
+      },
+    })),
+  setVoiceToolState: (patch) =>
+    set((state) => ({
+      voiceToolState: {
+        ...state.voiceToolState,
         ...patch,
       },
     })),
@@ -315,11 +358,13 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       lastDebugEvent: null,
       voiceSessionStatus: 'disconnected',
       voiceSessionResumption: buildDefaultVoiceSessionResumption(),
+      voiceSessionDurability: buildDefaultVoiceSessionDurability(),
       voiceCaptureState: state.voiceCaptureState,
       voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
       voicePlaybackState: state.voicePlaybackState,
       voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
       currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
+      voiceToolState: buildDefaultVoiceToolState(),
       screenCaptureState: 'disabled' as ScreenCaptureState,
       screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
     })),

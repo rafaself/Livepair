@@ -148,7 +148,7 @@ describe('liveConfig', () => {
       apiVersion: 'v1alpha',
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
       sessionResumptionEnabled: true,
-      contextCompressionEnabled: false,
+      contextCompressionEnabled: true,
     });
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
       responseModalities: ['TEXT'],
@@ -156,6 +156,14 @@ describe('liveConfig', () => {
     expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
       responseModalities: ['AUDIO'],
       sessionResumption: {},
+      contextWindowCompression: {
+        slidingWindow: {},
+      },
+      tools: [
+        {
+          functionDeclarations: expect.any(Array),
+        },
+      ],
     });
   });
 
@@ -171,7 +179,7 @@ describe('liveConfig', () => {
     );
   });
 
-  it('maps optional text-mode SDK connect settings from centralized config', () => {
+  it('maps optional text-mode SDK connect settings from centralized config without voice-only features', () => {
     const config = parseLiveConfig(
       createRawLiveConfig({
         mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
@@ -183,16 +191,15 @@ describe('liveConfig', () => {
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
       responseModalities: ['TEXT'],
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
-      contextWindowCompression: {
-        slidingWindow: {},
-      },
     });
   });
 
-  it('passes a resumption handle only for voice reconnects', () => {
+  it('maps optional voice-mode SDK connect settings from centralized config', () => {
     const config = parseLiveConfig(
       createRawLiveConfig({
+        mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
         sessionResumptionEnabled: true,
+        contextCompressionEnabled: true,
       }),
     );
 
@@ -202,9 +209,18 @@ describe('liveConfig', () => {
       }),
     ).toEqual({
       responseModalities: ['AUDIO'],
+      mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
       sessionResumption: {
         handle: 'handles/latest-voice-handle',
       },
+      contextWindowCompression: {
+        slidingWindow: {},
+      },
+      tools: [
+        {
+          functionDeclarations: expect.any(Array),
+        },
+      ],
     });
   });
 });

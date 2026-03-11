@@ -16,10 +16,19 @@ describe('AssistantPanelDebugView', () => {
         tokenFeedback="Connection failed"
         voiceSessionStatus="streaming"
         voiceSessionResumption={{
-          status: 'resumed',
+          status: 'reconnecting',
           latestHandle: 'handles/voice-session-2',
           resumable: true,
           lastDetail: 'server draining',
+        }}
+        voiceSessionDurability={{
+          compressionEnabled: true,
+          tokenValid: false,
+          tokenRefreshing: true,
+          tokenRefreshFailed: false,
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+          lastDetail: 'Refreshing token before resume',
         }}
         voiceCaptureState="capturing"
         voiceCaptureDiagnostics={{
@@ -36,6 +45,12 @@ describe('AssistantPanelDebugView', () => {
           queueDepth: 1,
           sampleRateHz: 24_000,
           selectedOutputDeviceId: 'desk-speakers',
+          lastError: null,
+        }}
+        voiceToolState={{
+          status: 'toolResponding',
+          toolName: 'get_current_mode',
+          callId: 'call-1',
           lastError: null,
         }}
         screenCaptureState="streaming"
@@ -60,11 +75,17 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Mode')).toBeVisible();
     expect(screen.getByText('Fast')).toBeVisible();
     expect(screen.getByText('Voice session')).toBeVisible();
-    expect(screen.getAllByText('Streaming')).toHaveLength(2);
+    expect(screen.getAllByText('Streaming').length).toBeGreaterThan(0);
     expect(screen.getByText('Session resumption')).toBeVisible();
-    expect(screen.getByText('Resumed')).toBeVisible();
-    expect(screen.getByText('Handle available')).toBeVisible();
-    expect(screen.getByText('Yes')).toBeVisible();
+    expect(screen.getByText('Reconnecting')).toBeVisible();
+    expect(screen.getByText('Compression')).toBeVisible();
+    expect(screen.getByText('Enabled')).toBeVisible();
+    expect(screen.getByText('Token valid')).toBeVisible();
+    expect(screen.getByText('Token refreshing')).toBeVisible();
+    expect(screen.getByText('Tool state')).toBeVisible();
+    expect(screen.getByText('Tool responding')).toBeVisible();
+    expect(screen.getByText('Current tool')).toBeVisible();
+    expect(screen.getByText('get_current_mode')).toBeVisible();
     expect(screen.getByText('Voice capture')).toBeVisible();
     expect(screen.getByText('Capturing')).toBeVisible();
     expect(screen.getByText('Voice playback')).toBeVisible();

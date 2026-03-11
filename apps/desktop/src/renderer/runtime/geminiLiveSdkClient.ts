@@ -9,6 +9,7 @@ import type {
   GeminiLiveConnectConfig,
   LiveApiVersion,
 } from './liveConfig';
+import type { VoiceToolResponse } from './types';
 
 export type GeminiLiveSdkServerMessage = {
   setupComplete?: LiveServerMessage['setupComplete'] | undefined;
@@ -19,6 +20,7 @@ export type GeminiLiveSdkServerMessage = {
       })
     | undefined;
   sessionResumptionUpdate?: LiveServerMessage['sessionResumptionUpdate'] | undefined;
+  toolCall?: LiveServerMessage['toolCall'] | undefined;
   text?: string | undefined;
 };
 
@@ -31,7 +33,7 @@ export type GeminiLiveSdkCallbacks = {
 
 export type GeminiLiveSdkSession = Pick<
   Session,
-  'sendClientContent' | 'sendRealtimeInput' | 'close'
+  'sendClientContent' | 'sendRealtimeInput' | 'sendToolResponse' | 'close'
 >;
 
 export type ConnectGeminiLiveSdkSessionOptions = {
@@ -105,11 +107,17 @@ export async function connectGeminiLiveSdkSession({
   }
 
   if (config.sessionResumption) {
-    liveConnectConfig.sessionResumption = config.sessionResumption;
+    liveConnectConfig.sessionResumption = config.sessionResumption.handle
+      ? { handle: config.sessionResumption.handle }
+      : {};
   }
 
   if (config.contextWindowCompression) {
     liveConnectConfig.contextWindowCompression = config.contextWindowCompression;
+  }
+
+  if (config.tools) {
+    liveConnectConfig.tools = config.tools as unknown as NonNullable<LiveConnectConfig['tools']>;
   }
 
   return ai.live.connect({
@@ -136,6 +144,10 @@ export async function connectGeminiLiveSdkSession({
           normalizedMessage.sessionResumptionUpdate = message.sessionResumptionUpdate;
         }
 
+        if (message.toolCall) {
+          normalizedMessage.toolCall = message.toolCall;
+        }
+
         if (message.text !== undefined) {
           normalizedMessage.text = message.text;
         }
@@ -146,4 +158,14 @@ export async function connectGeminiLiveSdkSession({
       onclose: callbacks.onClose ?? null,
     },
   });
+}
+
+export function buildGeminiLiveSdkToolResponse(
+  responses: VoiceToolResponse[],
+): {
+  functionResponses: VoiceToolResponse[];
+} {
+  return {
+    functionResponses: responses,
+  };
 }

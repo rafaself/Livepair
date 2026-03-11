@@ -125,6 +125,41 @@ export type VoiceSessionResumptionState = {
   lastDetail: string | null;
 };
 
+export type VoiceSessionDurabilityState = {
+  compressionEnabled: boolean;
+  tokenValid: boolean;
+  tokenRefreshing: boolean;
+  tokenRefreshFailed: boolean;
+  expireTime: string | null;
+  newSessionExpireTime: string | null;
+  lastDetail: string | null;
+};
+
+export type VoiceToolStatus =
+  | 'idle'
+  | 'toolCallPending'
+  | 'toolExecuting'
+  | 'toolResponding'
+  | 'toolError';
+
+export type VoiceToolState = {
+  status: VoiceToolStatus;
+  toolName: string | null;
+  callId: string | null;
+  lastError: string | null;
+};
+
+export type VoiceToolCall = {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+};
+
+export type VoiceToolResponse = {
+  id: string;
+  name: string;
+  response: Record<string, unknown>;
+};
 export type SessionControllerEvent =
   | { type: 'session.backend.health.started' }
   | { type: 'session.backend.health.succeeded' }
@@ -184,14 +219,18 @@ export type LiveSessionEvent =
       detail?: string | undefined;
     }
   | {
-      type: 'connection-terminated';
-      detail: string;
-    }
-  | {
       type: 'session-resumption-update';
       handle: string | null;
       resumable: boolean;
       detail?: string | undefined;
+    }
+  | {
+      type: 'connection-terminated';
+      detail?: string | undefined;
+    }
+  | {
+      type: 'tool-call';
+      calls: VoiceToolCall[];
     }
   | {
       type: 'error';
@@ -210,6 +249,7 @@ export type DesktopSession = {
   sendText: (text: string) => Promise<void>;
   sendAudioChunk: (chunk: Uint8Array) => Promise<void>;
   sendAudioStreamEnd: () => Promise<void>;
+  sendToolResponses: (responses: VoiceToolResponse[]) => Promise<void>;
   sendVideoFrame: (data: Uint8Array, mimeType: string) => Promise<void>;
   disconnect: () => Promise<void>;
   subscribe: (listener: (event: LiveSessionEvent) => void) => () => void;

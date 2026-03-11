@@ -28,6 +28,7 @@ function createSession(): GeminiLiveSdkSession {
   return {
     sendClientContent: vi.fn(),
     sendRealtimeInput: vi.fn(),
+    sendToolResponse: vi.fn(),
     close: vi.fn(() => {
       callbacks?.onClose?.(createCloseEvent(1000, 'Client ended session'));
     }),
