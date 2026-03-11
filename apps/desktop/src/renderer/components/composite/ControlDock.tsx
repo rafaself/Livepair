@@ -4,6 +4,7 @@ import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import type {
+  ProductMode,
   ScreenCaptureState,
   VoiceCaptureState,
   VoiceSessionStatus,
@@ -11,7 +12,7 @@ import type {
 import './ControlDock.css';
 
 export type ControlDockProps = {
-  isTextSessionActive: boolean;
+  currentMode: ProductMode;
   isVoiceSessionActive: boolean;
   voiceSessionStatus: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
@@ -25,7 +26,7 @@ export type ControlDockProps = {
 };
 
 export function ControlDock({
-  isTextSessionActive,
+  currentMode,
   isVoiceSessionActive,
   voiceSessionStatus,
   voiceCaptureState,
@@ -46,6 +47,7 @@ export function ControlDock({
   const [isWindowFocused, setIsWindowFocused] = useState(() => document.hasFocus());
 
   const shouldDimDock = !isPanelOpen && !isWindowFocused && !isHovered;
+  const isSpeechMode = currentMode === 'speech';
   const isVoiceCaptureBusy =
     voiceCaptureState === 'requestingPermission' || voiceCaptureState === 'stopping';
   const isVoiceCapturing = voiceCaptureState === 'capturing';
@@ -72,19 +74,21 @@ export function ControlDock({
     isScreenContextActive ? 'control-dock__btn--active' : '',
     isScreenContextBusy ? 'control-dock__btn--pending' : '',
   ].filter(Boolean).join(' ') || undefined;
-  const microphoneLabel = !isMicrophoneAvailable
-    ? 'Connect voice session to use microphone'
-    : isVoiceCapturing
-      ? 'Stop microphone capture'
-      : voiceCaptureState === 'requestingPermission'
-        ? 'Requesting microphone permission'
-        : voiceCaptureState === 'stopping'
-          ? 'Stopping microphone capture'
-          : voiceCaptureState === 'error'
-            ? 'Retry microphone capture'
-            : 'Start microphone capture';
-  const screenContextLabel = isTextSessionActive
-    ? 'Screen context unavailable in text mode'
+  const microphoneLabel = !isSpeechMode
+    ? 'Switch to speech mode to use microphone'
+    : !isMicrophoneAvailable
+      ? 'Connect voice session to use microphone'
+      : isVoiceCapturing
+        ? 'Stop microphone capture'
+        : voiceCaptureState === 'requestingPermission'
+          ? 'Requesting microphone permission'
+          : voiceCaptureState === 'stopping'
+            ? 'Stopping microphone capture'
+            : voiceCaptureState === 'error'
+              ? 'Retry microphone capture'
+              : 'Start microphone capture';
+  const screenContextLabel = !isSpeechMode
+    ? 'Switch to speech mode to use screen context'
     : !isScreenContextAvailable
       ? 'Connect voice session to use screen context'
       : isScreenContextActive
@@ -96,8 +100,8 @@ export function ControlDock({
             : screenCaptureState === 'error'
               ? 'Retry screen context'
               : 'Start screen context';
-  const voiceSessionLabel = isTextSessionActive
-    ? 'Voice session unavailable in text mode'
+  const voiceSessionLabel = !isSpeechMode
+    ? 'Switch to speech mode'
     : isVoiceSessionBusy
       ? voiceSessionStatus === 'connecting'
         ? 'Connecting voice session'
@@ -138,9 +142,9 @@ export function ControlDock({
       <IconButton
         label={microphoneLabel}
         className={micButtonClassName}
-        disabled={!isMicrophoneAvailable || isVoiceCaptureBusy}
+        disabled={!isSpeechMode || !isMicrophoneAvailable || isVoiceCaptureBusy}
         onClick={() => {
-          if (!isMicrophoneAvailable || isVoiceCaptureBusy) {
+          if (!isSpeechMode || !isMicrophoneAvailable || isVoiceCaptureBusy) {
             return;
           }
 
@@ -158,9 +162,9 @@ export function ControlDock({
       <IconButton
         label={screenContextLabel}
         className={screenButtonClassName}
-        disabled={isTextSessionActive || !isScreenContextAvailable || isScreenContextBusy}
+        disabled={!isSpeechMode || !isScreenContextAvailable || isScreenContextBusy}
         onClick={() => {
-          if (isTextSessionActive || !isScreenContextAvailable || isScreenContextBusy) {
+          if (!isSpeechMode || !isScreenContextAvailable || isScreenContextBusy) {
             return;
           }
 
@@ -178,9 +182,9 @@ export function ControlDock({
       <IconButton
         label={voiceSessionLabel}
         className={isVoiceSessionActive ? 'control-dock__btn--danger' : 'control-dock__btn--start'}
-        disabled={isTextSessionActive || isVoiceSessionBusy}
+        disabled={isVoiceSessionBusy}
         onClick={() => {
-          if (isTextSessionActive || isVoiceSessionBusy) {
+          if (isVoiceSessionBusy) {
             return;
           }
 

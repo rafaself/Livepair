@@ -4,6 +4,7 @@ import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import type {
   ConversationTurnModel,
   CurrentVoiceTranscript,
+  ProductMode,
   TextSessionStatus,
 } from '../../runtime/types';
 import { Button, TextInput } from '../primitives';
@@ -13,11 +14,11 @@ import './AssistantPanelChatView.css';
 
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;
+  currentMode: ProductMode;
   textSessionStatus: TextSessionStatus;
   textSessionStatusLabel: string;
   canSubmitText: boolean;
   turns: ConversationTurnModel[];
-  isVoiceSessionActive: boolean;
   currentVoiceTranscript: CurrentVoiceTranscript;
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
@@ -29,11 +30,11 @@ export type AssistantPanelChatViewProps = {
 
 export function AssistantPanelChatView({
   assistantState,
+  currentMode,
   textSessionStatus,
   textSessionStatusLabel,
   canSubmitText,
   turns,
-  isVoiceSessionActive,
   currentVoiceTranscript,
   isConversationEmpty,
   lastRuntimeError,
@@ -44,6 +45,7 @@ export function AssistantPanelChatView({
 }: AssistantPanelChatViewProps): JSX.Element {
   const isComposerDisabled = isSubmittingTextTurn || !canSubmitText;
   const canSubmit = draftText.trim().length > 0 && !isComposerDisabled;
+  const isSpeechMode = currentMode === 'speech';
   const hasVoiceTranscript =
     currentVoiceTranscript.user.text.trim().length > 0 ||
     currentVoiceTranscript.assistant.text.trim().length > 0;
@@ -66,10 +68,10 @@ export function AssistantPanelChatView({
             aria-hidden="true"
           />
           <p className="assistant-panel__conversation-empty-title">
-            {isVoiceSessionActive ? 'Live voice transcript' : 'No conversation yet'}
+            {isSpeechMode ? 'Live voice transcript' : 'No conversation yet'}
           </p>
           <p className="assistant-panel__conversation-empty-body">
-            {isVoiceSessionActive
+            {isSpeechMode
               ? 'Speak to start the current voice turn transcript.'
               : 'Send a text prompt to start the realtime loop and keep the latest exchange visible.'}
           </p>
@@ -105,7 +107,7 @@ export function AssistantPanelChatView({
             )}
           </div>
 
-          {(isVoiceSessionActive || hasVoiceTranscript) ? (
+          {(isSpeechMode || hasVoiceTranscript) ? (
             <section
               className="assistant-panel__voice-transcript"
               aria-label="Current voice turn transcript"

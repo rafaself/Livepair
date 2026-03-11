@@ -15,6 +15,7 @@ import { useSessionStore } from '../store/sessionStore';
 
 export function useSessionRuntime() {
   const assistantState = useSessionStore(selectAssistantRuntimeState);
+  const currentMode = useSessionStore((state) => state.currentMode);
   const backendState = useSessionStore((state) => state.backendState);
   const backendIndicatorState = useSessionStore(selectBackendIndicatorState);
   const backendLabel = useSessionStore(selectBackendLabel);
@@ -85,6 +86,9 @@ export function useSessionRuntime() {
 
   return {
     assistantState,
+    currentMode,
+    isTextMode: currentMode === 'text',
+    isSpeechMode: currentMode === 'speech',
     backendState,
     backendIndicatorState,
     backendLabel,

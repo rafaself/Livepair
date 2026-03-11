@@ -59,7 +59,7 @@ function ThemePreferenceSync(): null {
 function AppShell(): JSX.Element {
   const overlayMode = window.bridge?.overlayMode ?? 'linux-shape';
   const {
-    isSessionActive,
+    currentMode,
     isVoiceSessionActive,
     voiceSessionStatus,
     voiceCaptureState,
@@ -78,7 +78,7 @@ function AppShell(): JSX.Element {
       <OverlayInteractionManager overlayMode={overlayMode} />
       <AssistantPanel showStateDevControls={import.meta.env.DEV} />
       <ControlDock
-        isTextSessionActive={isSessionActive}
+        currentMode={currentMode}
         isVoiceSessionActive={isVoiceSessionActive}
         voiceSessionStatus={voiceSessionStatus}
         voiceCaptureState={voiceCaptureState}

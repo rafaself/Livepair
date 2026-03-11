@@ -6,6 +6,7 @@ import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 import type {
   CurrentVoiceTranscript,
   ConversationTurnModel,
+  ProductMode,
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
   TextSessionStatus,
@@ -31,6 +32,7 @@ export type AssistantPanelController = {
   backendState: BackendConnectionState;
   backendIndicatorState: AssistantRuntimeState;
   backendLabel: string;
+  currentMode: ProductMode;
   tokenRequestState: TokenRequestState;
   tokenFeedback: string | null;
   textSessionStatus: TextSessionStatus;
@@ -67,6 +69,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendState,
     backendIndicatorState,
     backendLabel,
+    currentMode,
     tokenRequestState,
     tokenFeedback,
     textSessionStatus,
@@ -152,6 +155,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendState,
     backendIndicatorState,
     backendLabel,
+    currentMode,
     tokenRequestState,
     tokenFeedback,
     textSessionStatus,
