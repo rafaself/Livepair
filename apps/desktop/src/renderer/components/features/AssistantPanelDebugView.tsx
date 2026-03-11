@@ -7,6 +7,8 @@ import {
 import type {
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceSessionDurabilityState,
+  VoiceSessionResumptionState,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionStatus,
@@ -24,6 +26,8 @@ export type AssistantPanelDebugViewProps = {
   backendLabel: string;
   tokenFeedback: string | null;
   voiceSessionStatus: VoiceSessionStatus;
+  voiceSessionResumption: VoiceSessionResumptionState;
+  voiceSessionDurability: VoiceSessionDurabilityState;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
@@ -44,6 +48,24 @@ function formatVoiceSessionStatus(state: VoiceSessionStatus): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatVoiceSessionResumptionStatus(
+  state: VoiceSessionResumptionState['status'],
+): string {
+  if (state === 'goAway') {
+    return 'GoAway';
+  }
+
+  if (state === 'resumeFailed') {
+    return 'Resume failed';
+  }
+
+  if (state === 'reconnecting') {
+    return 'Reconnecting';
+  }
+
+  return state.charAt(0).toUpperCase() + state.slice(1);
+}
+
 function formatVoicePlaybackState(state: VoicePlaybackState): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
@@ -55,6 +77,8 @@ export function AssistantPanelDebugView({
   backendLabel,
   tokenFeedback,
   voiceSessionStatus,
+  voiceSessionResumption,
+  voiceSessionDurability,
   voiceCaptureState,
   voiceCaptureDiagnostics,
   voicePlaybackState,
@@ -111,6 +135,41 @@ export function AssistantPanelDebugView({
         <FieldList
           items={[
             { label: 'Voice session', value: formatVoiceSessionStatus(voiceSessionStatus) },
+            {
+              label: 'Session resumption',
+              value: formatVoiceSessionResumptionStatus(voiceSessionResumption.status),
+            },
+            {
+              label: 'Resumable',
+              value: voiceSessionResumption.resumable ? 'Yes' : 'No',
+            },
+            {
+              label: 'Latest handle',
+              value: voiceSessionResumption.latestHandle ?? 'None',
+            },
+            {
+              label: 'Compression',
+              value: voiceSessionDurability.compressionEnabled ? 'Enabled' : 'Disabled',
+            },
+            {
+              label: 'Token valid',
+              value: voiceSessionDurability.tokenValid ? 'Yes' : 'No',
+            },
+            {
+              label: 'Token refreshing',
+              value: voiceSessionDurability.tokenRefreshing ? 'Yes' : 'No',
+            },
+            {
+              label: 'Token refresh failed',
+              value: voiceSessionDurability.tokenRefreshFailed ? 'Yes' : 'No',
+            },
+            {
+              label: 'Durability detail',
+              value:
+                voiceSessionDurability.lastDetail ??
+                voiceSessionResumption.lastDetail ??
+                'None',
+            },
             { label: 'Voice capture', value: formatVoiceCaptureState(voiceCaptureState) },
             {
               label: 'Audio format',

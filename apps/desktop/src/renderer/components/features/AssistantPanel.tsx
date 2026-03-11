@@ -28,6 +28,8 @@ export function AssistantPanel({
     textSessionStatus,
     textSessionStatusLabel,
     voiceSessionStatus,
+    voiceSessionResumption,
+    voiceSessionDurability,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,
@@ -94,6 +96,8 @@ export function AssistantPanel({
                 backendLabel={backendLabel}
                 tokenFeedback={tokenFeedback}
                 voiceSessionStatus={voiceSessionStatus}
+                voiceSessionResumption={voiceSessionResumption}
+                voiceSessionDurability={voiceSessionDurability}
                 voiceCaptureState={voiceCaptureState}
                 voiceCaptureDiagnostics={voiceCaptureDiagnostics}
                 voicePlaybackState={voicePlaybackState}

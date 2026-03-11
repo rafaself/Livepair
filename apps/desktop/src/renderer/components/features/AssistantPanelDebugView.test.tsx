@@ -15,6 +15,21 @@ describe('AssistantPanelDebugView', () => {
         backendLabel="Not connected"
         tokenFeedback="Connection failed"
         voiceSessionStatus="streaming"
+        voiceSessionResumption={{
+          status: 'reconnecting',
+          latestHandle: 'handles/voice-session-2',
+          resumable: true,
+          lastDetail: 'server draining',
+        }}
+        voiceSessionDurability={{
+          compressionEnabled: true,
+          tokenValid: false,
+          tokenRefreshing: true,
+          tokenRefreshFailed: false,
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+          lastDetail: 'Refreshing token before resume',
+        }}
         voiceCaptureState="capturing"
         voiceCaptureDiagnostics={{
           chunkCount: 3,
@@ -44,6 +59,12 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Fast')).toBeVisible();
     expect(screen.getByText('Voice session')).toBeVisible();
     expect(screen.getByText('Streaming')).toBeVisible();
+    expect(screen.getByText('Session resumption')).toBeVisible();
+    expect(screen.getByText('Reconnecting')).toBeVisible();
+    expect(screen.getByText('Compression')).toBeVisible();
+    expect(screen.getByText('Enabled')).toBeVisible();
+    expect(screen.getByText('Token valid')).toBeVisible();
+    expect(screen.getAllByText('No').length).toBeGreaterThan(0);
     expect(screen.getByText('Voice capture')).toBeVisible();
     expect(screen.getByText('Capturing')).toBeVisible();
     expect(screen.getByText('Voice playback')).toBeVisible();
