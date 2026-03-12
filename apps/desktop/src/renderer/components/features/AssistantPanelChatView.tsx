@@ -1,9 +1,10 @@
-import { MessageCircle, SendHorizonal, TriangleAlert } from 'lucide-react';
+import { MessageCircle, Mic, MicOff, SendHorizonal, TriangleAlert } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
 import type { CurrentVoiceTranscript } from '../../runtime/voice/voice.types';
 import type { ProductMode } from '../../runtime/core/session.types';
+import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
 import type { TextSessionStatus } from '../../runtime/text/text.types';
 import { Button, TextInput } from '../primitives';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
@@ -13,6 +14,7 @@ import './AssistantPanelChatView.css';
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;
   currentMode: ProductMode;
+  speechLifecycleStatus: SpeechLifecycleStatus;
   textSessionStatus: TextSessionStatus;
   textSessionStatusLabel: string;
   canSubmitText: boolean;
@@ -24,11 +26,14 @@ export type AssistantPanelChatViewProps = {
   isSubmittingTextTurn: boolean;
   onDraftTextChange: ChangeEventHandler<HTMLInputElement>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
+  onStartSpeechMode: () => Promise<void>;
+  onEndSpeechMode: () => Promise<void>;
 };
 
 export function AssistantPanelChatView({
   assistantState,
   currentMode,
+  speechLifecycleStatus,
   textSessionStatus,
   textSessionStatusLabel,
   canSubmitText,
@@ -40,13 +45,65 @@ export function AssistantPanelChatView({
   isSubmittingTextTurn,
   onDraftTextChange,
   onSubmitTextTurn,
+  onStartSpeechMode,
+  onEndSpeechMode,
 }: AssistantPanelChatViewProps): JSX.Element {
   const isComposerDisabled = isSubmittingTextTurn || !canSubmitText;
-  const canSubmit = draftText.trim().length > 0 && !isComposerDisabled;
+  const hasDraftText = draftText.trim().length > 0;
   const isSpeechMode = currentMode === 'speech';
+  const hasSpeechLifecycleActivity = speechLifecycleStatus !== 'off';
+  const isSpeechActionBusy =
+    speechLifecycleStatus === 'starting' || speechLifecycleStatus === 'ending';
+  const shouldEndSpeechMode = isSpeechMode || hasSpeechLifecycleActivity;
   const hasVoiceTranscript =
     currentVoiceTranscript.user.text.trim().length > 0 ||
     currentVoiceTranscript.assistant.text.trim().length > 0;
+  const composerAction = hasDraftText
+    ? {
+        icon: <SendHorizonal size={18} aria-hidden="true" />,
+        kind: 'send' as const,
+        label: 'Send message',
+        disabled: isComposerDisabled,
+      }
+    : shouldEndSpeechMode
+      ? {
+          icon: <MicOff size={18} aria-hidden="true" />,
+          kind: 'endSpeech' as const,
+          label:
+            speechLifecycleStatus === 'starting'
+              ? 'Starting speech mode'
+              : speechLifecycleStatus === 'ending'
+                ? 'Ending speech mode'
+                : 'End speech mode',
+          disabled: isSpeechActionBusy,
+        }
+      : {
+          icon: <Mic size={18} aria-hidden="true" />,
+          kind: 'startSpeech' as const,
+          label: 'Start speech mode',
+          disabled: false,
+        };
+
+  const handleComposerSubmit: FormEventHandler<HTMLFormElement> = (event) => {
+    if (composerAction.kind === 'send') {
+      onSubmitTextTurn(event);
+      return;
+    }
+
+    event.preventDefault();
+
+    if (composerAction.disabled) {
+      return;
+    }
+
+    if (composerAction.kind === 'startSpeech') {
+      void onStartSpeechMode();
+      return;
+    }
+
+    void onEndSpeechMode();
+  };
+
   const emptyState = (
     <div className="assistant-panel__conversation-card assistant-panel__conversation-card--empty">
       {assistantState === 'error' && lastRuntimeError ? (
@@ -138,7 +195,7 @@ export function AssistantPanelChatView({
           <form
             className="assistant-panel__composer"
             aria-label="Send message to Livepair"
-            onSubmit={onSubmitTextTurn}
+            onSubmit={handleComposerSubmit}
           >
             <TextInput
               value={draftText}
@@ -152,10 +209,10 @@ export function AssistantPanelChatView({
                   variant="ghost"
                   size="sm"
                   className="assistant-panel__composer-submit"
-                  disabled={!canSubmit}
-                  aria-label="Send message"
+                  disabled={composerAction.disabled}
+                  aria-label={composerAction.label}
                 >
-                  <SendHorizonal size={18} aria-hidden="true" />
+                  {composerAction.icon}
                 </Button>
               }
             />

@@ -10,6 +10,7 @@ describe('AssistantPanelChatView', () => {
       <AssistantPanelChatView
         assistantState="disconnected"
         currentMode="text"
+        speechLifecycleStatus="off"
         textSessionStatus="disconnected"
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
@@ -24,6 +25,8 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
@@ -56,6 +59,7 @@ describe('AssistantPanelChatView', () => {
       <AssistantPanelChatView
         assistantState="ready"
         currentMode="text"
+        speechLifecycleStatus="off"
         textSessionStatus="ready"
         textSessionStatusLabel="Text session ready"
         canSubmitText={true}
@@ -70,6 +74,8 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
@@ -85,6 +91,7 @@ describe('AssistantPanelChatView', () => {
       <AssistantPanelChatView
         assistantState="error"
         currentMode="text"
+        speechLifecycleStatus="off"
         textSessionStatus="error"
         textSessionStatusLabel="Text session failed"
         canSubmitText={true}
@@ -99,6 +106,8 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
@@ -124,6 +133,7 @@ describe('AssistantPanelChatView', () => {
       <AssistantPanelChatView
         assistantState="error"
         currentMode="text"
+        speechLifecycleStatus="off"
         textSessionStatus="error"
         textSessionStatusLabel="Text session failed"
         canSubmitText={true}
@@ -138,6 +148,8 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
@@ -170,6 +182,9 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={handleDraftTextChange}
         onSubmitTextTurn={handleSubmitTextTurn}
+        speechLifecycleStatus="off"
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
@@ -195,6 +210,9 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={true}
         onDraftTextChange={handleDraftTextChange}
         onSubmitTextTurn={handleSubmitTextTurn}
+        speechLifecycleStatus="off"
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
@@ -221,6 +239,9 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
+        speechLifecycleStatus="off"
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
@@ -245,6 +266,9 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={true}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
+        speechLifecycleStatus="off"
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
@@ -257,6 +281,7 @@ describe('AssistantPanelChatView', () => {
       <AssistantPanelChatView
         assistantState="speaking"
         currentMode="speech"
+        speechLifecycleStatus="listening"
         textSessionStatus="disconnected"
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
@@ -271,6 +296,8 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
@@ -286,6 +313,7 @@ describe('AssistantPanelChatView', () => {
       <AssistantPanelChatView
         assistantState="listening"
         currentMode="speech"
+        speechLifecycleStatus="listening"
         textSessionStatus="disconnected"
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
@@ -300,11 +328,184 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
       />,
     );
 
     expect(screen.getByText('Live voice transcript')).toBeVisible();
     expect(screen.getByText('Speak to start the current voice turn transcript.')).toBeVisible();
     expect(screen.queryByText('No conversation yet')).toBeNull();
+  });
+
+  it('prioritizes send when the draft has text, even while speech mode is active', () => {
+    const handleSubmitTextTurn = vi.fn((event?: FormEvent<HTMLFormElement>) => {
+      event?.preventDefault();
+    });
+    const handleStartSpeechMode = vi.fn(async () => undefined);
+    const handleEndSpeechMode = vi.fn(async () => undefined);
+
+    render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        textSessionStatusLabel="Text chat ready"
+        canSubmitText={true}
+        turns={[]}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Keep this in text"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={handleSubmitTextTurn}
+        onStartSpeechMode={handleStartSpeechMode}
+        onEndSpeechMode={handleEndSpeechMode}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+
+    fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
+
+    expect(handleSubmitTextTurn).toHaveBeenCalledTimes(1);
+    expect(handleStartSpeechMode).not.toHaveBeenCalled();
+    expect(handleEndSpeechMode).not.toHaveBeenCalled();
+  });
+
+  it('starts speech mode from the empty composer when speech mode is off', () => {
+    const handleSubmitTextTurn = vi.fn();
+    const handleStartSpeechMode = vi.fn(async () => undefined);
+    const handleEndSpeechMode = vi.fn(async () => undefined);
+
+    render(
+      <AssistantPanelChatView
+        assistantState="ready"
+        currentMode="text"
+        speechLifecycleStatus="off"
+        textSessionStatus="receiving"
+        textSessionStatusLabel="Receiving response..."
+        canSubmitText={false}
+        turns={[]}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={handleSubmitTextTurn}
+        onStartSpeechMode={handleStartSpeechMode}
+        onEndSpeechMode={handleEndSpeechMode}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
+
+    fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
+
+    expect(handleStartSpeechMode).toHaveBeenCalledTimes(1);
+    expect(handleSubmitTextTurn).not.toHaveBeenCalled();
+    expect(handleEndSpeechMode).not.toHaveBeenCalled();
+  });
+
+  it('ends speech mode from the empty composer when speech mode is active', () => {
+    const handleSubmitTextTurn = vi.fn();
+    const handleStartSpeechMode = vi.fn(async () => undefined);
+    const handleEndSpeechMode = vi.fn(async () => undefined);
+
+    render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="receiving"
+        textSessionStatusLabel="Receiving response..."
+        canSubmitText={false}
+        turns={[]}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={handleSubmitTextTurn}
+        onStartSpeechMode={handleStartSpeechMode}
+        onEndSpeechMode={handleEndSpeechMode}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'End speech mode' })).toBeEnabled();
+
+    fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
+
+    expect(handleEndSpeechMode).toHaveBeenCalledTimes(1);
+    expect(handleSubmitTextTurn).not.toHaveBeenCalled();
+    expect(handleStartSpeechMode).not.toHaveBeenCalled();
+  });
+
+  it('disables the empty-composer speech action while speech lifecycle transitions are in progress', () => {
+    const noop = vi.fn(async () => undefined);
+    const { rerender } = render(
+      <AssistantPanelChatView
+        assistantState="thinking"
+        currentMode="speech"
+        speechLifecycleStatus="starting"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
+        turns={[]}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={noop}
+        onEndSpeechMode={noop}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Starting speech mode' })).toBeDisabled();
+
+    rerender(
+      <AssistantPanelChatView
+        assistantState="thinking"
+        currentMode="speech"
+        speechLifecycleStatus="ending"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
+        turns={[]}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={noop}
+        onEndSpeechMode={noop}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Ending speech mode' })).toBeDisabled();
   });
 });

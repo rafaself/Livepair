@@ -25,6 +25,7 @@ export function AssistantPanel({
     backendIndicatorState,
     backendLabel,
     currentMode,
+    speechLifecycleStatus,
     tokenFeedback,
     textSessionStatus,
     textSessionStatusLabel,
@@ -45,6 +46,8 @@ export function AssistantPanel({
     isSubmittingTextTurn,
     handleDraftTextChange,
     handleSubmitTextTurn,
+    handleStartSpeechMode,
+    handleEndSpeechMode,
     handleCheckBackendHealth,
     setAssistantState,
   } = useAssistantPanelController();
@@ -70,6 +73,7 @@ export function AssistantPanel({
             <AssistantPanelChatView
               assistantState={assistantState}
               currentMode={currentMode}
+              speechLifecycleStatus={speechLifecycleStatus}
               textSessionStatus={textSessionStatus}
               textSessionStatusLabel={textSessionStatusLabel}
               canSubmitText={canSubmitText}
@@ -81,6 +85,8 @@ export function AssistantPanel({
               isSubmittingTextTurn={isSubmittingTextTurn}
               onDraftTextChange={handleDraftTextChange}
               onSubmitTextTurn={handleSubmitTextTurn}
+              onStartSpeechMode={handleStartSpeechMode}
+              onEndSpeechMode={handleEndSpeechMode}
             />
           ) : null}
 
