@@ -2,6 +2,7 @@ import type { HTMLAttributes } from 'react';
 import { Badge } from '../primitives';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
 import { TypingIndicator } from './TypingIndicator';
+import { renderAssistantMarkdown } from './renderAssistantMarkdown';
 import './ConversationTurn.css';
 
 export type ConversationTurnProps = {
@@ -16,6 +17,18 @@ const TURN_LABELS = {
 
 function getBadgeVariant(turn: ConversationTurnModel): 'default' | 'error' {
   return turn.state === 'error' ? 'error' : 'default';
+}
+
+function getTurnIconLabel(turn: ConversationTurnModel): string {
+  if (turn.role === 'assistant') {
+    return 'A';
+  }
+
+  if (turn.role === 'user') {
+    return 'U';
+  }
+
+  return 'S';
 }
 
 export function ConversationTurn({
@@ -43,8 +56,13 @@ export function ConversationTurn({
       {...rest}
     >
       <div className="conversation-turn__bubble">
+        <span className="conversation-turn__icon" aria-hidden="true">
+          {getTurnIconLabel(turn)}
+        </span>
         {isTypingOnly ? (
           <TypingIndicator className="conversation-turn__typing" />
+        ) : turn.role === 'assistant' ? (
+          renderAssistantMarkdown(turn.content)
         ) : (
           <p className="conversation-turn__body">{turn.content}</p>
         )}

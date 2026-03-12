@@ -2,6 +2,32 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ConversationTurn } from './ConversationTurn';
 
+function renderTurn({
+  role,
+  content,
+  state = 'complete',
+}: {
+  role: 'user' | 'assistant';
+  content: string;
+  state?: 'complete' | 'streaming' | 'error';
+}): HTMLElement {
+  render(
+    <ConversationTurn
+      turn={{
+        id: `${role}-${state}`,
+        role,
+        content,
+        timestamp: '09:45',
+        state,
+      }}
+    />,
+  );
+
+  return screen.getByRole('article', {
+    name: `${role === 'user' ? 'User' : 'Assistant'} turn at 09:45`,
+  });
+}
+
 describe('ConversationTurn', () => {
   it('renders a user turn with timestamp and compact styling', () => {
     render(
@@ -86,5 +112,75 @@ describe('ConversationTurn', () => {
     expect(body.textContent).toBe(
       'Line one\n\nLine two with a-super-long-token-that-should-wrap-cleanly-in-the-panel.',
     );
+  });
+
+  it('renders bold markdown in assistant messages', () => {
+    const article = renderTurn({
+      role: 'assistant',
+      content: 'This is **important**.',
+    });
+
+    expect(article.querySelector('strong')).not.toBeNull();
+    expect(article.querySelector('strong')?.textContent).toBe('important');
+  });
+
+  it('renders simple unordered lists in assistant messages for dash and star markers', () => {
+    const article = renderTurn({
+      role: 'assistant',
+      content: '- first item\n* second item',
+    });
+
+    const items = article.querySelectorAll('ul li');
+
+    expect(items).toHaveLength(2);
+    expect(items[0]?.textContent).toBe('first item');
+    expect(items[1]?.textContent).toBe('second item');
+  });
+
+  it('renders inline code markdown in assistant messages', () => {
+    const article = renderTurn({
+      role: 'assistant',
+      content: 'Run `pnpm test` after the change.',
+    });
+
+    expect(article.querySelector('code')).not.toBeNull();
+    expect(article.querySelector('code')?.textContent).toBe('pnpm test');
+  });
+
+  it('preserves paragraph breaks in assistant messages', () => {
+    const article = renderTurn({
+      role: 'assistant',
+      content: 'First paragraph.\n\nSecond paragraph.',
+    });
+
+    const paragraphs = article.querySelectorAll('.conversation-turn__body p');
+
+    expect(paragraphs).toHaveLength(2);
+    expect(paragraphs[0]?.textContent).toBe('First paragraph.');
+    expect(paragraphs[1]?.textContent).toBe('Second paragraph.');
+  });
+
+  it('keeps markdown syntax literal in user messages', () => {
+    const article = renderTurn({
+      role: 'user',
+      content: '**bold**\n- item\nUse `code`.',
+    });
+    const body = article.querySelector('.conversation-turn__body');
+
+    expect(body?.textContent).toBe('**bold**\n- item\nUse `code`.');
+    expect(article.querySelector('strong')).toBeNull();
+    expect(article.querySelector('ul')).toBeNull();
+    expect(article.querySelector('code')).toBeNull();
+  });
+
+  it('renders raw HTML from assistant content as text without creating HTML elements', () => {
+    const article = renderTurn({
+      role: 'assistant',
+      content: '<script>window.__x = 1</script><b>unsafe</b>',
+    });
+
+    expect(article).toHaveTextContent('<script>window.__x = 1</script><b>unsafe</b>');
+    expect(article.querySelector('script')).toBeNull();
+    expect(article.querySelector('b')).toBeNull();
   });
 });
