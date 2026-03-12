@@ -19,18 +19,6 @@ function getBadgeVariant(turn: ConversationTurnModel): 'default' | 'error' {
   return turn.state === 'error' ? 'error' : 'default';
 }
 
-function getTurnIconLabel(turn: ConversationTurnModel): string {
-  if (turn.role === 'assistant') {
-    return 'A';
-  }
-
-  if (turn.role === 'user') {
-    return 'U';
-  }
-
-  return 'S';
-}
-
 export function ConversationTurn({
   turn,
   className,
@@ -56,9 +44,6 @@ export function ConversationTurn({
       {...rest}
     >
       <div className="conversation-turn__bubble">
-        <span className="conversation-turn__icon" aria-hidden="true">
-          {getTurnIconLabel(turn)}
-        </span>
         {isTypingOnly ? (
           <TypingIndicator className="conversation-turn__typing" />
         ) : turn.role === 'assistant' ? (

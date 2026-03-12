@@ -44,14 +44,12 @@ describe('ConversationTurn', () => {
 
     const article = screen.getByRole('article', { name: 'User turn at 09:41' });
     const meta = article.querySelector('.conversation-turn__meta');
-    const icon = article.querySelector('.conversation-turn__icon');
 
     expect(article).toHaveClass('conversation-turn', 'conversation-turn--user');
     expect(screen.getByText('Transcribed speech from the user.')).toBeVisible();
     expect(screen.getByText('09:41')).toBeVisible();
     expect(meta).not.toBeNull();
-    expect(icon).not.toBeNull();
-    expect(article.contains(icon)).toBe(true);
+    expect(article.querySelector('.conversation-turn__icon')).toBeNull();
   });
 
   it('renders an assistant error turn with a badge', () => {
