@@ -126,7 +126,8 @@
   font-family: inherit;
   color: inherit;
   line-height: 1.5;
-  max-height: 8rem;
+  /* ~10 lines: 10 × line-height (1.5rem) + vertical padding (4px) */
+  max-height: calc(10 * 1.5rem + 4px);
   overflow-y: auto;
 }
 

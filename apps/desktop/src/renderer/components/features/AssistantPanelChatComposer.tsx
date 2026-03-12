@@ -1,5 +1,5 @@
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from '../primitives';
 import type { AssistantPanelComposerAction } from './assistantPanelComposerAction';
 
@@ -23,6 +23,14 @@ export function AssistantPanelChatComposer({
   onSubmitTextTurn,
 }: AssistantPanelChatComposerProps): JSX.Element {
   const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [draftText]);
 
   const handleComposerSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     if (composerAction.kind === 'send') {
@@ -66,6 +74,7 @@ export function AssistantPanelChatComposer({
       >
         <div className="assistant-panel__composer-box">
           <textarea
+            ref={textareaRef}
             value={draftText}
             onChange={onDraftTextChange}
             disabled={isComposerDisabled}
