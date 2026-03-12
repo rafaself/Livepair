@@ -1,4 +1,4 @@
-# Main Architecture
+# Main Architecture (Current Repository State)
 
 ```mermaid
 flowchart TB
@@ -8,17 +8,17 @@ flowchart TB
         UI[UI Layer<br/>Overlay / Panel / Settings]
 
         subgraph ORCH[Session Controller / Orchestrator]
-            SC[Session Lifecycle<br/>connect / reconnect / interrupt / checkpoint]
+            SC[Session Lifecycle<br/>text mode / speech mode / reconnect / interrupt]
         end
 
         subgraph MEDIA[Media Layer]
             AP[Audio Pipeline<br/>mic capture / VAD / PCM chunks / playback queue]
-            VP[Vision Pipeline<br/>desktopCapturer / resize / JPEG / adaptive FPS]
+            VP[Vision Pipeline<br/>manual desktop capture / resize / JPEG / low FPS]
         end
 
         subgraph CORE[Agent Core]
             AC[Conversation State]
-            TM[Tool Manager]
+            TM[Local Voice Tools<br/>implemented: get_current_mode / get_voice_session_status]
         end
 
         subgraph ADAPTER[Transport Layer]
@@ -28,19 +28,25 @@ flowchart TB
     end
 
     subgraph B[Backend API - NestJS on Cloud Run]
-        AUTH[Session / Token Module<br/>ephemeral token issuance]
-        TOOLS[Tools Module<br/>screenshot-hd / visual-summary]
-        LOG[Logging / Error Module]
-        SVC[Session Checkpoint API]
+        HEALTH[Health Module<br/>GET /health<br/>implemented]
+        AUTH[Session / Token Module<br/>POST /session/token<br/>implemented]
+        CHAT[Session / Chat Module<br/>POST /session/chat<br/>implemented]
+        TOOLS[Tools Module<br/>screenshot-hd / visual-summary<br/>planned]
+        LOG[Logging / Error Module<br/>planned]
+        SVC[Session Checkpoint API<br/>planned]
     end
 
-    subgraph R[Redis Session Store]
+    subgraph R[Redis Session Store - Planned]
         RS[session_id<br/>goal<br/>summary<br/>recent_turns<br/>last_visual_context]
     end
 
     subgraph G[Gemini Live API]
         WS[Realtime WebSocket Session]
-        MODEL[Multimodal Streaming Model<br/>audio in / screen frames in / audio out / text out / tool requests]
+        MODEL[Multimodal Streaming Model<br/>audio in / manual screen frames in / audio out / text out / tool requests]
+    end
+
+    subgraph GT[Gemini Text Model Path]
+        TXT[Gemini text model<br/>backend mediated]
     end
 
     U --> UI
@@ -61,14 +67,22 @@ flowchart TB
     AP --> GLA
     VP --> GLA
 
+    SC -->|GET /health| HEALTH
     SC -->|POST /session/token| AUTH
     AUTH -->|ephemeral token| SC
+    SC -->|POST /session/chat| CHAT
+    CHAT --> TXT
+    TXT --> CHAT
+    CHAT -->|NDJSON events| SC
 
-    TM -->|tool request| TOOLS
-    TOOLS -->|tool result| TM
+    MODEL -->|tool request| TM
+    TM -->|local tool response| MODEL
 
-    SC -->|POST /session/checkpoint| SVC
-    SVC --> R
+    TM -. planned backend tool path .-> TOOLS
+    TOOLS -. planned tool result .-> TM
 
-    SC -->|POST /session/error| LOG
+    SC -. planned POST /session/checkpoint .-> SVC
+    SVC -. planned persistence .-> R
+
+    SC -. planned POST /session/error .-> LOG
 ```

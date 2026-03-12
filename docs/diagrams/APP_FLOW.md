@@ -1,15 +1,22 @@
 ```mermaid
 flowchart LR
 UI[Electron UI] --> SESSION[Session Controller]
-SESSION --> TRANSPORT[Gemini Live Transport]
+SESSION --> TEXT[text mode]
+SESSION --> SPEECH[speech mode]
+
+TEXT --> CHAT[POST /session/chat]
+CHAT --> BACKEND[NestJS Backend]
+BACKEND --> TEXTMODEL[Gemini text model]
+
+SPEECH --> TRANSPORT[Gemini Live Transport]
 TRANSPORT --> GEMINI[Gemini Live API]
+SPEECH --> AUDIO[Audio Pipeline]
+SPEECH --> VISION[Manual Screen Capture]
+SPEECH --> TOOLS[Local Voice Tools]
 
-SESSION --> AUDIO[Audio Pipeline]
-SESSION --> VISION[Screen Capture]
-SESSION --> TOOLS[Tool Bridge]
-
-TOOLS --> BACKEND[NestJS Backend]
-BACKEND --> TOKEN[Token Issuance]
-BACKEND --> CHECKPOINT[Checkpoint]
-BACKEND --> ERROR[Error Reporting]
+BACKEND --> TOKEN[POST /session/token]
+BACKEND --> HEALTH[GET /health]
+BACKEND -. planned .-> CHECKPOINT[Checkpoint]
+BACKEND -. planned .-> ERROR[Error Reporting]
+BACKEND -. planned .-> REMOTETOOLS[Backend Tool Endpoints]
 ```

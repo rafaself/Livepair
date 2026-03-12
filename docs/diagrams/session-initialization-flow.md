@@ -1,4 +1,4 @@
-# Session Initialization Flow
+# Speech Session Initialization Flow
 
 ```mermaid
 sequenceDiagram
