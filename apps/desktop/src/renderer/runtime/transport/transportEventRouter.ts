@@ -218,6 +218,10 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
       return;
     }
 
+    if (event.type === 'generation-complete') {
+      return;
+    }
+
     if (event.type === 'interrupted') {
       ops.cancelVoiceToolCalls('voice turn interrupted');
       ops.finalizeCurrentVoiceTurns('interrupted');

@@ -153,6 +153,125 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
   });
 
+  it('keeps early assistant transcript text and ignores a shorter stale late update', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hi' });
+    voiceTransport.emit({ type: 'output-transcript', text: ' there' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hi there, corrected' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hi there' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Hi there, corrected',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+    expect(useSessionStore.getState().currentVoiceTranscript.assistant.text).toBe(
+      'Hi there, corrected',
+    );
+
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Hi there, corrected',
+        state: 'complete',
+        source: 'voice',
+      }),
+    ]);
+  });
+
+  it('preserves early assistant text when transcript chunks arrive as suffix updates', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hello' });
+    voiceTransport.emit({ type: 'output-transcript', text: ' there' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'Hello there',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+    expect(useSessionStore.getState().currentVoiceTranscript.assistant.text).toBe('Hello there');
+  });
+
+  it('ignores a shorter stale assistant update after better text already arrived', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hello there' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hello' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'Hello there',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+    expect(useSessionStore.getState().currentVoiceTranscript.assistant.text).toBe('Hello there');
+  });
+
   it('finalizes the same spoken user turn inside the conversation timeline even without assistant transcript', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({
@@ -322,6 +441,126 @@ describe('createDesktopSessionController – transcript', () => {
         content: 'Interrupted answer',
         state: 'complete',
         statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+    ]);
+  });
+
+  it('keeps an interrupted assistant turn labeled interrupted when turn-complete arrives later', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Interrupted answer' });
+    voiceTransport.emit({ type: 'interrupted' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'Interrupted answer',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+    ]);
+  });
+
+  it('keeps interrupted assistant output marked as interrupted when corrective text arrives before turn-complete', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Interrupted answer' });
+    voiceTransport.emit({ type: 'interrupted' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Interrupted answer corrected' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'Interrupted answer corrected',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+    ]);
+    expect(useSessionStore.getState().currentVoiceTranscript.assistant.text).toBe(
+      'Interrupted answer corrected',
+    );
+  });
+
+  it('does not finalize a voice turn on generation-complete before turn-complete arrives', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Almost done' });
+    voiceTransport.emit({ type: 'generation-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Almost done',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Almost done',
+        state: 'complete',
         source: 'voice',
       }),
     ]);

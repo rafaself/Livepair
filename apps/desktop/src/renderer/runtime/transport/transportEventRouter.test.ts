@@ -363,6 +363,18 @@ describe('createTransportEventRouter', () => {
     });
   });
 
+  describe('generation-complete', () => {
+    it('does not finalize voice turns or advance the speech lifecycle on its own', () => {
+      const ops = createMockOps();
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'generation-complete' });
+
+      expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalled();
+      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+    });
+  });
+
   describe('tool-call', () => {
     it('enqueues tool calls', () => {
       const ops = createMockOps();
@@ -420,6 +432,17 @@ describe('createTransportEventRouter', () => {
     it('marks turn completed without lifecycle event in other states', () => {
       const ops = createMockOps();
       ops.currentSpeechLifecycleStatus.mockReturnValue('listening');
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'turn-complete' });
+
+      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+    });
+
+    it('does not treat a post-interruption turn-complete as a normal assistant completion transition', () => {
+      const ops = createMockOps();
+      ops.currentSpeechLifecycleStatus.mockReturnValue('interrupted');
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
 
       handleTransportEvent({ type: 'turn-complete' });
