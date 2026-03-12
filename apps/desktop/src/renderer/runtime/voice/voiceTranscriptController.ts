@@ -1,4 +1,13 @@
 import { normalizeTranscriptText } from './voiceTranscript';
+import type { ConversationContext } from '../conversation/conversationTurnManager';
+import {
+  clearCurrentVoiceTurns,
+  finalizeCurrentVoiceAssistantTurn,
+  finalizeCurrentVoiceUserTurn,
+  interruptCurrentVoiceAssistantTurn,
+  upsertCurrentVoiceAssistantTurn,
+  upsertCurrentVoiceUserTurn,
+} from '../conversation/conversationTurnManager';
 
 type SessionStoreApi = {
   getState: () => {
@@ -20,23 +29,40 @@ export type VoiceTranscriptController = {
     text: string,
     isFinal?: boolean,
   ) => void;
-  consumePromotableAssistantTranscript: (
+  ensureAssistantTurn: () => void;
+  finalizeCurrentVoiceTurns: (
     finalizeReason: 'completed' | 'interrupted',
-  ) => string | null;
+  ) => void;
   resetTurnTranscriptState: () => void;
   clearTranscript: () => void;
-  markTurnCompleted: () => void;
   resetTurnCompletedFlag: () => void;
 };
 
 export function createVoiceTranscriptController(
   store: SessionStoreApi,
+  conversationCtx: ConversationContext,
 ): VoiceTranscriptController {
   let voiceTurnHasCompleted = false;
-  let assistantTranscriptPromoted = false;
 
   const clearTranscript = (): void => {
     store.getState().clearCurrentVoiceTranscript();
+  };
+
+  const shouldReuseCompletedUserTurn = (previousText: string, incomingText: string): boolean => {
+    const previous = previousText.trim();
+    const incoming = incomingText.trim();
+
+    if (previous.length === 0 || incoming.length === 0) {
+      return true;
+    }
+
+    return (
+      previous === incoming ||
+      previous.startsWith(incoming) ||
+      incoming.startsWith(previous) ||
+      previous.includes(incoming) ||
+      incoming.includes(previous)
+    );
   };
 
   const applyTranscriptUpdate = (
@@ -45,55 +71,77 @@ export function createVoiceTranscriptController(
     isFinal?: boolean,
   ): void => {
     const state = store.getState();
+    const previousEntry = state.currentVoiceTranscript[role];
+    let preserveCompletedState = voiceTurnHasCompleted;
 
     if (role === 'user' && voiceTurnHasCompleted) {
-      clearTranscript();
-      voiceTurnHasCompleted = false;
-      assistantTranscriptPromoted = false;
+      if (!shouldReuseCompletedUserTurn(previousEntry.text, text)) {
+        clearTranscript();
+        clearCurrentVoiceTurns(conversationCtx);
+        voiceTurnHasCompleted = false;
+        preserveCompletedState = false;
+      }
     }
 
-    const previousEntry = state.currentVoiceTranscript[role];
-    const nextText = normalizeTranscriptText(previousEntry.text, text);
+    if (role === 'assistant' && text.length === 0) {
+      ensureAssistantTurn();
+    }
 
-    if (nextText === previousEntry.text && isFinal === previousEntry.isFinal) {
+    const refreshedState = store.getState();
+    const refreshedPreviousEntry = refreshedState.currentVoiceTranscript[role];
+    const nextText = normalizeTranscriptText(refreshedPreviousEntry.text, text);
+
+    if (nextText === refreshedPreviousEntry.text && isFinal === refreshedPreviousEntry.isFinal) {
       return;
     }
 
-    if (role === 'assistant') {
-      assistantTranscriptPromoted = false;
-    }
-
-    state.setCurrentVoiceTranscriptEntry(role, {
+    refreshedState.setCurrentVoiceTranscriptEntry(role, {
       text: nextText,
       ...(isFinal !== undefined ? { isFinal } : {}),
     });
+
+    if (role === 'user') {
+      upsertCurrentVoiceUserTurn(conversationCtx, nextText, isFinal);
+
+      if (preserveCompletedState) {
+        finalizeCurrentVoiceUserTurn(conversationCtx);
+      }
+
+      return;
+    }
+
+    upsertCurrentVoiceAssistantTurn(conversationCtx, nextText, isFinal);
+
+    if (preserveCompletedState) {
+      finalizeCurrentVoiceAssistantTurn(conversationCtx);
+    }
   };
 
-  const consumePromotableAssistantTranscript = (
-    _finalizeReason: 'completed' | 'interrupted',
-  ): string | null => {
-    if (assistantTranscriptPromoted) {
-      return null;
+  const ensureAssistantTurn = (): void => {
+    upsertCurrentVoiceAssistantTurn(
+      conversationCtx,
+      store.getState().currentVoiceTranscript.assistant.text,
+      store.getState().currentVoiceTranscript.assistant.isFinal,
+    );
+  };
+
+  const finalizeCurrentVoiceTurns = (
+    finalizeReason: 'completed' | 'interrupted',
+  ): void => {
+    finalizeCurrentVoiceUserTurn(conversationCtx);
+
+    if (finalizeReason === 'interrupted') {
+      interruptCurrentVoiceAssistantTurn(conversationCtx);
     }
 
-    const content = store.getState().currentVoiceTranscript.assistant.text.trim();
-
-    if (content.length === 0) {
-      return null;
-    }
-
-    assistantTranscriptPromoted = true;
-    return content;
+    finalizeCurrentVoiceAssistantTurn(conversationCtx);
+    voiceTurnHasCompleted = true;
   };
 
   const resetTurnTranscriptState = (): void => {
     voiceTurnHasCompleted = false;
-    assistantTranscriptPromoted = false;
     clearTranscript();
-  };
-
-  const markTurnCompleted = (): void => {
-    voiceTurnHasCompleted = true;
+    clearCurrentVoiceTurns(conversationCtx);
   };
 
   const resetTurnCompletedFlag = (): void => {
@@ -102,10 +150,10 @@ export function createVoiceTranscriptController(
 
   return {
     applyTranscriptUpdate,
-    consumePromotableAssistantTranscript,
+    ensureAssistantTurn,
+    finalizeCurrentVoiceTurns,
     resetTurnTranscriptState,
     clearTranscript,
-    markTurnCompleted,
     resetTurnCompletedFlag,
   };
 }

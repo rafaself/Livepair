@@ -29,6 +29,7 @@ export type AssistantPanelChatViewProps = {
   voiceSessionStatus?: VoiceSessionStatus;
   turns: ConversationTurnModel[];
   currentVoiceTranscript: CurrentVoiceTranscript;
+  showSpeechTranscript?: boolean;
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -50,6 +51,7 @@ export function AssistantPanelChatView({
   voiceSessionStatus = 'disconnected',
   turns,
   currentVoiceTranscript,
+  showSpeechTranscript = false,
   isConversationEmpty,
   lastRuntimeError,
   draftText,
@@ -71,9 +73,6 @@ export function AssistantPanelChatView({
     !canSubmitText ||
     !canSubmitComposerText(controlGatingSnapshot);
   const isSpeechMode = currentMode === 'speech';
-  const hasVoiceTranscript =
-    currentVoiceTranscript.user.text.trim().length > 0 ||
-    currentVoiceTranscript.assistant.text.trim().length > 0;
   const composerAction = createAssistantPanelComposerAction({
     controlGatingSnapshot,
     draftText,
@@ -99,7 +98,7 @@ export function AssistantPanelChatView({
           }
           isConversationEmpty={isConversationEmpty}
           lastRuntimeError={lastRuntimeError}
-          showSpeechTranscript={isSpeechMode || hasVoiceTranscript}
+          showSpeechTranscript={showSpeechTranscript}
           textSessionStatus={textSessionStatus}
           textSessionStatusLabel={textSessionStatusLabel}
           turns={turns}

@@ -20,6 +20,7 @@ export function AssistantPanel({
     panelView,
     conversationTurns,
     isConversationEmpty,
+    showLegacySpeechTranscript,
     setPanelView,
     backendState,
     backendIndicatorState,
@@ -82,6 +83,7 @@ export function AssistantPanel({
               voiceSessionStatus={voiceSessionStatus}
               turns={conversationTurns}
               currentVoiceTranscript={currentVoiceTranscript}
+              showSpeechTranscript={showLegacySpeechTranscript}
               isConversationEmpty={isConversationEmpty}
               lastRuntimeError={lastRuntimeError}
               draftText={draftText}

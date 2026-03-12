@@ -6,11 +6,17 @@ import {
   appendAssistantTurn,
   appendUserTurn,
   buildTextChatRequest,
+  clearCurrentVoiceTurns,
   clearPendingAssistantTurn,
   completePendingAssistantTurn,
   createConversationContext,
   failPendingAssistantTurn,
+  finalizeCurrentVoiceAssistantTurn,
+  finalizeCurrentVoiceUserTurn,
   getConversationTurn,
+  interruptCurrentVoiceAssistantTurn,
+  upsertCurrentVoiceAssistantTurn,
+  upsertCurrentVoiceUserTurn,
   updatePendingAssistantTurn,
   type ConversationContext,
 } from './conversationTurnManager';
@@ -26,6 +32,8 @@ describe('conversationTurnManager', () => {
   describe('createConversationContext', () => {
     it('initializes with null pending turn and zero counters', () => {
       expect(ctx.pendingAssistantTurnId).toBeNull();
+      expect(ctx.currentVoiceAssistantTurnId).toBeNull();
+      expect(ctx.currentVoiceUserTurnId).toBeNull();
       expect(ctx.nextAssistantTurnId).toBe(0);
       expect(ctx.nextUserTurnId).toBe(0);
     });
@@ -53,6 +61,160 @@ describe('conversationTurnManager', () => {
       const turns = useSessionStore.getState().conversationTurns;
       expect(turns[0]!.id).toBe('user-turn-1');
       expect(turns[1]!.id).toBe('user-turn-2');
+    });
+  });
+
+  describe('voice user turn lifecycle', () => {
+    it('creates and updates the same in-progress user voice turn', () => {
+      upsertCurrentVoiceUserTurn(ctx, 'Hello', false);
+
+      const firstTurn = useSessionStore.getState().conversationTurns[0];
+
+      expect(firstTurn).toEqual(
+        expect.objectContaining({
+          id: 'user-turn-1',
+          role: 'user',
+          content: 'Hello',
+          state: 'streaming',
+          transcriptFinal: false,
+          source: 'voice',
+        }),
+      );
+      expect(ctx.currentVoiceUserTurnId).toBe('user-turn-1');
+
+      upsertCurrentVoiceUserTurn(ctx, 'Hello there', true);
+
+      const updatedTurn = useSessionStore.getState().conversationTurns[0];
+
+      expect(updatedTurn).toEqual(
+        expect.objectContaining({
+          id: 'user-turn-1',
+          content: 'Hello there',
+          state: 'streaming',
+          transcriptFinal: true,
+          source: 'voice',
+        }),
+      );
+      expect(useSessionStore.getState().conversationTurns).toHaveLength(1);
+    });
+
+    it('finalizes the current voice user turn in place', () => {
+      upsertCurrentVoiceUserTurn(ctx, 'Only the user spoke', true);
+
+      finalizeCurrentVoiceUserTurn(ctx);
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'user-turn-1',
+          role: 'user',
+          content: 'Only the user spoke',
+          state: 'complete',
+          transcriptFinal: true,
+          source: 'voice',
+        }),
+      ]);
+      expect(ctx.currentVoiceUserTurnId).toBe('user-turn-1');
+    });
+  });
+
+  describe('voice assistant turn lifecycle', () => {
+    it('creates an empty in-progress assistant voice turn before transcript text arrives', () => {
+      upsertCurrentVoiceAssistantTurn(ctx, '');
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: '',
+          state: 'streaming',
+          statusLabel: 'Responding...',
+          source: 'voice',
+        }),
+      ]);
+      expect(ctx.currentVoiceAssistantTurnId).toBe('assistant-turn-1');
+    });
+
+    it('reconciles assistant transcript updates onto the same voice turn', () => {
+      upsertCurrentVoiceAssistantTurn(ctx, 'Hi');
+      upsertCurrentVoiceAssistantTurn(ctx, ' there');
+      upsertCurrentVoiceAssistantTurn(ctx, 'Hi there, corrected', true);
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Hi there, corrected',
+          state: 'streaming',
+          transcriptFinal: true,
+          statusLabel: 'Responding...',
+          source: 'voice',
+        }),
+      ]);
+    });
+
+    it('finalizes the current assistant voice turn in place', () => {
+      upsertCurrentVoiceAssistantTurn(ctx, 'Final answer', true);
+
+      finalizeCurrentVoiceAssistantTurn(ctx);
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Final answer',
+          state: 'complete',
+          transcriptFinal: true,
+          statusLabel: undefined,
+          source: 'voice',
+        }),
+      ]);
+      expect(ctx.currentVoiceAssistantTurnId).toBe('assistant-turn-1');
+    });
+
+    it('marks interrupted assistant voice output in place without duplicating the turn', () => {
+      upsertCurrentVoiceAssistantTurn(ctx, 'Partial answer');
+
+      interruptCurrentVoiceAssistantTurn(ctx);
+      finalizeCurrentVoiceAssistantTurn(ctx);
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Partial answer',
+          state: 'complete',
+          statusLabel: 'Interrupted',
+          source: 'voice',
+        }),
+      ]);
+      expect(useSessionStore.getState().conversationTurns).toHaveLength(1);
+    });
+
+    it('removes an empty assistant placeholder when the voice turn finalizes without transcript text', () => {
+      upsertCurrentVoiceAssistantTurn(ctx, '');
+
+      finalizeCurrentVoiceAssistantTurn(ctx);
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([]);
+      expect(ctx.currentVoiceAssistantTurnId).toBeNull();
+    });
+  });
+
+  describe('clearCurrentVoiceTurns', () => {
+    it('clears tracked voice turn ids without deleting finalized history', () => {
+      upsertCurrentVoiceUserTurn(ctx, 'Voice request', true);
+      upsertCurrentVoiceAssistantTurn(ctx, 'Voice reply', true);
+      finalizeCurrentVoiceUserTurn(ctx);
+      finalizeCurrentVoiceAssistantTurn(ctx);
+
+      clearCurrentVoiceTurns(ctx);
+
+      expect(ctx.currentVoiceUserTurnId).toBeNull();
+      expect(ctx.currentVoiceAssistantTurnId).toBeNull();
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({ id: 'user-turn-1', state: 'complete' }),
+        expect.objectContaining({ id: 'assistant-turn-1', state: 'complete' }),
+      ]);
     });
   });
 
@@ -234,6 +396,21 @@ describe('conversationTurnManager', () => {
       const request = buildTextChatRequest(ctx, 'Real message');
       expect(request).toEqual({
         messages: [{ role: 'user', content: 'Real message' }],
+      });
+    });
+
+    it('excludes in-progress voice turns from text history building', () => {
+      appendUserTurn(ctx, 'First');
+      upsertCurrentVoiceUserTurn(ctx, 'Live voice request', false);
+      upsertCurrentVoiceAssistantTurn(ctx, 'Live voice response', false);
+
+      const request = buildTextChatRequest(ctx, 'Typed follow-up');
+
+      expect(request).toEqual({
+        messages: [
+          { role: 'user', content: 'First' },
+          { role: 'user', content: 'Typed follow-up' },
+        ],
       });
     });
   });

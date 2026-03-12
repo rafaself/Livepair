@@ -87,8 +87,11 @@ export type SessionStoreState = SessionStoreData & {
   appendConversationTurn: (turn: ConversationTurnModel) => void;
   updateConversationTurn: (
     turnId: string,
-    patch: Pick<ConversationTurnModel, 'content' | 'state' | 'statusLabel'>,
+    patch: Partial<
+      Pick<ConversationTurnModel, 'content' | 'state' | 'statusLabel' | 'source' | 'transcriptFinal'>
+    >,
   ) => void;
+  removeConversationTurn: (turnId: string) => void;
   clearConversationTurns: () => void;
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
@@ -277,6 +280,10 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       conversationTurns: state.conversationTurns.map((turn) =>
         turn.id === turnId ? { ...turn, ...patch } : turn,
       ),
+    })),
+  removeConversationTurn: (turnId) =>
+    set((state) => ({
+      conversationTurns: state.conversationTurns.filter((turn) => turn.id !== turnId),
     })),
   clearConversationTurns: () => set({ conversationTurns: [] }),
   setLastRuntimeError: (lastRuntimeError) => set({ lastRuntimeError }),

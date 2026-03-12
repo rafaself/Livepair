@@ -44,8 +44,8 @@ function createMockOps() {
     cancelVoiceToolCalls: vi.fn(),
     resetVoiceToolState: vi.fn(),
     resetVoiceTurnTranscriptState: vi.fn(),
-    markTurnCompleted: vi.fn(),
-    promoteAssistantTranscriptTurn: vi.fn(),
+    ensureAssistantVoiceTurn: vi.fn(),
+    finalizeCurrentVoiceTurns: vi.fn(),
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
     applySpeechLifecycleEvent: vi.fn(),
@@ -319,8 +319,7 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'interrupted' });
 
       expect(ops.cancelVoiceToolCalls).toHaveBeenCalledWith('voice turn interrupted');
-      expect(ops.promoteAssistantTranscriptTurn).toHaveBeenCalledWith('interrupted');
-      expect(ops.markTurnCompleted).toHaveBeenCalledTimes(1);
+      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('interrupted');
       expect(ops.handleVoiceInterruption).toHaveBeenCalledTimes(1);
     });
   });
@@ -345,6 +344,7 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'output-transcript', text: 'hi there', isFinal: false } as never);
 
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.output.started' });
+      expect(ops.ensureAssistantVoiceTurn).toHaveBeenCalledTimes(1);
       expect(ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('assistant', 'hi there', false);
     });
   });
@@ -358,6 +358,7 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'audio-chunk', chunk });
 
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.output.started' });
+      expect(ops.ensureAssistantVoiceTurn).toHaveBeenCalledTimes(1);
       expect(ops.getVoicePlayback().enqueue).toHaveBeenCalledWith(chunk);
     });
   });
@@ -401,8 +402,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'turn-complete' });
 
-      expect(ops.promoteAssistantTranscriptTurn).toHaveBeenCalledWith('completed');
-      expect(ops.markTurnCompleted).toHaveBeenCalledTimes(1);
+      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.turn.completed' });
     });
 
@@ -413,8 +413,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'turn-complete' });
 
-      expect(ops.promoteAssistantTranscriptTurn).toHaveBeenCalledWith('completed');
-      expect(ops.markTurnCompleted).toHaveBeenCalledTimes(1);
+      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'user.turn.settled' });
     });
 
@@ -425,8 +424,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'turn-complete' });
 
-      expect(ops.promoteAssistantTranscriptTurn).toHaveBeenCalledWith('completed');
-      expect(ops.markTurnCompleted).toHaveBeenCalledTimes(1);
+      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
       expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
     });
   });

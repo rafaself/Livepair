@@ -1,174 +1,164 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { useSessionStore } from '../../store/sessionStore';
+import { createConversationContext } from '../conversation/conversationTurnManager';
 import { createVoiceTranscriptController } from './voiceTranscriptController';
 
-function createMockStore() {
-  const transcript = {
-    user: { text: '' } as { text: string; isFinal?: boolean | undefined },
-    assistant: { text: '' } as { text: string; isFinal?: boolean | undefined },
-  };
-  const setCurrentVoiceTranscriptEntry = vi.fn(
-    (role: 'user' | 'assistant', entry: { text: string; isFinal?: boolean | undefined }) => {
-      transcript[role] = { ...transcript[role], ...entry };
-    },
-  );
-  const clearCurrentVoiceTranscript = vi.fn(() => {
-    transcript.user = { text: '' };
-    transcript.assistant = { text: '' };
+describe('createVoiceTranscriptController', () => {
+  beforeEach(() => {
+    useSessionStore.getState().reset();
   });
 
-  return {
-    getState: () => ({
-      currentVoiceTranscript: transcript,
-      setCurrentVoiceTranscriptEntry,
-      clearCurrentVoiceTranscript,
-    }),
-    spies: { setCurrentVoiceTranscriptEntry, clearCurrentVoiceTranscript },
-    transcript,
-  };
-}
-
-describe('createVoiceTranscriptController', () => {
-  it('updates user transcript via store', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
+  it('updates user transcript via the compatibility transcript store and the conversation timeline', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
     ctrl.applyTranscriptUpdate('user', 'hello');
 
-    expect(store.spies.setCurrentVoiceTranscriptEntry).toHaveBeenCalledWith('user', {
+    expect(useSessionStore.getState().currentVoiceTranscript.user).toEqual({
       text: 'hello',
     });
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'hello',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
   });
 
-  it('updates assistant transcript via store', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
+  it('updates assistant transcript via the compatibility transcript store and the same conversation turn', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'hi');
     ctrl.applyTranscriptUpdate('assistant', 'hi there');
 
-    expect(store.spies.setCurrentVoiceTranscriptEntry).toHaveBeenCalledWith('assistant', {
+    expect(useSessionStore.getState().currentVoiceTranscript.assistant).toEqual({
       text: 'hi there',
     });
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'hi there',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
   });
 
-  it('passes isFinal when provided', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
+  it('passes transcript finality through to both transcript mirror and conversation turn metadata', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
     ctrl.applyTranscriptUpdate('user', 'done', true);
 
-    expect(store.spies.setCurrentVoiceTranscriptEntry).toHaveBeenCalledWith('user', {
+    expect(useSessionStore.getState().currentVoiceTranscript.user).toEqual({
       text: 'done',
       isFinal: true,
     });
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        transcriptFinal: true,
+      }),
+    ]);
   });
 
-  it('skips update when text and isFinal are unchanged', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
+  it('skips transcript writes when text and finality are unchanged', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
     ctrl.applyTranscriptUpdate('user', 'hello');
-    store.spies.setCurrentVoiceTranscriptEntry.mockClear();
+    const firstTurns = useSessionStore.getState().conversationTurns;
 
     ctrl.applyTranscriptUpdate('user', 'hello');
 
-    expect(store.spies.setCurrentVoiceTranscriptEntry).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().conversationTurns).toBe(firstTurns);
+    expect(useSessionStore.getState().conversationTurns).toHaveLength(1);
   });
 
-  it('clears transcript on user input after turn completion', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
+  it('resets only the compatibility transcript and voice-turn references when a new user turn starts after completion', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
-    ctrl.applyTranscriptUpdate('user', 'first turn');
-    ctrl.markTurnCompleted();
+    ctrl.applyTranscriptUpdate('user', 'first turn', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
 
     ctrl.applyTranscriptUpdate('user', 'second turn');
 
-    expect(store.spies.clearCurrentVoiceTranscript).toHaveBeenCalled();
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: { text: 'second turn' },
+      assistant: { text: '' },
+    });
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'first turn',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-2',
+        content: 'second turn',
+        state: 'streaming',
+      }),
+    ]);
   });
 
-  it('does not clear transcript on assistant input after turn completion', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
+  it('keeps corrective transcript updates on the same completed user bubble until the next distinct turn', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
-    ctrl.markTurnCompleted();
-    store.spies.clearCurrentVoiceTranscript.mockClear();
+    ctrl.applyTranscriptUpdate('user', 'hello there', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
+    ctrl.applyTranscriptUpdate('user', 'hello there again', true);
 
-    ctrl.applyTranscriptUpdate('assistant', 'response');
-
-    expect(store.spies.clearCurrentVoiceTranscript).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'hello there again',
+        state: 'complete',
+      }),
+    ]);
   });
 
-  it('resets turn completed flag after clearing', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
+  it('finalizes an interrupted assistant turn once without duplicating it', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
-    ctrl.markTurnCompleted();
-    ctrl.applyTranscriptUpdate('user', 'second turn');
-    store.spies.clearCurrentVoiceTranscript.mockClear();
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'partial answer');
 
-    // Third update should NOT clear again
-    ctrl.applyTranscriptUpdate('user', 'continued');
+    ctrl.finalizeCurrentVoiceTurns('interrupted');
+    ctrl.finalizeCurrentVoiceTurns('completed');
 
-    expect(store.spies.clearCurrentVoiceTranscript).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'partial answer',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+      }),
+    ]);
   });
 
-  it('resetTurnTranscriptState clears transcript and resets flag', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
+  it('resetTurnTranscriptState clears transcript state and active voice-turn references', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
-    ctrl.markTurnCompleted();
+    ctrl.applyTranscriptUpdate('user', 'new input');
+    ctrl.ensureAssistantTurn();
+
     ctrl.resetTurnTranscriptState();
 
-    // Flag was reset, so user input should NOT trigger clear
-    store.spies.clearCurrentVoiceTranscript.mockClear();
-    ctrl.applyTranscriptUpdate('user', 'new input');
-
-    expect(store.spies.clearCurrentVoiceTranscript).not.toHaveBeenCalled();
-  });
-
-  it('clearTranscript delegates to store', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
-
-    ctrl.clearTranscript();
-
-    expect(store.spies.clearCurrentVoiceTranscript).toHaveBeenCalled();
-  });
-
-  it('resetTurnCompletedFlag prevents auto-clear on next user input', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
-
-    ctrl.markTurnCompleted();
-    ctrl.resetTurnCompletedFlag();
-
-    store.spies.clearCurrentVoiceTranscript.mockClear();
-    ctrl.applyTranscriptUpdate('user', 'new');
-
-    expect(store.spies.clearCurrentVoiceTranscript).not.toHaveBeenCalled();
-  });
-
-  it('returns the assistant transcript once when consumed for turn promotion', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
-
-    ctrl.applyTranscriptUpdate('assistant', 'Final response');
-
-    expect(ctrl.consumePromotableAssistantTranscript('completed')).toBe('Final response');
-    expect(ctrl.consumePromotableAssistantTranscript('completed')).toBeNull();
-  });
-
-  it('resets promotion eligibility when a new turn starts', () => {
-    const store = createMockStore();
-    const ctrl = createVoiceTranscriptController(store);
-
-    ctrl.applyTranscriptUpdate('assistant', 'First response');
-    expect(ctrl.consumePromotableAssistantTranscript('completed')).toBe('First response');
-
-    ctrl.markTurnCompleted();
-    ctrl.applyTranscriptUpdate('user', 'Next request');
-    ctrl.applyTranscriptUpdate('assistant', 'Second response');
-
-    expect(ctrl.consumePromotableAssistantTranscript('interrupted')).toBe('Second response');
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: { text: '' },
+      assistant: { text: '' },
+    });
+    expect(conversationCtx.currentVoiceUserTurnId).toBeNull();
+    expect(conversationCtx.currentVoiceAssistantTurnId).toBeNull();
   });
 });

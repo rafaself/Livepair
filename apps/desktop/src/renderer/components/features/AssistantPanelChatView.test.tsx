@@ -19,6 +19,7 @@ describe('AssistantPanelChatView', () => {
           user: { text: '' },
           assistant: { text: '' },
         }}
+        showSpeechTranscript={true}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText=""
@@ -276,7 +277,7 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByText('Preparing text chat...')).toBeVisible();
   });
 
-  it('renders the current voice transcript section separately from text conversation history', () => {
+  it('renders live voice turns inside the conversation timeline and hides the legacy transcript panel', () => {
     render(
       <AssistantPanelChatView
         assistantState="speaking"
@@ -285,12 +286,30 @@ describe('AssistantPanelChatView', () => {
         textSessionStatus="disconnected"
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
-        turns={[]}
+        turns={[
+          {
+            id: 'user-turn-1',
+            role: 'user',
+            content: 'Can you summarize that?',
+            timestamp: '09:41',
+            state: 'complete',
+            source: 'voice',
+          },
+          {
+            id: 'assistant-turn-1',
+            role: 'assistant',
+            content: 'Here is the summary.',
+            timestamp: '09:42',
+            state: 'streaming',
+            statusLabel: 'Responding...',
+            source: 'voice',
+          },
+        ]}
         currentVoiceTranscript={{
           user: { text: 'Can you summarize that?' },
           assistant: { text: 'Here is the summary.' },
         }}
-        isConversationEmpty={true}
+        isConversationEmpty={false}
         lastRuntimeError={null}
         draftText=""
         isSubmittingTextTurn={false}
@@ -301,10 +320,10 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'Current speech turn' })).toBeVisible();
     expect(screen.getByText('Can you summarize that?')).toBeVisible();
     expect(screen.getByText('Here is the summary.')).toBeVisible();
-    expect(screen.getByText('Live speech transcript')).toBeVisible();
+    expect(screen.getByText('Responding...')).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
     expect(screen.queryByText('Send a text prompt to start the realtime loop and keep the latest exchange visible.')).toBeNull();
   });
 

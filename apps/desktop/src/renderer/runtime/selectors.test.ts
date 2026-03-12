@@ -9,6 +9,7 @@ import {
   selectCanSubmitText,
   selectIsConversationEmpty,
   selectIsSessionActive,
+  selectShouldShowLegacySpeechTranscript,
 } from './selectors';
 
 const lifecycle = (status: string) => ({
@@ -262,6 +263,35 @@ describe('selectIsConversationEmpty', () => {
   it('returns false for non-empty turns', () => {
     expect(
       selectIsConversationEmpty({ conversationTurns: [{ role: 'user' }] as never }),
+    ).toBe(false);
+  });
+});
+
+describe('selectShouldShowLegacySpeechTranscript', () => {
+  it('returns true when speech mode is active and the conversation timeline is still empty', () => {
+    expect(
+      selectShouldShowLegacySpeechTranscript({
+        currentMode: 'speech',
+        conversationTurns: [],
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false once the conversation timeline owns visible speech turns', () => {
+    expect(
+      selectShouldShowLegacySpeechTranscript({
+        currentMode: 'speech',
+        conversationTurns: [{ id: 'user-turn-1', role: 'user' }] as never,
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false outside speech mode', () => {
+    expect(
+      selectShouldShowLegacySpeechTranscript({
+        currentMode: 'text',
+        conversationTurns: [],
+      }),
     ).toBe(false);
   });
 });

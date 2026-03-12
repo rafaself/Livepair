@@ -6,6 +6,7 @@ import {
   selectCanSubmitText,
   selectIsConversationEmpty,
   selectIsSessionActive,
+  selectShouldShowLegacySpeechTranscript,
   selectTextSessionStatus,
   selectTextSessionStatusLabel,
   selectTokenFeedback,
@@ -29,6 +30,7 @@ export function useSessionRuntime() {
   const conversationTurns = useSessionStore((state) => state.conversationTurns);
   const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
   const isConversationEmpty = useSessionStore(selectIsConversationEmpty);
+  const showLegacySpeechTranscript = useSessionStore(selectShouldShowLegacySpeechTranscript);
   const isSessionActive = useSessionStore(selectIsSessionActive);
   const speechLifecycleStatus = useSessionStore((state) => state.speechLifecycle.status);
   const voiceSessionStatus = useSessionStore((state) => state.voiceSessionStatus);
@@ -104,6 +106,7 @@ export function useSessionRuntime() {
     conversationTurns,
     lastRuntimeError,
     isConversationEmpty,
+    showLegacySpeechTranscript,
     isSessionActive,
     isVoiceSessionActive: isSpeechLifecycleActive(speechLifecycleStatus),
     speechLifecycleStatus,

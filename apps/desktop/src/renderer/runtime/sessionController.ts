@@ -127,7 +127,7 @@ export function createDesktopSessionController(
     (event) => runtimeRef.current!.applySpeechLifecycleEvent(event),
     () => runtimeRef.current!.stopVoicePlayback(),
   );
-  const voiceTranscript = createVoiceTranscriptController(dependencies.store);
+  const voiceTranscript = createVoiceTranscriptController(dependencies.store, conversationCtx);
   const tokenMgr = createVoiceTokenManager(
     dependencies.store,
     dependencies.requestSessionToken,
@@ -235,18 +235,11 @@ export function createDesktopSessionController(
     },
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
     resetVoiceTurnTranscriptState: () => runtimeRef.current!.resetVoiceTurnTranscriptState(),
-    markTurnCompleted: () => voiceTranscript.markTurnCompleted(),
-    promoteAssistantTranscriptTurn: (finalizeReason) => {
-      const content = voiceTranscript.consumePromotableAssistantTranscript(finalizeReason);
-
-      if (!content) {
-        return;
-      }
-
-      textChatCtrl.appendCompletedAssistantTurn(
-        content,
-        finalizeReason === 'interrupted' ? 'Interrupted' : undefined,
-      );
+    ensureAssistantVoiceTurn: () => {
+      voiceTranscript.ensureAssistantTurn();
+    },
+    finalizeCurrentVoiceTurns: (finalizeReason) => {
+      voiceTranscript.finalizeCurrentVoiceTurns(finalizeReason);
     },
     enqueueVoiceToolCalls: (c) => runtimeRef.current!.enqueueVoiceToolCalls(c),
     handleVoiceInterruption: () => runtimeRef.current!.handleVoiceInterruption(),

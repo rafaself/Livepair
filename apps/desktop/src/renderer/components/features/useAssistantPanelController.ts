@@ -36,6 +36,7 @@ export type AssistantPanelController = {
   panelView: PanelView;
   conversationTurns: ConversationTurnModel[];
   isConversationEmpty: boolean;
+  showLegacySpeechTranscript: boolean;
   setPanelView: (view: PanelView) => void;
   closePanel: () => void;
   setAssistantState: (state: AssistantRuntimeState) => void;
@@ -106,6 +107,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     conversationTurns,
     lastRuntimeError,
     isConversationEmpty,
+    showLegacySpeechTranscript,
     handleCheckBackendHealth,
     handleStartSession,
     handleStartVoiceSession,
@@ -211,6 +213,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     panelView,
     conversationTurns,
     isConversationEmpty,
+    showLegacySpeechTranscript,
     setPanelView,
     closePanel,
     setAssistantState,
