@@ -19,6 +19,7 @@ import './AssistantPanelChatView.css';
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;
   currentMode: ProductMode;
+  isPanelOpen: boolean;
   speechLifecycleStatus: SpeechLifecycleStatus;
   textSessionStatus: TextSessionStatus;
   textSessionStatusLabel: string;
@@ -39,6 +40,7 @@ export type AssistantPanelChatViewProps = {
 export function AssistantPanelChatView({
   assistantState,
   currentMode,
+  isPanelOpen,
   speechLifecycleStatus,
   textSessionStatus,
   textSessionStatusLabel,
@@ -98,6 +100,7 @@ export function AssistantPanelChatView({
           composerAction={composerAction}
           draftText={draftText}
           isComposerDisabled={isComposerDisabled}
+          isPanelOpen={isPanelOpen}
           onDraftTextChange={onDraftTextChange}
           onEndSpeechMode={onEndSpeechMode}
           onStartSpeechMode={onStartSpeechMode}

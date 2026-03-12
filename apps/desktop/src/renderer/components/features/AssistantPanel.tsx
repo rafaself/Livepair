@@ -72,6 +72,7 @@ export function AssistantPanel({
             <AssistantPanelChatView
               assistantState={assistantState}
               currentMode={currentMode}
+              isPanelOpen={isPanelOpen}
               speechLifecycleStatus={speechLifecycleStatus}
               textSessionStatus={textSessionStatus}
               textSessionStatusLabel={textSessionStatusLabel}

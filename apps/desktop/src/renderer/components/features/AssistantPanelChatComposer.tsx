@@ -7,6 +7,7 @@ export type AssistantPanelChatComposerProps = {
   composerAction: AssistantPanelComposerAction;
   draftText: string;
   isComposerDisabled: boolean;
+  isPanelOpen: boolean;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onEndSpeechMode: () => Promise<void>;
   onStartSpeechMode: () => Promise<void>;
@@ -17,6 +18,7 @@ export function AssistantPanelChatComposer({
   composerAction,
   draftText,
   isComposerDisabled,
+  isPanelOpen,
   onDraftTextChange,
   onEndSpeechMode,
   onStartSpeechMode,
@@ -31,6 +33,12 @@ export function AssistantPanelChatComposer({
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   }, [draftText]);
+
+  useEffect(() => {
+    if (isPanelOpen) {
+      textareaRef.current?.focus();
+    }
+  }, [isPanelOpen]);
 
   const handleComposerSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     if (composerAction.kind === 'send') {
