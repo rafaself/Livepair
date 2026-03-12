@@ -48,36 +48,43 @@ export function AssistantPanelChatComposer({
         aria-label="Send message to Livepair"
         onSubmit={handleComposerSubmit}
       >
-        <TextInput
-          value={draftText}
-          onChange={onDraftTextChange}
-          disabled={isComposerDisabled}
-          placeholder="Ask Livepair"
-          className="assistant-panel__composer-input"
-          append={
-            <Button
-              type="submit"
-              variant="ghost"
-              size="sm"
-              className={[
-                'assistant-panel__composer-submit',
-                composerAction.kind !== 'send' &&
-                  'assistant-panel__composer-submit--speech',
-                composerAction.kind === 'endSpeech' &&
-                  !composerAction.isLoading &&
-                  'assistant-panel__composer-submit--speech-active',
-                composerAction.isLoading &&
-                  'assistant-panel__composer-submit--loading',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              disabled={composerAction.disabled}
-              aria-label={composerAction.label}
-            >
-              {composerAction.icon}
-            </Button>
-          }
-        />
+        <div className="assistant-panel__composer-box">
+          <TextInput
+            value={draftText}
+            onChange={onDraftTextChange}
+            disabled={isComposerDisabled}
+            placeholder="Ask Livepair"
+            className="assistant-panel__composer-input"
+          />
+          <div className="assistant-panel__composer-toolbar">
+            <div className="assistant-panel__composer-actions-left">
+              {/* Optional actions can go here in the future */}
+            </div>
+            <div className="assistant-panel__composer-actions-right">
+              <Button
+                type="submit"
+                variant="ghost"
+                size="sm"
+                className={[
+                  'assistant-panel__composer-submit',
+                  composerAction.kind !== 'send' &&
+                    'assistant-panel__composer-submit--speech',
+                  composerAction.kind === 'endSpeech' &&
+                    !composerAction.isLoading &&
+                    'assistant-panel__composer-submit--speech-active',
+                  composerAction.isLoading &&
+                    'assistant-panel__composer-submit--loading',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                disabled={composerAction.disabled}
+                aria-label={composerAction.label}
+              >
+                {composerAction.icon}
+              </Button>
+            </div>
+          </div>
+        </div>
       </form>
     </div>
   );

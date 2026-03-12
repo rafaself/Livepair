@@ -7,9 +7,9 @@
   overflow: hidden;
   
   /* Bleed to panel edges */
-  margin-left: calc(var(--space-6) * -1);
-  margin-right: calc(var(--space-6) * -1);
-  margin-bottom: calc(var(--space-6) * -1);
+  margin-left: -20px;
+  margin-right: -20px;
+  margin-bottom: -20px;
 }
 
 .assistant-panel__messages-section {
@@ -21,16 +21,16 @@
 }
 
 .assistant-panel__messages-header {
-  padding: var(--space-4) var(--space-6) 0;
+  padding: 12px 20px 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   background: var(--color-chat-bg);
   z-index: 2;
 }
 
 .assistant-panel__chat-title {
   margin: 0;
+  padding-bottom: 8px;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -43,12 +43,13 @@
   display: flex;
   align-items: center;
   min-height: 32px;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 16%, transparent);
+  padding: var(--space-2) var(--space-4);
+  border: none;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface-elevated));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface-elevated));
   color: var(--color-text-secondary);
   font-size: 0.8125rem;
+  margin-bottom: var(--space-2);
 }
 
 .assistant-panel__text-status p {
@@ -57,8 +58,7 @@
 }
 
 .assistant-panel__text-status--error {
-  border-color: color-mix(in srgb, var(--color-error) 24%, transparent);
-  background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface-elevated));
+  background: color-mix(in srgb, var(--color-error) 12%, var(--color-surface-elevated));
   color: var(--color-text-primary);
 }
 
@@ -71,12 +71,13 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid color-mix(in srgb, var(--color-error) 28%, transparent);
+  padding: var(--space-2) var(--space-4);
+  border: none;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface-elevated));
+  background: color-mix(in srgb, var(--color-error) 15%, var(--color-surface-elevated));
   color: var(--color-text-primary);
   font-size: 0.8125rem;
+  margin-bottom: var(--space-2);
 }
 
 .assistant-panel__runtime-error p {
@@ -91,13 +92,13 @@
 }
 
 .assistant-panel__messages-section .conversation-list__viewport {
-  padding-left: var(--space-6);
-  padding-right: var(--space-6);
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 .assistant-panel__composer-section {
   flex-shrink: 0;
-  padding: var(--space-2) var(--space-6) var(--space-6);
+  padding: 0 20px 24px;
   background: var(--color-chat-bg);
 }
 
@@ -106,17 +107,59 @@
   flex-direction: column;
 }
 
+.assistant-panel__composer-box {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
 .assistant-panel__composer-input {
   min-width: 0;
+}
+
+/* Remove borders and backgrounds from the internal input primitives */
+.assistant-panel__composer-input :where(.outlined-field__outline, .outlined-field__outline-start, .outlined-field__outline-end, .outlined-field__outline-notch) {
+  display: none !important;
+}
+
+.assistant-panel__composer-input .outlined-field__control {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  min-height: unset !important;
+}
+
+.assistant-panel__composer-input input.text-input {
+  background: transparent !important;
+  border: none !important;
+  padding: 2px 0 !important;
+  font-size: 1rem !important;
+  height: auto !important;
+}
+
+.assistant-panel__composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.assistant-panel__composer-actions-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .assistant-panel__composer-submit {
   min-width: 0;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
-  margin-right: calc(var(--space-2) * -1);
+  margin: 0 !important; /* Reset previous negative margin */
 }
 
 .assistant-panel__composer-submit:disabled {
