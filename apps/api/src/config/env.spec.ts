@@ -104,4 +104,17 @@ describe('env config', () => {
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it('fails fast when the text-model env uses a Live or audio model', async () => {
+    process.env['GEMINI_TEXT_MODEL'] = 'models/gemini-2.0-flash-live-001';
+    process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
+
+    try {
+      await expect(import('./env')).rejects.toThrow(
+        'Invalid GEMINI_TEXT_MODEL: text mode cannot use Gemini Live or audio models',
+      );
+    } finally {
+      delete process.env['DOTENV_CONFIG_PATH'];
+    }
+  });
 });

@@ -49,7 +49,6 @@ export type LiveConfig = {
 type LiveConfigEnv = Partial<Record<
   | 'VITE_LIVE_MODEL'
   | 'VITE_LIVE_API_VERSION'
-  | 'VITE_LIVE_TEXT_RESPONSE_MODALITY'
   | 'VITE_LIVE_VOICE_RESPONSE_MODALITY'
   | 'VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION'
   | 'VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION'
@@ -83,13 +82,21 @@ export type GeminiLiveConnectConfig = {
     | undefined;
 };
 
-const DEFAULT_MODEL = 'models/gemini-2.0-flash-exp';
-const DEFAULT_API_VERSION: LiveApiVersion = 'v1alpha';
 const DEFAULT_MEDIA_RESOLUTION: LiveMediaResolution = 'MEDIA_RESOLUTION_LOW';
 const AUDIO_TRANSCRIPTION_DISABLED = false;
 
 function createConfigError(detail: string): Error {
   return new Error(`Invalid Live config: ${detail}`);
+}
+
+function requireEnvValue(value: string | undefined, envName: string, scope: string): string {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    throw createConfigError(`${envName} is required for ${scope}`);
+  }
+
+  return normalized;
 }
 
 function parseBooleanEnv(
@@ -192,16 +199,24 @@ export function resolveLiveConfigEnv(
   return {
     provider: LIVE_PROVIDER,
     adapterKey: LIVE_ADAPTER_KEY,
-    model: env.VITE_LIVE_MODEL?.trim() || DEFAULT_MODEL,
-    apiVersion: env.VITE_LIVE_API_VERSION?.trim() || DEFAULT_API_VERSION,
+    model: requireEnvValue(env.VITE_LIVE_MODEL, 'VITE_LIVE_MODEL', 'speech mode'),
+    apiVersion: requireEnvValue(
+      env.VITE_LIVE_API_VERSION,
+      'VITE_LIVE_API_VERSION',
+      'speech mode',
+    ),
     sessionModes: {
       text: {
-        responseModality: env.VITE_LIVE_TEXT_RESPONSE_MODALITY?.trim() || 'TEXT',
+        responseModality: 'TEXT',
         inputAudioTranscription: AUDIO_TRANSCRIPTION_DISABLED,
         outputAudioTranscription: AUDIO_TRANSCRIPTION_DISABLED,
       },
       voice: {
-        responseModality: env.VITE_LIVE_VOICE_RESPONSE_MODALITY?.trim() || 'AUDIO',
+        responseModality: requireEnvValue(
+          env.VITE_LIVE_VOICE_RESPONSE_MODALITY,
+          'VITE_LIVE_VOICE_RESPONSE_MODALITY',
+          'speech mode',
+        ),
         inputAudioTranscription: parseBooleanEnv(
           env.VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION,
           'VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION',
@@ -246,6 +261,12 @@ export function parseLiveConfig(rawConfig: Partial<RawLiveConfig>): LiveConfig {
   }
 
   const apiVersion = parseApiVersion(rawConfig.apiVersion ?? '');
+  if (apiVersion !== 'v1alpha') {
+    throw createConfigError(
+      'speech mode requires VITE_LIVE_API_VERSION to be "v1alpha" for ephemeral tokens',
+    );
+  }
+
   const sessionModes = rawConfig.sessionModes;
 
   if (!sessionModes) {
