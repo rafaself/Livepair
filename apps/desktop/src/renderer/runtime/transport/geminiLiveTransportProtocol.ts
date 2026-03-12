@@ -71,6 +71,9 @@ export function normalizeToolCalls(message: GeminiLiveSdkServerMessage): VoiceTo
   }));
 }
 
+// Intentionally uses a for-of loop rather than String.fromCharCode(...chunk).
+// The spread form can overflow the call stack for large typed arrays; the loop
+// is safe for any chunk size and is sufficient for the small PCM frames used here.
 export function encodeChunkToBase64(chunk: Uint8Array): string {
   let binary = '';
 
