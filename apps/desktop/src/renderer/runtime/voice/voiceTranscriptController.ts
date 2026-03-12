@@ -93,7 +93,12 @@ export function createVoiceTranscriptController(
 
     conversationCtx.hasQueuedMixedModeAssistantReply = false;
     conversationCtx.currentVoiceAssistantTurnId = null;
-    conversationCtx.currentVoiceUserTurnId = null;
+
+    const activeUserTurn = currentUserTurn();
+    if (!activeUserTurn || activeUserTurn.state !== 'streaming') {
+      conversationCtx.currentVoiceUserTurnId = null;
+    }
+
     settledTurnReason = null;
     store.getState().setCurrentVoiceTranscriptEntry('assistant', {
       text: '',
