@@ -117,6 +117,9 @@ export function createDesktopSessionController(
   let setVoiceErrorState = (_detail: string): void => {
     throw new Error('setVoiceErrorState called before initialization');
   };
+  let settleVoiceErrorState = async (_detail: string): Promise<void> => {
+    throw new Error('settleVoiceErrorState called before initialization');
+  };
   const voiceToolCtrl = createVoiceToolController(
     dependencies.store,
     () => activeTransport,
@@ -420,8 +423,8 @@ export function createDesktopSessionController(
       preserveDiagnostics?: boolean;
       uploadStatus?: 'idle' | 'error';
     } = {},
-  ): void => {
-    screenCtrl.stopInternal(options);
+  ): Promise<void> => {
+    return screenCtrl.stopInternal(options);
   };
 
   const handleVoiceInterruption = (): void => {
@@ -475,9 +478,7 @@ export function createDesktopSessionController(
     setVoiceToolStateSnapshot: (value) => {
       dependencies.store.getState().setVoiceToolState(value);
     },
-    stopScreenCaptureInternal: () => {
-      stopScreenCaptureInternal();
-    },
+    stopScreenCaptureInternal: () => stopScreenCaptureInternal(),
     stopVoiceCapture: async () => {
       await voiceChunkCtrl.flush();
     },
@@ -549,9 +550,7 @@ export function createDesktopSessionController(
       unsubscribeTransport = transport.subscribe(handleTransportEvent);
     },
     startVoiceCapture: () => voiceChunkCtrl.startCapture({ shutdownOnFailure: true }),
-    setVoiceErrorState: (detail) => {
-      setVoiceErrorState(detail);
-    },
+    setVoiceErrorState: (detail) => settleVoiceErrorState(detail),
     checkBackendHealth: () => dependencies.checkBackendHealth(),
     textBootstrapStarted: () => {
       textChatCtrl.applyLifecycleEvent({ type: 'bootstrap.started' });
@@ -618,7 +617,7 @@ export function createDesktopSessionController(
       recordSessionEvent({ type: 'session.ended' });
     }
   };
-  ({ setErrorState, setVoiceErrorState } = createSessionControllerErrorHandling({
+  ({ setErrorState, setVoiceErrorState, settleVoiceErrorState } = createSessionControllerErrorHandling({
     clearToken: () => {
       tokenMgr.clear();
     },

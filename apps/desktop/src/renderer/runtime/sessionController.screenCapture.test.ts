@@ -55,6 +55,29 @@ describe('createDesktopSessionController – screen capture', () => {
     });
   });
 
+  it('keeps screen capture manual-only when speech mode starts', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(screenCapture.start).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
+  });
+
   it('rejects startScreenCapture when not in an active voice session', async () => {
     const screenCapture = createScreenCaptureHarness();
     const controller = createDesktopSessionController({
@@ -101,6 +124,39 @@ describe('createDesktopSessionController – screen capture', () => {
 
     expect(screenCapture.stop).toHaveBeenCalledOnce();
     expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
+  });
+
+  it('supports repeated manual screen toggles without breaking the voice session', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.startScreenCapture();
+    await controller.stopScreenCapture();
+    await controller.startScreenCapture();
+
+    screenCapture.emitFrame({ sequence: 2 });
+
+    await vi.waitFor(() => {
+      expect(screenCapture.start).toHaveBeenCalledTimes(2);
+      expect(screenCapture.stop).toHaveBeenCalledTimes(1);
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(1);
+      expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+      expect(useSessionStore.getState().screenCaptureState).toBe('streaming');
+    });
   });
 
   it('stops screen capture automatically when the session ends', async () => {
@@ -231,6 +287,37 @@ describe('createDesktopSessionController – screen capture', () => {
         'frame upload failed',
       );
     });
+  });
+
+  it('keeps the speech session usable after screen upload failures', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    voiceTransport.sendVideoFrame.mockRejectedValueOnce(new Error('frame upload failed'));
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.startScreenCapture();
+    screenCapture.emitFrame();
+
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState().screenCaptureState).toBe('error');
+    });
+
+    await expect(controller.submitTextTurn('screen toggle recovery check')).resolves.toBe(true);
+    expect(voiceTransport.sendText).toHaveBeenCalledWith('screen toggle recovery check');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
   });
 
   it('does not send frames via transport after stopScreenCapture', async () => {

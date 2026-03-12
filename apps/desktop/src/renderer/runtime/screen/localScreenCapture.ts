@@ -104,6 +104,7 @@ export function createLocalScreenCapture(
   }: CreateLocalScreenCaptureDependencies = {},
 ): LocalScreenCapture {
   let isCapturing = false;
+  let isStarting = false;
   let sequence = 0;
   let stream: MediaStream | null = null;
   let stopInterval: (() => void) | null = null;
@@ -111,6 +112,8 @@ export function createLocalScreenCapture(
   let canvas: CanvasLike | null = null;
   let trackEndedListener: (() => void) | null = null;
   let activeTrack: TrackLike | null = null;
+  let pendingStart: Promise<void> | null = null;
+  let stopRequested = false;
 
   function releaseResources(): void {
     if (stopInterval) {
@@ -124,7 +127,11 @@ export function createLocalScreenCapture(
       videoEl = null;
     }
 
-    canvas = null;
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+      canvas = null;
+    }
 
     if (activeTrack && trackEndedListener) {
       activeTrack.removeEventListener('ended', trackEndedListener);
@@ -193,118 +200,161 @@ export function createLocalScreenCapture(
     jpegQuality?: number;
     maxWidthPx?: number;
   } = {}): Promise<void> => {
-    if (isCapturing) {
+    if (isCapturing || isStarting) {
       throw new Error('Screen capture is already active');
     }
 
-    const frameRateHz = Math.min(options.frameRateHz ?? SCREEN_CAPTURE_FRAME_RATE_HZ, 2);
-    const jpegQuality = options.jpegQuality ?? SCREEN_CAPTURE_JPEG_QUALITY;
-    const maxWidthPx = options.maxWidthPx ?? SCREEN_CAPTURE_MAX_WIDTH_PX;
-    const intervalMs = Math.round(1000 / frameRateHz);
+    isStarting = true;
+    stopRequested = false;
 
-    let capturedStream: MediaStream;
+    pendingStart = (async () => {
+      const requestedFrameRateHz = options.frameRateHz ?? SCREEN_CAPTURE_FRAME_RATE_HZ;
+      const frameRateHz =
+        Number.isFinite(requestedFrameRateHz) && requestedFrameRateHz > 0
+          ? Math.min(requestedFrameRateHz, 2)
+          : SCREEN_CAPTURE_FRAME_RATE_HZ;
+      const jpegQuality = options.jpegQuality ?? SCREEN_CAPTURE_JPEG_QUALITY;
+      const maxWidthPx = options.maxWidthPx ?? SCREEN_CAPTURE_MAX_WIDTH_PX;
+      const intervalMs = Math.round(1000 / frameRateHz);
 
-    try {
-      capturedStream = await getDisplayMedia();
-    } catch (error: unknown) {
-      const isPermissionDenied =
-        error instanceof Error &&
-        (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError');
-      const detail = isPermissionDenied
-        ? 'Screen capture permission was denied'
-        : error instanceof Error && error.message.length > 0
-          ? error.message
-          : 'Screen capture failed';
-      observer.onError(detail);
-      throw new Error(detail);
-    }
+      let capturedStream: MediaStream;
 
-    stream = capturedStream;
-    isCapturing = true;
+      try {
+        capturedStream = await getDisplayMedia();
+      } catch (error: unknown) {
+        const isPermissionDenied =
+          error instanceof Error &&
+          (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError');
+        const detail = isPermissionDenied
+          ? 'Screen capture permission was denied'
+          : error instanceof Error && error.message.length > 0
+            ? error.message
+            : 'Screen capture failed';
+        observer.onError(detail);
+        throw new Error(detail);
+      }
 
-    const video = createVideoElement();
-    video.srcObject = capturedStream;
-    videoEl = video;
+      if (stopRequested) {
+        for (const track of capturedStream.getTracks()) {
+          track.stop();
+        }
+        return;
+      }
 
-    const cvs = createCanvas();
-    canvas = cvs;
+      stream = capturedStream;
+      isCapturing = true;
 
-    const tracks = capturedStream.getTracks() as TrackLike[];
-    const videoTrack = tracks[0] ?? null;
+      const video = createVideoElement();
+      video.srcObject = capturedStream;
+      videoEl = video;
 
-    if (videoTrack) {
-      activeTrack = videoTrack;
-      trackEndedListener = () => {
-        if (!isCapturing) {
+      const cvs = createCanvas();
+      canvas = cvs;
+
+      const tracks = capturedStream.getTracks() as TrackLike[];
+      const videoTrack = tracks[0] ?? null;
+
+      if (videoTrack) {
+        activeTrack = videoTrack;
+        trackEndedListener = () => {
+          if (!isCapturing) {
+            return;
+          }
+
+          isCapturing = false;
+          releaseResources();
+          observer.onError('Screen capture source ended unexpectedly');
+        };
+        videoTrack.addEventListener('ended', trackEndedListener);
+      }
+
+      try {
+        await video.play();
+      } catch {
+        isCapturing = false;
+        releaseResources();
+        observer.onError('Screen capture video playback failed');
+        throw new Error('Screen capture video playback failed');
+      }
+
+      if (stopRequested) {
+        isCapturing = false;
+        releaseResources();
+        return;
+      }
+
+      observer.onDiagnostics({
+        captureSource: videoTrack?.label || null,
+        frameRateHz,
+        frameCount: 0,
+        widthPx: null,
+        heightPx: null,
+        lastFrameAt: null,
+        lastUploadStatus: 'idle',
+        lastError: null,
+      });
+
+      stopInterval = createInterval(() => {
+        if (!isCapturing || !videoEl || !canvas) {
           return;
         }
 
-        isCapturing = false;
-        releaseResources();
-        observer.onError('Screen capture source ended unexpectedly');
-      };
-      videoTrack.addEventListener('ended', trackEndedListener);
-    }
+        const vw = videoEl.videoWidth;
+        const vh = videoEl.videoHeight;
+
+        if (vw === 0 || vh === 0) {
+          return;
+        }
+
+        const targetWidth = Math.min(vw, maxWidthPx);
+        const targetHeight = Math.round((vh / vw) * targetWidth);
+
+        if (targetWidth !== canvas.width || targetHeight !== canvas.height) {
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+        }
+
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          return;
+        }
+
+        ctx.drawImage(videoEl as unknown as HTMLVideoElement, 0, 0, targetWidth, targetHeight);
+        captureFrame(videoEl, canvas, jpegQuality);
+      }, intervalMs);
+    })();
 
     try {
-      await video.play();
-    } catch {
-      isCapturing = false;
-      releaseResources();
-      observer.onError('Screen capture video playback failed');
-      throw new Error('Screen capture video playback failed');
+      await pendingStart;
+    } finally {
+      isStarting = false;
+      pendingStart = null;
     }
-
-    observer.onDiagnostics({
-      captureSource: videoTrack?.label || null,
-      frameRateHz,
-      frameCount: 0,
-      widthPx: null,
-      heightPx: null,
-      lastFrameAt: null,
-      lastUploadStatus: 'idle',
-      lastError: null,
-    });
-
-    stopInterval = createInterval(() => {
-      if (!isCapturing || !videoEl || !canvas) {
-        return;
-      }
-
-      const vw = videoEl.videoWidth;
-      const vh = videoEl.videoHeight;
-
-      if (vw === 0 || vh === 0) {
-        return;
-      }
-
-      const targetWidth = Math.min(vw, maxWidthPx);
-      const targetHeight = Math.round((vh / vw) * targetWidth);
-
-      if (targetWidth !== canvas.width || targetHeight !== canvas.height) {
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-      }
-
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) {
-        return;
-      }
-
-      ctx.drawImage(videoEl as unknown as HTMLVideoElement, 0, 0, targetWidth, targetHeight);
-      captureFrame(videoEl, canvas, jpegQuality);
-    }, intervalMs);
   };
 
   const stop = async (): Promise<void> => {
+    stopRequested = true;
+
+    if (pendingStart) {
+      try {
+        await pendingStart;
+      } catch {
+        // Startup failures have already been reported through the observer.
+      }
+    }
+
     if (!isCapturing) {
+      releaseResources();
+      sequence = 0;
+      stopRequested = false;
       return;
     }
 
     isCapturing = false;
     releaseResources();
     sequence = 0;
+    stopRequested = false;
   };
 
   return { start, stop };

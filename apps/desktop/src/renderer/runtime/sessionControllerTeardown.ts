@@ -30,7 +30,7 @@ type SessionControllerTeardownArgs = {
   setVoiceSessionResumption: (value: ReturnType<SessionStoreApi['getState']>['voiceSessionResumption']) => void;
   setVoiceSessionStatus: (status: 'disconnected' | 'stopping') => void;
   setVoiceToolStateSnapshot: (value: ReturnType<SessionStoreApi['getState']>['voiceToolState']) => void;
-  stopScreenCaptureInternal: () => void;
+  stopScreenCaptureInternal: () => Promise<void>;
   stopVoiceCapture: () => Promise<void>;
   stopVoicePlayback: () => Promise<void>;
   textDisconnectRequested: () => void;
@@ -178,7 +178,7 @@ export function createSessionControllerTeardown({
         await getVoiceCapture().stop();
       }
 
-      stopScreenCaptureInternal();
+      await stopScreenCaptureInternal();
       await getActiveTransport()?.disconnect();
       await stopVoicePlayback();
     } finally {
