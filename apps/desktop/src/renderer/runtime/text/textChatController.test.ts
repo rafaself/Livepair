@@ -263,7 +263,7 @@ describe('createTextChatController', () => {
 
       controller.resetRuntime();
 
-      expect(ops._storeState.resetTextSessionRuntime).toHaveBeenCalledWith('idle');
+      expect(ops._storeState.resetTextSessionRuntime).toHaveBeenCalledWith('idle', undefined);
     });
 
     it('accepts a custom text session status', () => {
@@ -272,7 +272,7 @@ describe('createTextChatController', () => {
 
       controller.resetRuntime('disconnected' as never);
 
-      expect(ops._storeState.resetTextSessionRuntime).toHaveBeenCalledWith('disconnected');
+      expect(ops._storeState.resetTextSessionRuntime).toHaveBeenCalledWith('disconnected', undefined);
     });
   });
 });
