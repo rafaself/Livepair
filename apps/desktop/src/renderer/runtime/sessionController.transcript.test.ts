@@ -717,4 +717,60 @@ describe('createDesktopSessionController – transcript', () => {
       },
     });
   });
+
+  it('keeps a typed speech-mode follow-up below earlier history and above its assistant reply', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Earlier spoken request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Earlier spoken reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await expect(controller.submitTextTurn('Typed follow-up')).resolves.toBe(true);
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Typed follow-up reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'Earlier spoken request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Earlier spoken reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        role: 'user',
+        content: 'Typed follow-up',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Typed follow-up reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+    ]);
+  });
 });
