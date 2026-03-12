@@ -238,4 +238,39 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('disconnected');
     expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
   });
+
+  it('sets the assistant debug state and records the matching session event', () => {
+    const logger: RuntimeLogger = {
+      onSessionEvent: vi.fn(),
+      onTransportEvent: vi.fn(),
+    };
+    const controller = createDesktopSessionController({
+      logger,
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+    });
+
+    controller.setAssistantState('thinking');
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        assistantActivity: 'thinking',
+        textSessionLifecycle: expect.objectContaining({
+          status: 'connecting',
+        }),
+        lastRuntimeError: null,
+        lastDebugEvent: expect.objectContaining({
+          scope: 'session',
+          type: 'session.debug.state.set',
+          detail: 'thinking',
+        }),
+      }),
+    );
+    expect(logger.onSessionEvent).toHaveBeenCalledWith({
+      type: 'session.debug.state.set',
+      detail: 'thinking',
+    });
+  });
 });
