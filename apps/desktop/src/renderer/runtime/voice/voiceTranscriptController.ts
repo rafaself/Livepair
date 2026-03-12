@@ -52,21 +52,13 @@ export function createVoiceTranscriptController(
     const previous = previousText.trim();
     const incoming = incomingText.trim();
 
-    if (previous.length === 0) {
-      return incoming.length === 0;
-    }
-
+    // Empty incoming updates (e.g. transcript reset signals) never start a new turn.
     if (incoming.length === 0) {
       return true;
     }
 
-    return (
-      previous === incoming ||
-      previous.startsWith(incoming) ||
-      incoming.startsWith(previous) ||
-      previous.includes(incoming) ||
-      incoming.includes(previous)
-    );
+    // Only exact matches are corrections; any other text is a new utterance.
+    return previous === incoming;
   };
 
   const applyTranscriptUpdate = (

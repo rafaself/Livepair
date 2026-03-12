@@ -108,7 +108,7 @@ describe('createVoiceTranscriptController', () => {
     ]);
   });
 
-  it('keeps corrective transcript updates on the same completed user bubble until the next distinct turn', () => {
+  it('starts a new turn when incoming text extends the previous finalized text', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
@@ -119,8 +119,52 @@ describe('createVoiceTranscriptController', () => {
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         id: 'user-turn-1',
-        content: 'hello there again',
+        content: 'hello there',
         state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-2',
+        content: 'hello there again',
+        state: 'streaming',
+      }),
+    ]);
+  });
+
+  it('reuses the same bubble when an exact duplicate final arrives after completion', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.applyTranscriptUpdate('user', 'hello there', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
+    ctrl.applyTranscriptUpdate('user', 'hello there', true);
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'hello there',
+        state: 'complete',
+      }),
+    ]);
+  });
+
+  it('splits a new turn when incoming text shares a prefix with the finalized turn', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.applyTranscriptUpdate('user', 'hello', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
+    ctrl.applyTranscriptUpdate('user', 'hello again');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'hello',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-2',
+        content: 'hello again',
+        state: 'streaming',
       }),
     ]);
   });
@@ -162,6 +206,28 @@ describe('createVoiceTranscriptController', () => {
         state: 'complete',
         statusLabel: 'Interrupted',
         source: 'voice',
+      }),
+    ]);
+  });
+
+  it('splits a new turn when incoming text is a substring of the finalized turn', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.applyTranscriptUpdate('user', 'hello there', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
+    ctrl.applyTranscriptUpdate('user', 'hello');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'hello there',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-2',
+        content: 'hello',
+        state: 'streaming',
       }),
     ]);
   });
