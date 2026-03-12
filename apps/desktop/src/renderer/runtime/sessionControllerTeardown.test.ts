@@ -21,6 +21,8 @@ function createMockStore(overrides: Record<string, unknown> = {}) {
 
 function createMockArgs(storeOverrides: Record<string, unknown> = {}) {
   const store = createMockStore(storeOverrides);
+  let resolveScreenStop: (() => void) | null = null;
+  let deferScreenStop = false;
   return {
     store: store as never,
     currentSpeechLifecycleStatus: vi.fn().mockReturnValue('off'),
@@ -47,10 +49,25 @@ function createMockArgs(storeOverrides: Record<string, unknown> = {}) {
     setVoiceSessionResumption: vi.fn(),
     setVoiceSessionStatus: vi.fn(),
     setVoiceToolStateSnapshot: vi.fn(),
-    stopScreenCaptureInternal: vi.fn(),
+    stopScreenCaptureInternal: vi.fn().mockImplementation(() => {
+      if (!deferScreenStop) {
+        return Promise.resolve();
+      }
+
+      return new Promise<void>((resolve) => {
+        resolveScreenStop = resolve;
+      });
+    }),
     stopVoiceCapture: vi.fn().mockResolvedValue(undefined),
     stopVoicePlayback: vi.fn().mockResolvedValue(undefined),
     textDisconnectRequested: vi.fn(),
+    enableDeferredScreenStop: () => {
+      deferScreenStop = true;
+    },
+    resolveScreenStop: () => {
+      resolveScreenStop?.();
+      resolveScreenStop = null;
+    },
     _store: store,
   };
 }
@@ -206,6 +223,28 @@ describe('createSessionControllerTeardown', () => {
       expect(args.stopScreenCaptureInternal).toHaveBeenCalledTimes(1);
       expect(disconnect).toHaveBeenCalledTimes(1);
       expect(args.stopVoicePlayback).toHaveBeenCalledTimes(1);
+    });
+
+    it('awaits screen capture cleanup before disconnecting the transport', async () => {
+      const disconnect = vi.fn().mockResolvedValue(undefined);
+      const args = createMockArgs({ voiceCaptureState: 'capturing' });
+      args.getActiveTransport.mockReturnValue({ kind: 'gemini-live', disconnect });
+      args.hasVoiceCapture.mockReturnValue(true);
+      args.hasScreenCapture.mockReturnValue(true);
+      args.hasVoicePlayback.mockReturnValue(true);
+      args.enableDeferredScreenStop();
+      const { teardownActiveRuntime } = createSessionControllerTeardown(args as never);
+
+      const teardownPromise = teardownActiveRuntime();
+      await vi.waitFor(() => {
+        expect(args.stopScreenCaptureInternal).toHaveBeenCalledTimes(1);
+      });
+      expect(disconnect).not.toHaveBeenCalled();
+
+      args.resolveScreenStop();
+      await teardownPromise;
+
+      expect(disconnect).toHaveBeenCalledTimes(1);
     });
 
     it('fires text disconnect when text stream is active', async () => {

@@ -78,6 +78,7 @@ function createHarness(opts: {
   video: VideoMock;
   tickInterval: () => void;
   getDisplayMedia: ReturnType<typeof vi.fn>;
+  createInterval: ReturnType<typeof vi.fn>;
 } {
   const obs = createObserver();
   const track = createTrack();
@@ -140,6 +141,7 @@ function createHarness(opts: {
       intervalCallback?.();
     },
     getDisplayMedia,
+    createInterval,
   };
 }
 
@@ -209,12 +211,62 @@ describe('createLocalScreenCapture', () => {
       await expect(capture.start({})).rejects.toThrow('Screen capture is already active');
     });
 
+    it('treats startup as active until a pending stop finishes', async () => {
+      let resolveDisplayMedia!: (stream: MediaStream) => void;
+      let displayMediaCallCount = 0;
+      const track = createTrack();
+      const fakeStream = {
+        getTracks: () => [track as unknown as MediaStreamTrack],
+      } as unknown as MediaStream;
+      const { capture, video } = createHarness({
+        getDisplayMediaImpl: () =>
+          new Promise<MediaStream>((resolve) => {
+            if (displayMediaCallCount === 0) {
+              resolveDisplayMedia = resolve;
+            } else {
+              resolve(fakeStream);
+            }
+            displayMediaCallCount += 1;
+          }),
+      });
+
+      const startPromise = capture.start({});
+      const stopPromise = capture.stop();
+      resolveDisplayMedia(fakeStream);
+
+      await Promise.all([startPromise, stopPromise]);
+
+      expect(track.stop).toHaveBeenCalledOnce();
+      expect(video.play).not.toHaveBeenCalled();
+      await expect(capture.start({})).resolves.toBeUndefined();
+    });
+
     it('caps frameRateHz to 2', async () => {
-      const { capture, obs } = createHarness();
+      const { capture, obs, createInterval } = createHarness();
       await capture.start({ frameRateHz: 10 });
       expect(obs.onDiagnostics).toHaveBeenCalledWith(
         expect.objectContaining({ frameRateHz: 2 }),
       );
+      expect(createInterval).toHaveBeenCalledWith(expect.any(Function), 500);
+    });
+
+    it('defaults frame cadence to one frame per second', async () => {
+      const { capture, createInterval } = createHarness();
+
+      await capture.start({});
+
+      expect(createInterval).toHaveBeenCalledWith(expect.any(Function), 1000);
+    });
+
+    it('clamps invalid frameRateHz values to the default cadence', async () => {
+      const { capture, obs, createInterval } = createHarness();
+
+      await capture.start({ frameRateHz: 0 });
+
+      expect(obs.onDiagnostics).toHaveBeenCalledWith(
+        expect.objectContaining({ frameRateHz: 1 }),
+      );
+      expect(createInterval).toHaveBeenCalledWith(expect.any(Function), 1000);
     });
   });
 
@@ -292,6 +344,20 @@ describe('createLocalScreenCapture', () => {
       await capture.stop();
       tickInterval();
       expect(obs.onFrame).not.toHaveBeenCalled();
+    });
+
+    it('releases the video element and canvas on stop()', async () => {
+      const { capture, video, canvas } = createHarness();
+
+      await capture.start({});
+      canvas.width = 640;
+      canvas.height = 360;
+      await capture.stop();
+
+      expect(video.pause).toHaveBeenCalledOnce();
+      expect(video.srcObject).toBeNull();
+      expect(canvas.width).toBe(0);
+      expect(canvas.height).toBe(0);
     });
 
     it('is a no-op if not capturing', async () => {

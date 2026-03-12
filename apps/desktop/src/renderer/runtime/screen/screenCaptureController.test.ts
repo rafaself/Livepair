@@ -24,9 +24,19 @@ function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; scree
   };
 
   let capturedObserver: LocalScreenCaptureObserver | null = null;
+  let resolveStop: (() => void) | null = null;
+  let deferStop = false;
   const mockCapture = {
     start: vi.fn(() => Promise.resolve()),
-    stop: vi.fn(() => Promise.resolve()),
+    stop: vi.fn(() => {
+      if (!deferStop) {
+        return Promise.resolve();
+      }
+
+      return new Promise<void>((resolve) => {
+        resolveStop = resolve;
+      });
+    }),
   };
   const createCapture = vi.fn((observer: LocalScreenCaptureObserver) => {
     capturedObserver = observer;
@@ -49,6 +59,11 @@ function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; scree
     setTransport: (t: DesktopSession | null) => { currentTransport = t; },
     setVoiceStatus: (s: VoiceSessionStatus) => { currentVoiceStatus = s; },
     setScreenState: (s: ScreenCaptureState) => { currentScreenState = s; },
+    enableDeferredStop: () => { deferStop = true; },
+    resolveStop: () => {
+      resolveStop?.();
+      resolveStop = null;
+    },
   };
 }
 
@@ -122,6 +137,26 @@ describe('createScreenCaptureController', () => {
 
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('stopping');
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('disabled');
+  });
+
+  it('start waits for an in-flight stop before creating a new capture', async () => {
+    const { ctrl, createCapture, enableDeferredStop, resolveStop } = createHarness();
+
+    await ctrl.start();
+    enableDeferredStop();
+    const stopPromise = ctrl.stop();
+    await Promise.resolve();
+
+    const restartPromise = ctrl.start();
+    await Promise.resolve();
+
+    expect(createCapture).toHaveBeenCalledTimes(1);
+
+    resolveStop();
+    await stopPromise;
+    await restartPromise;
+
+    expect(createCapture).toHaveBeenCalledTimes(2);
   });
 
   it('stop is no-op when already disabled', async () => {
@@ -246,6 +281,83 @@ describe('createScreenCaptureController', () => {
         ([patch]) => patch.lastUploadStatus === 'sent',
       ),
     ).toHaveLength(0);
+  });
+
+  it('ignores stale send failures after capture stops', async () => {
+    const { ctrl, sendVideoFrame, store } = createHarness();
+    let rejectSend!: (error: Error) => void;
+    let firstSendStarted = false;
+    sendVideoFrame.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          firstSendStarted = true;
+          rejectSend = reject;
+        }),
+    );
+
+    await ctrl.start();
+    const sendPromise = ctrl.enqueueFrameSend({
+      data: new Uint8Array([1]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 320,
+      heightPx: 240,
+    });
+
+    await vi.waitFor(() => {
+      expect(firstSendStarted).toBe(true);
+    });
+    await ctrl.stop();
+    rejectSend(new Error('frame upload failed after stop'));
+    await sendPromise;
+
+    expect(
+      store.setScreenCaptureState.mock.calls.some(([state]) => state === 'error'),
+    ).toBe(false);
+    expect(store.setLastRuntimeError).not.toHaveBeenCalledWith(
+      'frame upload failed after stop',
+    );
+  });
+
+  it('resets the send chain when capture is toggled off and back on', async () => {
+    const { ctrl, sendVideoFrame } = createHarness();
+    let firstSendStarted = false;
+    sendVideoFrame
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>(() => {
+            firstSendStarted = true;
+          }),
+      )
+      .mockResolvedValueOnce(undefined);
+
+    await ctrl.start();
+    void ctrl.enqueueFrameSend({
+      data: new Uint8Array([1]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 320,
+      heightPx: 240,
+    });
+    await vi.waitFor(() => {
+      expect(firstSendStarted).toBe(true);
+    });
+
+    await ctrl.stop();
+    await ctrl.start();
+    await ctrl.enqueueFrameSend({
+      data: new Uint8Array([2]),
+      mimeType: 'image/jpeg',
+      sequence: 2,
+      widthPx: 320,
+      heightPx: 240,
+    });
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(sendVideoFrame.mock.calls[1]).toEqual([
+      new Uint8Array([2]),
+      'image/jpeg',
+    ]);
   });
 
   it('enqueueFrameSend is no-op without active capture', async () => {
