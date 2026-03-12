@@ -6,8 +6,10 @@ This file applies repository-wide. Subdirectories may add *only local deltas* vi
 ## Project Snapshot
 Livepair is an Electron + React desktop assistant with a small NestJS backend.
 
-- **Realtime hot path:** desktop connects directly to Gemini Live (no backend proxy for audio/video).
-- **Backend role:** control-plane only (health, settings, ephemeral token issuance — currently stubbed — and small MVP support endpoints).
+- **Realtime hot path:** speech mode connects directly from the desktop to Gemini Live (no backend proxy for audio/video).
+- **Backend role today:** control-plane plus backend-mediated text mode (`GET /health`, `POST /session/token`, `POST /session/chat`).
+- **Planned backend work:** checkpoint persistence, backend-backed tool endpoints, and error reporting are not implemented yet.
+- **Product model:** user-facing modes are `text` and `speech`; runtime transport terminology still uses `voice` for the Gemini Live session path.
 - **Shared contracts:** centralized in `packages/shared-types`.
 
 ## Non-Negotiables

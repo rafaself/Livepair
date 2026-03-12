@@ -1,7 +1,7 @@
 # apps/api AGENTS.md
 
 ## Purpose
-NestJS backend (control-plane). Stays out of the audio/video hot path.
+NestJS backend (control-plane plus backend-mediated text mode). Stays out of the audio/video hot path.
 
 ## Structure (Modular Monolith)
 - Current domains live in `src/health/`, `src/session/`, `src/config/`.

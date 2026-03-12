@@ -1,369 +1,261 @@
 # Architecture
 
+**Last updated:** 2026-03-11
+
+This document describes the current repository state. For milestone-by-milestone status, see [docs/MILESTONE_MATRIX.md](./MILESTONE_MATRIX.md).
+
 ## Status Legend
 
-- `Implemented today` means the behavior exists in the current repository.
-- `Planned target` means the behavior is part of the intended MVP architecture but is not fully implemented yet.
+- `Implemented`: present in the current repository
+- `Partial`: present in part, but significant follow-up remains
+- `Planned`: not implemented yet
 
-## Current Implementation Snapshot
+## 1. Product Model
 
-Implemented today:
+User-facing product modes:
 
-- Electron overlay shell and renderer UI
-- typed preload bridge and strict IPC boundary
-- backend health endpoint (`GET /health`)
-- real Gemini Live ephemeral token issuance (`POST /session/token`)
-- backend-mediated text chat streaming (`POST /session/chat`, NDJSON)
-- desktop settings persistence and overlay interaction behavior
-- desktop session controller orchestrating text + voice lifecycles
+- `text`
+- `speech`
+
+Internal runtime terminology:
+
+- `voice` is the transport/session term used for the Gemini Live speech-mode path
+- `currentMode` is the product-level source of truth for `text` vs `speech`
+- `speechLifecycle` is the product-level source of truth for speech-session state once speech mode is active
+
+Current behavior:
+
+- `text` mode is backend-mediated through `POST /session/chat` and Gemini text models.
+- `speech` mode requests an ephemeral token from `POST /session/token`, then connects directly from the desktop to Gemini Live.
+- Typed input remains usable while speech mode is active, but it travels over the active Live session rather than the backend text endpoint.
+
+## 2. Current Implementation Snapshot
+
+Implemented:
+
+- Electron overlay shell and React renderer
+- Typed preload bridge and strict IPC boundary
+- Desktop settings persistence and overlay interaction behavior
+- `GET /health`
+- `POST /session/token` with real Gemini Live ephemeral token issuance
+- `POST /session/chat` with backend-mediated NDJSON text streaming
+- Desktop session controller coordinating text and speech lifecycles
 - SDK-backed Gemini Live transport adapter
-- local microphone capture pipeline and assistant audio playback
-- local interruption / barge-in behavior (playback stop + recovery)
-- speech transcription event handling and transcript state wiring
-- manual screen-context capture (explicit start/stop) with frame upload via transport
-- session resumption/durability state (resume handles, token refresh, explicit failure paths)
-- mode/lifecycle exclusivity locks (S1 complete, S4 complete)
-- product state sources of truth: `currentMode` (mode) and `speechLifecycle` (speech-state)
+- Local microphone capture pipeline and assistant audio playback
+- Local interruption/barge-in behavior with playback stop and recovery
+- Input/output transcript handling and transcript state wiring
+- Manual screen-context capture with frame upload through the Live transport
+- Session resumption and token refresh handling for speech mode
+- S1 complete: mode exclusivity lock
+- S4 complete: speech lifecycle lock
 
-Planned target:
+Partial:
 
-- session checkpoint persistence + restore
-- backend tool and error-report endpoints beyond the current health/token path
+- Screen context is implemented only as manual start/stop capture during an active speech session
+- Operational hardening exists for token refresh, session resumption, and degraded-state handling, but backend error reporting is not implemented
+- Voice-mode tool handling exists only for narrow local inspection tools
 
-## 1. System Overview
+Planned:
 
-This project implements a desktop real-time multimodal AI assistant. The application enables natural interaction through voice and screen context using a persistent streaming session with Gemini Live API.
+- Backend checkpoint persistence and restore flow
+- Backend-backed tool endpoints
+- Backend error-report endpoint
+- Adaptive screen-context policy, guardrails, and HD screenshot flow
 
-Primary capabilities:
+## 3. System Context
 
-* Real-time voice conversation
-* Interruptible responses
-* Screen-aware assistance
-* Low latency multimodal interaction
+Actors and systems:
 
-The system is composed of a desktop client responsible for real-time media processing and a backend API responsible for control-plane operations such as token issuance, tools, and session persistence.
+- User
+- Desktop client
+- Backend API
+- Gemini text model path
+- Gemini Live API
+- Redis session store (`Planned`)
 
----
+High-level interaction paths:
 
-## 2. System Context
+- `text` mode: User -> Desktop client -> Backend API (`POST /session/chat`) -> Gemini text model
+- `speech` mode: User -> Desktop client -> Backend API (`POST /session/token`) -> Desktop client -> Gemini Live API
 
-Actors and external systems:
+Important boundary:
 
-* User (desktop interaction)
-* Gemini Live API
-* Backend API (NestJS)
-* Redis session store (`Planned target`)
+- The backend stays out of the audio/video hot path.
+- The backend is not token-only anymore because it also mediates text-mode chat.
 
-High-level interaction:
+## 4. Component Responsibilities
 
-User → Desktop Client → Gemini Live API
-User → Desktop Client → Backend API → Redis
+### Desktop Client
 
-The client communicates directly with Gemini for real-time audio and vision streaming while the backend manages secure operations and persistence.
+Implemented:
 
----
+- Render the assistant UI
+- Hold product state and runtime diagnostics
+- Start and end `text` and `speech` sessions
+- Capture microphone audio for speech mode
+- Play assistant audio for speech mode
+- Detect interruption locally
+- Send manual screen frames during an active speech session
+- Execute narrow local voice tools
 
-## 3. High-Level Architecture
+Planned:
 
-Major components:
+- Broader backend-backed tool execution
+- Checkpoint save/restore integration
+- Adaptive screen capture policy
 
-### Desktop Client (Electron + React)
+### Backend API
 
-Responsibilities:
+Implemented:
 
-* User interface (`Implemented today`)
-* Audio capture and playback (`Implemented today`)
-* Screen capture pipeline (`Implemented today`, manual start/stop; adaptive policy is a `Planned target`)
-* Session orchestration (`Implemented today`)
-* LLM transport adapter (`Implemented today`)
+- Health endpoint
+- Gemini Live ephemeral token issuance
+- Backend-mediated text chat streaming
 
-Internal modules:
+Planned:
 
-* UI Layer (`Implemented today`)
-* Audio Pipeline (`Implemented today`)
-* Vision Pipeline (`Implemented today`, manual capture; adaptive streaming is a `Planned target`)
-* Session Controller (`Implemented today`)
-* LLM Transport Adapter (`Implemented today`)
-* Tool Bridge (`Implemented today` for typed IPC/preload boundaries; backend tool endpoints are a `Planned target`)
+- Session checkpoint persistence
+- Backend-backed tool endpoints
+- Error-reporting endpoint
 
-### Backend API (NestJS)
+### External Services
 
-Responsibilities:
+Implemented:
 
-* Ephemeral token generation (`Implemented today` as a real provider path)
-* Text chat streaming (`Implemented today`)
-* Tool execution (`Planned target`)
-* Session checkpoint persistence (`Planned target`)
-* Logging and analytics (`Planned target`)
+- Gemini Live API for speech mode
+- Gemini text models for text mode
 
-### Redis
+Planned:
 
-Responsibilities:
+- Redis-backed checkpoint/session store
 
-* Session state storage (`Planned target`)
-* Context checkpointing (`Planned target`)
+## 5. Runtime Flows
 
-### Gemini Live API
+### Text Mode
 
-Responsibilities:
+1. The desktop starts a request to `POST /session/chat`.
+2. The backend forwards the request to the configured Gemini text model.
+3. The backend streams NDJSON events back to the desktop.
+4. The desktop updates conversation state and text-session lifecycle.
 
-* Multimodal inference
-* Streaming conversation
-* Tool invocation
+### Speech Mode
 
----
+1. The desktop requests an ephemeral token from `POST /session/token`.
+2. The backend returns a short-lived Gemini Live token.
+3. The desktop opens a Gemini Live session directly.
+4. The desktop streams microphone audio.
+5. The desktop can optionally stream manual screen frames.
+6. The model returns assistant audio, transcript events, tool requests, and connection events.
+7. Local interruption handling stops playback and returns the speech lifecycle toward listening/recovery.
 
-## 4. Runtime Flows
+### Screen Context
 
-### Session Initialization
+Implemented:
 
-1. Client starts application
-2. Client requests ephemeral session token
-3. Backend issues token
-4. Client opens WebSocket session with Gemini
+- Manual start/stop only
+- Active speech session required
+- Lightweight JPEG frames at conservative settings
 
-Product state rules:
+Planned:
 
-- `currentMode` is the product-level mode source of truth
-- `speechLifecycle` is the product-level speech-state source of truth
-
-Mode/lifecycle safety:
-
-- S1: mode exclusivity lock is complete (no overlapping product-level mode transitions)
-- S4: speech lifecycle lock is complete (no overlapping speech lifecycle transitions)
-
-### Text Mode Flow (backend-mediated)
-
-Desktop client → Backend (`POST /session/chat`, NDJSON) → Gemini text model → Backend stream → Desktop UI
-
-### Audio Interaction Flow
-
-Microphone capture → VAD detection → PCM chunk generation → Gemini Live API → Response audio → Client playback
-
-Interruption behavior:
-
-User speech detected → Interrupt event → Stop assistant playback → Resume listening
-
-### Vision Flow
-
-Screen capture → Frame resize → JPEG compression → Frame stream → Gemini
-
-Adaptive mode increases frame rate temporarily when screen changes significantly (`Planned target`).
+- Adaptive capture boosts
+- Additional guardrails and tuning
+- HD screenshot tool path if needed
 
 ### Tool Invocation
 
-Gemini tool request → Client tool bridge → Backend tool endpoint → Result → Gemini
+Implemented:
 
----
+- Gemini tool requests can be handled locally in speech mode for a narrow inspection-only tool set
 
-## 5. Component Responsibilities
+Planned:
 
-### Session Controller
+- `model -> desktop -> backend endpoint -> response` for backend-backed tools such as screenshot capture
 
-Coordinates:
+### Recovery
 
-* WebSocket lifecycle
-* Audio pipeline
-* Vision pipeline
-* Tool calls
-* Session checkpoints
+Implemented:
 
-### Audio Pipeline
+- Speech-mode resumption uses the latest Gemini Live resumption handle when available
+- The desktop refreshes the token before resuming if the current token is near expiry
+- Explicit failure paths return the app to safe `text`/`off` states
 
-Handles:
+Planned:
 
-* Microphone capture
-* VAD detection
-* Audio encoding
-* Playback queue
+- Backend checkpoint save/load
+- Context reconstruction from persisted session state
 
-### Vision Pipeline
-
-Handles:
-
-* Desktop capture
-* Frame processing
-* Adaptive streaming
-
-### LLM Transport Adapter
-
-Abstracts communication with the external AI service.
-
-Responsibilities:
-
-* Session connection
-* Streaming input
-* Streaming output
-* Interrupt handling
-
-This layer isolates the application from model-specific APIs.
-
----
-
-## 6. Interface Contracts
+## 6. Interface Boundaries
 
 ### Backend Endpoints
 
-Implemented today:
+Implemented:
 
 - `GET /health`
-- `POST /session/token` (Gemini Live ephemeral token issuance)
-- `POST /session/chat` (Gemini text streaming via NDJSON)
+- `POST /session/token`
+- `POST /session/chat`
 
-Planned target:
+Planned:
 
 - `POST /session/checkpoint`
 - `POST /tool/screenshot-hd`
 - `POST /tool/visual-summary`
 - `POST /session/error`
 
-### LLM Transport Interface
+### Desktop Security Boundary
 
-connect()
-disconnect()
-sendAudioChunk()
-sendFrame()
-sendText()
-interrupt()
+Implemented:
 
-Event handlers:
+- Typed preload bridge
+- Strict IPC validation
+- `contextIsolation: true`
+- `nodeIntegration: false`
 
-onAudio()
-onText()
-onToolCall()
-onStateChange()
+Constraint:
 
----
+- Any new privileged capability must stay behind preload plus typed contracts.
 
-## 7. Session Data Model
+### Shared Contracts
 
-Stored in Redis:
+Implemented:
 
-session_id
-goal
-summary
-recent_turns
-last_visual_context
+- API payloads and shared types live in `packages/shared-types`
 
-Used for:
+Planned:
 
-* Session recovery
-* Context reconstruction
+- Checkpoint payloads
+- Backend tool request/response payloads
+- Error-report payloads
 
----
+## 7. Data And State
 
-## 8. Architectural Decisions
+Current desktop runtime state includes:
 
-### Direct Client → LLM Streaming
+- conversation turns
+- text-session lifecycle
+- `currentMode`
+- `speechLifecycle`
+- transport and backend status
+- voice capture/playback diagnostics
+- screen capture diagnostics
+- speech-session resumption handles and token-expiry metadata
 
-Reason:
+Planned persisted checkpoint shape:
 
-* Minimizes latency
-* Avoids media proxying
-* Improves real-time interaction
+- `session_id`
+- `goal`
+- `summary`
+- `recent_turns`
+- `last_visual_context`
 
-### Backend as Control Plane
+## 8. Constraints And Non-Goals
 
-Reason:
+- No backend proxy for audio/video streaming
+- No permanent Gemini API key in the desktop client
+- No duplicated API or IPC contract definitions across packages
+- No long-term memory system in the current MVP path
+- Do not describe adaptive capture, backend tools, checkpoint persistence, or backend error reporting as implemented until the endpoints and contracts exist
 
-* Security
-* Token management
-* Tool execution
+## 9. Supporting Diagrams
 
-### LLM Adapter Layer
-
-Reason:
-
-* Vendor abstraction
-* Testability
-* Future portability
-
-### Redis Session Store
-
-Reason:
-
-* Fast session state retrieval
-* Lightweight persistence
-
----
-
-## 9. Non-Functional Requirements
-
-Latency target:
-
-Voice interaction response < 1 second
-
-Reliability:
-
-* WebSocket reconnect
-* Session checkpointing
-
-Scalability:
-
-* Multiple concurrent sessions
-
-Security:
-
-* Ephemeral tokens
-* Backend credential isolation
-
----
-
-## 10. Deployment Architecture
-
-User Device:
-
-Electron Desktop Client
-
-Cloud:
-
-* NestJS Backend API
-* Redis
-* Gemini Live API
-
-The client streams media directly to Gemini while backend services manage operational functionality.
-
----
-
-## 11. Failure and Recovery
-
-Possible failures:
-
-* WebSocket disconnect
-* Tool execution failure
-* Audio pipeline interruption
-
-Recovery strategies:
-
-* Automatic reconnect
-* Session checkpoint restoration
-* Error logging
-
----
-
-## 12. Development Architecture
-
-Repository structure (conceptual):
-
-client/
-ui/
-audio/
-vision/
-session/
-llm/
-tools/
-
-server/
-modules/
-services/
-
----
-
-## 13. Future Extensions
-
-Possible improvements:
-
-* Webcam vision support
-* Multi-agent collaboration
-* Local model fallback
-* Extended tool ecosystem
+See [docs/FLOW.md](./FLOW.md) for the Mermaid diagram index. The diagrams are maintained to reflect current behavior, with planned-only elements labeled explicitly.

@@ -2,6 +2,8 @@
 
 This index points to the Mermaid diagram source files under `docs/diagrams`.
 
+These diagrams are intended to match the current repository state. When a diagram includes planned-only behavior, it should say so explicitly in the title or note block.
+
 ## Diagram Files
 
 - [Main Architecture](./diagrams/main-architecture.md)
