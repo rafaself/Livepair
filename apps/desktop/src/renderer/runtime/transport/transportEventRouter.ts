@@ -49,8 +49,8 @@ export type TransportEventRouterOps = {
   cancelVoiceToolCalls: (detail?: string) => void;
   resetVoiceToolState: () => void;
   resetVoiceTurnTranscriptState: () => void;
-  markTurnCompleted: () => void;
-  promoteAssistantTranscriptTurn: (finalizeReason: 'completed' | 'interrupted') => void;
+  ensureAssistantVoiceTurn: () => void;
+  finalizeCurrentVoiceTurns: (finalizeReason: 'completed' | 'interrupted') => void;
   enqueueVoiceToolCalls: (calls: VoiceToolCall[]) => void;
   handleVoiceInterruption: () => void;
   // Lifecycle events
@@ -218,10 +218,13 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
       return;
     }
 
+    if (event.type === 'generation-complete') {
+      return;
+    }
+
     if (event.type === 'interrupted') {
       ops.cancelVoiceToolCalls('voice turn interrupted');
-      ops.promoteAssistantTranscriptTurn('interrupted');
-      ops.markTurnCompleted();
+      ops.finalizeCurrentVoiceTurns('interrupted');
       ops.handleVoiceInterruption();
       return;
     }
@@ -234,12 +237,14 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
 
     if (event.type === 'output-transcript') {
       ops.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
+      ops.ensureAssistantVoiceTurn();
       ops.applyVoiceTranscriptUpdate('assistant', event.text, event.isFinal);
       return;
     }
 
     if (event.type === 'audio-chunk') {
       ops.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
+      ops.ensureAssistantVoiceTurn();
       void ops.getVoicePlayback()
         .enqueue(event.chunk)
         .catch(() => {});
@@ -268,8 +273,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'turn-complete') {
-      ops.promoteAssistantTranscriptTurn('completed');
-      ops.markTurnCompleted();
+      ops.finalizeCurrentVoiceTurns('completed');
       if (ops.currentSpeechLifecycleStatus() === 'assistantSpeaking') {
         ops.applySpeechLifecycleEvent({ type: 'assistant.turn.completed' });
         return;

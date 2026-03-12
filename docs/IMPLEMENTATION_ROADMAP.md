@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-**Last updated:** 2026-03-11
+**Last updated:** 2026-03-12
 
 This roadmap is forward-looking from the current stable baseline. Completed milestones are recorded as completed history rather than future work. For the status grid, see [docs/MILESTONE_MATRIX.md](./MILESTONE_MATRIX.md).
 
@@ -14,11 +14,14 @@ Already implemented:
 - local microphone capture and assistant audio playback
 - local interruption/barge-in handling
 - transcript event handling and transcript state wiring
+- single-surface speech chat through the shared conversation timeline
 - manual speech-mode screen-context capture with frame upload
 - speech-session resumption, token refresh, and explicit degraded-state handling
 - S1 complete: mode exclusivity lock
 - S4 complete: speech lifecycle lock
 - product state sources of truth: `currentMode` and `speechLifecycle`
+- visible speech-turn source of truth: `conversationTurns`
+- retained compatibility-only speech transcript mirror: `currentVoiceTranscript`
 
 ## Completed Milestones
 
@@ -109,11 +112,12 @@ Needed outcome:
 - privileged desktop capabilities must remain behind typed preload APIs only
 - `currentMode` and `speechLifecycle` remain the product-level sources of truth for mode and speech-state
 - docs must continue to distinguish clearly between backend-mediated `text` mode and direct Gemini Live `speech` mode
+- shipped speech chat uses one primary visible conversation surface; `currentVoiceTranscript` is retained as an internal compatibility mirror only
 
 ## Validation Focus For Remaining Work
 
 - API tests for checkpointing and error reporting when those endpoints are added
-- desktop runtime tests for resumption, interruption, screen capture, and failure handling
+- desktop runtime tests for resumption, interruption, single-surface speech turns, screen capture, and failure handling
 - contract/type tests for any new shared payloads
 - focused smoke tests for demo-critical flows only
 

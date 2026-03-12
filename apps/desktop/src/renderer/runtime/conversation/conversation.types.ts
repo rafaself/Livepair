@@ -9,4 +9,6 @@ export type ConversationTurnModel = {
   timestamp: string;
   state?: ConversationTurnState | undefined;
   statusLabel?: string | undefined;
+  source?: 'text' | 'voice' | undefined;
+  transcriptFinal?: boolean | undefined;
 };
