@@ -219,3 +219,7 @@
   padding: var(--space-6);
   text-align: center;
 }
+
+:root[data-theme='light'] .assistant-panel__composer-box {
+  background: rgba(0, 0, 0, 0.08);
+}
