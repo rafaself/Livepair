@@ -6,7 +6,10 @@ type SessionControllerModeSwitchingArgs = {
   hasTextRuntimeActivity: () => boolean;
   isCurrentSessionOperation: (operationId: number) => boolean;
   setCurrentMode: (mode: ProductMode) => void;
-  teardownActiveRuntime: (options: { textSessionStatus: 'disconnected' }) => Promise<void>;
+  teardownActiveRuntime: (options: {
+    textSessionStatus: 'disconnected';
+    preserveConversationTurns?: boolean;
+  }) => Promise<void>;
 };
 
 export function createSessionControllerModeSwitching({
@@ -31,6 +34,7 @@ export function createSessionControllerModeSwitching({
     if (shouldTearDownSpeech || shouldTearDownText) {
       await teardownActiveRuntime({
         textSessionStatus: 'disconnected',
+        preserveConversationTurns: true,
       });
 
       if (!isCurrentSessionOperation(operationId)) {

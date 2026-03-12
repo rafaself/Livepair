@@ -718,6 +718,58 @@ describe('createDesktopSessionController – transcript', () => {
     });
   });
 
+  it('does not leave streaming assistant artifacts behind when speech mode ends mid-turn', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Partial speech reply' });
+
+    await controller.endSpeechMode();
+
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: {
+        text: '',
+      },
+      assistant: {
+        text: '',
+      },
+    });
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Speech request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'Partial speech reply',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+    ]);
+  });
+
   it('keeps a typed speech-mode follow-up below earlier history and above its assistant reply', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({

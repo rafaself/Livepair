@@ -324,8 +324,8 @@ describe('createVoiceTranscriptController', () => {
     ctrl.applyTranscriptUpdate('assistant', 'spoken reply');
     ctrl.finalizeCurrentVoiceTurns('completed');
 
-    const typedUserTurnId = appendUserTurn(conversationCtx, 'typed follow-up');
-    ctrl.queueMixedModeAssistantReply(typedUserTurnId);
+    appendUserTurn(conversationCtx, 'typed follow-up');
+    ctrl.queueMixedModeAssistantReply();
     ctrl.ensureAssistantTurn();
     ctrl.applyTranscriptUpdate('assistant', 'typed reply');
     ctrl.finalizeCurrentVoiceTurns('completed');
@@ -364,8 +364,8 @@ describe('createVoiceTranscriptController', () => {
     ctrl.ensureAssistantTurn();
     ctrl.applyTranscriptUpdate('assistant', 'spoken reply');
 
-    const typedUserTurnId = appendUserTurn(conversationCtx, 'typed follow-up');
-    ctrl.queueMixedModeAssistantReply(typedUserTurnId);
+    appendUserTurn(conversationCtx, 'typed follow-up');
+    ctrl.queueMixedModeAssistantReply();
     ctrl.ensureAssistantTurn();
 
     expect(useSessionStore.getState().conversationTurns).toEqual([

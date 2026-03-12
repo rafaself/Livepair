@@ -37,7 +37,7 @@ type SessionControllerPublicApiArgs = {
   };
   voiceTranscriptCtrl: {
     clearQueuedMixedModeAssistantReply: () => void;
-    queueMixedModeAssistantReply: (userTurnId: string) => void;
+    queueMixedModeAssistantReply: () => void;
   };
   runtime: {
     currentSpeechLifecycleStatus: () => SpeechLifecycleStatus;
@@ -143,8 +143,8 @@ export function createSessionControllerPublicApi({
         }
 
         try {
-          const userTurnId = textChatCtrl.appendUserTurn(trimmedText);
-          voiceTranscriptCtrl.queueMixedModeAssistantReply(userTurnId);
+          textChatCtrl.appendUserTurn(trimmedText);
+          voiceTranscriptCtrl.queueMixedModeAssistantReply();
           store.getState().setLastRuntimeError(null);
           await activeTransport.sendText(trimmedText);
           runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());

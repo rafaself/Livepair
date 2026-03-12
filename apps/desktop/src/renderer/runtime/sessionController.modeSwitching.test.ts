@@ -208,6 +208,68 @@ describe('createDesktopSessionController – mode switching', () => {
     });
   });
 
+  it('starts fresh speech turns after speech mode ends without mutating preserved history', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'input-transcript', text: 'First speech request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'First speech reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await controller.endSpeechMode();
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Second speech request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Second speech reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'First speech request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'First speech reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-2',
+        role: 'user',
+        content: 'Second speech request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-2',
+        role: 'assistant',
+        content: 'Second speech reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+    ]);
+  });
+
   it('keeps full conversation reset separate from speech-mode teardown', async () => {
     const textChat = createTextChatHarness();
     const voiceTransport = createVoiceTransportHarness();

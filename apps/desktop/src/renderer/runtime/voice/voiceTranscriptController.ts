@@ -34,7 +34,7 @@ export type VoiceTranscriptController = {
   finalizeCurrentVoiceTurns: (
     finalizeReason: 'completed' | 'interrupted',
   ) => void;
-  queueMixedModeAssistantReply: (userTurnId: string) => void;
+  queueMixedModeAssistantReply: () => void;
   clearQueuedMixedModeAssistantReply: () => void;
   resetTurnTranscriptState: () => void;
   clearTranscript: () => void;
@@ -72,8 +72,16 @@ export function createVoiceTranscriptController(
     return getConversationTurn(conversationCtx, conversationCtx.currentVoiceAssistantTurnId) ?? null;
   };
 
+  const currentUserTurn = () => {
+    if (!conversationCtx.currentVoiceUserTurnId) {
+      return null;
+    }
+
+    return getConversationTurn(conversationCtx, conversationCtx.currentVoiceUserTurnId) ?? null;
+  };
+
   const consumeQueuedMixedModeAssistantReply = (): void => {
-    if (!conversationCtx.pendingVoiceAssistantReplyAnchorTurnId) {
+    if (!conversationCtx.hasQueuedMixedModeAssistantReply) {
       return;
     }
 
@@ -83,7 +91,7 @@ export function createVoiceTranscriptController(
       return;
     }
 
-    conversationCtx.pendingVoiceAssistantReplyAnchorTurnId = null;
+    conversationCtx.hasQueuedMixedModeAssistantReply = false;
     conversationCtx.currentVoiceAssistantTurnId = null;
     conversationCtx.currentVoiceUserTurnId = null;
     settledTurnReason = null;
@@ -188,16 +196,31 @@ export function createVoiceTranscriptController(
     settledTurnReason = finalizeReason;
   };
 
-  const queueMixedModeAssistantReply = (userTurnId: string): void => {
-    conversationCtx.pendingVoiceAssistantReplyAnchorTurnId = userTurnId;
+  const queueMixedModeAssistantReply = (): void => {
+    conversationCtx.hasQueuedMixedModeAssistantReply = true;
     consumeQueuedMixedModeAssistantReply();
   };
 
   const clearQueuedMixedModeAssistantReply = (): void => {
-    conversationCtx.pendingVoiceAssistantReplyAnchorTurnId = null;
+    conversationCtx.hasQueuedMixedModeAssistantReply = false;
   };
 
   const resetTurnTranscriptState = (): void => {
+    const activeUserTurn = currentUserTurn();
+    const activeAssistantTurn = currentAssistantTurn();
+
+    if (activeUserTurn?.state === 'streaming') {
+      finalizeCurrentVoiceUserTurn(conversationCtx);
+    }
+
+    if (activeAssistantTurn?.state === 'streaming') {
+      if (activeAssistantTurn.content.trim().length > 0) {
+        interruptCurrentVoiceAssistantTurn(conversationCtx);
+      }
+
+      finalizeCurrentVoiceAssistantTurn(conversationCtx);
+    }
+
     settledTurnReason = null;
     clearTranscript();
     clearCurrentVoiceTurns(conversationCtx);

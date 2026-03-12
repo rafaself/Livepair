@@ -13,7 +13,7 @@ type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
  */
 export interface ConversationContext {
   pendingAssistantTurnId: string | null;
-  pendingVoiceAssistantReplyAnchorTurnId: string | null;
+  hasQueuedMixedModeAssistantReply: boolean;
   currentVoiceAssistantTurnId: string | null;
   currentVoiceUserTurnId: string | null;
   nextAssistantTurnId: number;
@@ -24,7 +24,7 @@ export interface ConversationContext {
 export function createConversationContext(store: SessionStoreApi): ConversationContext {
   return {
     pendingAssistantTurnId: null,
-    pendingVoiceAssistantReplyAnchorTurnId: null,
+    hasQueuedMixedModeAssistantReply: false,
     currentVoiceAssistantTurnId: null,
     currentVoiceUserTurnId: null,
     nextAssistantTurnId: 0,
@@ -49,7 +49,7 @@ export function clearPendingAssistantTurn(ctx: ConversationContext): void {
 }
 
 export function clearCurrentVoiceTurns(ctx: ConversationContext): void {
-  ctx.pendingVoiceAssistantReplyAnchorTurnId = null;
+  ctx.hasQueuedMixedModeAssistantReply = false;
   ctx.currentVoiceAssistantTurnId = null;
   ctx.currentVoiceUserTurnId = null;
 }

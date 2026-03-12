@@ -113,6 +113,7 @@ type SessionControllerRuntimeArgs = {
     ) => void;
   };
   voiceTranscript: {
+    resetTurnTranscriptState: () => void;
     resetTurnCompletedFlag: () => void;
   };
   silenceCtrl: {
@@ -187,7 +188,7 @@ export function createSessionControllerRuntime({
       options?: { preserveConversationTurns?: boolean },
     ): void => {
       textChatCtrl.resetRuntime(textSessionStatus, options);
-      voiceTranscript.resetTurnCompletedFlag();
+      voiceTranscript.resetTurnTranscriptState();
     },
     resetVoiceSessionDurability: stateSync.resetVoiceSessionDurability,
     resetVoiceSessionResumption: stateSync.resetVoiceSessionResumption,

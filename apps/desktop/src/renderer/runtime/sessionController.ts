@@ -565,8 +565,8 @@ export function createDesktopSessionController(
     screenCtrl,
     textChatCtrl,
     voiceTranscriptCtrl: {
-      queueMixedModeAssistantReply: (userTurnId) => {
-        voiceTranscript.queueMixedModeAssistantReply(userTurnId);
+      queueMixedModeAssistantReply: () => {
+        voiceTranscript.queueMixedModeAssistantReply();
       },
       clearQueuedMixedModeAssistantReply: () => {
         voiceTranscript.clearQueuedMixedModeAssistantReply();
