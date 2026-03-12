@@ -145,6 +145,47 @@ describe('createVoiceTranscriptController', () => {
     ]);
   });
 
+  it('keeps interrupted assistant output labeled as interrupted when a corrective transcript arrives later', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'Partial answer');
+    ctrl.finalizeCurrentVoiceTurns('interrupted');
+
+    ctrl.applyTranscriptUpdate('assistant', 'Partial answer corrected');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Partial answer corrected',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+    ]);
+  });
+
+  it('keeps an interrupted assistant turn on the same bubble when a shorter late update arrives', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'partial answer');
+    ctrl.finalizeCurrentVoiceTurns('interrupted');
+
+    ctrl.applyTranscriptUpdate('assistant', 'partial');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'partial answer',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+      }),
+    ]);
+  });
+
   it('resetTurnTranscriptState clears transcript state and active voice-turn references', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);

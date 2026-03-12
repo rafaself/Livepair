@@ -15,23 +15,53 @@ describe('normalizeTranscriptText', () => {
   });
 
   it('returns incoming when it starts with previous (progressive append)', () => {
-    expect(normalizeTranscriptText('Hello', 'Hello there')).toBe('Hello there');
+    expect(normalizeTranscriptText('Hello', 'Hello there', { role: 'assistant' })).toBe('Hello there');
   });
 
   it('returns incoming when it is longer than previous (replacement)', () => {
-    expect(normalizeTranscriptText('Hi', 'Hello there')).toBe('Hello there');
+    expect(normalizeTranscriptText('Hi', 'Hello there', { role: 'assistant' })).toBe('Hello there');
   });
 
-  it('returns incoming when it is shorter than previous (correction)', () => {
-    expect(normalizeTranscriptText('Hello there again', 'Hello there')).toBe('Hello there');
+  it('allows a final user correction to replace a shorter earlier transcript', () => {
+    expect(
+      normalizeTranscriptText('Hello there again', 'Hello there', {
+        role: 'user',
+        isFinal: true,
+      }),
+    ).toBe('Hello there');
   });
 
-  it('stitches at overlapping boundary when lengths are equal', () => {
-    // Same length, no startsWith match, overlap at boundary
-    expect(normalizeTranscriptText('Hello wo', 'wo there')).toBe('Hello wo there');
+  it('returns incoming when a shorter update is a real user correction rather than a stale prefix', () => {
+    expect(
+      normalizeTranscriptText('Hello there', 'Hello their', {
+        role: 'user',
+      }),
+    ).toBe('Hello their');
   });
 
-  it('concatenates when there is no overlap and lengths are equal', () => {
-    expect(normalizeTranscriptText('abcd', 'efgh')).toBe('abcdefgh');
+  it('stitches assistant suffix chunks onto the existing transcript', () => {
+    expect(normalizeTranscriptText('Hello', ' there', { role: 'assistant' })).toBe('Hello there');
+  });
+
+  it('stitches assistant updates at an overlapping boundary', () => {
+    expect(normalizeTranscriptText('Hello wo', 'wo there', { role: 'assistant' })).toBe(
+      'Hello wo there',
+    );
+  });
+
+  it('keeps the best assistant transcript when a shorter late update is stale', () => {
+    expect(
+      normalizeTranscriptText('Hello there', 'Hello', {
+        role: 'assistant',
+      }),
+    ).toBe('Hello there');
+  });
+
+  it('keeps the best assistant transcript when a later stale update is contained in the current text', () => {
+    expect(
+      normalizeTranscriptText('Hello there again', 'there again', {
+        role: 'assistant',
+      }),
+    ).toBe('Hello there again');
   });
 });
