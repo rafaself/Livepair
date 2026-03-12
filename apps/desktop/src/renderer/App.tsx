@@ -69,7 +69,7 @@ function AppShell(): JSX.Element {
     handleStopVoiceCapture,
     handleStartScreenCapture,
     handleStopScreenCapture,
-    handleEndSession,
+    handleEndSpeechMode,
   } = useSessionRuntime();
 
   return (
@@ -88,7 +88,7 @@ function AppShell(): JSX.Element {
         onStopVoiceCapture={handleStopVoiceCapture}
         onStartScreenCapture={handleStartScreenCapture}
         onStopScreenCapture={handleStopScreenCapture}
-        onEndSession={handleEndSession}
+        onEndSession={handleEndSpeechMode}
       />
     </div>
   );

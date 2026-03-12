@@ -717,4 +717,215 @@ describe('createDesktopSessionController – transcript', () => {
       },
     });
   });
+
+  it('does not leave streaming assistant artifacts behind when speech mode ends mid-turn', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Partial speech reply' });
+
+    await controller.endSpeechMode();
+
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: {
+        text: '',
+      },
+      assistant: {
+        text: '',
+      },
+    });
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Speech request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'Partial speech reply',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+    ]);
+  });
+
+  it('keeps a typed speech-mode follow-up below earlier history and above its assistant reply', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Earlier spoken request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Earlier spoken reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await expect(controller.submitTextTurn('Typed follow-up')).resolves.toBe(true);
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Typed follow-up reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'Earlier spoken request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Earlier spoken reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        role: 'user',
+        content: 'Typed follow-up',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Typed follow-up reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+    ]);
+  });
+
+  it('keeps mixed-mode ordering stable when a typed follow-up lands during in-progress assistant speech output', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Earlier spoken request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Earlier spoken reply' });
+
+    await expect(controller.submitTextTurn('Typed follow-up')).resolves.toBe(true);
+
+    voiceTransport.emit({ type: 'interrupted' });
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([7, 8, 9]) });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Earlier spoken request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'Earlier spoken reply',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-2',
+        role: 'user',
+        content: 'Typed follow-up',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-2',
+        role: 'assistant',
+        content: '',
+        state: 'streaming',
+        statusLabel: 'Responding...',
+        source: 'voice',
+      }),
+    ]);
+    expect(voicePlayback.enqueue).toHaveBeenCalledWith(new Uint8Array([7, 8, 9]));
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Typed follow-up reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Earlier spoken request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'Earlier spoken reply',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-2',
+        role: 'user',
+        content: 'Typed follow-up',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-2',
+        role: 'assistant',
+        content: 'Typed follow-up reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+    ]);
+    expect(
+      useSessionStore
+        .getState()
+        .conversationTurns.filter((turn) => turn.role === 'assistant' && turn.id === 'assistant-turn-2'),
+    ).toHaveLength(1);
+  });
 });

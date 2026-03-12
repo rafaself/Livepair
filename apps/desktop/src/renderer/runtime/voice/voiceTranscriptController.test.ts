@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useSessionStore } from '../../store/sessionStore';
-import { createConversationContext } from '../conversation/conversationTurnManager';
+import {
+  appendUserTurn,
+  createConversationContext,
+} from '../conversation/conversationTurnManager';
 import { createVoiceTranscriptController } from './voiceTranscriptController';
 
 describe('createVoiceTranscriptController', () => {
@@ -310,6 +313,135 @@ describe('createVoiceTranscriptController', () => {
       user: { text: 'follow-up' },
       assistant: { text: '' },
     });
+  });
+
+  it('routes a mixed-mode typed follow-up reply onto a fresh assistant turn below the typed user turn', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.applyTranscriptUpdate('user', 'spoken request', true);
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'spoken reply');
+    ctrl.finalizeCurrentVoiceTurns('completed');
+
+    appendUserTurn(conversationCtx, 'typed follow-up');
+    ctrl.queueMixedModeAssistantReply();
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'typed reply');
+    ctrl.finalizeCurrentVoiceTurns('completed');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'spoken request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'spoken reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-2',
+        content: 'typed follow-up',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-2',
+        content: 'typed reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+    ]);
+  });
+
+  it('waits for an in-progress assistant turn to settle before opening the mixed-mode follow-up reply slot', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'spoken reply');
+
+    appendUserTurn(conversationCtx, 'typed follow-up');
+    ctrl.queueMixedModeAssistantReply();
+    ctrl.ensureAssistantTurn();
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'spoken reply',
+        state: 'streaming',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'typed follow-up',
+        state: 'complete',
+      }),
+    ]);
+
+    ctrl.finalizeCurrentVoiceTurns('interrupted');
+    ctrl.ensureAssistantTurn();
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'spoken reply',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'typed follow-up',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-2',
+        content: '',
+        state: 'streaming',
+        statusLabel: 'Responding...',
+        source: 'voice',
+      }),
+    ]);
+  });
+
+  it('preserves active voice user turn when consuming queued mixed-mode reply while user is speaking', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    // User starts speaking
+    ctrl.applyTranscriptUpdate('user', 'still talking');
+
+    // A typed turn is submitted while the user is still speaking –
+    // queueMixedModeAssistantReply calls consumeQueuedMixedModeAssistantReply
+    // immediately because there is no streaming assistant turn.
+    appendUserTurn(conversationCtx, 'typed input');
+    ctrl.queueMixedModeAssistantReply();
+
+    // The in-progress user turn must remain intact so subsequent transcript
+    // events continue the same turn instead of creating a new one.
+    expect(conversationCtx.currentVoiceUserTurnId).toBe('user-turn-1');
+
+    ctrl.applyTranscriptUpdate('user', 'still talking more');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'user-turn-1',
+          content: 'still talking more',
+          state: 'streaming',
+          source: 'voice',
+        }),
+      ]),
+    );
+    // Verify no duplicate / split user turn was created
+    const voiceUserTurns = useSessionStore
+      .getState()
+      .conversationTurns.filter((t) => t.role === 'user' && t.source === 'voice');
+    expect(voiceUserTurns).toHaveLength(1);
   });
 
   it('resetTurnTranscriptState clears transcript state and active voice-turn references', () => {

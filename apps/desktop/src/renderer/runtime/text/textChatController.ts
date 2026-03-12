@@ -93,8 +93,8 @@ export function createTextChatController(ops: TextChatControllerOps) {
     clearPendingAssistantTurnCtx(ops.conversationCtx);
   };
 
-  const appendUserTurn = (content: string): void => {
-    appendUserTurnCtx(ops.conversationCtx, content);
+  const appendUserTurn = (content: string): string => {
+    return appendUserTurnCtx(ops.conversationCtx, content);
   };
 
   const buildTextChatRequest = (text: string): TextChatRequest => {
@@ -181,9 +181,16 @@ export function createTextChatController(ops: TextChatControllerOps) {
     );
   };
 
-  const resetRuntime = (textSessionStatus: TextSessionStatus = 'idle'): void => {
-    clearPendingAssistantTurn();
-    ops.store.getState().resetTextSessionRuntime(textSessionStatus);
+  const resetRuntime = (
+    textSessionStatus: TextSessionStatus = 'idle',
+    options?: { preserveConversationTurns?: boolean },
+  ): void => {
+    if (options?.preserveConversationTurns) {
+      completePendingAssistantTurn('Interrupted');
+    } else {
+      clearPendingAssistantTurn();
+    }
+    ops.store.getState().resetTextSessionRuntime(textSessionStatus, options);
   };
 
   return {

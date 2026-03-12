@@ -139,7 +139,9 @@ describe('createSessionControllerTeardown', () => {
 
       await teardownActiveRuntime();
 
-      expect(args.resetRuntimeState).toHaveBeenCalledWith('disconnected');
+      expect(args.resetRuntimeState).toHaveBeenCalledWith('disconnected', {
+        preserveConversationTurns: false,
+      });
       expect(args.setVoiceSessionStatus).toHaveBeenCalledWith('disconnected');
       expect(args.clearToken).toHaveBeenCalledTimes(1);
       expect(args.setVoiceResumptionInFlight).toHaveBeenCalledWith(false);
@@ -203,7 +205,23 @@ describe('createSessionControllerTeardown', () => {
 
       await teardownActiveRuntime({ textSessionStatus: 'error' as never });
 
-      expect(args.resetRuntimeState).toHaveBeenCalledWith('error');
+      expect(args.resetRuntimeState).toHaveBeenCalledWith('error', {
+        preserveConversationTurns: false,
+      });
+    });
+
+    it('can preserve conversation state while tearing down speech runtime', async () => {
+      const args = createMockArgs();
+      const { teardownActiveRuntime } = createSessionControllerTeardown(args as never);
+
+      await teardownActiveRuntime({
+        textSessionStatus: 'disconnected',
+        preserveConversationTurns: true,
+      } as never);
+
+      expect(args.resetRuntimeState).toHaveBeenCalledWith('disconnected', {
+        preserveConversationTurns: true,
+      });
     });
   });
 
@@ -314,6 +332,21 @@ describe('createSessionControllerTeardown', () => {
       await teardownActiveRuntime();
 
       expect(args.stopVoiceCapture).not.toHaveBeenCalled();
+    });
+
+    it('preserves conversation state on the slow path when speech mode ends', async () => {
+      const args = createMockArgs({ voiceSessionStatus: 'ready' });
+      args.hasVoicePlayback.mockReturnValue(true);
+      const { teardownActiveRuntime } = createSessionControllerTeardown(args as never);
+
+      await teardownActiveRuntime({
+        preserveConversationTurns: true,
+      } as never);
+
+      expect(args.resetRuntimeState).toHaveBeenCalledWith('disconnected', {
+        preserveConversationTurns: true,
+      });
+      expect(args.stopVoicePlayback).toHaveBeenCalledTimes(1);
     });
   });
 });

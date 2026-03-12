@@ -32,8 +32,12 @@ type SessionControllerPublicApiArgs = {
     stop: () => Promise<void>;
   };
   textChatCtrl: {
-    appendUserTurn: (text: string) => void;
+    appendUserTurn: (text: string) => string;
     submitTurn: (text: string) => Promise<boolean>;
+  };
+  voiceTranscriptCtrl: {
+    clearQueuedMixedModeAssistantReply: () => void;
+    queueMixedModeAssistantReply: () => void;
   };
   runtime: {
     currentSpeechLifecycleStatus: () => SpeechLifecycleStatus;
@@ -42,6 +46,7 @@ type SessionControllerPublicApiArgs = {
       recordEvents?: boolean;
       preserveVoiceRuntimeDiagnostics?: boolean;
     }) => Promise<void>;
+    endSpeechModeInternal: (options?: { recordEvents?: boolean }) => Promise<void>;
     getActiveTransport: () => import('./transport/transport.types').DesktopSession | null;
     recordSessionEvent: (event: {
       type: 'session.debug.state.set';
@@ -64,12 +69,16 @@ export function createSessionControllerPublicApi({
   voiceChunkCtrl,
   screenCtrl,
   textChatCtrl,
+  voiceTranscriptCtrl,
   runtime,
   logRuntimeError,
 }: SessionControllerPublicApiArgs): DesktopSessionController {
   return {
     checkBackendHealth: async () => {
       await performBackendHealthCheck();
+    },
+    endSpeechMode: async () => {
+      await runtime.endSpeechModeInternal({ recordEvents: true });
     },
     endSession: async () => {
       await runtime.endSessionInternal({ recordEvents: true });
@@ -135,11 +144,13 @@ export function createSessionControllerPublicApi({
 
         try {
           textChatCtrl.appendUserTurn(trimmedText);
+          voiceTranscriptCtrl.queueMixedModeAssistantReply();
           store.getState().setLastRuntimeError(null);
           await activeTransport.sendText(trimmedText);
           runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());
           return true;
         } catch (error) {
+          voiceTranscriptCtrl.clearQueuedMixedModeAssistantReply();
           const detail = asErrorDetail(error, 'Failed to send speech-mode text turn');
           store.getState().setLastRuntimeError(detail);
           runtime.setVoiceErrorState(detail);

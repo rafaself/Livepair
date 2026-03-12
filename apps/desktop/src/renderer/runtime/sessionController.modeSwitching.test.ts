@@ -143,4 +143,178 @@ describe('createDesktopSessionController – mode switching', () => {
     expect(useSessionStore.getState().activeTransport).toBe('gemini-live');
     expect(textChat.getLastRequest()).toBeNull();
   });
+
+  it('ends speech mode without clearing history and allows continued text chat', async () => {
+    const textChat = createTextChatHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const voiceCapture = createVoiceCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Speech reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await controller.endSpeechMode();
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        currentMode: 'text',
+        speechLifecycle: expect.objectContaining({
+          status: 'off',
+        }),
+        voiceSessionStatus: 'disconnected',
+        activeTransport: null,
+        conversationTurns: [
+          expect.objectContaining({
+            role: 'user',
+            content: 'Speech request',
+            state: 'complete',
+            source: 'voice',
+          }),
+          expect.objectContaining({
+            role: 'assistant',
+            content: 'Speech reply',
+            state: 'complete',
+            source: 'voice',
+          }),
+        ],
+      }),
+    );
+
+    await expect(controller.submitTextTurn('Text after end')).resolves.toBe(true);
+
+    expect(textChat.getLastRequest()).toEqual({
+      messages: [
+        { role: 'user', content: 'Speech request' },
+        { role: 'assistant', content: 'Speech reply' },
+        { role: 'user', content: 'Text after end' },
+      ],
+    });
+  });
+
+  it('starts fresh speech turns after speech mode ends without mutating preserved history', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'input-transcript', text: 'First speech request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'First speech reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await controller.endSpeechMode();
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Second speech request' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Second speech reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'First speech request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'First speech reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-2',
+        role: 'user',
+        content: 'Second speech request',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-2',
+        role: 'assistant',
+        content: 'Second speech reply',
+        state: 'complete',
+        source: 'voice',
+      }),
+    ]);
+  });
+
+  it('keeps full conversation reset separate from speech-mode teardown', async () => {
+    const textChat = createTextChatHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await controller.endSpeechMode();
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'Speech request',
+        source: 'voice',
+      }),
+    ]);
+
+    await controller.endSession();
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        currentMode: 'text',
+        speechLifecycle: expect.objectContaining({
+          status: 'off',
+        }),
+        voiceSessionStatus: 'disconnected',
+        activeTransport: null,
+        conversationTurns: [],
+      }),
+    );
+  });
 });
