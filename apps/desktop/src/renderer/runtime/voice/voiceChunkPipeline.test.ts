@@ -1,6 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVoiceChunkPipeline } from './voiceChunkPipeline';
 
+function createChunk(overrides: Partial<{
+  data: Uint8Array;
+  sequence: number;
+  sampleRateHz: 16_000;
+  channels: 1;
+  encoding: 'pcm_s16le';
+  durationMs: 20;
+}> = {}) {
+  return {
+    data: new Uint8Array(640),
+    sequence: 1,
+    sampleRateHz: 16_000 as const,
+    channels: 1 as const,
+    encoding: 'pcm_s16le' as const,
+    durationMs: 20 as const,
+    ...overrides,
+  };
+}
+
 function createMockOps() {
   const storeState = {
     voiceCaptureState: 'idle',
@@ -121,15 +140,13 @@ describe('createVoiceChunkPipeline', () => {
     it('onChunk updates diagnostics and enqueues send', async () => {
       const ops = createMockOps();
       const pipeline = createVoiceChunkPipeline(ops as never);
+      const chunk = createChunk({
+        data: new Uint8Array(640).fill(1),
+      });
 
       pipeline.getVoiceCapture();
       const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk({
-        data: new Uint8Array(640).fill(1),
-        sequence: 1,
-        sampleRateHz: 16_000,
-        durationMs: 20,
-      });
+      observer.onChunk(chunk);
 
       await pipeline.flush();
 
@@ -140,7 +157,44 @@ describe('createVoiceChunkPipeline', () => {
         chunkDurationMs: 20,
         lastError: null,
       });
-      expect(ops._transport.sendAudioChunk).toHaveBeenCalledWith(new Uint8Array(640).fill(1));
+      expect(ops._transport.sendAudioChunk).toHaveBeenCalledWith(chunk.data);
+    });
+
+    it('forwards empty and undersized chunks unchanged', async () => {
+      const ops = createMockOps();
+      const pipeline = createVoiceChunkPipeline(ops as never);
+      const emptyChunk = createChunk({
+        data: new Uint8Array(0),
+        sequence: 3,
+      });
+      const finalChunk = createChunk({
+        data: new Uint8Array([7, 8, 9]),
+        sequence: 4,
+      });
+
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onChunk(emptyChunk);
+      observer.onChunk(finalChunk);
+
+      await pipeline.flush();
+
+      expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(1, emptyChunk.data);
+      expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(2, finalChunk.data);
+      expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenNthCalledWith(1, {
+        chunkCount: 3,
+        sampleRateHz: 16_000,
+        bytesPerChunk: 0,
+        chunkDurationMs: 20,
+        lastError: null,
+      });
+      expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenNthCalledWith(2, {
+        chunkCount: 4,
+        sampleRateHz: 16_000,
+        bytesPerChunk: 3,
+        chunkDurationMs: 20,
+        lastError: null,
+      });
     });
 
     it('onDiagnostics updates store diagnostics', () => {
@@ -184,17 +238,50 @@ describe('createVoiceChunkPipeline', () => {
 
       pipeline.getVoiceCapture();
       const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk({
-        data: new Uint8Array(640),
-        sequence: 1,
-        sampleRateHz: 16_000,
-        durationMs: 20,
-      });
+      observer.onChunk(createChunk());
       await pipeline.flush();
 
       // First sets to capturing, then to streaming after send
       expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('capturing');
       expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('streaming');
+    });
+
+    it('sends queued chunks in arrival order and flush waits for the queue before ending the stream', async () => {
+      const ops = createMockOps();
+      const order: string[] = [];
+      let resolveFirstSend!: () => void;
+      ops._transport.sendAudioChunk
+        .mockImplementationOnce(() => {
+          order.push('chunk-1:start');
+          return new Promise<void>((resolve) => {
+            resolveFirstSend = () => {
+              order.push('chunk-1:end');
+              resolve();
+            };
+          });
+        })
+        .mockImplementationOnce(async (data: Uint8Array) => {
+          order.push(`chunk-${data[0]}`);
+        });
+      ops._transport.sendAudioStreamEnd.mockImplementation(async () => {
+        order.push('stream-end');
+      });
+      const pipeline = createVoiceChunkPipeline(ops as never);
+
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onChunk(createChunk({ data: new Uint8Array([1]), sequence: 1 }));
+      observer.onChunk(createChunk({ data: new Uint8Array([2]), sequence: 2 }));
+
+      await Promise.resolve();
+      expect(ops._transport.sendAudioChunk).toHaveBeenCalledTimes(1);
+
+      resolveFirstSend();
+      await pipeline.flush();
+
+      expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(1, new Uint8Array([1]));
+      expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(2, new Uint8Array([2]));
+      expect(order).toEqual(['chunk-1:start', 'chunk-1:end', 'chunk-2', 'stream-end']);
     });
 
     it('drops microphone chunks while resume temporarily clears the active transport', async () => {
@@ -205,12 +292,7 @@ describe('createVoiceChunkPipeline', () => {
 
       pipeline.getVoiceCapture();
       const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk({
-        data: new Uint8Array(640),
-        sequence: 1,
-        sampleRateHz: 16_000,
-        durationMs: 20,
-      });
+      observer.onChunk(createChunk());
       await pipeline.flush();
 
       expect(ops._transport.sendAudioChunk).not.toHaveBeenCalled();
@@ -237,19 +319,15 @@ describe('createVoiceChunkPipeline', () => {
 
       pipeline.getVoiceCapture();
       const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk({
+      observer.onChunk(createChunk({
         data: new Uint8Array([1]),
         sequence: 1,
-        sampleRateHz: 16_000,
-        durationMs: 20,
-      });
+      }));
       await Promise.resolve();
-      observer.onChunk({
+      observer.onChunk(createChunk({
         data: new Uint8Array([2]),
         sequence: 2,
-        sampleRateHz: 16_000,
-        durationMs: 20,
-      });
+      }));
 
       activeTransport = nextTransport;
       resolveFirstSend();
@@ -269,15 +347,38 @@ describe('createVoiceChunkPipeline', () => {
 
       pipeline.getVoiceCapture();
       const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk({
-        data: new Uint8Array(640),
-        sequence: 1,
-        sampleRateHz: 16_000,
-        durationMs: 20,
-      });
+      observer.onChunk(createChunk());
       await pipeline.flush();
 
       expect(ops._transport.sendAudioChunk).not.toHaveBeenCalled();
+    });
+
+    it('surfaces send failures but keeps later queued chunks moving', async () => {
+      const ops = createMockOps();
+      ops._transport.sendAudioChunk
+        .mockRejectedValueOnce(new Error('transport write failed'))
+        .mockResolvedValueOnce(undefined);
+      const pipeline = createVoiceChunkPipeline(ops as never);
+
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onChunk(createChunk({
+        data: new Uint8Array([1]),
+        sequence: 1,
+      }));
+      observer.onChunk(createChunk({
+        data: new Uint8Array([2]),
+        sequence: 2,
+      }));
+
+      await pipeline.flush();
+
+      expect(ops._transport.sendAudioChunk).toHaveBeenCalledTimes(2);
+      expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenCalledWith({
+        lastError: 'transport write failed',
+      });
+      expect(ops.setVoiceErrorState).toHaveBeenCalledWith('transport write failed');
+      expect(ops._transport.sendAudioStreamEnd).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -412,14 +513,30 @@ describe('createVoiceChunkPipeline', () => {
   });
 
   describe('resetSendChain', () => {
-    it('resets the chain so flush resolves immediately', async () => {
+    it('detaches flush from an in-flight send after reset', async () => {
       const ops = createMockOps();
+      let resolveFirstSend!: () => void;
+      ops._transport.sendAudioChunk.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveFirstSend = resolve;
+          }),
+      );
       const pipeline = createVoiceChunkPipeline(ops as never);
 
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onChunk(createChunk());
+      await Promise.resolve();
+
       pipeline.resetSendChain();
-      await pipeline.flush();
+      const flushPromise = pipeline.flush();
+      await Promise.resolve();
 
       expect(ops._transport.sendAudioStreamEnd).toHaveBeenCalledTimes(1);
+
+      resolveFirstSend();
+      await flushPromise;
     });
   });
 });
