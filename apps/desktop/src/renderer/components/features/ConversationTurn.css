@@ -69,19 +69,16 @@
   white-space: normal;
 }
 
-.conversation-turn--assistant .conversation-turn__body > p,
-.conversation-turn--assistant .conversation-turn__body > ul {
+.conversation-turn--assistant .conversation-turn__body > * {
   margin: 0;
 }
 
-.conversation-turn--assistant .conversation-turn__body > p + p,
-.conversation-turn--assistant .conversation-turn__body > p + ul,
-.conversation-turn--assistant .conversation-turn__body > ul + p,
-.conversation-turn--assistant .conversation-turn__body > ul + ul {
+.conversation-turn--assistant .conversation-turn__body > * + * {
   margin-top: var(--space-3);
 }
 
-.conversation-turn--assistant .conversation-turn__body ul {
+.conversation-turn--assistant .conversation-turn__body ul,
+.conversation-turn--assistant .conversation-turn__body ol {
   padding-left: var(--space-5);
 }
 
@@ -89,7 +86,7 @@
   margin-top: var(--space-1);
 }
 
-.conversation-turn--assistant .conversation-turn__body code {
+.conversation-turn--assistant .conversation-turn__body :not(pre) > code {
   display: inline-block;
   padding: 0 0.35em;
   border-radius: 6px;
@@ -97,6 +94,20 @@
   font-size: 0.95em;
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+.conversation-turn--assistant .conversation-turn__body pre {
+  padding: var(--space-3);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  overflow-x: auto;
+}
+
+.conversation-turn--assistant .conversation-turn__body pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  white-space: pre;
 }
 
 .conversation-turn__typing {
