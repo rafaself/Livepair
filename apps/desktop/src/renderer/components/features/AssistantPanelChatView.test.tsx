@@ -26,7 +26,6 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.queryByRole('status', { name: 'Disconnected' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Conversation' })).toBeVisible();
     expect(screen.getByText('No conversation yet')).toBeVisible();
     expect(screen.getByPlaceholderText('Ask Livepair')).toBeVisible();
   });

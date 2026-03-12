@@ -1,7 +1,8 @@
-import { TriangleAlert } from 'lucide-react';
+import { History, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ConversationList } from './ConversationList';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
+import { Button } from '../primitives';
 
 export type AssistantPanelConversationSectionProps = {
   emptyState: ReactNode;
@@ -19,16 +20,23 @@ export function AssistantPanelConversationSection({
   return (
     <div className="assistant-panel__messages-section">
       <div className="assistant-panel__messages-header">
-        <h3 className="assistant-panel__chat-title" id="assistant-panel-chat-title">
-          Conversation
-        </h3>
-        {lastRuntimeError && !isConversationEmpty ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="History"
+          className="assistant-panel__history-btn"
+        >
+          <History size={16} />
+        </Button>
+      </div>
+      {lastRuntimeError && !isConversationEmpty ? (
+        <div className="assistant-panel__messages-header">
           <div className="assistant-panel__runtime-error" role="alert">
             <TriangleAlert size={16} aria-hidden="true" />
             <p>{lastRuntimeError}</p>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <ConversationList
         turns={turns}
