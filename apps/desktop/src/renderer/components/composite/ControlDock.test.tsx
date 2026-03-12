@@ -1,63 +1,50 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
-import { useSessionStore } from '../../store/sessionStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { resetDesktopStores } from '../../store/testing';
 import { useUiStore } from '../../store/uiStore';
-import { selectAssistantRuntimeState } from '../../runtime/selectors';
-import { useSessionRuntime } from '../../runtime/useSessionRuntime';
-import { __emitGeminiLiveSdkMessage } from '../../test/geminiLiveSdkMock';
 import { AssistantPanelSettingsView } from '../features/AssistantPanelSettingsView';
-import { ControlDock } from './ControlDock';
+import { type ControlDockProps, ControlDock } from './ControlDock';
 
-function renderDock() {
+function createDockProps(
+  overrides: Partial<ControlDockProps> = {},
+): ControlDockProps {
+  return {
+    currentMode: 'text',
+    speechLifecycleStatus: 'off',
+    voiceCaptureState: 'idle',
+    screenCaptureState: 'disabled',
+    onStartVoiceCapture: vi.fn(async () => undefined),
+    onStopVoiceCapture: vi.fn(async () => undefined),
+    onStartScreenCapture: vi.fn(async () => undefined),
+    onStopScreenCapture: vi.fn(async () => undefined),
+    onEndSession: vi.fn(async () => undefined),
+    ...overrides,
+  };
+}
+
+function renderDock(overrides: Partial<ControlDockProps> = {}) {
+  const props = createDockProps(overrides);
+
   function DockHarness(): JSX.Element {
-    const assistantState = useSessionStore(selectAssistantRuntimeState);
     const isPanelOpen = useUiStore((state) => state.isPanelOpen);
     const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
-    const {
-      currentMode,
-      handleEndSession,
-      handleStartVoiceSession,
-      handleStartVoiceCapture,
-      handleStopVoiceCapture,
-      handleStartScreenCapture,
-      handleStopScreenCapture,
-      isVoiceSessionActive,
-      speechLifecycleStatus,
-      voiceCaptureState,
-      screenCaptureState,
-    } = useSessionRuntime();
 
     return (
       <>
         <output aria-label="panel-open">{String(isPanelOpen)}</output>
         <output aria-label="panel-pinned">{String(isPanelPinned)}</output>
-        <output aria-label="assistant-state">{assistantState}</output>
-        <output aria-label="current-mode">{currentMode}</output>
-        <output aria-label="speech-lifecycle-status">{speechLifecycleStatus}</output>
-        <output aria-label="voice-capture-state">{voiceCaptureState}</output>
-        <output aria-label="screen-capture-state">{screenCaptureState}</output>
-        <ControlDock
-          currentMode={currentMode}
-          isVoiceSessionActive={isVoiceSessionActive}
-          speechLifecycleStatus={speechLifecycleStatus}
-          voiceCaptureState={voiceCaptureState}
-          screenCaptureState={screenCaptureState}
-          onStartVoiceSession={handleStartVoiceSession}
-          onStartVoiceCapture={handleStartVoiceCapture}
-          onStopVoiceCapture={handleStopVoiceCapture}
-          onStartScreenCapture={handleStartScreenCapture}
-          onStopScreenCapture={handleStopScreenCapture}
-          onEndSession={handleEndSession}
-        />
+        <ControlDock {...props} />
         <AssistantPanelSettingsView />
       </>
     );
   }
 
-  return render(<DockHarness />);
+  return {
+    ...render(<DockHarness />),
+    props,
+  };
 }
 
 describe('ControlDock', () => {
@@ -65,180 +52,129 @@ describe('ControlDock', () => {
     resetDesktopStores();
     useSettingsStore.setState({ settings: DEFAULT_DESKTOP_SETTINGS, isReady: true });
     useUiStore.getState().initializeSettingsUi(DEFAULT_DESKTOP_SETTINGS);
-    window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
-      token: 'auth_tokens/test-token',
-      expireTime: '2099-03-09T12:30:00.000Z',
-      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
-    });
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
       ...patch,
     }));
   });
 
-  it('renders voice session controls disconnected by default', () => {
+  it('renders only the panel toggle when speech mode is inactive', () => {
     renderDock();
 
-    expect(
-      screen.getByRole('button', { name: /switch to speech mode to use microphone/i }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole('button', { name: /switch to speech mode to use screen context/i }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole('button', { name: /^switch to speech mode$/i }),
-    ).toBeEnabled();
     expect(screen.getByRole('button', { name: /open panel/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /start microphone capture/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /start screen context/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /end speech mode/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /switch to speech mode/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /connect voice session/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /disconnect voice session/i })).toBeNull();
   });
 
-  it('keeps microphone controls available during interrupted and recovering voice states', () => {
-    const noop = vi.fn(async () => undefined);
+  it('shows microphone and screen controls but hides the end control when the panel is open', () => {
+    useUiStore.setState({ isPanelOpen: true });
+    renderDock({
+      currentMode: 'speech',
+      speechLifecycleStatus: 'listening',
+      voiceCaptureState: 'stopped',
+      screenCaptureState: 'disabled',
+    });
+
+    expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: /end speech mode/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /close panel/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('shows a compact end speech mode control only when the panel is closed and speech mode is active', () => {
+    const { props } = renderDock({
+      currentMode: 'speech',
+      speechLifecycleStatus: 'listening',
+      voiceCaptureState: 'stopped',
+      screenCaptureState: 'disabled',
+    });
+
+    expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
+
+    const endSpeechModeButton = screen.getByRole('button', { name: 'End speech mode' });
+    expect(endSpeechModeButton).toBeEnabled();
+    expect(endSpeechModeButton).toHaveClass('control-dock__btn--danger');
+
+    fireEvent.click(endSpeechModeButton);
+    expect(props.onEndSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps microphone and screen controls available during interrupted and recovering speech states', () => {
     const { rerender } = render(
       <ControlDock
-        currentMode="speech"
-        isVoiceSessionActive
-        speechLifecycleStatus="interrupted"
-        voiceCaptureState="stopped"
-        screenCaptureState="disabled"
-        onStartVoiceSession={noop}
-        onStartVoiceCapture={noop}
-        onStopVoiceCapture={noop}
-        onStartScreenCapture={noop}
-        onStopScreenCapture={noop}
-        onEndSession={noop}
+        {...createDockProps({
+          currentMode: 'speech',
+          speechLifecycleStatus: 'interrupted',
+          voiceCaptureState: 'stopped',
+          screenCaptureState: 'disabled',
+        })}
       />,
     );
 
-    expect(
-      screen.getByRole('button', { name: /start microphone capture/i }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole('button', { name: /start screen context/i }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole('button', { name: /disconnect voice session/i }),
-    ).toBeEnabled();
+    expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
 
     rerender(
       <ControlDock
-        currentMode="speech"
-        isVoiceSessionActive
-        speechLifecycleStatus="recovering"
-        voiceCaptureState="stopped"
-        screenCaptureState="disabled"
-        onStartVoiceSession={noop}
-        onStartVoiceCapture={noop}
-        onStopVoiceCapture={noop}
-        onStartScreenCapture={noop}
-        onStopScreenCapture={noop}
-        onEndSession={noop}
+        {...createDockProps({
+          currentMode: 'speech',
+          speechLifecycleStatus: 'recovering',
+          voiceCaptureState: 'stopped',
+          screenCaptureState: 'disabled',
+        })}
       />,
     );
 
-    expect(
-      screen.getByRole('button', { name: /start microphone capture/i }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole('button', { name: /start screen context/i }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole('button', { name: /disconnect voice session/i }),
-    ).toBeEnabled();
+    expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
   });
 
-  it('connects voice mode and then toggles local microphone capture from the dock', async () => {
-    renderDock();
+  it('disables microphone and screen controls while speech mode is starting or ending', () => {
+    const { rerender } = render(
+      <ControlDock
+        {...createDockProps({
+          currentMode: 'speech',
+          speechLifecycleStatus: 'starting',
+        })}
+      />,
+    );
 
-    fireEvent.click(screen.getByRole('button', { name: /^switch to speech mode$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('current-mode')).toHaveTextContent('speech');
-      expect(screen.getByLabelText('speech-lifecycle-status')).toHaveTextContent('starting');
-    });
-    await act(async () => {
-      __emitGeminiLiveSdkMessage({ setupComplete: {} });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('speech-lifecycle-status')).toHaveTextContent('listening');
-      expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('capturing');
-    });
+    expect(screen.getByRole('button', { name: /speech mode is starting/i })).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /stop microphone capture/i }),
-    ).toBeEnabled();
-
-    fireEvent.click(screen.getByRole('button', { name: /stop microphone capture/i }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('stopped');
-    });
-  });
-
-  it('toggles screen context from the dock during an active voice session', async () => {
-    renderDock();
-
-    fireEvent.click(screen.getByRole('button', { name: /^switch to speech mode$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('current-mode')).toHaveTextContent('speech');
-      expect(screen.getByLabelText('speech-lifecycle-status')).toHaveTextContent('starting');
-    });
-    await act(async () => {
-      __emitGeminiLiveSdkMessage({ setupComplete: {} });
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /start screen context/i }),
-      ).toBeEnabled();
-      expect(screen.getByLabelText('voice-capture-state')).toHaveTextContent('capturing');
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /start screen context/i }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('screen-capture-state')).toHaveTextContent(/capturing|streaming/);
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /stop screen context/i }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('screen-capture-state')).toHaveTextContent('disabled');
-    });
-  });
-
-  it('keeps speech-only controls unavailable while text mode is active but allows switching modes', async () => {
-    useSessionStore.getState().setCurrentMode('text');
-    useSessionStore.getState().setTextSessionLifecycle({ status: 'ready' });
-    renderDock();
-
-    expect(
-      screen.getByRole('button', { name: /switch to speech mode to use microphone/i }),
+      screen.getByRole('button', { name: /screen context unavailable while speech mode starts/i }),
     ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Starting speech mode' })).toBeDisabled();
+
+    rerender(
+      <ControlDock
+        {...createDockProps({
+          currentMode: 'speech',
+          speechLifecycleStatus: 'ending',
+        })}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /speech mode is ending/i })).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /switch to speech mode to use screen context/i }),
+      screen.getByRole('button', { name: /screen context unavailable while speech mode ends/i }),
     ).toBeDisabled();
-    expect(screen.getByRole('button', { name: /^switch to speech mode$/i })).toBeEnabled();
-  });
-
-  it('switches from text mode into speech mode from the dock', async () => {
-    useSessionStore.getState().setCurrentMode('text');
-    useSessionStore.getState().setTextSessionLifecycle({ status: 'ready' });
-    renderDock();
-
-    fireEvent.click(screen.getByRole('button', { name: /^switch to speech mode$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('current-mode')).toHaveTextContent('speech');
-    });
+    expect(screen.getByRole('button', { name: 'Ending speech mode' })).toBeDisabled();
   });
 
   it('opens and closes the panel', () => {
     renderDock();
-    const openBtn = screen.getByRole('button', { name: /open panel/i });
-    expect(openBtn).toHaveAttribute('aria-expanded', 'false');
+    const openButton = screen.getByRole('button', { name: /open panel/i });
+    expect(openButton).toHaveAttribute('aria-expanded', 'false');
 
-    fireEvent.click(openBtn);
+    fireEvent.click(openButton);
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
     expect(screen.getByRole('button', { name: /close panel/i })).toHaveAttribute(
       'aria-expanded',

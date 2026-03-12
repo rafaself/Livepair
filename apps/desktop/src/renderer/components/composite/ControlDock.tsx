@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Ban, ChevronLeft, Mic, MicOff, Monitor, MonitorOff, PhoneOff } from 'lucide-react';
+import { ChevronLeft, Mic, MicOff, Monitor, MonitorOff, PhoneOff } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -11,11 +11,9 @@ import './ControlDock.css';
 
 export type ControlDockProps = {
   currentMode: ProductMode;
-  isVoiceSessionActive: boolean;
   speechLifecycleStatus: SpeechLifecycleStatus;
   voiceCaptureState: VoiceCaptureState;
   screenCaptureState: ScreenCaptureState;
-  onStartVoiceSession: () => Promise<void>;
   onStartVoiceCapture: () => Promise<void>;
   onStopVoiceCapture: () => Promise<void>;
   onStartScreenCapture: () => Promise<void>;
@@ -25,11 +23,9 @@ export type ControlDockProps = {
 
 export function ControlDock({
   currentMode,
-  isVoiceSessionActive,
   speechLifecycleStatus,
   voiceCaptureState,
   screenCaptureState,
-  onStartVoiceSession,
   onStartVoiceCapture,
   onStopVoiceCapture,
   onStartScreenCapture,
@@ -45,23 +41,23 @@ export function ControlDock({
   const [isWindowFocused, setIsWindowFocused] = useState(() => document.hasFocus());
 
   const shouldDimDock = !isPanelOpen && !isWindowFocused && !isHovered;
-  const isSpeechMode = currentMode === 'speech';
+  const hasSpeechLifecycleActivity = speechLifecycleStatus !== 'off';
+  const isSpeechModeActive = currentMode === 'speech' && hasSpeechLifecycleActivity;
   const isVoiceCaptureBusy =
     voiceCaptureState === 'requestingPermission' || voiceCaptureState === 'stopping';
   const isVoiceCapturing = voiceCaptureState === 'capturing';
-  const isVoiceSessionBusy =
+  const isSpeechModeTransitioning =
     speechLifecycleStatus === 'starting' || speechLifecycleStatus === 'ending';
-  const isMicrophoneAvailable =
-    speechLifecycleStatus !== 'off' &&
-    speechLifecycleStatus !== 'starting' &&
-    speechLifecycleStatus !== 'ending';
+  const isMicrophoneAvailable = isSpeechModeActive && !isSpeechModeTransitioning;
   const isScreenContextBusy =
     screenCaptureState === 'requestingPermission' || screenCaptureState === 'stopping';
   const isScreenContextActive =
     screenCaptureState === 'ready' ||
     screenCaptureState === 'capturing' ||
     screenCaptureState === 'streaming';
-  const isScreenContextAvailable = isMicrophoneAvailable;
+  const isScreenContextAvailable = isSpeechModeActive && !isSpeechModeTransitioning;
+  const showSpeechControls = isSpeechModeActive;
+  const showEndSpeechModeControl = showSpeechControls && !isPanelOpen;
   const micButtonClassName = [
     isVoiceCapturing ? 'control-dock__btn--active' : '',
     isVoiceCaptureBusy ? 'control-dock__btn--pending' : '',
@@ -70,41 +66,41 @@ export function ControlDock({
     isScreenContextActive ? 'control-dock__btn--active' : '',
     isScreenContextBusy ? 'control-dock__btn--pending' : '',
   ].filter(Boolean).join(' ') || undefined;
-  const microphoneLabel = !isSpeechMode
-    ? 'Switch to speech mode to use microphone'
-    : !isMicrophoneAvailable
-      ? 'Connect voice session to use microphone'
-      : isVoiceCapturing
-        ? 'Stop microphone capture'
-        : voiceCaptureState === 'requestingPermission'
-          ? 'Requesting microphone permission'
-          : voiceCaptureState === 'stopping'
-            ? 'Stopping microphone capture'
-            : voiceCaptureState === 'error'
-              ? 'Retry microphone capture'
-              : 'Start microphone capture';
-  const screenContextLabel = !isSpeechMode
-    ? 'Switch to speech mode to use screen context'
-    : !isScreenContextAvailable
-      ? 'Connect voice session to use screen context'
-      : isScreenContextActive
-        ? 'Stop screen context'
-        : screenCaptureState === 'requestingPermission'
-          ? 'Requesting screen permission'
-          : screenCaptureState === 'stopping'
-            ? 'Stopping screen context'
-            : screenCaptureState === 'error'
-              ? 'Retry screen context'
-              : 'Start screen context';
-  const voiceSessionLabel = !isSpeechMode
-    ? 'Switch to speech mode'
-    : isVoiceSessionBusy
-      ? speechLifecycleStatus === 'starting'
-        ? 'Connecting voice session'
-        : 'Stopping voice session'
-      : isVoiceSessionActive
-        ? 'Disconnect voice session'
-        : 'Connect voice session';
+  const microphoneLabel = speechLifecycleStatus === 'starting'
+    ? 'Speech mode is starting'
+    : speechLifecycleStatus === 'ending'
+      ? 'Speech mode is ending'
+      : !isMicrophoneAvailable
+        ? 'Microphone unavailable outside active speech mode'
+        : isVoiceCapturing
+          ? 'Stop microphone capture'
+          : voiceCaptureState === 'requestingPermission'
+            ? 'Requesting microphone permission'
+            : voiceCaptureState === 'stopping'
+              ? 'Stopping microphone capture'
+              : voiceCaptureState === 'error'
+                ? 'Retry microphone capture'
+                : 'Start microphone capture';
+  const screenContextLabel = speechLifecycleStatus === 'starting'
+    ? 'Screen context unavailable while speech mode starts'
+    : speechLifecycleStatus === 'ending'
+      ? 'Screen context unavailable while speech mode ends'
+      : !isScreenContextAvailable
+        ? 'Screen context unavailable outside active speech mode'
+        : isScreenContextActive
+          ? 'Stop screen context'
+          : screenCaptureState === 'requestingPermission'
+            ? 'Requesting screen permission'
+            : screenCaptureState === 'stopping'
+              ? 'Stopping screen context'
+              : screenCaptureState === 'error'
+                ? 'Retry screen context'
+                : 'Start screen context';
+  const endSpeechModeLabel = speechLifecycleStatus === 'starting'
+    ? 'Starting speech mode'
+    : speechLifecycleStatus === 'ending'
+      ? 'Ending speech mode'
+      : 'End speech mode';
 
   useEffect(() => {
     const handleWindowFocus = (): void => {
@@ -135,67 +131,68 @@ export function ControlDock({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <IconButton
-        label={microphoneLabel}
-        className={micButtonClassName}
-        disabled={!isSpeechMode || !isMicrophoneAvailable || isVoiceCaptureBusy}
-        onClick={() => {
-          if (!isSpeechMode || !isMicrophoneAvailable || isVoiceCaptureBusy) {
-            return;
-          }
+      {showSpeechControls ? (
+        <>
+          <IconButton
+            label={microphoneLabel}
+            className={micButtonClassName}
+            disabled={!isMicrophoneAvailable || isVoiceCaptureBusy}
+            onClick={() => {
+              if (!isMicrophoneAvailable || isVoiceCaptureBusy) {
+                return;
+              }
 
-          if (isVoiceCapturing) {
-            void onStopVoiceCapture();
-            return;
-          }
+              if (isVoiceCapturing) {
+                void onStopVoiceCapture();
+                return;
+              }
 
-          void onStartVoiceCapture();
-        }}
-      >
-        {isVoiceCapturing ? <Mic size={18} /> : <MicOff size={18} />}
-      </IconButton>
+              void onStartVoiceCapture();
+            }}
+          >
+            {isVoiceCapturing ? <Mic size={18} /> : <MicOff size={18} />}
+          </IconButton>
 
-      <IconButton
-        label={screenContextLabel}
-        className={screenButtonClassName}
-        disabled={!isSpeechMode || !isScreenContextAvailable || isScreenContextBusy}
-        onClick={() => {
-          if (!isSpeechMode || !isScreenContextAvailable || isScreenContextBusy) {
-            return;
-          }
+          <IconButton
+            label={screenContextLabel}
+            className={screenButtonClassName}
+            disabled={!isScreenContextAvailable || isScreenContextBusy}
+            onClick={() => {
+              if (!isScreenContextAvailable || isScreenContextBusy) {
+                return;
+              }
 
-          if (isScreenContextActive) {
-            void onStopScreenCapture();
-            return;
-          }
+              if (isScreenContextActive) {
+                void onStopScreenCapture();
+                return;
+              }
 
-          void onStartScreenCapture();
-        }}
-      >
-        {isScreenContextActive ? <Monitor size={18} /> : <MonitorOff size={18} />}
-      </IconButton>
+              void onStartScreenCapture();
+            }}
+          >
+            {isScreenContextActive ? <Monitor size={18} /> : <MonitorOff size={18} />}
+          </IconButton>
 
-      <IconButton
-        label={voiceSessionLabel}
-        className={isVoiceSessionActive ? 'control-dock__btn--danger' : 'control-dock__btn--start'}
-        disabled={isVoiceSessionBusy}
-        onClick={() => {
-          if (isVoiceSessionBusy) {
-            return;
-          }
+          {showEndSpeechModeControl ? (
+            <IconButton
+              label={endSpeechModeLabel}
+              className="control-dock__btn--danger"
+              disabled={isSpeechModeTransitioning}
+              onClick={() => {
+                if (isSpeechModeTransitioning) {
+                  return;
+                }
 
-          if (isVoiceSessionActive) {
-            void onEndSession();
-            return;
-          }
+                void onEndSession();
+              }}
+            >
+              <PhoneOff size={18} />
+            </IconButton>
+          ) : null}
 
-          void onStartVoiceSession();
-        }}
-      >
-        {isVoiceSessionActive ? <PhoneOff size={18} /> : <Ban size={18} />}
-      </IconButton>
-
-      <Divider orientation="horizontal" />
+          <Divider orientation="horizontal" />
+        </>
+      ) : null}
 
       <IconButton
         label={isPanelOpen ? 'Close panel' : 'Open panel'}
