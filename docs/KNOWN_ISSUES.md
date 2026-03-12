@@ -1,6 +1,6 @@
 # Known Issues
 
-**Last updated:** 2026-03-11
+**Last updated:** 2026-03-12
 
 ## Current Gaps
 
@@ -16,13 +16,14 @@
 - Do not describe backend checkpointing, backend tool execution, or backend error reporting as implemented until the corresponding endpoints and shared contracts actually exist.
 - Do not describe screen capture as automatic or adaptive yet. The implemented behavior is explicit manual start/stop during an active speech session.
 - Do not treat runtime `voice` terminology as the user-facing product-mode name. User-facing mode is `speech`; `voice` is an internal session/transport label.
-# Known Issues Log
 
-Last updated: 2026-03-12
+---
 
-Use this file to record every failed or inconclusive result from the manual QA runbook in [QA_RUNBOOK.md](./QA_RUNBOOK.md).
+## QA Issues Log
 
-## Logging Rules
+Use this section to record every failed or inconclusive result from the manual QA runbook in [QA_RUNBOOK.md](./QA_RUNBOOK.md).
+
+### Logging Rules
 
 - add one entry per distinct issue
 - include the runbook flow ID, for example `QA-05`
@@ -30,7 +31,7 @@ Use this file to record every failed or inconclusive result from the manual QA r
 - if the issue is accepted temporarily, record who accepted the risk
 - if the issue is fixed, leave the original entry and add a resolution update
 
-## Entry Template
+### Entry Template
 
 ```md
 ## <short issue title>
@@ -71,6 +72,6 @@ Use this file to record every failed or inconclusive result from the manual QA r
 - YYYY-MM-DD:
 ```
 
-## Current Entries
+### Current Entries
 
 No issues logged yet.
