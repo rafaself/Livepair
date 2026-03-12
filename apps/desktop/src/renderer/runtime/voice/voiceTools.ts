@@ -1,3 +1,4 @@
+import { asErrorDetail } from '../core/runtimeUtils';
 import type { ProductMode } from '../core/session.types';
 import type { SpeechLifecycleStatus } from '../speech/speech.types';
 import type { TextSessionStatus } from '../text/text.types';
@@ -99,11 +100,10 @@ export async function executeLocalVoiceTool(
       `Tool "${call.name}" is not supported in voice mode`,
     );
   } catch (error) {
-    const message =
-      error instanceof Error && error.message.length > 0
-        ? error.message
-        : `Tool "${call.name}" failed`;
-
-    return createToolErrorResponse(call, 'tool_execution_failed', message);
+    return createToolErrorResponse(
+      call,
+      'tool_execution_failed',
+      asErrorDetail(error, `Tool "${call.name}" failed`),
+    );
   }
 }
