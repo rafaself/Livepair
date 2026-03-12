@@ -1,4 +1,4 @@
-import { asErrorDetail } from '../core/runtimeUtils';
+import { asErrorDetail, createDebugEvent } from '../core/runtimeUtils';
 import { createDefaultVoiceToolState } from '../core/defaults';
 import { executeLocalVoiceTool } from './voiceTools';
 import type { VoiceToolExecutionSnapshot } from './voiceTools';
@@ -11,6 +11,9 @@ import type {
 type VoiceToolStoreApi = {
   getState: () => {
     setVoiceToolState: (patch: Partial<VoiceToolState>) => void;
+    setLastDebugEvent?: (
+      event: ReturnType<typeof createDebugEvent>,
+    ) => void;
   };
 };
 
@@ -18,6 +21,7 @@ type SnapshotProvider = () => VoiceToolExecutionSnapshot;
 
 export type VoiceToolController = {
   enqueue: (calls: VoiceToolCall[]) => void;
+  cancel: (detail?: string) => void;
   setState: (patch: Partial<VoiceToolState>) => void;
   reset: () => void;
   resetChain: () => void;
@@ -27,12 +31,30 @@ export function createVoiceToolController(
   store: VoiceToolStoreApi,
   getTransport: () => DesktopSession | null,
   getSnapshot: SnapshotProvider,
-  onError: (detail: string) => void,
 ): VoiceToolController {
   let voiceToolChain = Promise.resolve();
+  let executionVersion = 0;
 
   const setState = (patch: Partial<VoiceToolState>): void => {
     store.getState().setVoiceToolState(patch);
+  };
+
+  const setDebugEvent = (type: string, detail?: string): void => {
+    store.getState().setLastDebugEvent?.(createDebugEvent('session', type, detail));
+  };
+
+  const isActiveExecution = (
+    version: number,
+    transport: DesktopSession,
+  ): boolean => {
+    return version === executionVersion && transport === getTransport();
+  };
+
+  const cancel = (detail = 'tool execution cancelled'): void => {
+    executionVersion += 1;
+    voiceToolChain = Promise.resolve();
+    reset();
+    setDebugEvent('voice.tool.cancelled', detail);
   };
 
   const reset = (): void => {
@@ -41,10 +63,14 @@ export function createVoiceToolController(
 
   const handleVoiceToolCalls = async (
     calls: VoiceToolCall[],
+    version: number,
   ): Promise<void> => {
     const transport = getTransport();
 
     if (!transport || calls.length === 0) {
+      if (calls.length > 0) {
+        setDebugEvent('voice.tool.ignored', 'transport unavailable');
+      }
       return;
     }
 
@@ -52,7 +78,7 @@ export function createVoiceToolController(
     let lastError: string | null = null;
 
     for (const call of calls) {
-      if (transport !== getTransport()) {
+      if (!isActiveExecution(version, transport)) {
         return;
       }
 
@@ -62,13 +88,20 @@ export function createVoiceToolController(
         callId: call.id,
         lastError: null,
       });
+      setDebugEvent('voice.tool.pending', `${call.id}:${call.name}`);
       setState({
         status: 'toolExecuting',
         toolName: call.name,
         callId: call.id,
       });
+      setDebugEvent('voice.tool.executing', `${call.id}:${call.name}`);
 
       const response = await executeLocalVoiceTool(call, getSnapshot());
+
+      if (!isActiveExecution(version, transport)) {
+        return;
+      }
+
       responses.push(response);
 
       const errorDetail = response.response['error'];
@@ -89,10 +122,18 @@ export function createVoiceToolController(
       callId: calls.at(-1)?.id ?? null,
       lastError,
     });
+    setDebugEvent(
+      'voice.tool.responding',
+      `${calls.at(-1)?.id ?? 'unknown'}:${calls.at(-1)?.name ?? 'unknown'}`,
+    );
 
     try {
       await transport.sendToolResponses(responses);
     } catch (error) {
+      if (!isActiveExecution(version, transport)) {
+        return;
+      }
+
       const detail = asErrorDetail(error, 'Failed to respond to voice tool call');
       setState({
         status: 'toolError',
@@ -100,7 +141,11 @@ export function createVoiceToolController(
         callId: calls.at(-1)?.id ?? null,
         lastError: detail,
       });
-      onError(detail);
+      setDebugEvent('voice.tool.failed', detail);
+      return;
+    }
+
+    if (!isActiveExecution(version, transport)) {
       return;
     }
 
@@ -110,27 +155,33 @@ export function createVoiceToolController(
       callId: calls.at(-1)?.id ?? null,
       lastError,
     });
+    setDebugEvent(lastError ? 'voice.tool.failed' : 'voice.tool.completed', lastError ?? undefined);
   };
 
   const enqueue = (calls: VoiceToolCall[]): void => {
+    const version = executionVersion;
     voiceToolChain = voiceToolChain
-      .then(() => handleVoiceToolCalls(calls))
+      .then(() => handleVoiceToolCalls(calls, version))
       .catch((error) => {
         const detail = asErrorDetail(error, 'Failed to handle voice tool call');
+
+        if (version !== executionVersion) {
+          return;
+        }
+
         setState({
           status: 'toolError',
           lastError: detail,
         });
-        onError(detail);
+        setDebugEvent('voice.tool.failed', detail);
       });
   };
 
   return {
+    cancel,
     enqueue,
     setState,
     reset,
-    resetChain: () => {
-      voiceToolChain = Promise.resolve();
-    },
+    resetChain: () => { cancel('tool execution reset'); },
   };
 }

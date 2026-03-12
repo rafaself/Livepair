@@ -8,7 +8,8 @@ import * as voiceToolsModule from './voiceTools';
 
 function createHarness() {
   const setVoiceToolState = vi.fn();
-  const store = { getState: () => ({ setVoiceToolState }) };
+  const setLastDebugEvent = vi.fn();
+  const store = { getState: () => ({ setVoiceToolState, setLastDebugEvent }) };
 
   const sendToolResponses = vi.fn(() => Promise.resolve());
   const transport = { sendToolResponses } as unknown as DesktopSession;
@@ -23,20 +24,18 @@ function createHarness() {
     voicePlaybackState: 'idle',
   };
   const getSnapshot = vi.fn(() => snapshot);
-  const onError = vi.fn();
 
   const ctrl = createVoiceToolController(
     store,
     () => currentTransport,
     getSnapshot,
-    onError,
   );
 
   return {
     ctrl,
     setVoiceToolState,
+    setLastDebugEvent,
     sendToolResponses,
-    onError,
     getSnapshot,
     setTransport: (t: DesktopSession | null) => { currentTransport = t; },
     transport,
@@ -164,15 +163,17 @@ describe('createVoiceToolController', () => {
   });
 
   it('enqueue reports error when sendToolResponses fails', async () => {
-    const { ctrl, sendToolResponses, onError, setVoiceToolState } = createHarness();
+    const { ctrl, sendToolResponses, setVoiceToolState } = createHarness();
     sendToolResponses.mockRejectedValue(new Error('send failed'));
 
     ctrl.enqueue([makeCall()]);
 
     await vi.waitFor(() => {
-      expect(onError).toHaveBeenCalledWith(expect.stringContaining('send failed'));
       expect(setVoiceToolState).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'toolError' }),
+        expect.objectContaining({
+          status: 'toolError',
+          lastError: 'send failed',
+        }),
       );
     });
   });
@@ -193,6 +194,53 @@ describe('createVoiceToolController', () => {
         expect.objectContaining({ status: 'toolError', lastError: 'tool failed' }),
       );
     });
+  });
+
+  it('cancel clears pending tool state and suppresses stale results', async () => {
+    const { ctrl, sendToolResponses, setVoiceToolState, setLastDebugEvent } = createHarness();
+    let resolveTool:
+      | ((value: { id: string; name: string; response: Record<string, unknown> }) => void)
+      | undefined;
+
+    mockedExecute.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveTool = resolve;
+        }),
+    );
+
+    ctrl.enqueue([makeCall()]);
+
+    await vi.waitFor(() => {
+      expect(setVoiceToolState).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'toolExecuting' }),
+      );
+    });
+
+    ctrl.cancel('voice turn interrupted');
+    resolveTool?.({
+      id: 'call-1',
+      name: 'get_current_mode',
+      response: { ok: true, mode: 'speech' },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sendToolResponses).not.toHaveBeenCalled();
+    expect(setVoiceToolState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'idle',
+        toolName: null,
+        callId: null,
+        lastError: null,
+      }),
+    );
+    expect(setLastDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'voice.tool.cancelled',
+        detail: 'voice turn interrupted',
+      }),
+    );
   });
 
   it('resetChain resets the promise chain', () => {
