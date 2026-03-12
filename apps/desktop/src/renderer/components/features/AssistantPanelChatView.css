@@ -97,7 +97,7 @@
 
 .assistant-panel__composer-section {
   flex-shrink: 0;
-  padding: var(--space-4) var(--space-6) var(--space-6);
+  padding: var(--space-2) var(--space-6) var(--space-6);
   background: var(--color-chat-bg);
 }
 
