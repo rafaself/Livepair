@@ -1,152 +1,93 @@
-# Voice Chat Single-Surface UX Spec
+# Voice Chat Single-Surface Spec
 
-**Status:** Wave 1 foundation
+**Status:** Shipped
 **Last updated:** 2026-03-12
 
 ## Goal
 
-Define the target contract for the voice-chat UX refactor while freezing the current production behavior with tests. This wave does **not** move voice transcripts into chat bubbles yet.
+Document the shipped speech-chat architecture after Waves 1 to 5. This file describes the current repository behavior, not the intermediate migration plan.
 
-## Current Behavior Audit
+## Final UX Contract
 
-### Current end-to-end transcript flow
+- Speech mode renders through one primary visible conversation surface.
+- Spoken user turns appear as right-aligned voice-sourced chat bubbles in the same conversation list used by text mode.
+- Assistant speech appears as a single left-aligned voice-sourced bubble that is updated in place while transcript and audio events stream in.
+- The UI does not render a separate top transcript panel in the normal chat flow.
 
-1. Live speech transcript events enter through the voice transport and are routed by `transportEventRouter`.
-2. `input-transcript` updates `currentVoiceTranscript.user` through `voiceTranscriptController`.
-3. `output-transcript` updates `currentVoiceTranscript.assistant` through `voiceTranscriptController`.
-4. `currentVoiceTranscript` is stored in [`apps/desktop/src/renderer/store/sessionStore.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/store/sessionStore.ts).
-5. The top transcript panel reads `currentVoiceTranscript` through [`AssistantPanelSpeechTranscript.tsx`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/components/features/AssistantPanelSpeechTranscript.tsx).
-6. The bottom conversation surface reads only `conversationTurns` through [`AssistantPanelChatView.tsx`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/components/features/AssistantPanelChatView.tsx) and [`AssistantPanelConversationSection.tsx`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/components/features/AssistantPanelConversationSection.tsx).
-7. Durable assistant history is appended only when `transportEventRouter` calls `promoteAssistantTranscriptTurn(...)`, which consumes the latest assistant transcript and appends a completed assistant turn via `textChatCtrl.appendCompletedAssistantTurn(...)`.
+Primary surface:
 
-### What is stored where today
+- [`apps/desktop/src/renderer/components/features/AssistantPanelChatView.tsx`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/components/features/AssistantPanelChatView.tsx)
+- [`apps/desktop/src/renderer/components/features/AssistantPanelConversationSection.tsx`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/components/features/AssistantPanelConversationSection.tsx)
 
-- User speech transcript:
-  stored only in `currentVoiceTranscript.user`
-- Assistant speech transcript while speaking:
-  stored only in `currentVoiceTranscript.assistant`
-- Assistant speech transcript after finalization:
-  remains in `currentVoiceTranscript.assistant` until the next spoken user turn or teardown, and is also appended to `conversationTurns`
-- User speech after finalization:
-  remains only in `currentVoiceTranscript.user`; it is not promoted into `conversationTurns`
+Visible state source of truth:
 
-### Promotion timing today
+- `conversationTurns` in [`apps/desktop/src/renderer/store/sessionStore.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/store/sessionStore.ts)
 
-- Assistant speech is promoted into `conversationTurns` on `turn-complete`.
-- Assistant speech is also promoted on `interrupted`, using the latest transcript snapshot and an `Interrupted` status label.
-- Promotion is idempotent for a turn. If `interrupted` is followed by `turn-complete`, the assistant turn is not appended twice.
+Compatibility-only mirror:
 
-### Why the top transcript panel and bottom chat both exist today
+- `currentVoiceTranscript` in [`apps/desktop/src/renderer/store/sessionStore.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/store/sessionStore.ts)
+- This mirror is retained for runtime compatibility and targeted tests, but it is not a primary rendered speech surface.
 
-- `conversationTurns` supports durable conversation history and text-mode streaming turns.
-- `currentVoiceTranscript` is a separate ephemeral speech-turn buffer with independent user and assistant slots.
-- The conversation list has no concept of an in-progress speech bubble backed by `currentVoiceTranscript`.
-- Because user speech is never promoted into `conversationTurns`, the top transcript panel is currently the only visible surface for live spoken user input.
+## Runtime Ownership Model
 
-### Interruption and turn completion behavior today
-
-- `turn-complete` marks the voice turn completed, may promote the assistant transcript, and leaves `currentVoiceTranscript` populated.
-- `interrupted` also marks the voice turn completed, promotes the latest assistant transcript if present, and leaves `currentVoiceTranscript` populated.
-- The next spoken user transcript after a completed/interrupted turn clears the old `currentVoiceTranscript` buffer first, then starts the new speech turn.
-- Session teardown clears `currentVoiceTranscript`.
-
-## Target Behavior
-
-### Product contract
-
-Voice chat should eventually render through one visible conversation surface.
-
-- Spoken user input becomes a right-aligned in-progress chat bubble.
-- Assistant speech output becomes a left-aligned in-progress chat bubble.
-- The separate top transcript panel will be removed in a later wave after the state contract is unified.
-
-### Partial vs final transcript behavior
-
-- Partial spoken-user transcript updates must revise the same in-progress user bubble.
-- Final spoken-user transcript updates must finalize the text content for that user bubble, but finalization of the overall turn remains distinct from transcript finality.
-- Partial assistant transcript updates must revise the same in-progress assistant bubble.
-- Corrective assistant transcript updates must replace or normalize the existing in-progress assistant bubble content rather than append stale text blindly.
-
-### Interruption behavior
-
-- If assistant output is interrupted, the current assistant bubble must finalize with the latest known assistant transcript text.
-- An interrupted assistant bubble should stay visible in the unified conversation surface with an interrupted status treatment.
-- Interruption must not create a duplicate finalized assistant bubble if a later completion signal arrives for the same turn.
-
-### Turn-finalization behavior
-
-- Turn completion finalizes any promotable in-progress assistant bubble into durable conversation history.
-- Turn completion must not create a durable user bubble from a second source of truth. The same bubble instance should progress from in-progress to finalized.
-- Starting the next spoken user turn clears only the prior turn's ephemeral ownership, not the finalized conversation history.
-
-## Ownership Rules For The Target UX
-
-### User bubble
+### Spoken user turns
 
 - Create:
-  the speech transcript runtime creates the in-progress user bubble when the first user transcript for a new turn arrives
+  the first `input-transcript` event for a speech turn creates the in-progress user bubble through [`apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.ts)
 - Update:
-  speech transcript updates revise that same bubble as more user transcript arrives
+  later user transcript updates revise the same bubble in place through [`apps/desktop/src/renderer/runtime/conversation/conversationTurnManager.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/conversation/conversationTurnManager.ts)
 - Finalize:
-  the turn orchestration layer marks the user bubble finalized when the turn is considered settled under the unified contract
-- Clear:
-  only ephemeral turn state for the active user bubble is cleared when a new turn starts or the session tears down
+  `turn-complete` finalizes the existing user bubble when the user side of the turn settles
+- Carry-over rule:
+  corrective transcript updates may continue to revise the same settled user bubble only when they are clearly the same utterance
+- New-turn rule:
+  the next distinct spoken user utterance starts a fresh streaming bubble even if the previous settled turn was assistant-only
 
-### Assistant bubble
+### Assistant turns
 
 - Create:
-  the speech transcript runtime creates the in-progress assistant bubble when assistant transcript or assistant output begins
+  assistant output creates a bubble on the first `output-transcript` or `audio-chunk`
 - Update:
-  assistant transcript updates revise that same bubble
+  later transcript updates rewrite the same assistant bubble instead of appending additional bubbles
 - Finalize:
-  turn completion or interruption finalizes the assistant bubble once
-- Clear:
-  only ephemeral assistant-turn bookkeeping is cleared after finalization or teardown; finalized conversation history remains
+  `turn-complete` or `interrupted` settles that same bubble once
+- Empty placeholder cleanup:
+  if assistant audio starts a placeholder bubble and interruption happens before transcript text arrives, the empty placeholder is removed
 
-### Boundary rule
+## Interruption And Finalization Rules
 
-- There must be one chat-surface state contract for visible voice turns.
-- A later wave may still keep internal helper state, but visible voice-turn rendering cannot remain split across `currentVoiceTranscript` and `conversationTurns`.
+- Interruption finalizes the current assistant bubble with the latest known assistant transcript text.
+- A later `turn-complete` for the same interrupted turn must not create a duplicate bubble or clear the `Interrupted` label.
+- Session recovery must stop assistant playback promptly and move the speech lifecycle toward `recovering`, then back to `listening` when microphone streaming resumes.
+- Finalization must leave no orphan partial voice turns in `conversationTurns`.
+- Starting the next spoken user turn clears only active voice-turn ownership and the compatibility mirror; it does not remove finalized conversation history.
 
-## Risks And Ordering Hazards
+## Retained Non-Primary Surfaces
 
-- Transcript providers can send corrective updates that replace prior partial text rather than extend it.
-- `interrupted` and `turn-complete` can arrive in close succession, so promotion/finalization must be idempotent.
-- Assistant audio start and assistant transcript arrival are not the same event; bubble creation cannot assume transcript text exists at the first audio chunk.
-- User transcript finality and overall turn completion are not the same milestone; collapsing them too early would regress interruption and late assistant-output behavior.
-- During migration, dual-writing to both `currentVoiceTranscript` and `conversationTurns` would be the highest regression risk unless ownership is explicit.
+- Compatibility-only:
+  `currentVoiceTranscript` remains in the store for runtime mirroring and regression coverage
+- Debug-only transcript surface:
+  none
 
-## Wave 1 Safety Net
+## Verification Evidence In Repo
 
-Wave 1 locks the current split behavior with focused tests:
+Focused regression coverage for the shipped contract lives in:
 
-- `currentVoiceTranscript` remains the source of truth for live spoken user and assistant transcript text
-- `conversationTurns` receives only promoted assistant voice output today
-- assistant promotion happens on `turn-complete`
-- interrupted assistant output promotes once and does not duplicate on a later `turn-complete`
-- transcript buffers remain populated after finalization and clear on the next spoken user turn or teardown
+- [`apps/desktop/src/renderer/runtime/sessionController.transcript.test.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/sessionController.transcript.test.ts)
+- [`apps/desktop/src/renderer/runtime/sessionController.interruption.test.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/sessionController.interruption.test.ts)
+- [`apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.test.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.test.ts)
+- [`apps/desktop/src/renderer/runtime/transport/transportEventRouter.test.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/transport/transportEventRouter.test.ts)
 
-## Execution Note For Later Waves
+The regression suite covers:
 
-- Wave 2 should first introduce a single visible voice-turn state contract and move creation/update/finalization responsibilities behind that seam before removing any UI.
-- Highest-conflict single-lane files:
-  `apps/desktop/src/renderer/store/sessionStore.ts`, `apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.ts`, `apps/desktop/src/renderer/runtime/sessionController.ts`, `apps/desktop/src/renderer/components/features/AssistantPanelChatView.tsx`, and `apps/desktop/src/renderer/components/features/AssistantPanelConversationSection.tsx`
-- Work that can become parallel only after the state contract is unified:
-  bubble presentation polish, top-transcript removal, conversation-list rendering cleanup, and non-runtime accessibility/styling follow-ups
+- single-surface visible rendering through `conversationTurns`
+- spoken user turn persistence in chat history
+- single-bubble assistant streaming and correction handling
+- interruption finalization without duplicate assistant turns
+- empty assistant placeholder cleanup on interruption
+- fresh user-turn creation after assistant-only completed or interrupted turns
+- transcript mirror reset on session end and next-turn rollover
 
-## Wave 2 Delivery Note
+## Manual QA Entry Point
 
-- `conversationTurns` now owns visible live speech content for both spoken-user and assistant voice turns; `currentVoiceTranscript` remains a compatibility mirror only.
-- Stable in-progress voice bubble identity now lives behind explicit conversation/runtime helpers, so transcript corrections and interruption finalization update existing turns in place.
-- Safe next-wave parallelization:
-  bubble-streaming presentation behavior, legacy top-transcript removal, conversation-list cleanup, and accessibility/styling follow-ups can now proceed without changing the runtime ownership seam.
-
-## Wave 4 Completion Note
-
-- Speech mode now renders through one visible conversation surface only; the legacy top transcript panel has been removed from the normal chat flow.
-- Empty speech mode now points users at the chat surface itself, and live bubble updates keep a sensible bottom anchor without repeated smooth-scroll jitter on every transcript correction.
-- Spoken user turns and assistant turns remain on the same bubble instances from partial to final states, including interruption handling and assistant audio-first placeholder cleanup.
-- Intentionally retained compatibility surface:
-  `currentVoiceTranscript` still exists as an internal runtime mirror for compatibility and test coverage, but it is no longer rendered in the primary UX.
-- Debug-only transcript surface retained:
-  none.
+Use the concise speech-chat checklist in [docs/QA_RUNBOOK.md](./QA_RUNBOOK.md) before demos or release sign-off.

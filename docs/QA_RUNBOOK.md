@@ -23,6 +23,23 @@ This runbook covers the current implemented product flows only:
 
 This document does not change product behavior. It defines how to validate the current behavior on a developer machine.
 
+## Speech Chat Quick Regression Checklist
+
+Run this lightweight checklist before broader demo or release QA when the speech-chat surface changes:
+
+- Normal speech turn:
+  start speech mode, speak one prompt, confirm the user bubble streams in place, the assistant answer streams in one bubble, and both remain in the conversation after completion
+- Long speech turn:
+  speak a longer prompt with natural pauses, confirm partial user transcript corrections keep updating the same bubble and final settled text is preserved
+- Assistant streaming turn:
+  trigger a response long enough to stream, confirm assistant transcript corrections update one bubble instead of creating extra bubbles
+- User interruption during assistant output:
+  interrupt while playback is active, confirm playback stops promptly, the assistant bubble keeps only the latest text, and the bubble remains labeled `Interrupted`
+- Recovery after interruption:
+  keep speaking after the interruption, confirm the session returns to listening/recovering cleanly and the next spoken user turn starts as a fresh streaming bubble
+- Session close / reopen sanity check:
+  close speech mode or the panel, reopen it, and confirm no stale partial transcript bubble or stuck playback state is visible
+
 ## Pass Criteria
 
 A release candidate is ready for manual sign-off only when:
@@ -154,7 +171,7 @@ Steps:
 Expected results:
 
 - the action changes to `Starting speech mode` and is temporarily disabled
-- the panel shows `Live voice transcript`
+- the panel stays on the conversation surface; no separate top transcript panel is required
 - speech mode becomes active without an extra microphone click
 - the dock shows microphone and screen-context controls
 - `Developer tools` shows voice session `Ready` and voice capture active
@@ -195,10 +212,10 @@ Steps:
 
 Expected results:
 
-- the `Current voice turn` section updates with your live transcript
+- your spoken words appear as a live user bubble in the conversation
 - the assistant audio plays through the selected output device
-- the assistant transcript updates during or after playback
-- when the turn completes, a durable assistant turn is visible in the conversation
+- the assistant transcript updates inside one in-progress assistant bubble during or after playback
+- when the turn completes, the same user and assistant bubbles remain in the conversation as finalized history
 - the app returns to a listening state after the response
 
 Capture on failure:
@@ -218,7 +235,8 @@ Expected results:
 - assistant playback stops promptly
 - the app does not disconnect the voice session
 - speech state moves back toward listening after the interruption
-- if the assistant had already produced partial transcript text, that latest partial text can remain as the final assistant turn
+- if the assistant had already produced partial transcript text, that latest partial text remains on the same assistant bubble with an `Interrupted` label
+- no duplicate assistant bubble or stale empty placeholder remains after the interruption
 
 Capture on failure:
 
@@ -240,16 +258,16 @@ Steps:
 
 Expected results:
 
-- the `You` transcript updates while you speak
-- the `Assistant` transcript updates when the assistant responds
-- corrective updates overwrite older partial transcript text rather than duplicating it
-- the completed assistant transcript is promoted into conversation history when the turn finishes
-- ending the session clears the live voice transcript area for the next session
+- the user bubble updates while you speak
+- the assistant bubble updates when the assistant responds
+- corrective updates overwrite older partial transcript text on the same bubble rather than duplicating it
+- the completed speech turn remains in conversation history when the turn finishes
+- ending the session clears any compatibility transcript state and leaves no stale partial bubble in the next session
 
 Capture on failure:
 
 - screenshot before end-session and after end-session
-- note whether the failure affected input transcript, output transcript, or transcript cleanup
+- note whether the failure affected user-bubble updates, assistant-bubble updates, or transcript cleanup
 
 ### QA-07 Screen Context
 
