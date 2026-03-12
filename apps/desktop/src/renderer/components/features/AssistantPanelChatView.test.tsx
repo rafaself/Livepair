@@ -353,6 +353,8 @@ describe('AssistantPanelChatView', () => {
         textSessionStatus="ready"
         textSessionStatusLabel="Text chat ready"
         canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
         turns={[]}
         currentVoiceTranscript={{
           user: { text: '' },
@@ -452,6 +454,66 @@ describe('AssistantPanelChatView', () => {
     expect(handleEndSpeechMode).toHaveBeenCalledTimes(1);
     expect(handleSubmitTextTurn).not.toHaveBeenCalled();
     expect(handleStartSpeechMode).not.toHaveBeenCalled();
+  });
+
+  it('disables send while speech mode is transitioning or its runtime is unavailable', () => {
+    const { rerender } = render(
+      <AssistantPanelChatView
+        assistantState="thinking"
+        currentMode="speech"
+        speechLifecycleStatus="starting"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="connecting"
+        turns={[]}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Can you hear me?"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+
+    rerender(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="disconnected"
+        textSessionStatusLabel="Text session disconnected"
+        canSubmitText={true}
+        activeTransport={null}
+        voiceSessionStatus="error"
+        turns={[]}
+        currentVoiceTranscript={{
+          user: { text: '' },
+          assistant: { text: '' },
+        }}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Try again"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
   });
 
   it('disables the empty-composer speech action while speech lifecycle transitions are in progress', () => {

@@ -4,8 +4,16 @@ import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
 import type { CurrentVoiceTranscript } from '../../runtime/voice/voice.types';
 import type { ProductMode } from '../../runtime/core/session.types';
+import {
+  canEndSpeechMode,
+  canSubmitComposerText,
+  createControlGatingSnapshot,
+  getComposerSpeechActionKind,
+} from '../../runtime/controlGating';
 import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
 import type { TextSessionStatus } from '../../runtime/text/text.types';
+import type { TransportKind } from '../../runtime/transport/transport.types';
+import type { VoiceSessionStatus } from '../../runtime/voice/voice.types';
 import { Button, TextInput } from '../primitives';
 import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { ConversationList } from './ConversationList';
@@ -18,6 +26,8 @@ export type AssistantPanelChatViewProps = {
   textSessionStatus: TextSessionStatus;
   textSessionStatusLabel: string;
   canSubmitText: boolean;
+  activeTransport?: TransportKind | null;
+  voiceSessionStatus?: VoiceSessionStatus;
   turns: ConversationTurnModel[];
   currentVoiceTranscript: CurrentVoiceTranscript;
   isConversationEmpty: boolean;
@@ -37,6 +47,8 @@ export function AssistantPanelChatView({
   textSessionStatus,
   textSessionStatusLabel,
   canSubmitText,
+  activeTransport = null,
+  voiceSessionStatus = 'disconnected',
   turns,
   currentVoiceTranscript,
   isConversationEmpty,
@@ -48,13 +60,20 @@ export function AssistantPanelChatView({
   onStartSpeechMode,
   onEndSpeechMode,
 }: AssistantPanelChatViewProps): JSX.Element {
-  const isComposerDisabled = isSubmittingTextTurn || !canSubmitText;
+  const controlGatingSnapshot = createControlGatingSnapshot({
+    currentMode,
+    speechLifecycleStatus,
+    textSessionStatus,
+    activeTransport,
+    voiceSessionStatus,
+  });
+  const isComposerDisabled =
+    isSubmittingTextTurn ||
+    !canSubmitText ||
+    !canSubmitComposerText(controlGatingSnapshot);
   const hasDraftText = draftText.trim().length > 0;
   const isSpeechMode = currentMode === 'speech';
-  const hasSpeechLifecycleActivity = speechLifecycleStatus !== 'off';
-  const isSpeechActionBusy =
-    speechLifecycleStatus === 'starting' || speechLifecycleStatus === 'ending';
-  const shouldEndSpeechMode = isSpeechMode || hasSpeechLifecycleActivity;
+  const composerSpeechActionKind = getComposerSpeechActionKind(controlGatingSnapshot);
   const hasVoiceTranscript =
     currentVoiceTranscript.user.text.trim().length > 0 ||
     currentVoiceTranscript.assistant.text.trim().length > 0;
@@ -65,7 +84,7 @@ export function AssistantPanelChatView({
         label: 'Send message',
         disabled: isComposerDisabled,
       }
-    : shouldEndSpeechMode
+    : composerSpeechActionKind === 'end'
       ? {
           icon: <MicOff size={18} aria-hidden="true" />,
           kind: 'endSpeech' as const,
@@ -75,7 +94,7 @@ export function AssistantPanelChatView({
               : speechLifecycleStatus === 'ending'
                 ? 'Ending speech mode'
                 : 'End speech mode',
-          disabled: isSpeechActionBusy,
+          disabled: !canEndSpeechMode(controlGatingSnapshot),
         }
       : {
           icon: <Mic size={18} aria-hidden="true" />,
