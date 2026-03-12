@@ -293,6 +293,7 @@ describe('createGeminiLiveTransport', () => {
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
     });
     transport.subscribe((event) => {
       events.push(event);
@@ -323,6 +324,7 @@ describe('createGeminiLiveTransport', () => {
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
     });
     transport.subscribe((event) => {
       events.push(event);
@@ -484,6 +486,7 @@ describe('createGeminiLiveTransport', () => {
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
     });
     transport.subscribe((event) => {
       events.push(event);
@@ -534,6 +537,7 @@ describe('createGeminiLiveTransport', () => {
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
     });
     transport.subscribe((event) => {
       events.push(event);
@@ -578,6 +582,7 @@ describe('createGeminiLiveTransport', () => {
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
     });
     transport.subscribe((event) => {
       events.push(event);
@@ -620,6 +625,7 @@ describe('createGeminiLiveTransport', () => {
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
     });
     transport.subscribe((event) => {
       events.push(event);
@@ -844,6 +850,7 @@ describe('createGeminiLiveTransport', () => {
     const events: LiveSessionEvent[] = [];
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
     });
     transport.subscribe((event) => {
       events.push(event);
@@ -867,11 +874,9 @@ describe('createGeminiLiveTransport', () => {
     });
   });
 
-  it('rejects connect when the live config is incompatible with ephemeral-token SDK bootstrap', async () => {
-    const sdkHarness = createSdkHarness();
-    const events: LiveSessionEvent[] = [];
-    const transport = createGeminiLiveTransport({
-      config: parseLiveConfig({
+  it('rejects non-v1alpha live config before transport bootstrap begins', () => {
+    expect(() =>
+      parseLiveConfig({
         provider: 'gemini',
         adapterKey: 'gemini-live',
         model: 'models/gemini-2.0-flash-live-001',
@@ -892,31 +897,9 @@ describe('createGeminiLiveTransport', () => {
         sessionResumptionEnabled: false,
         contextCompressionEnabled: false,
       }),
-      connectSession: sdkHarness.connectSession,
-    });
-    transport.subscribe((event) => {
-      events.push(event);
-    });
-
-    await expect(
-      transport.connect({
-        token: {
-          token: 'auth_tokens/test-token',
-          expireTime: '2099-03-09T12:30:00.000Z',
-          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
-        },
-        mode: 'text',
-      }),
-    ).rejects.toThrow(
-      'Gemini Live ephemeral-token sessions require VITE_LIVE_API_VERSION to be "v1alpha"',
+    ).toThrow(
+      'Invalid Live config: speech mode requires VITE_LIVE_API_VERSION to be "v1alpha" for ephemeral tokens',
     );
-
-    expect(sdkHarness.connectSession).not.toHaveBeenCalled();
-    expect(events.at(-1)).toEqual({
-      type: 'error',
-      detail:
-        'Invalid Live config: Gemini Live ephemeral-token sessions require VITE_LIVE_API_VERSION to be "v1alpha"',
-    });
   });
 
   it('sends audio chunks through realtime input with PCM metadata', async () => {

@@ -173,6 +173,40 @@ describe('createDesktopSessionController – lifecycle', () => {
     );
   });
 
+  it('surfaces invalid voice transport config before connect starts', async () => {
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => {
+        throw new Error(
+          'Invalid Live config: VITE_LIVE_MODEL is required for speech mode',
+        );
+      }),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        currentMode: 'text',
+        speechLifecycle: expect.objectContaining({
+          status: 'off',
+        }),
+        voiceSessionStatus: 'disconnected',
+        lastRuntimeError: 'Invalid Live config: VITE_LIVE_MODEL is required for speech mode',
+      }),
+    );
+  });
+
   it('cancels an active text stream when the session ends', async () => {
     const textChat = createTextChatHarness();
     const controller = createDesktopSessionController({

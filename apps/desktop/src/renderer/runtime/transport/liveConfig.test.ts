@@ -42,7 +42,8 @@ describe('liveConfig', () => {
     const config = parseLiveConfig(
       resolveLiveConfigEnv({
         VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
-        VITE_LIVE_API_VERSION: 'v1beta',
+        VITE_LIVE_API_VERSION: 'v1alpha',
+        VITE_LIVE_VOICE_RESPONSE_MODALITY: 'AUDIO',
         VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION: 'true',
         VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION: 'true',
         VITE_LIVE_MEDIA_RESOLUTION: 'MEDIA_RESOLUTION_MEDIUM',
@@ -55,9 +56,9 @@ describe('liveConfig', () => {
       provider: LIVE_PROVIDER,
       adapterKey: LIVE_ADAPTER_KEY,
       model: 'models/gemini-2.0-flash-live-001',
-      apiVersion: 'v1beta',
+      apiVersion: 'v1alpha',
       url:
-        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent',
+        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained',
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
       sessionResumptionEnabled: true,
       contextCompressionEnabled: true,
@@ -138,45 +139,41 @@ describe('liveConfig', () => {
     ).toThrow('Live config voice mode must use AUDIO response modality');
   });
 
-  it('applies explicit defaults for omitted env overrides', () => {
-    const config = parseLiveConfig(resolveLiveConfigEnv({}));
+  it('requires explicit speech-mode env config', () => {
+    expect(() => resolveLiveConfigEnv({})).toThrow(
+      'Invalid Live config: VITE_LIVE_MODEL is required for speech mode',
+    );
 
-    expect(config).toMatchObject({
-      provider: LIVE_PROVIDER,
-      adapterKey: LIVE_ADAPTER_KEY,
-      model: 'models/gemini-2.0-flash-exp',
-      apiVersion: 'v1alpha',
-      mediaResolution: 'MEDIA_RESOLUTION_LOW',
-      sessionResumptionEnabled: true,
-      contextCompressionEnabled: true,
-    });
-    expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
-      responseModalities: ['TEXT'],
-    });
-    expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
-      responseModalities: ['AUDIO'],
-      sessionResumption: {},
-      contextWindowCompression: {
-        slidingWindow: {},
-      },
-      tools: [
-        {
-          functionDeclarations: expect.any(Array),
-        },
-      ],
-    });
+    expect(() =>
+      resolveLiveConfigEnv({
+        VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
+      }),
+    ).toThrow('Invalid Live config: VITE_LIVE_API_VERSION is required for speech mode');
+
+    expect(() =>
+      resolveLiveConfigEnv({
+        VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
+        VITE_LIVE_API_VERSION: 'v1alpha',
+      }),
+    ).toThrow(
+      'Invalid Live config: VITE_LIVE_VOICE_RESPONSE_MODALITY is required for speech mode',
+    );
   });
 
-  it('rejects non-v1alpha config when building SDK bootstrap config for ephemeral tokens', () => {
+  it('keeps text-path defaults separate from speech env requirements', () => {
     const config = parseLiveConfig(
-      createRawLiveConfig({
-        apiVersion: 'v1beta',
+      resolveLiveConfigEnv({
+        VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
+        VITE_LIVE_API_VERSION: 'v1alpha',
+        VITE_LIVE_VOICE_RESPONSE_MODALITY: 'AUDIO',
       }),
     );
 
-    expect(() => buildGeminiLiveConnectConfig(config, 'text')).toThrow(
-      'Gemini Live ephemeral-token sessions require VITE_LIVE_API_VERSION to be "v1alpha"',
-    );
+    expect(config.sessionModes.text).toEqual({
+      responseModality: 'TEXT',
+      inputAudioTranscription: false,
+      outputAudioTranscription: false,
+    });
   });
 
   it('maps optional text-mode SDK connect settings from centralized config without voice-only features', () => {
@@ -222,5 +219,19 @@ describe('liveConfig', () => {
         },
       ],
     });
+  });
+
+  it('rejects non-v1alpha speech config before transport bootstrap', () => {
+    expect(() =>
+      parseLiveConfig(
+        resolveLiveConfigEnv({
+          VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
+          VITE_LIVE_API_VERSION: 'v1beta',
+          VITE_LIVE_VOICE_RESPONSE_MODALITY: 'AUDIO',
+        }),
+      ),
+    ).toThrow(
+      'Invalid Live config: speech mode requires VITE_LIVE_API_VERSION to be "v1alpha" for ephemeral tokens',
+    );
   });
 });

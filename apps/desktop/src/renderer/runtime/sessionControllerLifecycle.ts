@@ -198,7 +198,18 @@ export function createSessionControllerLifecycle({
       setVoiceResumptionInFlight(false);
       resetVoiceSessionResumption();
 
-      const transport = createTransport();
+      let transport: DesktopSession;
+      try {
+        transport = createTransport();
+      } catch (error) {
+        if (!isCurrentSessionOperation(operationId)) {
+          return;
+        }
+
+        setVoiceErrorState(asErrorDetail(error, 'Failed to prepare voice session'));
+        return;
+      }
+
       activateVoiceTransport(transport);
 
       try {
