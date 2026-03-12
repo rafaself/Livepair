@@ -4,6 +4,7 @@ import {
   clearCurrentVoiceTurns,
   finalizeCurrentVoiceAssistantTurn,
   finalizeCurrentVoiceUserTurn,
+  getConversationTurn,
   interruptCurrentVoiceAssistantTurn,
   upsertCurrentVoiceAssistantTurn,
   upsertCurrentVoiceUserTurn,
@@ -33,6 +34,8 @@ export type VoiceTranscriptController = {
   finalizeCurrentVoiceTurns: (
     finalizeReason: 'completed' | 'interrupted',
   ) => void;
+  queueMixedModeAssistantReply: (userTurnId: string) => void;
+  clearQueuedMixedModeAssistantReply: () => void;
   resetTurnTranscriptState: () => void;
   clearTranscript: () => void;
   resetTurnCompletedFlag: () => void;
@@ -61,11 +64,44 @@ export function createVoiceTranscriptController(
     return previous === incoming;
   };
 
+  const currentAssistantTurn = () => {
+    if (!conversationCtx.currentVoiceAssistantTurnId) {
+      return null;
+    }
+
+    return getConversationTurn(conversationCtx, conversationCtx.currentVoiceAssistantTurnId) ?? null;
+  };
+
+  const consumeQueuedMixedModeAssistantReply = (): void => {
+    if (!conversationCtx.pendingVoiceAssistantReplyAnchorTurnId) {
+      return;
+    }
+
+    const activeAssistantTurn = currentAssistantTurn();
+
+    if (activeAssistantTurn?.state === 'streaming') {
+      return;
+    }
+
+    conversationCtx.pendingVoiceAssistantReplyAnchorTurnId = null;
+    conversationCtx.currentVoiceAssistantTurnId = null;
+    conversationCtx.currentVoiceUserTurnId = null;
+    settledTurnReason = null;
+    store.getState().setCurrentVoiceTranscriptEntry('assistant', {
+      text: '',
+      isFinal: undefined,
+    });
+  };
+
   const applyTranscriptUpdate = (
     role: 'user' | 'assistant',
     text: string,
     isFinal?: boolean,
   ): void => {
+    if (role === 'assistant') {
+      consumeQueuedMixedModeAssistantReply();
+    }
+
     const state = store.getState();
     const previousEntry = state.currentVoiceTranscript[role];
     let preserveSettledState = settledTurnReason;
@@ -127,6 +163,7 @@ export function createVoiceTranscriptController(
   };
 
   const ensureAssistantTurn = (): void => {
+    consumeQueuedMixedModeAssistantReply();
     upsertCurrentVoiceAssistantTurn(
       conversationCtx,
       store.getState().currentVoiceTranscript.assistant.text,
@@ -151,6 +188,15 @@ export function createVoiceTranscriptController(
     settledTurnReason = finalizeReason;
   };
 
+  const queueMixedModeAssistantReply = (userTurnId: string): void => {
+    conversationCtx.pendingVoiceAssistantReplyAnchorTurnId = userTurnId;
+    consumeQueuedMixedModeAssistantReply();
+  };
+
+  const clearQueuedMixedModeAssistantReply = (): void => {
+    conversationCtx.pendingVoiceAssistantReplyAnchorTurnId = null;
+  };
+
   const resetTurnTranscriptState = (): void => {
     settledTurnReason = null;
     clearTranscript();
@@ -165,6 +211,8 @@ export function createVoiceTranscriptController(
     applyTranscriptUpdate,
     ensureAssistantTurn,
     finalizeCurrentVoiceTurns,
+    queueMixedModeAssistantReply,
+    clearQueuedMixedModeAssistantReply,
     resetTurnTranscriptState,
     clearTranscript,
     resetTurnCompletedFlag,

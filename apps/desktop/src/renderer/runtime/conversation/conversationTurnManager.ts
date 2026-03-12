@@ -13,6 +13,7 @@ type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
  */
 export interface ConversationContext {
   pendingAssistantTurnId: string | null;
+  pendingVoiceAssistantReplyAnchorTurnId: string | null;
   currentVoiceAssistantTurnId: string | null;
   currentVoiceUserTurnId: string | null;
   nextAssistantTurnId: number;
@@ -23,6 +24,7 @@ export interface ConversationContext {
 export function createConversationContext(store: SessionStoreApi): ConversationContext {
   return {
     pendingAssistantTurnId: null,
+    pendingVoiceAssistantReplyAnchorTurnId: null,
     currentVoiceAssistantTurnId: null,
     currentVoiceUserTurnId: null,
     nextAssistantTurnId: 0,
@@ -47,6 +49,7 @@ export function clearPendingAssistantTurn(ctx: ConversationContext): void {
 }
 
 export function clearCurrentVoiceTurns(ctx: ConversationContext): void {
+  ctx.pendingVoiceAssistantReplyAnchorTurnId = null;
   ctx.currentVoiceAssistantTurnId = null;
   ctx.currentVoiceUserTurnId = null;
 }
@@ -340,14 +343,18 @@ export function interruptCurrentVoiceAssistantTurn(ctx: ConversationContext): vo
 // User turn + request building
 // ---------------------------------------------------------------------------
 
-export function appendUserTurn(ctx: ConversationContext, content: string): void {
+export function appendUserTurn(ctx: ConversationContext, content: string): string {
+  const turnId = `user-turn-${++ctx.nextUserTurnId}`;
+
   ctx.store.getState().appendConversationTurn({
-    id: `user-turn-${++ctx.nextUserTurnId}`,
+    id: turnId,
     role: 'user',
     content,
     timestamp: formatConversationTimestamp(),
     state: 'complete',
   });
+
+  return turnId;
 }
 
 export function buildTextChatRequest(ctx: ConversationContext, text: string): TextChatRequest {

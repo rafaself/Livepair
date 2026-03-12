@@ -32,8 +32,12 @@ type SessionControllerPublicApiArgs = {
     stop: () => Promise<void>;
   };
   textChatCtrl: {
-    appendUserTurn: (text: string) => void;
+    appendUserTurn: (text: string) => string;
     submitTurn: (text: string) => Promise<boolean>;
+  };
+  voiceTranscriptCtrl: {
+    clearQueuedMixedModeAssistantReply: () => void;
+    queueMixedModeAssistantReply: (userTurnId: string) => void;
   };
   runtime: {
     currentSpeechLifecycleStatus: () => SpeechLifecycleStatus;
@@ -65,6 +69,7 @@ export function createSessionControllerPublicApi({
   voiceChunkCtrl,
   screenCtrl,
   textChatCtrl,
+  voiceTranscriptCtrl,
   runtime,
   logRuntimeError,
 }: SessionControllerPublicApiArgs): DesktopSessionController {
@@ -138,12 +143,14 @@ export function createSessionControllerPublicApi({
         }
 
         try {
-          textChatCtrl.appendUserTurn(trimmedText);
+          const userTurnId = textChatCtrl.appendUserTurn(trimmedText);
+          voiceTranscriptCtrl.queueMixedModeAssistantReply(userTurnId);
           store.getState().setLastRuntimeError(null);
           await activeTransport.sendText(trimmedText);
           runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());
           return true;
         } catch (error) {
+          voiceTranscriptCtrl.clearQueuedMixedModeAssistantReply();
           const detail = asErrorDetail(error, 'Failed to send speech-mode text turn');
           store.getState().setLastRuntimeError(detail);
           runtime.setVoiceErrorState(detail);

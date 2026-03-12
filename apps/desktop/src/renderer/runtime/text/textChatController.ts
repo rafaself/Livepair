@@ -93,8 +93,8 @@ export function createTextChatController(ops: TextChatControllerOps) {
     clearPendingAssistantTurnCtx(ops.conversationCtx);
   };
 
-  const appendUserTurn = (content: string): void => {
-    appendUserTurnCtx(ops.conversationCtx, content);
+  const appendUserTurn = (content: string): string => {
+    return appendUserTurnCtx(ops.conversationCtx, content);
   };
 
   const buildTextChatRequest = (text: string): TextChatRequest => {

@@ -564,6 +564,14 @@ export function createDesktopSessionController(
     voiceChunkCtrl,
     screenCtrl,
     textChatCtrl,
+    voiceTranscriptCtrl: {
+      queueMixedModeAssistantReply: (userTurnId) => {
+        voiceTranscript.queueMixedModeAssistantReply(userTurnId);
+      },
+      clearQueuedMixedModeAssistantReply: () => {
+        voiceTranscript.clearQueuedMixedModeAssistantReply();
+      },
+    },
     runtime: {
       currentSpeechLifecycleStatus: () => runtimeRef.current!.currentSpeechLifecycleStatus(),
       endSpeechModeInternal: (options) => endSpeechModeInternal(options),
