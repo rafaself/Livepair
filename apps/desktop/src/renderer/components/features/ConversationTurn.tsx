@@ -2,6 +2,7 @@ import type { HTMLAttributes } from 'react';
 import { Badge } from '../primitives';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
 import { TypingIndicator } from './TypingIndicator';
+import { renderAssistantMarkdown } from './renderAssistantMarkdown';
 import './ConversationTurn.css';
 
 export type ConversationTurnProps = {
@@ -45,6 +46,8 @@ export function ConversationTurn({
       <div className="conversation-turn__bubble">
         {isTypingOnly ? (
           <TypingIndicator className="conversation-turn__typing" />
+        ) : turn.role === 'assistant' ? (
+          renderAssistantMarkdown(turn.content)
         ) : (
           <p className="conversation-turn__body">{turn.content}</p>
         )}
