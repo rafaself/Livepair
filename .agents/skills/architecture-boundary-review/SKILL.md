@@ -1,6 +1,6 @@
 ---
 name: architecture-boundary-review
-description: Review whether a change still matches Livepair's real runtime boundaries: renderer vs preload vs main, desktop vs backend, control plane vs realtime hot path, and implemented code vs planned target.
+description: Review whether a change still matches Livepair's real runtime boundaries - renderer vs preload vs main, desktop vs backend, control plane vs realtime hot path, and implemented code vs planned target.
 ---
 
 # Architecture Boundary Review
