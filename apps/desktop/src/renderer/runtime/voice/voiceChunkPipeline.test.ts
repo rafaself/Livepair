@@ -95,7 +95,7 @@ describe('createVoiceChunkPipeline', () => {
       const unsubscribe = pipeline.addChunkListener(listener);
       // Trigger via capture observer
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0][0];
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
       observer.onChunk({
         data: new Uint8Array(640).fill(1),
         sequence: 1,
@@ -123,7 +123,7 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0][0];
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
       observer.onChunk({
         data: new Uint8Array(640).fill(1),
         sequence: 1,
@@ -148,7 +148,7 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0][0];
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
       observer.onDiagnostics({ chunkCount: 5 });
 
       expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenCalledWith({ chunkCount: 5 });
@@ -159,7 +159,7 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0][0];
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
       observer.onError('Permission denied');
 
       expect(ops._storeState.setVoiceCaptureState).toHaveBeenCalledWith('error');
@@ -183,7 +183,7 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0][0];
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
       observer.onChunk({
         data: new Uint8Array(640),
         sequence: 1,
@@ -203,7 +203,7 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0][0];
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
       observer.onChunk({
         data: new Uint8Array(640),
         sequence: 1,
@@ -221,7 +221,7 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0][0];
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
       observer.onChunk({
         data: new Uint8Array(640),
         sequence: 1,

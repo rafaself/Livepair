@@ -7,8 +7,8 @@ function createMockOps() {
     setAssistantActivity: vi.fn(),
     setActiveTransport: vi.fn(),
     setLastRuntimeError: vi.fn(),
-    voiceSessionResumption: { status: 'idle', latestHandle: null, resumable: false, lastDetail: null },
-    voiceSessionDurability: { lastDetail: null },
+    voiceSessionResumption: { status: 'idle', latestHandle: null as string | null, resumable: false, lastDetail: null as string | null },
+    voiceSessionDurability: { lastDetail: null as string | null },
   };
   return {
     store: { getState: vi.fn().mockReturnValue(storeState) } as never,

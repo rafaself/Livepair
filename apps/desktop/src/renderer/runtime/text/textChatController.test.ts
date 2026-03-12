@@ -4,7 +4,7 @@ import { createTextChatController } from './textChatController';
 function createMockOps(textStatus = 'idle') {
   const storeState = {
     textSessionLifecycle: { status: textStatus },
-    activeTransport: null,
+    activeTransport: null as string | null,
     conversationTurns: [] as { role: string; content: string; state: string }[],
     setTextSessionLifecycle: vi.fn(),
     setAssistantActivity: vi.fn(),

@@ -11,11 +11,11 @@ function createMockOps() {
   const storeState = {
     voiceSessionResumption: {
       status: 'goAway',
-      latestHandle: 'handles/v2',
+      latestHandle: 'handles/v2' as string | null,
       resumable: true,
       lastDetail: 'server draining',
     },
-    voiceSessionDurability: { lastDetail: null },
+    voiceSessionDurability: { lastDetail: null as string | null },
     setLastRuntimeError: vi.fn(),
     setActiveTransport: vi.fn(),
   };

@@ -3,6 +3,7 @@ import { beforeEach, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import { __resetGeminiLiveSdkMock } from './geminiLiveSdkMock';
 import { resetDesktopSessionController } from '../runtime/sessionController';
+import { resetLiveConfigForTests } from '../runtime/transport/liveConfig';
 import { resetDesktopStores } from '../store/testing';
 
 beforeEach(async () => {
@@ -85,6 +86,7 @@ beforeEach(async () => {
 
   await resetDesktopSessionController();
   resetDesktopStores();
+  resetLiveConfigForTests();
   __resetGeminiLiveSdkMock();
   window.bridge = {
     overlayMode: 'linux-shape',
