@@ -44,6 +44,7 @@ function createMockOps() {
     resetVoiceToolState: vi.fn(),
     resetVoiceTurnTranscriptState: vi.fn(),
     markTurnCompleted: vi.fn(),
+    promoteAssistantTranscriptTurn: vi.fn(),
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
     applySpeechLifecycleEvent: vi.fn(),
@@ -312,6 +313,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'interrupted' });
 
+      expect(ops.promoteAssistantTranscriptTurn).toHaveBeenCalledWith('interrupted');
       expect(ops.markTurnCompleted).toHaveBeenCalledTimes(1);
       expect(ops.handleVoiceInterruption).toHaveBeenCalledTimes(1);
     });
@@ -374,6 +376,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'turn-complete' });
 
+      expect(ops.promoteAssistantTranscriptTurn).toHaveBeenCalledWith('completed');
       expect(ops.markTurnCompleted).toHaveBeenCalledTimes(1);
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.turn.completed' });
     });
@@ -385,6 +388,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'turn-complete' });
 
+      expect(ops.promoteAssistantTranscriptTurn).toHaveBeenCalledWith('completed');
       expect(ops.markTurnCompleted).toHaveBeenCalledTimes(1);
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'user.turn.settled' });
     });
@@ -396,6 +400,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'turn-complete' });
 
+      expect(ops.promoteAssistantTranscriptTurn).toHaveBeenCalledWith('completed');
       expect(ops.markTurnCompleted).toHaveBeenCalledTimes(1);
       expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
     });

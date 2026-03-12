@@ -1,4 +1,5 @@
 import {
+  appendCompletedAssistantTurn as appendCompletedAssistantTurnCtx,
   appendAssistantTextDelta as appendAssistantTextDeltaCtx,
   appendUserTurn as appendUserTurnCtx,
   buildTextChatRequest as buildTextChatRequestCtx,
@@ -74,6 +75,10 @@ export function createTextChatController(ops: TextChatControllerOps) {
 
   const appendAssistantTextDelta = (text: string): void => {
     appendAssistantTextDeltaCtx(ops.conversationCtx, text);
+  };
+
+  const appendCompletedAssistantTurn = (content: string, statusLabel?: string): void => {
+    appendCompletedAssistantTurnCtx(ops.conversationCtx, content, statusLabel);
   };
 
   const completePendingAssistantTurn = (statusLabel?: string): void => {
@@ -193,6 +198,7 @@ export function createTextChatController(ops: TextChatControllerOps) {
     hasRuntimeActivity,
     resetRuntime,
     appendUserTurn,
+    appendCompletedAssistantTurn,
     failPendingAssistantTurn,
     clearPendingAssistantTurn,
   };

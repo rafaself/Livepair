@@ -20,6 +20,9 @@ export type VoiceTranscriptController = {
     text: string,
     isFinal?: boolean,
   ) => void;
+  consumePromotableAssistantTranscript: (
+    finalizeReason: 'completed' | 'interrupted',
+  ) => string | null;
   resetTurnTranscriptState: () => void;
   clearTranscript: () => void;
   markTurnCompleted: () => void;
@@ -30,6 +33,7 @@ export function createVoiceTranscriptController(
   store: SessionStoreApi,
 ): VoiceTranscriptController {
   let voiceTurnHasCompleted = false;
+  let assistantTranscriptPromoted = false;
 
   const clearTranscript = (): void => {
     store.getState().clearCurrentVoiceTranscript();
@@ -45,6 +49,7 @@ export function createVoiceTranscriptController(
     if (role === 'user' && voiceTurnHasCompleted) {
       clearTranscript();
       voiceTurnHasCompleted = false;
+      assistantTranscriptPromoted = false;
     }
 
     const previousEntry = state.currentVoiceTranscript[role];
@@ -54,14 +59,36 @@ export function createVoiceTranscriptController(
       return;
     }
 
+    if (role === 'assistant') {
+      assistantTranscriptPromoted = false;
+    }
+
     state.setCurrentVoiceTranscriptEntry(role, {
       text: nextText,
       ...(isFinal !== undefined ? { isFinal } : {}),
     });
   };
 
+  const consumePromotableAssistantTranscript = (
+    _finalizeReason: 'completed' | 'interrupted',
+  ): string | null => {
+    if (assistantTranscriptPromoted) {
+      return null;
+    }
+
+    const content = store.getState().currentVoiceTranscript.assistant.text.trim();
+
+    if (content.length === 0) {
+      return null;
+    }
+
+    assistantTranscriptPromoted = true;
+    return content;
+  };
+
   const resetTurnTranscriptState = (): void => {
     voiceTurnHasCompleted = false;
+    assistantTranscriptPromoted = false;
     clearTranscript();
   };
 
@@ -75,6 +102,7 @@ export function createVoiceTranscriptController(
 
   return {
     applyTranscriptUpdate,
+    consumePromotableAssistantTranscript,
     resetTurnTranscriptState,
     clearTranscript,
     markTurnCompleted,

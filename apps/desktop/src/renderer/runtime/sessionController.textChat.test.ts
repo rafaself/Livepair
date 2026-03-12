@@ -8,6 +8,7 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import {
   createUnusedTransport,
   createTextChatHarness,
+  createVoiceTransportHarness,
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – text chat', () => {
@@ -70,6 +71,40 @@ describe('createDesktopSessionController – text chat', () => {
     ]);
     expect(useSessionStore.getState().textSessionLifecycle.status).toBe('completed');
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
+  });
+
+  it('keeps typed input on the voice transport while speech mode is active', async () => {
+    const textChat = createTextChatHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    await expect(controller.submitTextTurn('Keep going')).resolves.toBe(true);
+
+    expect(voiceTransport.sendText).toHaveBeenCalledWith('Keep going');
+    expect(textChat.startTextChatStream).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().currentMode).toBe('speech');
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'Keep going',
+        state: 'complete',
+      }),
+    ]);
   });
 
   it('sends the full completed conversation history on each turn', async () => {

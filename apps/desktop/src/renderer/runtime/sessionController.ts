@@ -187,6 +187,18 @@ export function createDesktopSessionController(
     resetVoiceToolState: () => resetVoiceToolState(),
     resetVoiceTurnTranscriptState: () => resetVoiceTurnTranscriptState(),
     markTurnCompleted: () => voiceTranscript.markTurnCompleted(),
+    promoteAssistantTranscriptTurn: (finalizeReason) => {
+      const content = voiceTranscript.consumePromotableAssistantTranscript(finalizeReason);
+
+      if (!content) {
+        return;
+      }
+
+      textChatCtrl.appendCompletedAssistantTurn(
+        content,
+        finalizeReason === 'interrupted' ? 'Interrupted' : undefined,
+      );
+    },
     enqueueVoiceToolCalls: (c) => enqueueVoiceToolCalls(c),
     handleVoiceInterruption: () => handleVoiceInterruption(),
     applySpeechLifecycleEvent: (e) => applySpeechLifecycleEvent(e),

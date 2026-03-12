@@ -80,6 +80,28 @@ export function appendAssistantTurn(
   });
 }
 
+export function appendCompletedAssistantTurn(
+  ctx: ConversationContext,
+  content: string,
+  statusLabel?: string,
+): void {
+  const trimmedContent = content.trim();
+
+  if (trimmedContent.length === 0) {
+    return;
+  }
+
+  const turnId = `assistant-turn-${++ctx.nextAssistantTurnId}`;
+  ctx.store.getState().appendConversationTurn({
+    id: turnId,
+    role: 'assistant',
+    content: trimmedContent,
+    timestamp: formatConversationTimestamp(),
+    state: 'complete',
+    statusLabel,
+  });
+}
+
 export function appendAssistantTextDelta(ctx: ConversationContext, text: string): void {
   if (!ctx.pendingAssistantTurnId) {
     appendAssistantTurn(ctx, text, 'streaming', 'Responding...');

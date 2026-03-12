@@ -48,7 +48,13 @@ describe('createDesktopSessionController – transcript', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        conversationTurns: [],
+        conversationTurns: [
+          expect.objectContaining({
+            role: 'assistant',
+            content: 'Hi',
+            state: 'complete',
+          }),
+        ],
         currentVoiceTranscript: {
           user: {
             text: 'Hello there',
@@ -71,6 +77,85 @@ describe('createDesktopSessionController – transcript', () => {
         text: '',
       },
     });
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Hi',
+        state: 'complete',
+      }),
+    ]);
+  });
+
+  it('promotes finalized assistant speech transcript into a durable assistant turn only when the turn completes', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hi' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hi there' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([]);
+    expect(useSessionStore.getState().currentVoiceTranscript.assistant.text).toBe('Hi there');
+
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Hi there',
+        state: 'complete',
+      }),
+    ]);
+  });
+
+  it('promotes the latest assistant transcript as interruption-final output when the turn is interrupted', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Partial answer' });
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    voiceTransport.emit({ type: 'interrupted' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Partial answer',
+        state: 'complete',
+      }),
+    ]);
   });
 
   it('normalizes corrective transcript updates and clears voice transcripts on session end', async () => {
