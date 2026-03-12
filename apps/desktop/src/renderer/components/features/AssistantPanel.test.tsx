@@ -10,11 +10,7 @@ import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 
 const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();
 
-function AssistantPanelHarness({
-  showStateDevControls = false,
-}: {
-  showStateDevControls?: boolean;
-}): JSX.Element {
+function AssistantPanelHarness(): JSX.Element {
   const togglePanel = useUiStore((state) => state.togglePanel);
   const { handleStartSession } = useSessionRuntime();
 
@@ -26,20 +22,18 @@ function AssistantPanelHarness({
       <button type="button" onClick={() => void handleStartSession()}>
         start session
       </button>
-      <AssistantPanel showStateDevControls={showStateDevControls} />
+      <AssistantPanel />
     </>
   );
 }
 
-async function renderAssistantPanel(
-  props: { showStateDevControls?: boolean } = {},
-): Promise<ReturnType<typeof render>> {
+async function renderAssistantPanel(): Promise<ReturnType<typeof render>> {
   await act(async () => {
     useUiStore.getState().initializeSettingsUi(useSettingsStore.getState().settings);
     await useUiStore.getState().initializeDevicePreferences();
   });
 
-  return render(<AssistantPanelHarness {...props} />);
+  return render(<AssistantPanelHarness />);
 }
 
 describe('AssistantPanel', () => {
@@ -128,8 +122,9 @@ describe('AssistantPanel', () => {
     expect(enumerateDevices).toHaveBeenCalledTimes(1);
   });
 
-  it('shows developer tools only when enabled', async () => {
-    await renderAssistantPanel({ showStateDevControls: true });
+  it('shows developer tools only when debug mode is enabled', async () => {
+    useUiStore.setState({ isDebugMode: true });
+    await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     });
@@ -139,8 +134,9 @@ describe('AssistantPanel', () => {
     expect(panelScope.getByRole('button', { name: 'Developer tools' })).toBeVisible();
   });
 
-  it('renders the debug view when developer controls are enabled', async () => {
-    await renderAssistantPanel({ showStateDevControls: true });
+  it('renders the debug view when debug mode is enabled', async () => {
+    useUiStore.setState({ isDebugMode: true });
+    await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     });
@@ -154,8 +150,9 @@ describe('AssistantPanel', () => {
     expect(await panelScope.findByRole('heading', { name: 'Developer tools' })).toBeVisible();
   });
 
-  it('hides the debug entry point when developer controls are disabled', async () => {
-    await renderAssistantPanel({ showStateDevControls: false });
+  it('hides the debug entry point when debug mode is disabled', async () => {
+    useUiStore.setState({ isDebugMode: false });
+    await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
     });

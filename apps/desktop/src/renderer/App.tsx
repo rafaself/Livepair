@@ -76,7 +76,7 @@ function AppShell(): JSX.Element {
     <div className="app-shell">
       <ThemePreferenceSync />
       <OverlayInteractionManager overlayMode={overlayMode} />
-      <AssistantPanel showStateDevControls={import.meta.env.DEV} />
+      <AssistantPanel />
       <ControlDock
         currentMode={currentMode}
         speechLifecycleStatus={speechLifecycleStatus}

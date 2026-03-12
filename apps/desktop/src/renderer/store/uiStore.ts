@@ -84,7 +84,11 @@ export const useUiStore = create<UiStoreState>((set) => ({
       panelView: 'chat',
     }),
   setPanelView: (panelView) => set({ panelView }),
-  toggleDebugMode: () => set((state) => ({ isDebugMode: !state.isDebugMode })),
+  toggleDebugMode: () =>
+    set((state) => ({
+      isDebugMode: !state.isDebugMode,
+      panelView: !state.isDebugMode ? state.panelView : state.panelView === 'debug' ? 'chat' : state.panelView,
+    })),
   initializeSettingsUi: ({ backendUrl }) =>
     set((state) => ({
       backendUrlDraft: state.backendUrlDraft || backendUrl,

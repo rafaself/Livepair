@@ -6,7 +6,7 @@ import { Button, LivepairIcon } from '../primitives';
 export type AssistantPanelHeaderProps = {
   panelView: PanelView;
   setPanelView: (view: PanelView) => void;
-  showStateDevControls?: boolean;
+  isDebugMode?: boolean;
 };
 
 function getButtonClassName(panelView: PanelView, targetView: PanelView): string | undefined {
@@ -16,11 +16,11 @@ function getButtonClassName(panelView: PanelView, targetView: PanelView): string
 export function AssistantPanelHeader({
   panelView,
   setPanelView,
-  showStateDevControls = false,
+  isDebugMode = false,
 }: AssistantPanelHeaderProps): JSX.Element {
   return (
     <PanelHeader title="Livepair" icon={<LivepairIcon size={28} />}>
-      {showStateDevControls ? (
+      {isDebugMode ? (
         <Button
           variant="ghost"
           size="sm"

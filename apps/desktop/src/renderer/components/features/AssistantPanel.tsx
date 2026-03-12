@@ -7,13 +7,10 @@ import { useAssistantPanelController } from './useAssistantPanelController';
 import { useAssistantPanelSettingsController } from './useAssistantPanelSettingsController';
 import './AssistantPanel.css';
 
-export type AssistantPanelProps = {
-  showStateDevControls?: boolean;
-};
+import { useUiStore } from '../../store/uiStore';
 
-export function AssistantPanel({
-  showStateDevControls = false,
-}: AssistantPanelProps): JSX.Element {
+export function AssistantPanel(): JSX.Element {
+  const isDebugMode = useUiStore((state) => state.isDebugMode);
   const {
     assistantState,
     isPanelOpen,
@@ -64,7 +61,7 @@ export function AssistantPanel({
         <AssistantPanelHeader
           panelView={panelView}
           setPanelView={setPanelView}
-          showStateDevControls={showStateDevControls}
+          isDebugMode={isDebugMode}
         />
         <div className="assistant-panel__view">
           {panelView === 'chat' ? (
@@ -95,7 +92,7 @@ export function AssistantPanel({
             </div>
           ) : null}
 
-          {(panelView === 'debug' && showStateDevControls) ? (
+          {(panelView === 'debug' && isDebugMode) ? (
             <div className="assistant-panel__view-section">
               <AssistantPanelDebugView
                 backendState={backendState}

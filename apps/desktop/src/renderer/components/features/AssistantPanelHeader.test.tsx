@@ -10,7 +10,7 @@ describe('AssistantPanelHeader', () => {
       <AssistantPanelHeader
         panelView="settings"
         setPanelView={setPanelView}
-        showStateDevControls={true}
+        isDebugMode={true}
       />,
     );
 
@@ -39,7 +39,7 @@ describe('AssistantPanelHeader', () => {
       <AssistantPanelHeader
         panelView="chat"
         setPanelView={vi.fn()}
-        showStateDevControls={false}
+        isDebugMode={false}
       />,
     );
 

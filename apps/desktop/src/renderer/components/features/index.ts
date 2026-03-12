@@ -1,5 +1,4 @@
 export { AssistantPanel } from './AssistantPanel';
-export type { AssistantPanelProps } from './AssistantPanel';
 export { ConversationList } from './ConversationList';
 export type { ConversationListProps } from './ConversationList';
 export { ConversationTurn } from './ConversationTurn';
