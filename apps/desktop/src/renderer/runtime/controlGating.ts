@@ -1,4 +1,5 @@
 import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
+import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
 import { isTextTurnInFlight } from './text/textSessionLifecycle';
 import type { ProductMode } from './core/session.types';
 import type { ScreenCaptureState } from './screen/screen.types';
@@ -39,10 +40,6 @@ const ACTIVE_SCREEN_CAPTURE_STATES: ScreenCaptureState[] = [
   'capturing',
   'streaming',
 ];
-
-function isSpeechLifecycleActive(status: SpeechLifecycleStatus): boolean {
-  return status !== 'off';
-}
 
 function isSpeechLifecycleTransitioning(status: SpeechLifecycleStatus): boolean {
   return status === 'starting' || status === 'ending';

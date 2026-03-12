@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
 import { LIVE_ADAPTER_KEY } from '../runtime/transport/liveConfig';
+import {
+  createDefaultVoiceSessionDurabilityState,
+  createDefaultVoiceSessionResumptionState,
+  createDefaultVoiceToolState,
+} from '../runtime/core/defaults';
 import { createSpeechSessionLifecycle } from '../runtime/speech/speechSessionLifecycle';
 import {
   createTextSessionLifecycle,
@@ -154,36 +159,6 @@ function buildDefaultCurrentVoiceTranscript(): CurrentVoiceTranscript {
   };
 }
 
-function buildDefaultVoiceSessionResumption(): VoiceSessionResumptionState {
-  return {
-    status: 'idle',
-    latestHandle: null,
-    resumable: false,
-    lastDetail: null,
-  };
-}
-
-function buildDefaultVoiceSessionDurability(): VoiceSessionDurabilityState {
-  return {
-    compressionEnabled: false,
-    tokenValid: false,
-    tokenRefreshing: false,
-    tokenRefreshFailed: false,
-    expireTime: null,
-    newSessionExpireTime: null,
-    lastDetail: null,
-  };
-}
-
-function buildDefaultVoiceToolState(): VoiceToolState {
-  return {
-    status: 'idle',
-    toolName: null,
-    callId: null,
-    lastError: null,
-  };
-}
-
 function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
   return {
     captureSource: null,
@@ -210,14 +185,14 @@ function buildDefaultSessionState(): SessionStoreData {
     lastDebugEvent: null,
     speechLifecycle: createSpeechSessionLifecycle(),
     voiceSessionStatus: 'disconnected',
-    voiceSessionResumption: buildDefaultVoiceSessionResumption(),
-    voiceSessionDurability: buildDefaultVoiceSessionDurability(),
+    voiceSessionResumption: createDefaultVoiceSessionResumptionState(),
+    voiceSessionDurability: createDefaultVoiceSessionDurabilityState(),
     voiceCaptureState: 'idle',
     voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
     voicePlaybackState: 'idle',
     voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
-    voiceToolState: buildDefaultVoiceToolState(),
+    voiceToolState: createDefaultVoiceToolState(),
     screenCaptureState: 'disabled',
     screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
   };
@@ -385,14 +360,14 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       lastDebugEvent: null,
       speechLifecycle: createSpeechSessionLifecycle(),
       voiceSessionStatus: 'disconnected',
-      voiceSessionResumption: buildDefaultVoiceSessionResumption(),
-      voiceSessionDurability: buildDefaultVoiceSessionDurability(),
+      voiceSessionResumption: createDefaultVoiceSessionResumptionState(),
+      voiceSessionDurability: createDefaultVoiceSessionDurabilityState(),
       voiceCaptureState: state.voiceCaptureState,
       voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
       voicePlaybackState: state.voicePlaybackState,
       voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
       currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
-      voiceToolState: buildDefaultVoiceToolState(),
+      voiceToolState: createDefaultVoiceToolState(),
       screenCaptureState: 'disabled' as ScreenCaptureState,
       screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
     })),
