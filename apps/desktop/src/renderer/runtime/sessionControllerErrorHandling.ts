@@ -59,7 +59,7 @@ export function createSessionControllerErrorHandling({
     setLastRuntimeError(detail);
   };
 
-  const setVoiceErrorState = (detail: string): void => {
+  const settleVoiceErrorState = async (detail: string): Promise<void> => {
     logRuntimeError('voice-session', 'runtime entered error state', { detail });
     resetVoiceTurnTranscriptState();
     setVoiceResumptionInFlight(false);
@@ -80,14 +80,19 @@ export function createSessionControllerErrorHandling({
       status: 'toolError',
       lastError: detail,
     });
-    void endSessionInternal({
+    await endSessionInternal({
       preserveLastRuntimeError: detail,
       preserveVoiceRuntimeDiagnostics: true,
     });
   };
 
+  const setVoiceErrorState = (detail: string): void => {
+    void settleVoiceErrorState(detail);
+  };
+
   return {
     setErrorState,
     setVoiceErrorState,
+    settleVoiceErrorState,
   };
 }

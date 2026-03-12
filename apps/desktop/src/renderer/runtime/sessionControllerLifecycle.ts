@@ -56,7 +56,7 @@ type SessionControllerLifecycleArgs = {
   createTransport: () => DesktopSession;
   activateVoiceTransport: (transport: DesktopSession) => void;
   startVoiceCapture: () => Promise<boolean>;
-  setVoiceErrorState: (detail: string) => void;
+  setVoiceErrorState: (detail: string) => Promise<void>;
   checkBackendHealth: () => Promise<boolean>;
   textBootstrapStarted: () => void;
   textRuntimeFailed: () => void;
@@ -206,7 +206,7 @@ export function createSessionControllerLifecycle({
           return;
         }
 
-        setVoiceErrorState(asErrorDetail(error, 'Failed to prepare voice session'));
+        await setVoiceErrorState(asErrorDetail(error, 'Failed to prepare voice session'));
         return;
       }
 
@@ -234,7 +234,7 @@ export function createSessionControllerLifecycle({
           return;
         }
 
-        setVoiceErrorState(asErrorDetail(error, 'Failed to connect voice session'));
+        await setVoiceErrorState(asErrorDetail(error, 'Failed to connect voice session'));
       }
 
       return;
