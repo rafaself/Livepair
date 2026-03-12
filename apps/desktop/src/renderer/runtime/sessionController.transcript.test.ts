@@ -123,6 +123,40 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
   });
 
+  it('does not promote user speech into conversation history when a voice turn settles without assistant transcript', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Only the user spoke' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([]);
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: {
+        text: 'Only the user spoke',
+      },
+      assistant: {
+        text: '',
+      },
+    });
+  });
+
   it('promotes the latest assistant transcript as interruption-final output when the turn is interrupted', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const voicePlayback = createVoicePlaybackHarness();
@@ -154,6 +188,48 @@ describe('createDesktopSessionController – transcript', () => {
         role: 'assistant',
         content: 'Partial answer',
         state: 'complete',
+      }),
+    ]);
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: {
+        text: '',
+      },
+      assistant: {
+        text: 'Partial answer',
+      },
+    });
+  });
+
+  it('does not duplicate the promoted assistant turn when turn-complete arrives after interruption', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Interrupted answer' });
+    voiceTransport.emit({ type: 'interrupted' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Interrupted answer',
+        state: 'complete',
+        statusLabel: 'Interrupted',
       }),
     ]);
   });
