@@ -260,7 +260,6 @@ describe('AssistantPanelChatView', () => {
             content: 'Can you summarize that?',
             timestamp: '09:41',
             state: 'complete',
-            source: 'voice',
           },
           {
             id: 'assistant-turn-1',
@@ -269,7 +268,6 @@ describe('AssistantPanelChatView', () => {
             timestamp: '09:42',
             state: 'streaming',
             statusLabel: 'Responding...',
-            source: 'voice',
           },
         ]}
         isConversationEmpty={false}
