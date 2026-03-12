@@ -3,13 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 
 describe('AssistantPanelDebugView', () => {
-  it('renders developer diagnostics and state controls', () => {
+  it('renders developer diagnostics without assistant state controls', () => {
     const onRetryBackendHealth = vi.fn(async () => undefined);
-    const onSetAssistantState = vi.fn();
 
     render(
       <AssistantPanelDebugView
-        assistantState="ready"
         backendState="failed"
         backendIndicatorState="error"
         backendLabel="Not connected"
@@ -65,7 +63,6 @@ describe('AssistantPanelDebugView', () => {
           lastError: null,
         }}
         onRetryBackendHealth={onRetryBackendHealth}
-        onSetAssistantState={onSetAssistantState}
       />,
     );
 
@@ -99,12 +96,12 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('16 kHz / mono / pcm_s16le')).toBeVisible();
     expect(screen.getByText('Playback output')).toBeVisible();
     expect(screen.getByText('desk-speakers')).toBeVisible();
-    expect(screen.getByText('Set assistant state')).toBeVisible();
+    expect(screen.queryByText('Assistant state')).toBeNull();
+    expect(screen.queryByText('Preview')).toBeNull();
+    expect(screen.queryByText('Set assistant state')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'speaking' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry backend' }));
     expect(onRetryBackendHealth).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByRole('button', { name: 'speaking' }));
-    expect(onSetAssistantState).toHaveBeenCalledWith('speaking');
   });
 });

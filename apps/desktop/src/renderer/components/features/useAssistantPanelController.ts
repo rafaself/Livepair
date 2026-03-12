@@ -37,7 +37,6 @@ export type AssistantPanelController = {
   isConversationEmpty: boolean;
   setPanelView: (view: PanelView) => void;
   closePanel: () => void;
-  setAssistantState: (state: AssistantRuntimeState) => void;
   backendState: BackendConnectionState;
   backendIndicatorState: AssistantRuntimeState;
   backendLabel: string;
@@ -108,7 +107,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     handleStartVoiceSession,
     handleEndSpeechMode,
     handleSubmitTextTurn,
-    setAssistantState,
   } = useSessionRuntime();
   const [draftText, setDraftText] = useState('');
   const [isSubmittingTextTurn, setIsSubmittingTextTurn] = useState(false);
@@ -206,7 +204,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     isConversationEmpty,
     setPanelView,
     closePanel,
-    setAssistantState,
     backendState,
     backendIndicatorState,
     backendLabel,

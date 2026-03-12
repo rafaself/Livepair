@@ -26,7 +26,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('status', { name: 'Disconnected' })).toBeVisible();
+    expect(screen.queryByRole('status', { name: 'Disconnected' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Conversation' })).toBeVisible();
     expect(screen.getByText('Text session disconnected')).toBeVisible();
     expect(screen.getByText('No conversation yet')).toBeVisible();
@@ -71,7 +71,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('status', { name: 'Ready' })).toBeVisible();
+    expect(screen.queryByRole('status', { name: 'Ready' })).toBeNull();
     expect(screen.getByText('Text session ready')).toBeVisible();
     expect(screen.getByText('Check the latest exchange.')).toBeVisible();
     expect(screen.getByText('The latest exchange is visible in the transcript.')).toBeVisible();
@@ -99,7 +99,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('status', { name: 'Error' })).toBeVisible();
+    expect(screen.queryByRole('status', { name: 'Error' })).toBeNull();
     expect(screen.getByText('Session failed')).toBeVisible();
     expect(screen.getByText('transport offline')).toBeVisible();
     expect(screen.getByText(/start the session again/i)).toBeVisible();

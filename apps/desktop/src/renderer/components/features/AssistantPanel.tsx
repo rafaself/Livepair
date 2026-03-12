@@ -49,7 +49,6 @@ export function AssistantPanel({
     handleStartSpeechMode,
     handleEndSpeechMode,
     handleCheckBackendHealth,
-    setAssistantState,
   } = useAssistantPanelController();
   const settingsController = useAssistantPanelSettingsController();
 
@@ -100,7 +99,6 @@ export function AssistantPanel({
           {(panelView === 'debug' && showStateDevControls) ? (
             <div className="assistant-panel__view-section">
               <AssistantPanelDebugView
-                assistantState={assistantState}
                 backendState={backendState}
                 backendIndicatorState={backendIndicatorState}
                 backendLabel={backendLabel}
@@ -116,7 +114,6 @@ export function AssistantPanel({
                 screenCaptureState={screenCaptureState}
                 screenCaptureDiagnostics={screenCaptureDiagnostics}
                 onRetryBackendHealth={handleCheckBackendHealth}
-                onSetAssistantState={setAssistantState}
               />
             </div>
           ) : null}

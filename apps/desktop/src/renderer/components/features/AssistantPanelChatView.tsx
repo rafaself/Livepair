@@ -10,7 +10,6 @@ import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
 import type { TextSessionStatus } from '../../runtime/text/text.types';
 import type { TransportKind } from '../../runtime/transport/transport.types';
 import type { VoiceSessionStatus } from '../../runtime/voice/voice.types';
-import { AssistantPanelStateHero } from './AssistantPanelStateHero';
 import { AssistantPanelChatComposer } from './AssistantPanelChatComposer';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
 import { AssistantPanelConversationEmptyState } from './AssistantPanelConversationEmptyState';
@@ -77,7 +76,6 @@ export function AssistantPanelChatView({
 
   return (
     <div className="assistant-panel__view-section">
-      <AssistantPanelStateHero state={assistantState} />
       <section
         className="assistant-panel__chat-container"
         aria-label="Conversation"

@@ -4,6 +4,7 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { resetDesktopStores } from '../../store/testing';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUiStore } from '../../store/uiStore';
+import { useSessionStore } from '../../store/sessionStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
 
 function HookHarness(): JSX.Element {
@@ -30,7 +31,7 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={() => void controller.handleStartTalking()}>
         start talking
       </button>
-      <button type="button" onClick={() => controller.setAssistantState('listening')}>
+      <button type="button" onClick={() => useSessionStore.getState().setAssistantState('listening')}>
         start mock session
       </button>
       <button type="button" onClick={() => controller.setPanelView('debug')}>
