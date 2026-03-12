@@ -178,9 +178,10 @@ describe('AssistantPanel', () => {
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
 
-    expect(panelScope.getByText('Live speech transcript')).toBeVisible();
+    expect(panelScope.getByRole('heading', { name: 'Conversation' })).toBeVisible();
+    expect(panelScope.getByText('Start speaking')).toBeVisible();
     expect(
-      panelScope.getByText('Speak to start the current speech turn transcript.'),
+      panelScope.getByText('Your spoken turns and assistant replies will appear here.'),
     ).toBeVisible();
     expect(panelScope.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
   });
