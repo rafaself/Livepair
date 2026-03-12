@@ -50,8 +50,6 @@ export function AssistantPanelChatView({
   activeTransport = null,
   voiceSessionStatus = 'disconnected',
   turns,
-  currentVoiceTranscript,
-  showSpeechTranscript = false,
   isConversationEmpty,
   lastRuntimeError,
   draftText,
@@ -88,7 +86,6 @@ export function AssistantPanelChatView({
         aria-label="Conversation"
       >
         <AssistantPanelConversationSection
-          currentVoiceTranscript={currentVoiceTranscript}
           emptyState={
             <AssistantPanelConversationEmptyState
               assistantState={assistantState}
@@ -98,7 +95,6 @@ export function AssistantPanelChatView({
           }
           isConversationEmpty={isConversationEmpty}
           lastRuntimeError={lastRuntimeError}
-          showSpeechTranscript={showSpeechTranscript}
           textSessionStatus={textSessionStatus}
           textSessionStatusLabel={textSessionStatusLabel}
           turns={turns}

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useSessionStore } from '../../store/sessionStore';
 import { resetDesktopStores } from '../../store/testing';
 import { useUiStore } from '../../store/uiStore';
 import { AssistantPanel } from './AssistantPanel';
@@ -162,5 +163,25 @@ describe('AssistantPanel', () => {
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
     expect(panelScope.queryByRole('button', { name: 'Developer tools' })).toBeNull();
+  });
+
+  it('keeps speech mode on a single conversation surface before the first spoken turn arrives', async () => {
+    useSessionStore.getState().setCurrentMode('speech');
+    useSessionStore.getState().setSpeechLifecycle({ status: 'listening' });
+    useSessionStore.getState().setAssistantState('listening');
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    expect(panelScope.getByText('Live speech transcript')).toBeVisible();
+    expect(
+      panelScope.getByText('Speak to start the current speech turn transcript.'),
+    ).toBeVisible();
+    expect(panelScope.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
   });
 });
