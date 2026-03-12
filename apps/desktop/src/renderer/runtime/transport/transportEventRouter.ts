@@ -46,6 +46,7 @@ export type TransportEventRouterOps = {
   getVoicePlayback: () => AssistantAudioPlayback;
   stopVoicePlayback: (nextState?: VoicePlaybackState) => Promise<void>;
   // Voice controllers
+  cancelVoiceToolCalls: (detail?: string) => void;
   resetVoiceToolState: () => void;
   resetVoiceTurnTranscriptState: () => void;
   markTurnCompleted: () => void;
@@ -120,6 +121,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
       }
 
       ops.setVoiceSessionStatus('disconnected');
+      ops.cancelVoiceToolCalls('voice transport disconnected');
       ops.resetVoiceTurnTranscriptState();
       ops.resetVoiceToolState();
       void ops.stopVoicePlayback();
@@ -147,6 +149,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
         resumable: store.voiceSessionResumption.resumable,
         tokenValid: isTokenValidForReconnect(ops.getToken()),
       });
+      ops.cancelVoiceToolCalls(detail);
       ops.setVoiceSessionResumption({
         status: 'goAway',
         lastDetail: detail,
@@ -176,6 +179,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
         resumable: store.voiceSessionResumption.resumable,
         tokenValid: isTokenValidForReconnect(ops.getToken()),
       });
+      ops.cancelVoiceToolCalls(event.detail ?? 'Voice session unavailable');
       ops.setVoiceSessionDurability({
         tokenValid: isTokenValidForReconnect(ops.getToken()),
         lastDetail: event.detail ?? 'Voice session unavailable',
@@ -185,6 +189,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'error') {
+      ops.cancelVoiceToolCalls(event.detail);
       ops.setVoiceErrorState(event.detail);
       return;
     }
@@ -214,6 +219,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'interrupted') {
+      ops.cancelVoiceToolCalls('voice turn interrupted');
       ops.promoteAssistantTranscriptTurn('interrupted');
       ops.markTurnCompleted();
       ops.handleVoiceInterruption();
@@ -241,6 +247,22 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'tool-call') {
+      const voiceStatus = ops.currentVoiceSessionStatus();
+
+      if (
+        voiceStatus === 'interrupted' ||
+        voiceStatus === 'recovering' ||
+        voiceStatus === 'stopping' ||
+        voiceStatus === 'disconnected' ||
+        voiceStatus === 'error'
+      ) {
+        ops.logRuntimeDiagnostic('voice-session', 'ignored tool call while turn is unavailable', {
+          voiceStatus,
+          callCount: event.calls.length,
+        });
+        return;
+      }
+
       ops.enqueueVoiceToolCalls(event.calls);
       return;
     }

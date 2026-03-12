@@ -41,6 +41,7 @@ function createMockOps() {
       enqueue: vi.fn().mockResolvedValue(undefined),
     }),
     stopVoicePlayback: vi.fn().mockResolvedValue(undefined),
+    cancelVoiceToolCalls: vi.fn(),
     resetVoiceToolState: vi.fn(),
     resetVoiceTurnTranscriptState: vi.fn(),
     markTurnCompleted: vi.fn(),
@@ -149,6 +150,7 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'connection-state-changed', state: 'disconnected' });
 
       expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('disconnected');
+      expect(ops.cancelVoiceToolCalls).toHaveBeenCalledWith('voice transport disconnected');
       expect(ops.resetVoiceTurnTranscriptState).toHaveBeenCalledTimes(1);
       expect(ops.resetVoiceToolState).toHaveBeenCalledTimes(1);
       expect(ops.stopVoicePlayback).toHaveBeenCalledTimes(1);
@@ -169,6 +171,7 @@ describe('createTransportEventRouter', () => {
         status: 'goAway',
         lastDetail: 'server draining',
       });
+      expect(ops.cancelVoiceToolCalls).toHaveBeenCalledWith('server draining');
       expect(ops.setVoiceSessionDurability).toHaveBeenCalledWith(
         expect.objectContaining({ lastDetail: 'server draining' }),
       );
@@ -208,6 +211,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'connection-terminated', detail: 'transport recycled' });
 
+      expect(ops.cancelVoiceToolCalls).toHaveBeenCalledWith('transport recycled');
       expect(ops.resumeVoiceSession).toHaveBeenCalledWith('transport recycled');
     });
 
@@ -249,6 +253,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'error', detail: 'transport failed' });
 
+      expect(ops.cancelVoiceToolCalls).toHaveBeenCalledWith('transport failed');
       expect(ops.setVoiceErrorState).toHaveBeenCalledWith('transport failed');
     });
   });
@@ -313,6 +318,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'interrupted' });
 
+      expect(ops.cancelVoiceToolCalls).toHaveBeenCalledWith('voice turn interrupted');
       expect(ops.promoteAssistantTranscriptTurn).toHaveBeenCalledWith('interrupted');
       expect(ops.markTurnCompleted).toHaveBeenCalledTimes(1);
       expect(ops.handleVoiceInterruption).toHaveBeenCalledTimes(1);
@@ -365,6 +371,25 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'tool-call', calls } as never);
 
       expect(ops.enqueueVoiceToolCalls).toHaveBeenCalledWith(calls);
+    });
+
+    it('ignores tool calls while the voice session is unavailable', () => {
+      const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('interrupted');
+      const calls = [{ name: 'get_current_mode', id: 'c1', args: {} }];
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'tool-call', calls } as never);
+
+      expect(ops.enqueueVoiceToolCalls).not.toHaveBeenCalled();
+      expect(ops.logRuntimeDiagnostic).toHaveBeenCalledWith(
+        'voice-session',
+        'ignored tool call while turn is unavailable',
+        expect.objectContaining({
+          voiceStatus: 'interrupted',
+          callCount: 1,
+        }),
+      );
     });
   });
 

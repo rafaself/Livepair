@@ -135,7 +135,6 @@ export function handleGeminiLiveSdkMessage({
   }
 
   emitSessionResumptionUpdate(emit, message);
-  emitToolCalls(emit, message);
 
   const textChunk = message.text ?? '';
 
@@ -149,6 +148,8 @@ export function handleGeminiLiveSdkMessage({
     emit({ type: 'interrupted' });
     return;
   }
+
+  emitToolCalls(emit, message);
 
   const inputTranscriptText = message.serverContent?.inputTranscription?.text;
 
