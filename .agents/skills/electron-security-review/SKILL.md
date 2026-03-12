@@ -1,6 +1,6 @@
 ---
 name: electron-security-review
-description: Review Livepair Electron security boundaries with concrete checks against the real main, preload, renderer, IPC, CSP, and validator files.
+description: Reviews Livepair Electron security by checking contextIsolation, nodeIntegration, sandbox settings, contextBridge exposure, CSP, IPC validators, and secret handling. Use when changes touch main process code, preload scripts, desktopBridge, IPC channels, BrowserWindow configuration, renderer bridge consumption, or any privileged API surface.
 ---
 
 # Electron Security Review

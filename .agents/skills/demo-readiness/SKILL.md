@@ -1,6 +1,6 @@
 ---
 name: demo-readiness
-description: Final presentation gate for Livepair work. Verifies the intended demo path, known failure handling, verification evidence, and what remains unverifiable in the current repository state.
+description: Final presentation gate for Livepair work that verifies the demo scenario, failure handling, test evidence, and known unverifiable gaps. Use before showing a feature or milestone to others, or when you need a go/no-go answer for a demo or stakeholder review.
 ---
 
 # Demo Readiness

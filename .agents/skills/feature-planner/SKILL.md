@@ -1,6 +1,6 @@
 ---
 name: feature-planner
-description: Plan a non-trivial Livepair change before coding. Anchors the plan to the real repository layout, current implementation status, affected boundaries, tests, and required follow-up reviews.
+description: Plans non-trivial Livepair changes before coding by anchoring to the real repository layout, current implementation status, boundary impact, and required downstream reviews. Use when a task touches more than one file or package boundary, modifies API payloads, IPC channels, settings, or session behavior, or when implementing features described in docs that may not yet exist in code.
 ---
 
 # Feature Planner

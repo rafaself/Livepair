@@ -1,6 +1,6 @@
 ---
 name: architecture-boundary-review
-description: Review whether a change still matches Livepair's real runtime boundaries - renderer vs preload vs main, desktop vs backend, control plane vs realtime hot path, and implemented code vs planned target.
+description: Reviews Livepair's runtime boundaries and flags misplaced responsibilities between renderer, preload, main, desktop, and backend. Use when a change crosses app or package boundaries, touches IPC, adds backend endpoints, modifies shared packages, or when implemented code may diverge from the documented target architecture.
 ---
 
 # Architecture Boundary Review

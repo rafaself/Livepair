@@ -1,6 +1,6 @@
 ---
 name: live-api-realtime-review
-description: Review changes that affect Livepair's realtime and control-plane boundaries. Distinguishes the current stub token flow from the planned Gemini Live API pipeline and flags latency or architecture regressions.
+description: Reviews Livepair's realtime and control-plane boundaries, distinguishing the current stub token flow from the planned Gemini Live API pipeline and flagging latency or architecture regressions. Use when touching session token issuance, audio capture, screen capture, playback, interruption, backend calls near the realtime hot path, or any Gemini transport or session code.
 ---
 
 # Live API Realtime Review

@@ -1,6 +1,6 @@
 ---
 name: contract-change-check
-description: Verify that Livepair contract changes are centralized, updated across all consumers, and reflected in shared types, preload/IPC surfaces, DTOs, and validators in the same task.
+description: Verifies that Livepair contract changes are centralized, propagated to all consumers, and reflected in shared types, IPC surfaces, DTOs, and validators. Use when changing shared-types, DesktopBridge, IPC channels, backend DTOs, or any session or settings payload that crosses renderer, main, or backend boundaries.
 ---
 
 # Contract Change Check

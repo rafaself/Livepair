@@ -1,6 +1,6 @@
 ---
 name: tdd-implementer
-description: Apply repository-aware TDD in Livepair. Write the smallest failing test first, implement the minimum code to pass, and verify with the narrowest relevant pnpm command.
+description: Applies TDD in Livepair by writing the smallest failing test first, implementing the minimum change to pass, and verifying with the narrowest pnpm command. Use when changing backend services, validators, controllers, IPC handlers, stores, hooks, shared contracts, or any logic with meaningful test value.
 ---
 
 # TDD Implementer
