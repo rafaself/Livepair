@@ -1,5 +1,7 @@
 import type { HTMLAttributes } from 'react';
-import { Badge } from '../primitives';
+import { useState } from 'react';
+import { Check, Copy } from 'lucide-react';
+import { Badge, IconButton } from '../primitives';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
 import { TypingIndicator } from './TypingIndicator';
 import { renderAssistantMarkdown } from './renderAssistantMarkdown';
@@ -24,6 +26,8 @@ export function ConversationTurn({
   className,
   ...rest
 }: ConversationTurnProps): JSX.Element {
+  const [copied, setCopied] = useState(false);
+
   const classes = [
     'conversation-turn',
     `conversation-turn--${turn.role}`,
@@ -36,6 +40,12 @@ export function ConversationTurn({
     turn.role === 'assistant' &&
     turn.state === 'streaming' &&
     turn.content.trim().length === 0;
+
+  const handleCopy = (): void => {
+    void navigator.clipboard.writeText(turn.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <article
@@ -54,7 +64,18 @@ export function ConversationTurn({
 
         <div className="conversation-turn__meta">
           <div className="conversation-turn__meta-main">
-            <time className="conversation-turn__timestamp">{turn.timestamp}</time>
+            {turn.role === 'assistant' && !isTypingOnly ? (
+              <IconButton
+                label={copied ? 'Copied' : 'Copy message'}
+                size="sm"
+                className="conversation-turn__copy-btn"
+                onClick={handleCopy}
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+              </IconButton>
+            ) : (
+              <time className="conversation-turn__timestamp">{turn.timestamp}</time>
+            )}
             {turn.statusLabel ? (
               <Badge variant={getBadgeVariant(turn)}>{turn.statusLabel}</Badge>
             ) : null}

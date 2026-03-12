@@ -148,3 +148,15 @@
   color: var(--color-text-inverse);
   opacity: 0.8;
 }
+
+.conversation-turn__copy-btn {
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.conversation-turn__bubble:hover .conversation-turn__copy-btn,
+.conversation-turn__copy-btn:focus-visible {
+  opacity: 1;
+}
