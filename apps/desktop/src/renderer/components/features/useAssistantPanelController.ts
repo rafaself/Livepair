@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
+import {
+  canEndSpeechMode,
+  canSubmitComposerText,
+  createControlGatingSnapshot,
+  getComposerSpeechActionKind,
+} from '../../runtime/controlGating';
 import { useUiStore, type PanelView } from '../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
 import { useSessionRuntime } from '../../runtime/useSessionRuntime';
@@ -22,6 +28,7 @@ import type {
 } from '../../runtime/screen/screen.types';
 import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
 import type { TextSessionStatus } from '../../runtime/text/text.types';
+import type { TransportKind } from '../../runtime/transport/transport.types';
 
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
@@ -36,6 +43,7 @@ export type AssistantPanelController = {
   backendIndicatorState: AssistantRuntimeState;
   backendLabel: string;
   currentMode: ProductMode;
+  activeTransport: TransportKind | null;
   speechLifecycleStatus: SpeechLifecycleStatus;
   tokenRequestState: TokenRequestState;
   tokenFeedback: string | null;
@@ -76,6 +84,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendIndicatorState,
     backendLabel,
     currentMode,
+    activeTransport,
     speechLifecycleStatus,
     tokenRequestState,
     tokenFeedback,
@@ -140,8 +149,21 @@ export function useAssistantPanelController(): AssistantPanelController {
       event.preventDefault();
 
       const nextDraft = draftText.trim();
+      const controlGatingSnapshot = createControlGatingSnapshot({
+        currentMode,
+        speechLifecycleStatus,
+        textSessionStatus,
+        activeTransport,
+        voiceSessionStatus,
+        voiceCaptureState,
+        screenCaptureState,
+      });
 
-      if (!nextDraft || isSubmittingTextTurn) {
+      if (
+        !nextDraft ||
+        isSubmittingTextTurn ||
+        !canSubmitComposerText(controlGatingSnapshot)
+      ) {
         return;
       }
 
@@ -157,8 +179,31 @@ export function useAssistantPanelController(): AssistantPanelController {
         setIsSubmittingTextTurn(false);
       }
     },
-    [draftText, handleSubmitTextTurn, isSubmittingTextTurn],
+    [
+      activeTransport,
+      currentMode,
+      draftText,
+      handleSubmitTextTurn,
+      isSubmittingTextTurn,
+      screenCaptureState,
+      speechLifecycleStatus,
+      textSessionStatus,
+      voiceCaptureState,
+      voiceSessionStatus,
+    ],
   );
+
+  const controlGatingSnapshot = createControlGatingSnapshot({
+    currentMode,
+    speechLifecycleStatus,
+    textSessionStatus,
+    activeTransport,
+    voiceSessionStatus,
+    voiceCaptureState,
+    screenCaptureState,
+  });
+
+  const composerSpeechActionKind = getComposerSpeechActionKind(controlGatingSnapshot);
 
   return {
     assistantState,
@@ -173,6 +218,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     backendIndicatorState,
     backendLabel,
     currentMode,
+    activeTransport,
     speechLifecycleStatus,
     tokenRequestState,
     tokenFeedback,
@@ -198,7 +244,19 @@ export function useAssistantPanelController(): AssistantPanelController {
     handleSubmitTextTurn: handleSubmitTextTurnCallback,
     handleCheckBackendHealth: handleCheckBackendHealthCallback,
     handleStartTalking,
-    handleStartSpeechMode,
-    handleEndSpeechMode,
+    handleStartSpeechMode: async () => {
+      if (composerSpeechActionKind !== 'start') {
+        return;
+      }
+
+      await handleStartSpeechMode();
+    },
+    handleEndSpeechMode: async () => {
+      if (!canEndSpeechMode(controlGatingSnapshot)) {
+        return;
+      }
+
+      await handleEndSpeechMode();
+    },
   };
 }

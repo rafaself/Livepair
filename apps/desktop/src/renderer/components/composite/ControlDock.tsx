@@ -3,15 +3,26 @@ import { ChevronLeft, Mic, MicOff, Monitor, MonitorOff, PhoneOff } from 'lucide-
 import { Divider, IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import {
+  canEndSpeechMode,
+  canToggleMicrophone,
+  canToggleScreenContext,
+  createControlGatingSnapshot,
+  shouldShowDockEndControl,
+  shouldShowSpeechControls,
+} from '../../runtime/controlGating';
 import type { ProductMode } from '../../runtime/core/session.types';
 import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
 import type { ScreenCaptureState } from '../../runtime/screen/screen.types';
-import type { VoiceCaptureState } from '../../runtime/voice/voice.types';
+import type { TransportKind } from '../../runtime/transport/transport.types';
+import type { VoiceCaptureState, VoiceSessionStatus } from '../../runtime/voice/voice.types';
 import './ControlDock.css';
 
 export type ControlDockProps = {
   currentMode: ProductMode;
   speechLifecycleStatus: SpeechLifecycleStatus;
+  activeTransport?: TransportKind | null;
+  voiceSessionStatus?: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   screenCaptureState: ScreenCaptureState;
   onStartVoiceCapture: () => Promise<void>;
@@ -24,6 +35,8 @@ export type ControlDockProps = {
 export function ControlDock({
   currentMode,
   speechLifecycleStatus,
+  activeTransport = null,
+  voiceSessionStatus = 'disconnected',
   voiceCaptureState,
   screenCaptureState,
   onStartVoiceCapture,
@@ -41,23 +54,28 @@ export function ControlDock({
   const [isWindowFocused, setIsWindowFocused] = useState(() => document.hasFocus());
 
   const shouldDimDock = !isPanelOpen && !isWindowFocused && !isHovered;
-  const hasSpeechLifecycleActivity = speechLifecycleStatus !== 'off';
-  const isSpeechModeActive = currentMode === 'speech' && hasSpeechLifecycleActivity;
+  const controlGatingSnapshot = createControlGatingSnapshot({
+    currentMode,
+    speechLifecycleStatus,
+    activeTransport,
+    voiceSessionStatus,
+    voiceCaptureState,
+    screenCaptureState,
+  });
   const isVoiceCaptureBusy =
     voiceCaptureState === 'requestingPermission' || voiceCaptureState === 'stopping';
   const isVoiceCapturing = voiceCaptureState === 'capturing';
-  const isSpeechModeTransitioning =
-    speechLifecycleStatus === 'starting' || speechLifecycleStatus === 'ending';
-  const isMicrophoneAvailable = isSpeechModeActive && !isSpeechModeTransitioning;
+  const isMicrophoneAvailable = canToggleMicrophone(controlGatingSnapshot);
   const isScreenContextBusy =
     screenCaptureState === 'requestingPermission' || screenCaptureState === 'stopping';
   const isScreenContextActive =
     screenCaptureState === 'ready' ||
     screenCaptureState === 'capturing' ||
     screenCaptureState === 'streaming';
-  const isScreenContextAvailable = isSpeechModeActive && !isSpeechModeTransitioning;
-  const showSpeechControls = isSpeechModeActive;
-  const showEndSpeechModeControl = showSpeechControls && !isPanelOpen;
+  const isScreenContextAvailable = canToggleScreenContext(controlGatingSnapshot);
+  const showSpeechControls = shouldShowSpeechControls(controlGatingSnapshot);
+  const showEndSpeechModeControl = shouldShowDockEndControl(controlGatingSnapshot, isPanelOpen);
+  const canUseEndSpeechMode = canEndSpeechMode(controlGatingSnapshot);
   const micButtonClassName = [
     isVoiceCapturing ? 'control-dock__btn--active' : '',
     isVoiceCaptureBusy ? 'control-dock__btn--pending' : '',
@@ -70,8 +88,10 @@ export function ControlDock({
     ? 'Speech mode is starting'
     : speechLifecycleStatus === 'ending'
       ? 'Speech mode is ending'
-      : !isMicrophoneAvailable
-        ? 'Microphone unavailable outside active speech mode'
+      : !showSpeechControls
+        ? 'Microphone unavailable outside speech mode'
+        : !isMicrophoneAvailable
+          ? 'Microphone unavailable until speech mode is ready'
         : isVoiceCapturing
           ? 'Stop microphone capture'
           : voiceCaptureState === 'requestingPermission'
@@ -85,8 +105,10 @@ export function ControlDock({
     ? 'Screen context unavailable while speech mode starts'
     : speechLifecycleStatus === 'ending'
       ? 'Screen context unavailable while speech mode ends'
-      : !isScreenContextAvailable
-        ? 'Screen context unavailable outside active speech mode'
+      : !showSpeechControls
+        ? 'Screen context unavailable outside speech mode'
+        : !isScreenContextAvailable
+          ? 'Screen context unavailable until speech mode is ready'
         : isScreenContextActive
           ? 'Stop screen context'
           : screenCaptureState === 'requestingPermission'
@@ -177,9 +199,9 @@ export function ControlDock({
             <IconButton
               label={endSpeechModeLabel}
               className="control-dock__btn--danger"
-              disabled={isSpeechModeTransitioning}
+              disabled={!canUseEndSpeechMode}
               onClick={() => {
-                if (isSpeechModeTransitioning) {
+                if (!canUseEndSpeechMode) {
                   return;
                 }
 

@@ -60,7 +60,9 @@ function AppShell(): JSX.Element {
   const overlayMode = window.bridge?.overlayMode ?? 'linux-shape';
   const {
     currentMode,
+    activeTransport,
     speechLifecycleStatus,
+    voiceSessionStatus,
     voiceCaptureState,
     screenCaptureState,
     handleStartVoiceCapture,
@@ -78,6 +80,8 @@ function AppShell(): JSX.Element {
       <ControlDock
         currentMode={currentMode}
         speechLifecycleStatus={speechLifecycleStatus}
+        activeTransport={activeTransport}
+        voiceSessionStatus={voiceSessionStatus}
         voiceCaptureState={voiceCaptureState}
         screenCaptureState={screenCaptureState}
         onStartVoiceCapture={handleStartVoiceCapture}

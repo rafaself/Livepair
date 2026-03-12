@@ -341,6 +341,11 @@ pnpm verify:shared-types
 pnpm verify:shared-utils
 ```
 
+## Manual QA
+
+- manual runbook: [docs/QA_RUNBOOK.md](./docs/QA_RUNBOOK.md)
+- findings log: [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md)
+
 ## 🌍 Environment Variables
 
 Environment examples are separated per app:

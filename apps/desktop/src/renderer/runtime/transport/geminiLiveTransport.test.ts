@@ -437,6 +437,52 @@ describe('createGeminiLiveTransport', () => {
     });
   });
 
+  it('drops tool calls from interrupted Gemini messages so stale work is not queued', async () => {
+    const sdkHarness = createSdkHarness();
+    const events: LiveSessionEvent[] = [];
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+    transport.subscribe((event) => {
+      events.push(event);
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    sdkHarness.emitMessage({
+      toolCall: {
+        functionCalls: [
+          {
+            id: 'call-2',
+            name: 'get_current_mode',
+            args: {},
+          },
+        ],
+      },
+      serverContent: {
+        interrupted: true,
+      },
+    });
+
+    expect(events).toContainEqual({ type: 'interrupted' });
+    expect(events).not.toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+      }),
+    );
+  });
+
   it('forwards normalized tool responses through the Gemini session', async () => {
     const sdkHarness = createSdkHarness();
     const transport = createGeminiLiveTransport({
