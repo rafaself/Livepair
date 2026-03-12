@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useSessionStore } from '../../store/sessionStore';
 import {
+  appendCompletedAssistantTurn,
   appendAssistantTextDelta,
   appendAssistantTurn,
   appendUserTurn,
@@ -70,6 +71,27 @@ describe('conversationTurnManager', () => {
         }),
       );
       expect(ctx.pendingAssistantTurnId).toBe('assistant-turn-1');
+    });
+  });
+
+  describe('appendCompletedAssistantTurn', () => {
+    it('appends a completed assistant turn without setting a pending id', () => {
+      appendCompletedAssistantTurn(ctx, 'Final answer');
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Final answer',
+          state: 'complete',
+        }),
+      ]);
+      expect(ctx.pendingAssistantTurnId).toBeNull();
+    });
+
+    it('ignores empty assistant transcript content', () => {
+      appendCompletedAssistantTurn(ctx, '   ');
+      expect(useSessionStore.getState().conversationTurns).toEqual([]);
     });
   });
 

@@ -147,4 +147,28 @@ describe('createVoiceTranscriptController', () => {
 
     expect(store.spies.clearCurrentVoiceTranscript).not.toHaveBeenCalled();
   });
+
+  it('returns the assistant transcript once when consumed for turn promotion', () => {
+    const store = createMockStore();
+    const ctrl = createVoiceTranscriptController(store);
+
+    ctrl.applyTranscriptUpdate('assistant', 'Final response');
+
+    expect(ctrl.consumePromotableAssistantTranscript('completed')).toBe('Final response');
+    expect(ctrl.consumePromotableAssistantTranscript('completed')).toBeNull();
+  });
+
+  it('resets promotion eligibility when a new turn starts', () => {
+    const store = createMockStore();
+    const ctrl = createVoiceTranscriptController(store);
+
+    ctrl.applyTranscriptUpdate('assistant', 'First response');
+    expect(ctrl.consumePromotableAssistantTranscript('completed')).toBe('First response');
+
+    ctrl.markTurnCompleted();
+    ctrl.applyTranscriptUpdate('user', 'Next request');
+    ctrl.applyTranscriptUpdate('assistant', 'Second response');
+
+    expect(ctrl.consumePromotableAssistantTranscript('interrupted')).toBe('Second response');
+  });
 });

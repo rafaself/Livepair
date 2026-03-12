@@ -49,6 +49,7 @@ export type TransportEventRouterOps = {
   resetVoiceToolState: () => void;
   resetVoiceTurnTranscriptState: () => void;
   markTurnCompleted: () => void;
+  promoteAssistantTranscriptTurn: (finalizeReason: 'completed' | 'interrupted') => void;
   enqueueVoiceToolCalls: (calls: VoiceToolCall[]) => void;
   handleVoiceInterruption: () => void;
   // Lifecycle events
@@ -213,6 +214,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'interrupted') {
+      ops.promoteAssistantTranscriptTurn('interrupted');
       ops.markTurnCompleted();
       ops.handleVoiceInterruption();
       return;
@@ -244,6 +246,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'turn-complete') {
+      ops.promoteAssistantTranscriptTurn('completed');
       ops.markTurnCompleted();
       if (ops.currentSpeechLifecycleStatus() === 'assistantSpeaking') {
         ops.applySpeechLifecycleEvent({ type: 'assistant.turn.completed' });
