@@ -231,7 +231,8 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Starting speech mode' })).toBeDisabled();
-      expect(screen.getByText('Live speech transcript')).toBeVisible();
+      expect(screen.getByText('Start speaking')).toBeVisible();
+      expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
     });
 
     await act(async () => {
@@ -246,7 +247,7 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
-      expect(screen.queryByText('Live speech transcript')).toBeNull();
+      expect(screen.queryByText('Start speaking')).toBeNull();
     });
   });
 });

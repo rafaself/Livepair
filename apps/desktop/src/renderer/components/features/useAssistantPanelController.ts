@@ -12,7 +12,6 @@ import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 import type { ProductMode } from '../../runtime/core/session.types';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
 import type {
-  CurrentVoiceTranscript,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
   VoiceSessionDurabilityState,
@@ -60,7 +59,6 @@ export type AssistantPanelController = {
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   isVoiceSessionActive: boolean;
-  currentVoiceTranscript: CurrentVoiceTranscript;
   canSubmitText: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -101,7 +99,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     screenCaptureState,
     screenCaptureDiagnostics,
     isVoiceSessionActive,
-    currentVoiceTranscript,
     canSubmitText,
     conversationTurns,
     lastRuntimeError,
@@ -235,7 +232,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     screenCaptureState,
     screenCaptureDiagnostics,
     isVoiceSessionActive,
-    currentVoiceTranscript,
     canSubmitText,
     lastRuntimeError,
     draftText,

@@ -38,7 +38,6 @@ export function useSessionRuntime() {
   const voiceCaptureDiagnostics = useSessionStore((state) => state.voiceCaptureDiagnostics);
   const voicePlaybackState = useSessionStore((state) => state.voicePlaybackState);
   const voicePlaybackDiagnostics = useSessionStore((state) => state.voicePlaybackDiagnostics);
-  const currentVoiceTranscript = useSessionStore((state) => state.currentVoiceTranscript);
   const voiceToolState = useSessionStore((state) => state.voiceToolState);
   const screenCaptureState = useSessionStore((state) => state.screenCaptureState);
   const screenCaptureDiagnostics = useSessionStore((state) => state.screenCaptureDiagnostics);
@@ -114,7 +113,6 @@ export function useSessionRuntime() {
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
-    currentVoiceTranscript,
     voiceToolState,
     screenCaptureState,
     screenCaptureDiagnostics,

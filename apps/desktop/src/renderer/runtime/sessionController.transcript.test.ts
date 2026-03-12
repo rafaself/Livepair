@@ -200,6 +200,43 @@ describe('createDesktopSessionController – transcript', () => {
     });
   });
 
+  it('removes an empty assistant placeholder when audio is interrupted before transcript text arrives', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    voiceTransport.emit({ type: 'interrupted' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([]);
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: {
+        text: '',
+      },
+      assistant: {
+        text: '',
+      },
+    });
+    expect(voicePlayback.enqueue).toHaveBeenCalledWith(new Uint8Array([1, 2, 3, 4]));
+  });
+
   it('does not duplicate the promoted assistant turn when turn-complete arrives after interruption', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({

@@ -2,27 +2,21 @@ import { TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { TextSessionStatus } from '../../runtime/text/text.types';
 import { ConversationList } from './ConversationList';
-import { AssistantPanelSpeechTranscript } from './AssistantPanelSpeechTranscript';
-import type { CurrentVoiceTranscript } from '../../runtime/voice/voice.types';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
 
 export type AssistantPanelConversationSectionProps = {
-  currentVoiceTranscript: CurrentVoiceTranscript;
   emptyState: ReactNode;
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
-  showSpeechTranscript: boolean;
   textSessionStatus: TextSessionStatus;
   textSessionStatusLabel: string;
   turns: ConversationTurnModel[];
 };
 
 export function AssistantPanelConversationSection({
-  currentVoiceTranscript,
   emptyState,
   isConversationEmpty,
   lastRuntimeError,
-  showSpeechTranscript,
   textSessionStatus,
   textSessionStatusLabel,
   turns,
@@ -47,11 +41,6 @@ export function AssistantPanelConversationSection({
           </div>
         ) : null}
       </div>
-
-      <AssistantPanelSpeechTranscript
-        currentVoiceTranscript={currentVoiceTranscript}
-        show={showSpeechTranscript}
-      />
 
       <ConversationList
         turns={turns}

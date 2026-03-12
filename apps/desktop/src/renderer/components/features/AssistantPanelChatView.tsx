@@ -1,7 +1,6 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
-import type { CurrentVoiceTranscript } from '../../runtime/voice/voice.types';
 import type { ProductMode } from '../../runtime/core/session.types';
 import {
   canSubmitComposerText,
@@ -28,7 +27,6 @@ export type AssistantPanelChatViewProps = {
   activeTransport?: TransportKind | null;
   voiceSessionStatus?: VoiceSessionStatus;
   turns: ConversationTurnModel[];
-  currentVoiceTranscript: CurrentVoiceTranscript;
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -49,7 +47,6 @@ export function AssistantPanelChatView({
   activeTransport = null,
   voiceSessionStatus = 'disconnected',
   turns,
-  currentVoiceTranscript,
   isConversationEmpty,
   lastRuntimeError,
   draftText,
@@ -71,9 +68,6 @@ export function AssistantPanelChatView({
     !canSubmitText ||
     !canSubmitComposerText(controlGatingSnapshot);
   const isSpeechMode = currentMode === 'speech';
-  const hasVoiceTranscript =
-    currentVoiceTranscript.user.text.trim().length > 0 ||
-    currentVoiceTranscript.assistant.text.trim().length > 0;
   const composerAction = createAssistantPanelComposerAction({
     controlGatingSnapshot,
     draftText,
@@ -89,7 +83,6 @@ export function AssistantPanelChatView({
         aria-label="Conversation"
       >
         <AssistantPanelConversationSection
-          currentVoiceTranscript={currentVoiceTranscript}
           emptyState={
             <AssistantPanelConversationEmptyState
               assistantState={assistantState}
@@ -99,7 +92,6 @@ export function AssistantPanelChatView({
           }
           isConversationEmpty={isConversationEmpty}
           lastRuntimeError={lastRuntimeError}
-          showSpeechTranscript={isSpeechMode || hasVoiceTranscript}
           textSessionStatus={textSessionStatus}
           textSessionStatusLabel={textSessionStatusLabel}
           turns={turns}

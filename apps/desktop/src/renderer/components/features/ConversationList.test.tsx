@@ -144,6 +144,45 @@ describe('ConversationList', () => {
     });
   });
 
+  it('uses an immediate bottom sync for live updates to the same turn', async () => {
+    const turns = MOCK_CONVERSATION_TURNS.slice(0, 4);
+    const updatedTurns = turns.map((turn, index) =>
+      index === turns.length - 1
+        ? {
+            ...turn,
+            content: `${turn.content} Updated while streaming.`,
+          }
+        : turn,
+    );
+
+    const { rerender } = render(
+      <ConversationList
+        turns={turns}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    const viewport = screen.getByTestId('conversation-list-viewport');
+    const scrollTo = setViewportMetrics(viewport, {
+      clientHeight: 220,
+      scrollHeight: 480,
+      scrollTop: 258,
+    });
+
+    scrollTo.mockClear();
+
+    rerender(
+      <ConversationList
+        turns={updatedTurns}
+        emptyState={<p>No conversation yet</p>}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(scrollTo).toHaveBeenCalledWith({ top: 480, behavior: 'auto' });
+    });
+  });
+
   it('does not force-scroll when the user has scrolled up', () => {
     const { rerender } = render(
       <ConversationList
