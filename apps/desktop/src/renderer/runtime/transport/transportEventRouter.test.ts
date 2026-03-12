@@ -21,6 +21,7 @@ function createMockOps() {
       onTransportEvent: vi.fn(),
       onSessionEvent: vi.fn(),
     },
+    logRuntimeDiagnostic: vi.fn(),
     isVoiceResumptionInFlight: vi.fn().mockReturnValue(false),
     setVoiceResumptionInFlight: vi.fn(),
     currentVoiceSessionStatus: vi.fn().mockReturnValue('ready'),
@@ -183,6 +184,19 @@ describe('createTransportEventRouter', () => {
         expect.objectContaining({ lastDetail: 'Voice session unavailable' }),
       );
     });
+
+    it('ignores go-away while the voice session is already stopping', () => {
+      const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('stopping');
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'go-away', detail: 'server draining' });
+
+      expect(ops.resumeVoiceSession).not.toHaveBeenCalled();
+      expect(ops.setVoiceSessionResumption).not.toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'goAway' }),
+      );
+    });
   });
 
   describe('connection-terminated', () => {
@@ -257,7 +271,7 @@ describe('createTransportEventRouter', () => {
       );
     });
 
-    it('falls back to existing handle when event handle is null', () => {
+    it('clears the latest handle when the transport explicitly reports no resumable handle', () => {
       const ops = createMockOps();
       ops._storeState.voiceSessionResumption.latestHandle = 'handles/existing';
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
@@ -269,7 +283,11 @@ describe('createTransportEventRouter', () => {
       } as never);
 
       expect(ops.setVoiceSessionResumption).toHaveBeenCalledWith(
-        expect.objectContaining({ latestHandle: 'handles/existing' }),
+        expect.objectContaining({
+          latestHandle: null,
+          resumable: false,
+          lastDetail: null,
+        }),
       );
     });
   });

@@ -193,7 +193,7 @@ describe('createScreenCaptureController', () => {
     });
   });
 
-  it('enqueueFrameSend is no-op without transport', async () => {
+  it('drops screen frames while resume temporarily leaves no active transport', async () => {
     const { ctrl, setTransport, sendVideoFrame } = createHarness();
 
     await ctrl.start();
@@ -203,6 +203,49 @@ describe('createScreenCaptureController', () => {
 
     expect(result).toBeUndefined();
     expect(sendVideoFrame).not.toHaveBeenCalled();
+  });
+
+  it('drops queued screen frames if resumption swaps the active transport before send', async () => {
+    const { ctrl, setTransport, sendVideoFrame, store } = createHarness();
+    const nextTransport = {
+      sendVideoFrame: vi.fn(() => Promise.resolve()),
+    } as unknown as DesktopSession;
+    let resolveFirstSend!: () => void;
+    sendVideoFrame.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFirstSend = () => resolve();
+        }),
+    );
+
+    await ctrl.start();
+    const firstSend = ctrl.enqueueFrameSend({
+      data: new Uint8Array([1]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 320,
+      heightPx: 240,
+    });
+    await Promise.resolve();
+    const secondSend = ctrl.enqueueFrameSend({
+      data: new Uint8Array([2]),
+      mimeType: 'image/jpeg',
+      sequence: 2,
+      widthPx: 320,
+      heightPx: 240,
+    });
+
+    setTransport(nextTransport);
+    resolveFirstSend();
+    await Promise.all([firstSend, secondSend]);
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(nextTransport.sendVideoFrame).not.toHaveBeenCalled();
+    expect(
+      store.setScreenCaptureDiagnostics.mock.calls.filter(
+        ([patch]) => patch.lastUploadStatus === 'sent',
+      ),
+    ).toHaveLength(0);
   });
 
   it('enqueueFrameSend is no-op without active capture', async () => {

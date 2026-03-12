@@ -379,7 +379,7 @@ describe('createDesktopSessionController – resumption', () => {
         status: 'resumeFailed',
         latestHandle: null,
         resumable: false,
-        lastDetail: 'transport recycled',
+        lastDetail: 'transport recycled (session marked non-resumable)',
       });
     });
 
@@ -387,7 +387,58 @@ describe('createDesktopSessionController – resumption', () => {
       expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
     });
     expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
-    expect(useSessionStore.getState().lastRuntimeError).toBe('transport recycled');
+    expect(useSessionStore.getState().lastRuntimeError).toBe(
+      'transport recycled (session marked non-resumable)',
+    );
+  });
+
+  it('does not reuse a stale resumption handle after the transport clears it', async () => {
+    const firstTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => firstTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: 'handles/stale-session',
+      resumable: true,
+    });
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: null,
+      resumable: false,
+      detail: 'Gemini Live session is not resumable at this point',
+    });
+    firstTransport.emit({
+      type: 'connection-terminated',
+      detail: 'transport recycled',
+    });
+
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+        status: 'resumeFailed',
+        latestHandle: null,
+        resumable: false,
+        lastDetail: 'transport recycled (session marked non-resumable)',
+      });
+    });
+
+    expect(firstTransport.connect).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().lastRuntimeError).toBe(
+      'transport recycled (session marked non-resumable)',
+    );
   });
 
   it('keeps text mode durability state idle', async () => {
