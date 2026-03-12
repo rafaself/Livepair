@@ -174,32 +174,38 @@
   color: var(--color-accent);
 }
 
-/* Speech mode (active or transitioning) */
+/* All mic states (inactive, loading, active) — blue background */
 .assistant-panel__composer-submit--speech,
 .assistant-panel__composer-submit--speech:disabled,
 .assistant-panel__composer-submit--speech:not(:disabled) {
   background: var(--color-accent);
   color: var(--color-text-inverse);
   opacity: 1;
+  border-radius: 50%;
 }
 
-.assistant-panel__composer-submit--speech:not(:disabled) {
-  width: auto;
-  padding: 0 var(--space-2);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.assistant-panel__composer-submit--speech:hover:not(:disabled) {
+.assistant-panel__composer-submit--speech:hover:not(:disabled),
+.assistant-panel__composer-submit--speech-active:hover:not(:disabled) {
   background: var(--color-accent-soft);
   color: var(--color-text-inverse);
 }
 
-/* Loading state — fixed size, spinner animation */
+/* Active speech (AudioLines + "End") — pill shape */
+.assistant-panel__composer-submit--speech-active,
+.assistant-panel__composer-submit--speech-active:not(:disabled) {
+  width: auto;
+  padding: 0 var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+}
+
+/* Loading state — circle, spinner animation */
 .assistant-panel__composer-submit--loading {
   width: 32px;
   padding: 0;
   cursor: default;
+  border-radius: 50%;
 }
 
 @keyframes assistant-panel-spin {
