@@ -25,6 +25,7 @@ export function AssistantPanel({
     backendIndicatorState,
     backendLabel,
     currentMode,
+    activeTransport,
     speechLifecycleStatus,
     tokenFeedback,
     textSessionStatus,
@@ -77,6 +78,8 @@ export function AssistantPanel({
               textSessionStatus={textSessionStatus}
               textSessionStatusLabel={textSessionStatusLabel}
               canSubmitText={canSubmitText}
+              activeTransport={activeTransport}
+              voiceSessionStatus={voiceSessionStatus}
               turns={conversationTurns}
               currentVoiceTranscript={currentVoiceTranscript}
               isConversationEmpty={isConversationEmpty}

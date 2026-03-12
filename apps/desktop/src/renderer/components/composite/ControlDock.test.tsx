@@ -13,6 +13,8 @@ function createDockProps(
   return {
     currentMode: 'text',
     speechLifecycleStatus: 'off',
+    activeTransport: null,
+    voiceSessionStatus: 'disconnected',
     voiceCaptureState: 'idle',
     screenCaptureState: 'disabled',
     onStartVoiceCapture: vi.fn(async () => undefined),
@@ -75,6 +77,8 @@ describe('ControlDock', () => {
     renderDock({
       currentMode: 'speech',
       speechLifecycleStatus: 'listening',
+      activeTransport: 'gemini-live',
+      voiceSessionStatus: 'ready',
       voiceCaptureState: 'stopped',
       screenCaptureState: 'disabled',
     });
@@ -92,6 +96,8 @@ describe('ControlDock', () => {
     const { props } = renderDock({
       currentMode: 'speech',
       speechLifecycleStatus: 'listening',
+      activeTransport: 'gemini-live',
+      voiceSessionStatus: 'ready',
       voiceCaptureState: 'stopped',
       screenCaptureState: 'disabled',
     });
@@ -113,6 +119,8 @@ describe('ControlDock', () => {
         {...createDockProps({
           currentMode: 'speech',
           speechLifecycleStatus: 'interrupted',
+          activeTransport: 'gemini-live',
+          voiceSessionStatus: 'interrupted',
           voiceCaptureState: 'stopped',
           screenCaptureState: 'disabled',
         })}
@@ -127,6 +135,8 @@ describe('ControlDock', () => {
         {...createDockProps({
           currentMode: 'speech',
           speechLifecycleStatus: 'recovering',
+          activeTransport: 'gemini-live',
+          voiceSessionStatus: 'recovering',
           voiceCaptureState: 'stopped',
           screenCaptureState: 'disabled',
         })}
@@ -143,6 +153,8 @@ describe('ControlDock', () => {
         {...createDockProps({
           currentMode: 'speech',
           speechLifecycleStatus: 'starting',
+          activeTransport: 'gemini-live',
+          voiceSessionStatus: 'connecting',
         })}
       />,
     );
@@ -158,6 +170,8 @@ describe('ControlDock', () => {
         {...createDockProps({
           currentMode: 'speech',
           speechLifecycleStatus: 'ending',
+          activeTransport: 'gemini-live',
+          voiceSessionStatus: 'stopping',
         })}
       />,
     );
@@ -167,6 +181,41 @@ describe('ControlDock', () => {
       screen.getByRole('button', { name: /screen context unavailable while speech mode ends/i }),
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Ending speech mode' })).toBeDisabled();
+  });
+
+  it('keeps speech controls visible but disabled while speech teardown is still in progress', () => {
+    renderDock({
+      currentMode: 'text',
+      speechLifecycleStatus: 'ending',
+      activeTransport: null,
+      voiceSessionStatus: 'stopping',
+      voiceCaptureState: 'error',
+      screenCaptureState: 'error',
+    });
+
+    expect(screen.getByRole('button', { name: /speech mode is ending/i })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /screen context unavailable while speech mode ends/i }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ending speech mode' })).toBeDisabled();
+  });
+
+  it('disables mic and screen retries when the speech runtime is no longer ready', () => {
+    renderDock({
+      currentMode: 'speech',
+      speechLifecycleStatus: 'listening',
+      activeTransport: null,
+      voiceSessionStatus: 'error',
+      voiceCaptureState: 'error',
+      screenCaptureState: 'error',
+    });
+
+    expect(
+      screen.getByRole('button', { name: /microphone unavailable until speech mode is ready/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /screen context unavailable until speech mode is ready/i }),
+    ).toBeDisabled();
   });
 
   it('opens and closes the panel', () => {
