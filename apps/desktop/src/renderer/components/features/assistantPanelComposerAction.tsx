@@ -59,8 +59,8 @@ export function createAssistantPanelComposerAction({
         <Loader2 size={18} aria-hidden="true" />
       ) : (
         <>
-          <AudioLines size={18} aria-hidden="true" />
           <span aria-hidden="true">End</span>
+          <AudioLines size={18} aria-hidden="true" />
         </>
       ),
       isLoading: isTransitioning,
