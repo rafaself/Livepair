@@ -124,7 +124,6 @@ export function createDesktopSessionController(
     dependencies.store,
     () => activeTransport,
     () => stateSync.createVoiceToolExecutionSnapshot(),
-    (detail) => setVoiceErrorState(detail),
   );
   const interruptionCtrl = createVoiceInterruptionController(
     dependencies.store,
@@ -187,6 +186,9 @@ export function createDesktopSessionController(
     updateVoicePlaybackDiagnostics: (p) => updateVoicePlaybackDiagnostics(p),
     getVoicePlayback: () => getVoicePlayback(),
     stopVoicePlayback: (s) => stopVoicePlayback(s),
+    cancelVoiceToolCalls: (detail) => {
+      voiceToolCtrl.cancel(detail);
+    },
     resetVoiceToolState: () => resetVoiceToolState(),
     resetVoiceTurnTranscriptState: () => resetVoiceTurnTranscriptState(),
     markTurnCompleted: () => voiceTranscript.markTurnCompleted(),
@@ -269,6 +271,7 @@ export function createDesktopSessionController(
     },
     resetTransportDeps: () => {
       voiceChunkCtrl.resetSendChain();
+      voiceToolCtrl.cancel('voice transport replaced');
       screenCtrl.resetSendChain();
       interruptionCtrl.reset();
       textChatCtrl.clearPendingAssistantTurn();
@@ -381,7 +384,7 @@ export function createDesktopSessionController(
     activeTransport = null;
     playbackCtrl.release();
     voiceChunkCtrl.resetSendChain();
-    voiceToolCtrl.resetChain();
+    voiceToolCtrl.cancel('voice transport cleaned up');
     screenCtrl.resetSendChain();
     interruptionCtrl.reset();
     textChatCtrl.releaseStream();
