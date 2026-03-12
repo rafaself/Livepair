@@ -301,10 +301,10 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'Current voice turn' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Current speech turn' })).toBeVisible();
     expect(screen.getByText('Can you summarize that?')).toBeVisible();
     expect(screen.getByText('Here is the summary.')).toBeVisible();
-    expect(screen.getByText('Live voice transcript')).toBeVisible();
+    expect(screen.getByText('Live speech transcript')).toBeVisible();
     expect(screen.queryByText('Send a text prompt to start the realtime loop and keep the latest exchange visible.')).toBeNull();
   });
 
@@ -333,8 +333,8 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByText('Live voice transcript')).toBeVisible();
-    expect(screen.getByText('Speak to start the current voice turn transcript.')).toBeVisible();
+    expect(screen.getByText('Live speech transcript')).toBeVisible();
+    expect(screen.getByText('Speak to start the current speech turn transcript.')).toBeVisible();
     expect(screen.queryByText('No conversation yet')).toBeNull();
   });
 
