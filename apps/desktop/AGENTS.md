@@ -1,7 +1,7 @@
 # apps/desktop AGENTS.md
 
 ## Purpose
-Electron main + preload + React renderer. The renderer connects directly to Gemini Live; the backend is control-plane only (health/settings/token requests).
+Electron main + preload + React renderer. Speech mode connects directly to Gemini Live; text mode currently streams through the backend via `POST /session/chat`.
 
 ## Security — Non-Negotiable
 - `contextIsolation: true` and `nodeIntegration: false` must never be changed (see `src/main/window/overlayWindow.ts`).

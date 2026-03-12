@@ -3,11 +3,16 @@
 
 A real-time multimodal desktop assistant.
 
-This application captures microphone input and full-screen context, sends the realtime stream to Gemini Live API, and responds with low-latency voice and contextual guidance. The backend stays out of the audio/video hot path and is responsible only for ephemeral token issuance, lightweight tools, session checkpointing, and error reporting.
+This repository currently ships two distinct product paths:
+
+* `text` mode: backend-mediated streaming chat via `POST /session/chat` using Gemini text models
+* `speech` mode: direct desktop-to-Gemini Live sessions, with the backend issuing ephemeral tokens via `POST /session/token`
+
+The backend stays out of the audio/video hot path, but it is not "token only" anymore: today it serves health, text chat streaming, and Gemini Live token issuance. Backend checkpointing, backend-backed tools, and error-report endpoints are still planned.
 
 ## Current Status
 
-### Implemented today
+### Implemented
 
 * Electron overlay shell with React renderer
 * Typed preload bridge and IPC surface
@@ -24,12 +29,25 @@ This application captures microphone input and full-screen context, sends the re
 * Desktop settings persistence and overlay interaction behavior
 * Unit and component tests across shared packages, API, and desktop
 
-### Planned next
+### Partially implemented / in progress
 
-* Stabilization + hardening: tighter error UX, more diagnostics, and perf measurement
+* Screen context is live in speech mode, but only through manual start/stop capture; adaptive capture policy and tuning are not implemented yet
+* Operational hardening exists for token refresh, resumption, and explicit degraded-state handling, but backend error reporting and broader diagnostics are not implemented yet
+* Voice-mode tool handling exists only for narrow local inspection tools (`get_current_mode`, `get_voice_session_status`); backend-backed tool endpoints are still absent
+
+### Planned / not implemented yet
+
 * Session checkpoint persistence + restore (backend + shared contracts)
-* Tool endpoints (e.g. HD screenshot / visual summary) behind typed bridges
-* Screen-context upgrades (adaptive capture policy, tuning, and guardrails)
+* Backend-backed tool endpoints such as `POST /tool/screenshot-hd` and `POST /tool/visual-summary`
+* `POST /session/error` or equivalent backend error-reporting path
+* Adaptive screen-context policy, guardrails, and any HD screenshot flow beyond the current manual frame upload path
+
+## 📚 Source Of Truth Docs
+
+* [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the current architecture and product-mode model
+* [docs/MILESTONE_MATRIX.md](./docs/MILESTONE_MATRIX.md) for milestone-by-milestone implementation status
+* [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) for current gaps and risks
+* [docs/AUDIT.md](./docs/AUDIT.md) for the status audit and canonical doc map
 
 ## 🎯 Goals
 
@@ -65,12 +83,17 @@ This application captures microphone input and full-screen context, sends the re
 
 ### ⚡ Realtime hot path
 
-Desktop client → Gemini Live API
+Speech mode: Desktop client → Gemini Live API
 
 ### 🛠️ Backend responsibilities
 
+Implemented today:
 * Issue ephemeral tokens
-* Expose lightweight tools
+* Stream backend-mediated text chat
+* Expose backend health
+
+Planned:
+* Expose backend-backed tools
 * Store short session checkpoints
 * Receive error reports and logs
 
@@ -93,6 +116,19 @@ Desktop client → Gemini Live API
 
 ## 🔄 High-Level Flow
 
+### Product mode model
+
+User-facing product modes:
+
+* `text`: typed chat over the backend text endpoint
+* `speech`: direct Gemini Live session with local audio, interruption, and optional manual screen frames
+
+Internal runtime terminology:
+
+* `voice` is the transport/session term used for the Gemini Live speech-mode path
+* `currentMode` remains the product-level source of truth for `text` vs `speech`
+* `speechLifecycle` remains the product-level speech-state source of truth once speech mode is active
+
 Text mode (backend-mediated):
 1. The desktop app starts a streaming chat request to the backend (`POST /session/chat`).
 2. The backend streams NDJSON events from a Gemini text model back to the desktop.
@@ -101,8 +137,9 @@ Speech mode (direct realtime):
 1. The desktop app requests an ephemeral token from the backend (`POST /session/token`).
 2. The backend returns a short-lived token for Gemini Live usage.
 3. The desktop client opens a realtime session directly with Gemini Live API (SDK transport).
-4. The client streams microphone audio and (optionally) manual screen frames.
+4. The client streams microphone audio and, when explicitly started, manual screen frames.
 5. The model returns response audio plus transcript/text events; local interruption stops playback promptly.
+6. Typed input can still be sent while speech mode is active, but it travels over the active Live session rather than the backend text endpoint.
 
 ## 📁 Repository Layout
 
@@ -124,11 +161,13 @@ Speech mode (direct realtime):
 ## 🖥️ Desktop App Responsibilities
 
 * Capture microphone input
-* Capture the full screen
+* Manage `text` mode and `speech` mode state
+* Capture screen context only when explicitly started during an active speech session
 * Run local VAD for interruption detection
 * Play model audio output
 * Render transcript and session state
-* Request HD screenshots when needed
+* Resume eligible Gemini Live speech sessions using stored resumption handles
+* Execute narrow local voice tools when Gemini requests them
 * Connect directly to Gemini Live API
 
 ## 🔌 Backend Responsibilities
@@ -150,13 +189,15 @@ The backend should remain small, modular, and focused.
 
 The user experience should feel like one continuous session.
 
-Internally, the app should treat realtime sessions as resumable and lightweight:
+Current implementation:
 
-* store only minimal session state
-* keep short recent turns
-* maintain a compressed summary
-* preserve the current goal
-* keep the last relevant visual context
+* the desktop runtime keeps conversation state, runtime diagnostics, token-expiry metadata, and Gemini Live resumption handles in local process state
+* speech-mode resumption refreshes the token when needed and falls back explicitly to safe `text`/`off` states on failure
+
+Planned extension:
+
+* backend checkpoint persistence for minimal session state
+* short recent turns, compressed summary, current goal, and last relevant visual context stored outside the desktop process
 
 Product state rules:
 * `currentMode` is the product-level mode source of truth
@@ -164,20 +205,17 @@ Product state rules:
 
 ## 🖼️ Screen Capture Strategy
 
-Default capture should remain lightweight:
+Current implementation:
 
-* low FPS
-* compressed JPEG frames
-* reduced resolution
+* screen capture is manual-only
+* screen capture requires an active speech session
+* uploaded frames stay lightweight: low FPS, compressed JPEG, reduced resolution
 
-Increase capture rate only when needed:
+Planned follow-up:
 
-* relevant screen change
-* visual error or diagram detected
-* explicit user request
-* temporary high-attention moments
-
-Use HD screenshots only on demand.
+* adaptive capture boosts when screen changes merit it
+* tighter guardrails and tuning
+* HD screenshots only if a dedicated backend-backed tool is implemented
 
 ## 🔐 Security Rules
 
@@ -323,6 +361,7 @@ Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed in 
 PORT=
 HOST=
 GEMINI_API_KEY=
+GEMINI_TEXT_MODEL=
 EPHEMERAL_TOKEN_TTL_SECONDS=
 REDIS_URL=
 DISABLE_HTTP_LISTEN=
@@ -332,7 +371,8 @@ Meaning:
 
 - `PORT`: backend HTTP port. Defaults to `3000` when unset.
 - `HOST`: backend bind host. Defaults to `127.0.0.1` when unset.
-- `GEMINI_API_KEY`: server-side Gemini credential for minting ephemeral tokens. Never expose this in the desktop app.
+- `GEMINI_API_KEY`: server-side Gemini credential used for both `/session/token` and `/session/chat`. Never expose this in the desktop app.
+- `GEMINI_TEXT_MODEL`: backend text-model override for `text` mode. Defaults to `gemini-2.5-flash` and must not point at a Gemini Live or native-audio model.
 - `EPHEMERAL_TOKEN_TTL_SECONDS`: token lifetime returned by `/session/token`. Defaults to `60` when unset.
 - `REDIS_URL`: planned Redis connection string for future checkpoint/session storage work. It is not active in the current MVP path yet.
 - `DISABLE_HTTP_LISTEN`: when `true`, starts the backend process without binding the HTTP server. Useful for tests or environments where you want bootstrap without opening a port.
@@ -343,7 +383,6 @@ Meaning:
 OPEN_DEVTOOLS=
 VITE_LIVE_MODEL=
 VITE_LIVE_API_VERSION=
-VITE_LIVE_TEXT_RESPONSE_MODALITY=
 VITE_LIVE_VOICE_RESPONSE_MODALITY=
 VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION=
 VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION=
@@ -355,15 +394,14 @@ VITE_LIVE_CONTEXT_COMPRESSION=
 Meaning:
 
 - `OPEN_DEVTOOLS`: when `true`, Electron opens devtools automatically in desktop development mode. This is only a local developer convenience flag.
-- `VITE_LIVE_MODEL`: overrides the Gemini Live model resource used by the desktop renderer. Defaults to `models/gemini-2.0-flash-exp`.
-- `VITE_LIVE_API_VERSION`: selects the Gemini Live API version used to derive the websocket endpoint. Supported values are `v1alpha` and `v1beta`; default is `v1alpha`.
-- `VITE_LIVE_TEXT_RESPONSE_MODALITY`: configures the response modality for text sessions. Supported value is `TEXT`.
-- `VITE_LIVE_VOICE_RESPONSE_MODALITY`: configures the response modality for voice sessions. Supported value is `AUDIO`.
+- `VITE_LIVE_MODEL`: overrides the Gemini Live model resource used by speech mode. Defaults to `models/gemini-2.0-flash-exp`.
+- `VITE_LIVE_API_VERSION`: selects the Gemini Live API version used to derive the websocket endpoint. Supported values are `v1alpha` and `v1beta`; current ephemeral-token speech sessions require `v1alpha`.
+- `VITE_LIVE_VOICE_RESPONSE_MODALITY`: configures the response modality for speech-mode Live sessions. Supported value is `AUDIO`.
 - `VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION`: enables input-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.
 - `VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION`: enables output-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.
-- `VITE_LIVE_MEDIA_RESOLUTION`: selects the Gemini media resolution enum stored in the desktop Live config. Supported values are `MEDIA_RESOLUTION_LOW`, `MEDIA_RESOLUTION_MEDIUM`, and `MEDIA_RESOLUTION_HIGH`; default is `MEDIA_RESOLUTION_LOW`.
+- `VITE_LIVE_MEDIA_RESOLUTION`: selects the Gemini media resolution enum used for speech-mode frame uploads. Supported values are `MEDIA_RESOLUTION_LOW`, `MEDIA_RESOLUTION_MEDIUM`, and `MEDIA_RESOLUTION_HIGH`; default is `MEDIA_RESOLUTION_LOW`.
 - `VITE_LIVE_SESSION_RESUMPTION`: enables Gemini Live session resumption for voice sessions. Supported values are `true` and `false`; default is `true`.
-- `VITE_LIVE_CONTEXT_COMPRESSION`: enables Gemini Live context window compression setup for voice sessions. Supported values are `true` and `false`; default is `true`.
+- `VITE_LIVE_CONTEXT_COMPRESSION`: enables Gemini Live context window compression setup for speech mode. Supported values are `true` and `false`; default is `true`.
 
 The desktop app must not contain a permanent Gemini API key.
 
@@ -391,21 +429,21 @@ Recommended focus:
 
 ## 🛣️ Roadmap
 
-### 🚀 MVP
+Current baseline:
 
-* Fast mode
-* direct client → Live API
-* adaptive screen capture
-* token issuance backend
-* short session checkpoints
+* backend-mediated `text` mode
+* direct-to-Gemini-Live `speech` mode
+* local interruption handling
+* manual screen-context upload during speech mode
+* token refresh and Live session resumption
 
-### 🔮 Later
+Remaining roadmap focus:
 
-* Thinking mode
-* richer tool orchestration
-* stronger session recovery
-* deeper domain workflows
-* possible ADK-backed runtime outside the MVP path
+* checkpoint persistence and restore
+* backend-backed tools
+* backend error reporting
+* adaptive screen-context policy and demo hardening
+* eventual Thinking mode after the MVP path is stable
 
 ## 📌 Status
 
