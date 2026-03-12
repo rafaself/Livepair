@@ -1,6 +1,8 @@
 
 # MVP Development Watchouts
 
+> **Status:** This document is aspirational design guidance, not a current-state description. Some items describe goals or constraints that are not yet fully implemented. Specifically: checkpoint saving (item 2) and the backend tool endpoints (item 8) are planned but not implemented yet. For the current implementation state, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) and [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md).
+
 ## 1. Latency
 - Keep the hot path short: client → Gemini Live API.
 - Use small audio chunks.
@@ -46,7 +48,7 @@
 
 ## 8. Tooling scope
 - Keep MVP tools minimal.
-- Approved tools only:
+- Approved (planned, not yet implemented) tool endpoints:
   - `screenshot-hd`
   - `visual-summary`
   - `session-checkpoint`

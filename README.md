@@ -49,6 +49,8 @@ The backend stays out of the audio/video hot path, but it is not "token only" an
 * [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) for current gaps and risks
 * [docs/AUDIT.md](./docs/AUDIT.md) for the status audit and canonical doc map
 
+> **Note on `specs/`:** The `specs/` directory contains historical pre-implementation planning specs (Releases 0–3). They are not the source of truth for the current system. See [specs/README.md](./specs/README.md) for the boundary note and a pointer table.
+
 ## 🎯 Goals
 
 * Natural voice interaction with interruption support

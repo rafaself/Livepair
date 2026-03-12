@@ -2,7 +2,9 @@
 
 **Last updated:** 2026-03-11
 
-This document is the single source of truth for the upcoming parallel execution phase using **two concurrent git worktrees**.
+> **Status:** Planning artifact. This document captures the parallel execution strategy and file-boundary guidance for multi-lane development. The recorded baseline (S1 and S4 locks) reflects the current repository state. The lane and worktree guidance remains active contributor guidance.
+
+This document is the single source of truth for the parallel execution phase using **two concurrent git worktrees**.
 
 ## 1) Current state (recorded)
 
