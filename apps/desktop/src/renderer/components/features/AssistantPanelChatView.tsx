@@ -1,7 +1,6 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
-import type { CurrentVoiceTranscript } from '../../runtime/voice/voice.types';
 import type { ProductMode } from '../../runtime/core/session.types';
 import {
   canSubmitComposerText,
@@ -28,8 +27,6 @@ export type AssistantPanelChatViewProps = {
   activeTransport?: TransportKind | null;
   voiceSessionStatus?: VoiceSessionStatus;
   turns: ConversationTurnModel[];
-  currentVoiceTranscript: CurrentVoiceTranscript;
-  showSpeechTranscript?: boolean;
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -50,8 +47,6 @@ export function AssistantPanelChatView({
   activeTransport = null,
   voiceSessionStatus = 'disconnected',
   turns,
-  currentVoiceTranscript,
-  showSpeechTranscript = false,
   isConversationEmpty,
   lastRuntimeError,
   draftText,
@@ -88,7 +83,6 @@ export function AssistantPanelChatView({
         aria-label="Conversation"
       >
         <AssistantPanelConversationSection
-          currentVoiceTranscript={currentVoiceTranscript}
           emptyState={
             <AssistantPanelConversationEmptyState
               assistantState={assistantState}
@@ -98,7 +92,6 @@ export function AssistantPanelChatView({
           }
           isConversationEmpty={isConversationEmpty}
           lastRuntimeError={lastRuntimeError}
-          showSpeechTranscript={showSpeechTranscript}
           textSessionStatus={textSessionStatus}
           textSessionStatusLabel={textSessionStatusLabel}
           turns={turns}

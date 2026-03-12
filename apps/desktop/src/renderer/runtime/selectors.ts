@@ -168,12 +168,6 @@ export function selectIsConversationEmpty(
   return state.conversationTurns.length === 0;
 }
 
-export function selectShouldShowLegacySpeechTranscript(
-  state: Pick<SessionStoreState, 'currentMode' | 'conversationTurns'>,
-): boolean {
-  return state.currentMode === 'speech' && state.conversationTurns.length === 0;
-}
-
 export function selectIsSessionActive(
   state: Pick<SessionStoreState, 'textSessionLifecycle'>,
 ): boolean {

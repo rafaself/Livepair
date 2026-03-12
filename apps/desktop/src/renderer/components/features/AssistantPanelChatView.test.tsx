@@ -15,11 +15,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
-        showSpeechTranscript={true}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText=""
@@ -65,10 +60,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session ready"
         canSubmitText={true}
         turns={turns}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={false}
         lastRuntimeError={null}
         draftText=""
@@ -97,10 +88,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session failed"
         canSubmitText={true}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError="transport offline"
         draftText=""
@@ -139,10 +126,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session failed"
         canSubmitText={true}
         turns={turns}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={false}
         lastRuntimeError="transport offline"
         draftText="retry prompt"
@@ -173,10 +156,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session ready"
         canSubmitText={true}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Summarize this"
@@ -201,10 +180,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Receiving response..."
         canSubmitText={false}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Summarize this"
@@ -230,10 +205,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Response complete"
         canSubmitText={true}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Follow up"
@@ -257,10 +228,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Preparing text chat..."
         canSubmitText={false}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Follow up"
@@ -305,10 +272,6 @@ describe('AssistantPanelChatView', () => {
             source: 'voice',
           },
         ]}
-        currentVoiceTranscript={{
-          user: { text: 'Can you summarize that?' },
-          assistant: { text: 'Here is the summary.' },
-        }}
         isConversationEmpty={false}
         lastRuntimeError={null}
         draftText=""
@@ -337,10 +300,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText=""
@@ -352,9 +311,12 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByText('Live speech transcript')).toBeVisible();
-    expect(screen.getByText('Speak to start the current speech turn transcript.')).toBeVisible();
+    expect(screen.getByText('Start speaking')).toBeVisible();
+    expect(
+      screen.getByText('Your spoken turns and assistant replies will appear here.'),
+    ).toBeVisible();
     expect(screen.queryByText('No conversation yet')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
   });
 
   it('prioritizes send when the draft has text, even while speech mode is active', () => {
@@ -375,10 +337,6 @@ describe('AssistantPanelChatView', () => {
         activeTransport="gemini-live"
         voiceSessionStatus="ready"
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Keep this in text"
@@ -413,10 +371,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Receiving response..."
         canSubmitText={false}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText=""
@@ -451,10 +405,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Receiving response..."
         canSubmitText={false}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText=""
@@ -487,10 +437,6 @@ describe('AssistantPanelChatView', () => {
         activeTransport="gemini-live"
         voiceSessionStatus="connecting"
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Can you hear me?"
@@ -516,10 +462,6 @@ describe('AssistantPanelChatView', () => {
         activeTransport={null}
         voiceSessionStatus="error"
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText="Try again"
@@ -546,10 +488,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText=""
@@ -572,10 +510,6 @@ describe('AssistantPanelChatView', () => {
         textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
-        currentVoiceTranscript={{
-          user: { text: '' },
-          assistant: { text: '' },
-        }}
         isConversationEmpty={true}
         lastRuntimeError={null}
         draftText=""

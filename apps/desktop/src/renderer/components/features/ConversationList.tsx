@@ -36,9 +36,12 @@ function isNearBottom(viewport: HTMLDivElement): boolean {
   return getDistanceFromBottom(viewport) <= AUTO_SCROLL_THRESHOLD;
 }
 
-function scrollViewportToBottom(viewport: HTMLDivElement): void {
+function scrollViewportToBottom(
+  viewport: HTMLDivElement,
+  behavior: ScrollBehavior = 'smooth',
+): void {
   if (typeof viewport.scrollTo === 'function') {
-    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior });
     return;
   }
 
@@ -53,6 +56,7 @@ export function ConversationList({
 }: ConversationListProps): JSX.Element {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
+  const previousTurnsLengthRef = useRef(0);
   const [showScrollToBottomButton, setShowScrollToBottomButton] = useState(false);
   const classes = `conversation-list${turns.length > 0 ? ' conversation-list--populated' : ''}${className ? ` ${className}` : ''}`;
 
@@ -85,14 +89,19 @@ export function ConversationList({
   useEffect(() => {
     if (turns.length === 0) {
       shouldAutoScrollRef.current = true;
+      previousTurnsLengthRef.current = 0;
       setShowScrollToBottomButton(false);
       return;
     }
 
     if (!shouldAutoScrollRef.current) {
+      previousTurnsLengthRef.current = turns.length;
       return;
     }
 
+    const behavior: ScrollBehavior =
+      turns.length > previousTurnsLengthRef.current ? 'smooth' : 'auto';
+    previousTurnsLengthRef.current = turns.length;
     const frameId = requestFrame(() => {
       const viewport = viewportRef.current;
 
@@ -100,7 +109,7 @@ export function ConversationList({
         return;
       }
 
-      scrollViewportToBottom(viewport);
+      scrollViewportToBottom(viewport, behavior);
     });
 
     return () => {

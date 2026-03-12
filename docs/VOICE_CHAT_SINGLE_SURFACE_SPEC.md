@@ -140,3 +140,13 @@ Wave 1 locks the current split behavior with focused tests:
 - Stable in-progress voice bubble identity now lives behind explicit conversation/runtime helpers, so transcript corrections and interruption finalization update existing turns in place.
 - Safe next-wave parallelization:
   bubble-streaming presentation behavior, legacy top-transcript removal, conversation-list cleanup, and accessibility/styling follow-ups can now proceed without changing the runtime ownership seam.
+
+## Wave 4 Completion Note
+
+- Speech mode now renders through one visible conversation surface only; the legacy top transcript panel has been removed from the normal chat flow.
+- Empty speech mode now points users at the chat surface itself, and live bubble updates keep a sensible bottom anchor without repeated smooth-scroll jitter on every transcript correction.
+- Spoken user turns and assistant turns remain on the same bubble instances from partial to final states, including interruption handling and assistant audio-first placeholder cleanup.
+- Intentionally retained compatibility surface:
+  `currentVoiceTranscript` still exists as an internal runtime mirror for compatibility and test coverage, but it is no longer rendered in the primary UX.
+- Debug-only transcript surface retained:
+  none.

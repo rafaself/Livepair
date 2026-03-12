@@ -6,7 +6,6 @@ import {
   selectCanSubmitText,
   selectIsConversationEmpty,
   selectIsSessionActive,
-  selectShouldShowLegacySpeechTranscript,
   selectTextSessionStatus,
   selectTextSessionStatusLabel,
   selectTokenFeedback,
@@ -30,7 +29,6 @@ export function useSessionRuntime() {
   const conversationTurns = useSessionStore((state) => state.conversationTurns);
   const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
   const isConversationEmpty = useSessionStore(selectIsConversationEmpty);
-  const showLegacySpeechTranscript = useSessionStore(selectShouldShowLegacySpeechTranscript);
   const isSessionActive = useSessionStore(selectIsSessionActive);
   const speechLifecycleStatus = useSessionStore((state) => state.speechLifecycle.status);
   const voiceSessionStatus = useSessionStore((state) => state.voiceSessionStatus);
@@ -40,7 +38,6 @@ export function useSessionRuntime() {
   const voiceCaptureDiagnostics = useSessionStore((state) => state.voiceCaptureDiagnostics);
   const voicePlaybackState = useSessionStore((state) => state.voicePlaybackState);
   const voicePlaybackDiagnostics = useSessionStore((state) => state.voicePlaybackDiagnostics);
-  const currentVoiceTranscript = useSessionStore((state) => state.currentVoiceTranscript);
   const voiceToolState = useSessionStore((state) => state.voiceToolState);
   const screenCaptureState = useSessionStore((state) => state.screenCaptureState);
   const screenCaptureDiagnostics = useSessionStore((state) => state.screenCaptureDiagnostics);
@@ -106,7 +103,6 @@ export function useSessionRuntime() {
     conversationTurns,
     lastRuntimeError,
     isConversationEmpty,
-    showLegacySpeechTranscript,
     isSessionActive,
     isVoiceSessionActive: isSpeechLifecycleActive(speechLifecycleStatus),
     speechLifecycleStatus,
@@ -117,7 +113,6 @@ export function useSessionRuntime() {
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
-    currentVoiceTranscript,
     voiceToolState,
     screenCaptureState,
     screenCaptureDiagnostics,

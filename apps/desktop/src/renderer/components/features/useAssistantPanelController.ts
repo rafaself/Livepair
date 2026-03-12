@@ -12,7 +12,6 @@ import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 import type { ProductMode } from '../../runtime/core/session.types';
 import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
 import type {
-  CurrentVoiceTranscript,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
   VoiceSessionDurabilityState,
@@ -36,7 +35,6 @@ export type AssistantPanelController = {
   panelView: PanelView;
   conversationTurns: ConversationTurnModel[];
   isConversationEmpty: boolean;
-  showLegacySpeechTranscript: boolean;
   setPanelView: (view: PanelView) => void;
   closePanel: () => void;
   setAssistantState: (state: AssistantRuntimeState) => void;
@@ -61,7 +59,6 @@ export type AssistantPanelController = {
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   isVoiceSessionActive: boolean;
-  currentVoiceTranscript: CurrentVoiceTranscript;
   canSubmitText: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -102,12 +99,10 @@ export function useAssistantPanelController(): AssistantPanelController {
     screenCaptureState,
     screenCaptureDiagnostics,
     isVoiceSessionActive,
-    currentVoiceTranscript,
     canSubmitText,
     conversationTurns,
     lastRuntimeError,
     isConversationEmpty,
-    showLegacySpeechTranscript,
     handleCheckBackendHealth,
     handleStartSession,
     handleStartVoiceSession,
@@ -213,7 +208,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     panelView,
     conversationTurns,
     isConversationEmpty,
-    showLegacySpeechTranscript,
     setPanelView,
     closePanel,
     setAssistantState,
@@ -238,7 +232,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     screenCaptureState,
     screenCaptureDiagnostics,
     isVoiceSessionActive,
-    currentVoiceTranscript,
     canSubmitText,
     lastRuntimeError,
     draftText,
