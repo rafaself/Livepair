@@ -274,5 +274,41 @@ describe('createTextChatController', () => {
 
       expect(ops._storeState.resetTextSessionRuntime).toHaveBeenCalledWith('disconnected', undefined);
     });
+
+    it('settles a streaming assistant turn when preserving conversation turns', () => {
+      const ops = createMockOps('receiving');
+      ops._storeState.conversationTurns = [
+        { id: 'assistant-turn-1', role: 'assistant', content: 'partial', state: 'streaming', statusLabel: 'Responding...' },
+      ] as never;
+      ops.conversationCtx.pendingAssistantTurnId = 'assistant-turn-1';
+      ops.conversationCtx.nextAssistantTurnId = 1;
+
+      const controller = createTextChatController(ops as never);
+
+      controller.resetRuntime('disconnected' as never, { preserveConversationTurns: true });
+
+      expect(ops._storeState.updateConversationTurn).toHaveBeenCalledWith('assistant-turn-1', {
+        content: 'partial',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+      });
+      expect(ops.conversationCtx.pendingAssistantTurnId).toBeNull();
+    });
+
+    it('clears pending assistant turn without settling when not preserving conversation turns', () => {
+      const ops = createMockOps('receiving');
+      ops._storeState.conversationTurns = [
+        { id: 'assistant-turn-1', role: 'assistant', content: 'partial', state: 'streaming', statusLabel: 'Responding...' },
+      ] as never;
+      ops.conversationCtx.pendingAssistantTurnId = 'assistant-turn-1';
+      ops.conversationCtx.nextAssistantTurnId = 1;
+
+      const controller = createTextChatController(ops as never);
+
+      controller.resetRuntime('disconnected' as never);
+
+      expect(ops._storeState.updateConversationTurn).not.toHaveBeenCalled();
+      expect(ops.conversationCtx.pendingAssistantTurnId).toBeNull();
+    });
   });
 });

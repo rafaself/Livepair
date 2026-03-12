@@ -185,7 +185,11 @@ export function createTextChatController(ops: TextChatControllerOps) {
     textSessionStatus: TextSessionStatus = 'idle',
     options?: { preserveConversationTurns?: boolean },
   ): void => {
-    clearPendingAssistantTurn();
+    if (options?.preserveConversationTurns) {
+      completePendingAssistantTurn('Interrupted');
+    } else {
+      clearPendingAssistantTurn();
+    }
     ops.store.getState().resetTextSessionRuntime(textSessionStatus, options);
   };
 
