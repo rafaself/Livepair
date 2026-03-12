@@ -1,12 +1,13 @@
-import type { ChangeEventHandler, FormEventHandler } from 'react';
-import { Button, TextInput } from '../primitives';
+import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
+import { useRef } from 'react';
+import { Button } from '../primitives';
 import type { AssistantPanelComposerAction } from './assistantPanelComposerAction';
 
 export type AssistantPanelChatComposerProps = {
   composerAction: AssistantPanelComposerAction;
   draftText: string;
   isComposerDisabled: boolean;
-  onDraftTextChange: ChangeEventHandler<HTMLInputElement>;
+  onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onEndSpeechMode: () => Promise<void>;
   onStartSpeechMode: () => Promise<void>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
@@ -21,6 +22,8 @@ export function AssistantPanelChatComposer({
   onStartSpeechMode,
   onSubmitTextTurn,
 }: AssistantPanelChatComposerProps): JSX.Element {
+  const formRef = useRef<HTMLFormElement>(null);
+
   const handleComposerSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     if (composerAction.kind === 'send') {
       onSubmitTextTurn(event);
@@ -41,20 +44,35 @@ export function AssistantPanelChatComposer({
     void onEndSpeechMode();
   };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.key !== 'Enter') return;
+    if (event.shiftKey) return; // Shift+Enter → insert newline (default)
+
+    // Enter or Ctrl+Enter → prevent default; submit only in send mode
+    event.preventDefault();
+
+    if (composerAction.kind === 'send' && draftText.trim()) {
+      formRef.current?.requestSubmit();
+    }
+  };
+
   return (
     <div className="assistant-panel__composer-section">
       <form
+        ref={formRef}
         className="assistant-panel__composer"
         aria-label="Send message to Livepair"
         onSubmit={handleComposerSubmit}
       >
         <div className="assistant-panel__composer-box">
-          <TextInput
+          <textarea
             value={draftText}
             onChange={onDraftTextChange}
             disabled={isComposerDisabled}
             placeholder="Ask Livepair"
-            className="assistant-panel__composer-input"
+            className="assistant-panel__composer-textarea"
+            onKeyDown={handleKeyDown}
+            rows={1}
           />
           <div className="assistant-panel__composer-toolbar">
             <div className="assistant-panel__composer-actions-left">

@@ -30,7 +30,7 @@ export type AssistantPanelChatViewProps = {
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
-  onDraftTextChange: ChangeEventHandler<HTMLInputElement>;
+  onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
   onStartSpeechMode: () => Promise<void>;
   onEndSpeechMode: () => Promise<void>;

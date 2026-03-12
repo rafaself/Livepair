@@ -115,29 +115,28 @@
   flex-direction: column;
 }
 
-.assistant-panel__composer-input {
-  min-width: 0;
+.assistant-panel__composer-textarea {
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  width: 100%;
+  padding: 2px 0;
+  font-size: 1rem;
+  font-family: inherit;
+  color: inherit;
+  line-height: 1.5;
+  max-height: 8rem;
+  overflow-y: auto;
 }
 
-/* Remove borders and backgrounds from the internal input primitives */
-.assistant-panel__composer-input :where(.outlined-field__outline, .outlined-field__outline-start, .outlined-field__outline-end, .outlined-field__outline-notch) {
-  display: none !important;
+.assistant-panel__composer-textarea::placeholder {
+  color: var(--color-text-secondary);
 }
 
-.assistant-panel__composer-input .outlined-field__control {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  min-height: unset !important;
-}
-
-.assistant-panel__composer-input input.text-input {
-  background: transparent !important;
-  border: none !important;
-  padding: 2px 0 !important;
-  font-size: 1rem !important;
-  height: auto !important;
+.assistant-panel__composer-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .assistant-panel__composer-toolbar {

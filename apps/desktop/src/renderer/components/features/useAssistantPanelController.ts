@@ -62,7 +62,7 @@ export type AssistantPanelController = {
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
-  handleDraftTextChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  handleDraftTextChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   handleSubmitTextTurn: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   handleCheckBackendHealth: () => Promise<void>;
   handleStartTalking: () => Promise<void>;
@@ -131,7 +131,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     await handleStartVoiceSession();
   }, [handleStartVoiceSession]);
 
-  const handleDraftTextChange = useCallback((event: ChangeEvent<HTMLInputElement>): void => {
+  const handleDraftTextChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>): void => {
     setDraftText(event.currentTarget.value);
   }, []);
 
