@@ -57,7 +57,7 @@
   --text-input-label-scale: 1;
 
   /* Chat container */
-  --color-chat-bg: #040404;
+  --color-chat-bg: #000000;
   --color-surface-elevated-0: rgba(0, 0, 0, 0);
 }
 
@@ -65,7 +65,7 @@
   --color-bg: #F3F6FA;
   --color-surface: #FFFFFF;
   --color-surface-elevated: #EEF3F8;
-  --color-chat-bg: #FFFFFF;
+  --color-chat-bg: #EEF3F8;
   --color-surface-elevated-0: rgba(238, 243, 248, 0);
 
   --color-border: #C1CCD8;
