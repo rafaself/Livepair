@@ -52,7 +52,11 @@ export function createVoiceTranscriptController(
     const previous = previousText.trim();
     const incoming = incomingText.trim();
 
-    if (previous.length === 0 || incoming.length === 0) {
+    if (previous.length === 0) {
+      return incoming.length === 0;
+    }
+
+    if (incoming.length === 0) {
       return true;
     }
 

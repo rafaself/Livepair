@@ -447,6 +447,57 @@ describe('createDesktopSessionController – transcript', () => {
     expect(voicePlayback.enqueue).toHaveBeenCalledWith(new Uint8Array([1, 2, 3, 4]));
   });
 
+  it('starts a fresh streaming user turn after an assistant-only interruption settles', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Partial answer' });
+    voiceTransport.emit({ type: 'interrupted' });
+    voiceTransport.emit({ type: 'input-transcript', text: 'Next question' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'Partial answer',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Next question',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: {
+        text: 'Next question',
+      },
+      assistant: {
+        text: '',
+      },
+    });
+  });
+
   it('does not duplicate the promoted assistant turn when turn-complete arrives after interruption', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({

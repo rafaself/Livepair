@@ -186,6 +186,66 @@ describe('createVoiceTranscriptController', () => {
     ]);
   });
 
+  it('starts a fresh streaming user turn after an assistant-only interrupted turn settles', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'partial answer');
+    ctrl.finalizeCurrentVoiceTurns('interrupted');
+
+    ctrl.applyTranscriptUpdate('user', 'new question');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'partial answer',
+        state: 'complete',
+        statusLabel: 'Interrupted',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'new question',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: { text: 'new question' },
+      assistant: { text: '' },
+    });
+  });
+
+  it('starts a fresh streaming user turn after an assistant-only completed turn settles', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'final answer');
+    ctrl.finalizeCurrentVoiceTurns('completed');
+
+    ctrl.applyTranscriptUpdate('user', 'follow-up');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'final answer',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'follow-up',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+    expect(useSessionStore.getState().currentVoiceTranscript).toEqual({
+      user: { text: 'follow-up' },
+      assistant: { text: '' },
+    });
+  });
+
   it('resetTurnTranscriptState clears transcript state and active voice-turn references', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
