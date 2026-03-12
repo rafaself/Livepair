@@ -59,7 +59,15 @@ export function AssistantPanelChatComposer({
               type="submit"
               variant="ghost"
               size="sm"
-              className="assistant-panel__composer-submit"
+              className={[
+                'assistant-panel__composer-submit',
+                composerAction.kind === 'endSpeech' &&
+                  'assistant-panel__composer-submit--speech',
+                composerAction.isLoading &&
+                  'assistant-panel__composer-submit--loading',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               disabled={composerAction.disabled}
               aria-label={composerAction.label}
             >

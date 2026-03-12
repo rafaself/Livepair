@@ -1,4 +1,4 @@
-import { Mic, MicOff, SendHorizonal } from 'lucide-react';
+import { AudioLines, Loader2, SendHorizonal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
   canEndSpeechMode,
@@ -10,6 +10,7 @@ import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
 export type AssistantPanelComposerAction = {
   disabled: boolean;
   icon: ReactNode;
+  isLoading: boolean;
   kind: 'endSpeech' | 'send' | 'startSpeech';
   label: string;
 };
@@ -43,15 +44,26 @@ export function createAssistantPanelComposerAction({
     return {
       disabled: isComposerDisabled,
       icon: <SendHorizonal size={18} aria-hidden="true" />,
+      isLoading: false,
       kind: 'send',
       label: 'Send message',
     };
   }
 
   if (getComposerSpeechActionKind(controlGatingSnapshot) === 'end') {
+    const isTransitioning =
+      speechLifecycleStatus === 'starting' || speechLifecycleStatus === 'ending';
     return {
       disabled: !canEndSpeechMode(controlGatingSnapshot),
-      icon: <MicOff size={18} aria-hidden="true" />,
+      icon: isTransitioning ? (
+        <Loader2 size={18} aria-hidden="true" />
+      ) : (
+        <>
+          <AudioLines size={18} aria-hidden="true" />
+          <span aria-hidden="true">End</span>
+        </>
+      ),
+      isLoading: isTransitioning,
       kind: 'endSpeech',
       label: getEndSpeechModeLabel(speechLifecycleStatus),
     };
@@ -59,7 +71,8 @@ export function createAssistantPanelComposerAction({
 
   return {
     disabled: false,
-    icon: <Mic size={18} aria-hidden="true" />,
+    icon: <AudioLines size={18} aria-hidden="true" />,
+    isLoading: false,
     kind: 'startSpeech',
     label: 'Start speech mode',
   };
