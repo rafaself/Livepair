@@ -42,7 +42,7 @@ export function createVoiceTranscriptController(
   store: SessionStoreApi,
   conversationCtx: ConversationContext,
 ): VoiceTranscriptController {
-  let voiceTurnHasCompleted = false;
+  let settledTurnReason: 'completed' | 'interrupted' | null = null;
 
   const clearTranscript = (): void => {
     store.getState().clearCurrentVoiceTranscript();
@@ -72,14 +72,14 @@ export function createVoiceTranscriptController(
   ): void => {
     const state = store.getState();
     const previousEntry = state.currentVoiceTranscript[role];
-    let preserveCompletedState = voiceTurnHasCompleted;
+    let preserveSettledState = settledTurnReason;
 
-    if (role === 'user' && voiceTurnHasCompleted) {
+    if (role === 'user' && settledTurnReason) {
       if (!shouldReuseCompletedUserTurn(previousEntry.text, text)) {
         clearTranscript();
         clearCurrentVoiceTurns(conversationCtx);
-        voiceTurnHasCompleted = false;
-        preserveCompletedState = false;
+        settledTurnReason = null;
+        preserveSettledState = null;
       }
     }
 
@@ -89,7 +89,10 @@ export function createVoiceTranscriptController(
 
     const refreshedState = store.getState();
     const refreshedPreviousEntry = refreshedState.currentVoiceTranscript[role];
-    const nextText = normalizeTranscriptText(refreshedPreviousEntry.text, text);
+    const nextText = normalizeTranscriptText(refreshedPreviousEntry.text, text, {
+      role,
+      isFinal,
+    });
 
     if (nextText === refreshedPreviousEntry.text && isFinal === refreshedPreviousEntry.isFinal) {
       return;
@@ -101,18 +104,28 @@ export function createVoiceTranscriptController(
     });
 
     if (role === 'user') {
-      upsertCurrentVoiceUserTurn(conversationCtx, nextText, isFinal);
+      upsertCurrentVoiceUserTurn(conversationCtx, nextText, isFinal, preserveSettledState ?? undefined);
 
-      if (preserveCompletedState) {
+      if (preserveSettledState !== null) {
         finalizeCurrentVoiceUserTurn(conversationCtx);
       }
 
       return;
     }
 
-    upsertCurrentVoiceAssistantTurn(conversationCtx, nextText, isFinal);
+    upsertCurrentVoiceAssistantTurn(
+      conversationCtx,
+      nextText,
+      isFinal,
+      preserveSettledState ?? undefined,
+    );
 
-    if (preserveCompletedState) {
+    if (preserveSettledState === 'interrupted') {
+      interruptCurrentVoiceAssistantTurn(conversationCtx);
+      return;
+    }
+
+    if (preserveSettledState === 'completed') {
       finalizeCurrentVoiceAssistantTurn(conversationCtx);
     }
   };
@@ -128,6 +141,10 @@ export function createVoiceTranscriptController(
   const finalizeCurrentVoiceTurns = (
     finalizeReason: 'completed' | 'interrupted',
   ): void => {
+    if (settledTurnReason === 'interrupted' && finalizeReason === 'completed') {
+      return;
+    }
+
     finalizeCurrentVoiceUserTurn(conversationCtx);
 
     if (finalizeReason === 'interrupted') {
@@ -135,17 +152,17 @@ export function createVoiceTranscriptController(
     }
 
     finalizeCurrentVoiceAssistantTurn(conversationCtx);
-    voiceTurnHasCompleted = true;
+    settledTurnReason = finalizeReason;
   };
 
   const resetTurnTranscriptState = (): void => {
-    voiceTurnHasCompleted = false;
+    settledTurnReason = null;
     clearTranscript();
     clearCurrentVoiceTurns(conversationCtx);
   };
 
   const resetTurnCompletedFlag = (): void => {
-    voiceTurnHasCompleted = false;
+    settledTurnReason = null;
   };
 
   return {

@@ -113,26 +113,44 @@ function upsertVoiceTurn(
   turnId: string | null,
   content: string,
   transcriptFinal?: boolean,
+  settledReason?: 'completed' | 'interrupted',
 ): string {
   const currentTurn = turnId ? getConversationTurn(ctx, turnId) : null;
+  const shouldCreateSettledTurn = settledReason !== undefined;
 
   if (!currentTurn) {
     return appendVoiceTurn(
       ctx,
       role,
       content,
-      'streaming',
-      role === 'assistant' ? 'Responding...' : undefined,
+      shouldCreateSettledTurn ? 'complete' : 'streaming',
+      role === 'assistant'
+        ? settledReason === 'interrupted'
+          ? 'Interrupted'
+          : shouldCreateSettledTurn
+            ? undefined
+            : 'Responding...'
+        : undefined,
       transcriptFinal,
     );
   }
 
-  const nextContent = normalizeTranscriptText(currentTurn.content, content);
+  const nextContent = normalizeTranscriptText(currentTurn.content, content, {
+    role,
+    isFinal: transcriptFinal,
+  });
 
   updateVoiceTurn(ctx, currentTurn.id, {
     content: nextContent,
-    state: 'streaming',
-    statusLabel: role === 'assistant' ? 'Responding...' : undefined,
+    state: shouldCreateSettledTurn ? 'complete' : 'streaming',
+    statusLabel:
+      role === 'assistant'
+        ? settledReason === 'interrupted'
+          ? 'Interrupted'
+          : shouldCreateSettledTurn
+            ? undefined
+            : 'Responding...'
+        : undefined,
     ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
   });
 
@@ -256,6 +274,7 @@ export function upsertCurrentVoiceUserTurn(
   ctx: ConversationContext,
   content: string,
   transcriptFinal?: boolean,
+  settledReason?: 'completed' | 'interrupted',
 ): void {
   ctx.currentVoiceUserTurnId = upsertVoiceTurn(
     ctx,
@@ -263,6 +282,7 @@ export function upsertCurrentVoiceUserTurn(
     ctx.currentVoiceUserTurnId,
     content,
     transcriptFinal,
+    settledReason,
   );
 }
 
@@ -277,6 +297,7 @@ export function upsertCurrentVoiceAssistantTurn(
   ctx: ConversationContext,
   content: string,
   transcriptFinal?: boolean,
+  settledReason?: 'completed' | 'interrupted',
 ): void {
   ctx.currentVoiceAssistantTurnId = upsertVoiceTurn(
     ctx,
@@ -284,6 +305,7 @@ export function upsertCurrentVoiceAssistantTurn(
     ctx.currentVoiceAssistantTurnId,
     content,
     transcriptFinal,
+    settledReason,
   );
 }
 
