@@ -68,6 +68,8 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
     const store = ops.store.getState();
     const transport = ops.getActiveTransport();
 
+    // Resume swaps transports without buffering microphone audio across sessions.
+    // Chunks that arrive while no active transport is attached are dropped on purpose.
     if (!transport || ops.currentVoiceSessionStatus() === 'disconnected') {
       return Promise.resolve();
     }
@@ -82,7 +84,16 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
 
     voiceSendChain = voiceSendChain
       .then(async () => {
-        await ops.getActiveTransport()?.sendAudioChunk(chunk.data);
+        if (ops.getActiveTransport() !== transport) {
+          return;
+        }
+
+        await transport.sendAudioChunk(chunk.data);
+
+        if (ops.getActiveTransport() !== transport) {
+          return;
+        }
+
         if (
           ops.currentVoiceSessionStatus() === 'capturing' ||
           ops.currentVoiceSessionStatus() === 'ready' ||

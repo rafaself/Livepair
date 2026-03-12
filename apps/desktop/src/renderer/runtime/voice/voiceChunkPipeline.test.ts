@@ -197,9 +197,10 @@ describe('createVoiceChunkPipeline', () => {
       expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('streaming');
     });
 
-    it('skips send when transport is null', async () => {
+    it('drops microphone chunks while resume temporarily clears the active transport', async () => {
       const ops = createMockOps();
       ops.getActiveTransport.mockReturnValue(null);
+      ops.currentVoiceSessionStatus.mockReturnValue('recovering');
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
@@ -213,6 +214,52 @@ describe('createVoiceChunkPipeline', () => {
       await pipeline.flush();
 
       expect(ops._transport.sendAudioChunk).not.toHaveBeenCalled();
+      expect(ops.setVoiceSessionStatus).not.toHaveBeenCalledWith('streaming');
+    });
+
+    it('drops queued microphone chunks if resumption swaps the active transport before they send', async () => {
+      const ops = createMockOps();
+      let activeTransport: { sendAudioChunk: ReturnType<typeof vi.fn>; sendAudioStreamEnd: ReturnType<typeof vi.fn> } | null =
+        ops._transport;
+      const nextTransport = {
+        sendAudioChunk: vi.fn().mockResolvedValue(undefined),
+        sendAudioStreamEnd: vi.fn().mockResolvedValue(undefined),
+      };
+      let resolveFirstSend!: () => void;
+      ops.getActiveTransport.mockImplementation(() => activeTransport as never);
+      ops._transport.sendAudioChunk.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveFirstSend = () => resolve();
+          }),
+      );
+      const pipeline = createVoiceChunkPipeline(ops as never);
+
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onChunk({
+        data: new Uint8Array([1]),
+        sequence: 1,
+        sampleRateHz: 16_000,
+        durationMs: 20,
+      });
+      await Promise.resolve();
+      observer.onChunk({
+        data: new Uint8Array([2]),
+        sequence: 2,
+        sampleRateHz: 16_000,
+        durationMs: 20,
+      });
+
+      activeTransport = nextTransport;
+      resolveFirstSend();
+      await pipeline.flush();
+
+      expect(ops._transport.sendAudioChunk).toHaveBeenCalledTimes(1);
+      expect(nextTransport.sendAudioChunk).not.toHaveBeenCalled();
+      expect(
+        ops.setVoiceSessionStatus.mock.calls.filter(([status]) => status === 'streaming'),
+      ).toHaveLength(0);
     });
 
     it('skips send when voice session is disconnected', async () => {

@@ -32,6 +32,7 @@ function createMockOps() {
     getToken: vi.fn().mockReturnValue(VALID_TOKEN),
     beginSessionOperation: vi.fn().mockReturnValue(1),
     isCurrentSessionOperation: vi.fn().mockReturnValue(true),
+    logRuntimeDiagnostic: vi.fn(),
     setVoiceSessionStatus: vi.fn(),
     setVoiceSessionResumption: vi.fn(),
     setVoiceSessionDurability: vi.fn(),
@@ -61,7 +62,9 @@ describe('createVoiceResumeController', () => {
     expect(ops.setVoiceSessionResumption).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'resumeFailed' }),
     );
-    expect(ops.setVoiceErrorState).toHaveBeenCalledWith('server draining');
+    expect(ops.setVoiceErrorState).toHaveBeenCalledWith(
+      'server draining (resume handle unavailable)',
+    );
     expect(ops.createTransport).not.toHaveBeenCalled();
   });
 
@@ -72,7 +75,9 @@ describe('createVoiceResumeController', () => {
 
     await resume('detail');
 
-    expect(ops.setVoiceErrorState).toHaveBeenCalledWith('detail');
+    expect(ops.setVoiceErrorState).toHaveBeenCalledWith(
+      'detail (session marked non-resumable)',
+    );
     expect(ops.createTransport).not.toHaveBeenCalled();
   });
 

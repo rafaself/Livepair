@@ -21,6 +21,11 @@ export type TransportEventRouterOps = {
   store: SessionStoreApi;
   settingsStore: SettingsStoreApi;
   logger: RuntimeLogger;
+  logRuntimeDiagnostic: (
+    scope: 'voice-session',
+    message: string,
+    detail: Record<string, unknown>,
+  ) => void;
   // State accessors
   isVoiceResumptionInFlight: () => boolean;
   setVoiceResumptionInFlight: (value: boolean) => void;
@@ -56,6 +61,10 @@ export type TransportEventRouterOps = {
 };
 
 export function createTransportEventRouter(ops: TransportEventRouterOps) {
+  const shouldIgnoreTermination = (status: VoiceSessionStatus): boolean => {
+    return status === 'stopping' || status === 'disconnected' || status === 'error';
+  };
+
   const handleTransportEvent = (event: LiveSessionEvent): void => {
     const store = ops.store.getState();
 
@@ -120,7 +129,23 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'go-away') {
+      const voiceStatus = ops.currentVoiceSessionStatus();
+      if (shouldIgnoreTermination(voiceStatus)) {
+        ops.logRuntimeDiagnostic('voice-session', 'ignored go-away while not resumable', {
+          detail: event.detail ?? 'Voice session unavailable',
+          voiceStatus,
+        });
+        return;
+      }
+
       const detail = event.detail ?? 'Voice session unavailable';
+      ops.logRuntimeDiagnostic('voice-session', 'resume requested after go-away', {
+        detail,
+        voiceStatus,
+        latestHandle: store.voiceSessionResumption.latestHandle,
+        resumable: store.voiceSessionResumption.resumable,
+        tokenValid: isTokenValidForReconnect(ops.getToken()),
+      });
       ops.setVoiceSessionResumption({
         status: 'goAway',
         lastDetail: detail,
@@ -134,14 +159,22 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'connection-terminated') {
-      if (
-        ops.currentVoiceSessionStatus() === 'stopping' ||
-        ops.currentVoiceSessionStatus() === 'disconnected' ||
-        ops.currentVoiceSessionStatus() === 'error'
-      ) {
+      const voiceStatus = ops.currentVoiceSessionStatus();
+      if (shouldIgnoreTermination(voiceStatus)) {
+        ops.logRuntimeDiagnostic('voice-session', 'ignored connection termination while not resumable', {
+          detail: event.detail ?? 'Voice session unavailable',
+          voiceStatus,
+        });
         return;
       }
 
+      ops.logRuntimeDiagnostic('voice-session', 'resume requested after connection termination', {
+        detail: event.detail ?? 'Voice session unavailable',
+        voiceStatus,
+        latestHandle: store.voiceSessionResumption.latestHandle,
+        resumable: store.voiceSessionResumption.resumable,
+        tokenValid: isTokenValidForReconnect(ops.getToken()),
+      });
       ops.setVoiceSessionDurability({
         tokenValid: isTokenValidForReconnect(ops.getToken()),
         lastDetail: event.detail ?? 'Voice session unavailable',
@@ -156,10 +189,16 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'session-resumption-update') {
-      ops.setVoiceSessionResumption({
-        latestHandle: event.handle ?? store.voiceSessionResumption.latestHandle,
+      ops.logRuntimeDiagnostic('voice-session', 'resumption handle updated', {
+        previousHandle: store.voiceSessionResumption.latestHandle,
+        latestHandle: event.handle,
         resumable: event.resumable,
-        lastDetail: event.detail ?? store.voiceSessionResumption.lastDetail,
+        detail: event.detail ?? null,
+      });
+      ops.setVoiceSessionResumption({
+        latestHandle: event.handle,
+        resumable: event.resumable,
+        lastDetail: event.detail ?? null,
       });
       return;
     }

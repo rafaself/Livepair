@@ -108,6 +108,8 @@ export function createScreenCaptureController(
   const enqueueFrameSend = (frame: LocalScreenFrame): Promise<void> => {
     const transport = getTransport();
 
+    // Resume swaps transports without replaying captured frames into the next session.
+    // Frames produced while no active transport is attached are intentionally dropped.
     if (!transport || !screenCapture) {
       return Promise.resolve();
     }
@@ -119,9 +121,13 @@ export function createScreenCaptureController(
 
     screenSendChain = screenSendChain
       .then(async () => {
-        await getTransport()?.sendVideoFrame(frame.data, frame.mimeType);
+        if (getTransport() !== transport || !screenCapture) {
+          return;
+        }
 
-        if (!screenCapture) {
+        await transport.sendVideoFrame(frame.data, frame.mimeType);
+
+        if (!screenCapture || getTransport() !== transport) {
           return;
         }
 
