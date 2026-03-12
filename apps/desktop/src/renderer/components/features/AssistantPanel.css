@@ -123,8 +123,27 @@
   width: 100%;
 }
 
+.assistant-panel__settings-section-reveal {
+  animation: settings-section-reveal 250ms var(--ease-out) both;
+}
+
+@keyframes settings-section-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .assistant-panel__view {
+    animation: none;
+  }
+
+  .assistant-panel__settings-section-reveal {
     animation: none;
   }
 }

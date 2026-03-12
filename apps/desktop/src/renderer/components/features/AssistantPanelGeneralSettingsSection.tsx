@@ -11,6 +11,7 @@ const MODE_OPTIONS: readonly SelectOptionItem[] = [
 
 type GeneralSettingsController = Pick<
   AssistantPanelSettingsController,
+  | 'isDebugMode'
   | 'isPanelPinned'
   | 'preferredMode'
   | 'themePreference'
@@ -27,6 +28,7 @@ export function AssistantPanelGeneralSettingsSection({
   controller,
 }: AssistantPanelGeneralSettingsSectionProps): JSX.Element {
   const {
+    isDebugMode,
     isPanelPinned,
     preferredMode,
     themePreference,
@@ -40,24 +42,28 @@ export function AssistantPanelGeneralSettingsSection({
       <FieldList
         className="assistant-panel__settings-field-list field-list--aligned-controls"
         items={[
-          {
-            label: 'Preferred mode',
-            value: (
-              <Select
-                aria-label="Preferred mode"
-                className="assistant-panel__settings-select assistant-panel__settings-mode-select"
-                options={MODE_OPTIONS}
-                value={preferredMode}
-                onChange={(event) => {
-                  if (event.target.value === 'fast') {
-                    setPreferredMode(event.target.value);
-                  }
-                }}
-                disabled
-                size="sm"
-              />
-            ),
-          },
+          ...(isDebugMode
+            ? [
+                {
+                  label: 'Preferred mode',
+                  value: (
+                    <Select
+                      aria-label="Preferred mode"
+                      className="assistant-panel__settings-select assistant-panel__settings-mode-select"
+                      options={MODE_OPTIONS}
+                      value={preferredMode}
+                      onChange={(event) => {
+                        if (event.target.value === 'fast') {
+                          setPreferredMode(event.target.value);
+                        }
+                      }}
+                      disabled
+                      size="sm"
+                    />
+                  ),
+                },
+              ]
+            : []),
           {
             label: 'Theme',
             value: (

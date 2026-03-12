@@ -21,8 +21,12 @@ export function AssistantPanelSettingsContent({
       <div className="assistant-panel__settings-body">
         <AssistantPanelGeneralSettingsSection controller={controller} />
         <AssistantPanelAudioSettingsSection controller={controller} />
-        <AssistantPanelBackendSettingsSection controller={controller} />
         <AssistantPanelAdvancedSettingsSection controller={controller} />
+        {controller.isDebugMode && (
+          <div className="assistant-panel__settings-section-reveal">
+            <AssistantPanelBackendSettingsSection controller={controller} />
+          </div>
+        )}
       </div>
     </div>
   );
