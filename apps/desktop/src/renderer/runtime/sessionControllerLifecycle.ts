@@ -28,7 +28,10 @@ type SessionControllerLifecycleArgs = {
   currentVoiceSessionStatus: () => VoiceSessionStatus;
   currentTextSessionStatus: () => TextSessionStatus;
   hasSpeechRuntimeActivity: () => boolean;
-  resetRuntimeState: (textSessionStatus?: TextSessionStatus) => void;
+  resetRuntimeState: (
+    textSessionStatus?: TextSessionStatus,
+    options?: { preserveConversationTurns?: boolean },
+  ) => void;
   recordSessionEvent: (event: SessionControllerEvent) => void;
   applySpeechLifecycleEvent: (event: { type: string }) => void;
   setVoiceCaptureState: (state: 'idle') => void;
@@ -258,7 +261,9 @@ export function createSessionControllerLifecycle({
       return;
     }
 
-    resetRuntimeState();
+    resetRuntimeState('idle', {
+      preserveConversationTurns: store.getState().conversationTurns.length > 0,
+    });
     textBootstrapStarted();
     recordSessionEvent({
       type: 'session.start.requested',

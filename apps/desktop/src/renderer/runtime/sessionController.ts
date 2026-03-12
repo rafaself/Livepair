@@ -89,6 +89,11 @@ export function createDesktopSessionController(
   ): Promise<void> => {
     throw new Error('endSessionInternal called before initialization');
   };
+  let endSpeechModeInternal = async (
+    _options: { recordEvents?: boolean } = {},
+  ): Promise<void> => {
+    throw new Error('endSpeechModeInternal called before initialization');
+  };
   const runtimeRef = {
     current: null as ReturnType<typeof createSessionControllerRuntime> | null,
   };
@@ -304,7 +309,8 @@ export function createDesktopSessionController(
     hasTextRuntimeActivity: () => textChatCtrl.hasRuntimeActivity(),
     hasVoiceCapture: () => voiceChunkCtrl.hasCapture(),
     hasVoicePlayback: () => playbackCtrl.isActive(),
-    resetRuntimeState: (textSessionStatus) => runtimeRef.current!.resetRuntimeState(textSessionStatus),
+    resetRuntimeState: (textSessionStatus, options) =>
+      runtimeRef.current!.resetRuntimeState(textSessionStatus, options),
     resetVoiceSessionDurability: () => runtimeRef.current!.resetVoiceSessionDurability(),
     resetVoiceSessionResumption: () => runtimeRef.current!.resetVoiceSessionResumption(),
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
@@ -362,7 +368,8 @@ export function createDesktopSessionController(
     currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
     currentTextSessionStatus: () => textChatCtrl.currentStatus(),
     hasSpeechRuntimeActivity: () => hasSpeechRuntimeActivity(),
-    resetRuntimeState: (textSessionStatus) => runtimeRef.current!.resetRuntimeState(textSessionStatus),
+    resetRuntimeState: (textSessionStatus, options) =>
+      runtimeRef.current!.resetRuntimeState(textSessionStatus, options),
     recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
     applySpeechLifecycleEvent: (event) => {
       runtimeRef.current!.applySpeechLifecycleEvent(event as SpeechSessionLifecycleEvent);
@@ -425,16 +432,19 @@ export function createDesktopSessionController(
       textSessionStatus = 'disconnected',
       preserveLastRuntimeError = null,
       preserveVoiceRuntimeDiagnostics = false,
+      preserveConversationTurns = false,
     }: {
       textSessionStatus?: TextSessionStatus;
       preserveLastRuntimeError?: string | null;
       preserveVoiceRuntimeDiagnostics?: boolean;
+      preserveConversationTurns?: boolean;
     } = {},
   ): Promise<void> => {
     await teardown.teardownActiveRuntime({
       textSessionStatus,
       preserveLastRuntimeError,
       preserveVoiceRuntimeDiagnostics,
+      preserveConversationTurns,
     });
   };
 
@@ -461,6 +471,27 @@ export function createDesktopSessionController(
       textSessionStatus: 'disconnected',
       preserveLastRuntimeError,
       preserveVoiceRuntimeDiagnostics,
+    });
+    runtimeRef.current!.setCurrentMode('text');
+
+    if (recordEvents) {
+      runtimeRef.current!.recordSessionEvent({ type: 'session.ended' });
+    }
+  };
+  endSpeechModeInternal = async (
+    options: { recordEvents?: boolean } = {},
+  ): Promise<void> => {
+    const { recordEvents = false } = options;
+
+    runtimeRef.current!.beginSessionOperation();
+
+    if (recordEvents) {
+      runtimeRef.current!.recordSessionEvent({ type: 'session.end.requested' });
+    }
+
+    await teardownActiveRuntime({
+      textSessionStatus: 'disconnected',
+      preserveConversationTurns: true,
     });
     runtimeRef.current!.setCurrentMode('text');
 
@@ -535,6 +566,7 @@ export function createDesktopSessionController(
     textChatCtrl,
     runtime: {
       currentSpeechLifecycleStatus: () => runtimeRef.current!.currentSpeechLifecycleStatus(),
+      endSpeechModeInternal: (options) => endSpeechModeInternal(options),
       endSessionInternal: (options) => endSessionInternal(options),
       getActiveTransport: () => runtimeRef.current!.getActiveTransport(),
       recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),

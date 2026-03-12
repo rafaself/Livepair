@@ -42,6 +42,7 @@ type SessionControllerPublicApiArgs = {
       recordEvents?: boolean;
       preserveVoiceRuntimeDiagnostics?: boolean;
     }) => Promise<void>;
+    endSpeechModeInternal: (options?: { recordEvents?: boolean }) => Promise<void>;
     getActiveTransport: () => import('./transport/transport.types').DesktopSession | null;
     recordSessionEvent: (event: {
       type: 'session.debug.state.set';
@@ -70,6 +71,9 @@ export function createSessionControllerPublicApi({
   return {
     checkBackendHealth: async () => {
       await performBackendHealthCheck();
+    },
+    endSpeechMode: async () => {
+      await runtime.endSpeechModeInternal({ recordEvents: true });
     },
     endSession: async () => {
       await runtime.endSessionInternal({ recordEvents: true });

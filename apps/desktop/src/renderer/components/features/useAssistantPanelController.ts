@@ -106,7 +106,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     handleCheckBackendHealth,
     handleStartSession,
     handleStartVoiceSession,
-    handleEndSession,
+    handleEndSpeechMode,
     handleSubmitTextTurn,
     setAssistantState,
   } = useSessionRuntime();
@@ -132,10 +132,6 @@ export function useAssistantPanelController(): AssistantPanelController {
   const handleStartSpeechMode = useCallback(async (): Promise<void> => {
     await handleStartVoiceSession();
   }, [handleStartVoiceSession]);
-
-  const handleEndSpeechMode = useCallback(async (): Promise<void> => {
-    await handleEndSession();
-  }, [handleEndSession]);
 
   const handleDraftTextChange = useCallback((event: ChangeEvent<HTMLInputElement>): void => {
     setDraftText(event.currentTarget.value);

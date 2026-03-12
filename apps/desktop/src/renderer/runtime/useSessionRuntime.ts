@@ -59,6 +59,10 @@ export function useSessionRuntime() {
     return controller.submitTextTurn(text);
   }, [controller]);
 
+  const handleEndSpeechMode = useCallback(async (): Promise<void> => {
+    await controller.endSpeechMode();
+  }, [controller]);
+
   const handleEndSession = useCallback(async (): Promise<void> => {
     await controller.endSession();
   }, [controller]);
@@ -124,6 +128,7 @@ export function useSessionRuntime() {
     handleStartScreenCapture,
     handleStopScreenCapture,
     handleSubmitTextTurn,
+    handleEndSpeechMode,
     handleEndSession,
     setAssistantState,
   };

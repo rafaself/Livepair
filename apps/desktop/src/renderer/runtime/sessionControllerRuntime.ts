@@ -107,7 +107,10 @@ type SessionControllerRuntimeArgs = {
     clearPendingAssistantTurn: () => void;
     currentStatus: () => TextSessionStatus;
     releaseStream: () => void;
-    resetRuntime: (textSessionStatus?: TextSessionStatus) => void;
+    resetRuntime: (
+      textSessionStatus?: TextSessionStatus,
+      options?: { preserveConversationTurns?: boolean },
+    ) => void;
   };
   voiceTranscript: {
     resetTurnCompletedFlag: () => void;
@@ -179,8 +182,11 @@ export function createSessionControllerRuntime({
     },
     isCurrentSessionOperation: mutableRuntime.isCurrentSessionOperation,
     recordSessionEvent,
-    resetRuntimeState: (textSessionStatus: TextSessionStatus = 'idle'): void => {
-      textChatCtrl.resetRuntime(textSessionStatus);
+    resetRuntimeState: (
+      textSessionStatus: TextSessionStatus = 'idle',
+      options?: { preserveConversationTurns?: boolean },
+    ): void => {
+      textChatCtrl.resetRuntime(textSessionStatus, options);
       voiceTranscript.resetTurnCompletedFlag();
     },
     resetVoiceSessionDurability: stateSync.resetVoiceSessionDurability,

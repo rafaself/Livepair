@@ -161,6 +161,42 @@ describe('sessionStore', () => {
     expect(useSessionStore.getState().voiceCaptureState).toBe('capturing');
   });
 
+  it('can reset runtime state while preserving conversation turns', () => {
+    useSessionStore.getState().appendConversationTurn({
+      id: 'user-turn-1',
+      role: 'user',
+      content: 'Speech request',
+      timestamp: '2026-03-12T00:00:00.000Z',
+      state: 'complete',
+      source: 'voice',
+    });
+    useSessionStore.getState().setSpeechLifecycle({ status: 'listening' });
+    useSessionStore.getState().setVoiceSessionStatus('ready');
+
+    useSessionStore.getState().resetTextSessionRuntime('disconnected', {
+      preserveConversationTurns: true,
+    });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'disconnected',
+        }),
+        speechLifecycle: expect.objectContaining({
+          status: 'off',
+        }),
+        voiceSessionStatus: 'disconnected',
+        conversationTurns: [
+          expect.objectContaining({
+            role: 'user',
+            content: 'Speech request',
+            source: 'voice',
+          }),
+        ],
+      }),
+    );
+  });
+
   describe('screen capture slice', () => {
     it('initialises screen capture state to disabled with zero diagnostics', () => {
       expect(useSessionStore.getState().screenCaptureState).toBe('disabled');

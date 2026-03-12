@@ -181,9 +181,12 @@ export function createTextChatController(ops: TextChatControllerOps) {
     );
   };
 
-  const resetRuntime = (textSessionStatus: TextSessionStatus = 'idle'): void => {
+  const resetRuntime = (
+    textSessionStatus: TextSessionStatus = 'idle',
+    options?: { preserveConversationTurns?: boolean },
+  ): void => {
     clearPendingAssistantTurn();
-    ops.store.getState().resetTextSessionRuntime(textSessionStatus);
+    ops.store.getState().resetTextSessionRuntime(textSessionStatus, options);
   };
 
   return {

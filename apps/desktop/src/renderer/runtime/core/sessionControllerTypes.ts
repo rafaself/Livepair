@@ -35,6 +35,7 @@ export type DesktopSessionController = {
   stopScreenCapture: () => Promise<void>;
   subscribeToVoiceChunks: (listener: (chunk: LocalVoiceChunk) => void) => () => void;
   submitTextTurn: (text: string) => Promise<boolean>;
+  endSpeechMode: () => Promise<void>;
   endSession: () => Promise<void>;
   setAssistantState: (assistantState: DebugAssistantState) => void;
 };

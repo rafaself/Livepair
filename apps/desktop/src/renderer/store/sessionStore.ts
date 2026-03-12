@@ -116,7 +116,10 @@ export type SessionStoreState = SessionStoreData & {
   setScreenCaptureState: (screenCaptureState: ScreenCaptureState) => void;
   setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
-  resetTextSessionRuntime: (textSessionStatus?: TextSessionStatus) => void;
+  resetTextSessionRuntime: (
+    textSessionStatus?: TextSessionStatus,
+    options?: { preserveConversationTurns?: boolean },
+  ) => void;
   reset: (overrides?: Partial<SessionStoreData>) => void;
 };
 
@@ -354,7 +357,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       ...getDebugRuntimeState(assistantState, state.activeTransport),
       currentMode: state.currentMode,
     })),
-  resetTextSessionRuntime: (textSessionStatus = 'idle') =>
+  resetTextSessionRuntime: (textSessionStatus = 'idle', options = {}) =>
     set((state) => ({
       currentMode: state.currentMode,
       ...withDerivedLifecycleFields(createTextSessionLifecycle(textSessionStatus)),
@@ -362,7 +365,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       backendState: 'idle',
       tokenRequestState: 'idle',
       activeTransport: null,
-      conversationTurns: [],
+      conversationTurns: options.preserveConversationTurns ? state.conversationTurns : [],
       lastRuntimeError: null,
       lastDebugEvent: null,
       speechLifecycle: createSpeechSessionLifecycle(),

@@ -170,7 +170,7 @@ describe('createDesktopSessionController – mode switching', () => {
     voiceTransport.emit({ type: 'output-transcript', text: 'Speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
 
-    await controller.endSession();
+    await controller.endSpeechMode();
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
@@ -206,5 +206,53 @@ describe('createDesktopSessionController – mode switching', () => {
         { role: 'user', content: 'Text after end' },
       ],
     });
+  });
+
+  it('keeps full conversation reset separate from speech-mode teardown', async () => {
+    const textChat = createTextChatHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await controller.endSpeechMode();
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'Speech request',
+        source: 'voice',
+      }),
+    ]);
+
+    await controller.endSession();
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        currentMode: 'text',
+        speechLifecycle: expect.objectContaining({
+          status: 'off',
+        }),
+        voiceSessionStatus: 'disconnected',
+        activeTransport: null,
+        conversationTurns: [],
+      }),
+    );
   });
 });

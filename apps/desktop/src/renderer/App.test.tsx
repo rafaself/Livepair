@@ -214,12 +214,14 @@ describe('App', () => {
     expect(screen.getByText('Here is the streamed response.')).toBeVisible();
   });
 
-  it('starts and ends speech mode from the empty composer action', async () => {
+  it('ends speech mode without clearing history and supports a text follow-up', async () => {
     installMatchMedia(true);
+    const textChat = createTextChatHarness();
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
       status: 'ok',
       timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
     });
+    window.bridge.startTextChatStream = textChat.start;
 
     render(<App />);
 
@@ -243,11 +245,63 @@ describe('App', () => {
       expect(screen.getByRole('button', { name: 'End speech mode' })).toBeEnabled();
     });
 
+    await act(async () => {
+      __emitGeminiLiveSdkMessage({
+        serverContent: {
+          inputTranscription: {
+            text: 'Speech request',
+          },
+        },
+      });
+      __emitGeminiLiveSdkMessage({
+        serverContent: {
+          outputTranscription: {
+            text: 'Speech reply',
+          },
+        },
+      });
+      __emitGeminiLiveSdkMessage({ serverContent: { turnComplete: true } });
+    });
+
+    expect(await screen.findByText('Speech request')).toBeVisible();
+    expect(await screen.findByText('Speech reply')).toBeVisible();
+
     fireEvent.click(screen.getByRole('button', { name: 'End speech mode' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
       expect(screen.queryByText('Start speaking')).toBeNull();
     });
+
+    expect(screen.getByText('Speech request')).toBeVisible();
+    expect(screen.getByText('Speech reply')).toBeVisible();
+
+    const composerForm = screen.getByRole('form', {
+      name: 'Send message to Livepair',
+    });
+
+    await act(async () => {
+      fireEvent.change(within(composerForm).getByRole('textbox'), {
+        target: { value: 'Text after end' },
+      });
+    });
+
+    await act(async () => {
+      fireEvent.submit(composerForm);
+    });
+
+    await waitFor(() => {
+      expect(textChat.start).toHaveBeenCalledTimes(1);
+    });
+    expect(textChat.start).toHaveBeenCalledWith(
+      {
+        messages: [
+          { role: 'user', content: 'Speech request' },
+          { role: 'assistant', content: 'Speech reply' },
+          { role: 'user', content: 'Text after end' },
+        ],
+      },
+      expect.any(Function),
+    );
   });
 });
