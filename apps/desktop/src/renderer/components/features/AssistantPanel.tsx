@@ -29,7 +29,6 @@ export function AssistantPanel({
     speechLifecycleStatus,
     tokenFeedback,
     textSessionStatus,
-    textSessionStatusLabel,
     voiceSessionStatus,
     voiceSessionResumption,
     voiceSessionDurability,
@@ -75,7 +74,6 @@ export function AssistantPanel({
               isPanelOpen={isPanelOpen}
               speechLifecycleStatus={speechLifecycleStatus}
               textSessionStatus={textSessionStatus}
-              textSessionStatusLabel={textSessionStatusLabel}
               canSubmitText={canSubmitText}
               activeTransport={activeTransport}
               voiceSessionStatus={voiceSessionStatus}

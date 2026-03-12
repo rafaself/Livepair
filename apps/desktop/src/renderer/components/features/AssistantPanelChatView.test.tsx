@@ -12,7 +12,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="text"
         speechLifecycleStatus="off"
         textSessionStatus="disconnected"
-        textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}
@@ -28,7 +27,6 @@ describe('AssistantPanelChatView', () => {
 
     expect(screen.queryByRole('status', { name: 'Disconnected' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Conversation' })).toBeVisible();
-    expect(screen.getByText('Text session disconnected')).toBeVisible();
     expect(screen.getByText('No conversation yet')).toBeVisible();
     expect(screen.getByPlaceholderText('Ask Livepair')).toBeVisible();
   });
@@ -57,7 +55,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="text"
         speechLifecycleStatus="off"
         textSessionStatus="ready"
-        textSessionStatusLabel="Text session ready"
         canSubmitText={true}
         turns={turns}
         isConversationEmpty={false}
@@ -72,7 +69,6 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.queryByRole('status', { name: 'Ready' })).toBeNull();
-    expect(screen.getByText('Text session ready')).toBeVisible();
     expect(screen.getByText('Check the latest exchange.')).toBeVisible();
     expect(screen.getByText('The latest exchange is visible in the transcript.')).toBeVisible();
     expect(screen.queryByText('No conversation yet')).toBeNull();
@@ -85,7 +81,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="text"
         speechLifecycleStatus="off"
         textSessionStatus="error"
-        textSessionStatusLabel="Text session failed"
         canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}
@@ -123,7 +118,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="text"
         speechLifecycleStatus="off"
         textSessionStatus="error"
-        textSessionStatusLabel="Text session failed"
         canSubmitText={true}
         turns={turns}
         isConversationEmpty={false}
@@ -153,7 +147,6 @@ describe('AssistantPanelChatView', () => {
         assistantState="ready"
         currentMode="text"
         textSessionStatus="ready"
-        textSessionStatusLabel="Text session ready"
         canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}
@@ -177,7 +170,6 @@ describe('AssistantPanelChatView', () => {
         assistantState="thinking"
         currentMode="text"
         textSessionStatus="receiving"
-        textSessionStatusLabel="Receiving response..."
         canSubmitText={false}
         turns={[]}
         isConversationEmpty={true}
@@ -202,7 +194,6 @@ describe('AssistantPanelChatView', () => {
         assistantState="ready"
         currentMode="text"
         textSessionStatus="completed"
-        textSessionStatusLabel="Response complete"
         canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}
@@ -218,14 +209,12 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.getByPlaceholderText('Ask Livepair')).toBeEnabled();
-    expect(screen.getByText('Response complete')).toBeVisible();
 
     rerender(
       <AssistantPanelChatView
         assistantState="thinking"
         currentMode="text"
         textSessionStatus="connecting"
-        textSessionStatusLabel="Preparing text chat..."
         canSubmitText={false}
         turns={[]}
         isConversationEmpty={true}
@@ -241,7 +230,6 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
-    expect(screen.getByText('Preparing text chat...')).toBeVisible();
   });
 
   it('renders live voice turns inside the conversation timeline and hides the legacy transcript panel', () => {
@@ -251,7 +239,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="listening"
         textSessionStatus="disconnected"
-        textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[
           {
@@ -295,7 +282,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="listening"
         textSessionStatus="disconnected"
-        textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}
@@ -330,7 +316,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="listening"
         textSessionStatus="ready"
-        textSessionStatusLabel="Text chat ready"
         canSubmitText={true}
         activeTransport="gemini-live"
         voiceSessionStatus="ready"
@@ -366,7 +351,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="text"
         speechLifecycleStatus="off"
         textSessionStatus="receiving"
-        textSessionStatusLabel="Receiving response..."
         canSubmitText={false}
         turns={[]}
         isConversationEmpty={true}
@@ -400,7 +384,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="listening"
         textSessionStatus="receiving"
-        textSessionStatusLabel="Receiving response..."
         canSubmitText={false}
         turns={[]}
         isConversationEmpty={true}
@@ -430,7 +413,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="starting"
         textSessionStatus="disconnected"
-        textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         activeTransport="gemini-live"
         voiceSessionStatus="connecting"
@@ -455,7 +437,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="listening"
         textSessionStatus="disconnected"
-        textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         activeTransport={null}
         voiceSessionStatus="error"
@@ -483,7 +464,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="starting"
         textSessionStatus="disconnected"
-        textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}
@@ -505,7 +485,6 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="ending"
         textSessionStatus="disconnected"
-        textSessionStatusLabel="Text session disconnected"
         canSubmitText={true}
         turns={[]}
         isConversationEmpty={true}

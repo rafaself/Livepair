@@ -19,10 +19,9 @@ import './AssistantPanelChatView.css';
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;
   currentMode: ProductMode;
-  isPanelOpen: boolean;
+  isPanelOpen?: boolean;
   speechLifecycleStatus: SpeechLifecycleStatus;
   textSessionStatus: TextSessionStatus;
-  textSessionStatusLabel: string;
   canSubmitText: boolean;
   activeTransport?: TransportKind | null;
   voiceSessionStatus?: VoiceSessionStatus;
@@ -43,7 +42,6 @@ export function AssistantPanelChatView({
   isPanelOpen,
   speechLifecycleStatus,
   textSessionStatus,
-  textSessionStatusLabel,
   canSubmitText,
   activeTransport = null,
   voiceSessionStatus = 'disconnected',
@@ -92,15 +90,13 @@ export function AssistantPanelChatView({
           }
           isConversationEmpty={isConversationEmpty}
           lastRuntimeError={lastRuntimeError}
-          textSessionStatus={textSessionStatus}
-          textSessionStatusLabel={textSessionStatusLabel}
           turns={turns}
         />
         <AssistantPanelChatComposer
           composerAction={composerAction}
           draftText={draftText}
           isComposerDisabled={isComposerDisabled}
-          isPanelOpen={isPanelOpen}
+          isPanelOpen={isPanelOpen ?? false}
           onDraftTextChange={onDraftTextChange}
           onEndSpeechMode={onEndSpeechMode}
           onStartSpeechMode={onStartSpeechMode}
