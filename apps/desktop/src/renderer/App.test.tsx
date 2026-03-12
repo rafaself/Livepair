@@ -12,6 +12,7 @@ import { App } from './App';
 import { useSettingsStore } from './store/settingsStore';
 import { resetDesktopStores } from './store/testing';
 import { useUiStore } from './store/uiStore';
+import { __emitGeminiLiveSdkMessage } from './test/geminiLiveSdkMock';
 import { THEME_MEDIA_QUERY } from './theme';
 
 type MatchMediaChangeListener = (event: MediaQueryListEvent) => void;
@@ -211,5 +212,41 @@ describe('App', () => {
 
     expect(await screen.findByText('transport offline')).toBeVisible();
     expect(screen.getByText('Here is the streamed response.')).toBeVisible();
+  });
+
+  it('starts and ends speech mode from the empty composer action', async () => {
+    installMatchMedia(true);
+    window.bridge.checkHealth = vi.fn().mockResolvedValue({
+      status: 'ok',
+      timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
+    });
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start speech mode' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Starting speech mode' })).toBeDisabled();
+      expect(screen.getByText('Live voice transcript')).toBeVisible();
+    });
+
+    await act(async () => {
+      __emitGeminiLiveSdkMessage({ setupComplete: {} });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'End speech mode' })).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'End speech mode' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
+      expect(screen.queryByText('Live voice transcript')).toBeNull();
+    });
   });
 });
