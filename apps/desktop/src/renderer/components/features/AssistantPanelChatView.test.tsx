@@ -201,7 +201,7 @@ describe('AssistantPanelChatView', () => {
       <AssistantPanelChatView
         assistantState="thinking"
         currentMode="speech"
-        speechLifecycleStatus="listening"
+        speechLifecycleStatus="assistantSpeaking"
         activeTransport="gemini-live"
         voiceSessionStatus="ready"
         textSessionStatus="receiving"

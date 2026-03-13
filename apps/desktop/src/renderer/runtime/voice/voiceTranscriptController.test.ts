@@ -71,7 +71,6 @@ describe('createVoiceTranscriptController', () => {
       }),
     ]);
   });
-
   it('passes transcript finality through to the transcript artifact state', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
