@@ -3,6 +3,7 @@ import type {
   LiveSessionRecord,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
+import { getCurrentChat } from '../chatMemory/currentChatMemory';
 
 type CurrentLiveSessionBridge = Pick<
   typeof window.bridge,
@@ -34,7 +35,7 @@ export async function startCurrentLiveSession(
     return activeLiveSession;
   }
 
-  const chat = await bridge.getOrCreateCurrentChat();
+  const chat = await getCurrentChat(bridge);
   const liveSession = await bridge.createLiveSession({
     chatId: chat.id,
     startedAt: new Date().toISOString(),
@@ -51,7 +52,7 @@ export async function restoreCurrentLiveSession(
     return activeLiveSession;
   }
 
-  const chat = await bridge.getOrCreateCurrentChat();
+  const chat = await getCurrentChat(bridge);
   const liveSessions = await bridge.listLiveSessions(chat.id);
   const liveSession = liveSessions.find(isRestoreCandidate) ?? null;
 

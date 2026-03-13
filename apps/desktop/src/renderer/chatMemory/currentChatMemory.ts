@@ -1,5 +1,6 @@
 import type {
   AppendChatMessageRequest,
+  ChatId,
   ChatMessageRecord,
   ChatRecord,
   LiveSessionRecord,
@@ -14,8 +15,14 @@ import { buildRehydrationPacket } from './rehydrationPacket';
 
 type CurrentChatMemoryBridge = Pick<
   typeof window.bridge,
-  'appendChatMessage' | 'getOrCreateCurrentChat' | 'listChatMessages' | 'listLiveSessions'
+  | 'appendChatMessage'
+  | 'getChat'
+  | 'getOrCreateCurrentChat'
+  | 'listChatMessages'
+  | 'listLiveSessions'
 >;
+
+type ActiveChatBridge = Pick<typeof window.bridge, 'getOrCreateCurrentChat'>;
 
 type HydratedCurrentChat = {
   chat: ChatRecord;
@@ -27,7 +34,7 @@ let pendingHydration: Promise<HydratedCurrentChat> | null = null;
 let pendingAppend: Promise<void> = Promise.resolve();
 
 async function ensureActiveChat(
-  bridge: CurrentChatMemoryBridge = window.bridge,
+  bridge: ActiveChatBridge = window.bridge,
 ): Promise<ChatRecord> {
   if (activeChat) {
     return activeChat;
@@ -40,7 +47,7 @@ async function ensureActiveChat(
 }
 
 export async function getCurrentChat(
-  bridge: CurrentChatMemoryBridge = window.bridge,
+  bridge: ActiveChatBridge = window.bridge,
 ): Promise<ChatRecord> {
   return ensureActiveChat(bridge);
 }
@@ -141,6 +148,28 @@ export async function appendMessageToCurrentChat(
   );
 
   return task;
+}
+
+export async function switchToChat(
+  chatId: ChatId,
+  bridge: CurrentChatMemoryBridge = window.bridge,
+): Promise<void> {
+  const chat = await bridge.getChat(chatId);
+
+  if (!chat) {
+    throw new Error(`Chat not found: ${chatId}`);
+  }
+
+  activeChat = chat;
+  pendingHydration = null;
+  pendingAppend = Promise.resolve();
+
+  const messages = await bridge.listChatMessages(chat.id);
+  const turns = mapChatMessageRecordsToConversationTurns(messages);
+
+  const store = useSessionStore.getState();
+  store.reset({ activeChatId: chat.id });
+  store.replaceConversationTurns(turns);
 }
 
 export function resetCurrentChatMemoryForTests(): void {
