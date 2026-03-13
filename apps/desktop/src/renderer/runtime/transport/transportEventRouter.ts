@@ -57,7 +57,11 @@ export type TransportEventRouterOps = {
   resetVoiceToolState: () => void;
   resetVoiceTurnTranscriptState: () => void;
   ensureAssistantVoiceTurn: () => void;
-  finalizeCurrentVoiceTurns: (finalizeReason: 'completed' | 'interrupted') => void;
+  finalizeCurrentVoiceTurns: (
+    finalizeReason: 'completed' | 'interrupted',
+    options?: { assistantTurnId?: string | null },
+  ) => void;
+  attachCurrentAssistantTurn: (turnId: string | null) => void;
   enqueueVoiceToolCalls: (calls: VoiceToolCall[]) => void;
   handleVoiceInterruption: () => void;
   // Lifecycle events
@@ -67,7 +71,7 @@ export type TransportEventRouterOps = {
   completeAssistantDraft: () => void;
   interruptAssistantDraft: () => void;
   discardAssistantDraft: () => void;
-  commitAssistantDraft: () => void;
+  commitAssistantDraft: () => string | null;
   hasActiveAssistantVoiceTurn: () => boolean;
   hasQueuedMixedModeAssistantReply: () => boolean;
   hasStreamingAssistantVoiceTurn: () => boolean;
@@ -381,8 +385,9 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
       }
 
       ops.completeAssistantDraft();
-      ops.commitAssistantDraft();
       ops.finalizeCurrentVoiceTurns('completed');
+      const assistantTurnId = ops.commitAssistantDraft();
+      ops.attachCurrentAssistantTurn(assistantTurnId);
       if (ops.currentSpeechLifecycleStatus() === 'assistantSpeaking') {
         ops.applySpeechLifecycleEvent({ type: 'assistant.turn.completed' });
         return;

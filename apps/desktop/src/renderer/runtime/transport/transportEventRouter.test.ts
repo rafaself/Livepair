@@ -47,6 +47,7 @@ function createMockOps() {
     resetVoiceTurnTranscriptState: vi.fn(),
     ensureAssistantVoiceTurn: vi.fn(),
     finalizeCurrentVoiceTurns: vi.fn(),
+    attachCurrentAssistantTurn: vi.fn(),
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
     applySpeechLifecycleEvent: vi.fn(),
@@ -55,7 +56,7 @@ function createMockOps() {
     completeAssistantDraft: vi.fn(),
     interruptAssistantDraft: vi.fn(),
     discardAssistantDraft: vi.fn(),
-    commitAssistantDraft: vi.fn(),
+    commitAssistantDraft: vi.fn().mockReturnValue(null),
     hasActiveAssistantVoiceTurn: vi.fn().mockReturnValue(false),
     hasQueuedMixedModeAssistantReply: vi.fn().mockReturnValue(false),
     hasStreamingAssistantVoiceTurn: vi.fn().mockReturnValue(false),
@@ -492,6 +493,7 @@ describe('createTransportEventRouter', () => {
       expect(ops.completeAssistantDraft).toHaveBeenCalledTimes(1);
       expect(ops.commitAssistantDraft).toHaveBeenCalledTimes(1);
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
     });
 
     it('ignores late turn-complete after interruption so interrupted drafts cannot commit normally', () => {
@@ -526,6 +528,7 @@ describe('createTransportEventRouter', () => {
       expect(ops.completeAssistantDraft).toHaveBeenCalledTimes(1);
       expect(ops.commitAssistantDraft).toHaveBeenCalledTimes(1);
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
     });
   });
 
@@ -569,6 +572,7 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'turn-complete' });
 
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.turn.completed' });
     });
 
@@ -580,6 +584,7 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'turn-complete' });
 
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'user.turn.settled' });
     });
 
@@ -591,6 +596,7 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'turn-complete' });
 
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
       expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
     });
 

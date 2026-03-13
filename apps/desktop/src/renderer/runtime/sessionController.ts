@@ -32,17 +32,16 @@ import { createSpeechSilenceController } from './speech/speechSilenceController'
 import { createConversationContext } from './conversation/conversationTurnManager';
 import {
   appendUserTurn as appendConversationUserTurn,
+  appendCompletedAssistantTurn,
   appendAssistantDraftTextDelta,
   clearAssistantDraft,
   clearPendingAssistantTurn,
   completeAssistantDraft,
   consumeCompletedAssistantDraft,
   failPendingAssistantTurn as failConversationPendingAssistantTurn,
-  getConversationTurn,
   interruptAssistantDraft,
 } from './conversation/conversationTurnManager';
 import {
-  persistAssistantDraftInBackground,
   persistConversationTurnInBackground,
 } from './conversation/persistConversationTurn';
 import { createTransportEventRouter } from './transport/transportEventRouter';
@@ -269,8 +268,11 @@ export function createDesktopSessionController(
     ensureAssistantVoiceTurn: () => {
       voiceTranscript.ensureAssistantTurn();
     },
-    finalizeCurrentVoiceTurns: (finalizeReason) => {
-      voiceTranscript.finalizeCurrentVoiceTurns(finalizeReason);
+    finalizeCurrentVoiceTurns: (finalizeReason, options) => {
+      voiceTranscript.finalizeCurrentVoiceTurns(finalizeReason, options);
+    },
+    attachCurrentAssistantTurn: (turnId) => {
+      voiceTranscript.attachCurrentAssistantTurn(turnId);
     },
     enqueueVoiceToolCalls: (c) => runtimeRef.current!.enqueueVoiceToolCalls(c),
     handleVoiceInterruption: () => runtimeRef.current!.handleVoiceInterruption(),
@@ -290,26 +292,37 @@ export function createDesktopSessionController(
     },
     commitAssistantDraft: () => {
       const draft = consumeCompletedAssistantDraft(conversationCtx);
-      persistAssistantDraftInBackground(
-        dependencies.store,
-        draft,
-        conversationCtx.currentVoiceAssistantTurnId,
-      );
+      const assistantTurnId = draft
+        ? appendCompletedAssistantTurn(conversationCtx, draft.content, {
+            source: 'voice',
+          })
+        : null;
+
+      if (assistantTurnId) {
+        persistSettledConversationTurn(assistantTurnId);
+      }
+
+      return assistantTurnId;
     },
     hasActiveAssistantVoiceTurn: () => {
-      return conversationCtx.currentVoiceAssistantTurnId !== null;
+      return conversationCtx.currentVoiceAssistantArtifactId !== null;
     },
     hasQueuedMixedModeAssistantReply: () => {
       return conversationCtx.hasQueuedMixedModeAssistantReply;
     },
     hasStreamingAssistantVoiceTurn: () => {
-      const currentAssistantTurnId = conversationCtx.currentVoiceAssistantTurnId;
+      const currentAssistantArtifactId = conversationCtx.currentVoiceAssistantArtifactId;
 
-      if (!currentAssistantTurnId) {
+      if (!currentAssistantArtifactId) {
         return false;
       }
 
-      return getConversationTurn(conversationCtx, currentAssistantTurnId)?.state === 'streaming';
+      return (
+        dependencies.store
+          .getState()
+          .transcriptArtifacts.find((artifact) => artifact.id === currentAssistantArtifactId)
+          ?.state === 'streaming'
+      );
     },
     setVoiceErrorState: (d) => setVoiceErrorState(d),
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),

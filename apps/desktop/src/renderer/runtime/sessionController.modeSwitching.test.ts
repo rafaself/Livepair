@@ -185,9 +185,10 @@ describe('createDesktopSessionController – mode switching', () => {
     await controller.startSession({ mode: 'voice' });
     voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Speech reply' });
+    voiceTransport.emit({ type: 'text-delta', text: 'Speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
     await vi.waitFor(() => {
-      expect(persistedMessages).toHaveLength(1);
+      expect(persistedMessages).toHaveLength(2);
     });
 
     await controller.endSpeechMode();
@@ -221,6 +222,7 @@ describe('createDesktopSessionController – mode switching', () => {
 
     expect(persistedMessages).toEqual([
       expect.objectContaining({ role: 'user', contentText: 'Speech request' }),
+      expect.objectContaining({ role: 'assistant', contentText: 'Speech reply' }),
     ]);
   });
 
@@ -370,6 +372,7 @@ describe('createDesktopSessionController – mode switching', () => {
     await controller.startSession({ mode: 'voice' });
     voiceTransport.emit({ type: 'input-transcript', text: 'First speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'First speech reply' });
+    voiceTransport.emit({ type: 'text-delta', text: 'First speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
 
     await controller.endSpeechMode();
@@ -377,6 +380,7 @@ describe('createDesktopSessionController – mode switching', () => {
 
     voiceTransport.emit({ type: 'input-transcript', text: 'Second speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Second speech reply' });
+    voiceTransport.emit({ type: 'text-delta', text: 'Second speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
 
     expect(useSessionStore.getState().conversationTurns).toEqual([

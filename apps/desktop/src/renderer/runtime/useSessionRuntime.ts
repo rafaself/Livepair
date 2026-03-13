@@ -1,14 +1,14 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   selectAssistantRuntimeState,
   selectBackendIndicatorState,
   selectBackendLabel,
   selectCanSubmitText,
-  selectIsConversationEmpty,
   selectIsSessionActive,
   selectTextSessionStatus,
   selectTextSessionStatusLabel,
   selectTokenFeedback,
+  selectVisibleConversationTimeline,
 } from './selectors';
 import { getDesktopSessionController } from './sessionController';
 import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
@@ -26,9 +26,18 @@ export function useSessionRuntime() {
   const textSessionStatus = useSessionStore(selectTextSessionStatus);
   const textSessionStatusLabel = useSessionStore(selectTextSessionStatusLabel);
   const canSubmitText = useSessionStore(selectCanSubmitText);
-  const conversationTurns = useSessionStore((state) => state.conversationTurns);
+  const canonicalConversationTurns = useSessionStore((state) => state.conversationTurns);
+  const transcriptArtifacts = useSessionStore((state) => state.transcriptArtifacts);
+  const conversationTurns = useMemo(
+    () =>
+      selectVisibleConversationTimeline({
+        conversationTurns: canonicalConversationTurns,
+        transcriptArtifacts,
+      }),
+    [canonicalConversationTurns, transcriptArtifacts],
+  );
   const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
-  const isConversationEmpty = useSessionStore(selectIsConversationEmpty);
+  const isConversationEmpty = conversationTurns.length === 0;
   const isSessionActive = useSessionStore(selectIsSessionActive);
   const speechLifecycleStatus = useSessionStore((state) => state.speechLifecycle.status);
   const voiceSessionStatus = useSessionStore((state) => state.voiceSessionStatus);

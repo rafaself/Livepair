@@ -244,13 +244,14 @@ describe('App', () => {
           },
         },
       });
+      __emitGeminiLiveSdkMessage({ text: 'Speech reply' });
       __emitGeminiLiveSdkMessage({ serverContent: { turnComplete: true } });
     });
 
     expect(await screen.findByText('Speech request')).toBeVisible();
     expect(await screen.findByText('Speech reply')).toBeVisible();
     await waitFor(() => {
-      expect(persistedMessages).toHaveLength(1);
+      expect(persistedMessages).toHaveLength(2);
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'End speech mode' }));
