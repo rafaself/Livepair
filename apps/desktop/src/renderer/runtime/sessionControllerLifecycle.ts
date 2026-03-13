@@ -17,6 +17,7 @@ import type {
   VoiceSessionStatus,
 } from './voice/voice.types';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type { LiveSessionHistoryTurn } from './transport/transport.types';
 
 type SessionControllerLifecycleArgs = {
   store: SessionStoreApi;
@@ -50,6 +51,7 @@ type SessionControllerLifecycleArgs = {
   resetVoiceSessionDurability: () => void;
   resetVoiceToolState: () => void;
   requestVoiceSessionToken: (operationId: number) => Promise<CreateEphemeralTokenResponse | null>;
+  buildLiveSessionHistoryFromCurrentChat: () => Promise<LiveSessionHistoryTurn[]>;
   setCachedVoiceToken: (token: CreateEphemeralTokenResponse) => void;
   syncVoiceDurabilityState: (
     token: CreateEphemeralTokenResponse | null,
@@ -95,6 +97,7 @@ export function createSessionControllerLifecycle({
   resetVoiceSessionDurability,
   resetVoiceToolState,
   requestVoiceSessionToken,
+  buildLiveSessionHistoryFromCurrentChat,
   setCachedVoiceToken,
   syncVoiceDurabilityState,
   setVoiceResumptionInFlight,
@@ -189,10 +192,25 @@ export function createSessionControllerLifecycle({
       logRuntimeDiagnostic('voice-session', 'start requested', {
         transport: LIVE_ADAPTER_KEY,
       });
+      const historyPromise = buildLiveSessionHistoryFromCurrentChat();
 
       const token = await requestVoiceSessionToken(operationId);
 
       if (!token || !isCurrentSessionOperation(operationId)) {
+        void historyPromise.catch(() => undefined);
+        return;
+      }
+
+      let history: LiveSessionHistoryTurn[];
+
+      try {
+        history = await historyPromise;
+      } catch (error) {
+        if (!isCurrentSessionOperation(operationId)) {
+          return;
+        }
+
+        await setVoiceErrorState(asErrorDetail(error, 'Failed to load chat history'));
         return;
       }
 
@@ -219,6 +237,7 @@ export function createSessionControllerLifecycle({
         await transport.connect({
           token,
           mode: 'voice',
+          ...(history.length > 0 ? { history } : {}),
         });
 
         if (!isCurrentSessionOperation(operationId)) {

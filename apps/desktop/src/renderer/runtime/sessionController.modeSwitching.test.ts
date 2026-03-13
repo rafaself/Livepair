@@ -3,6 +3,7 @@ import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import {
   createVoiceTransportHarness,
   createVoiceCaptureHarness,
@@ -26,6 +27,7 @@ describe('createDesktopSessionController – mode switching', () => {
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
+    resetCurrentChatMemoryForTests();
     persistedMessages = [];
     window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue({
       id: 'chat-1',
@@ -247,6 +249,127 @@ describe('createDesktopSessionController – mode switching', () => {
         { role: 'user', content: 'Speech request' },
         { role: 'assistant', content: 'Speech reply' },
         { role: 'user', content: 'Text after end' },
+      ],
+    });
+  });
+
+  it('preserves canonical text-live-text continuity and reuses persisted history when speech mode reopens', async () => {
+    persistedMessages = [
+      {
+        id: 'message-1',
+        chatId: 'chat-1',
+        role: 'user',
+        contentText: 'Persisted text question',
+        createdAt: '2026-03-12T09:01:00.000Z',
+        sequence: 1,
+      },
+      {
+        id: 'message-2',
+        chatId: 'chat-1',
+        role: 'assistant',
+        contentText: 'Persisted text answer',
+        createdAt: '2026-03-12T09:02:00.000Z',
+        sequence: 2,
+      },
+    ];
+    const textChat = createTextChatHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    expect(voiceTransport.connect).toHaveBeenNthCalledWith(1, {
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      history: [
+        {
+          role: 'user',
+          parts: [{ text: 'Persisted text question' }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Persisted text answer' }],
+        },
+      ],
+    });
+
+    await controller.endSpeechMode();
+    await expect(controller.submitTextTurn('Text after speech')).resolves.toBe(true);
+    textChat.emit({ type: 'text-delta', text: 'Persisted text follow-up answer' });
+    textChat.emit({ type: 'completed' });
+
+    await vi.waitFor(() => {
+      expect(persistedMessages).toEqual([
+        expect.objectContaining({ role: 'user', contentText: 'Persisted text question' }),
+        expect.objectContaining({ role: 'assistant', contentText: 'Persisted text answer' }),
+        expect.objectContaining({ role: 'user', contentText: 'Text after speech' }),
+        expect.objectContaining({
+          role: 'assistant',
+          contentText: 'Persisted text follow-up answer',
+        }),
+      ]);
+    });
+
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'renderer-only-turn',
+        role: 'assistant',
+        content: 'Renderer-only state should not seed Live',
+        timestamp: '9:30 AM',
+        state: 'complete',
+      },
+    ]);
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(textChat.getLastRequest()).toEqual({
+      messages: [
+        { role: 'user', content: 'Persisted text question' },
+        { role: 'assistant', content: 'Persisted text answer' },
+        { role: 'user', content: 'Text after speech' },
+      ],
+    });
+    expect(voiceTransport.connect).toHaveBeenNthCalledWith(2, {
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      history: [
+        {
+          role: 'user',
+          parts: [{ text: 'Persisted text question' }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Persisted text answer' }],
+        },
+        {
+          role: 'user',
+          parts: [{ text: 'Text after speech' }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Persisted text follow-up answer' }],
+        },
       ],
     });
   });

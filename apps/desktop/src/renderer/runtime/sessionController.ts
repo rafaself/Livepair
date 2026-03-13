@@ -11,6 +11,7 @@ import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
 import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
 import {
   appendMessageToCurrentChat,
+  buildLiveSessionHistoryFromCurrentChat,
   buildTextChatRequestFromCurrentChat,
 } from '../chatMemory/currentChatMemory';
 import { createAssistantAudioPlayback } from './audio/assistantAudioPlayback';
@@ -411,6 +412,7 @@ export function createDesktopSessionController(
     resetVoiceSessionDurability: () => runtimeRef.current!.resetVoiceSessionDurability(),
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
     requestVoiceSessionToken: (operationId) => requestVoiceSessionToken(operationId),
+    buildLiveSessionHistoryFromCurrentChat,
     setCachedVoiceToken: (token) => {
       tokenMgr.set(token);
     },

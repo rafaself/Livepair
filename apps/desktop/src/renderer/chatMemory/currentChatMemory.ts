@@ -9,6 +9,7 @@ import {
   mapChatMessageRecordsToConversationTurns,
   mapChatMessageRecordsToTextChatMessages,
 } from '../runtime/conversation/chatMessageAdapter';
+import type { LiveSessionHistoryTurn } from '../runtime/transport/transport.types';
 
 type CurrentChatMemoryBridge = Pick<
   typeof window.bridge,
@@ -80,6 +81,24 @@ export async function buildTextChatRequestFromCurrentChat(
   return {
     messages: mapChatMessageRecordsToTextChatMessages(messages),
   };
+}
+
+function mapChatMessageRecordsToLiveSessionHistory(
+  records: readonly ChatMessageRecord[],
+): LiveSessionHistoryTurn[] {
+  return [...records]
+    .sort((left, right) => left.sequence - right.sequence)
+    .map((record) => ({
+      role: record.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: record.contentText }],
+    }));
+}
+
+export async function buildLiveSessionHistoryFromCurrentChat(
+  bridge: CurrentChatMemoryBridge = window.bridge,
+): Promise<LiveSessionHistoryTurn[]> {
+  const messages = await listCurrentChatMessages(bridge);
+  return mapChatMessageRecordsToLiveSessionHistory(messages);
 }
 
 export async function appendMessageToCurrentChat(

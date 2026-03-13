@@ -20,6 +20,7 @@ import {
 import {
   buildGeminiLiveAudioInput,
   buildGeminiLiveAudioStreamEnd,
+  buildGeminiLiveHistoryPrefill,
   buildGeminiLiveSdkToolResponse,
   buildGeminiLiveTextTurn,
   buildGeminiLiveVideoInput,
@@ -74,7 +75,7 @@ export class GeminiLiveTransport implements DesktopSession {
     };
   }
 
-  async connect({ token, mode, resumeHandle }: DesktopSessionConnectParams): Promise<void> {
+  async connect({ token, mode, resumeHandle, history }: DesktopSessionConnectParams): Promise<void> {
     if (!token.token) {
       const detail = 'Gemini Live token was missing';
       this.emit({ type: 'error', detail });
@@ -239,6 +240,18 @@ export class GeminiLiveTransport implements DesktopSession {
 
     try {
       await setupPromise;
+      const session = this.state.session ?? activeSession;
+
+      if (history && history.length > 0) {
+        if (!session) {
+          throw createTransportError('Gemini Live session did not initialize correctly');
+        }
+
+        logRuntimeDiagnostic('gemini-live-transport', 'prefill history', {
+          turnCount: history.length,
+        });
+        session.sendClientContent(buildGeminiLiveHistoryPrefill(history));
+      }
     } catch (error) {
       closeGeminiLiveSdkSession(activeSession);
       throw error;
