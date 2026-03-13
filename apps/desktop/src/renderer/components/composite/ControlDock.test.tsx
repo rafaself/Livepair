@@ -66,7 +66,7 @@ describe('ControlDock', () => {
     expect(screen.getByRole('button', { name: /open panel/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /start microphone capture/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /start screen context/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /end speech mode/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /end live session/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /switch to speech mode/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /connect voice session/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /disconnect voice session/i })).toBeNull();
@@ -85,7 +85,7 @@ describe('ControlDock', () => {
 
     expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: /end speech mode/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /end live session/i })).toBeNull();
     expect(screen.getByRole('button', { name: /close panel/i })).toHaveAttribute(
       'aria-expanded',
       'true',
@@ -105,7 +105,7 @@ describe('ControlDock', () => {
     expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
 
-    const endSpeechModeButton = screen.getByRole('button', { name: 'End speech mode' });
+    const endSpeechModeButton = screen.getByRole('button', { name: 'End Live session' });
     expect(endSpeechModeButton).toBeEnabled();
     expect(endSpeechModeButton).toHaveClass('control-dock__btn--danger');
 
@@ -159,11 +159,11 @@ describe('ControlDock', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /speech mode is starting/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /live session is starting/i })).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /screen context unavailable while speech mode starts/i }),
+      screen.getByRole('button', { name: /screen context unavailable while live session starts/i }),
     ).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Starting speech mode' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Starting Live session' })).toBeDisabled();
 
     rerender(
       <ControlDock
@@ -176,11 +176,11 @@ describe('ControlDock', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /speech mode is ending/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /live session is ending/i })).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /screen context unavailable while speech mode ends/i }),
+      screen.getByRole('button', { name: /screen context unavailable while live session ends/i }),
     ).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Ending speech mode' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ending Live session' })).toBeDisabled();
   });
 
   it('keeps speech controls visible but disabled while speech teardown is still in progress', () => {
@@ -193,11 +193,11 @@ describe('ControlDock', () => {
       screenCaptureState: 'error',
     });
 
-    expect(screen.getByRole('button', { name: /speech mode is ending/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /live session is ending/i })).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /screen context unavailable while speech mode ends/i }),
+      screen.getByRole('button', { name: /screen context unavailable while live session ends/i }),
     ).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Ending speech mode' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ending Live session' })).toBeDisabled();
   });
 
   it('disables mic and screen retries when the speech runtime is no longer ready', () => {
@@ -211,10 +211,10 @@ describe('ControlDock', () => {
     });
 
     expect(
-      screen.getByRole('button', { name: /microphone unavailable until speech mode is ready/i }),
+      screen.getByRole('button', { name: /microphone unavailable while live session starts/i }),
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /screen context unavailable until speech mode is ready/i }),
+      screen.getByRole('button', { name: /screen context unavailable while live session starts/i }),
     ).toBeDisabled();
   });
 

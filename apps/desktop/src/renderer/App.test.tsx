@@ -212,8 +212,8 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start Live Session' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Starting speech mode' })).toBeDisabled();
-      expect(screen.getByText('Start speaking')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Starting Live session' })).toBeDisabled();
+      expect(screen.getByText('Starting Live session...')).toBeVisible();
       expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
     });
 
@@ -222,7 +222,7 @@ describe('App', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'End speech mode' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'End Live session' })).toBeEnabled();
     });
 
     await act(async () => {
@@ -250,7 +250,7 @@ describe('App', () => {
       expect(persistedMessages).toHaveLength(2);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'End speech mode' }));
+    fireEvent.click(screen.getByRole('button', { name: 'End Live session' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Resume Live Session' })).toBeEnabled();

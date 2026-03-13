@@ -47,19 +47,19 @@ function getMicrophoneLabel(
   voiceCaptureState: VoiceCaptureState,
 ): string {
   if (speechLifecycleStatus === 'starting') {
-    return 'Speech mode is starting';
+    return 'Live session is starting';
   }
 
   if (speechLifecycleStatus === 'ending') {
-    return 'Speech mode is ending';
+    return 'Live session is ending';
   }
 
   if (!showSpeechControls) {
-    return 'Microphone unavailable outside speech mode';
+    return 'Microphone unavailable outside a Live session';
   }
 
   if (!isMicrophoneAvailable) {
-    return 'Microphone unavailable until speech mode is ready';
+    return 'Microphone unavailable while Live session starts';
   }
 
   if (isVoiceCapturing) {
@@ -89,19 +89,19 @@ function getScreenContextLabel(
   screenCaptureState: ScreenCaptureState,
 ): string {
   if (speechLifecycleStatus === 'starting') {
-    return 'Screen context unavailable while speech mode starts';
+    return 'Screen context unavailable while Live session starts';
   }
 
   if (speechLifecycleStatus === 'ending') {
-    return 'Screen context unavailable while speech mode ends';
+    return 'Screen context unavailable while Live session ends';
   }
 
   if (!showSpeechControls) {
-    return 'Screen context unavailable outside speech mode';
+    return 'Screen context unavailable outside a Live session';
   }
 
   if (!isScreenContextAvailable) {
-    return 'Screen context unavailable until speech mode is ready';
+    return 'Screen context unavailable while Live session starts';
   }
 
   if (isScreenContextActive) {
@@ -125,14 +125,14 @@ function getScreenContextLabel(
 
 function getEndSpeechModeLabel(speechLifecycleStatus: SpeechLifecycleStatus): string {
   if (speechLifecycleStatus === 'starting') {
-    return 'Starting speech mode';
+    return 'Starting Live session';
   }
 
   if (speechLifecycleStatus === 'ending') {
-    return 'Ending speech mode';
+    return 'Ending Live session';
   }
 
-  return 'End speech mode';
+  return 'End Live session';
 }
 
 export function createControlDockUiState({

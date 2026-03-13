@@ -26,14 +26,14 @@ export type CreateAssistantPanelComposerActionOptions = {
 
 function getEndSpeechModeLabel(speechLifecycleStatus: SpeechLifecycleStatus): string {
   if (speechLifecycleStatus === 'starting') {
-    return 'Starting speech mode';
+    return 'Starting Live session';
   }
 
   if (speechLifecycleStatus === 'ending') {
-    return 'Ending speech mode';
+    return 'Ending Live session';
   }
 
-  return 'End speech mode';
+  return 'End Live session';
 }
 
 export function createAssistantPanelComposerAction({

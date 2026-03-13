@@ -435,7 +435,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'End speech mode' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeEnabled();
 
     fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
 
@@ -515,7 +515,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Starting speech mode' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Starting Live session' })).toBeDisabled();
 
     rerender(
       <AssistantPanelChatView
@@ -536,6 +536,6 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Ending speech mode' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ending Live session' })).toBeDisabled();
   });
 });
