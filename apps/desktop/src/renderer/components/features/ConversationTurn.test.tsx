@@ -224,7 +224,7 @@ describe('ConversationTurn transcript artifact presentation', () => {
       />,
     );
 
-    const article = screen.getByRole('article', { name: 'User turn at 09:50' });
+    const article = screen.getByRole('article', { name: 'User transcript at 09:50' });
 
     expect(article).toHaveClass('conversation-turn--transcript');
     expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
@@ -246,7 +246,7 @@ describe('ConversationTurn transcript artifact presentation', () => {
       />,
     );
 
-    const article = screen.getByRole('article', { name: 'Assistant turn at 09:51' });
+    const article = screen.getByRole('article', { name: 'Assistant transcript at 09:51' });
 
     expect(article).toHaveClass('conversation-turn--transcript');
     expect(article).toHaveClass('conversation-turn--transcript-interrupted');
@@ -289,5 +289,62 @@ describe('ConversationTurn transcript artifact presentation', () => {
 
     expect(article).not.toHaveClass('conversation-turn--transcript');
     expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
+  });
+
+  it('uses "transcript" in the aria-label for transcript artifacts instead of "turn"', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'assistant-transcript-2',
+          role: 'assistant',
+          content: 'Some transcribed reply',
+          timestamp: '09:55',
+          state: 'complete',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('article', { name: 'Assistant transcript at 09:55' })).toBeVisible();
+    expect(screen.queryByRole('article', { name: 'Assistant turn at 09:55' })).toBeNull();
+  });
+
+  it('does not show a copy button on an assistant transcript artifact', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'assistant-transcript-no-copy',
+          role: 'assistant',
+          content: 'Transcribed assistant speech.',
+          timestamp: '09:56',
+          state: 'complete',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant transcript at 09:56' });
+
+    expect(article.querySelector('.conversation-turn__copy-btn')).toBeNull();
+  });
+
+  it('shows a copy button on a canonical assistant turn', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-canonical',
+          role: 'assistant',
+          content: 'Canonical assistant reply.',
+          timestamp: '09:57',
+          state: 'complete',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant turn at 09:57' });
+
+    expect(article.querySelector('.conversation-turn__copy-btn')).not.toBeNull();
   });
 });

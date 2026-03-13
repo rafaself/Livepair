@@ -53,10 +53,13 @@ export function ConversationTurn({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const artifactKind = isTranscript ? 'transcript' : 'turn';
+  const showCopyButton = turn.role === 'assistant' && !isTypingOnly && !isTranscript;
+
   return (
     <article
       className={classes}
-      aria-label={`${TURN_LABELS[turn.role]} turn at ${turn.timestamp}`}
+      aria-label={`${TURN_LABELS[turn.role]} ${artifactKind} at ${turn.timestamp}`}
       {...rest}
     >
       <div className="conversation-turn__bubble">
@@ -70,7 +73,7 @@ export function ConversationTurn({
 
         <div className="conversation-turn__meta">
           <div className="conversation-turn__meta-main">
-            {turn.role === 'assistant' && !isTypingOnly ? (
+            {showCopyButton ? (
               <IconButton
                 label={copied ? 'Copied' : 'Copy message'}
                 size="sm"
