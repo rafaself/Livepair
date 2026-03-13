@@ -2,13 +2,13 @@ import type { HTMLAttributes } from 'react';
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { Badge, IconButton } from '../primitives';
-import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
+import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
 import { TypingIndicator } from './TypingIndicator';
 import { renderAssistantMarkdown } from './renderAssistantMarkdown';
 import './ConversationTurn.css';
 
 export type ConversationTurnProps = {
-  turn: ConversationTurnModel;
+  turn: ConversationTimelineEntry;
 } & HTMLAttributes<HTMLElement>;
 
 const TURN_LABELS = {
@@ -17,7 +17,7 @@ const TURN_LABELS = {
   system: 'System',
 } as const;
 
-function getBadgeVariant(turn: ConversationTurnModel): 'default' | 'error' {
+function getBadgeVariant(turn: ConversationTimelineEntry): 'default' | 'error' {
   return turn.state === 'error' ? 'error' : 'default';
 }
 

@@ -10,6 +10,7 @@ export type AssistantPanelChatComposerProps = {
   isComposerDisabled: boolean;
   isLiveSessionActive: boolean;
   isPanelOpen: boolean;
+  placeholder: string;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onEndSpeechMode: () => Promise<void>;
   onStartSpeechMode: () => Promise<void>;
@@ -23,6 +24,7 @@ export function AssistantPanelChatComposer({
   isComposerDisabled,
   isLiveSessionActive,
   isPanelOpen,
+  placeholder,
   onDraftTextChange,
   onEndSpeechMode,
   onStartSpeechMode,
@@ -120,7 +122,7 @@ export function AssistantPanelChatComposer({
             value={draftText}
             onChange={onDraftTextChange}
             disabled={isComposerDisabled}
-            placeholder="Ask Livepair"
+            placeholder={placeholder}
             className="assistant-panel__composer-textarea"
             onKeyDown={handleKeyDown}
             rows={1}

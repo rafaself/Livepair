@@ -119,9 +119,6 @@ describe('App', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
-    window.bridge.startTextChatStream = vi.fn(async () => ({
-      cancel: vi.fn(async () => undefined),
-    }));
     document.documentElement.dataset['theme'] = '';
     document.documentElement.style.colorScheme = '';
     window.bridge.overlayMode = 'linux-shape';
@@ -197,7 +194,6 @@ describe('App', () => {
     expect(screen.queryByRole('form', { name: 'Send message to Livepair' })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
-    expect(window.bridge.startTextChatStream).not.toHaveBeenCalled();
   });
 
   it('ends speech mode without clearing history and returns to the inactive resume CTA', async () => {
@@ -244,6 +240,7 @@ describe('App', () => {
           },
         },
       });
+      __emitGeminiLiveSdkMessage({ text: 'Speech reply' });
       __emitGeminiLiveSdkMessage({ serverContent: { turnComplete: true } });
     });
 

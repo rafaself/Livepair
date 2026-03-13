@@ -10,7 +10,7 @@ import { useUiStore, type PanelView } from '../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
 import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 import type { ProductMode } from '../../runtime/core/session.types';
-import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
+import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
 import type {
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
@@ -33,7 +33,7 @@ export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
   isPanelOpen: boolean;
   panelView: PanelView;
-  conversationTurns: ConversationTurnModel[];
+  conversationTurns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
   setPanelView: (view: PanelView) => void;
   closePanel: () => void;
@@ -65,7 +65,6 @@ export type AssistantPanelController = {
   handleDraftTextChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   handleSubmitTextTurn: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   handleCheckBackendHealth: () => Promise<void>;
-  handleStartTalking: () => Promise<void>;
   handleStartSpeechMode: () => Promise<void>;
   handleEndSpeechMode: () => Promise<void>;
 };
@@ -103,7 +102,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     lastRuntimeError,
     isConversationEmpty,
     handleCheckBackendHealth,
-    handleStartSession,
     handleStartVoiceSession,
     handleEndSpeechMode,
     handleSubmitTextTurn,
@@ -122,10 +120,6 @@ export function useAssistantPanelController(): AssistantPanelController {
 
     void handleCheckBackendHealthCallback();
   }, [handleCheckBackendHealthCallback, isPanelOpen]);
-
-  const handleStartTalking = useCallback(async (): Promise<void> => {
-    await handleStartSession();
-  }, [handleStartSession]);
 
   const handleStartSpeechMode = useCallback(async (): Promise<void> => {
     await handleStartVoiceSession();
@@ -232,7 +226,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     handleDraftTextChange,
     handleSubmitTextTurn: handleSubmitTextTurnCallback,
     handleCheckBackendHealth: handleCheckBackendHealthCallback,
-    handleStartTalking,
     handleStartSpeechMode: async () => {
       if (composerSpeechActionKind !== 'start') {
         return;

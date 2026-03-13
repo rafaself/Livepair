@@ -9,7 +9,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="disconnected"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="disconnected"
         canSubmitText={true}
@@ -55,7 +55,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="ready"
         canSubmitText={true}
@@ -83,7 +83,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="error"
         canSubmitText={true}
@@ -120,7 +120,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="error"
         canSubmitText={true}
@@ -145,7 +145,8 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
-        currentMode="text"
+        currentMode="inactive"
+        speechLifecycleStatus="off"
         textSessionStatus="ready"
         canSubmitText={true}
         turns={[]}
@@ -155,7 +156,6 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
-        speechLifecycleStatus="off"
         onStartSpeechMode={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
@@ -337,7 +337,7 @@ describe('AssistantPanelChatView', () => {
     expect(
       screen.getByText('Your spoken turns and assistant replies will appear here.'),
     ).toBeVisible();
-    expect(screen.queryByText('No conversation yet')).toBeNull();
+    expect(screen.queryByText('Live session history starts here')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
   });
 
@@ -386,7 +386,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="receiving"
         canSubmitText={false}

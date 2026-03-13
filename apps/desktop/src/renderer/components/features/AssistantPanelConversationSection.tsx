@@ -1,13 +1,13 @@
 import { History, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ConversationList } from './ConversationList';
-import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
+import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
 
 export type AssistantPanelConversationSectionProps = {
   emptyState: ReactNode;
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
-  turns: ConversationTurnModel[];
+  turns: ConversationTimelineEntry[];
 };
 
 export function AssistantPanelConversationSection({
