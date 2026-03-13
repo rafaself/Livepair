@@ -228,7 +228,7 @@ describe('createGeminiLiveTransport', () => {
     await connectPromise;
   });
 
-  it('prefills canonical history once after setup completes before later user sends', async () => {
+  it('prefills canonical history from the rehydration packet once after setup completes', async () => {
     const sdkHarness = createSdkHarness();
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
@@ -242,16 +242,35 @@ describe('createGeminiLiveTransport', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
-      history: [
-        {
-          role: 'user',
-          parts: [{ text: 'Persisted question' }],
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [
+          {
+            role: 'user',
+            kind: 'message',
+            text: 'Persisted question',
+            createdAt: '2026-03-12T09:01:00.000Z',
+            sequence: 1,
+          },
+          {
+            role: 'assistant',
+            kind: 'message',
+            text: 'Persisted answer',
+            createdAt: '2026-03-12T09:02:00.000Z',
+            sequence: 2,
+          },
+        ],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
         },
-        {
-          role: 'model',
-          parts: [{ text: 'Persisted answer' }],
-        },
-      ],
+      },
     });
 
     await Promise.resolve();
