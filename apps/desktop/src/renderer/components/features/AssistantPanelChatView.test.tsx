@@ -161,8 +161,8 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.queryByPlaceholderText('Ask Livepair')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
+    expect(screen.queryByPlaceholderText('Add a note to the session')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send note to session' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Start Live Session' })).toBeEnabled();
   });
 
@@ -193,7 +193,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
+    fireEvent.submit(screen.getByRole('form', { name: 'Send a typed note to the Live session' }));
 
     expect(handleSubmitTextTurn).toHaveBeenCalledTimes(1);
 
@@ -218,8 +218,8 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    expect(screen.getByPlaceholderText('Add a note to the session')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send note to session' })).toBeDisabled();
   });
 
   it('keeps the active Live composer enabled after a completed turn and disables it while connecting', () => {
@@ -244,7 +244,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText('Ask Livepair')).toBeEnabled();
+    expect(screen.getByPlaceholderText('Add a note to the session')).toBeEnabled();
 
     rerender(
       <AssistantPanelChatView
@@ -267,7 +267,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
+    expect(screen.getByPlaceholderText('Add a note to the session')).toBeDisabled();
   });
 
   it('renders live voice turns inside the conversation timeline and hides the legacy transcript panel', () => {
@@ -369,9 +369,9 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Send note to session' })).toBeEnabled();
 
-    fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
+    fireEvent.submit(screen.getByRole('form', { name: 'Send a typed note to the Live session' }));
 
     expect(handleSubmitTextTurn).toHaveBeenCalledTimes(1);
     expect(handleStartSpeechMode).not.toHaveBeenCalled();
@@ -437,7 +437,7 @@ describe('AssistantPanelChatView', () => {
 
     expect(screen.getByRole('button', { name: 'End Live session' })).toBeEnabled();
 
-    fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
+    fireEvent.submit(screen.getByRole('form', { name: 'Send a typed note to the Live session' }));
 
     expect(handleEndSpeechMode).toHaveBeenCalledTimes(1);
     expect(handleSubmitTextTurn).not.toHaveBeenCalled();
@@ -466,8 +466,8 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    expect(screen.getByPlaceholderText('Add a note to the session')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send note to session' })).toBeDisabled();
 
     rerender(
       <AssistantPanelChatView
@@ -490,8 +490,8 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText('Ask Livepair')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    expect(screen.getByPlaceholderText('Add a note to the session')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send note to session' })).toBeDisabled();
   });
 
   it('disables the empty-composer speech action while speech lifecycle transitions are in progress', () => {

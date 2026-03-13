@@ -83,7 +83,7 @@ export function AssistantPanelChatView({
     isComposerDisabled,
     speechLifecycleStatus,
   });
-  const composerPlaceholder = 'Ask Livepair';
+  const composerPlaceholder = 'Add a note to the session';
 
   return (
     <div className="assistant-panel__view-section">

@@ -52,7 +52,7 @@ export function createAssistantPanelComposerAction({
       icon: <SendHorizonal size={18} aria-hidden="true" />,
       isLoading: false,
       kind: 'send',
-      label: 'Send message',
+      label: 'Send note to session',
     };
   }
 

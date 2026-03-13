@@ -120,7 +120,7 @@ export function AssistantPanelChatComposer({
       <form
         ref={formRef}
         className="assistant-panel__composer"
-        aria-label="Send message to Livepair"
+        aria-label="Send a typed note to the Live session"
         onSubmit={handleComposerSubmit}
       >
         <div className="assistant-panel__composer-box">

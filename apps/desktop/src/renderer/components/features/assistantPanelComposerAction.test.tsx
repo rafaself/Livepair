@@ -51,6 +51,20 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
     });
   });
 
+  describe('send action', () => {
+    it('labels the send button as a session note action, not generic message', () => {
+      const action = createAssistantPanelComposerAction({
+        controlGatingSnapshot: activeSnapshot,
+        draftText: 'hello',
+        isConversationEmpty: false,
+        isComposerDisabled: false,
+        speechLifecycleStatus: 'listening',
+      });
+      expect(action.kind).toBe('send');
+      expect(action.label).toBe('Send note to session');
+    });
+  });
+
   describe('endSpeech action', () => {
     it('labels End Live session in ready state', () => {
       const action = createAssistantPanelComposerAction({
