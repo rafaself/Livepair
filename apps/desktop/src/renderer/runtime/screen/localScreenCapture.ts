@@ -1,9 +1,17 @@
 import type { LocalScreenFrame, ScreenCaptureDiagnostics } from './screen.types';
+import {
+  SCREEN_CAPTURE_FRAME_RATE_HZ,
+  SCREEN_CAPTURE_JPEG_QUALITY,
+  SCREEN_CAPTURE_MAX_WIDTH_PX,
+  SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+} from './screenCapturePolicy';
 
-export const SCREEN_CAPTURE_FRAME_RATE_HZ = 1;
-export const SCREEN_CAPTURE_MAX_WIDTH_PX = 640;
-export const SCREEN_CAPTURE_JPEG_QUALITY = 0.7;
-export const SCREEN_CAPTURE_VIDEO_MIME_TYPE = 'image/jpeg' as const;
+export {
+  SCREEN_CAPTURE_FRAME_RATE_HZ,
+  SCREEN_CAPTURE_JPEG_QUALITY,
+  SCREEN_CAPTURE_MAX_WIDTH_PX,
+  SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+} from './screenCapturePolicy';
 
 type CanvasLike = {
   width: number;

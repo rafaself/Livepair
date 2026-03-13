@@ -82,6 +82,7 @@ export type GeminiLiveConnectConfig = {
     | undefined;
 };
 
+// Conservative default for speech-mode screen sharing: optimize for latency/cost first.
 const DEFAULT_MEDIA_RESOLUTION: LiveMediaResolution = 'MEDIA_RESOLUTION_LOW';
 const AUDIO_TRANSCRIPTION_DISABLED = false;
 
@@ -321,7 +322,7 @@ export function buildGeminiLiveConnectConfig(
     liveConnectConfig.outputAudioTranscription = {};
   }
 
-  if (config.mediaResolution !== DEFAULT_MEDIA_RESOLUTION) {
+  if (mode === 'voice' || config.mediaResolution !== DEFAULT_MEDIA_RESOLUTION) {
     liveConnectConfig.mediaResolution = config.mediaResolution;
   }
 

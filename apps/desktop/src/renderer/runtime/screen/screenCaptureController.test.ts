@@ -4,6 +4,11 @@ import type { DesktopSession } from '../transport/transport.types';
 import type { VoiceSessionStatus } from '../voice/voice.types';
 import type { ScreenCaptureState } from './screen.types';
 import type { LocalScreenCaptureObserver } from './localScreenCapture';
+import {
+  SCREEN_CAPTURE_FRAME_RATE_HZ,
+  SCREEN_CAPTURE_JPEG_QUALITY,
+  SCREEN_CAPTURE_MAX_WIDTH_PX,
+} from './localScreenCapture';
 
 function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; screenCaptureState?: ScreenCaptureState } = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
@@ -83,6 +88,18 @@ describe('createScreenCaptureController', () => {
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('requestingPermission');
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('ready');
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('capturing');
+  });
+
+  it('start passes the explicit conservative screen policy to local capture', async () => {
+    const { ctrl, mockCapture } = createHarness();
+
+    await ctrl.start();
+
+    expect(mockCapture.start).toHaveBeenCalledWith({
+      frameRateHz: SCREEN_CAPTURE_FRAME_RATE_HZ,
+      jpegQuality: SCREEN_CAPTURE_JPEG_QUALITY,
+      maxWidthPx: SCREEN_CAPTURE_MAX_WIDTH_PX,
+    });
   });
 
   it('start rejects when voice session is not active', async () => {
@@ -295,6 +312,53 @@ describe('createScreenCaptureController', () => {
         ([patch]) => patch.lastUploadStatus === 'sent',
       ),
     ).toHaveLength(0);
+  });
+
+  it('keeps only the latest pending frame while a previous send is still in flight', async () => {
+    const { ctrl, sendVideoFrame } = createHarness();
+    let resolveFirstSend!: () => void;
+
+    sendVideoFrame
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveFirstSend = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(undefined);
+
+    await ctrl.start();
+    const firstSend = ctrl.enqueueFrameSend({
+      data: new Uint8Array([1]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 320,
+      heightPx: 240,
+    });
+    await Promise.resolve();
+    const secondSend = ctrl.enqueueFrameSend({
+      data: new Uint8Array([2]),
+      mimeType: 'image/jpeg',
+      sequence: 2,
+      widthPx: 320,
+      heightPx: 240,
+    });
+    const thirdSend = ctrl.enqueueFrameSend({
+      data: new Uint8Array([3]),
+      mimeType: 'image/jpeg',
+      sequence: 3,
+      widthPx: 320,
+      heightPx: 240,
+    });
+
+    resolveFirstSend();
+    await Promise.all([firstSend, secondSend, thirdSend]);
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(sendVideoFrame.mock.calls).toEqual([
+      [new Uint8Array([1]), 'image/jpeg'],
+      [new Uint8Array([3]), 'image/jpeg'],
+    ]);
   });
 
   it('ignores stale send failures after capture stops', async () => {

@@ -211,7 +211,8 @@ Current implementation:
 
 * screen capture is manual-only
 * screen capture requires an active speech session
-* uploaded frames stay lightweight: low FPS, compressed JPEG, reduced resolution
+* uploaded frames use an explicit conservative policy: 1 FPS capture, compressed JPEG, reduced width, and latest-frame-wins backpressure while a prior upload is in flight
+* Live voice sessions use `MEDIA_RESOLUTION_LOW` by default for screen sharing unless explicitly overridden
 
 Planned follow-up:
 

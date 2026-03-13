@@ -219,6 +219,7 @@ describe('createGeminiLiveTransport', () => {
       model: 'models/gemini-2.0-flash-exp',
       config: {
         responseModalities: ['AUDIO'],
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
         tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
@@ -352,6 +353,7 @@ describe('createGeminiLiveTransport', () => {
       model: 'models/gemini-2.0-flash-exp',
       config: {
         responseModalities: ['AUDIO'],
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
         sessionResumption: {
           handle: 'handles/latest-voice-handle',
         },
@@ -819,6 +821,7 @@ describe('createGeminiLiveTransport', () => {
       model: 'models/gemini-2.0-flash-exp',
       config: {
         responseModalities: ['AUDIO'],
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
         sessionResumption: {
           handle: 'handles/latest-voice-handle',
         },
@@ -1180,6 +1183,7 @@ describe('createGeminiLiveTransport', () => {
       model: 'models/gemini-2.0-flash-exp',
       config: {
         responseModalities: ['AUDIO'],
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
         inputAudioTranscription: {},
         outputAudioTranscription: {},
         tools: expect.any(Array),

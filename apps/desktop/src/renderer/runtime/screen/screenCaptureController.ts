@@ -11,6 +11,10 @@ import type {
   LocalScreenCapture,
   LocalScreenCaptureObserver,
 } from './localScreenCapture';
+import {
+  SCREEN_CAPTURE_MAX_PENDING_FRAMES,
+  SCREEN_CAPTURE_START_POLICY,
+} from './screenCapturePolicy';
 
 type ScreenCaptureStoreApi = {
   getState: () => {
@@ -44,8 +48,16 @@ export function createScreenCaptureController(
 ): ScreenCaptureController {
   let screenCapture: LocalScreenCapture | null = null;
   let screenCaptureGeneration = 0;
-  let screenSendChain = Promise.resolve();
   let stopInFlight: Promise<void> | null = null;
+  let pendingFrame:
+    | {
+        capture: LocalScreenCapture;
+        captureGeneration: number;
+        frame: LocalScreenFrame;
+        transport: DesktopSession;
+      }
+    | null = null;
+  let frameDrainInFlight: Promise<void> | null = null;
 
   const resetDiagnostics = (): void => {
     store.getState().setScreenCaptureDiagnostics({
@@ -115,10 +127,11 @@ export function createScreenCaptureController(
       return Promise.resolve();
     }
 
-    screenCapture = null;
-    screenCaptureGeneration += 1;
-    screenSendChain = Promise.resolve();
-    store.getState().setScreenCaptureState('stopping');
+     screenCapture = null;
+     screenCaptureGeneration += 1;
+     pendingFrame = null;
+     frameDrainInFlight = null;
+     store.getState().setScreenCaptureState('stopping');
 
     const finalizeStop = async (): Promise<void> => {
       let stopError: unknown;
@@ -177,60 +190,103 @@ export function createScreenCaptureController(
       return Promise.resolve();
     }
 
+    pendingFrame = {
+      capture,
+      captureGeneration,
+      frame,
+      transport,
+    };
     store.getState().setScreenCaptureDiagnostics({
       lastUploadStatus: 'sending',
       lastError: null,
     });
 
-    screenSendChain = screenSendChain
-      .then(async () => {
-        if (getTransport() !== transport || !isCurrentCapture(capture, captureGeneration)) {
-          return;
+    const drainPendingFrames = (): Promise<void> => {
+      if (frameDrainInFlight) {
+        return frameDrainInFlight;
+      }
+
+      const drainPromise = (async () => {
+        while (pendingFrame) {
+          const nextFrame = pendingFrame;
+          pendingFrame = null;
+
+          if (
+            getTransport() !== nextFrame.transport
+            || !isCurrentCapture(nextFrame.capture, nextFrame.captureGeneration)
+          ) {
+            continue;
+          }
+
+          try {
+            await nextFrame.transport.sendVideoFrame(
+              nextFrame.frame.data,
+              nextFrame.frame.mimeType,
+            );
+          } catch (error) {
+            if (
+              getTransport() !== nextFrame.transport
+              || !isCurrentCapture(nextFrame.capture, nextFrame.captureGeneration)
+            ) {
+              continue;
+            }
+
+            const detail = asErrorDetail(error, 'Failed to send screen frame');
+            logRuntimeError('screen-capture', 'video frame send failed', {
+              detail,
+              sequence: nextFrame.frame.sequence,
+              mimeType: nextFrame.frame.mimeType,
+              byteLength: nextFrame.frame.data.byteLength,
+              widthPx: nextFrame.frame.widthPx,
+              heightPx: nextFrame.frame.heightPx,
+            });
+            store.getState().setLastRuntimeError(detail);
+            pendingFrame = null;
+            void stopInternal({
+              nextState: 'error',
+              detail,
+              preserveDiagnostics: true,
+              uploadStatus: 'error',
+            });
+            return;
+          }
+
+          if (
+            getTransport() !== nextFrame.transport
+            || !isCurrentCapture(nextFrame.capture, nextFrame.captureGeneration)
+          ) {
+            continue;
+          }
+
+          logRuntimeDiagnostic('screen-capture', 'video frame sent', {
+            sequence: nextFrame.frame.sequence,
+            mimeType: nextFrame.frame.mimeType,
+            byteLength: nextFrame.frame.data.byteLength,
+            widthPx: nextFrame.frame.widthPx,
+            heightPx: nextFrame.frame.heightPx,
+            maxPendingFrames: SCREEN_CAPTURE_MAX_PENDING_FRAMES,
+          });
+          store.getState().setScreenCaptureState('streaming');
+          store.getState().setScreenCaptureDiagnostics({
+            lastUploadStatus: 'sent',
+            lastError: null,
+          });
+        }
+      })().finally(() => {
+        if (frameDrainInFlight === drainPromise) {
+          frameDrainInFlight = null;
         }
 
-        await transport.sendVideoFrame(frame.data, frame.mimeType);
-
-        if (!isCurrentCapture(capture, captureGeneration) || getTransport() !== transport) {
-          return;
+        if (pendingFrame) {
+          void drainPendingFrames();
         }
-
-        logRuntimeDiagnostic('screen-capture', 'video frame sent', {
-          sequence: frame.sequence,
-          mimeType: frame.mimeType,
-          byteLength: frame.data.byteLength,
-          widthPx: frame.widthPx,
-          heightPx: frame.heightPx,
-        });
-        store.getState().setScreenCaptureState('streaming');
-        store.getState().setScreenCaptureDiagnostics({
-          lastUploadStatus: 'sent',
-          lastError: null,
-        });
-      })
-      .catch((error) => {
-        if (!isCurrentCapture(capture, captureGeneration) || getTransport() !== transport) {
-          return;
-        }
-
-        const detail = asErrorDetail(error, 'Failed to send screen frame');
-        logRuntimeError('screen-capture', 'video frame send failed', {
-          detail,
-          sequence: frame.sequence,
-          mimeType: frame.mimeType,
-          byteLength: frame.data.byteLength,
-          widthPx: frame.widthPx,
-          heightPx: frame.heightPx,
-        });
-        store.getState().setLastRuntimeError(detail);
-        void stopInternal({
-          nextState: 'error',
-          detail,
-          preserveDiagnostics: true,
-          uploadStatus: 'error',
-        });
       });
 
-    return screenSendChain;
+      frameDrainInFlight = drainPromise;
+      return drainPromise;
+    };
+
+    return drainPendingFrames();
   };
 
   const start = async (): Promise<void> => {
@@ -309,7 +365,7 @@ export function createScreenCaptureController(
     screenCaptureGeneration = captureGeneration;
 
     try {
-      await capture.start({});
+      await capture.start(SCREEN_CAPTURE_START_POLICY);
 
       if (!isCurrentCapture(capture, captureGeneration)) {
         return;
@@ -358,7 +414,8 @@ export function createScreenCaptureController(
     enqueueFrameSend,
     isActive: () => screenCapture !== null,
     resetSendChain: () => {
-      screenSendChain = Promise.resolve();
+      pendingFrame = null;
+      frameDrainInFlight = null;
     },
   };
 }

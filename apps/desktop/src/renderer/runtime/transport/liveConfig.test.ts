@@ -221,6 +221,20 @@ describe('liveConfig', () => {
     });
   });
 
+  it('uses an explicit low mediaResolution default for voice-mode screen sharing', () => {
+    const config = parseLiveConfig(createRawLiveConfig());
+
+    expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
+      responseModalities: ['AUDIO'],
+      mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      tools: [
+        {
+          functionDeclarations: expect.any(Array),
+        },
+      ],
+    });
+  });
+
   it('rejects non-v1alpha speech config before transport bootstrap', () => {
     expect(() =>
       parseLiveConfig(
