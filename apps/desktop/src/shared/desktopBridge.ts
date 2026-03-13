@@ -1,6 +1,11 @@
 import type {
+  AppendChatMessageRequest,
+  ChatId,
+  ChatMessageRecord,
+  ChatRecord,
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
+  CreateChatRequest,
   HealthResponse,
   TextChatRequest,
   TextChatStreamEvent,
@@ -32,6 +37,11 @@ export interface DesktopBridge {
     req: TextChatRequest,
     onEvent: (event: TextChatStreamEvent) => void,
   ) => Promise<TextChatStreamHandle>;
+  createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
+  getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
+  getOrCreateCurrentChat: () => Promise<ChatRecord>;
+  listChatMessages: (chatId: ChatId) => Promise<ChatMessageRecord[]>;
+  appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
   getSettings: () => Promise<DesktopSettings>;
   updateSettings: (patch: DesktopSettingsPatch) => Promise<DesktopSettings>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
@@ -44,6 +54,11 @@ export const IPC_CHANNELS = {
   startTextChatStream: 'session:startTextChat',
   cancelTextChatStream: 'session:cancelTextChat',
   textChatEvent: 'session:textChatEvent',
+  createChat: 'chatMemory:createChat',
+  getChat: 'chatMemory:getChat',
+  getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',
+  listChatMessages: 'chatMemory:listMessages',
+  appendChatMessage: 'chatMemory:appendMessage',
   getSettings: 'settings:get',
   updateSettings: 'settings:update',
   setOverlayHitRegions: 'overlay:setHitRegions',

@@ -1,7 +1,13 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrowserWindow } from 'electron';
+import type {
+  AppendChatMessageRequest,
+  ChatMessageRecord,
+  ChatRecord,
+} from '@livepair/shared-types';
 import type { DesktopSettings } from '../../shared/settings';
+import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
 import type { DesktopSettingsService } from '../settings/settingsService';
 
 const mockHandle = vi.fn();
@@ -37,6 +43,43 @@ function createMainWindowDouble(): BrowserWindow {
   } as unknown as BrowserWindow;
 }
 
+function createChatRecord(overrides: Partial<ChatRecord> = {}): ChatRecord {
+  return {
+    id: 'chat-1',
+    title: null,
+    createdAt: '2026-03-12T00:00:00.000Z',
+    updatedAt: '2026-03-12T00:00:00.000Z',
+    isCurrent: true,
+    ...overrides,
+  };
+}
+
+function createChatMessageRecord(
+  overrides: Partial<ChatMessageRecord> = {},
+): ChatMessageRecord {
+  return {
+    id: 'message-1',
+    chatId: 'chat-1',
+    role: 'user',
+    contentText: 'Hello',
+    createdAt: '2026-03-12T00:00:00.000Z',
+    sequence: 1,
+    ...overrides,
+  };
+}
+
+function createChatMemoryServiceDouble(): ChatMemoryService {
+  return {
+    createChat: vi.fn(() => createChatRecord()),
+    getChat: vi.fn(() => createChatRecord()),
+    getOrCreateCurrentChat: vi.fn(() => createChatRecord()),
+    listMessages: vi.fn(() => [createChatMessageRecord()]),
+    appendMessage: vi.fn((request: AppendChatMessageRequest) =>
+      createChatMessageRecord(request),
+    ),
+  } as unknown as ChatMemoryService;
+}
+
 describe('registerIpcHandlers', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -47,11 +90,12 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow: () => null,
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(8);
+    expect(mockHandle).toHaveBeenCalledTimes(13);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -68,19 +112,44 @@ describe('registerIpcHandlers', () => {
       'session:cancelTextChat',
       expect.any(Function),
     );
-    expect(mockHandle).toHaveBeenNthCalledWith(5, 'settings:get', expect.any(Function));
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      5,
+      'chatMemory:createChat',
+      expect.any(Function),
+    );
     expect(mockHandle).toHaveBeenNthCalledWith(
       6,
-      'settings:update',
+      'chatMemory:getChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       7,
-      'overlay:setHitRegions',
+      'chatMemory:getOrCreateCurrentChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       8,
+      'chatMemory:listMessages',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      9,
+      'chatMemory:appendMessage',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(10, 'settings:get', expect.any(Function));
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      11,
+      'settings:update',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      12,
+      'overlay:setHitRegions',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      13,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
@@ -92,6 +161,7 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       fetchImpl: fetchImpl as unknown as typeof fetch,
       getMainWindow: () => null,
       settingsService,
@@ -131,6 +201,7 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       fetchImpl: fetchImpl as unknown as typeof fetch,
       getMainWindow: () => null,
       settingsService,
@@ -181,6 +252,7 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       fetchImpl: fetchImpl as unknown as typeof fetch,
       getMainWindow: () => null,
       settingsService,
@@ -227,6 +299,7 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       fetchImpl: fetchImpl as unknown as typeof fetch,
       getMainWindow: () => null,
       settingsService,
@@ -263,11 +336,76 @@ describe('registerIpcHandlers', () => {
     await expect(cancelTextChatHandler({}, { streamId })).resolves.toBeUndefined();
   });
 
+  it('validates and delegates chat memory handlers through the chat memory service', async () => {
+    const chatMemoryService = createChatMemoryServiceDouble();
+    const settingsService = createSettingsServiceDouble();
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      chatMemoryService,
+      getMainWindow: () => null,
+      settingsService,
+    });
+
+    const createChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'chatMemory:createChat',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<ChatRecord>;
+    const getChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'chatMemory:getChat',
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatRecord | null>;
+    const getOrCreateCurrentChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'chatMemory:getOrCreateCurrentChat',
+    )?.[1] as () => Promise<ChatRecord>;
+    const listMessagesHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'chatMemory:listMessages',
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatMessageRecord[]>;
+    const appendMessageHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'chatMemory:appendMessage',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
+
+    await expect(createChatHandler({}, { title: 5 })).rejects.toThrow(
+      'Invalid create chat payload',
+    );
+    await expect(getChatHandler({}, '')).rejects.toThrow('Invalid chat id');
+    await expect(listMessagesHandler({}, '')).rejects.toThrow('Invalid chat id');
+    await expect(
+      appendMessageHandler({}, { chatId: 'chat-1', role: 'system', contentText: 'bad' }),
+    ).rejects.toThrow('Invalid append chat message payload');
+
+    await expect(createChatHandler({}, { title: 'New chat' })).resolves.toEqual(
+      createChatRecord(),
+    );
+    await expect(getChatHandler({}, 'chat-1')).resolves.toEqual(createChatRecord());
+    await expect(getOrCreateCurrentChatHandler()).resolves.toEqual(createChatRecord());
+    await expect(listMessagesHandler({}, 'chat-1')).resolves.toEqual([
+      createChatMessageRecord(),
+    ]);
+    await expect(
+      appendMessageHandler({}, { chatId: 'chat-1', role: 'assistant', contentText: 'Stored' }),
+    ).resolves.toEqual(
+      createChatMessageRecord({
+        role: 'assistant',
+        contentText: 'Stored',
+      }),
+    );
+
+    expect(chatMemoryService.createChat).toHaveBeenCalledWith({ title: 'New chat' });
+    expect(chatMemoryService.getChat).toHaveBeenCalledWith('chat-1');
+    expect(chatMemoryService.getOrCreateCurrentChat).toHaveBeenCalledTimes(1);
+    expect(chatMemoryService.listMessages).toHaveBeenCalledWith('chat-1');
+    expect(chatMemoryService.appendMessage).toHaveBeenCalledWith({
+      chatId: 'chat-1',
+      role: 'assistant',
+      contentText: 'Stored',
+    });
+  });
+
   it('rejects invalid settings updates before touching the settings service', async () => {
     const settingsService = createSettingsServiceDouble();
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow: () => null,
       settingsService,
     });
@@ -291,6 +429,7 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'linux',
       settingsService,
@@ -305,6 +444,7 @@ describe('registerIpcHandlers', () => {
 
     mockHandle.mockReset();
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'win32',
       settingsService,
@@ -331,6 +471,7 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'win32',
       settingsService,
@@ -345,6 +486,7 @@ describe('registerIpcHandlers', () => {
 
     mockHandle.mockReset();
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'linux',
       settingsService,
@@ -364,6 +506,7 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'linux',
       settingsService,
@@ -380,6 +523,7 @@ describe('registerIpcHandlers', () => {
 
     mockHandle.mockReset();
     registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'win32',
       settingsService,

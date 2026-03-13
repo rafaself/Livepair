@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { ConversationContext } from '../conversation/conversationTurnManager';
 import { createTextChatController } from './textChatController';
 
 function createMockOps(textStatus = 'idle') {
@@ -14,8 +15,11 @@ function createMockOps(textStatus = 'idle') {
     appendConversationTurn: vi.fn(),
     updateConversationTurn: vi.fn(),
   };
-  const conversationCtx = {
+  const conversationCtx: ConversationContext = {
     pendingAssistantTurnId: null,
+    hasQueuedMixedModeAssistantReply: false,
+    currentVoiceAssistantTurnId: null,
+    currentVoiceUserTurnId: null,
     nextAssistantTurnId: 0,
     nextUserTurnId: 0,
     store: { getState: vi.fn().mockReturnValue(storeState) },

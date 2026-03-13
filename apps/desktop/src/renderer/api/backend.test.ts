@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { DesktopBridge } from '../../shared/desktopBridge';
 import {
   checkBackendHealth,
   requestSessionToken,
@@ -11,11 +12,16 @@ function createBridge() {
     checkHealth: vi.fn(),
     requestSessionToken: vi.fn(),
     startTextChatStream: vi.fn(),
+    createChat: vi.fn(),
+    getChat: vi.fn(),
+    getOrCreateCurrentChat: vi.fn(),
+    listChatMessages: vi.fn(),
+    appendChatMessage: vi.fn(),
     getSettings: vi.fn(),
     updateSettings: vi.fn(),
     setOverlayHitRegions: vi.fn(),
     setOverlayPointerPassthrough: vi.fn(),
-  };
+  } satisfies DesktopBridge;
 }
 
 describe('renderer backend api helper', () => {

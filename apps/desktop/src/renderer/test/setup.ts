@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import type { DesktopBridge } from '../../shared/desktopBridge';
 import { __resetGeminiLiveSdkMock } from './geminiLiveSdkMock';
 import { resetDesktopSessionController } from '../runtime/sessionController';
 import { resetLiveConfigForTests } from '../runtime/transport/liveConfig';
@@ -95,9 +96,14 @@ beforeEach(async () => {
     startTextChatStream: vi.fn(async () => ({
       cancel: vi.fn(async () => undefined),
     })),
+    createChat: vi.fn(),
+    getChat: vi.fn(),
+    getOrCreateCurrentChat: vi.fn(),
+    listChatMessages: vi.fn(),
+    appendChatMessage: vi.fn(),
     getSettings: vi.fn(async () => DEFAULT_DESKTOP_SETTINGS),
     updateSettings: vi.fn(async (patch) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...patch })),
     setOverlayHitRegions: vi.fn(),
     setOverlayPointerPassthrough: vi.fn(),
-  };
+  } satisfies DesktopBridge;
 });

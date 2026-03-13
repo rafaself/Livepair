@@ -35,6 +35,11 @@ describe('preload bridge', () => {
       'checkHealth',
       'requestSessionToken',
       'startTextChatStream',
+      'createChat',
+      'getChat',
+      'getOrCreateCurrentChat',
+      'listChatMessages',
+      'appendChatMessage',
       'getSettings',
       'updateSettings',
       'setOverlayHitRegions',
@@ -45,6 +50,11 @@ describe('preload bridge', () => {
       checkHealth: expect.any(Function),
       requestSessionToken: expect.any(Function),
       startTextChatStream: expect.any(Function),
+      createChat: expect.any(Function),
+      getChat: expect.any(Function),
+      getOrCreateCurrentChat: expect.any(Function),
+      listChatMessages: expect.any(Function),
+      appendChatMessage: expect.any(Function),
       getSettings: expect.any(Function),
       updateSettings: expect.any(Function),
       setOverlayHitRegions: expect.any(Function),
@@ -97,6 +107,68 @@ describe('preload bridge', () => {
       streamId: 'stream-1',
     });
     expect(mockOff).toHaveBeenCalledWith('session:textChatEvent', eventListener);
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T00:00:00.000Z',
+      updatedAt: '2026-03-12T00:00:00.000Z',
+      isCurrent: true,
+    });
+    await bridge.createChat();
+    expect(mockInvoke).toHaveBeenCalledWith('chatMemory:createChat', undefined);
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T00:00:00.000Z',
+      updatedAt: '2026-03-12T00:00:00.000Z',
+      isCurrent: true,
+    });
+    await bridge.getChat('chat-1');
+    expect(mockInvoke).toHaveBeenCalledWith('chatMemory:getChat', 'chat-1');
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T00:00:00.000Z',
+      updatedAt: '2026-03-12T00:00:00.000Z',
+      isCurrent: true,
+    });
+    await bridge.getOrCreateCurrentChat();
+    expect(mockInvoke).toHaveBeenCalledWith('chatMemory:getOrCreateCurrentChat');
+
+    mockInvoke.mockResolvedValueOnce([
+      {
+        id: 'message-1',
+        chatId: 'chat-1',
+        role: 'user',
+        contentText: 'Hello',
+        createdAt: '2026-03-12T00:00:00.000Z',
+        sequence: 1,
+      },
+    ]);
+    await bridge.listChatMessages('chat-1');
+    expect(mockInvoke).toHaveBeenCalledWith('chatMemory:listMessages', 'chat-1');
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'message-1',
+      chatId: 'chat-1',
+      role: 'user',
+      contentText: 'Hello',
+      createdAt: '2026-03-12T00:00:00.000Z',
+      sequence: 1,
+    });
+    await bridge.appendChatMessage({
+      chatId: 'chat-1',
+      role: 'user',
+      contentText: 'Hello',
+    });
+    expect(mockInvoke).toHaveBeenCalledWith('chatMemory:appendMessage', {
+      chatId: 'chat-1',
+      role: 'user',
+      contentText: 'Hello',
+    });
 
     mockInvoke.mockResolvedValueOnce({
       backendUrl: 'http://localhost:3000',

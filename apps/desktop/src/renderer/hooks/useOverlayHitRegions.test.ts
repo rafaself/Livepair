@@ -1,5 +1,6 @@
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
+import type { DesktopBridge } from '../../shared/desktopBridge';
 import { useOverlayHitRegions } from './useOverlayHitRegions';
 
 describe('useOverlayHitRegions', () => {
@@ -22,11 +23,16 @@ describe('useOverlayHitRegions', () => {
       checkHealth: vi.fn(),
       requestSessionToken: vi.fn(),
       startTextChatStream: vi.fn(),
+      createChat: vi.fn(),
+      getChat: vi.fn(),
+      getOrCreateCurrentChat: vi.fn(),
+      listChatMessages: vi.fn(),
+      appendChatMessage: vi.fn(),
       getSettings: vi.fn(),
       updateSettings: vi.fn(),
       setOverlayHitRegions: mockSetOverlayHitRegions,
       setOverlayPointerPassthrough: vi.fn(),
-    };
+    } satisfies DesktopBridge;
   });
 
   afterEach(() => {
