@@ -85,23 +85,7 @@ export function AssistantPanelChatComposer({
   if (!isLiveSessionActive) {
     return (
       <div className="assistant-panel__composer-section">
-        <div className="assistant-panel__inactive-cta" role="note">
-          <div className="assistant-panel__inactive-cta-copy">
-            <p className="assistant-panel__inactive-cta-title">
-              {isViewingPastChat
-                ? 'Viewing past chat'
-                : isConversationEmpty
-                ? 'Start a Live session to continue here'
-                : 'This history stays available while inactive'}
-            </p>
-            <p className="assistant-panel__inactive-cta-body">
-              {isViewingPastChat
-                ? 'This saved chat stays visible for context. Start or Resume Live Session to continue from this container.'
-                : isConversationEmpty
-                ? 'Start Live Session to add turns here. When the session pauses, this container stays visible for context.'
-                : 'Resume Live Session to continue with the latest context in this container.'}
-            </p>
-          </div>
+        <div className="assistant-panel__inactive-cta">
           <Button
             variant="primary"
             size="md"
