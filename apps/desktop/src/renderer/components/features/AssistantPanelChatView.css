@@ -36,6 +36,33 @@
   color: var(--color-text-secondary);
 }
 
+.assistant-panel__history-state {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface-elevated) 82%, transparent);
+}
+
+.assistant-panel__history-state-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.assistant-panel__history-state-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
 .assistant-panel__chat-title {
   margin: 0;
   padding-bottom: 0;

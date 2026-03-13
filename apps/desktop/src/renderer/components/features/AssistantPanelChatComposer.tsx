@@ -10,6 +10,7 @@ export type AssistantPanelChatComposerProps = {
   isComposerDisabled: boolean;
   isLiveSessionActive: boolean;
   isPanelOpen: boolean;
+  isViewingPastChat?: boolean;
   liveSessionPhaseLabel?: string | null;
   placeholder: string;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
@@ -25,6 +26,7 @@ export function AssistantPanelChatComposer({
   isComposerDisabled,
   isLiveSessionActive,
   isPanelOpen,
+  isViewingPastChat = false,
   liveSessionPhaseLabel = null,
   placeholder,
   onDraftTextChange,
@@ -86,12 +88,16 @@ export function AssistantPanelChatComposer({
         <div className="assistant-panel__inactive-cta" role="note">
           <div className="assistant-panel__inactive-cta-copy">
             <p className="assistant-panel__inactive-cta-title">
-              {isConversationEmpty
+              {isViewingPastChat
+                ? 'Viewing past chat'
+                : isConversationEmpty
                 ? 'Start a Live session to continue here'
                 : 'This history stays available while inactive'}
             </p>
             <p className="assistant-panel__inactive-cta-body">
-              {isConversationEmpty
+              {isViewingPastChat
+                ? 'This saved chat stays visible for context. Start or Resume Live Session to continue from this container.'
+                : isConversationEmpty
                 ? 'Start Live Session to add turns here. When the session pauses, this container stays visible for context.'
                 : 'Resume Live Session to continue with the latest context in this container.'}
             </p>

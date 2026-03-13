@@ -6,14 +6,18 @@ import type { ConversationTimelineEntry } from '../../runtime/conversation/conve
 export type AssistantPanelConversationSectionProps = {
   emptyState: ReactNode;
   isConversationEmpty: boolean;
+  isViewingPastChat?: boolean;
   lastRuntimeError: string | null;
+  activeChatTitle?: string | null;
   turns: ConversationTimelineEntry[];
 };
 
 export function AssistantPanelConversationSection({
   emptyState,
   isConversationEmpty,
+  isViewingPastChat = false,
   lastRuntimeError,
+  activeChatTitle = null,
   turns,
 }: AssistantPanelConversationSectionProps): JSX.Element {
   return (
@@ -24,6 +28,16 @@ export function AssistantPanelConversationSection({
           <p className="assistant-panel__chat-title">Session history</p>
         </div>
       </div>
+      {isViewingPastChat ? (
+        <div className="assistant-panel__messages-header">
+          <div className="assistant-panel__history-state" role="status" aria-live="polite">
+            <p className="assistant-panel__history-state-label">Viewing past chat</p>
+            <p className="assistant-panel__history-state-title">
+              {activeChatTitle ?? 'Untitled chat'}
+            </p>
+          </div>
+        </div>
+      ) : null}
       {lastRuntimeError && !isConversationEmpty ? (
         <div className="assistant-panel__messages-header">
           <div className="assistant-panel__runtime-error" role="alert">

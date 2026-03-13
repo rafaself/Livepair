@@ -1,4 +1,5 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
+import type { ChatRecord } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
 import type { ProductMode } from '../../runtime/core/session.types';
@@ -28,6 +29,7 @@ export type AssistantPanelChatViewProps = {
   activeTransport?: TransportKind | null;
   voiceSessionStatus?: VoiceSessionStatus;
   voiceSessionResumption?: VoiceSessionResumptionState | null;
+  activeChat?: ChatRecord | null;
   turns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
@@ -49,6 +51,7 @@ export function AssistantPanelChatView({
   activeTransport = null,
   voiceSessionStatus = 'disconnected',
   voiceSessionResumption = null,
+  activeChat = null,
   turns,
   isConversationEmpty,
   lastRuntimeError,
@@ -84,6 +87,8 @@ export function AssistantPanelChatView({
     speechLifecycleStatus,
   });
   const composerPlaceholder = 'Add a note to the session';
+  const isViewingPastChat = !isLiveSessionActive && activeChat?.isCurrent === false;
+  const activeChatTitle = activeChat?.title ?? 'Untitled chat';
 
   return (
     <div className="assistant-panel__view-section">
@@ -101,7 +106,9 @@ export function AssistantPanelChatView({
             />
           }
           isConversationEmpty={isConversationEmpty}
+          isViewingPastChat={isViewingPastChat}
           lastRuntimeError={lastRuntimeError}
+          activeChatTitle={activeChatTitle}
           turns={turns}
         />
         <AssistantPanelChatComposer
@@ -111,6 +118,7 @@ export function AssistantPanelChatView({
           isComposerDisabled={isComposerDisabled}
           isLiveSessionActive={isLiveSessionActive}
           isPanelOpen={isPanelOpen ?? false}
+          isViewingPastChat={isViewingPastChat}
           liveSessionPhaseLabel={liveSessionPhaseLabel}
           placeholder={composerPlaceholder}
           onDraftTextChange={onDraftTextChange}
