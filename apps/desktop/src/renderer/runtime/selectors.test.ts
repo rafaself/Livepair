@@ -9,6 +9,7 @@ import {
   selectCanSubmitText,
   selectIsConversationEmpty,
   selectIsSessionActive,
+  selectVisibleConversationTimeline,
 } from './selectors';
 
 const lifecycle = (status: string) => ({
@@ -275,6 +276,45 @@ describe('selectIsConversationEmpty', () => {
         transcriptArtifacts: [{ role: 'assistant' }] as never,
       }),
     ).toBe(false);
+  });
+});
+
+describe('selectVisibleConversationTimeline', () => {
+  it('sorts canonical turns and visible transcript artifacts by explicit timeline ordinal', () => {
+    const timeline = selectVisibleConversationTimeline({
+      conversationTurns: [
+        {
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'second',
+          timestamp: '10:00 AM',
+          timelineOrdinal: 3,
+        },
+        {
+          id: 'user-turn-1',
+          role: 'user',
+          content: 'first',
+          timestamp: '9:59 AM',
+          timelineOrdinal: 1,
+        },
+      ] as never,
+      transcriptArtifacts: [
+        {
+          id: 'assistant-transcript-1',
+          role: 'assistant',
+          content: 'between',
+          timestamp: '9:59 AM',
+          source: 'voice',
+          timelineOrdinal: 2,
+        },
+      ] as never,
+    });
+
+    expect(timeline.map((entry) => entry.id)).toEqual([
+      'user-turn-1',
+      'assistant-transcript-1',
+      'assistant-turn-1',
+    ]);
   });
 });
 

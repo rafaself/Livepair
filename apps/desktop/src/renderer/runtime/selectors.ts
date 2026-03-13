@@ -175,7 +175,27 @@ export function selectVisibleConversationTimeline(
   return [
     ...state.conversationTurns,
     ...(state.transcriptArtifacts ?? []).filter((artifact) => artifact.attachedTurnId === undefined),
-  ];
+  ]
+    .map((entry, index) => ({ entry, index }))
+    .sort((left, right) => {
+      const leftOrdinal = left.entry.timelineOrdinal;
+      const rightOrdinal = right.entry.timelineOrdinal;
+
+      if (leftOrdinal !== undefined && rightOrdinal !== undefined && leftOrdinal !== rightOrdinal) {
+        return leftOrdinal - rightOrdinal;
+      }
+
+      if (leftOrdinal !== undefined && rightOrdinal === undefined) {
+        return -1;
+      }
+
+      if (leftOrdinal === undefined && rightOrdinal !== undefined) {
+        return 1;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ entry }) => entry);
 }
 
 export function selectIsSessionActive(
