@@ -5,6 +5,7 @@ import type {
   ChatMessageRole,
   ChatRecord,
   CreateChatRequest,
+  DurableChatSummaryRecord,
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   CreateLiveSessionRequest,
@@ -81,6 +82,19 @@ type _CreateChatRequestShape = Assert<
     CreateChatRequest,
     {
       title?: string | null;
+    }
+  >
+>;
+type _DurableChatSummaryRecordShape = Assert<
+  IsExact<
+    DurableChatSummaryRecord,
+    {
+      chatId: string;
+      schemaVersion: number;
+      source: string;
+      summaryText: string;
+      coveredThroughSequence: number;
+      updatedAt: string;
     }
   >
 >;

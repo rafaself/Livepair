@@ -3,6 +3,7 @@ import type {
   ChatId,
   ChatMessageRecord,
   ChatRecord,
+  DurableChatSummaryRecord,
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   CreateChatRequest,
@@ -37,6 +38,7 @@ export interface DesktopBridge {
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
   listChats: () => Promise<ChatRecord[]>;
   listChatMessages: (chatId: ChatId) => Promise<ChatMessageRecord[]>;
+  getChatSummary: (chatId: ChatId) => Promise<DurableChatSummaryRecord | null>;
   appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
   createLiveSession: (req: CreateLiveSessionRequest) => Promise<LiveSessionRecord>;
   listLiveSessions: (chatId: ChatId) => Promise<LiveSessionRecord[]>;
@@ -56,6 +58,7 @@ export const IPC_CHANNELS = {
   getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',
   listChats: 'chatMemory:listChats',
   listChatMessages: 'chatMemory:listMessages',
+  getChatSummary: 'chatMemory:getSummary',
   appendChatMessage: 'chatMemory:appendMessage',
   createLiveSession: 'liveSession:create',
   listLiveSessions: 'liveSession:listByChat',

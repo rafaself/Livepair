@@ -11,6 +11,7 @@ describe('IPC_CHANNELS', () => {
       getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',
       listChats: 'chatMemory:listChats',
       listChatMessages: 'chatMemory:listMessages',
+      getChatSummary: 'chatMemory:getSummary',
       appendChatMessage: 'chatMemory:appendMessage',
       createLiveSession: 'liveSession:create',
       listLiveSessions: 'liveSession:listByChat',

@@ -67,6 +67,15 @@ export interface AppendChatMessageRequest {
   contentText: string;
 }
 
+export interface DurableChatSummaryRecord {
+  chatId: ChatId;
+  schemaVersion: number;
+  source: string;
+  summaryText: string;
+  coveredThroughSequence: number;
+  updatedAt: string;
+}
+
 export type LiveSessionId = string;
 
 export type LiveSessionStatus = 'active' | 'ended' | 'failed';
