@@ -1,4 +1,4 @@
-import type { ConversationContext } from '../conversation/conversationTurnManager';
+import type { ConversationContext } from '../../conversation/conversationTurnManager';
 import { createVoiceTranscriptLifecycle } from './voiceTranscriptLifecycle';
 import { createVoiceTranscriptStoreSync } from './voiceTranscriptStoreSync';
 import { createVoiceTranscriptTurnState } from './voiceTranscriptTurnState';

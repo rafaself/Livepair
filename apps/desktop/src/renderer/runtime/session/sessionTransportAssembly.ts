@@ -2,8 +2,8 @@ import { logRuntimeDiagnostic } from '../core/logger';
 import { asErrorDetail } from '../core/runtimeUtils';
 import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import { createTransportEventRouter } from '../transport/transportEventRouter';
-import { createVoiceResumeController } from '../voice/voiceResumeController';
-import { connectFallbackVoiceSession } from '../voice/connectFallbackVoiceSession';
+import { createVoiceResumeController } from '../voice/session/voiceResumeController';
+import { connectFallbackVoiceSession } from '../voice/session/connectFallbackVoiceSession';
 import {
   buildRehydrationPacketFromCurrentChat,
 } from '../../chatMemory/currentChatMemory';
@@ -30,11 +30,11 @@ import type {
 import type { DesktopSession } from '../transport/transport.types';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import type { createScreenCaptureController } from '../screen/screenCaptureController';
-import type { createVoiceChunkPipeline } from '../voice/voiceChunkPipeline';
-import type { createVoiceInterruptionController } from '../voice/voiceInterruptionController';
-import type { createVoiceTokenManager } from '../voice/voiceTokenManager';
-import type { createVoiceToolController } from '../voice/voiceToolController';
-import type { createVoiceTranscriptController } from '../voice/voiceTranscriptController';
+import type { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
+import type { createVoiceInterruptionController } from '../voice/session/voiceInterruptionController';
+import type { createVoiceTokenManager } from '../voice/session/voiceTokenManager';
+import type { createVoiceToolController } from '../voice/tools/voiceToolController';
+import type { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
 import type { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import type { createSessionControllerRuntime } from './sessionRuntime';
 

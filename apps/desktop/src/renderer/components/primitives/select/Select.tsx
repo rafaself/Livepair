@@ -1,6 +1,6 @@
 import { forwardRef, useMemo, useRef, type ReactNode, type SelectHTMLAttributes } from 'react';
-import { FloatingLayer } from '../layout/FloatingLayer';
-import { useFloatingLayer } from '../../hooks/useFloatingLayer';
+import { FloatingLayer } from '../../layout/FloatingLayer';
+import { useFloatingLayer } from '../../../hooks/useFloatingLayer';
 import { SelectContent } from './SelectContent';
 import { SelectOption } from './SelectOption';
 import { SelectTrigger } from './SelectTrigger';

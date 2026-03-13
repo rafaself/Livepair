@@ -1,14 +1,14 @@
-import { asErrorDetail } from '../core/runtimeUtils';
-import type { ProductMode } from '../core/session.types';
-import type { SpeechLifecycleStatus } from '../speech/speech.types';
-import type { TextSessionStatus } from '../text/text.types';
+import { asErrorDetail } from '../../core/runtimeUtils';
+import type { ProductMode } from '../../core/session.types';
+import type { SpeechLifecycleStatus } from '../../speech/speech.types';
+import type { TextSessionStatus } from '../../text/text.types';
 import type {
   VoiceCaptureState,
   VoicePlaybackState,
   VoiceSessionStatus,
   VoiceToolCall,
   VoiceToolResponse,
-} from './voice.types';
+} from '../voice.types';
 
 export type VoiceToolName = 'get_current_mode' | 'get_voice_session_status';
 

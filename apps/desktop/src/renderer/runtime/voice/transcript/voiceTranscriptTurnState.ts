@@ -1,11 +1,11 @@
-import type { ConversationContext } from '../conversation/conversationTurnManager';
+import type { ConversationContext } from '../../conversation/conversationTurnManager';
 import {
   attachSettledVoiceAssistantTranscriptArtifact,
   beginVoiceTurnFence,
   getTranscriptArtifact,
   hasOpenVoiceTurnFence,
   upsertCurrentVoiceAssistantTranscriptArtifact,
-} from '../conversation/conversationTurnManager';
+} from '../../conversation/conversationTurnManager';
 import type { SessionStoreApi } from './voiceTranscriptController.shared';
 
 type VoiceTranscriptTurnStateArgs = {

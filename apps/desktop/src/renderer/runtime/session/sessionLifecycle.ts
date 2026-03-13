@@ -1,6 +1,6 @@
 import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import { asErrorDetail } from '../core/runtimeUtils';
-import { connectFallbackVoiceSession } from '../voice/connectFallbackVoiceSession';
+import { connectFallbackVoiceSession } from '../voice/session/connectFallbackVoiceSession';
 import type {
   SessionControllerEvent,
 } from '../core/session.types';

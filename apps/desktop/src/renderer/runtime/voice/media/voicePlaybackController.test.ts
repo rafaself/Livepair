@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVoicePlaybackController } from './voicePlaybackController';
-import type { AssistantAudioPlaybackObserver } from '../audio/assistantAudioPlayback';
+import type { AssistantAudioPlaybackObserver } from '../../audio/assistantAudioPlayback';
 
 function createHarness() {
   const setVoicePlaybackState = vi.fn();

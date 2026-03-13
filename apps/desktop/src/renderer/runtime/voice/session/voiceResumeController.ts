@@ -2,18 +2,18 @@ import type {
   DesktopSession,
   LiveSessionEvent,
   TransportKind,
-} from '../transport/transport.types';
+} from '../../transport/transport.types';
 import type { VoiceFallbackAttemptResult } from './connectFallbackVoiceSession';
 import type {
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
-} from './voice.types';
+} from '../voice.types';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
-import { asErrorDetail } from '../core/runtimeUtils';
+import { asErrorDetail } from '../../core/runtimeUtils';
 import { isTokenValidForReconnect } from './voiceSessionToken';
-import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
-import type { SessionStoreApi } from '../core/sessionControllerTypes';
+import { LIVE_ADAPTER_KEY } from '../../transport/liveConfig';
+import type { SessionStoreApi } from '../../core/sessionControllerTypes';
 
 type VoiceResumeControllerOps = {
   store: SessionStoreApi;

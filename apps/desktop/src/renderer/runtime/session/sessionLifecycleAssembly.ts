@@ -20,11 +20,11 @@ import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecyc
 import type { TextSessionStatus } from '../text/text.types';
 import type { DesktopSession } from '../transport/transport.types';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
-import type { createVoicePlaybackController } from '../voice/voicePlaybackController';
+import type { createVoicePlaybackController } from '../voice/media/voicePlaybackController';
 import type { createScreenCaptureController } from '../screen/screenCaptureController';
-import type { createVoiceChunkPipeline } from '../voice/voiceChunkPipeline';
-import type { createVoiceTokenManager } from '../voice/voiceTokenManager';
-import type { createVoiceTranscriptController } from '../voice/voiceTranscriptController';
+import type { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
+import type { createVoiceTokenManager } from '../voice/session/voiceTokenManager';
+import type { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
 import type { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionControllerErrorHandling } from './sessionErrorHandling';
 import { createSessionControllerLifecycle } from './sessionLifecycle';

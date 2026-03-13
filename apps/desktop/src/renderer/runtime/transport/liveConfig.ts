@@ -1,5 +1,5 @@
 import type { LiveConnectMode } from '../core/session.types';
-import { VOICE_TOOL_DECLARATIONS } from '../voice/voiceTools';
+import { VOICE_TOOL_DECLARATIONS } from '../voice/tools/voiceTools';
 
 export const LIVE_PROVIDER = 'gemini' as const;
 export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
