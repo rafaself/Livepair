@@ -6,6 +6,7 @@ import type {
   ChatMessageRecord,
   ChatRecord,
   CreateChatRequest,
+  DurableChatSummaryRecord,
   CreateLiveSessionRequest,
   EndLiveSessionRequest,
   LiveSessionRecord,
@@ -42,6 +43,10 @@ export class ChatMemoryService {
 
   listMessages(chatId: ChatId): ChatMessageRecord[] {
     return this.repository.listMessages(chatId);
+  }
+
+  getChatSummary(chatId: ChatId): DurableChatSummaryRecord | null {
+    return this.repository.getChatSummary(chatId);
   }
 
   appendMessage(request: AppendChatMessageRequest): ChatMessageRecord {

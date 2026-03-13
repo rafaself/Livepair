@@ -6,6 +6,7 @@ import type {
   ChatMessageRecord,
   ChatRecord,
   CreateChatRequest,
+  DurableChatSummaryRecord,
   CreateLiveSessionRequest,
   EndLiveSessionRequest,
   LiveSessionRecord,
@@ -13,7 +14,6 @@ import type {
   LiveSessionStatus,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
-import type { DurableChatSummaryRecord } from './chatSummary';
 
 type ChatRow = {
   id: string;
@@ -96,8 +96,8 @@ function toChatMessageRecord(row: MessageRow): ChatMessageRecord {
 function toDurableChatSummaryRecord(row: ChatSummaryRow): DurableChatSummaryRecord {
   return {
     chatId: row.chat_id,
-    schemaVersion: 1,
-    source: 'local-recent-history-v1',
+    schemaVersion: row.schema_version,
+    source: row.source,
     summaryText: row.summary_text,
     coveredThroughSequence: row.covered_through_message_sequence,
     updatedAt: row.updated_at,

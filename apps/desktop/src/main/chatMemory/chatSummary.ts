@@ -1,19 +1,14 @@
-import type { ChatId, ChatMessageRecord } from '@livepair/shared-types';
+import type {
+  ChatId,
+  ChatMessageRecord,
+  DurableChatSummaryRecord,
+} from '@livepair/shared-types';
 
 export const DURABLE_CHAT_SUMMARY_SCHEMA_VERSION = 1 as const;
 export const DURABLE_CHAT_SUMMARY_SOURCE = 'local-recent-history-v1' as const;
 const MAX_DURABLE_CHAT_SUMMARY_TURNS = 6;
 const MAX_DURABLE_CHAT_SUMMARY_LINE_LENGTH = 240;
 const MAX_DURABLE_CHAT_SUMMARY_TEXT_LENGTH = 1600;
-
-export interface DurableChatSummaryRecord {
-  chatId: ChatId;
-  schemaVersion: typeof DURABLE_CHAT_SUMMARY_SCHEMA_VERSION;
-  source: typeof DURABLE_CHAT_SUMMARY_SOURCE;
-  summaryText: string;
-  coveredThroughSequence: number;
-  updatedAt: string;
-}
 
 type BuildDurableChatSummaryInput = {
   chatId: ChatId;
