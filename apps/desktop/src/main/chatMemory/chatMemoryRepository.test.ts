@@ -93,6 +93,33 @@ describe('SqliteChatMemoryRepository', () => {
     expect(repository.getChat(nextChat.id)).toEqual(nextChat);
   });
 
+  it('lists all chats sorted by most recent updatedAt first', () => {
+    const repository = openRepository();
+
+    const firstChat = repository.getOrCreateCurrentChat();
+    const secondChat = repository.createChat({ title: 'Second chat' });
+
+    // Append a message to the first chat so it gets a newer updatedAt.
+    repository.appendMessage({
+      chatId: firstChat.id,
+      role: 'user',
+      contentText: 'A follow-up message',
+    });
+
+    const updatedFirstChat = repository.getChat(firstChat.id);
+
+    // Most recently updated chat should come first.
+    expect(repository.listChats()).toEqual([updatedFirstChat, secondChat]);
+  });
+
+  it('returns an empty list when no chats exist', () => {
+    const repository = openRepository();
+    // No getOrCreateCurrentChat call — database is empty.
+    // Directly call listChats via the statement. We reach the empty path
+    // by never inserting any chat.
+    expect(repository.listChats()).toEqual([]);
+  });
+
   it('creates and lists multiple historical live sessions for a chat', () => {
     const repository = openRepository();
     const chat = repository.getOrCreateCurrentChat();

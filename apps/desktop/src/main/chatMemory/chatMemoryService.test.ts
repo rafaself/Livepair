@@ -22,6 +22,7 @@ vi.mock('./chatMemoryDatabase', () => ({
         createChat: vi.fn(),
         getChat: vi.fn(),
         getOrCreateCurrentChat: vi.fn(),
+        listChats: vi.fn(),
         listMessages: vi.fn(),
         appendMessage: vi.fn(),
         createLiveSession: vi.fn(),
@@ -43,6 +44,7 @@ describe('ChatMemoryService', () => {
       createChat: vi.fn(() => ({ id: 'chat-1' })),
       getChat: vi.fn(() => ({ id: 'chat-1' })),
       getOrCreateCurrentChat: vi.fn(() => ({ id: 'chat-1' })),
+      listChats: vi.fn(() => [{ id: 'chat-1' }, { id: 'chat-2' }]),
       listMessages: vi.fn(() => [{ id: 'message-1' }]),
       appendMessage: vi.fn(() => ({ id: 'message-1' })),
       createLiveSession: vi.fn(() => ({ id: 'live-session-1' })),
@@ -55,6 +57,7 @@ describe('ChatMemoryService', () => {
     expect(service.createChat({ title: 'New chat' })).toEqual({ id: 'chat-1' });
     expect(service.getChat('chat-1')).toEqual({ id: 'chat-1' });
     expect(service.getOrCreateCurrentChat()).toEqual({ id: 'chat-1' });
+    expect(service.listChats()).toEqual([{ id: 'chat-1' }, { id: 'chat-2' }]);
     expect(service.listMessages('chat-1')).toEqual([{ id: 'message-1' }]);
     expect(
       service.appendMessage({
@@ -91,6 +94,7 @@ describe('ChatMemoryService', () => {
     expect(repository.createChat).toHaveBeenCalledWith({ title: 'New chat' });
     expect(repository.getChat).toHaveBeenCalledWith('chat-1');
     expect(repository.getOrCreateCurrentChat).toHaveBeenCalledTimes(1);
+    expect(repository.listChats).toHaveBeenCalledTimes(1);
     expect(repository.listMessages).toHaveBeenCalledWith('chat-1');
     expect(repository.appendMessage).toHaveBeenCalledWith({
       chatId: 'chat-1',

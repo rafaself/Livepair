@@ -51,6 +51,7 @@ export interface ChatMemoryRepository {
   createChat: (request?: CreateChatRequest) => ChatRecord;
   getChat: (chatId: ChatId) => ChatRecord | null;
   getOrCreateCurrentChat: () => ChatRecord;
+  listChats: () => ChatRecord[];
   listMessages: (chatId: ChatId) => ChatMessageRecord[];
   appendMessage: (request: AppendChatMessageRequest) => ChatMessageRecord;
   createLiveSession: (request: CreateLiveSessionRequest) => LiveSessionRecord;
@@ -187,6 +188,7 @@ function normalizeContentText(contentText: string): string {
 export class SqliteChatMemoryRepository implements ChatMemoryRepository {
   private readonly selectChatByIdStatement;
   private readonly selectCurrentChatStatement;
+  private readonly listAllChatsStatement;
   private readonly listMessagesByChatIdStatement;
   private readonly demoteCurrentChatsStatement;
   private readonly insertChatStatement;
@@ -205,6 +207,9 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     );
     this.selectCurrentChatStatement = database.prepare(
       'SELECT id, title, created_at, updated_at, is_current FROM chats WHERE is_current = 1 LIMIT 1',
+    );
+    this.listAllChatsStatement = database.prepare(
+      'SELECT id, title, created_at, updated_at, is_current FROM chats ORDER BY updated_at DESC, id DESC',
     );
     this.listMessagesByChatIdStatement = database.prepare(
       'SELECT id, chat_id, role, content_text, created_at, sequence FROM messages WHERE chat_id = ? ORDER BY sequence ASC, id ASC',
@@ -362,6 +367,10 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     });
 
     return ensureCurrentChat();
+  }
+
+  listChats(): ChatRecord[] {
+    return (this.listAllChatsStatement.all() as ChatRow[]).map((row) => toChatRecord(row));
   }
 
   listMessages(chatId: ChatId): ChatMessageRecord[] {

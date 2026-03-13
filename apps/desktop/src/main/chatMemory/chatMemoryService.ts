@@ -32,6 +32,10 @@ export class ChatMemoryService {
     return this.repository.getOrCreateCurrentChat();
   }
 
+  listChats(): ChatRecord[] {
+    return this.repository.listChats();
+  }
+
   listMessages(chatId: ChatId): ChatMessageRecord[] {
     return this.repository.listMessages(chatId);
   }
