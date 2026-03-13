@@ -246,7 +246,115 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 
-  it('fails cleanly without starting a fresh rehydrated session when persisted resumption fails', async () => {
+  it('falls back to a new rehydrated Live session when no restore candidate exists', async () => {
+    persistedMessages = [
+      {
+        id: 'message-1',
+        chatId: 'chat-1',
+        role: 'user',
+        contentText: 'Persisted question',
+        createdAt: '2026-03-12T09:01:00.000Z',
+        sequence: 1,
+      },
+      {
+        id: 'message-2',
+        chatId: 'chat-1',
+        role: 'assistant',
+        contentText: 'Persisted answer',
+        createdAt: '2026-03-12T09:02:00.000Z',
+        sequence: 2,
+      },
+    ];
+    window.bridge.listLiveSessions = vi.fn().mockResolvedValue([
+      {
+        id: 'persisted-live-session-stale',
+        chatId: 'chat-1',
+        startedAt: '2026-03-12T08:55:00.000Z',
+        endedAt: null,
+        status: 'active',
+        endedReason: null,
+        resumptionHandle: null,
+        lastResumptionUpdateAt: '2026-03-12T08:56:00.000Z',
+        restorable: false,
+        invalidatedAt: '2026-03-12T08:56:30.000Z',
+        invalidationReason: 'Gemini Live session is not resumable at this point',
+      },
+    ]);
+    window.bridge.createLiveSession = vi.fn(async ({ chatId, startedAt }) => ({
+      id: 'live-session-2',
+      chatId,
+      startedAt: startedAt ?? '2026-03-12T09:10:00.000Z',
+      endedAt: null,
+      status: 'active' as const,
+      endedReason: null,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
+    }));
+    const freshTransport = createVoiceTransportHarness();
+    const voiceCapture = createVoiceCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => freshTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-1');
+    expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
+      id: 'persisted-live-session-stale',
+      endedAt: expect.any(String),
+      status: 'failed',
+      endedReason: 'Gemini Live session is not resumable at this point',
+    });
+    expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-1');
+    expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
+      chatId: 'chat-1',
+      startedAt: expect.any(String),
+    });
+    expect(freshTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      history: [
+        {
+          role: 'user',
+          parts: [{ text: 'Persisted question' }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Persisted answer' }],
+        },
+      ],
+    });
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'connected',
+      latestHandle: null,
+      resumable: false,
+      lastDetail: null,
+    });
+    expect(useSessionStore.getState().lastRuntimeError).toBeNull();
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to a new rehydrated Live session when persisted resumption fails', async () => {
     persistedMessages = [
       {
         id: 'message-1',
@@ -295,6 +403,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     }));
     const failedResumeTransport = createVoiceTransportHarness();
     failedResumeTransport.setConnectError(new Error('resume rejected'));
+    const freshTransport = createVoiceTransportHarness();
     const voiceCapture = createVoiceCaptureHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -307,7 +416,10 @@ describe('createDesktopSessionController – lifecycle', () => {
         expireTime: '2099-03-09T12:30:00.000Z',
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
-      createTransport: vi.fn().mockReturnValueOnce(failedResumeTransport.transport),
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(failedResumeTransport.transport)
+        .mockReturnValueOnce(freshTransport.transport),
       createVoiceCapture: voiceCapture.createVoiceCapture,
       settingsStore: useSettingsStore,
     });
@@ -335,18 +447,39 @@ describe('createDesktopSessionController – lifecycle', () => {
       invalidatedAt: expect.any(String),
       invalidationReason: 'resume rejected',
     });
-    expect(window.bridge.createLiveSession).not.toHaveBeenCalled();
-    expect(window.bridge.listChatMessages).not.toHaveBeenCalled();
+    expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-1');
+    expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
+      chatId: 'chat-1',
+      startedAt: expect.any(String),
+    });
+    expect(freshTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      history: [
+        {
+          role: 'user',
+          parts: [{ text: 'Persisted question' }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Persisted answer' }],
+        },
+      ],
+    });
     expect(useSessionStore.getState().voiceSessionResumption).toEqual({
-      status: 'resumeFailed',
+      status: 'connected',
       latestHandle: 'handles/persisted-live-session-1',
       resumable: false,
-      lastDetail: 'resume rejected',
+      lastDetail: null,
     });
-    expect(useSessionStore.getState().lastRuntimeError).toBe('resume rejected');
-    expect(useSessionStore.getState().currentMode).toBe('inactive');
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
-    expect(voiceCapture.start).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().lastRuntimeError).toBeNull();
+    expect(useSessionStore.getState().currentMode).toBe('speech');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 
   it('seeds a new Live session from canonical persisted chat history instead of renderer-only turns', async () => {

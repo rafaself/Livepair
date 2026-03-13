@@ -74,6 +74,10 @@ type RestoreAttemptResult =
   | { status: 'resumed' }
   | { status: 'failed'; detail: string };
 
+type FallbackAttemptResult =
+  | { status: 'connected' }
+  | { status: 'failed'; detail: string };
+
 export function createSessionControllerLifecycle({
   store,
   beginSessionOperation,
@@ -242,6 +246,89 @@ export function createSessionControllerLifecycle({
     }
   };
 
+  const connectFallbackSession = async (
+    operationId: number,
+    token: CreateEphemeralTokenResponse,
+    reason: 'no-restore-candidate' | 'resume-failed',
+    previousDetail: string | null = null,
+  ): Promise<FallbackAttemptResult> => {
+    logRuntimeDiagnostic('voice-session', 'starting explicit fallback session', {
+      reason,
+      previousDetail,
+    });
+
+    let history: LiveSessionHistoryTurn[];
+
+    try {
+      history = await buildLiveSessionHistoryFromCurrentChat();
+    } catch (error) {
+      return {
+        status: 'failed',
+        detail: asErrorDetail(error, 'Failed to load chat history'),
+      };
+    }
+
+    if (!isCurrentSessionOperation(operationId)) {
+      return {
+        status: 'failed',
+        detail: 'Voice session fallback was superseded',
+      };
+    }
+
+    let transport: DesktopSession;
+    try {
+      transport = createTransport();
+    } catch (error) {
+      return {
+        status: 'failed',
+        detail: asErrorDetail(error, 'Failed to prepare voice session'),
+      };
+    }
+
+    if (!isCurrentSessionOperation(operationId)) {
+      return {
+        status: 'failed',
+        detail: 'Voice session fallback was superseded',
+      };
+    }
+
+    await createPersistedLiveSession();
+    activateVoiceTransport(transport);
+    setVoiceResumptionInFlight(false);
+
+    try {
+      await transport.connect({
+        token,
+        mode: 'voice',
+        ...(history.length > 0 ? { history } : {}),
+      });
+
+      if (!isCurrentSessionOperation(operationId)) {
+        return {
+          status: 'failed',
+          detail: 'Voice session fallback was superseded',
+        };
+      }
+
+      const didStartVoiceCapture = await startVoiceCapture();
+
+      if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
+        return {
+          status: 'failed',
+          detail: 'Failed to start voice capture after fallback session startup',
+        };
+      }
+
+      applySpeechLifecycleEvent({ type: 'session.ready' });
+      return { status: 'connected' };
+    } catch (error) {
+      return {
+        status: 'failed',
+        detail: asErrorDetail(error, 'Failed to connect voice session'),
+      };
+    }
+  };
+
   const startSessionInternal = async (_options: { mode: 'voice' }): Promise<void> => {
     const operationId = beginSessionOperation();
     await ensureExclusiveMode('speech', operationId);
@@ -301,7 +388,18 @@ export function createSessionControllerLifecycle({
           return;
         }
 
-        await setVoiceErrorState(restoreAttempt.detail);
+        const fallbackAttempt = await connectFallbackSession(
+          operationId,
+          token,
+          'resume-failed',
+          restoreAttempt.detail,
+        );
+
+        if (fallbackAttempt.status === 'connected' || !isCurrentSessionOperation(operationId)) {
+          return;
+        }
+
+        await setVoiceErrorState(fallbackAttempt.detail);
         return;
       }
     } catch (error) {
@@ -309,59 +407,17 @@ export function createSessionControllerLifecycle({
       return;
     }
 
-    let history: LiveSessionHistoryTurn[];
+    const fallbackAttempt = await connectFallbackSession(
+      operationId,
+      token,
+      'no-restore-candidate',
+    );
 
-    try {
-      history = await buildLiveSessionHistoryFromCurrentChat();
-    } catch (error) {
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      await setVoiceErrorState(asErrorDetail(error, 'Failed to load chat history'));
+    if (fallbackAttempt.status === 'connected' || !isCurrentSessionOperation(operationId)) {
       return;
     }
 
-    let transport: DesktopSession;
-    try {
-      transport = createTransport();
-    } catch (error) {
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      await setVoiceErrorState(asErrorDetail(error, 'Failed to prepare voice session'));
-      return;
-    }
-
-    await createPersistedLiveSession();
-    activateVoiceTransport(transport);
-
-    try {
-      await transport.connect({
-        token,
-        mode: 'voice',
-        ...(history.length > 0 ? { history } : {}),
-      });
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      const didStartVoiceCapture = await startVoiceCapture();
-
-      if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      applySpeechLifecycleEvent({ type: 'session.ready' });
-    } catch (error) {
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      await setVoiceErrorState(asErrorDetail(error, 'Failed to connect voice session'));
-    }
+    await setVoiceErrorState(fallbackAttempt.detail);
   };
 
   return {
