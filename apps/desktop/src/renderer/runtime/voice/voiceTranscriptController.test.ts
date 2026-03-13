@@ -56,6 +56,22 @@ describe('createVoiceTranscriptController', () => {
     ]);
   });
 
+  it('labels a streaming assistant transcript artifact as Speaking to reflect live audio, not text generation', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'partial spoken text');
+
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'assistant-transcript-1',
+        state: 'streaming',
+        statusLabel: 'Speaking...',
+      }),
+    ]);
+  });
+
   it('passes transcript finality through to the transcript artifact state', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);

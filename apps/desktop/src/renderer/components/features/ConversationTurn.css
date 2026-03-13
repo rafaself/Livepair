@@ -161,6 +161,13 @@
   opacity: 1;
 }
 
+/* ── Typed note: user text sent during a Live session, not spoken ────────── */
+
+.conversation-turn--typed-note.conversation-turn--user .conversation-turn__bubble {
+  background: color-mix(in srgb, var(--color-accent) 70%, var(--color-surface-elevated));
+  border-bottom-right-radius: 10px;
+}
+
 /* ── Transcript artifact: support text, not primary output ───────────────── */
 
 .conversation-turn--transcript .conversation-turn__bubble {

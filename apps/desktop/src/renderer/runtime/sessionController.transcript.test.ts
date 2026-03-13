@@ -383,6 +383,7 @@ describe('createDesktopSessionController – transcript', () => {
       expect.objectContaining({
         id: 'user-turn-2',
         content: 'typed follow-up',
+        source: 'text',
       }),
       expect.objectContaining({
         id: 'assistant-turn-1',

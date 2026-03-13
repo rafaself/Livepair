@@ -195,7 +195,7 @@ function upsertTranscriptArtifact(
           ? 'Interrupted'
           : shouldCreateSettledArtifact
             ? undefined
-            : 'Responding...'
+            : 'Speaking...'
         : undefined,
       transcriptFinal,
     );
@@ -215,7 +215,7 @@ function upsertTranscriptArtifact(
           ? 'Interrupted'
           : shouldCreateSettledArtifact
             ? undefined
-            : 'Responding...'
+            : 'Speaking...'
         : undefined,
     ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
   });

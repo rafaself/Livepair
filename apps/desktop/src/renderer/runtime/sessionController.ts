@@ -180,7 +180,7 @@ export function createDesktopSessionController(
     logRuntimeError,
   });
   const appendTypedUserTurn = (text: string): string => {
-    const turnId = appendConversationUserTurn(conversationCtx, text);
+    const turnId = appendConversationUserTurn(conversationCtx, text, { source: 'text' });
     persistSettledConversationTurn(turnId);
     return turnId;
   };

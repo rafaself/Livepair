@@ -31,6 +31,7 @@ export function ConversationTurn({
 
   const isTranscript = isTranscriptArtifact(turn);
   const isInterruptedTranscript = isTranscript && turn.statusLabel === 'Interrupted';
+  const isTypedNote = !isTranscript && turn.role === 'user' && turn.source === 'text';
 
   const classes = [
     'conversation-turn',
@@ -38,6 +39,7 @@ export function ConversationTurn({
     turn.state === 'error' ? 'conversation-turn--error' : '',
     isTranscript ? 'conversation-turn--transcript' : '',
     isInterruptedTranscript ? 'conversation-turn--transcript-interrupted' : '',
+    isTypedNote ? 'conversation-turn--typed-note' : '',
     className ?? '',
   ]
     .filter(Boolean)
@@ -85,6 +87,9 @@ export function ConversationTurn({
             ) : (
               <time className="conversation-turn__timestamp">{turn.timestamp}</time>
             )}
+            {isTypedNote ? (
+              <Badge variant="default">Note</Badge>
+            ) : null}
             {turn.statusLabel ? (
               <Badge variant={getBadgeVariant(turn)}>{turn.statusLabel}</Badge>
             ) : null}

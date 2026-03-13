@@ -348,3 +348,64 @@ describe('ConversationTurn transcript artifact presentation', () => {
     expect(article.querySelector('.conversation-turn__copy-btn')).not.toBeNull();
   });
 });
+
+describe('ConversationTurn typed note presentation', () => {
+  it('applies the typed-note class and Note badge to a user turn with source text', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'user-typed-note-1',
+          role: 'user',
+          content: 'Can you explain that further?',
+          timestamp: '10:01',
+          state: 'complete',
+          source: 'text',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'User turn at 10:01' });
+
+    expect(article).toHaveClass('conversation-turn--typed-note');
+    expect(screen.getByText('Note')).toBeVisible();
+  });
+
+  it('does not apply typed-note treatment to a spoken user turn', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'user-spoken-1',
+          role: 'user',
+          content: 'What I said out loud.',
+          timestamp: '10:02',
+          state: 'complete',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'User turn at 10:02' });
+
+    expect(article).not.toHaveClass('conversation-turn--typed-note');
+    expect(screen.queryByText('Note')).toBeNull();
+  });
+
+  it('does not apply typed-note treatment to a user turn with no source set', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'user-no-source',
+          role: 'user',
+          content: 'Generic user turn.',
+          timestamp: '10:03',
+          state: 'complete',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'User turn at 10:03' });
+
+    expect(article).not.toHaveClass('conversation-turn--typed-note');
+    expect(screen.queryByText('Note')).toBeNull();
+  });
+});
