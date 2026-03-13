@@ -4,7 +4,7 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { useSettingsStore } from '../../store/settingsStore';
 import { resetDesktopStores } from '../../store/testing';
 import { useUiStore } from '../../store/uiStore';
-import { AssistantPanelSettingsView } from '../features/AssistantPanelSettingsView';
+import { AssistantPanelSettingsView } from '../features/assistant-panel/settings/AssistantPanelSettingsView';
 import { type ControlDockProps, ControlDock } from './ControlDock';
 
 function createDockProps(

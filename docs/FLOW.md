@@ -19,3 +19,5 @@ These diagrams are intended to match the current repository state. When a diagra
 - `docs/diagrams/*.md` -> raw diagram source and flow definitions
 
 You can also embed selected diagrams directly into `ARCHITECTURE.md` and keep the files in `docs/diagrams` as the source of truth for Mermaid blocks.
+
+Historical planning notes and completed implementation wave notes live under `docs/archive/`.

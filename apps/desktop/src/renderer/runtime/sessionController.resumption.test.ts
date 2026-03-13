@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
-import { useSettingsStore } from '../store/settingsStore';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import {
   createUnusedTransport,
   createVoiceTransportHarness,
@@ -11,11 +10,7 @@ import {
 
 describe('createDesktopSessionController – resumption', () => {
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
   });
 
   it('stores the latest resumption handle and resumes after go-away with the existing token when still valid', async () => {
@@ -39,7 +34,7 @@ describe('createDesktopSessionController – resumption', () => {
         .mockReturnValueOnce(resumedTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     firstTransport.emit({
       type: 'session-resumption-update',
@@ -110,7 +105,7 @@ describe('createDesktopSessionController – resumption', () => {
         .mockReturnValueOnce(resumedTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     firstTransport.emit({
       type: 'session-resumption-update',
@@ -171,7 +166,7 @@ describe('createDesktopSessionController – resumption', () => {
       createTransport: vi.fn(() => firstTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     firstTransport.emit({
       type: 'session-resumption-update',
@@ -243,7 +238,7 @@ describe('createDesktopSessionController – resumption', () => {
         .mockReturnValueOnce(fallbackTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     firstTransport.emit({
       type: 'session-resumption-update',
@@ -316,7 +311,7 @@ describe('createDesktopSessionController – resumption', () => {
         .mockReturnValueOnce(resumedTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     firstTransport.emit({
       type: 'session-resumption-update',
@@ -375,7 +370,7 @@ describe('createDesktopSessionController – resumption', () => {
         .mockReturnValueOnce(fallbackTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     firstTransport.emit({
       type: 'session-resumption-update',
       handle: null,
@@ -409,6 +404,7 @@ describe('createDesktopSessionController – resumption', () => {
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
     expect(useSessionStore.getState().lastRuntimeError).toBeNull();
     expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+      kind: 'resumption',
       id: 'live-session-1',
       resumptionHandle: null,
       lastResumptionUpdateAt: expect.any(String),
@@ -444,7 +440,7 @@ describe('createDesktopSessionController – resumption', () => {
         .mockReturnValueOnce(fallbackTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     firstTransport.emit({
       type: 'session-resumption-update',
       handle: 'handles/stale-session',

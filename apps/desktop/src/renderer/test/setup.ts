@@ -1,13 +1,13 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, vi } from 'vitest';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
-import type { DesktopBridge } from '../../shared/desktopBridge';
-import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
-import { resetCurrentLiveSessionForTests } from '../liveSessions/currentLiveSession';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../shared';
+import { resetCurrentChatMemoryForTests } from '../chatMemory';
+import { resetCurrentLiveSessionForTests } from '../liveSessions';
 import { __resetGeminiLiveSdkMock } from './geminiLiveSdkMock';
-import { resetDesktopSessionController } from '../runtime/sessionController';
+import { resetDesktopSessionController } from '../runtime';
 import { resetLiveConfigForTests } from '../runtime/transport/liveConfig';
 import { resetDesktopStores } from '../store/testing';
+import { createMockDesktopBridge } from './bridgeMocks';
 
 beforeEach(async () => {
   if (typeof window === 'undefined') {
@@ -93,12 +93,7 @@ beforeEach(async () => {
   resetCurrentLiveSessionForTests();
   resetLiveConfigForTests();
   __resetGeminiLiveSdkMock();
-  window.bridge = {
-    overlayMode: 'linux-shape',
-    checkHealth: vi.fn(),
-    requestSessionToken: vi.fn(),
-    createChat: vi.fn(),
-    getChat: vi.fn(),
+  window.bridge = createMockDesktopBridge({
     getOrCreateCurrentChat: vi.fn(async () => ({
       id: 'chat-1',
       title: null,
@@ -159,7 +154,5 @@ beforeEach(async () => {
     })),
     getSettings: vi.fn(async () => DEFAULT_DESKTOP_SETTINGS),
     updateSettings: vi.fn(async (patch) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...patch })),
-    setOverlayHitRegions: vi.fn(),
-    setOverlayPointerPassthrough: vi.fn(),
-  } satisfies DesktopBridge;
+  });
 });

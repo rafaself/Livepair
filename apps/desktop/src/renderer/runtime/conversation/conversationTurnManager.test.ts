@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { resetDesktopStores } from '../../store/testing';
 import { useSessionStore } from '../../store/sessionStore';
 import {
   appendAssistantDraftTextDelta,
@@ -28,7 +29,7 @@ describe('conversationTurnManager', () => {
   let ctx: ConversationContext;
 
   beforeEach(() => {
-    useSessionStore.getState().reset();
+    resetDesktopStores();
     ctx = createConversationContext(useSessionStore);
   });
 

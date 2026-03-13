@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import {
   createUnusedTransport,
@@ -11,11 +12,7 @@ import {
 
 describe('createDesktopSessionController – voice capture', () => {
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
   });
 
   it('starts local voice capture, publishes chunks, and updates diagnostics without affecting text mode', async () => {
@@ -49,7 +46,7 @@ describe('createDesktopSessionController – voice capture', () => {
     const chunkListener = vi.fn();
     const unsubscribe = controller.subscribeToVoiceChunks(chunkListener);
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startVoiceCapture();
     voiceCapture.emitChunk();
     await Promise.resolve();
@@ -117,7 +114,7 @@ describe('createDesktopSessionController – voice capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startVoiceCapture();
     voiceCapture.emitChunk();
     await controller.stopVoiceCapture();
@@ -175,7 +172,7 @@ describe('createDesktopSessionController – voice capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startVoiceCapture();
     voiceCapture.emitError('Microphone permission was denied');
 

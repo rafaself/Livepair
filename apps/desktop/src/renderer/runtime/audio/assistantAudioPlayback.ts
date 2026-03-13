@@ -56,7 +56,7 @@ export type AssistantAudioPlaybackObserver = {
 
 export type AssistantAudioPlayback = AssistantAudioPlaybackContract;
 
-export type CreateAssistantAudioPlaybackDependencies = {
+type CreateAssistantAudioPlaybackDependencies = {
   selectedOutputDeviceId?: string;
   createAudioContext?: () => AudioContextLike;
   createAudioElement?: () => AudioElementLike;

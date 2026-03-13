@@ -1,16 +1,26 @@
 import type {
   EndLiveSessionRequest,
   LiveSessionRecord,
-  UpdateLiveSessionRequest,
+  UpdateLiveSessionResumptionRequest,
+  UpdateLiveSessionSnapshotRequest,
 } from '@livepair/shared-types';
 import { getCurrentChat } from '../chatMemory/currentChatMemory';
+import type { ActiveChatQueryBridge } from '../chatMemory/queries';
+import {
+  createPersistedLiveSession,
+  endPersistedLiveSession,
+  listPersistedLiveSessions,
+  type LiveSessionsBridge,
+  updatePersistedLiveSession,
+} from './queries';
 
-type CurrentLiveSessionBridge = Pick<
-  typeof window.bridge,
-  'createLiveSession' | 'getOrCreateCurrentChat' | 'listLiveSessions' | 'updateLiveSession' | 'endLiveSession'
->;
+type CurrentLiveSessionBridge = ActiveChatQueryBridge & LiveSessionsBridge;
 
 let activeLiveSession: LiveSessionRecord | null = null;
+
+type UpdateCurrentLiveSessionRequest =
+  | Omit<UpdateLiveSessionResumptionRequest, 'id'>
+  | Omit<UpdateLiveSessionSnapshotRequest, 'id'>;
 
 function isRestoreCandidate(candidate: LiveSessionRecord): boolean {
   return (
@@ -36,10 +46,10 @@ export async function startCurrentLiveSession(
   }
 
   const chat = await getCurrentChat(bridge);
-  const liveSession = await bridge.createLiveSession({
+  const liveSession = await createPersistedLiveSession({
     chatId: chat.id,
     startedAt: new Date().toISOString(),
-  });
+  }, bridge);
 
   activeLiveSession = liveSession;
   return liveSession;
@@ -53,7 +63,7 @@ export async function restoreCurrentLiveSession(
   }
 
   const chat = await getCurrentChat(bridge);
-  const liveSessions = await bridge.listLiveSessions(chat.id);
+  const liveSessions = await listPersistedLiveSessions(chat.id, bridge);
   const liveSession = liveSessions.find(isRestoreCandidate) ?? null;
 
   if (liveSession === null) {
@@ -61,14 +71,14 @@ export async function restoreCurrentLiveSession(
 
     await Promise.all(
       skippedSessions.map((session) =>
-        bridge.endLiveSession({
+        endPersistedLiveSession({
           id: session.id,
           endedAt: new Date().toISOString(),
           status: 'failed',
           endedReason:
             session.invalidationReason
             ?? 'Skipped non-restorable persisted Live session during startup',
-        }),
+        }, bridge),
       ),
     );
   }
@@ -78,17 +88,17 @@ export async function restoreCurrentLiveSession(
 }
 
 export async function updateCurrentLiveSession(
-  request: Omit<UpdateLiveSessionRequest, 'id'>,
+  request: UpdateCurrentLiveSessionRequest,
   bridge: CurrentLiveSessionBridge = window.bridge,
 ): Promise<LiveSessionRecord | null> {
   if (!activeLiveSession) {
     return null;
   }
 
-  const updatedLiveSession = await bridge.updateLiveSession({
+  const updatedLiveSession = await updatePersistedLiveSession({
     id: activeLiveSession.id,
     ...request,
-  });
+  }, bridge);
 
   activeLiveSession = updatedLiveSession;
   return updatedLiveSession;
@@ -105,12 +115,12 @@ export async function endCurrentLiveSession(
   const liveSessionId = activeLiveSession.id;
 
   try {
-    const endedLiveSession = await bridge.endLiveSession({
+    const endedLiveSession = await endPersistedLiveSession({
       id: liveSessionId,
       endedAt: request.endedAt ?? new Date().toISOString(),
       status: request.status,
       endedReason: request.endedReason ?? null,
-    });
+    }, bridge);
     activeLiveSession = null;
     return endedLiveSession;
   } catch (error) {

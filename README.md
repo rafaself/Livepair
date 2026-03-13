@@ -47,7 +47,9 @@ The backend stays out of the audio/video hot path, but it is not "token only" an
 * [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the current architecture and product-mode model
 * [docs/MILESTONE_MATRIX.md](./docs/MILESTONE_MATRIX.md) for milestone-by-milestone implementation status
 * [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) for current gaps and risks
-* [docs/AUDIT.md](./docs/AUDIT.md) for the status audit and canonical doc map
+* [docs/AUDIT.md](./docs/AUDIT.md) for the current documentation guide and canonical doc map
+
+> Historical implementation notes and transient planning material live under [docs/archive/](./docs/archive/). They are not part of the active source-of-truth set.
 
 > **Note on `specs/`:** The `specs/` directory contains historical pre-implementation planning specs (Releases 0–3). They are not the source of truth for the current system. See [specs/README.md](./specs/README.md) for the boundary note and a pointer table.
 

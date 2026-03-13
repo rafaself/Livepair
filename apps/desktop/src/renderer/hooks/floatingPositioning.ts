@@ -15,7 +15,7 @@ export type FloatingPosition = {
   placement: FloatingPlacement;
 };
 
-export type FloatingMeasurement = {
+type FloatingMeasurement = {
   triggerRect: DOMRect;
   viewportWidth: number;
   viewportHeight: number;

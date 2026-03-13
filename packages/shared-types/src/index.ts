@@ -26,7 +26,7 @@ export interface ChatMessageRecord {
 
 export type RehydrationPacketTurnRole = ChatMessageRole;
 
-export type RehydrationPacketTurnKind = 'message' | 'transcript';
+export type RehydrationPacketTurnKind = 'message';
 
 export interface RehydrationPacketTurn {
   role: RehydrationPacketTurnRole;
@@ -101,16 +101,26 @@ export interface CreateLiveSessionRequest {
   startedAt?: string;
 }
 
-export interface UpdateLiveSessionRequest {
+export interface UpdateLiveSessionResumptionRequest {
+  kind: 'resumption';
   id: LiveSessionId;
   resumptionHandle?: string | null;
   lastResumptionUpdateAt?: string | null;
   restorable?: boolean;
   invalidatedAt?: string | null;
   invalidationReason?: string | null;
+}
+
+export interface UpdateLiveSessionSnapshotRequest {
+  kind: 'snapshot';
+  id: LiveSessionId;
   summarySnapshot?: string | null;
   contextStateSnapshot?: RehydrationPacketContextState | null;
 }
+
+export type UpdateLiveSessionRequest =
+  | UpdateLiveSessionResumptionRequest
+  | UpdateLiveSessionSnapshotRequest;
 
 export interface EndLiveSessionRequest {
   id: LiveSessionId;

@@ -43,7 +43,11 @@ function normalizeThemePreference(value: unknown): ThemePreference | null {
   return value === 'system' || value === 'light' || value === 'dark' ? value : null;
 }
 
-function normalizePreferredMode(value: unknown): PreferredMode | null {
+type StoredLegacyPreferredMode = 'thinking';
+
+function normalizeStoredPreferredMode(
+  value: PreferredMode | StoredLegacyPreferredMode | unknown,
+): PreferredMode | null {
   if (value === 'fast') return value;
   if (value === 'thinking') return 'fast';
   return null;
@@ -62,7 +66,7 @@ export function normalizeDesktopSettings(
   const backendUrl = normalizeBackendBaseUrl(
     settings.backendUrl ?? DEFAULT_DESKTOP_SETTINGS.backendUrl,
   );
-  const preferredMode = normalizePreferredMode(
+  const preferredMode = normalizeStoredPreferredMode(
     settings.preferredMode ?? DEFAULT_DESKTOP_SETTINGS.preferredMode,
   );
   const speechSilenceTimeout = normalizeSpeechSilenceTimeout(
@@ -134,7 +138,7 @@ export function normalizeDesktopSettingsPatch(
   }
 
   if ('preferredMode' in patch) {
-    const preferredMode = normalizePreferredMode(patch.preferredMode);
+    const preferredMode = normalizeStoredPreferredMode(patch.preferredMode);
     if (preferredMode === null) {
       return null;
     }

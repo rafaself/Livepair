@@ -2,11 +2,14 @@ import { ChevronLeft } from 'lucide-react';
 import { IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import type { ProductMode } from '../../runtime/core/session.types';
-import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
-import type { ScreenCaptureState } from '../../runtime/screen/screen.types';
-import type { TransportKind } from '../../runtime/transport/transport.types';
-import type { VoiceCaptureState, VoiceSessionStatus } from '../../runtime/voice/voice.types';
+import type {
+  ProductMode,
+  ScreenCaptureState,
+  SpeechLifecycleStatus,
+  TransportKind,
+  VoiceCaptureState,
+  VoiceSessionStatus,
+} from '../../runtime';
 import { ControlDockSpeechControls } from './ControlDockSpeechControls';
 import { createControlDockUiState } from './controlDockUiState';
 import { useControlDockVisibility } from './useControlDockVisibility';

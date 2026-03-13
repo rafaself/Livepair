@@ -366,7 +366,7 @@ describe('registerIpcHandlers', () => {
       'Invalid create live session payload',
     );
     await expect(listLiveSessionsHandler({}, '')).rejects.toThrow('Invalid chat id');
-    await expect(updateLiveSessionHandler({}, { id: '', restorable: true })).rejects.toThrow(
+    await expect(updateLiveSessionHandler({}, { kind: 'resumption', id: '', restorable: true })).rejects.toThrow(
       'Invalid update live session payload',
     );
     await expect(endLiveSessionHandler({}, { id: '', status: 'ended' })).rejects.toThrow(
@@ -398,6 +398,7 @@ describe('registerIpcHandlers', () => {
     ]);
     await expect(
       updateLiveSessionHandler({}, {
+        kind: 'resumption',
         id: 'live-session-1',
         resumptionHandle: 'handles/live-session-1',
         lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
@@ -423,6 +424,7 @@ describe('registerIpcHandlers', () => {
     expect(chatMemoryService.createLiveSession).toHaveBeenCalledWith({ chatId: 'chat-1' });
     expect(chatMemoryService.listLiveSessions).toHaveBeenCalledWith('chat-1');
     expect(chatMemoryService.updateLiveSession).toHaveBeenCalledWith({
+      kind: 'resumption',
       id: 'live-session-1',
       resumptionHandle: 'handles/live-session-1',
       lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',

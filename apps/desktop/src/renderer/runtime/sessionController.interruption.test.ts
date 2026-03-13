@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import {
   createVoiceTransportHarness,
   createVoiceCaptureHarness,
@@ -11,11 +11,7 @@ import {
 
 describe('createDesktopSessionController – interruption', () => {
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
   });
 
   it('handles interruption during active playback without disconnecting the voice session', async () => {
@@ -37,7 +33,7 @@ describe('createDesktopSessionController – interruption', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     voicePlayback.emitState('playing');
     voicePlayback.emitDiagnostics({
@@ -108,7 +104,7 @@ describe('createDesktopSessionController – interruption', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startVoiceCapture();
     voicePlayback.enableDeferredStop();
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
@@ -179,7 +175,7 @@ describe('createDesktopSessionController – interruption', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voicePlayback.enableDeferredStop();
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     voicePlayback.emitState('playing');

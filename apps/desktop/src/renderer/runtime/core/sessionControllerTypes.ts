@@ -27,7 +27,7 @@ export type DebugAssistantState = Parameters<
 
 export type DesktopSessionController = {
   checkBackendHealth: () => Promise<void>;
-  startSession: (options: { mode: 'voice' }) => Promise<void>;
+  startSession: (options: { mode: 'speech' }) => Promise<void>;
   startVoiceCapture: () => Promise<void>;
   stopVoiceCapture: () => Promise<void>;
   startScreenCapture: () => Promise<void>;

@@ -1,6 +1,6 @@
 import { fireEvent, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DesktopBridge } from '../../shared/desktopBridge';
+import { createMockDesktopBridge } from '../test/bridgeMocks';
 import { useOverlayPointerPassthrough } from './useOverlayPointerPassthrough';
 
 describe('useOverlayPointerPassthrough', () => {
@@ -8,26 +8,10 @@ describe('useOverlayPointerPassthrough', () => {
 
   beforeEach(() => {
     document.body.innerHTML = '';
-    window.bridge = {
+    window.bridge = createMockDesktopBridge({
       overlayMode: 'forwarded-pointer',
-      checkHealth: vi.fn(),
-      requestSessionToken: vi.fn(),
-      createChat: vi.fn(),
-      getChat: vi.fn(),
-      getOrCreateCurrentChat: vi.fn(),
-      listChats: vi.fn(),
-      listChatMessages: vi.fn(),
-      getChatSummary: vi.fn(),
-      appendChatMessage: vi.fn(),
-      createLiveSession: vi.fn(),
-      listLiveSessions: vi.fn(),
-      updateLiveSession: vi.fn(),
-      endLiveSession: vi.fn(),
-      getSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setOverlayHitRegions: vi.fn(),
       setOverlayPointerPassthrough: mockSetOverlayPointerPassthrough,
-    } satisfies DesktopBridge;
+    });
   });
 
   afterEach(() => {

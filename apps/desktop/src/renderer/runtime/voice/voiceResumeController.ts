@@ -15,7 +15,7 @@ import { isTokenValidForReconnect } from './voiceSessionToken';
 import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import type { SessionStoreApi } from '../core/sessionControllerTypes';
 
-export type VoiceResumeControllerOps = {
+type VoiceResumeControllerOps = {
   store: SessionStoreApi;
   createTransport: (kind: TransportKind) => DesktopSession;
   getToken: () => CreateEphemeralTokenResponse | null;

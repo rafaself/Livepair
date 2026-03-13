@@ -222,6 +222,7 @@ describe('preload bridge', () => {
       invalidationReason: null,
     });
     await bridge.updateLiveSession({
+      kind: 'resumption',
       id: 'live-session-1',
       resumptionHandle: 'handles/live-session-1',
       lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
@@ -230,6 +231,7 @@ describe('preload bridge', () => {
       invalidationReason: null,
     });
     expect(mockInvoke).toHaveBeenCalledWith('liveSession:update', {
+      kind: 'resumption',
       id: 'live-session-1',
       resumptionHandle: 'handles/live-session-1',
       lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',

@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 
-export type UseDismissableLayerOptions = {
+type UseDismissableLayerOptions = {
   enabled: boolean;
   containerRef?: RefObject<HTMLElement | null>;
   extraRefs?: readonly RefObject<HTMLElement | null>[];

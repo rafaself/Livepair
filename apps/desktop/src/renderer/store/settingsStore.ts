@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import type {
   DesktopSettings,
   DesktopSettingsPatch,
-} from '../../shared/settings';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+} from '../../shared';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../shared';
 
 type SettingsStoreState = {
   settings: DesktopSettings;

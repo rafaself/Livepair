@@ -13,6 +13,7 @@ import type {
   HealthResponse,
   LiveSessionRecord,
   LiveSessionStatus,
+  RehydrationPacket,
   UpdateLiveSessionRequest,
 } from './index';
 
@@ -101,6 +102,36 @@ type _DurableChatSummaryRecordShape = Assert<
 type _LiveSessionStatusShape = Assert<
   IsExact<LiveSessionStatus, 'active' | 'ended' | 'failed'>
 >;
+type _RehydrationPacketShape = Assert<
+  IsExact<
+    RehydrationPacket,
+    {
+      stableInstruction: string;
+      summary: string | null;
+      recentTurns: Array<{
+        role: 'user' | 'assistant';
+        kind: 'message';
+        text: string;
+        createdAt: string;
+        sequence: number;
+      }>;
+      contextState: {
+        task: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+        context: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+      };
+    }
+  >
+>;
 type _LiveSessionRecordShape = Assert<
   IsExact<
     LiveSessionRecord,
@@ -157,29 +188,34 @@ type _EndLiveSessionRequestShape = Assert<
 type _UpdateLiveSessionRequestShape = Assert<
   IsExact<
     UpdateLiveSessionRequest,
-    {
-      id: string;
-      resumptionHandle?: string | null;
-      lastResumptionUpdateAt?: string | null;
-      restorable?: boolean;
-      invalidatedAt?: string | null;
-      invalidationReason?: string | null;
-      summarySnapshot?: string | null;
-      contextStateSnapshot?: {
-        task: {
-          entries: Array<{
-            key: string;
-            value: string;
-          }>;
-        };
-        context: {
-          entries: Array<{
-            key: string;
-            value: string;
-          }>;
-        };
-      } | null;
-    }
+    | {
+        kind: 'resumption';
+        id: string;
+        resumptionHandle?: string | null;
+        lastResumptionUpdateAt?: string | null;
+        restorable?: boolean;
+        invalidatedAt?: string | null;
+        invalidationReason?: string | null;
+      }
+    | {
+        kind: 'snapshot';
+        id: string;
+        summarySnapshot?: string | null;
+        contextStateSnapshot?: {
+          task: {
+            entries: Array<{
+              key: string;
+              value: string;
+            }>;
+          };
+          context: {
+            entries: Array<{
+              key: string;
+              value: string;
+            }>;
+          };
+        } | null;
+      }
   >
 >;
 

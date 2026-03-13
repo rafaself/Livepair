@@ -1,0 +1,212 @@
+import {
+  logLifecycleTransition,
+  logRuntimeError,
+} from '../core/logger';
+import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
+import { createVoiceTranscriptController } from '../voice/voiceTranscriptController';
+import { createVoicePlaybackController } from '../voice/voicePlaybackController';
+import { createScreenCaptureController } from '../screen/screenCaptureController';
+import { createVoiceToolController } from '../voice/voiceToolController';
+import { createVoiceInterruptionController } from '../voice/voiceInterruptionController';
+import { createVoiceTokenManager } from '../voice/voiceTokenManager';
+import { createSpeechSilenceController } from '../speech/speechSilenceController';
+import { createConversationContext } from '../conversation/conversationTurnManager';
+import {
+  appendUserTurn as appendConversationUserTurn,
+  clearPendingAssistantTurn,
+} from '../conversation/conversationTurnManager';
+import {
+  persistConversationTurnInBackground,
+} from '../conversation/persistConversationTurn';
+import { createVoiceChunkPipeline } from '../voice/voiceChunkPipeline';
+import { createSessionControllerStateSync } from './sessionStateSync';
+import { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
+import { createSessionControllerRuntime } from './sessionRuntime';
+import { createSessionTransportAssembly } from './sessionTransportAssembly';
+import { createSessionLifecycleAssembly } from './sessionLifecycleAssembly';
+import type {
+  DesktopSessionController,
+  DesktopSessionControllerDependencies,
+} from '../core/sessionControllerTypes';
+
+export function createSessionControllerAssembly(
+  dependencies: DesktopSessionControllerDependencies,
+): DesktopSessionController {
+  const mutableRuntime = createSessionControllerMutableRuntime();
+  const conversationCtx = createConversationContext(dependencies.store);
+  let endSessionInternal = async (
+    _options: {
+      preserveLastRuntimeError?: string | null;
+      recordEvents?: boolean;
+      preserveVoiceRuntimeDiagnostics?: boolean;
+      liveSessionEnd?: {
+        status: 'ended' | 'failed';
+        endedReason?: string | null;
+      };
+    } = {},
+  ): Promise<void> => {
+    throw new Error('endSessionInternal called before initialization');
+  };
+  const runtimeRef = {
+    current: null as ReturnType<typeof createSessionControllerRuntime> | null,
+  };
+  const playbackCtrl = createVoicePlaybackController(
+    dependencies.store,
+    dependencies.settingsStore,
+    dependencies.createVoicePlayback,
+  );
+  const screenCtrl = createScreenCaptureController(
+    dependencies.store,
+    dependencies.createScreenCapture,
+    () => mutableRuntime.getActiveTransport(),
+  );
+  let setVoiceErrorState = (_detail: string): void => {
+    throw new Error('setVoiceErrorState called before initialization');
+  };
+  let settleVoiceErrorState = async (_detail: string): Promise<void> => {
+    throw new Error('settleVoiceErrorState called before initialization');
+  };
+  const voiceToolCtrl = createVoiceToolController(
+    dependencies.store,
+    () => mutableRuntime.getActiveTransport(),
+    () => stateSync.createVoiceToolExecutionSnapshot(),
+  );
+  const interruptionCtrl = createVoiceInterruptionController(
+    dependencies.store,
+    () => mutableRuntime.getActiveTransport(),
+    () => runtimeRef.current!.currentVoiceSessionStatus(),
+    (status) => runtimeRef.current!.setVoiceSessionStatus(status),
+    (event) => runtimeRef.current!.applySpeechLifecycleEvent(event),
+    () => runtimeRef.current!.stopVoicePlayback(),
+  );
+  const persistSettledConversationTurn = (turnId: string): void => {
+    persistConversationTurnInBackground(dependencies.store, turnId);
+  };
+  const voiceTranscript = createVoiceTranscriptController(dependencies.store, conversationCtx, {
+    onConversationTurnSettled: persistSettledConversationTurn,
+  });
+  const tokenMgr = createVoiceTokenManager(
+    dependencies.store,
+    dependencies.requestSessionToken,
+    (id) => runtimeRef.current!.isCurrentSessionOperation(id),
+    (patch) => runtimeRef.current!.setVoiceSessionDurability(patch),
+    (event) => runtimeRef.current!.recordSessionEvent(event),
+    (detail) => setVoiceErrorState(detail),
+    LIVE_ADAPTER_KEY,
+  );
+  const silenceCtrl = createSpeechSilenceController(
+    dependencies.settingsStore,
+    () => void endSessionInternal(),
+    () => runtimeRef.current!.applySpeechLifecycleEvent({ type: 'recovery.completed' }),
+  );
+  const voiceChunkCtrl = createVoiceChunkPipeline({
+    store: dependencies.store,
+    settingsStore: dependencies.settingsStore,
+    createVoiceCapture: dependencies.createVoiceCapture,
+    getActiveTransport: () => mutableRuntime.getActiveTransport(),
+    currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
+    setVoiceSessionStatus: (s) => runtimeRef.current!.setVoiceSessionStatus(s),
+    setVoiceErrorState: (d) => setVoiceErrorState(d),
+    endSessionInternal: (o) => void endSessionInternal(o),
+    logRuntimeError,
+  });
+  const appendTypedUserTurn = (text: string): string => {
+    const turnId = appendConversationUserTurn(conversationCtx, text, { source: 'text' });
+    persistSettledConversationTurn(turnId);
+    return turnId;
+  };
+  const stateSync = createSessionControllerStateSync({
+    store: dependencies.store,
+    settingsStore: dependencies.settingsStore,
+    onSpeechLifecycleTransition: (previousStatus, nextStatus, eventType) => {
+      logLifecycleTransition(previousStatus, nextStatus, eventType);
+    },
+    handleSpeechLifecycleStatusChange: (status) => {
+      silenceCtrl.handleStatusChange(status);
+    },
+    updateVoicePlaybackDiagnostics: (patch) => {
+      playbackCtrl.updateDiagnostics(patch);
+    },
+    setVoicePlaybackState: (state) => {
+      playbackCtrl.setState(state);
+    },
+    getVoicePlayback: () => playbackCtrl.getOrCreate(),
+    setVoiceToolState: (patch) => {
+      voiceToolCtrl.setState(patch);
+    },
+    resetVoiceToolState: () => {
+      voiceToolCtrl.reset();
+    },
+    clearCurrentVoiceTranscript: () => {
+      voiceTranscript.clearTranscript();
+    },
+    resetVoiceTurnTranscriptState: () => {
+      voiceTranscript.resetTurnTranscriptState();
+    },
+    applyVoiceTranscriptUpdate: (role, text, isFinal) => {
+      voiceTranscript.applyTranscriptUpdate(role, text, isFinal);
+    },
+    syncVoiceDurabilityState: (token, patch) => {
+      tokenMgr.syncDurabilityState(token, patch);
+    },
+  });
+  runtimeRef.current = createSessionControllerRuntime({
+    logger: dependencies.logger,
+    store: dependencies.store,
+    mutableRuntime,
+    stateSync,
+    playbackCtrl,
+    voiceChunkCtrl,
+    voiceToolCtrl,
+    screenCtrl,
+    interruptionCtrl,
+    currentTextSessionStatus: () => dependencies.store.getState().textSessionLifecycle.status,
+    resetTextSessionRuntime: (textSessionStatus, options) => {
+      dependencies.store.getState().resetTextSessionRuntime(textSessionStatus, options);
+    },
+    clearPendingAssistantTurn: () => {
+      clearPendingAssistantTurn(conversationCtx);
+    },
+    voiceTranscript,
+    silenceCtrl,
+  });
+  const { handleTransportEvent, requestVoiceSessionToken } = createSessionTransportAssembly({
+    dependencies,
+    conversationCtx,
+    mutableRuntime,
+    runtimeRef,
+    voiceToolCtrl,
+    voiceTranscript,
+    voiceChunkCtrl,
+    screenCtrl,
+    interruptionCtrl,
+    tokenMgr,
+    setVoiceErrorState: (detail) => setVoiceErrorState(detail),
+    persistSettledConversationTurn,
+  });
+  const {
+    publicApi,
+    endSessionInternal: assembledEndSessionInternal,
+    voiceErrorHandlers,
+  } = createSessionLifecycleAssembly({
+    dependencies,
+    conversationCtx,
+    runtimeRef,
+    playbackCtrl,
+    screenCtrl,
+    voiceChunkCtrl,
+    voiceTranscript,
+    tokenMgr,
+    appendTypedUserTurn,
+    handleTransportEvent,
+    requestVoiceSessionToken,
+    selectedOutputDeviceId: () => stateSync.selectedOutputDeviceId(),
+    setVoiceErrorState: (detail) => setVoiceErrorState(detail),
+    settleVoiceErrorState: (detail) => settleVoiceErrorState(detail),
+  });
+
+  endSessionInternal = assembledEndSessionInternal;
+  ({ setVoiceErrorState, settleVoiceErrorState } = voiceErrorHandlers);
+
+  return publicApi;
+}

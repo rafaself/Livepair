@@ -1,0 +1,213 @@
+import { describe, expect, it, vi } from 'vitest';
+import { createSessionControllerStateSync } from './sessionStateSync';
+
+function createMockArgs(speechStatus = 'off', mode = 'text') {
+  const storeState = {
+    speechLifecycle: { status: speechStatus },
+    voiceSessionStatus: 'disconnected',
+    currentMode: mode,
+    textSessionLifecycle: { status: 'idle' },
+    voiceCaptureState: 'idle',
+    voicePlaybackState: 'idle',
+    setSpeechLifecycle: vi.fn(),
+    setVoiceSessionStatus: vi.fn(),
+    setCurrentMode: vi.fn(),
+    setVoiceSessionResumption: vi.fn(),
+    setVoiceSessionDurability: vi.fn(),
+  };
+
+  return {
+    store: { getState: vi.fn().mockReturnValue(storeState) } as never,
+    settingsStore: {
+      getState: vi.fn().mockReturnValue({
+        settings: { selectedOutputDeviceId: 'speakers' },
+      }),
+    } as never,
+    onSpeechLifecycleTransition: vi.fn(),
+    handleSpeechLifecycleStatusChange: vi.fn(),
+    updateVoicePlaybackDiagnostics: vi.fn(),
+    setVoicePlaybackState: vi.fn(),
+    getVoicePlayback: vi.fn(),
+    setVoiceToolState: vi.fn(),
+    resetVoiceToolState: vi.fn(),
+    clearCurrentVoiceTranscript: vi.fn(),
+    resetVoiceTurnTranscriptState: vi.fn(),
+    applyVoiceTranscriptUpdate: vi.fn(),
+    syncVoiceDurabilityState: vi.fn(),
+    _storeState: storeState,
+  };
+}
+
+describe('createSessionControllerStateSync', () => {
+  describe('applySpeechLifecycleEvent', () => {
+    it('updates store and fires callbacks when status changes', () => {
+      const args = createMockArgs('off');
+      const sync = createSessionControllerStateSync(args as never);
+
+      const result = sync.applySpeechLifecycleEvent({ type: 'session.start.requested' });
+
+      expect(result).toBe('starting');
+      expect(args._storeState.setSpeechLifecycle).toHaveBeenCalledWith({ status: 'starting' });
+      expect(args.onSpeechLifecycleTransition).toHaveBeenCalledWith('off', 'starting', 'session.start.requested');
+      expect(args.handleSpeechLifecycleStatusChange).toHaveBeenCalledWith('starting');
+    });
+
+    it('does not fire callbacks when status stays the same', () => {
+      const args = createMockArgs('listening');
+      const sync = createSessionControllerStateSync(args as never);
+
+      // session.start.requested from 'listening' is a no-op
+      const result = sync.applySpeechLifecycleEvent({ type: 'session.start.requested' });
+
+      expect(result).toBe('listening');
+      expect(args._storeState.setSpeechLifecycle).not.toHaveBeenCalled();
+      expect(args.onSpeechLifecycleTransition).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('currentSpeechLifecycleStatus', () => {
+    it('reads status from store', () => {
+      const args = createMockArgs('listening');
+      const sync = createSessionControllerStateSync(args as never);
+
+      expect(sync.currentSpeechLifecycleStatus()).toBe('listening');
+    });
+  });
+
+  describe('currentVoiceSessionStatus', () => {
+    it('reads voice session status from store', () => {
+      const args = createMockArgs();
+      args._storeState.voiceSessionStatus = 'ready';
+      const sync = createSessionControllerStateSync(args as never);
+
+      expect(sync.currentVoiceSessionStatus()).toBe('ready');
+    });
+  });
+
+  describe('currentProductMode and setCurrentMode', () => {
+    it('reads and writes current mode', () => {
+      const args = createMockArgs('off', 'speech');
+      const sync = createSessionControllerStateSync(args as never);
+
+      expect(sync.currentProductMode()).toBe('speech');
+
+      sync.setCurrentMode('inactive');
+      expect(args._storeState.setCurrentMode).toHaveBeenCalledWith('inactive');
+    });
+  });
+
+  describe('hasSpeechLifecycleActivity', () => {
+    it('returns false when speech is off', () => {
+      const args = createMockArgs('off');
+      const sync = createSessionControllerStateSync(args as never);
+
+      expect(sync.hasSpeechLifecycleActivity()).toBe(false);
+    });
+
+    it('returns true when speech is active', () => {
+      const args = createMockArgs('listening');
+      const sync = createSessionControllerStateSync(args as never);
+
+      expect(sync.hasSpeechLifecycleActivity()).toBe(true);
+    });
+  });
+
+  describe('createVoiceToolExecutionSnapshot', () => {
+    it('captures all state dimensions', () => {
+      const args = createMockArgs('listening', 'speech');
+      args._storeState.voiceSessionStatus = 'ready';
+      args._storeState.voiceCaptureState = 'capturing';
+      args._storeState.voicePlaybackState = 'playing';
+      args._storeState.textSessionLifecycle = { status: 'idle' };
+      const sync = createSessionControllerStateSync(args as never);
+
+      const snapshot = sync.createVoiceToolExecutionSnapshot();
+
+      expect(snapshot).toEqual({
+        currentMode: 'speech',
+        textSessionStatus: 'idle',
+        speechLifecycleStatus: 'listening',
+        voiceSessionStatus: 'ready',
+        voiceCaptureState: 'capturing',
+        voicePlaybackState: 'playing',
+      });
+    });
+  });
+
+  describe('resetVoiceRuntimeState', () => {
+    it('resets tool state, transcript, and turn state', () => {
+      const args = createMockArgs();
+      const sync = createSessionControllerStateSync(args as never);
+
+      sync.resetVoiceRuntimeState();
+
+      expect(args.resetVoiceToolState).toHaveBeenCalledTimes(1);
+      expect(args.clearCurrentVoiceTranscript).toHaveBeenCalledTimes(1);
+      expect(args.resetVoiceTurnTranscriptState).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('resetVoiceSessionResumption', () => {
+    it('resets resumption to default state', () => {
+      const args = createMockArgs();
+      const sync = createSessionControllerStateSync(args as never);
+
+      sync.resetVoiceSessionResumption();
+
+      expect(args._storeState.setVoiceSessionResumption).toHaveBeenCalledWith({
+        status: 'idle',
+        latestHandle: null,
+        resumable: false,
+        lastDetail: null,
+      });
+    });
+  });
+
+  describe('resetVoiceSessionDurability', () => {
+    it('resets durability to default state', () => {
+      const args = createMockArgs();
+      const sync = createSessionControllerStateSync(args as never);
+
+      sync.resetVoiceSessionDurability();
+
+      expect(args._storeState.setVoiceSessionDurability).toHaveBeenCalledWith({
+        compressionEnabled: false,
+        tokenValid: false,
+        tokenRefreshing: false,
+        tokenRefreshFailed: false,
+        expireTime: null,
+        newSessionExpireTime: null,
+        lastDetail: null,
+      });
+    });
+  });
+
+  describe('selectedOutputDeviceId', () => {
+    it('reads from settings store', () => {
+      const args = createMockArgs();
+      const sync = createSessionControllerStateSync(args as never);
+
+      expect(sync.selectedOutputDeviceId()).toBe('speakers');
+    });
+  });
+
+  describe('pass-through methods', () => {
+    it('delegates setVoiceSessionStatus to store', () => {
+      const args = createMockArgs();
+      const sync = createSessionControllerStateSync(args as never);
+
+      sync.setVoiceSessionStatus('ready');
+
+      expect(args._storeState.setVoiceSessionStatus).toHaveBeenCalledWith('ready');
+    });
+
+    it('delegates syncSpeechSilenceTimeout to handler', () => {
+      const args = createMockArgs();
+      const sync = createSessionControllerStateSync(args as never);
+
+      sync.syncSpeechSilenceTimeout('listening');
+
+      expect(args.handleSpeechLifecycleStatusChange).toHaveBeenCalledWith('listening');
+    });
+  });
+});

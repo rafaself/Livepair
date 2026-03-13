@@ -36,14 +36,14 @@ import {
   createTransportError,
   getErrorDetail,
 } from './geminiLiveTransportProtocol';
-import { mapRehydrationPacketToLiveSessionHistory } from '../../chatMemory/currentChatMemory';
+import { mapRehydrationTurnsToLiveSessionHistory } from './liveSessionHistory';
 import {
   createGeminiLiveTransportState,
   resetGeminiLiveTransportState,
 } from './geminiLiveTransportState';
 import { logRuntimeDiagnostic, logRuntimeError } from '../core/logger';
 
-export type CreateGeminiLiveTransportOptions = {
+type CreateGeminiLiveTransportOptions = {
   connectSession?: (
     options: ConnectGeminiLiveSdkSessionOptions,
   ) => Promise<GeminiLiveSdkSession>;
@@ -263,7 +263,7 @@ export class GeminiLiveTransport implements DesktopSession {
       const session = this.state.session ?? activeSession;
       const effectiveHistory =
         rehydrationPacket && rehydrationPacket.recentTurns.length > 0
-          ? mapRehydrationPacketToLiveSessionHistory(rehydrationPacket)
+          ? mapRehydrationTurnsToLiveSessionHistory(rehydrationPacket.recentTurns)
           : undefined;
 
       if (effectiveHistory && effectiveHistory.length > 0) {

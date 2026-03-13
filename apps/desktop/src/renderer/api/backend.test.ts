@@ -1,36 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
-import type { DesktopBridge } from '../../shared/desktopBridge';
+import { describe, expect, it } from 'vitest';
 import {
   checkBackendHealth,
   requestSessionToken,
 } from './backend';
-
-function createBridge() {
-  return {
-    overlayMode: 'linux-shape' as const,
-    checkHealth: vi.fn(),
-    requestSessionToken: vi.fn(),
-    createChat: vi.fn(),
-    getChat: vi.fn(),
-    getOrCreateCurrentChat: vi.fn(),
-    listChats: vi.fn(),
-    listChatMessages: vi.fn(),
-    getChatSummary: vi.fn(),
-    appendChatMessage: vi.fn(),
-    createLiveSession: vi.fn(),
-    listLiveSessions: vi.fn(),
-    updateLiveSession: vi.fn(),
-    endLiveSession: vi.fn(),
-    getSettings: vi.fn(),
-    updateSettings: vi.fn(),
-    setOverlayHitRegions: vi.fn(),
-    setOverlayPointerPassthrough: vi.fn(),
-  } satisfies DesktopBridge;
-}
+import { createMockDesktopBridge } from '../test/bridgeMocks';
 
 describe('renderer backend api helper', () => {
   it('returns true when bridge health responds with status ok', async () => {
-    const bridge = createBridge();
+    const bridge = createMockDesktopBridge();
     bridge.checkHealth.mockResolvedValue({ status: 'ok', timestamp: 'now' });
     window.bridge = bridge;
 
@@ -39,7 +16,7 @@ describe('renderer backend api helper', () => {
   });
 
   it('returns false when bridge health rejects or returns a non-ok payload', async () => {
-    const bridge = createBridge();
+    const bridge = createMockDesktopBridge();
     bridge.checkHealth.mockResolvedValue({ status: 'bad', timestamp: 'now' });
     window.bridge = bridge;
 
@@ -55,7 +32,7 @@ describe('renderer backend api helper', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     };
-    const bridge = createBridge();
+    const bridge = createMockDesktopBridge();
     bridge.requestSessionToken.mockResolvedValue(tokenResponse);
     window.bridge = bridge;
 
@@ -64,7 +41,7 @@ describe('renderer backend api helper', () => {
   });
 
   it('propagates token request failures', async () => {
-    const bridge = createBridge();
+    const bridge = createMockDesktopBridge();
     bridge.requestSessionToken.mockRejectedValue(new Error('token failed'));
     window.bridge = bridge;
 

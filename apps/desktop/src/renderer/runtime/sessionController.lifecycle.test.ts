@@ -5,7 +5,7 @@ import { createDesktopSessionController } from './sessionController';
 import { selectAssistantRuntimeState, selectIsConversationEmpty } from './selectors';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import {
   createUnusedTransport,
@@ -24,11 +24,7 @@ describe('createDesktopSessionController – lifecycle', () => {
   }>;
 
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
     resetCurrentChatMemoryForTests();
     persistedMessages = [];
     window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue({
@@ -146,7 +142,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
@@ -239,7 +235,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-1');
     expect(resumedTransport.connect).toHaveBeenCalledWith({
@@ -326,7 +322,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-1');
     expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
@@ -458,7 +454,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(failedResumeTransport.connect).toHaveBeenCalledWith({
       token: {
@@ -476,6 +472,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       endedReason: 'resume rejected',
     });
     expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+      kind: 'resumption',
       id: 'persisted-live-session-1',
       restorable: false,
       invalidatedAt: expect.any(String),
@@ -589,7 +586,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-1');
     expect(voiceTransport.connect).toHaveBeenCalledWith({
@@ -663,7 +660,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(voiceTransport.connect).toHaveBeenCalledWith({
       token: {
@@ -708,7 +705,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(voiceTransport.connect).toHaveBeenCalledWith({
       token: {
@@ -771,7 +768,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       createTransport: vi.fn(() => createUnusedTransport()),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
@@ -804,7 +801,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       }),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
@@ -866,7 +863,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.endSession();
 
     expect(window.bridge.endLiveSession).toHaveBeenCalledWith({

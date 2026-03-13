@@ -4,27 +4,29 @@ import type {
   ChatMessageRecord,
   ChatRecord,
   DurableChatSummaryRecord,
-  LiveSessionRecord,
   RehydrationPacket,
 } from '@livepair/shared-types';
 import { useSessionStore } from '../store/sessionStore';
-import {
-  mapChatMessageRecordsToConversationTurns,
-} from '../runtime/conversation/chatMessageAdapter';
-import type { LiveSessionHistoryTurn } from '../runtime/transport/transport.types';
+import { mapChatMessageRecordsToConversationTurns } from '../runtime/public';
 import { buildRehydrationPacket } from './rehydrationPacket';
+import {
+  appendPersistedChatMessage,
+  getChatRecord,
+  getOrCreateCurrentChatRecord,
+  getPersistedChatSummary,
+  listPersistedChatMessages,
+  type ActiveChatQueryBridge,
+  type ChatMemoryQueriesBridge,
+} from './queries';
+import {
+  listPersistedLiveSessions,
+  type LiveSessionsBridge,
+} from '../liveSessions/queries';
 
-type CurrentChatMemoryBridge = Pick<
-  typeof window.bridge,
-  | 'appendChatMessage'
-  | 'getChat'
-  | 'getOrCreateCurrentChat'
-  | 'listChatMessages'
-  | 'getChatSummary'
-  | 'listLiveSessions'
+type CurrentChatMemoryBridge = ChatMemoryQueriesBridge & Pick<
+  LiveSessionsBridge,
+  'listLiveSessions'
 >;
-
-type ActiveChatBridge = Pick<typeof window.bridge, 'getOrCreateCurrentChat'>;
 
 type HydratedCurrentChat = {
   chat: ChatRecord;
@@ -36,20 +38,20 @@ let pendingHydration: Promise<HydratedCurrentChat> | null = null;
 let pendingAppend: Promise<void> = Promise.resolve();
 
 async function ensureActiveChat(
-  bridge: ActiveChatBridge = window.bridge,
+  bridge: ActiveChatQueryBridge = window.bridge,
 ): Promise<ChatRecord> {
   if (activeChat) {
     return activeChat;
   }
 
-  const chat = await bridge.getOrCreateCurrentChat();
+  const chat = await getOrCreateCurrentChatRecord(bridge);
   activeChat = chat;
   useSessionStore.getState().setActiveChatId(chat.id);
   return chat;
 }
 
 export async function getCurrentChat(
-  bridge: ActiveChatBridge = window.bridge,
+  bridge: ActiveChatQueryBridge = window.bridge,
 ): Promise<ChatRecord> {
   return ensureActiveChat(bridge);
 }
@@ -86,7 +88,7 @@ export async function listCurrentChatMessages(
   bridge: CurrentChatMemoryBridge = window.bridge,
 ): Promise<ChatMessageRecord[]> {
   const chat = await ensureActiveChat(bridge);
-  return bridge.listChatMessages(chat.id);
+  return listPersistedChatMessages(chat.id, bridge);
 }
 
 export async function buildRehydrationPacketFromCurrentChat(
@@ -94,9 +96,9 @@ export async function buildRehydrationPacketFromCurrentChat(
 ): Promise<RehydrationPacket> {
   const chat = await ensureActiveChat(bridge);
   const [messages, chatSummary, liveSessions] = await Promise.all([
-    bridge.listChatMessages(chat.id),
-    bridge.getChatSummary(chat.id),
-    bridge.listLiveSessions(chat.id),
+    listPersistedChatMessages(chat.id, bridge),
+    getPersistedChatSummary(chat.id, bridge),
+    listPersistedLiveSessions(chat.id, bridge),
   ]);
   const latestLiveSession = liveSessions[0] ?? null;
 
@@ -109,7 +111,7 @@ export async function buildRehydrationPacketFromCurrentChat(
 function getPersistedSnapshotInputs(
   messages: readonly ChatMessageRecord[],
   chatSummary: DurableChatSummaryRecord | null,
-  liveSession: LiveSessionRecord | null,
+  liveSession: Awaited<ReturnType<typeof listPersistedLiveSessions>>[number] | null,
 ): Parameters<typeof buildRehydrationPacket>[1] {
   const latestMessageSequence = messages[messages.length - 1]?.sequence ?? null;
   const hasValidChatSummary =
@@ -137,15 +139,6 @@ function getPersistedSnapshotInputs(
   };
 }
 
-export function mapRehydrationPacketToLiveSessionHistory(
-  packet: RehydrationPacket,
-): LiveSessionHistoryTurn[] {
-  return packet.recentTurns.map((turn) => ({
-    role: turn.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: turn.text }],
-  }));
-}
-
 export async function appendMessageToCurrentChat(
   request: Omit<AppendChatMessageRequest, 'chatId'>,
   bridge: CurrentChatMemoryBridge = window.bridge,
@@ -159,11 +152,11 @@ export async function appendMessageToCurrentChat(
   const task = pendingAppend.then(async () => {
     const chat = await ensureActiveChat(bridge);
 
-    return bridge.appendChatMessage({
+    return appendPersistedChatMessage({
       chatId: chat.id,
       role: request.role,
       contentText,
-    });
+    }, bridge);
   });
 
   pendingAppend = task.then(
@@ -178,7 +171,7 @@ export async function switchToChat(
   chatId: ChatId,
   bridge: CurrentChatMemoryBridge = window.bridge,
 ): Promise<void> {
-  const chat = await bridge.getChat(chatId);
+  const chat = await getChatRecord(chatId, bridge);
 
   if (!chat) {
     throw new Error(`Chat not found: ${chatId}`);
@@ -188,7 +181,7 @@ export async function switchToChat(
   pendingHydration = null;
   pendingAppend = Promise.resolve();
 
-  const messages = await bridge.listChatMessages(chat.id);
+  const messages = await listPersistedChatMessages(chat.id, bridge);
   const turns = mapChatMessageRecordsToConversationTurns(messages);
 
   const store = useSessionStore.getState();

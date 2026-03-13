@@ -60,11 +60,16 @@ describe('ipc validators', () => {
       role: 'assistant',
       contentText: 'Stored reply',
     };
-    const updateRequest: UpdateLiveSessionRequest = {
+    const resumptionUpdateRequest: UpdateLiveSessionRequest = {
+      kind: 'resumption',
       id: 'live-session-1',
       resumptionHandle: 'handles/live-session-1',
       lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
       restorable: true,
+    };
+    const snapshotUpdateRequest: UpdateLiveSessionRequest = {
+      kind: 'snapshot',
+      id: 'live-session-1',
       summarySnapshot: 'Persisted summary snapshot',
       contextStateSnapshot: {
         task: {
@@ -92,12 +97,32 @@ describe('ipc validators', () => {
     expect(isAppendChatMessageRequest({ ...appendRequest, chatId: '' })).toBe(false);
     expect(isAppendChatMessageRequest({ ...appendRequest, contentText: '' })).toBe(false);
     expect(isAppendChatMessageRequest(undefined)).toBe(false);
-    expect(isUpdateLiveSessionRequest(updateRequest)).toBe(true);
-    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', resumptionHandle: null })).toBe(true);
-    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', restorable: false })).toBe(true);
-    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', summarySnapshot: null })).toBe(true);
+    expect(isUpdateLiveSessionRequest(resumptionUpdateRequest)).toBe(true);
+    expect(isUpdateLiveSessionRequest(snapshotUpdateRequest)).toBe(true);
     expect(
       isUpdateLiveSessionRequest({
+        kind: 'resumption',
+        id: 'live-session-1',
+        resumptionHandle: null,
+      }),
+    ).toBe(true);
+    expect(
+      isUpdateLiveSessionRequest({
+        kind: 'resumption',
+        id: 'live-session-1',
+        restorable: false,
+      }),
+    ).toBe(true);
+    expect(
+      isUpdateLiveSessionRequest({
+        kind: 'snapshot',
+        id: 'live-session-1',
+        summarySnapshot: null,
+      }),
+    ).toBe(true);
+    expect(
+      isUpdateLiveSessionRequest({
+        kind: 'snapshot',
         id: 'live-session-1',
         contextStateSnapshot: {
           task: {
@@ -111,6 +136,7 @@ describe('ipc validators', () => {
     ).toBe(true);
     expect(
       isUpdateLiveSessionRequest({
+        kind: 'resumption',
         id: 'live-session-1',
         invalidatedAt: '2026-03-12T00:02:00.000Z',
         invalidationReason: 'session marked non-restorable',
@@ -118,10 +144,23 @@ describe('ipc validators', () => {
     ).toBe(true);
     expect(isUpdateLiveSessionRequest({ id: '' })).toBe(false);
     expect(isUpdateLiveSessionRequest({ id: 'live-session-1' })).toBe(false);
-    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', restorable: 'yes' })).toBe(false);
-    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', summarySnapshot: 7 })).toBe(false);
     expect(
       isUpdateLiveSessionRequest({
+        kind: 'resumption',
+        id: 'live-session-1',
+        restorable: 'yes',
+      }),
+    ).toBe(false);
+    expect(
+      isUpdateLiveSessionRequest({
+        kind: 'snapshot',
+        id: 'live-session-1',
+        summarySnapshot: 7,
+      }),
+    ).toBe(false);
+    expect(
+      isUpdateLiveSessionRequest({
+        kind: 'snapshot',
         id: 'live-session-1',
         contextStateSnapshot: {
           task: {
@@ -131,6 +170,20 @@ describe('ipc validators', () => {
             entries: [],
           },
         },
+      }),
+    ).toBe(false);
+    expect(
+      isUpdateLiveSessionRequest({
+        kind: 'resumption',
+        id: 'live-session-1',
+        summarySnapshot: 'Persisted summary snapshot',
+      }),
+    ).toBe(false);
+    expect(
+      isUpdateLiveSessionRequest({
+        kind: 'snapshot',
+        id: 'live-session-1',
+        restorable: false,
       }),
     ).toBe(false);
   });

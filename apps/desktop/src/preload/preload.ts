@@ -3,7 +3,7 @@ import {
   getOverlayMode,
   IPC_CHANNELS,
   type DesktopBridge,
-} from '../shared/desktopBridge';
+} from '../shared';
 
 export const bridge: DesktopBridge = {
   overlayMode: getOverlayMode(process.platform),

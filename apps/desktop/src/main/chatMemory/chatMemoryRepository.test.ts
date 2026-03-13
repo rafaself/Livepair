@@ -239,6 +239,7 @@ describe('SqliteChatMemoryRepository', () => {
       startedAt: '2026-03-12T09:00:00.000Z',
     });
     const updatedLiveSession = repository.updateLiveSession({
+      kind: 'resumption',
       id: liveSession.id,
       resumptionHandle: 'handles/live-session-1',
       restorable: true,
@@ -280,6 +281,7 @@ describe('SqliteChatMemoryRepository', () => {
     });
 
     const updatedLiveSession = repository.updateLiveSession({
+      kind: 'resumption',
       id: liveSession.id,
       resumptionHandle: null,
       restorable: false,
@@ -305,12 +307,14 @@ describe('SqliteChatMemoryRepository', () => {
     });
 
     repository.updateLiveSession({
+      kind: 'resumption',
       id: liveSession.id,
       resumptionHandle: 'handles/live-session-1',
       restorable: true,
     });
 
     const invalidatedLiveSession = repository.updateLiveSession({
+      kind: 'resumption',
       id: liveSession.id,
       resumptionHandle: 'handles/stale-live-session-1',
       restorable: false,
@@ -337,6 +341,7 @@ describe('SqliteChatMemoryRepository', () => {
     });
 
     const updatedLiveSession = repository.updateLiveSession({
+      kind: 'snapshot',
       id: liveSession.id,
       summarySnapshot: 'Persisted summary snapshot',
       contextStateSnapshot: {

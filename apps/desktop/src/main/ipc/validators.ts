@@ -6,6 +6,8 @@ import type {
   CreateLiveSessionRequest,
   EndLiveSessionRequest,
   RehydrationPacketContextState,
+  UpdateLiveSessionResumptionRequest,
+  UpdateLiveSessionSnapshotRequest,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import type { DesktopSettingsPatch } from '../../shared/settings';
@@ -205,48 +207,77 @@ export function isEndLiveSessionRequest(value: unknown): value is EndLiveSession
 }
 
 export function isUpdateLiveSessionRequest(value: unknown): value is UpdateLiveSessionRequest {
+  return (
+    isUpdateLiveSessionResumptionRequest(value)
+    || isUpdateLiveSessionSnapshotRequest(value)
+  );
+}
+
+function isUpdateLiveSessionResumptionRequest(
+  value: unknown,
+): value is UpdateLiveSessionResumptionRequest {
   if (
     !isPlainRecord(value) ||
     !hasOnlyAllowedKeys(value, [
+      'kind',
       'id',
       'resumptionHandle',
-        'lastResumptionUpdateAt',
-        'restorable',
-        'invalidatedAt',
-        'invalidationReason',
-        'summarySnapshot',
-        'contextStateSnapshot',
-      ])
+      'lastResumptionUpdateAt',
+      'restorable',
+      'invalidatedAt',
+      'invalidationReason',
+    ])
   ) {
     return false;
   }
 
   return (
+    value['kind'] === 'resumption' &&
     isChatId(value['id']) &&
     (
       'resumptionHandle' in value ||
-       'lastResumptionUpdateAt' in value ||
-       'restorable' in value ||
-       'invalidatedAt' in value ||
-       'invalidationReason' in value ||
-       'summarySnapshot' in value ||
-       'contextStateSnapshot' in value
-     ) &&
-     isNullableString(value['resumptionHandle']) &&
-     isNullableString(value['lastResumptionUpdateAt']) &&
-     (
-       typeof value['restorable'] === 'undefined' ||
-       typeof value['restorable'] === 'boolean'
-     ) &&
-     isNullableString(value['invalidatedAt']) &&
-     isNullableString(value['invalidationReason']) &&
-     isNullableString(value['summarySnapshot']) &&
-     (
-       typeof value['contextStateSnapshot'] === 'undefined' ||
-       value['contextStateSnapshot'] === null ||
-       isContextStateSnapshot(value['contextStateSnapshot'])
-     )
-   );
+      'lastResumptionUpdateAt' in value ||
+      'restorable' in value ||
+      'invalidatedAt' in value ||
+      'invalidationReason' in value
+    ) &&
+    isNullableString(value['resumptionHandle']) &&
+    isNullableString(value['lastResumptionUpdateAt']) &&
+    (
+      typeof value['restorable'] === 'undefined' ||
+      typeof value['restorable'] === 'boolean'
+    ) &&
+    isNullableString(value['invalidatedAt']) &&
+    isNullableString(value['invalidationReason'])
+  );
+}
+
+function isUpdateLiveSessionSnapshotRequest(
+  value: unknown,
+): value is UpdateLiveSessionSnapshotRequest {
+  if (
+    !isPlainRecord(value) ||
+    !hasOnlyAllowedKeys(value, [
+      'kind',
+      'id',
+      'summarySnapshot',
+      'contextStateSnapshot',
+    ])
+  ) {
+    return false;
+  }
+
+  return (
+    value['kind'] === 'snapshot' &&
+    isChatId(value['id']) &&
+    ('summarySnapshot' in value || 'contextStateSnapshot' in value) &&
+    isNullableString(value['summarySnapshot']) &&
+    (
+      typeof value['contextStateSnapshot'] === 'undefined' ||
+      value['contextStateSnapshot'] === null ||
+      isContextStateSnapshot(value['contextStateSnapshot'])
+    )
+  );
 }
 
 export function isDesktopSettingsPatch(value: unknown): value is DesktopSettingsPatch {

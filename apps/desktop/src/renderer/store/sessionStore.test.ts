@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { selectAssistantRuntimeState } from '../runtime/selectors';
+import { selectAssistantRuntimeState } from '../runtime';
 import { useSessionStore } from './sessionStore';
 
 describe('sessionStore', () => {

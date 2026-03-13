@@ -1,5 +1,5 @@
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
-import { hydrateCurrentChat } from './chatMemory/currentChatMemory';
+import { hydrateCurrentChat } from './chatMemory';
 import { useSettingsStore } from './store/settingsStore';
 import { useUiStore } from './store/uiStore';
 

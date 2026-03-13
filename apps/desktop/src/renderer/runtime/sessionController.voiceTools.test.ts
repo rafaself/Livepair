@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
-import { useSettingsStore } from '../store/settingsStore';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import * as voiceToolsModule from './voice/voiceTools';
 import {
   createVoiceTransportHarness,
@@ -10,11 +9,7 @@ import {
 
 describe('createDesktopSessionController – voice tools', () => {
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
   });
 
   afterEach(() => {
@@ -37,7 +32,7 @@ describe('createDesktopSessionController – voice tools', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({
       type: 'tool-call',
@@ -92,7 +87,7 @@ describe('createDesktopSessionController – voice tools', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({
       type: 'tool-call',
@@ -160,7 +155,7 @@ describe('createDesktopSessionController – voice tools', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({
       type: 'tool-call',
@@ -231,7 +226,7 @@ describe('createDesktopSessionController – voice tools', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({
       type: 'tool-call',

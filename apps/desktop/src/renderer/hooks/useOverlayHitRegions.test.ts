@@ -1,6 +1,6 @@
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
-import type { DesktopBridge } from '../../shared/desktopBridge';
+import { createMockDesktopBridge } from '../test/bridgeMocks';
 import { useOverlayHitRegions } from './useOverlayHitRegions';
 
 describe('useOverlayHitRegions', () => {
@@ -18,26 +18,9 @@ describe('useOverlayHitRegions', () => {
     cancelAnimationFrameSpy = vi
       .spyOn(window, 'cancelAnimationFrame')
       .mockImplementation((): void => {});
-    window.bridge = {
-      overlayMode: 'linux-shape',
-      checkHealth: vi.fn(),
-      requestSessionToken: vi.fn(),
-      createChat: vi.fn(),
-      getChat: vi.fn(),
-      getOrCreateCurrentChat: vi.fn(),
-      listChats: vi.fn(),
-      listChatMessages: vi.fn(),
-      getChatSummary: vi.fn(),
-      appendChatMessage: vi.fn(),
-      createLiveSession: vi.fn(),
-      listLiveSessions: vi.fn(),
-      updateLiveSession: vi.fn(),
-      endLiveSession: vi.fn(),
-      getSettings: vi.fn(),
-      updateSettings: vi.fn(),
+    window.bridge = createMockDesktopBridge({
       setOverlayHitRegions: mockSetOverlayHitRegions,
-      setOverlayPointerPassthrough: vi.fn(),
-    } satisfies DesktopBridge;
+    });
   });
 
   afterEach(() => {

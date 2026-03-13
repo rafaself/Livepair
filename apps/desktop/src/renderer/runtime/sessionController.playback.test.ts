@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import {
   createVoiceTransportHarness,
@@ -10,11 +11,7 @@ import {
 
 describe('createDesktopSessionController – playback', () => {
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
   });
 
   it('routes assistant audio chunks into playback state and diagnostics without affecting text mode', async () => {
@@ -43,7 +40,7 @@ describe('createDesktopSessionController – playback', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voicePlayback.enableDeferredStop();
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     voicePlayback.emitState('playing');
@@ -102,7 +99,7 @@ describe('createDesktopSessionController – playback', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     await Promise.resolve();
 
@@ -119,7 +116,7 @@ describe('createDesktopSessionController – playback', () => {
       }),
     );
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([5, 6, 7, 8]) });
     voicePlayback.emitState('playing');
     voiceTransport.emit({ type: 'error', detail: 'transport failed' });
@@ -159,7 +156,7 @@ describe('createDesktopSessionController – playback', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     await Promise.resolve();
     voiceTransport.emit({

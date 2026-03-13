@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuntimeLogger } from './core/session.types';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
-import { useSettingsStore } from '../store/settingsStore';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import {
   createVoiceTransportHarness,
 } from './sessionController.testUtils';
@@ -20,11 +19,7 @@ describe('createDesktopSessionController – typed turns', () => {
   }>;
 
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
     resetCurrentChatMemoryForTests();
     persistedMessages = [];
     window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue({
@@ -103,7 +98,7 @@ describe('createDesktopSessionController – typed turns', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     await expect(controller.submitTextTurn('Keep going')).resolves.toBe(true);
 
@@ -134,7 +129,7 @@ describe('createDesktopSessionController – typed turns', () => {
       createTransport: vi.fn(() => createVoiceTransportHarness().transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.endSpeechMode();
 
     await expect(controller.submitTextTurn('Retry')).resolves.toBe(false);
