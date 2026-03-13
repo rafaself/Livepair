@@ -396,7 +396,7 @@ describe('conversationTurnManager', () => {
   });
 
   describe('clearPendingAssistantTurn', () => {
-    it('sets pendingAssistantTurnId to null and clears any transient draft', () => {
+    it('abandons any transient assistant draft when transport reset happens before turn-complete', () => {
       appendAssistantTurn(ctx, 'Response', 'streaming');
       appendAssistantDraftTextDelta(ctx, 'Partial');
       expect(ctx.pendingAssistantTurnId).not.toBeNull();

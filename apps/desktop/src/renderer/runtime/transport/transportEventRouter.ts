@@ -68,6 +68,9 @@ export type TransportEventRouterOps = {
   interruptAssistantDraft: () => void;
   discardAssistantDraft: () => void;
   commitAssistantDraft: () => void;
+  hasActiveAssistantVoiceTurn: () => boolean;
+  hasQueuedMixedModeAssistantReply: () => boolean;
+  hasStreamingAssistantVoiceTurn: () => boolean;
   // Error and cleanup
   setVoiceErrorState: (detail: string) => void;
   cleanupTransport: () => void;
@@ -77,6 +80,67 @@ export type TransportEventRouterOps = {
 export function createTransportEventRouter(ops: TransportEventRouterOps) {
   const shouldIgnoreTermination = (status: VoiceSessionStatus): boolean => {
     return status === 'stopping' || status === 'disconnected' || status === 'error';
+  };
+
+  const isAssistantTurnUnavailable = (status: VoiceSessionStatus): boolean => {
+    return (
+      status === 'interrupted'
+      || status === 'recovering'
+      || status === 'stopping'
+      || status === 'disconnected'
+      || status === 'error'
+    );
+  };
+
+  const shouldIgnoreCanonicalAssistantOutput = (
+    eventType: 'text-delta' | 'turn-complete',
+  ): boolean => {
+    const voiceStatus = ops.currentVoiceSessionStatus();
+
+    if (!isAssistantTurnUnavailable(voiceStatus)) {
+      return false;
+    }
+
+    const canContinueUnavailableTurn =
+      eventType === 'text-delta'
+        ? ops.hasQueuedMixedModeAssistantReply() || ops.hasStreamingAssistantVoiceTurn()
+        : ops.hasStreamingAssistantVoiceTurn();
+
+    if (canContinueUnavailableTurn) {
+      return false;
+    }
+
+    ops.logRuntimeDiagnostic('voice-session', 'ignored assistant output while turn is unavailable', {
+      voiceStatus,
+      eventType,
+    });
+    return true;
+  };
+
+  const shouldIgnoreTranscriptOrAudio = (
+    eventType: 'audio-chunk' | 'output-transcript',
+  ): boolean => {
+    const voiceStatus = ops.currentVoiceSessionStatus();
+
+    if (!isAssistantTurnUnavailable(voiceStatus)) {
+      return false;
+    }
+
+    const canContinueUnavailableTurn =
+      ops.hasQueuedMixedModeAssistantReply()
+      || (eventType === 'output-transcript'
+        ? ops.hasActiveAssistantVoiceTurn()
+        : ops.hasStreamingAssistantVoiceTurn());
+
+    if (canContinueUnavailableTurn) {
+      return false;
+    }
+
+    ops.logRuntimeDiagnostic('voice-session', 'ignored assistant output while turn is unavailable', {
+      voiceStatus,
+      eventType,
+    });
+    return true;
   };
 
   const handleTransportEvent = (event: LiveSessionEvent): void => {
@@ -252,6 +316,10 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'text-delta') {
+      if (shouldIgnoreCanonicalAssistantOutput('text-delta')) {
+        return;
+      }
+
       ops.appendAssistantDraftTextDelta(event.text);
       return;
     }
@@ -263,6 +331,10 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'output-transcript') {
+      if (shouldIgnoreTranscriptOrAudio('output-transcript')) {
+        return;
+      }
+
       ops.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
       ops.ensureAssistantVoiceTurn();
       ops.applyVoiceTranscriptUpdate('assistant', event.text, event.isFinal);
@@ -270,6 +342,10 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'audio-chunk') {
+      if (shouldIgnoreTranscriptOrAudio('audio-chunk')) {
+        return;
+      }
+
       ops.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
       ops.ensureAssistantVoiceTurn();
       void ops.getVoicePlayback()
@@ -300,6 +376,10 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'turn-complete') {
+      if (shouldIgnoreCanonicalAssistantOutput('turn-complete')) {
+        return;
+      }
+
       ops.completeAssistantDraft();
       ops.commitAssistantDraft();
       ops.finalizeCurrentVoiceTurns('completed');

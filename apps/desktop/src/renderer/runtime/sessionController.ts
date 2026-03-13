@@ -38,6 +38,7 @@ import {
   completeAssistantDraft,
   consumeCompletedAssistantDraft,
   failPendingAssistantTurn as failConversationPendingAssistantTurn,
+  getConversationTurn,
   interruptAssistantDraft,
 } from './conversation/conversationTurnManager';
 import {
@@ -295,6 +296,21 @@ export function createDesktopSessionController(
         conversationCtx.currentVoiceAssistantTurnId,
       );
     },
+    hasActiveAssistantVoiceTurn: () => {
+      return conversationCtx.currentVoiceAssistantTurnId !== null;
+    },
+    hasQueuedMixedModeAssistantReply: () => {
+      return conversationCtx.hasQueuedMixedModeAssistantReply;
+    },
+    hasStreamingAssistantVoiceTurn: () => {
+      const currentAssistantTurnId = conversationCtx.currentVoiceAssistantTurnId;
+
+      if (!currentAssistantTurnId) {
+        return false;
+      }
+
+      return getConversationTurn(conversationCtx, currentAssistantTurnId)?.state === 'streaming';
+    },
     setVoiceErrorState: (d) => setVoiceErrorState(d),
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     resumeVoiceSession: (d) => voiceResumeCtrl.resume(d),
@@ -331,6 +347,8 @@ export function createDesktopSessionController(
       voiceToolCtrl.cancel('voice transport replaced');
       screenCtrl.resetSendChain();
       interruptionCtrl.reset();
+      // Transport replacement abandons any uncommitted assistant draft. Only
+      // turn-complete is allowed to finalize a normal assistant draft commit.
       clearPendingAssistantTurn(conversationCtx);
       voiceTranscript.resetTurnCompletedFlag();
     },
