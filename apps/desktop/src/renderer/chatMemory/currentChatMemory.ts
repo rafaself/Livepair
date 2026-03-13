@@ -2,9 +2,13 @@ import type {
   AppendChatMessageRequest,
   ChatMessageRecord,
   ChatRecord,
+  TextChatRequest,
 } from '@livepair/shared-types';
 import { useSessionStore } from '../store/sessionStore';
-import { mapChatMessageRecordsToConversationTurns } from '../runtime/conversation/chatMessageAdapter';
+import {
+  mapChatMessageRecordsToConversationTurns,
+  mapChatMessageRecordsToTextChatMessages,
+} from '../runtime/conversation/chatMessageAdapter';
 
 type CurrentChatMemoryBridge = Pick<
   typeof window.bridge,
@@ -42,7 +46,7 @@ export async function hydrateCurrentChat(
 
   pendingHydration = (async () => {
     const chat = await ensureActiveChat(bridge);
-    const messages = await bridge.listChatMessages(chat.id);
+    const messages = await listCurrentChatMessages(bridge);
 
     useSessionStore
       .getState()
@@ -59,6 +63,23 @@ export async function hydrateCurrentChat(
   } finally {
     pendingHydration = null;
   }
+}
+
+export async function listCurrentChatMessages(
+  bridge: CurrentChatMemoryBridge = window.bridge,
+): Promise<ChatMessageRecord[]> {
+  const chat = await ensureActiveChat(bridge);
+  return bridge.listChatMessages(chat.id);
+}
+
+export async function buildTextChatRequestFromCurrentChat(
+  bridge: CurrentChatMemoryBridge = window.bridge,
+): Promise<TextChatRequest> {
+  const messages = await listCurrentChatMessages(bridge);
+
+  return {
+    messages: mapChatMessageRecordsToTextChatMessages(messages),
+  };
 }
 
 export async function appendMessageToCurrentChat(

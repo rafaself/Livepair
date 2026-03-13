@@ -3,6 +3,8 @@ import { appendMessageToCurrentChat } from '../../chatMemory/currentChatMemory';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 
+const pendingPersistByTurnId = new Map<string, Promise<void>>();
+
 export async function persistConversationTurn(
   store: SessionStoreApi,
   turnId: string,
@@ -11,32 +13,54 @@ export async function persistConversationTurn(
 
   if (
     !turn ||
-    turn.role === 'system' ||
     turn.content.trim().length === 0 ||
     turn.state === 'streaming' ||
+    turn.state === 'error' ||
     turn.persistedMessageId
   ) {
     return;
   }
 
-  const record = await appendMessageToCurrentChat({
-    role: turn.role,
-    contentText: turn.content,
-  });
-
-  if (!record) {
+  if (turn.role !== 'user' && turn.role !== 'assistant') {
     return;
   }
 
-  const latestTurn = store.getState().conversationTurns.find((entry) => entry.id === turnId);
+  const role = turn.role;
 
-  if (!latestTurn || latestTurn.persistedMessageId) {
-    return;
+  const inFlightPersist = pendingPersistByTurnId.get(turnId);
+
+  if (inFlightPersist) {
+    return inFlightPersist;
   }
 
-  store.getState().updateConversationTurn(turnId, {
-    persistedMessageId: record.id,
-  });
+  const persistTask = (async () => {
+    const record = await appendMessageToCurrentChat({
+      role,
+      contentText: turn.content,
+    });
+
+    if (!record) {
+      return;
+    }
+
+    const latestTurn = store.getState().conversationTurns.find((entry) => entry.id === turnId);
+
+    if (!latestTurn || latestTurn.persistedMessageId) {
+      return;
+    }
+
+    store.getState().updateConversationTurn(turnId, {
+      persistedMessageId: record.id,
+    });
+  })();
+
+  pendingPersistByTurnId.set(turnId, persistTask);
+
+  try {
+    await persistTask;
+  } finally {
+    pendingPersistByTurnId.delete(turnId);
+  }
 }
 
 export function persistConversationTurnInBackground(

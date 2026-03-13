@@ -16,6 +16,14 @@ import { __emitGeminiLiveSdkMessage } from './test/geminiLiveSdkMock';
 import { THEME_MEDIA_QUERY } from './theme';
 
 type MatchMediaChangeListener = (event: MediaQueryListEvent) => void;
+type PersistedChatMessage = {
+  id: string;
+  chatId: string;
+  role: 'user' | 'assistant';
+  contentText: string;
+  createdAt: string;
+  sequence: number;
+};
 
 function installMatchMedia(initialMatches: boolean): {
   change: (matches: boolean) => void;
@@ -84,6 +92,8 @@ function createTextChatHarness(): {
 }
 
 describe('App', () => {
+  let persistedMessages: PersistedChatMessage[];
+
   beforeEach(() => {
     resetDesktopStores();
     useSettingsStore.setState({
@@ -92,8 +102,39 @@ describe('App', () => {
     });
     useUiStore.getState().initializeSettingsUi(DEFAULT_DESKTOP_SETTINGS);
     vi.clearAllMocks();
+    persistedMessages = [];
     window.bridge.checkHealth = vi.fn(
       () => new Promise<{ status: 'ok'; timestamp: string }>(() => {}),
+    );
+    window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue({
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    });
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({
+        chatId,
+        role,
+        contentText,
+      }: {
+        chatId: string;
+        role: 'user' | 'assistant';
+        contentText: string;
+      }) => {
+        const nextRecord = {
+          id: `${role}-message-${persistedMessages.length + 1}`,
+          chatId,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
     );
     window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
       token: 'ephemeral-token',
@@ -265,6 +306,9 @@ describe('App', () => {
 
     expect(await screen.findByText('Speech request')).toBeVisible();
     expect(await screen.findByText('Speech reply')).toBeVisible();
+    await waitFor(() => {
+      expect(persistedMessages).toHaveLength(2);
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'End speech mode' }));
 

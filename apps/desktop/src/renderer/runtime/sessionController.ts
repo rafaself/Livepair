@@ -9,6 +9,10 @@ import {
 } from './core/logger';
 import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
 import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
+import {
+  appendMessageToCurrentChat,
+  buildTextChatRequestFromCurrentChat,
+} from '../chatMemory/currentChatMemory';
 import { createAssistantAudioPlayback } from './audio/assistantAudioPlayback';
 import { createLocalVoiceCapture } from './audio/localVoiceCapture';
 import { createLocalScreenCapture } from './screen/localScreenCapture';
@@ -167,6 +171,12 @@ export function createDesktopSessionController(
   const textChatCtrl = createTextChatController({
     store: dependencies.store,
     logger: dependencies.logger,
+    appendUserMessageToCurrentChat: (text) =>
+      appendMessageToCurrentChat({
+        role: 'user',
+        contentText: text,
+      }),
+    buildTextChatRequestFromCurrentChat,
     startTextChatStream: dependencies.startTextChatStream,
     conversationCtx,
     startSessionInternal: (options) => startSessionInternal(options),
@@ -544,10 +554,7 @@ export function createDesktopSessionController(
       textChatCtrl.applyLifecycleEvent({ type: 'runtime.failed' });
     },
     failPendingAssistantTurn: (statusLabel) => {
-      const failedTurnId = textChatCtrl.failPendingAssistantTurn(statusLabel);
-      if (failedTurnId) {
-        persistSettledConversationTurn(failedTurnId);
-      }
+      textChatCtrl.failPendingAssistantTurn(statusLabel);
     },
   }));
   const modeSwitching = createSessionControllerModeSwitching({

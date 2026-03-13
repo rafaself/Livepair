@@ -11,12 +11,52 @@ import {
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – mode switching', () => {
+  let persistedMessages: Array<{
+    id: string;
+    chatId: string;
+    role: 'user' | 'assistant';
+    contentText: string;
+    createdAt: string;
+    sequence: number;
+  }>;
+
   beforeEach(() => {
     useSessionStore.getState().reset();
     useSettingsStore.setState({
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
+    persistedMessages = [];
+    window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue({
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    });
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({
+        chatId,
+        role,
+        contentText,
+      }: {
+        chatId: string;
+        role: 'user' | 'assistant';
+        contentText: string;
+      }) => {
+        const nextRecord = {
+          id: `${role}-message-${persistedMessages.length + 1}`,
+          chatId,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
   });
 
   it('switches from text mode to speech mode by tearing down text first', async () => {
@@ -169,6 +209,9 @@ describe('createDesktopSessionController – mode switching', () => {
     voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
+    await vi.waitFor(() => {
+      expect(persistedMessages).toHaveLength(2);
+    });
 
     await controller.endSpeechMode();
 

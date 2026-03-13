@@ -2,7 +2,6 @@ import { formatConversationTimestamp } from './conversationTimestamp';
 import type { useSessionStore } from '../../store/sessionStore';
 import type { ConversationTurnModel } from './conversation.types';
 import { normalizeTranscriptText } from '../voice/voiceTranscript';
-import type { TextChatMessage, TextChatRequest } from '@livepair/shared-types';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 
@@ -356,7 +355,11 @@ export function interruptCurrentVoiceAssistantTurn(ctx: ConversationContext): vo
 // User turn + request building
 // ---------------------------------------------------------------------------
 
-export function appendUserTurn(ctx: ConversationContext, content: string): string {
+export function appendUserTurn(
+  ctx: ConversationContext,
+  content: string,
+  options?: { persistedMessageId?: string },
+): string {
   const turnId = `user-turn-${++ctx.nextUserTurnId}`;
 
   ctx.store.getState().appendConversationTurn({
@@ -365,27 +368,10 @@ export function appendUserTurn(ctx: ConversationContext, content: string): strin
     content,
     timestamp: formatConversationTimestamp(),
     state: 'complete',
+    ...(options?.persistedMessageId
+      ? { persistedMessageId: options.persistedMessageId }
+      : {}),
   });
 
   return turnId;
-}
-
-export function buildTextChatRequest(ctx: ConversationContext, text: string): TextChatRequest {
-  const messages: TextChatMessage[] = ctx.store
-    .getState()
-    .conversationTurns.filter(
-      (turn) =>
-        (turn.role === 'user' || turn.role === 'assistant') &&
-        turn.content.trim().length > 0 &&
-        turn.state !== 'error' &&
-        turn.state !== 'streaming',
-    )
-    .map((turn) => ({
-      role: turn.role === 'assistant' ? ('assistant' as const) : ('user' as const),
-      content: turn.content,
-    }));
-
-  messages.push({ role: 'user', content: text });
-
-  return { messages };
 }

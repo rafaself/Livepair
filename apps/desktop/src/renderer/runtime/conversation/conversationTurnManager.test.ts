@@ -5,7 +5,6 @@ import {
   appendAssistantTextDelta,
   appendAssistantTurn,
   appendUserTurn,
-  buildTextChatRequest,
   clearCurrentVoiceTurns,
   clearPendingAssistantTurn,
   completePendingAssistantTurn,
@@ -61,6 +60,19 @@ describe('conversationTurnManager', () => {
       const turns = useSessionStore.getState().conversationTurns;
       expect(turns[0]!.id).toBe('user-turn-1');
       expect(turns[1]!.id).toBe('user-turn-2');
+    });
+
+    it('can mark the projected user turn with a persisted message id', () => {
+      appendUserTurn(ctx, 'Stored prompt', { persistedMessageId: 'message-7' });
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'user-turn-1',
+          role: 'user',
+          content: 'Stored prompt',
+          persistedMessageId: 'message-7',
+        }),
+      ]);
     });
   });
 
@@ -354,64 +366,4 @@ describe('conversationTurnManager', () => {
     });
   });
 
-  describe('buildTextChatRequest', () => {
-    it('builds a request with only the new user message when history is empty', () => {
-      const request = buildTextChatRequest(ctx, 'Hello');
-      expect(request).toEqual({
-        messages: [{ role: 'user', content: 'Hello' }],
-      });
-    });
-
-    it('includes completed conversation history', () => {
-      appendUserTurn(ctx, 'First');
-      appendAssistantTurn(ctx, 'Answer', 'complete');
-      completePendingAssistantTurn(ctx);
-
-      const request = buildTextChatRequest(ctx, 'Second');
-      expect(request).toEqual({
-        messages: [
-          { role: 'user', content: 'First' },
-          { role: 'assistant', content: 'Answer' },
-          { role: 'user', content: 'Second' },
-        ],
-      });
-    });
-
-    it('excludes error turns from history', () => {
-      appendUserTurn(ctx, 'First');
-      appendAssistantTurn(ctx, 'Failed', 'error');
-      clearPendingAssistantTurn(ctx);
-
-      const request = buildTextChatRequest(ctx, 'Retry');
-      expect(request).toEqual({
-        messages: [
-          { role: 'user', content: 'First' },
-          { role: 'user', content: 'Retry' },
-        ],
-      });
-    });
-
-    it('excludes empty-content turns from history', () => {
-      appendUserTurn(ctx, '  ');
-      const request = buildTextChatRequest(ctx, 'Real message');
-      expect(request).toEqual({
-        messages: [{ role: 'user', content: 'Real message' }],
-      });
-    });
-
-    it('excludes in-progress voice turns from text history building', () => {
-      appendUserTurn(ctx, 'First');
-      upsertCurrentVoiceUserTurn(ctx, 'Live voice request', false);
-      upsertCurrentVoiceAssistantTurn(ctx, 'Live voice response', false);
-
-      const request = buildTextChatRequest(ctx, 'Typed follow-up');
-
-      expect(request).toEqual({
-        messages: [
-          { role: 'user', content: 'First' },
-          { role: 'user', content: 'Typed follow-up' },
-        ],
-      });
-    });
-  });
 });
