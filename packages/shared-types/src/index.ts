@@ -34,6 +34,33 @@ export interface AppendChatMessageRequest {
   contentText: string;
 }
 
+export type LiveSessionId = string;
+
+export type LiveSessionStatus = 'active' | 'ended' | 'failed';
+
+export interface LiveSessionRecord {
+  id: LiveSessionId;
+  chatId: ChatId;
+  startedAt: string;
+  endedAt: string | null;
+  status: LiveSessionStatus;
+  endedReason: string | null;
+  latestResumeHandle: string | null;
+  resumable: boolean;
+}
+
+export interface CreateLiveSessionRequest {
+  chatId: ChatId;
+  startedAt?: string;
+}
+
+export interface EndLiveSessionRequest {
+  id: LiveSessionId;
+  endedAt?: string;
+  status: Extract<LiveSessionStatus, 'ended' | 'failed'>;
+  endedReason?: string | null;
+}
+
 export interface CreateEphemeralTokenRequest {
   sessionId?: string;
 }

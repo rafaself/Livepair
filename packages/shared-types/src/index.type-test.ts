@@ -7,7 +7,11 @@ import type {
   CreateChatRequest,
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
+  CreateLiveSessionRequest,
+  EndLiveSessionRequest,
   HealthResponse,
+  LiveSessionRecord,
+  LiveSessionStatus,
 } from './index';
 
 type Assert<T extends true> = T;
@@ -76,6 +80,44 @@ type _CreateChatRequestShape = Assert<
     CreateChatRequest,
     {
       title?: string | null;
+    }
+  >
+>;
+type _LiveSessionStatusShape = Assert<
+  IsExact<LiveSessionStatus, 'active' | 'ended' | 'failed'>
+>;
+type _LiveSessionRecordShape = Assert<
+  IsExact<
+    LiveSessionRecord,
+    {
+      id: string;
+      chatId: string;
+      startedAt: string;
+      endedAt: string | null;
+      status: 'active' | 'ended' | 'failed';
+      endedReason: string | null;
+      latestResumeHandle: string | null;
+      resumable: boolean;
+    }
+  >
+>;
+type _CreateLiveSessionRequestShape = Assert<
+  IsExact<
+    CreateLiveSessionRequest,
+    {
+      chatId: string;
+      startedAt?: string;
+    }
+  >
+>;
+type _EndLiveSessionRequestShape = Assert<
+  IsExact<
+    EndLiveSessionRequest,
+    {
+      id: string;
+      endedAt?: string;
+      status: 'ended' | 'failed';
+      endedReason?: string | null;
     }
   >
 >;

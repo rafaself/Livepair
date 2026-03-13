@@ -6,7 +6,10 @@ import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   CreateChatRequest,
+  CreateLiveSessionRequest,
+  EndLiveSessionRequest,
   HealthResponse,
+  LiveSessionRecord,
 } from '@livepair/shared-types';
 import type {
   DesktopSettings,
@@ -33,6 +36,9 @@ export interface DesktopBridge {
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
   listChatMessages: (chatId: ChatId) => Promise<ChatMessageRecord[]>;
   appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
+  createLiveSession: (req: CreateLiveSessionRequest) => Promise<LiveSessionRecord>;
+  listLiveSessions: (chatId: ChatId) => Promise<LiveSessionRecord[]>;
+  endLiveSession: (req: EndLiveSessionRequest) => Promise<LiveSessionRecord>;
   getSettings: () => Promise<DesktopSettings>;
   updateSettings: (patch: DesktopSettingsPatch) => Promise<DesktopSettings>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
@@ -47,6 +53,9 @@ export const IPC_CHANNELS = {
   getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',
   listChatMessages: 'chatMemory:listMessages',
   appendChatMessage: 'chatMemory:appendMessage',
+  createLiveSession: 'liveSession:create',
+  listLiveSessions: 'liveSession:listByChat',
+  endLiveSession: 'liveSession:end',
   getSettings: 'settings:get',
   updateSettings: 'settings:update',
   setOverlayHitRegions: 'overlay:setHitRegions',
