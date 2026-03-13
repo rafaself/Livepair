@@ -3,10 +3,10 @@ import type { ReactNode } from 'react';
 import {
   canEndSpeechMode,
   getComposerSpeechActionKind,
-} from '../../../../runtime/controlGating';
-import type { ControlGatingSnapshot } from '../../../../runtime/controlGating';
-import { isSpeechLifecycleActive } from '../../../../runtime/speech/speechSessionLifecycle';
-import type { SpeechLifecycleStatus } from '../../../../runtime/speech/speech.types';
+  isSpeechLifecycleActive,
+  type ControlGatingSnapshot,
+  type SpeechLifecycleStatus,
+} from '../../../../runtime';
 
 export type AssistantPanelComposerAction = {
   disabled: boolean;

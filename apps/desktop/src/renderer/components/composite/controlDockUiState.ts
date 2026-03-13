@@ -5,12 +5,13 @@ import {
   createControlGatingSnapshot,
   shouldShowDockEndControl,
   shouldShowSpeechControls,
-} from '../../runtime/controlGating';
-import type { ProductMode } from '../../runtime/core/session.types';
-import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
-import type { ScreenCaptureState } from '../../runtime/screen/screen.types';
-import type { TransportKind } from '../../runtime/transport/transport.types';
-import type { VoiceCaptureState, VoiceSessionStatus } from '../../runtime/voice/voice.types';
+  type ProductMode,
+  type ScreenCaptureState,
+  type SpeechLifecycleStatus,
+  type TransportKind,
+  type VoiceCaptureState,
+  type VoiceSessionStatus,
+} from '../../runtime';
 
 type ControlDockUiStateInput = {
   currentMode: ProductMode;

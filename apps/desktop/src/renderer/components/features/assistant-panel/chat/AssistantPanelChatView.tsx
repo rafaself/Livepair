@@ -1,18 +1,19 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
-import type { ConversationTimelineEntry } from '../../../../runtime/conversation/conversation.types';
-import type { ProductMode } from '../../../../runtime/core/session.types';
 import {
   canSubmitComposerText,
   createControlGatingSnapshot,
-} from '../../../../runtime/controlGating';
-import { isSpeechLifecycleActive } from '../../../../runtime/speech/speechSessionLifecycle';
-import type { SpeechLifecycleStatus } from '../../../../runtime/speech/speech.types';
-import type { TextSessionStatus } from '../../../../runtime/text/text.types';
-import type { TransportKind } from '../../../../runtime/transport/transport.types';
-import type { VoiceSessionResumptionState, VoiceSessionStatus } from '../../../../runtime/voice/voice.types';
-import { selectLiveSessionPhaseLabel } from '../../../../runtime/selectors';
+  isSpeechLifecycleActive,
+  selectLiveSessionPhaseLabel,
+  type ConversationTimelineEntry,
+  type ProductMode,
+  type SpeechLifecycleStatus,
+  type TextSessionStatus,
+  type TransportKind,
+  type VoiceSessionResumptionState,
+  type VoiceSessionStatus,
+} from '../../../../runtime';
 import { AssistantPanelChatComposer } from './AssistantPanelChatComposer';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
 import { AssistantPanelConversationEmptyState } from './AssistantPanelConversationEmptyState';

@@ -5,29 +5,25 @@ import {
   canSubmitComposerText,
   createControlGatingSnapshot,
   getComposerSpeechActionKind,
-} from '../../../runtime/controlGating';
+  useSessionRuntime,
+  type ConversationTimelineEntry,
+  type ProductMode,
+  type ScreenCaptureDiagnostics,
+  type ScreenCaptureState,
+  type SpeechLifecycleStatus,
+  type TextSessionStatus,
+  type TransportKind,
+  type VoiceCaptureDiagnostics,
+  type VoiceCaptureState,
+  type VoicePlaybackDiagnostics,
+  type VoicePlaybackState,
+  type VoiceSessionDurabilityState,
+  type VoiceSessionResumptionState,
+  type VoiceSessionStatus,
+  type VoiceToolState,
+} from '../../../runtime';
 import { useUiStore, type PanelView } from '../../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../../store/sessionStore';
-import { useSessionRuntime } from '../../../runtime/useSessionRuntime';
-import type { ProductMode } from '../../../runtime/core/session.types';
-import type { ConversationTimelineEntry } from '../../../runtime/conversation/conversation.types';
-import type {
-  VoiceCaptureDiagnostics,
-  VoiceCaptureState,
-  VoiceSessionDurabilityState,
-  VoiceSessionResumptionState,
-  VoicePlaybackDiagnostics,
-  VoicePlaybackState,
-  VoiceSessionStatus,
-  VoiceToolState,
-} from '../../../runtime/voice/voice.types';
-import type {
-  ScreenCaptureDiagnostics,
-  ScreenCaptureState,
-} from '../../../runtime/screen/screen.types';
-import type { SpeechLifecycleStatus } from '../../../runtime/speech/speech.types';
-import type { TextSessionStatus } from '../../../runtime/text/text.types';
-import type { TransportKind } from '../../../runtime/transport/transport.types';
 
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;

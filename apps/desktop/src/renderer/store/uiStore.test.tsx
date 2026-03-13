@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
-import { selectAssistantRuntimeState } from '../runtime/selectors';
+import { selectAssistantRuntimeState } from '../runtime';
 import { useSessionStore } from './sessionStore';
 import { useSettingsStore } from './settingsStore';
 import { resetDesktopStores } from './testing';

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessageRecord, ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import { Button } from '../../../primitives';
+import {
+  listPersistedChatMessages,
+  listPersistedChats,
+} from '../../../../chatMemory';
+import { listPersistedLiveSessions } from '../../../../liveSessions';
 import './AssistantPanelHistoryView.css';
 
 export type AssistantPanelHistoryViewProps = {
@@ -96,12 +101,12 @@ export function AssistantPanelHistoryView({
     setLoadError(null);
 
     try {
-      const chats = await window.bridge.listChats();
+      const chats = await listPersistedChats();
       const result = await Promise.all(
         chats.map(async (chat) => {
           const [messages, liveSessions] = await Promise.all([
-            window.bridge.listChatMessages(chat.id),
-            window.bridge.listLiveSessions(chat.id),
+            listPersistedChatMessages(chat.id),
+            listPersistedLiveSessions(chat.id),
           ]);
           const latestLiveSession = liveSessions[0] ?? null;
 

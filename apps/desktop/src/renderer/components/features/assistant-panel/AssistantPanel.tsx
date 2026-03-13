@@ -8,7 +8,8 @@ import { AssistantPanelHistoryView } from './history/AssistantPanelHistoryView';
 import { AssistantPanelSettingsContent } from './settings/AssistantPanelSettingsView';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
-import { switchToChat } from '../../../chatMemory/currentChatMemory';
+import { getChatRecord, switchToChat } from '../../../chatMemory';
+import { getLatestPersistedLiveSession } from '../../../liveSessions';
 import './AssistantPanel.css';
 
 import { useUiStore } from '../../../store/uiStore';
@@ -67,8 +68,7 @@ export function AssistantPanel(): JSX.Element {
       };
     }
 
-    void window.bridge
-      .getChat(activeChatId)
+    void getChatRecord(activeChatId)
       .then((chat) => {
         if (!isCancelled) {
           setActiveChat(chat);
@@ -80,11 +80,10 @@ export function AssistantPanel(): JSX.Element {
         }
       });
 
-    void window.bridge
-      .listLiveSessions(activeChatId)
-      .then((liveSessions) => {
+    void getLatestPersistedLiveSession(activeChatId)
+      .then((liveSession) => {
         if (!isCancelled) {
-          setLatestLiveSession(liveSessions[0] ?? null);
+          setLatestLiveSession(liveSession);
         }
       })
       .catch(() => {

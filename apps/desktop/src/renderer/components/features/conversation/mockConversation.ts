@@ -2,7 +2,7 @@ export type {
   ConversationRole,
   ConversationTurnModel,
   ConversationTurnState,
-} from '../../../runtime/conversation/conversation.types';
+} from '../../../runtime';
 export {
   MOCK_CONVERSATION_TURNS,
   MOCK_SESSION_SCRIPT,

@@ -7,7 +7,7 @@ import {
   MAX_REHYDRATION_SUMMARY_LENGTH,
   MAX_REHYDRATION_TURN_TEXT_LENGTH,
 } from './rehydrationPacket';
-import { mapRehydrationPacketToLiveSessionHistory } from './currentChatMemory';
+import { mapRehydrationPacketToLiveSessionHistory } from '../runtime/public';
 import {
   MAX_REHYDRATION_STATE_ENTRY_KEY_LENGTH,
   MAX_REHYDRATION_STATE_ENTRY_VALUE_LENGTH,

@@ -2,7 +2,7 @@ import { History, TriangleAlert } from 'lucide-react';
 import type { LiveSessionRecord } from '@livepair/shared-types';
 import type { ReactNode } from 'react';
 import { ConversationList } from '../../conversation/ConversationList';
-import type { ConversationTimelineEntry } from '../../../../runtime/conversation/conversation.types';
+import type { ConversationTimelineEntry } from '../../../../runtime';
 import { Button } from '../../../primitives';
 
 export type AssistantPanelConversationSectionProps = {

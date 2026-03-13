@@ -1,5 +1,5 @@
-export type { ThemePreference } from '../shared/settings';
-import type { ThemePreference } from '../shared/settings';
+export type { ThemePreference } from '../shared';
+import type { ThemePreference } from '../shared';
 
 export type ResolvedTheme = Exclude<ThemePreference, 'system'>;
 

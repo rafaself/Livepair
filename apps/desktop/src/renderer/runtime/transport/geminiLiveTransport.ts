@@ -36,7 +36,7 @@ import {
   createTransportError,
   getErrorDetail,
 } from './geminiLiveTransportProtocol';
-import { mapRehydrationPacketToLiveSessionHistory } from '../../chatMemory/currentChatMemory';
+import { mapRehydrationPacketToLiveSessionHistory } from './liveSessionHistory';
 import {
   createGeminiLiveTransportState,
   resetGeminiLiveTransportState,

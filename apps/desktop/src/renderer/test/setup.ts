@@ -1,11 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, vi } from 'vitest';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
-import type { DesktopBridge } from '../../shared/desktopBridge';
-import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
-import { resetCurrentLiveSessionForTests } from '../liveSessions/currentLiveSession';
+import { DEFAULT_DESKTOP_SETTINGS, type DesktopBridge } from '../../shared';
+import { resetCurrentChatMemoryForTests } from '../chatMemory';
+import { resetCurrentLiveSessionForTests } from '../liveSessions';
 import { __resetGeminiLiveSdkMock } from './geminiLiveSdkMock';
-import { resetDesktopSessionController } from '../runtime/sessionController';
+import { resetDesktopSessionController } from '../runtime';
 import { resetLiveConfigForTests } from '../runtime/transport/liveConfig';
 import { resetDesktopStores } from '../store/testing';
 

@@ -5,8 +5,6 @@ import {
 import type {
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
-} from '../../../../runtime/screen/screen.types';
-import type {
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
@@ -15,7 +13,7 @@ import type {
   VoiceSessionResumptionState,
   VoiceSessionStatus,
   VoiceToolState,
-} from '../../../../runtime/voice/voice.types';
+} from '../../../../runtime';
 import { FieldList, StatusIndicator } from '../../../composite';
 import { ViewSection } from '../../../layout';
 import { Button } from '../../../primitives';

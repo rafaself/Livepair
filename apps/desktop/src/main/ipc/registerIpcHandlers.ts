@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
-import { IPC_CHANNELS } from '../../shared/desktopBridge';
+import { IPC_CHANNELS } from '../../shared';
 import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
 import type { DesktopSettingsService } from '../settings/settingsService';
 import { createBackendClient } from '../backend/backendClient';

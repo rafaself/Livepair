@@ -3,10 +3,10 @@ import { AssistantPanel } from './components/features/assistant-panel/AssistantP
 import { ControlDock } from './components/composite/ControlDock';
 import { useOverlayHitRegions } from './hooks/useOverlayHitRegions';
 import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrough';
-import type { OverlayMode } from '../shared/desktopBridge';
+import type { OverlayMode } from '../shared';
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
 import { useSettingsStore } from './store/settingsStore';
-import { useSessionRuntime } from './runtime/useSessionRuntime';
+import { useSessionRuntime } from './runtime';
 
 function LinuxOverlayInteraction(): null {
   useOverlayHitRegions();

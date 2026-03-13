@@ -1,55 +1,38 @@
 import { create } from 'zustand';
 import type { ChatId } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
-import { LIVE_ADAPTER_KEY } from '../runtime/transport/liveConfig';
 import {
+  LIVE_ADAPTER_KEY,
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
   createDefaultVoiceToolState,
-} from '../runtime/core/defaults';
-import { createSpeechSessionLifecycle } from '../runtime/speech/speechSessionLifecycle';
-import {
+  createSpeechSessionLifecycle,
   createTextSessionLifecycle,
   deriveSessionPhaseFromLifecycle,
   deriveTransportStateFromLifecycle,
-} from '../runtime/text/textSessionLifecycle';
-import type {
-  AssistantActivityState,
-  ProductMode,
-  SessionPhase,
-  RuntimeDebugEvent,
-} from '../runtime/core/session.types';
-import type {
-  TransportConnectionState,
-  TransportKind,
-} from '../runtime/transport/transport.types';
-import type {
-  CurrentVoiceTranscript,
-  VoiceCaptureDiagnostics,
-  VoiceCaptureState,
-  VoiceSessionDurabilityState,
-  VoiceSessionResumptionState,
-  VoicePlaybackDiagnostics,
-  VoicePlaybackState,
-  VoiceSessionStatus,
-  VoiceToolState,
-} from '../runtime/voice/voice.types';
-import type {
-  ConversationTurnModel,
-  TranscriptArtifactModel,
-} from '../runtime/conversation/conversation.types';
-import type {
-  ScreenCaptureDiagnostics,
-  ScreenCaptureState,
-} from '../runtime/screen/screen.types';
-import type {
-  SpeechLifecycle,
-} from '../runtime/speech/speech.types';
-import type {
-  TextSessionLifecycle,
-  TextSessionStatus,
-} from '../runtime/text/text.types';
-
+  type AssistantActivityState,
+  type ConversationTurnModel,
+  type CurrentVoiceTranscript,
+  type ProductMode,
+  type RuntimeDebugEvent,
+  type ScreenCaptureDiagnostics,
+  type ScreenCaptureState,
+  type SessionPhase,
+  type SpeechLifecycle,
+  type TextSessionLifecycle,
+  type TextSessionStatus,
+  type TranscriptArtifactModel,
+  type TransportConnectionState,
+  type TransportKind,
+  type VoiceCaptureDiagnostics,
+  type VoiceCaptureState,
+  type VoicePlaybackDiagnostics,
+  type VoicePlaybackState,
+  type VoiceSessionDurabilityState,
+  type VoiceSessionResumptionState,
+  type VoiceSessionStatus,
+  type VoiceToolState,
+} from '../runtime/public';
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
 export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
 

@@ -1,9 +1,9 @@
-import { normalizeBackendBaseUrl } from '../../../../../shared/backendBaseUrl';
 import type {
   PreferredMode,
   SpeechSilenceTimeout,
   ThemePreference,
-} from '../../../../../shared/settings';
+} from '../../../../../shared';
+import { normalizeBackendBaseUrl } from '../../../../../shared';
 import { useSettingsStore } from '../../../../store/settingsStore';
 import { useUiStore } from '../../../../store/uiStore';
 import type { SelectOptionItem } from '../../../primitives';
