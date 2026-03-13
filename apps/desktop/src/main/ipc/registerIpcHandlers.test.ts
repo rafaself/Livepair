@@ -5,6 +5,7 @@ import type {
   AppendChatMessageRequest,
   ChatMessageRecord,
   ChatRecord,
+  LiveSessionRecord,
 } from '@livepair/shared-types';
 import type { DesktopSettings } from '../../shared/settings';
 import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
@@ -68,6 +69,25 @@ function createChatMessageRecord(
   };
 }
 
+function createLiveSessionRecord(
+  overrides: Partial<LiveSessionRecord> = {},
+): LiveSessionRecord {
+  return {
+    id: 'live-session-1',
+    chatId: 'chat-1',
+    startedAt: '2026-03-12T00:00:00.000Z',
+    endedAt: null,
+    status: 'active',
+    endedReason: null,
+    resumptionHandle: null,
+    lastResumptionUpdateAt: null,
+    restorable: false,
+    invalidatedAt: null,
+    invalidationReason: null,
+    ...overrides,
+  };
+}
+
 function createChatMemoryServiceDouble(): ChatMemoryService {
   return {
     createChat: vi.fn(() => createChatRecord()),
@@ -77,6 +97,10 @@ function createChatMemoryServiceDouble(): ChatMemoryService {
     appendMessage: vi.fn((request: AppendChatMessageRequest) =>
       createChatMessageRecord(request),
     ),
+    createLiveSession: vi.fn(() => createLiveSessionRecord()),
+    listLiveSessions: vi.fn(() => [createLiveSessionRecord()]),
+    updateLiveSession: vi.fn(() => createLiveSessionRecord({ restorable: true })),
+    endLiveSession: vi.fn(() => createLiveSessionRecord({ status: 'ended' })),
   } as unknown as ChatMemoryService;
 }
 
@@ -95,7 +119,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(13);
+    expect(mockHandle).toHaveBeenCalledTimes(15);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -104,52 +128,62 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       3,
-      'session:startTextChat',
-      expect.any(Function),
-    );
-    expect(mockHandle).toHaveBeenNthCalledWith(
-      4,
-      'session:cancelTextChat',
-      expect.any(Function),
-    );
-    expect(mockHandle).toHaveBeenNthCalledWith(
-      5,
       'chatMemory:createChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      6,
+      4,
       'chatMemory:getChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      7,
+      5,
       'chatMemory:getOrCreateCurrentChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      8,
+      6,
       'chatMemory:listMessages',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      9,
+      7,
       'chatMemory:appendMessage',
       expect.any(Function),
     );
-    expect(mockHandle).toHaveBeenNthCalledWith(10, 'settings:get', expect.any(Function));
+    expect(mockHandle).toHaveBeenNthCalledWith(8, 'liveSession:create', expect.any(Function));
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      9,
+      'liveSession:listByChat',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      10,
+      'liveSession:update',
+      expect.any(Function),
+    );
     expect(mockHandle).toHaveBeenNthCalledWith(
       11,
-      'settings:update',
+      'liveSession:end',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       12,
-      'overlay:setHitRegions',
+      'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       13,
+      'settings:update',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      14,
+      'overlay:setHitRegions',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      15,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
@@ -246,96 +280,6 @@ describe('registerIpcHandlers', () => {
     });
   });
 
-  it('validates text chat payloads before delegating to the backend client', async () => {
-    const fetchImpl = vi.fn();
-    const settingsService = createSettingsServiceDouble();
-    const { registerIpcHandlers } = await import('./registerIpcHandlers');
-
-    registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      getMainWindow: () => null,
-      settingsService,
-    });
-
-    const startTextChatHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'session:startTextChat',
-    )?.[1] as (_event: unknown, req: unknown) => Promise<unknown>;
-    const cancelTextChatHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'session:cancelTextChat',
-    )?.[1] as (_event: unknown, req: unknown) => Promise<unknown>;
-
-    await expect(startTextChatHandler({}, { messages: [] })).rejects.toThrow(
-      'Invalid text chat request payload',
-    );
-    await expect(cancelTextChatHandler({}, { streamId: '' })).rejects.toThrow(
-      'Invalid text chat cancel payload',
-    );
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it('streams backend text chat events through the IPC sender and supports cancellation', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      body: new ReadableStream({
-        start(controller) {
-          controller.enqueue(
-            new TextEncoder().encode(
-              [
-                '{"type":"text-delta","text":"Here is "}',
-                '{"type":"completed"}',
-              ].join('\n'),
-            ),
-          );
-          controller.close();
-        },
-      }),
-    });
-    const sender = {
-      send: vi.fn(),
-    };
-    const settingsService = createSettingsServiceDouble();
-    const { registerIpcHandlers } = await import('./registerIpcHandlers');
-
-    registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      getMainWindow: () => null,
-      settingsService,
-    });
-
-    const startTextChatHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'session:startTextChat',
-    )?.[1] as (
-      event: { sender: { send: (channel: string, payload: unknown) => void } },
-      req: unknown,
-    ) => Promise<{ streamId: string }>;
-    const cancelTextChatHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === 'session:cancelTextChat',
-    )?.[1] as (_event: unknown, req: { streamId: string }) => Promise<void>;
-
-    const { streamId } = await startTextChatHandler(
-      { sender },
-      {
-        messages: [{ role: 'user', content: 'Summarize the current screen' }],
-      },
-    );
-
-    await vi.waitFor(() => {
-      expect(sender.send).toHaveBeenCalledWith('session:textChatEvent', {
-        streamId,
-        event: { type: 'text-delta', text: 'Here is ' },
-      });
-      expect(sender.send).toHaveBeenCalledWith('session:textChatEvent', {
-        streamId,
-        event: { type: 'completed' },
-      });
-    });
-
-    await expect(cancelTextChatHandler({}, { streamId })).resolves.toBeUndefined();
-  });
-
   it('validates and delegates chat memory handlers through the chat memory service', async () => {
     const chatMemoryService = createChatMemoryServiceDouble();
     const settingsService = createSettingsServiceDouble();
@@ -362,6 +306,18 @@ describe('registerIpcHandlers', () => {
     const appendMessageHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'chatMemory:appendMessage',
     )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
+    const createLiveSessionHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'liveSession:create',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
+    const listLiveSessionsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'liveSession:listByChat',
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<LiveSessionRecord[]>;
+    const updateLiveSessionHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'liveSession:update',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
+    const endLiveSessionHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'liveSession:end',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
 
     await expect(createChatHandler({}, { title: 5 })).rejects.toThrow(
       'Invalid create chat payload',
@@ -371,6 +327,16 @@ describe('registerIpcHandlers', () => {
     await expect(
       appendMessageHandler({}, { chatId: 'chat-1', role: 'system', contentText: 'bad' }),
     ).rejects.toThrow('Invalid append chat message payload');
+    await expect(createLiveSessionHandler({}, { chatId: '' })).rejects.toThrow(
+      'Invalid create live session payload',
+    );
+    await expect(listLiveSessionsHandler({}, '')).rejects.toThrow('Invalid chat id');
+    await expect(updateLiveSessionHandler({}, { id: '', restorable: true })).rejects.toThrow(
+      'Invalid update live session payload',
+    );
+    await expect(endLiveSessionHandler({}, { id: '', status: 'ended' })).rejects.toThrow(
+      'Invalid end live session payload',
+    );
 
     await expect(createChatHandler({}, { title: 'New chat' })).resolves.toEqual(
       createChatRecord(),
@@ -388,6 +354,25 @@ describe('registerIpcHandlers', () => {
         contentText: 'Stored',
       }),
     );
+    await expect(createLiveSessionHandler({}, { chatId: 'chat-1' })).resolves.toEqual(
+      createLiveSessionRecord(),
+    );
+    await expect(listLiveSessionsHandler({}, 'chat-1')).resolves.toEqual([
+      createLiveSessionRecord(),
+    ]);
+    await expect(
+      updateLiveSessionHandler({}, {
+        id: 'live-session-1',
+        resumptionHandle: 'handles/live-session-1',
+        lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
+      }),
+    ).resolves.toEqual(createLiveSessionRecord({ restorable: true }));
+    await expect(
+      endLiveSessionHandler({}, { id: 'live-session-1', status: 'ended' }),
+    ).resolves.toEqual(createLiveSessionRecord({ status: 'ended' }));
 
     expect(chatMemoryService.createChat).toHaveBeenCalledWith({ title: 'New chat' });
     expect(chatMemoryService.getChat).toHaveBeenCalledWith('chat-1');
@@ -397,6 +382,20 @@ describe('registerIpcHandlers', () => {
       chatId: 'chat-1',
       role: 'assistant',
       contentText: 'Stored',
+    });
+    expect(chatMemoryService.createLiveSession).toHaveBeenCalledWith({ chatId: 'chat-1' });
+    expect(chatMemoryService.listLiveSessions).toHaveBeenCalledWith('chat-1');
+    expect(chatMemoryService.updateLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
+    });
+    expect(chatMemoryService.endLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      status: 'ended',
     });
   });
 

@@ -6,6 +6,12 @@ import type {
   ChatMessageRecord,
   ChatRecord,
   CreateChatRequest,
+  CreateLiveSessionRequest,
+  EndLiveSessionRequest,
+  LiveSessionRecord,
+  RehydrationPacketContextState,
+  LiveSessionStatus,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 
 type ChatRow = {
@@ -25,12 +31,32 @@ type MessageRow = {
   sequence: number;
 };
 
+type LiveSessionRow = {
+  id: string;
+  chat_id: string;
+  started_at: string;
+  ended_at: string | null;
+  status: LiveSessionStatus;
+  ended_reason: string | null;
+  resumption_handle: string | null;
+  last_resumption_update_at: string | null;
+  restorable: number;
+  invalidated_at: string | null;
+  invalidation_reason: string | null;
+  summary_snapshot: string | null;
+  context_state_snapshot: string | null;
+};
+
 export interface ChatMemoryRepository {
   createChat: (request?: CreateChatRequest) => ChatRecord;
   getChat: (chatId: ChatId) => ChatRecord | null;
   getOrCreateCurrentChat: () => ChatRecord;
   listMessages: (chatId: ChatId) => ChatMessageRecord[];
   appendMessage: (request: AppendChatMessageRequest) => ChatMessageRecord;
+  createLiveSession: (request: CreateLiveSessionRequest) => LiveSessionRecord;
+  listLiveSessions: (chatId: ChatId) => LiveSessionRecord[];
+  updateLiveSession: (request: UpdateLiveSessionRequest) => LiveSessionRecord;
+  endLiveSession: (request: EndLiveSessionRequest) => LiveSessionRecord;
 }
 
 function toChatRecord(row: ChatRow): ChatRecord {
@@ -52,6 +78,91 @@ function toChatMessageRecord(row: MessageRow): ChatMessageRecord {
     createdAt: row.created_at,
     sequence: row.sequence,
   };
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function isStateEntry(
+  value: unknown,
+): value is RehydrationPacketContextState['task']['entries'][number] {
+  return (
+    isPlainRecord(value) &&
+    typeof value['key'] === 'string' &&
+    typeof value['value'] === 'string'
+  );
+}
+
+function isStateSection(value: unknown): value is RehydrationPacketContextState['task'] {
+  return (
+    isPlainRecord(value) &&
+    Array.isArray(value['entries']) &&
+    value['entries'].every((entry) => isStateEntry(entry))
+  );
+}
+
+function parseContextStateSnapshot(snapshot: string): RehydrationPacketContextState | null {
+  try {
+    const parsed: unknown = JSON.parse(snapshot);
+
+    if (
+      isPlainRecord(parsed) &&
+      isStateSection(parsed['task']) &&
+      isStateSection(parsed['context'])
+    ) {
+      return {
+        task: {
+          entries: parsed['task']['entries'],
+        },
+        context: {
+          entries: parsed['context']['entries'],
+        },
+      };
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown parse error';
+    console.warn(`[chat-memory] ignoring malformed persisted context state snapshot: ${detail}`);
+    return null;
+  }
+
+  console.warn('[chat-memory] ignoring invalid persisted context state snapshot shape');
+  return null;
+}
+
+function toLiveSessionRecord(row: LiveSessionRow): LiveSessionRecord {
+  const record: LiveSessionRecord = {
+    id: row.id,
+    chatId: row.chat_id,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    status: row.status,
+    endedReason: row.ended_reason,
+    resumptionHandle: row.resumption_handle,
+    lastResumptionUpdateAt: row.last_resumption_update_at,
+    restorable: row.restorable === 1,
+    invalidatedAt: row.invalidated_at,
+    invalidationReason: row.invalidation_reason,
+  };
+
+  if (row.summary_snapshot !== null) {
+    record.summarySnapshot = row.summary_snapshot;
+  }
+
+  if (row.context_state_snapshot !== null) {
+    const contextStateSnapshot = parseContextStateSnapshot(row.context_state_snapshot);
+
+    if (contextStateSnapshot !== null) {
+      record.contextStateSnapshot = contextStateSnapshot;
+    }
+  }
+
+  return record;
 }
 
 function normalizeTitle(title: string | null | undefined): string | null {
@@ -82,6 +193,11 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
   private readonly updateChatTimestampStatement;
   private readonly nextSequenceStatement;
   private readonly insertMessageStatement;
+  private readonly listLiveSessionsByChatIdStatement;
+  private readonly insertLiveSessionStatement;
+  private readonly selectLiveSessionByIdStatement;
+  private readonly updateLiveSessionRestoreMetadataStatement;
+  private readonly updateLiveSessionEndStateStatement;
 
   constructor(private readonly database: SqliteDatabase) {
     this.selectChatByIdStatement = database.prepare(
@@ -109,6 +225,97 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     this.insertMessageStatement = database.prepare(`
       INSERT INTO messages (id, chat_id, role, content_text, created_at, sequence)
       VALUES (@id, @chatId, @role, @contentText, @createdAt, @sequence)
+    `);
+    this.listLiveSessionsByChatIdStatement = database.prepare(
+      `SELECT
+         id,
+         chat_id,
+         started_at,
+         ended_at,
+         status,
+         ended_reason,
+         resumption_handle,
+         last_resumption_update_at,
+         restorable,
+         invalidated_at,
+         invalidation_reason,
+         summary_snapshot,
+         context_state_snapshot
+       FROM live_sessions
+       WHERE chat_id = ?
+       ORDER BY started_at DESC, id DESC`,
+    );
+    this.insertLiveSessionStatement = database.prepare(`
+      INSERT INTO live_sessions (
+        id,
+        chat_id,
+        started_at,
+        ended_at,
+        status,
+        ended_reason,
+        resumption_handle,
+        last_resumption_update_at,
+        restorable,
+        invalidated_at,
+        invalidation_reason,
+        summary_snapshot,
+        context_state_snapshot
+      ) VALUES (
+        @id,
+        @chatId,
+        @startedAt,
+        @endedAt,
+        @status,
+        @endedReason,
+        @resumptionHandle,
+        @lastResumptionUpdateAt,
+        @restorable,
+        @invalidatedAt,
+        @invalidationReason,
+        @summarySnapshot,
+        @contextStateSnapshot
+      )
+    `);
+    this.selectLiveSessionByIdStatement = database.prepare(
+      `SELECT
+         id,
+         chat_id,
+         started_at,
+         ended_at,
+         status,
+         ended_reason,
+         resumption_handle,
+         last_resumption_update_at,
+         restorable,
+         invalidated_at,
+         invalidation_reason,
+         summary_snapshot,
+         context_state_snapshot
+       FROM live_sessions
+       WHERE id = ?`,
+    );
+    this.updateLiveSessionRestoreMetadataStatement = database.prepare(`
+      UPDATE live_sessions
+      SET resumption_handle = @resumptionHandle,
+          last_resumption_update_at = @lastResumptionUpdateAt,
+          restorable = @restorable,
+          invalidated_at = @invalidatedAt,
+          invalidation_reason = @invalidationReason,
+          summary_snapshot = @summarySnapshot,
+          context_state_snapshot = @contextStateSnapshot
+      WHERE id = @id
+    `);
+    this.updateLiveSessionEndStateStatement = database.prepare(`
+      UPDATE live_sessions
+      SET ended_at = @endedAt,
+          status = @status,
+          ended_reason = @endedReason,
+          resumption_handle = NULL,
+          last_resumption_update_at = @lastResumptionUpdateAt,
+          restorable = 0,
+          invalidated_at = @invalidatedAt,
+          invalidation_reason = @invalidationReason
+      WHERE id = @id
     `);
   }
 
@@ -198,5 +405,179 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     });
 
     return appendMessage(request);
+  }
+
+  createLiveSession(request: CreateLiveSessionRequest): LiveSessionRecord {
+    const createLiveSession = this.database.transaction((input: CreateLiveSessionRequest) => {
+      const chat = this.getChat(input.chatId);
+
+      if (!chat) {
+        throw new Error(`Chat not found: ${input.chatId}`);
+      }
+
+      const liveSessionRow: LiveSessionRow = {
+        id: randomUUID(),
+        chat_id: input.chatId,
+        started_at: input.startedAt ?? new Date().toISOString(),
+        ended_at: null,
+        status: 'active',
+        ended_reason: null,
+        resumption_handle: null,
+        last_resumption_update_at: null,
+        restorable: 0,
+        invalidated_at: null,
+        invalidation_reason: null,
+        summary_snapshot: null,
+        context_state_snapshot: null,
+      };
+
+      this.insertLiveSessionStatement.run({
+        id: liveSessionRow.id,
+        chatId: liveSessionRow.chat_id,
+        startedAt: liveSessionRow.started_at,
+        endedAt: liveSessionRow.ended_at,
+        status: liveSessionRow.status,
+        endedReason: liveSessionRow.ended_reason,
+        resumptionHandle: liveSessionRow.resumption_handle,
+        lastResumptionUpdateAt: liveSessionRow.last_resumption_update_at,
+        restorable: liveSessionRow.restorable,
+        invalidatedAt: liveSessionRow.invalidated_at,
+        invalidationReason: liveSessionRow.invalidation_reason,
+        summarySnapshot: liveSessionRow.summary_snapshot,
+        contextStateSnapshot: liveSessionRow.context_state_snapshot,
+      });
+
+      return toLiveSessionRecord(liveSessionRow);
+    });
+
+    return createLiveSession(request);
+  }
+
+  listLiveSessions(chatId: ChatId): LiveSessionRecord[] {
+    return (
+      this.listLiveSessionsByChatIdStatement.all(chatId) as LiveSessionRow[]
+    ).map((row) => toLiveSessionRecord(row));
+  }
+
+  updateLiveSession(request: UpdateLiveSessionRequest): LiveSessionRecord {
+    const updateLiveSession = this.database.transaction((input: UpdateLiveSessionRequest) => {
+      const existingRow = this.selectLiveSessionByIdStatement.get(input.id) as
+        | LiveSessionRow
+        | undefined;
+
+      if (!existingRow) {
+        throw new Error(`Live session not found: ${input.id}`);
+      }
+
+      const didReceiveResumptionMetadata =
+        typeof input.resumptionHandle !== 'undefined'
+        || typeof input.restorable !== 'undefined'
+        || typeof input.invalidatedAt !== 'undefined'
+        || typeof input.invalidationReason !== 'undefined';
+      const requestedRestorable =
+        typeof input.restorable === 'undefined'
+          ? existingRow.restorable === 1
+          : input.restorable;
+      const resumptionHandle =
+        requestedRestorable
+          ? (
+            typeof input.resumptionHandle === 'undefined'
+              ? existingRow.resumption_handle
+              : input.resumptionHandle
+          )
+          : null;
+      const lastResumptionUpdateAt =
+        typeof input.lastResumptionUpdateAt === 'undefined'
+          ? didReceiveResumptionMetadata
+            ? new Date().toISOString()
+            : existingRow.last_resumption_update_at
+          : input.lastResumptionUpdateAt;
+      const invalidatedAt =
+        requestedRestorable
+          ? null
+          : typeof input.invalidatedAt === 'undefined'
+            ? existingRow.invalidated_at ?? (didReceiveResumptionMetadata ? lastResumptionUpdateAt : null)
+            : input.invalidatedAt;
+      const invalidationReason =
+        requestedRestorable
+          ? null
+          : typeof input.invalidationReason === 'undefined'
+            ? existingRow.invalidation_reason
+            : input.invalidationReason;
+      const summarySnapshot =
+        typeof input.summarySnapshot === 'undefined'
+          ? existingRow.summary_snapshot
+          : input.summarySnapshot;
+      const contextStateSnapshot =
+        typeof input.contextStateSnapshot === 'undefined'
+          ? existingRow.context_state_snapshot
+          : input.contextStateSnapshot === null
+            ? null
+            : JSON.stringify(input.contextStateSnapshot);
+
+      this.updateLiveSessionRestoreMetadataStatement.run({
+        id: input.id,
+        resumptionHandle,
+        lastResumptionUpdateAt,
+        restorable: requestedRestorable ? 1 : 0,
+        invalidatedAt,
+        invalidationReason,
+        summarySnapshot,
+        contextStateSnapshot,
+      });
+
+      return toLiveSessionRecord({
+        ...existingRow,
+        resumption_handle: resumptionHandle,
+        last_resumption_update_at: lastResumptionUpdateAt,
+        restorable: requestedRestorable ? 1 : 0,
+        invalidated_at: invalidatedAt,
+        invalidation_reason: invalidationReason,
+        summary_snapshot: summarySnapshot,
+        context_state_snapshot: contextStateSnapshot,
+      });
+    });
+
+    return updateLiveSession(request);
+  }
+
+  endLiveSession(request: EndLiveSessionRequest): LiveSessionRecord {
+    const endLiveSession = this.database.transaction((input: EndLiveSessionRequest) => {
+      const existingRow = this.selectLiveSessionByIdStatement.get(input.id) as
+        | LiveSessionRow
+        | undefined;
+
+      if (!existingRow) {
+        throw new Error(`Live session not found: ${input.id}`);
+      }
+
+      const endedAt = input.endedAt ?? new Date().toISOString();
+      const endedReason = input.endedReason ?? null;
+      const invalidationReason = endedReason ?? existingRow.invalidation_reason;
+
+      this.updateLiveSessionEndStateStatement.run({
+        id: input.id,
+        endedAt,
+        status: input.status,
+        endedReason,
+        lastResumptionUpdateAt: endedAt,
+        invalidatedAt: endedAt,
+        invalidationReason,
+      });
+
+      return toLiveSessionRecord({
+        ...existingRow,
+        ended_at: endedAt,
+        status: input.status,
+        ended_reason: endedReason,
+        resumption_handle: null,
+        last_resumption_update_at: endedAt,
+        restorable: 0,
+        invalidated_at: endedAt,
+        invalidation_reason: invalidationReason,
+      });
+    });
+
+    return endLiveSession(request);
   }
 }

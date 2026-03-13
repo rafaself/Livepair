@@ -34,12 +34,15 @@ describe('preload bridge', () => {
       'overlayMode',
       'checkHealth',
       'requestSessionToken',
-      'startTextChatStream',
       'createChat',
       'getChat',
       'getOrCreateCurrentChat',
       'listChatMessages',
       'appendChatMessage',
+      'createLiveSession',
+      'listLiveSessions',
+      'updateLiveSession',
+      'endLiveSession',
       'getSettings',
       'updateSettings',
       'setOverlayHitRegions',
@@ -49,12 +52,15 @@ describe('preload bridge', () => {
       overlayMode: expect.any(String),
       checkHealth: expect.any(Function),
       requestSessionToken: expect.any(Function),
-      startTextChatStream: expect.any(Function),
       createChat: expect.any(Function),
       getChat: expect.any(Function),
       getOrCreateCurrentChat: expect.any(Function),
       listChatMessages: expect.any(Function),
       appendChatMessage: expect.any(Function),
+      createLiveSession: expect.any(Function),
+      listLiveSessions: expect.any(Function),
+      updateLiveSession: expect.any(Function),
+      endLiveSession: expect.any(Function),
       getSettings: expect.any(Function),
       updateSettings: expect.any(Function),
       setOverlayHitRegions: expect.any(Function),
@@ -78,35 +84,6 @@ describe('preload bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {
       sessionId: 'session-1',
     });
-
-    mockInvoke.mockResolvedValueOnce({ streamId: 'stream-1' });
-    const onEvent = vi.fn();
-    const streamHandle = await bridge.startTextChatStream(
-      {
-        messages: [{ role: 'user', content: 'Summarize the current screen' }],
-      },
-      onEvent,
-    );
-    expect(mockOn).toHaveBeenCalledWith('session:textChatEvent', expect.any(Function));
-    expect(mockInvoke).toHaveBeenCalledWith('session:startTextChat', {
-      messages: [{ role: 'user', content: 'Summarize the current screen' }],
-    });
-
-    const eventListener = mockOn.mock.calls.find(
-      ([channel]) => channel === 'session:textChatEvent',
-    )?.[1] as (_event: unknown, payload: unknown) => void;
-
-    eventListener({}, { streamId: 'stream-2', event: { type: 'completed' } });
-    expect(onEvent).not.toHaveBeenCalled();
-
-    eventListener({}, { streamId: 'stream-1', event: { type: 'text-delta', text: 'Hi' } });
-    expect(onEvent).toHaveBeenCalledWith({ type: 'text-delta', text: 'Hi' });
-
-    await streamHandle.cancel();
-    expect(mockInvoke).toHaveBeenCalledWith('session:cancelTextChat', {
-      streamId: 'stream-1',
-    });
-    expect(mockOff).toHaveBeenCalledWith('session:textChatEvent', eventListener);
 
     mockInvoke.mockResolvedValueOnce({
       id: 'chat-1',
@@ -171,6 +148,94 @@ describe('preload bridge', () => {
     });
 
     mockInvoke.mockResolvedValueOnce({
+      id: 'live-session-1',
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T00:00:00.000Z',
+      endedAt: null,
+      status: 'active',
+      endedReason: null,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
+    });
+    await bridge.createLiveSession({ chatId: 'chat-1' });
+    expect(mockInvoke).toHaveBeenCalledWith('liveSession:create', { chatId: 'chat-1' });
+
+    mockInvoke.mockResolvedValueOnce([
+      {
+        id: 'live-session-1',
+        chatId: 'chat-1',
+        startedAt: '2026-03-12T00:00:00.000Z',
+        endedAt: null,
+        status: 'active',
+        endedReason: null,
+        resumptionHandle: null,
+        lastResumptionUpdateAt: null,
+        restorable: false,
+        invalidatedAt: null,
+        invalidationReason: null,
+      },
+    ]);
+    await bridge.listLiveSessions('chat-1');
+    expect(mockInvoke).toHaveBeenCalledWith('liveSession:listByChat', 'chat-1');
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'live-session-1',
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T00:00:00.000Z',
+      endedAt: null,
+      status: 'active',
+      endedReason: null,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
+    });
+    await bridge.updateLiveSession({
+      id: 'live-session-1',
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
+    });
+    expect(mockInvoke).toHaveBeenCalledWith('liveSession:update', {
+      id: 'live-session-1',
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
+    });
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'live-session-1',
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T00:00:00.000Z',
+      endedAt: '2026-03-12T00:05:00.000Z',
+      status: 'ended',
+      endedReason: 'user-ended',
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
+    });
+    await bridge.endLiveSession({
+      id: 'live-session-1',
+      status: 'ended',
+      endedReason: 'user-ended',
+    });
+    expect(mockInvoke).toHaveBeenCalledWith('liveSession:end', {
+      id: 'live-session-1',
+      status: 'ended',
+      endedReason: 'user-ended',
+    });
+
+    mockInvoke.mockResolvedValueOnce({
       backendUrl: 'http://localhost:3000',
       isPanelPinned: false,
       preferredMode: 'fast',
@@ -203,48 +268,6 @@ describe('preload bridge', () => {
     mockInvoke.mockResolvedValueOnce(undefined);
     await bridge.setOverlayPointerPassthrough(false);
     expect(mockInvoke).toHaveBeenCalledWith('overlay:setPointerPassthrough', false);
-  });
-
-  it('delivers text chat events emitted before startTextChatStream resolves', async () => {
-    const { bridge } = await import('./preload');
-
-    let resolveStart:
-      | ((value: { streamId: string }) => void)
-      | undefined;
-    mockInvoke.mockImplementationOnce(
-      () =>
-        new Promise<{ streamId: string }>((resolve) => {
-          resolveStart = resolve;
-        }),
-    );
-
-    const onEvent = vi.fn();
-    const streamHandlePromise = bridge.startTextChatStream(
-      {
-        messages: [{ role: 'user', content: 'Hello' }],
-      },
-      onEvent,
-    );
-
-    expect(mockOn).toHaveBeenCalledWith('session:textChatEvent', expect.any(Function));
-    const eventListener = mockOn.mock.calls.find(
-      ([channel]) => channel === 'session:textChatEvent',
-    )?.[1] as (_event: unknown, payload: unknown) => void;
-
-    eventListener({}, { streamId: 'stream-early', event: { type: 'text-delta', text: 'Hi' } });
-    expect(onEvent).not.toHaveBeenCalled();
-
-    resolveStart?.({ streamId: 'stream-early' });
-    const streamHandle = await streamHandlePromise;
-
-    expect(onEvent).toHaveBeenCalledWith({ type: 'text-delta', text: 'Hi' });
-
-    mockInvoke.mockResolvedValueOnce(undefined);
-    await streamHandle.cancel();
-    expect(mockOff).toHaveBeenCalledWith('session:textChatEvent', eventListener);
-    expect(mockInvoke).toHaveBeenCalledWith('session:cancelTextChat', {
-      streamId: 'stream-early',
-    });
   });
 
   it('passes explicit empty payload when request has no fields', async () => {

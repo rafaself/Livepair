@@ -92,4 +92,259 @@ describe('SqliteChatMemoryRepository', () => {
     });
     expect(repository.getChat(nextChat.id)).toEqual(nextChat);
   });
+
+  it('creates and lists multiple historical live sessions for a chat', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+
+    const firstLiveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+    const secondLiveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T10:00:00.000Z',
+    });
+
+    expect(repository.listLiveSessions(chat.id)).toEqual([
+      secondLiveSession,
+      firstLiveSession,
+    ]);
+
+    const reopenedRepository = openRepository();
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([
+      secondLiveSession,
+      firstLiveSession,
+    ]);
+  });
+
+  it('ends a persisted live session without affecting canonical chat messages', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    repository.appendMessage({
+      chatId: chat.id,
+      role: 'user',
+      contentText: 'Keep this history intact',
+    });
+
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+    const endedLiveSession = repository.endLiveSession({
+      id: liveSession.id,
+      status: 'ended',
+      endedAt: '2026-03-12T09:05:00.000Z',
+      endedReason: 'user-ended',
+    });
+
+    expect(endedLiveSession).toEqual({
+      ...liveSession,
+      endedAt: '2026-03-12T09:05:00.000Z',
+      status: 'ended',
+      endedReason: 'user-ended',
+      resumptionHandle: null,
+      lastResumptionUpdateAt: '2026-03-12T09:05:00.000Z',
+      restorable: false,
+      invalidatedAt: '2026-03-12T09:05:00.000Z',
+      invalidationReason: 'user-ended',
+    });
+    expect(repository.listMessages(chat.id)).toEqual([
+      expect.objectContaining({
+        chatId: chat.id,
+        role: 'user',
+        contentText: 'Keep this history intact',
+      }),
+    ]);
+  });
+
+  it('updates live-session restore metadata without changing canonical chat history', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    repository.appendMessage({
+      chatId: chat.id,
+      role: 'assistant',
+      contentText: 'Keep this answer intact',
+    });
+
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+    const updatedLiveSession = repository.updateLiveSession({
+      id: liveSession.id,
+      resumptionHandle: 'handles/live-session-1',
+      restorable: true,
+    });
+
+    expect(updatedLiveSession).toEqual({
+      ...liveSession,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: expect.any(String),
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
+    });
+    expect(repository.listLiveSessions(chat.id)).toEqual([
+      {
+        ...liveSession,
+        resumptionHandle: 'handles/live-session-1',
+        lastResumptionUpdateAt: expect.any(String),
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
+      },
+    ]);
+    expect(repository.listMessages(chat.id)).toEqual([
+      expect.objectContaining({
+        chatId: chat.id,
+        role: 'assistant',
+        contentText: 'Keep this answer intact',
+      }),
+    ]);
+  });
+
+  it('marks a live session as non-restorable when resumption metadata is invalidated', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    const updatedLiveSession = repository.updateLiveSession({
+      id: liveSession.id,
+      resumptionHandle: null,
+      restorable: false,
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
+
+    expect(updatedLiveSession).toEqual({
+      ...liveSession,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: expect.any(String),
+      restorable: false,
+      invalidatedAt: expect.any(String),
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
+  });
+
+  it('clears stale resume handles when a live session becomes non-restorable', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    repository.updateLiveSession({
+      id: liveSession.id,
+      resumptionHandle: 'handles/live-session-1',
+      restorable: true,
+    });
+
+    const invalidatedLiveSession = repository.updateLiveSession({
+      id: liveSession.id,
+      resumptionHandle: 'handles/stale-live-session-1',
+      restorable: false,
+      invalidatedAt: '2026-03-12T09:02:00.000Z',
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
+
+    expect(invalidatedLiveSession).toEqual({
+      ...liveSession,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: expect.any(String),
+      restorable: false,
+      invalidatedAt: '2026-03-12T09:02:00.000Z',
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
+  });
+
+  it('persists live-session summary and context snapshots across reload', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    const updatedLiveSession = repository.updateLiveSession({
+      id: liveSession.id,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot: {
+        task: {
+          entries: [{ key: 'taskStatus', value: 'active' }],
+        },
+        context: {
+          entries: [{ key: 'repo', value: 'Livepair' }],
+        },
+      },
+    });
+
+    expect(updatedLiveSession).toEqual({
+      ...liveSession,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot: {
+        task: {
+          entries: [{ key: 'taskStatus', value: 'active' }],
+        },
+        context: {
+          entries: [{ key: 'repo', value: 'Livepair' }],
+        },
+      },
+    });
+
+    const reopenedRepository = openRepository();
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([
+      {
+        ...liveSession,
+        summarySnapshot: 'Persisted summary snapshot',
+        contextStateSnapshot: {
+          task: {
+            entries: [{ key: 'taskStatus', value: 'active' }],
+          },
+          context: {
+            entries: [{ key: 'repo', value: 'Livepair' }],
+          },
+        },
+      },
+    ]);
+  });
+
+  it('ignores malformed persisted context snapshots instead of throwing on reload', () => {
+    const repository = openRepository();
+    const database = openDatabases[openDatabases.length - 1]!;
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    database
+      .prepare('UPDATE live_sessions SET context_state_snapshot = ? WHERE id = ?')
+      .run('{', liveSession.id);
+
+    const reopenedRepository = openRepository();
+
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([liveSession]);
+  });
+
+  it('ignores persisted context snapshots with the wrong runtime shape', () => {
+    const repository = openRepository();
+    const database = openDatabases[openDatabases.length - 1]!;
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    database
+      .prepare('UPDATE live_sessions SET context_state_snapshot = ? WHERE id = ?')
+      .run(JSON.stringify({ task: null, context: { entries: [] } }), liveSession.id);
+
+    const reopenedRepository = openRepository();
+
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([liveSession]);
+  });
 });

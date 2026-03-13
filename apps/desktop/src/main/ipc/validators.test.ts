@@ -5,16 +5,15 @@ import type { DesktopSettingsPatch } from '../../shared/settings';
 import type {
   AppendChatMessageRequest,
   CreateEphemeralTokenRequest,
-  TextChatRequest,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import {
   isAppendChatMessageRequest,
   isChatId,
   isCreateChatRequest,
   isCreateEphemeralTokenRequest,
+  isUpdateLiveSessionRequest,
   isDesktopSettingsPatch,
-  isTextChatCancelRequest,
-  isTextChatRequest,
   toOverlayRectangles,
 } from './validators';
 
@@ -38,11 +37,19 @@ describe('ipc validators', () => {
 
   it('validates token request payloads', () => {
     const valid: CreateEphemeralTokenRequest = { sessionId: 'session-1' };
+    class TokenRequestCandidate {
+      sessionId = 'session-1';
+    }
 
     expect(isCreateEphemeralTokenRequest(valid)).toBe(true);
     expect(isCreateEphemeralTokenRequest({})).toBe(true);
     expect(isCreateEphemeralTokenRequest({ sessionId: undefined })).toBe(true);
     expect(isCreateEphemeralTokenRequest({ sessionId: 12 })).toBe(false);
+    expect(isCreateEphemeralTokenRequest(new Date())).toBe(false);
+    expect(isCreateEphemeralTokenRequest(new Map())).toBe(false);
+    expect(isCreateEphemeralTokenRequest(new Set())).toBe(false);
+    expect(isCreateEphemeralTokenRequest(/session/)).toBe(false);
+    expect(isCreateEphemeralTokenRequest(new TokenRequestCandidate())).toBe(false);
     expect(isCreateEphemeralTokenRequest(undefined)).toBe(false);
     expect(isCreateEphemeralTokenRequest([])).toBe(false);
   });
@@ -52,6 +59,21 @@ describe('ipc validators', () => {
       chatId: 'chat-1',
       role: 'assistant',
       contentText: 'Stored reply',
+    };
+    const updateRequest: UpdateLiveSessionRequest = {
+      id: 'live-session-1',
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot: {
+        task: {
+          entries: [{ key: 'taskStatus', value: 'active' }],
+        },
+        context: {
+          entries: [{ key: 'repo', value: 'Livepair' }],
+        },
+      },
     };
 
     expect(isChatId('chat-1')).toBe(true);
@@ -70,6 +92,47 @@ describe('ipc validators', () => {
     expect(isAppendChatMessageRequest({ ...appendRequest, chatId: '' })).toBe(false);
     expect(isAppendChatMessageRequest({ ...appendRequest, contentText: '' })).toBe(false);
     expect(isAppendChatMessageRequest(undefined)).toBe(false);
+    expect(isUpdateLiveSessionRequest(updateRequest)).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', resumptionHandle: null })).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', restorable: false })).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', summarySnapshot: null })).toBe(true);
+    expect(
+      isUpdateLiveSessionRequest({
+        id: 'live-session-1',
+        contextStateSnapshot: {
+          task: {
+            entries: [{ key: 'taskStatus', value: 'active' }],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      }),
+    ).toBe(true);
+    expect(
+      isUpdateLiveSessionRequest({
+        id: 'live-session-1',
+        invalidatedAt: '2026-03-12T00:02:00.000Z',
+        invalidationReason: 'session marked non-restorable',
+      }),
+    ).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: '' })).toBe(false);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1' })).toBe(false);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', restorable: 'yes' })).toBe(false);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', summarySnapshot: 7 })).toBe(false);
+    expect(
+      isUpdateLiveSessionRequest({
+        id: 'live-session-1',
+        contextStateSnapshot: {
+          task: {
+            entries: [{ key: 'taskStatus', value: 7 }],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      }),
+    ).toBe(false);
   });
 
   it('validates settings patch payloads', () => {
@@ -100,23 +163,4 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ speechSilenceTimeout: '5m' })).toBe(false);
   });
 
-  it('validates text chat request payloads', () => {
-    const valid: TextChatRequest = {
-      messages: [{ role: 'user', content: 'Summarize the current screen' }],
-    };
-
-    expect(isTextChatRequest(valid)).toBe(true);
-    expect(isTextChatRequest({ messages: [] })).toBe(false);
-    expect(isTextChatRequest({ messages: [{ role: 'system', content: 'bad' }] })).toBe(
-      false,
-    );
-    expect(isTextChatRequest({ messages: [{ role: 'user', content: '' }] })).toBe(false);
-    expect(isTextChatRequest(undefined)).toBe(false);
-  });
-
-  it('validates text chat cancel payloads', () => {
-    expect(isTextChatCancelRequest({ streamId: 'stream-1' })).toBe(true);
-    expect(isTextChatCancelRequest({ streamId: '' })).toBe(false);
-    expect(isTextChatCancelRequest({})).toBe(false);
-  });
 });

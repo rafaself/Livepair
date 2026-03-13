@@ -7,10 +7,12 @@ import type {
   CreateChatRequest,
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
+  CreateLiveSessionRequest,
+  EndLiveSessionRequest,
   HealthResponse,
-  TextChatMessage,
-  TextChatRequest,
-  TextChatStreamEvent,
+  LiveSessionRecord,
+  LiveSessionStatus,
+  UpdateLiveSessionRequest,
 } from './index';
 
 type Assert<T extends true> = T;
@@ -82,21 +84,88 @@ type _CreateChatRequestShape = Assert<
     }
   >
 >;
-type _TextChatMessageRole = Assert<
-  IsExact<TextChatMessage['role'], 'user' | 'assistant'>
+type _LiveSessionStatusShape = Assert<
+  IsExact<LiveSessionStatus, 'active' | 'ended' | 'failed'>
 >;
-type _TextChatMessageContent = Assert<
-  IsExact<TextChatMessage['content'], string>
->;
-type _TextChatRequestShape = Assert<
-  IsExact<TextChatRequest['messages'], TextChatMessage[]>
->;
-type _TextChatStreamEventShape = Assert<
+type _LiveSessionRecordShape = Assert<
   IsExact<
-    TextChatStreamEvent,
-    | { type: 'text-delta'; text: string }
-    | { type: 'completed' }
-    | { type: 'error'; detail: string }
+    LiveSessionRecord,
+    {
+      id: string;
+      chatId: string;
+      startedAt: string;
+      endedAt: string | null;
+      status: 'active' | 'ended' | 'failed';
+      endedReason: string | null;
+      resumptionHandle: string | null;
+      lastResumptionUpdateAt: string | null;
+      restorable: boolean;
+      invalidatedAt: string | null;
+      invalidationReason: string | null;
+      summarySnapshot?: string | null;
+      contextStateSnapshot?: {
+        task: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+        context: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+      } | null;
+    }
+  >
+>;
+type _CreateLiveSessionRequestShape = Assert<
+  IsExact<
+    CreateLiveSessionRequest,
+    {
+      chatId: string;
+      startedAt?: string;
+    }
+  >
+>;
+type _EndLiveSessionRequestShape = Assert<
+  IsExact<
+    EndLiveSessionRequest,
+    {
+      id: string;
+      endedAt?: string;
+      status: 'ended' | 'failed';
+      endedReason?: string | null;
+    }
+  >
+>;
+type _UpdateLiveSessionRequestShape = Assert<
+  IsExact<
+    UpdateLiveSessionRequest,
+    {
+      id: string;
+      resumptionHandle?: string | null;
+      lastResumptionUpdateAt?: string | null;
+      restorable?: boolean;
+      invalidatedAt?: string | null;
+      invalidationReason?: string | null;
+      summarySnapshot?: string | null;
+      contextStateSnapshot?: {
+        task: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+        context: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+      } | null;
+    }
   >
 >;
 

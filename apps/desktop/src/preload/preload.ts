@@ -9,62 +9,15 @@ export const bridge: DesktopBridge = {
   overlayMode: getOverlayMode(process.platform),
   checkHealth: () => ipcRenderer.invoke(IPC_CHANNELS.checkHealth),
   requestSessionToken: (req) => ipcRenderer.invoke(IPC_CHANNELS.requestSessionToken, req),
-  startTextChatStream: async (req, onEvent) => {
-    const pendingEvents: Array<{
-      streamId: string;
-      event: Parameters<typeof onEvent>[0];
-    }> = [];
-    let streamId: string | null = null;
-
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      payload: {
-        streamId: string;
-        event: Parameters<typeof onEvent>[0];
-      },
-    ): void => {
-      if (streamId === null) {
-        pendingEvents.push(payload);
-        return;
-      }
-
-      if (payload.streamId !== streamId) {
-        return;
-      }
-
-      onEvent(payload.event);
-    };
-
-    ipcRenderer.on(IPC_CHANNELS.textChatEvent, listener);
-
-    try {
-      const response = await ipcRenderer.invoke(IPC_CHANNELS.startTextChatStream, req) as {
-        streamId: string;
-      };
-      streamId = response.streamId;
-    } catch (error) {
-      ipcRenderer.off(IPC_CHANNELS.textChatEvent, listener);
-      throw error;
-    }
-
-    for (const pendingEvent of pendingEvents) {
-      if (pendingEvent.streamId === streamId) {
-        onEvent(pendingEvent.event);
-      }
-    }
-
-    return {
-      cancel: async () => {
-        ipcRenderer.off(IPC_CHANNELS.textChatEvent, listener);
-        await ipcRenderer.invoke(IPC_CHANNELS.cancelTextChatStream, { streamId });
-      },
-    };
-  },
   createChat: (req) => ipcRenderer.invoke(IPC_CHANNELS.createChat, req),
   getChat: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.getChat, chatId),
   getOrCreateCurrentChat: () => ipcRenderer.invoke(IPC_CHANNELS.getOrCreateCurrentChat),
   listChatMessages: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.listChatMessages, chatId),
   appendChatMessage: (req) => ipcRenderer.invoke(IPC_CHANNELS.appendChatMessage, req),
+  createLiveSession: (req) => ipcRenderer.invoke(IPC_CHANNELS.createLiveSession, req),
+  listLiveSessions: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.listLiveSessions, chatId),
+  updateLiveSession: (req) => ipcRenderer.invoke(IPC_CHANNELS.updateLiveSession, req),
+  endLiveSession: (req) => ipcRenderer.invoke(IPC_CHANNELS.endLiveSession, req),
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.getSettings),
   updateSettings: (patch) => ipcRenderer.invoke(IPC_CHANNELS.updateSettings, patch),
   setOverlayHitRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayHitRegions, regions),

@@ -3,7 +3,10 @@ import type {
   AppendChatMessageRequest,
   CreateChatRequest,
   CreateEphemeralTokenRequest,
-  TextChatRequest,
+  CreateLiveSessionRequest,
+  EndLiveSessionRequest,
+  RehydrationPacketContextState,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import type { DesktopSettingsPatch } from '../../shared/settings';
 
@@ -41,6 +44,37 @@ function isSpeechSilenceTimeout(value: unknown): boolean {
 
 function isNonEmptyString(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isNullableString(value: unknown): boolean {
+  return typeof value === 'undefined' || value === null || typeof value === 'string';
+}
+
+function isStateEntry(value: unknown): value is RehydrationPacketContextState['task']['entries'][number] {
+  return (
+    isPlainRecord(value) &&
+    hasOnlyAllowedKeys(value, ['key', 'value']) &&
+    typeof value['key'] === 'string' &&
+    typeof value['value'] === 'string'
+  );
+}
+
+function isStateSection(value: unknown): value is RehydrationPacketContextState['task'] {
+  return (
+    isPlainRecord(value) &&
+    hasOnlyAllowedKeys(value, ['entries']) &&
+    Array.isArray(value['entries']) &&
+    value['entries'].every((entry) => isStateEntry(entry))
+  );
+}
+
+function isContextStateSnapshot(value: unknown): value is RehydrationPacketContextState {
+  return (
+    isPlainRecord(value) &&
+    hasOnlyAllowedKeys(value, ['task', 'context']) &&
+    isStateSection(value['task']) &&
+    isStateSection(value['context'])
+  );
 }
 
 const DESKTOP_SETTINGS_PATCH_KEYS = [
@@ -98,7 +132,7 @@ export function toOverlayRectangles(input: unknown): Rectangle[] {
 export function isCreateEphemeralTokenRequest(
   req: unknown,
 ): req is CreateEphemeralTokenRequest {
-  if (typeof req !== 'object' || req === null || Array.isArray(req)) {
+  if (!isPlainRecord(req) || !hasOnlyAllowedKeys(req, ['sessionId'])) {
     return false;
   }
 
@@ -106,7 +140,7 @@ export function isCreateEphemeralTokenRequest(
     return true;
   }
 
-  const sessionId = (req as { sessionId?: unknown }).sessionId;
+  const sessionId = req['sessionId'];
   return typeof sessionId === 'string' || typeof sessionId === 'undefined';
 }
 
@@ -142,25 +176,77 @@ export function isAppendChatMessageRequest(value: unknown): value is AppendChatM
   );
 }
 
-export function isTextChatRequest(req: unknown): req is TextChatRequest {
-  if (!isPlainRecord(req) || !Array.isArray(req['messages']) || req['messages'].length === 0) {
+export function isCreateLiveSessionRequest(value: unknown): value is CreateLiveSessionRequest {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['chatId', 'startedAt'])) {
     return false;
   }
 
-  return req['messages'].every((message) => {
-    if (!isPlainRecord(message)) {
-      return false;
-    }
-
-    return (
-      (message['role'] === 'user' || message['role'] === 'assistant') &&
-      isNonEmptyString(message['content'])
-    );
-  });
+  return (
+    isChatId(value['chatId']) &&
+    (typeof value['startedAt'] === 'undefined' || typeof value['startedAt'] === 'string')
+  );
 }
 
-export function isTextChatCancelRequest(value: unknown): value is { streamId: string } {
-  return isPlainRecord(value) && isNonEmptyString(value['streamId']);
+export function isEndLiveSessionRequest(value: unknown): value is EndLiveSessionRequest {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['id', 'endedAt', 'status', 'endedReason'])) {
+    return false;
+  }
+
+  return (
+    isChatId(value['id']) &&
+    (value['status'] === 'ended' || value['status'] === 'failed') &&
+    (typeof value['endedAt'] === 'undefined' || typeof value['endedAt'] === 'string') &&
+    (
+      typeof value['endedReason'] === 'undefined' ||
+      value['endedReason'] === null ||
+      typeof value['endedReason'] === 'string'
+    )
+  );
+}
+
+export function isUpdateLiveSessionRequest(value: unknown): value is UpdateLiveSessionRequest {
+  if (
+    !isPlainRecord(value) ||
+    !hasOnlyAllowedKeys(value, [
+      'id',
+      'resumptionHandle',
+        'lastResumptionUpdateAt',
+        'restorable',
+        'invalidatedAt',
+        'invalidationReason',
+        'summarySnapshot',
+        'contextStateSnapshot',
+      ])
+  ) {
+    return false;
+  }
+
+  return (
+    isChatId(value['id']) &&
+    (
+      'resumptionHandle' in value ||
+       'lastResumptionUpdateAt' in value ||
+       'restorable' in value ||
+       'invalidatedAt' in value ||
+       'invalidationReason' in value ||
+       'summarySnapshot' in value ||
+       'contextStateSnapshot' in value
+     ) &&
+     isNullableString(value['resumptionHandle']) &&
+     isNullableString(value['lastResumptionUpdateAt']) &&
+     (
+       typeof value['restorable'] === 'undefined' ||
+       typeof value['restorable'] === 'boolean'
+     ) &&
+     isNullableString(value['invalidatedAt']) &&
+     isNullableString(value['invalidationReason']) &&
+     isNullableString(value['summarySnapshot']) &&
+     (
+       typeof value['contextStateSnapshot'] === 'undefined' ||
+       value['contextStateSnapshot'] === null ||
+       isContextStateSnapshot(value['contextStateSnapshot'])
+     )
+   );
 }
 
 export function isDesktopSettingsPatch(value: unknown): value is DesktopSettingsPatch {
