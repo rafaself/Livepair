@@ -1,7 +1,7 @@
 import { Server } from 'lucide-react';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
-import { ViewSection } from '../layout';
-import { TextInput } from '../primitives';
+import { ViewSection } from '../../../layout';
+import { TextInput } from '../../../primitives';
 
 type BackendSettingsController = Pick<
   AssistantPanelSettingsController,

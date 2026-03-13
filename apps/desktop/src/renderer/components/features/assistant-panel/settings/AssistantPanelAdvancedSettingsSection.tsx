@@ -1,8 +1,8 @@
 import { Wrench } from 'lucide-react';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
-import { FieldList } from '../composite';
-import { ViewSection } from '../layout';
-import { Switch } from '../primitives';
+import { FieldList } from '../../../composite';
+import { ViewSection } from '../../../layout';
+import { Switch } from '../../../primitives';
 
 type AdvancedSettingsController = Pick<
   AssistantPanelSettingsController,

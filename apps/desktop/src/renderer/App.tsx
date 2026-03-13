@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AssistantPanel } from './components/features/AssistantPanel';
+import { AssistantPanel } from './components/features/assistant-panel/AssistantPanel';
 import { ControlDock } from './components/composite/ControlDock';
 import { useOverlayHitRegions } from './hooks/useOverlayHitRegions';
 import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrough';

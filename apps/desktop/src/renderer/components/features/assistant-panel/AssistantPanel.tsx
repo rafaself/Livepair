@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
-import { OverlayContainer, Panel } from '../layout';
-import { AssistantPanelDebugView } from './AssistantPanelDebugView';
-import { AssistantPanelChatView } from './AssistantPanelChatView';
+import { OverlayContainer, Panel } from '../../layout';
+import { AssistantPanelDebugView } from './debug/AssistantPanelDebugView';
+import { AssistantPanelChatView } from './chat/AssistantPanelChatView';
 import { AssistantPanelHeader } from './AssistantPanelHeader';
-import { AssistantPanelHistoryView } from './AssistantPanelHistoryView';
-import { AssistantPanelSettingsContent } from './AssistantPanelSettingsView';
+import { AssistantPanelHistoryView } from './history/AssistantPanelHistoryView';
+import { AssistantPanelSettingsContent } from './settings/AssistantPanelSettingsView';
 import { useAssistantPanelController } from './useAssistantPanelController';
-import { useAssistantPanelSettingsController } from './useAssistantPanelSettingsController';
-import { switchToChat } from '../../chatMemory/currentChatMemory';
+import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
+import { switchToChat } from '../../../chatMemory/currentChatMemory';
 import './AssistantPanel.css';
 
-import { useUiStore } from '../../store/uiStore';
-import { useSessionStore } from '../../store/sessionStore';
+import { useUiStore } from '../../../store/uiStore';
+import { useSessionStore } from '../../../store/sessionStore';
 
 export function AssistantPanel(): JSX.Element {
   const isDebugMode = useUiStore((state) => state.isDebugMode);

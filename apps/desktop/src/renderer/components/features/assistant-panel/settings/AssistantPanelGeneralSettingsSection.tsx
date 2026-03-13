@@ -1,9 +1,9 @@
 import { Settings2 } from 'lucide-react';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
-import { FieldList } from '../composite';
-import { ViewSection } from '../layout';
-import { Select, Switch, type SelectOptionItem } from '../primitives';
-import { ThemeToggle } from './ThemeToggle';
+import { FieldList } from '../../../composite';
+import { ViewSection } from '../../../layout';
+import { Select, Switch, type SelectOptionItem } from '../../../primitives';
+import { ThemeToggle } from '../../ThemeToggle';
 
 const MODE_OPTIONS: readonly SelectOptionItem[] = [
   { value: 'fast', label: 'Fast' },

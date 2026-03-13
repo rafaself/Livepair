@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessageRecord, ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
-import { Button } from '../primitives';
+import { Button } from '../../../primitives';
 import './AssistantPanelHistoryView.css';
 
 export type AssistantPanelHistoryViewProps = {

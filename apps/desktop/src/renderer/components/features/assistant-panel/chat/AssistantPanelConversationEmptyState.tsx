@@ -1,5 +1,5 @@
 import { History, MessageCircle } from 'lucide-react';
-import type { AssistantRuntimeState } from '../../state/assistantUiState';
+import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 
 export type AssistantPanelConversationEmptyStateProps = {
   assistantState: AssistantRuntimeState;

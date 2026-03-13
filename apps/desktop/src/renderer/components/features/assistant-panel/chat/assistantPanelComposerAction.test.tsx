@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
-import { createControlGatingSnapshot } from '../../runtime/controlGating';
+import { createControlGatingSnapshot } from '../../../../runtime/controlGating';
 
 const inactiveSnapshot = createControlGatingSnapshot({
   currentMode: 'inactive',

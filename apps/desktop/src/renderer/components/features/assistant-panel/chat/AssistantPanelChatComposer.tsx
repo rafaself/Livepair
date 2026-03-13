@@ -1,6 +1,6 @@
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
 import { useEffect, useRef } from 'react';
-import { Button } from '../primitives';
+import { Button } from '../../../primitives';
 import type { AssistantPanelComposerAction } from './assistantPanelComposerAction';
 
 export type AssistantPanelChatComposerProps = {

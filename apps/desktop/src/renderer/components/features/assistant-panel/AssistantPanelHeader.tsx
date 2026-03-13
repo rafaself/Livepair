@@ -1,7 +1,7 @@
 import { Bug, Clock, MessageCircle, Settings } from 'lucide-react';
-import { type PanelView } from '../../store/uiStore';
-import { PanelHeader } from '../layout';
-import { Button, LivepairIcon } from '../primitives';
+import { type PanelView } from '../../../store/uiStore';
+import { PanelHeader } from '../../layout';
+import { Button, LivepairIcon } from '../../primitives';
 
 export type AssistantPanelHeaderProps = {
   panelView: PanelView;

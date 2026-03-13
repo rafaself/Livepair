@@ -1,8 +1,8 @@
 import { AudioLines } from 'lucide-react';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
-import { FieldList } from '../composite';
-import { ViewSection } from '../layout';
-import { Select, Switch, type SelectOptionItem } from '../primitives';
+import { FieldList } from '../../../composite';
+import { ViewSection } from '../../../layout';
+import { Select, Switch, type SelectOptionItem } from '../../../primitives';
 
 const SPEECH_SILENCE_TIMEOUT_OPTIONS: readonly SelectOptionItem[] = [
   { value: 'never', label: 'Never' },

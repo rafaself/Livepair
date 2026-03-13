@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import type { ConversationTurnModel } from './mockConversation';
+import type { ConversationTurnModel } from '../../conversation/mockConversation';
 import { AssistantPanelChatView } from './AssistantPanelChatView';
 
 describe('AssistantPanelChatView', () => {

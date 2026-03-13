@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
-import { useSettingsStore } from '../../store/settingsStore';
-import { useSessionStore } from '../../store/sessionStore';
-import { resetDesktopStores } from '../../store/testing';
-import { useUiStore } from '../../store/uiStore';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
+import { useSettingsStore } from '../../../store/settingsStore';
+import { useSessionStore } from '../../../store/sessionStore';
+import { resetDesktopStores } from '../../../store/testing';
+import { useUiStore } from '../../../store/uiStore';
 import { AssistantPanel } from './AssistantPanel';
 
 const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();

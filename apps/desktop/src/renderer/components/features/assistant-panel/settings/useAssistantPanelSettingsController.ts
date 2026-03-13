@@ -1,12 +1,12 @@
-import { normalizeBackendBaseUrl } from '../../../shared/backendBaseUrl';
+import { normalizeBackendBaseUrl } from '../../../../../shared/backendBaseUrl';
 import type {
   PreferredMode,
   SpeechSilenceTimeout,
   ThemePreference,
-} from '../../../shared/settings';
-import { useSettingsStore } from '../../store/settingsStore';
-import { useUiStore } from '../../store/uiStore';
-import type { SelectOptionItem } from '../primitives';
+} from '../../../../../shared/settings';
+import { useSettingsStore } from '../../../../store/settingsStore';
+import { useUiStore } from '../../../../store/uiStore';
+import type { SelectOptionItem } from '../../../primitives';
 
 const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'Voice input unavailable in text-only release' },

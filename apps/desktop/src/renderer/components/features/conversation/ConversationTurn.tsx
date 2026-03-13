@@ -1,11 +1,11 @@
 import type { HTMLAttributes } from 'react';
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
-import { Badge, IconButton } from '../primitives';
-import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
-import { isTranscriptArtifact } from '../../runtime/conversation/conversation.types';
-import { TypingIndicator } from './TypingIndicator';
-import { renderAssistantMarkdown } from './renderAssistantMarkdown';
+import { Badge, IconButton } from '../../primitives';
+import type { ConversationTimelineEntry } from '../../../runtime/conversation/conversation.types';
+import { isTranscriptArtifact } from '../../../runtime/conversation/conversation.types';
+import { TypingIndicator } from '../TypingIndicator';
+import { renderAssistantMarkdown } from '../assistant-panel/chat/renderAssistantMarkdown';
 import './ConversationTurn.css';
 
 export type ConversationTurnProps = {

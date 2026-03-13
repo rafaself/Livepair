@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import type { AssistantRuntimeState } from '../../state/assistantUiState';
+import type { AssistantRuntimeState } from '../../../state/assistantUiState';
 import {
   canEndSpeechMode,
   canSubmitComposerText,
   createControlGatingSnapshot,
   getComposerSpeechActionKind,
-} from '../../runtime/controlGating';
-import { useUiStore, type PanelView } from '../../store/uiStore';
-import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
-import { useSessionRuntime } from '../../runtime/useSessionRuntime';
-import type { ProductMode } from '../../runtime/core/session.types';
-import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
+} from '../../../runtime/controlGating';
+import { useUiStore, type PanelView } from '../../../store/uiStore';
+import { type BackendConnectionState, type TokenRequestState } from '../../../store/sessionStore';
+import { useSessionRuntime } from '../../../runtime/useSessionRuntime';
+import type { ProductMode } from '../../../runtime/core/session.types';
+import type { ConversationTimelineEntry } from '../../../runtime/conversation/conversation.types';
 import type {
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
@@ -20,14 +20,14 @@ import type {
   VoicePlaybackState,
   VoiceSessionStatus,
   VoiceToolState,
-} from '../../runtime/voice/voice.types';
+} from '../../../runtime/voice/voice.types';
 import type {
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
-} from '../../runtime/screen/screen.types';
-import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
-import type { TextSessionStatus } from '../../runtime/text/text.types';
-import type { TransportKind } from '../../runtime/transport/transport.types';
+} from '../../../runtime/screen/screen.types';
+import type { SpeechLifecycleStatus } from '../../../runtime/speech/speech.types';
+import type { TextSessionStatus } from '../../../runtime/text/text.types';
+import type { TransportKind } from '../../../runtime/transport/transport.types';
 
 export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
