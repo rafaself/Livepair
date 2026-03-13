@@ -76,13 +76,26 @@ export class GeminiLiveTransport implements DesktopSession {
     };
   }
 
-  async connect({
-    token,
-    mode,
-    resumeHandle,
-    rehydrationPacket,
-    history,
-  }: DesktopSessionConnectParams): Promise<void> {
+  async connect(params: DesktopSessionConnectParams): Promise<void> {
+    if ('history' in (params as Record<string, unknown>)) {
+      throw createTransportError(
+        'Gemini Live fallback rehydration must use a RehydrationPacket instead of raw history',
+      );
+    }
+
+    const {
+      token,
+      mode,
+      resumeHandle,
+      rehydrationPacket,
+    } = params;
+
+    if (typeof resumeHandle === 'string' && typeof rehydrationPacket !== 'undefined') {
+      throw createTransportError(
+        'Gemini Live connect cannot mix resumption handles with fallback rehydration packets',
+      );
+    }
+
     if (!token.token) {
       const detail = 'Gemini Live token was missing';
       this.emit({ type: 'error', detail });
@@ -251,7 +264,7 @@ export class GeminiLiveTransport implements DesktopSession {
       const effectiveHistory =
         rehydrationPacket && rehydrationPacket.recentTurns.length > 0
           ? mapRehydrationPacketToLiveSessionHistory(rehydrationPacket)
-          : history;
+          : undefined;
 
       if (effectiveHistory && effectiveHistory.length > 0) {
         if (!session) {

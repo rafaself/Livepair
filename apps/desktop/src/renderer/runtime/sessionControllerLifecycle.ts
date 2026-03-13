@@ -300,7 +300,7 @@ export function createSessionControllerLifecycle({
       await transport.connect({
         token,
         mode: 'voice',
-        ...(rehydrationPacket.recentTurns.length > 0 ? { rehydrationPacket } : {}),
+        rehydrationPacket,
       });
 
       if (!isCurrentSessionOperation(operationId)) {

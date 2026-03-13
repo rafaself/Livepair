@@ -86,13 +86,30 @@ export type LiveSessionEvent =
       detail: string;
     };
 
-export type DesktopSessionConnectParams = {
+type DesktopSessionConnectParamsBase = {
   token: CreateEphemeralTokenResponse;
   mode: LiveConnectMode;
-  resumeHandle?: string | undefined;
-  rehydrationPacket?: RehydrationPacket | undefined;
-  history?: LiveSessionHistoryTurn[] | undefined;
 };
+
+type DesktopSessionFreshConnectParams = DesktopSessionConnectParamsBase & {
+  resumeHandle?: undefined;
+  rehydrationPacket?: undefined;
+};
+
+type DesktopSessionResumeConnectParams = DesktopSessionConnectParamsBase & {
+  resumeHandle: string;
+  rehydrationPacket?: undefined;
+};
+
+type DesktopSessionRehydrateConnectParams = DesktopSessionConnectParamsBase & {
+  resumeHandle?: undefined;
+  rehydrationPacket: RehydrationPacket;
+};
+
+export type DesktopSessionConnectParams =
+  | DesktopSessionFreshConnectParams
+  | DesktopSessionResumeConnectParams
+  | DesktopSessionRehydrateConnectParams;
 
 export type DesktopSession = {
   kind: TransportKind;

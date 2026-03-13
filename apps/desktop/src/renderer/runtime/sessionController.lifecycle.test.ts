@@ -183,6 +183,20 @@ describe('createDesktopSessionController – lifecycle', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      },
     });
     expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
       chatId: 'chat-1',
@@ -671,6 +685,53 @@ describe('createDesktopSessionController – lifecycle', () => {
       }),
     });
     expect(voiceTransport.connect.mock.calls[0]?.[0]).not.toHaveProperty('history');
+  });
+
+  it('always passes a rehydration packet during fallback startup even when persisted history is empty', async () => {
+    persistedMessages = [];
+
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(voiceTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      },
+    });
   });
 
   it('does not promote backend failure state when typed input is blocked outside Live', async () => {
