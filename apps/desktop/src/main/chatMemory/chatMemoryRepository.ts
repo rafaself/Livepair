@@ -10,6 +10,7 @@ import type {
   EndLiveSessionRequest,
   LiveSessionRecord,
   LiveSessionStatus,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 
 type ChatRow = {
@@ -48,6 +49,7 @@ export interface ChatMemoryRepository {
   appendMessage: (request: AppendChatMessageRequest) => ChatMessageRecord;
   createLiveSession: (request: CreateLiveSessionRequest) => LiveSessionRecord;
   listLiveSessions: (chatId: ChatId) => LiveSessionRecord[];
+  updateLiveSession: (request: UpdateLiveSessionRequest) => LiveSessionRecord;
   endLiveSession: (request: EndLiveSessionRequest) => LiveSessionRecord;
 }
 
@@ -116,6 +118,7 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
   private readonly listLiveSessionsByChatIdStatement;
   private readonly insertLiveSessionStatement;
   private readonly selectLiveSessionByIdStatement;
+  private readonly updateLiveSessionRestoreMetadataStatement;
   private readonly updateLiveSessionEndStateStatement;
 
   constructor(private readonly database: SqliteDatabase) {
@@ -193,6 +196,12 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
        FROM live_sessions
        WHERE id = ?`,
     );
+    this.updateLiveSessionRestoreMetadataStatement = database.prepare(`
+      UPDATE live_sessions
+      SET latest_resume_handle = @latestResumeHandle,
+          resumable = @resumable
+      WHERE id = @id
+    `);
     this.updateLiveSessionEndStateStatement = database.prepare(`
       UPDATE live_sessions
       SET ended_at = @endedAt,
@@ -330,6 +339,41 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     return (
       this.listLiveSessionsByChatIdStatement.all(chatId) as LiveSessionRow[]
     ).map((row) => toLiveSessionRecord(row));
+  }
+
+  updateLiveSession(request: UpdateLiveSessionRequest): LiveSessionRecord {
+    const updateLiveSession = this.database.transaction((input: UpdateLiveSessionRequest) => {
+      const existingRow = this.selectLiveSessionByIdStatement.get(input.id) as
+        | LiveSessionRow
+        | undefined;
+
+      if (!existingRow) {
+        throw new Error(`Live session not found: ${input.id}`);
+      }
+
+      const latestResumeHandle =
+        typeof input.latestResumeHandle === 'undefined'
+          ? existingRow.latest_resume_handle
+          : input.latestResumeHandle;
+      const resumable =
+        typeof input.resumable === 'undefined'
+          ? existingRow.resumable === 1
+          : input.resumable;
+
+      this.updateLiveSessionRestoreMetadataStatement.run({
+        id: input.id,
+        latestResumeHandle,
+        resumable: resumable ? 1 : 0,
+      });
+
+      return toLiveSessionRecord({
+        ...existingRow,
+        latest_resume_handle: latestResumeHandle,
+        resumable: resumable ? 1 : 0,
+      });
+    });
+
+    return updateLiveSession(request);
   }
 
   endLiveSession(request: EndLiveSessionRequest): LiveSessionRecord {

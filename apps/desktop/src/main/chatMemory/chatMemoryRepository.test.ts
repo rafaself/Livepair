@@ -152,4 +152,44 @@ describe('SqliteChatMemoryRepository', () => {
       }),
     ]);
   });
+
+  it('updates live-session restore metadata without changing canonical chat history', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    repository.appendMessage({
+      chatId: chat.id,
+      role: 'assistant',
+      contentText: 'Keep this answer intact',
+    });
+
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+    const updatedLiveSession = repository.updateLiveSession({
+      id: liveSession.id,
+      latestResumeHandle: 'handles/live-session-1',
+      resumable: true,
+    });
+
+    expect(updatedLiveSession).toEqual({
+      ...liveSession,
+      latestResumeHandle: 'handles/live-session-1',
+      resumable: true,
+    });
+    expect(repository.listLiveSessions(chat.id)).toEqual([
+      {
+        ...liveSession,
+        latestResumeHandle: 'handles/live-session-1',
+        resumable: true,
+      },
+    ]);
+    expect(repository.listMessages(chat.id)).toEqual([
+      expect.objectContaining({
+        chatId: chat.id,
+        role: 'assistant',
+        contentText: 'Keep this answer intact',
+      }),
+    ]);
+  });
 });

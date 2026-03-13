@@ -41,6 +41,7 @@ describe('preload bridge', () => {
       'appendChatMessage',
       'createLiveSession',
       'listLiveSessions',
+      'updateLiveSession',
       'endLiveSession',
       'getSettings',
       'updateSettings',
@@ -58,6 +59,7 @@ describe('preload bridge', () => {
       appendChatMessage: expect.any(Function),
       createLiveSession: expect.any(Function),
       listLiveSessions: expect.any(Function),
+      updateLiveSession: expect.any(Function),
       endLiveSession: expect.any(Function),
       getSettings: expect.any(Function),
       updateSettings: expect.any(Function),
@@ -172,6 +174,27 @@ describe('preload bridge', () => {
     ]);
     await bridge.listLiveSessions('chat-1');
     expect(mockInvoke).toHaveBeenCalledWith('liveSession:listByChat', 'chat-1');
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'live-session-1',
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T00:00:00.000Z',
+      endedAt: null,
+      status: 'active',
+      endedReason: null,
+      latestResumeHandle: 'handles/live-session-1',
+      resumable: true,
+    });
+    await bridge.updateLiveSession({
+      id: 'live-session-1',
+      latestResumeHandle: 'handles/live-session-1',
+      resumable: true,
+    });
+    expect(mockInvoke).toHaveBeenCalledWith('liveSession:update', {
+      id: 'live-session-1',
+      latestResumeHandle: 'handles/live-session-1',
+      resumable: true,
+    });
 
     mockInvoke.mockResolvedValueOnce({
       id: 'live-session-1',

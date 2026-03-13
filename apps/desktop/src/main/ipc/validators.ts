@@ -5,6 +5,7 @@ import type {
   CreateEphemeralTokenRequest,
   CreateLiveSessionRequest,
   EndLiveSessionRequest,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import type { DesktopSettingsPatch } from '../../shared/settings';
 
@@ -167,6 +168,29 @@ export function isEndLiveSessionRequest(value: unknown): value is EndLiveSession
       typeof value['endedReason'] === 'undefined' ||
       value['endedReason'] === null ||
       typeof value['endedReason'] === 'string'
+    )
+  );
+}
+
+export function isUpdateLiveSessionRequest(value: unknown): value is UpdateLiveSessionRequest {
+  if (
+    !isPlainRecord(value) ||
+    !hasOnlyAllowedKeys(value, ['id', 'latestResumeHandle', 'resumable'])
+  ) {
+    return false;
+  }
+
+  return (
+    isChatId(value['id']) &&
+    ('latestResumeHandle' in value || 'resumable' in value) &&
+    (
+      typeof value['latestResumeHandle'] === 'undefined' ||
+      value['latestResumeHandle'] === null ||
+      typeof value['latestResumeHandle'] === 'string'
+    ) &&
+    (
+      typeof value['resumable'] === 'undefined' ||
+      typeof value['resumable'] === 'boolean'
     )
   );
 }

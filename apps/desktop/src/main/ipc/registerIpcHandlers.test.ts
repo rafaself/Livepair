@@ -96,6 +96,7 @@ function createChatMemoryServiceDouble(): ChatMemoryService {
     ),
     createLiveSession: vi.fn(() => createLiveSessionRecord()),
     listLiveSessions: vi.fn(() => [createLiveSessionRecord()]),
+    updateLiveSession: vi.fn(() => createLiveSessionRecord({ resumable: true })),
     endLiveSession: vi.fn(() => createLiveSessionRecord({ status: 'ended' })),
   } as unknown as ChatMemoryService;
 }
@@ -115,7 +116,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(14);
+    expect(mockHandle).toHaveBeenCalledTimes(15);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -155,22 +156,31 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       10,
+      'liveSession:update',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      11,
       'liveSession:end',
       expect.any(Function),
     );
-    expect(mockHandle).toHaveBeenNthCalledWith(11, 'settings:get', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       12,
-      'settings:update',
+      'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       13,
-      'overlay:setHitRegions',
+      'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       14,
+      'overlay:setHitRegions',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      15,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
@@ -299,6 +309,9 @@ describe('registerIpcHandlers', () => {
     const listLiveSessionsHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'liveSession:listByChat',
     )?.[1] as (_event: unknown, chatId: unknown) => Promise<LiveSessionRecord[]>;
+    const updateLiveSessionHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'liveSession:update',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
     const endLiveSessionHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'liveSession:end',
     )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
@@ -315,6 +328,9 @@ describe('registerIpcHandlers', () => {
       'Invalid create live session payload',
     );
     await expect(listLiveSessionsHandler({}, '')).rejects.toThrow('Invalid chat id');
+    await expect(updateLiveSessionHandler({}, { id: '', resumable: true })).rejects.toThrow(
+      'Invalid update live session payload',
+    );
     await expect(endLiveSessionHandler({}, { id: '', status: 'ended' })).rejects.toThrow(
       'Invalid end live session payload',
     );
@@ -342,6 +358,13 @@ describe('registerIpcHandlers', () => {
       createLiveSessionRecord(),
     ]);
     await expect(
+      updateLiveSessionHandler({}, {
+        id: 'live-session-1',
+        latestResumeHandle: 'handles/live-session-1',
+        resumable: true,
+      }),
+    ).resolves.toEqual(createLiveSessionRecord({ resumable: true }));
+    await expect(
       endLiveSessionHandler({}, { id: 'live-session-1', status: 'ended' }),
     ).resolves.toEqual(createLiveSessionRecord({ status: 'ended' }));
 
@@ -356,6 +379,11 @@ describe('registerIpcHandlers', () => {
     });
     expect(chatMemoryService.createLiveSession).toHaveBeenCalledWith({ chatId: 'chat-1' });
     expect(chatMemoryService.listLiveSessions).toHaveBeenCalledWith('chat-1');
+    expect(chatMemoryService.updateLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      latestResumeHandle: 'handles/live-session-1',
+      resumable: true,
+    });
     expect(chatMemoryService.endLiveSession).toHaveBeenCalledWith({
       id: 'live-session-1',
       status: 'ended',

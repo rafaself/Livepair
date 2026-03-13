@@ -12,6 +12,7 @@ import {
   isCreateLiveSessionRequest,
   isDesktopSettingsPatch,
   isEndLiveSessionRequest,
+  isUpdateLiveSessionRequest,
   toOverlayRectangles,
 } from './validators';
 
@@ -117,6 +118,17 @@ export function registerIpcHandlers({
       }
 
       return chatMemoryService.listLiveSessions(chatId);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.updateLiveSession,
+    async (_event, req: unknown) => {
+      if (!isUpdateLiveSessionRequest(req)) {
+        throw new Error('Invalid update live session payload');
+      }
+
+      return chatMemoryService.updateLiveSession(req);
     },
   );
 

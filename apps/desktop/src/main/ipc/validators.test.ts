@@ -5,12 +5,14 @@ import type { DesktopSettingsPatch } from '../../shared/settings';
 import type {
   AppendChatMessageRequest,
   CreateEphemeralTokenRequest,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import {
   isAppendChatMessageRequest,
   isChatId,
   isCreateChatRequest,
   isCreateEphemeralTokenRequest,
+  isUpdateLiveSessionRequest,
   isDesktopSettingsPatch,
   toOverlayRectangles,
 } from './validators';
@@ -50,6 +52,11 @@ describe('ipc validators', () => {
       role: 'assistant',
       contentText: 'Stored reply',
     };
+    const updateRequest: UpdateLiveSessionRequest = {
+      id: 'live-session-1',
+      latestResumeHandle: 'handles/live-session-1',
+      resumable: true,
+    };
 
     expect(isChatId('chat-1')).toBe(true);
     expect(isChatId('')).toBe(false);
@@ -67,6 +74,12 @@ describe('ipc validators', () => {
     expect(isAppendChatMessageRequest({ ...appendRequest, chatId: '' })).toBe(false);
     expect(isAppendChatMessageRequest({ ...appendRequest, contentText: '' })).toBe(false);
     expect(isAppendChatMessageRequest(undefined)).toBe(false);
+    expect(isUpdateLiveSessionRequest(updateRequest)).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', latestResumeHandle: null })).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', resumable: false })).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: '' })).toBe(false);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1' })).toBe(false);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', resumable: 'yes' })).toBe(false);
   });
 
   it('validates settings patch payloads', () => {
