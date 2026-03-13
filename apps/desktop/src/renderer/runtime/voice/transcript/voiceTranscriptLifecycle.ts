@@ -1,4 +1,4 @@
-import type { ConversationContext } from '../conversation/conversationTurnManager';
+import type { ConversationContext } from '../../conversation/conversationTurnManager';
 import {
   appendUserTurn,
   clearCurrentVoiceTurns,
@@ -7,7 +7,7 @@ import {
   getTranscriptArtifact,
   interruptCurrentVoiceAssistantTranscriptArtifact,
   settleVoiceTurnFence,
-} from '../conversation/conversationTurnManager';
+} from '../../conversation/conversationTurnManager';
 import type {
   CurrentVoiceTranscript,
   SessionStoreApi,

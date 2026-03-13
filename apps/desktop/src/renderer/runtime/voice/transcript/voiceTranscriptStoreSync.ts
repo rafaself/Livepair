@@ -1,12 +1,12 @@
 import { normalizeTranscriptText } from './voiceTranscript';
-import type { ConversationContext } from '../conversation/conversationTurnManager';
+import type { ConversationContext } from '../../conversation/conversationTurnManager';
 import {
   beginVoiceTurnFence,
   clearCurrentVoiceTurns,
   hasOpenVoiceTurnFence,
   upsertCurrentVoiceAssistantTranscriptArtifact,
   upsertCurrentVoiceUserTranscriptArtifact,
-} from '../conversation/conversationTurnManager';
+} from '../../conversation/conversationTurnManager';
 import type {
   SessionStoreApi,
   VoiceTranscriptRole,

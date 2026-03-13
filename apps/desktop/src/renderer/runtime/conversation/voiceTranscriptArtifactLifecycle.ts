@@ -1,6 +1,6 @@
 import { formatConversationTimestamp } from './conversationTimestamp';
 import { getTranscriptArtifact } from './conversationContext';
-import { normalizeTranscriptText } from '../voice/voiceTranscript';
+import { normalizeTranscriptText } from '../voice/transcript/voiceTranscript';
 import type { ConversationContext } from './conversationContext';
 import type { TranscriptArtifactModel } from './conversation.types';
 

@@ -1,9 +1,9 @@
-import type { AssistantAudioPlayback } from '../audio/audio.types';
+import type { AssistantAudioPlayback } from '../../audio/audio.types';
 import type {
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
-} from './voice.types';
-import type { AssistantAudioPlaybackObserver } from '../audio/assistantAudioPlayback';
+} from '../voice.types';
+import type { AssistantAudioPlaybackObserver } from '../../audio/assistantAudioPlayback';
 
 type PlaybackStoreApi = {
   getState: () => {

@@ -1,12 +1,12 @@
-import { asErrorDetail, createDebugEvent } from '../core/runtimeUtils';
-import { createDefaultVoiceToolState } from '../core/defaults';
+import { asErrorDetail, createDebugEvent } from '../../core/runtimeUtils';
+import { createDefaultVoiceToolState } from '../../core/defaults';
 import { executeLocalVoiceTool } from './voiceTools';
 import type { VoiceToolExecutionSnapshot } from './voiceTools';
-import type { DesktopSession } from '../transport/transport.types';
+import type { DesktopSession } from '../../transport/transport.types';
 import type {
   VoiceToolCall,
   VoiceToolState,
-} from './voice.types';
+} from '../voice.types';
 
 type VoiceToolStoreApi = {
   getState: () => {

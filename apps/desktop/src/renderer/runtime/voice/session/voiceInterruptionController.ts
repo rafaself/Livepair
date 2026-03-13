@@ -1,10 +1,10 @@
-import type { AssistantActivityState } from '../core/session.types';
-import type { DesktopSession } from '../transport/transport.types';
+import type { AssistantActivityState } from '../../core/session.types';
+import type { DesktopSession } from '../../transport/transport.types';
 import type {
   VoiceCaptureState,
   VoiceSessionStatus,
-} from './voice.types';
-import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
+} from '../voice.types';
+import type { SpeechSessionLifecycleEvent } from '../../speech/speechSessionLifecycle';
 
 type InterruptionStoreApi = {
   getState: () => {

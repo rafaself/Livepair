@@ -1,5 +1,5 @@
-import { asErrorDetail } from '../core/runtimeUtils';
-import type { DesktopSession } from '../transport/transport.types';
+import { asErrorDetail } from '../../core/runtimeUtils';
+import type { DesktopSession } from '../../transport/transport.types';
 import type {
   CreateEphemeralTokenResponse,
   RehydrationPacket,

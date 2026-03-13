@@ -1,11 +1,11 @@
-import type { LocalVoiceCapture, LocalVoiceCaptureObserver } from '../audio/localVoiceCapture';
-import type { DesktopSession } from '../transport/transport.types';
+import type { LocalVoiceCapture, LocalVoiceCaptureObserver } from '../../audio/localVoiceCapture';
+import type { DesktopSession } from '../../transport/transport.types';
 import type {
   LocalVoiceChunk,
   VoiceSessionStatus,
-} from './voice.types';
-import { asErrorDetail } from '../core/runtimeUtils';
-import type { SessionStoreApi, SettingsStoreApi } from '../core/sessionControllerTypes';
+} from '../voice.types';
+import { asErrorDetail } from '../../core/runtimeUtils';
+import type { SessionStoreApi, SettingsStoreApi } from '../../core/sessionControllerTypes';
 
 const VOICE_SESSION_NOT_READY_DETAIL = 'Voice session is not ready';
 

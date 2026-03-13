@@ -3,7 +3,7 @@ import {
   isAssistantTurnUnavailable,
   shouldIgnoreTermination,
 } from './transportEventGating';
-import { isTokenValidForReconnect } from '../voice/voiceSessionToken';
+import { isTokenValidForReconnect } from '../voice/session/voiceSessionToken';
 import { createDebugEvent } from '../core/runtimeUtils';
 import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
 import type { LiveSessionEvent } from './transport.types';

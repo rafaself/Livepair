@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetDesktopStores } from '../../store/testing';
-import { useSessionStore } from '../../store/sessionStore';
+import { resetDesktopStores } from '../../../store/testing';
+import { useSessionStore } from '../../../store/sessionStore';
 import {
   appendCompletedAssistantTurn,
   appendUserTurn,
   createConversationContext,
-} from '../conversation/conversationTurnManager';
+} from '../../conversation/conversationTurnManager';
 import { createVoiceTranscriptController } from './voiceTranscriptController';
 
 describe('createVoiceTranscriptController', () => {

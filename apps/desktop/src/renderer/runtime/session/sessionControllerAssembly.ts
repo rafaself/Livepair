@@ -3,12 +3,12 @@ import {
   logRuntimeError,
 } from '../core/logger';
 import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
-import { createVoiceTranscriptController } from '../voice/voiceTranscriptController';
-import { createVoicePlaybackController } from '../voice/voicePlaybackController';
+import { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
+import { createVoicePlaybackController } from '../voice/media/voicePlaybackController';
 import { createScreenCaptureController } from '../screen/screenCaptureController';
-import { createVoiceToolController } from '../voice/voiceToolController';
-import { createVoiceInterruptionController } from '../voice/voiceInterruptionController';
-import { createVoiceTokenManager } from '../voice/voiceTokenManager';
+import { createVoiceToolController } from '../voice/tools/voiceToolController';
+import { createVoiceInterruptionController } from '../voice/session/voiceInterruptionController';
+import { createVoiceTokenManager } from '../voice/session/voiceTokenManager';
 import { createSpeechSilenceController } from '../speech/speechSilenceController';
 import { createConversationContext } from '../conversation/conversationTurnManager';
 import {
@@ -18,7 +18,7 @@ import {
 import {
   persistConversationTurnInBackground,
 } from '../conversation/persistConversationTurn';
-import { createVoiceChunkPipeline } from '../voice/voiceChunkPipeline';
+import { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
 import { createSessionControllerStateSync } from './sessionStateSync';
 import { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import { createSessionControllerRuntime } from './sessionRuntime';

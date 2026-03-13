@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { createVoiceToolController } from './voiceToolController';
-import type { DesktopSession } from '../transport/transport.types';
-import type { VoiceToolCall } from './voice.types';
-import type { ProductMode } from '../core/session.types';
+import type { DesktopSession } from '../../transport/transport.types';
+import type { VoiceToolCall } from '../voice.types';
+import type { ProductMode } from '../../core/session.types';
 import type { VoiceToolExecutionSnapshot } from './voiceTools';
 import * as voiceToolsModule from './voiceTools';
 

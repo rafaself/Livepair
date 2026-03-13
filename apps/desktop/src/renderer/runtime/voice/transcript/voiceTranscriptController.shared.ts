@@ -1,7 +1,7 @@
 import type {
   CurrentVoiceTranscript,
   VoiceTranscriptEntry,
-} from './voice.types';
+} from '../voice.types';
 
 export type {
   CurrentVoiceTranscript,
