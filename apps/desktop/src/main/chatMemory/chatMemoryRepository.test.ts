@@ -311,4 +311,40 @@ describe('SqliteChatMemoryRepository', () => {
       },
     ]);
   });
+
+  it('ignores malformed persisted context snapshots instead of throwing on reload', () => {
+    const repository = openRepository();
+    const database = openDatabases[openDatabases.length - 1]!;
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    database
+      .prepare('UPDATE live_sessions SET context_state_snapshot = ? WHERE id = ?')
+      .run('{', liveSession.id);
+
+    const reopenedRepository = openRepository();
+
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([liveSession]);
+  });
+
+  it('ignores persisted context snapshots with the wrong runtime shape', () => {
+    const repository = openRepository();
+    const database = openDatabases[openDatabases.length - 1]!;
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    database
+      .prepare('UPDATE live_sessions SET context_state_snapshot = ? WHERE id = ?')
+      .run(JSON.stringify({ task: null, context: { entries: [] } }), liveSession.id);
+
+    const reopenedRepository = openRepository();
+
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([liveSession]);
+  });
 });

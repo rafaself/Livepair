@@ -80,6 +80,61 @@ function toChatMessageRecord(row: MessageRow): ChatMessageRecord {
   };
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function isStateEntry(
+  value: unknown,
+): value is RehydrationPacketContextState['task']['entries'][number] {
+  return (
+    isPlainRecord(value) &&
+    typeof value['key'] === 'string' &&
+    typeof value['value'] === 'string'
+  );
+}
+
+function isStateSection(value: unknown): value is RehydrationPacketContextState['task'] {
+  return (
+    isPlainRecord(value) &&
+    Array.isArray(value['entries']) &&
+    value['entries'].every((entry) => isStateEntry(entry))
+  );
+}
+
+function parseContextStateSnapshot(snapshot: string): RehydrationPacketContextState | null {
+  try {
+    const parsed: unknown = JSON.parse(snapshot);
+
+    if (
+      isPlainRecord(parsed) &&
+      isStateSection(parsed['task']) &&
+      isStateSection(parsed['context'])
+    ) {
+      return {
+        task: {
+          entries: parsed['task']['entries'],
+        },
+        context: {
+          entries: parsed['context']['entries'],
+        },
+      };
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown parse error';
+    console.warn(`[chat-memory] ignoring malformed persisted context state snapshot: ${detail}`);
+    return null;
+  }
+
+  console.warn('[chat-memory] ignoring invalid persisted context state snapshot shape');
+  return null;
+}
+
 function toLiveSessionRecord(row: LiveSessionRow): LiveSessionRecord {
   const record: LiveSessionRecord = {
     id: row.id,
@@ -100,7 +155,11 @@ function toLiveSessionRecord(row: LiveSessionRow): LiveSessionRecord {
   }
 
   if (row.context_state_snapshot !== null) {
-    record.contextStateSnapshot = JSON.parse(row.context_state_snapshot) as RehydrationPacketContextState;
+    const contextStateSnapshot = parseContextStateSnapshot(row.context_state_snapshot);
+
+    if (contextStateSnapshot !== null) {
+      record.contextStateSnapshot = contextStateSnapshot;
+    }
   }
 
   return record;
