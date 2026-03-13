@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { Badge, IconButton } from '../primitives';
 import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
+import { isTranscriptArtifact } from '../../runtime/conversation/conversation.types';
 import { TypingIndicator } from './TypingIndicator';
 import { renderAssistantMarkdown } from './renderAssistantMarkdown';
 import './ConversationTurn.css';
@@ -28,10 +29,15 @@ export function ConversationTurn({
 }: ConversationTurnProps): JSX.Element {
   const [copied, setCopied] = useState(false);
 
+  const isTranscript = isTranscriptArtifact(turn);
+  const isInterruptedTranscript = isTranscript && turn.statusLabel === 'Interrupted';
+
   const classes = [
     'conversation-turn',
     `conversation-turn--${turn.role}`,
     turn.state === 'error' ? 'conversation-turn--error' : '',
+    isTranscript ? 'conversation-turn--transcript' : '',
+    isInterruptedTranscript ? 'conversation-turn--transcript-interrupted' : '',
     className ?? '',
   ]
     .filter(Boolean)

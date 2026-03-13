@@ -207,3 +207,87 @@ describe('ConversationTurn', () => {
     expect(article.querySelector('b')).toBeNull();
   });
 });
+
+describe('ConversationTurn transcript artifact presentation', () => {
+  it('applies transcript modifier class to a transcript artifact', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'user-transcript-1',
+          role: 'user',
+          content: 'What is the capital of France?',
+          timestamp: '09:50',
+          state: 'complete',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'User turn at 09:50' });
+
+    expect(article).toHaveClass('conversation-turn--transcript');
+    expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
+  });
+
+  it('applies both transcript and interrupted modifier classes to an interrupted transcript', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'assistant-transcript-interrupted',
+          role: 'assistant',
+          content: 'Partial answer cut off mid',
+          timestamp: '09:51',
+          state: 'complete',
+          source: 'voice',
+          statusLabel: 'Interrupted',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant turn at 09:51' });
+
+    expect(article).toHaveClass('conversation-turn--transcript');
+    expect(article).toHaveClass('conversation-turn--transcript-interrupted');
+  });
+
+  it('does not apply transcript classes to canonical turns', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Canonical assistant response.',
+          timestamp: '09:52',
+          state: 'complete',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant turn at 09:52' });
+
+    expect(article).not.toHaveClass('conversation-turn--transcript');
+    expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
+  });
+
+  it('does not apply interrupted class to a canonical turn even when it has a status label', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-turn-error',
+          role: 'assistant',
+          content: 'Response failed.',
+          timestamp: '09:53',
+          state: 'error',
+          statusLabel: 'Error',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant turn at 09:53' });
+
+    expect(article).not.toHaveClass('conversation-turn--transcript');
+    expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
+  });
+});

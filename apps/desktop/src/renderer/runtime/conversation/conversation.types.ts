@@ -3,6 +3,7 @@ export type ConversationRole = 'user' | 'assistant' | 'system';
 export type ConversationTurnState = 'streaming' | 'complete' | 'error';
 
 export type ConversationTurnModel = {
+  kind?: 'turn';
   id: string;
   role: ConversationRole;
   content: string;
@@ -17,6 +18,7 @@ export type ConversationTurnModel = {
 };
 
 export type TranscriptArtifactModel = {
+  kind: 'transcript';
   id: string;
   role: Extract<ConversationRole, 'user' | 'assistant'>;
   content: string;
@@ -31,3 +33,9 @@ export type TranscriptArtifactModel = {
 };
 
 export type ConversationTimelineEntry = ConversationTurnModel | TranscriptArtifactModel;
+
+export function isTranscriptArtifact(
+  entry: ConversationTimelineEntry,
+): entry is TranscriptArtifactModel {
+  return entry.kind === 'transcript';
+}

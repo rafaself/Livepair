@@ -160,3 +160,18 @@
 .conversation-turn__copy-btn:focus-visible {
   opacity: 1;
 }
+
+/* ── Transcript artifact: support text, not primary output ───────────────── */
+
+.conversation-turn--transcript .conversation-turn__bubble {
+  opacity: 0.65;
+}
+
+.conversation-turn--transcript .conversation-turn__body {
+  font-style: italic;
+}
+
+/* Interrupted/partial transcript: further muted to signal incomplete content */
+.conversation-turn--transcript-interrupted .conversation-turn__bubble {
+  opacity: 0.4;
+}
