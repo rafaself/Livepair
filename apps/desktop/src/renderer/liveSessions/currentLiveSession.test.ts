@@ -59,4 +59,36 @@ describe('currentLiveSession restore metadata', () => {
       invalidationReason: null,
     });
   });
+
+  it('ends skipped active non-restorable rows before returning no restore candidate', async () => {
+    const bridge = {
+      createLiveSession: vi.fn(),
+      updateLiveSession: vi.fn(),
+      endLiveSession: vi.fn(async (request) => request),
+      getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-1' }),
+      listLiveSessions: vi.fn().mockResolvedValue([
+        {
+          id: 'live-session-stale',
+          chatId: 'chat-1',
+          startedAt: '2026-03-12T09:10:00.000Z',
+          endedAt: null,
+          status: 'active',
+          endedReason: null,
+          resumptionHandle: null,
+          lastResumptionUpdateAt: '2026-03-12T09:11:00.000Z',
+          restorable: false,
+          invalidatedAt: '2026-03-12T09:11:00.000Z',
+          invalidationReason: 'Gemini Live session is not resumable at this point',
+        },
+      ]),
+    } as unknown as typeof window.bridge;
+
+    await expect(restoreCurrentLiveSession(bridge)).resolves.toBeNull();
+    expect(bridge.endLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-stale',
+      endedAt: expect.any(String),
+      status: 'failed',
+      endedReason: 'Gemini Live session is not resumable at this point',
+    });
+  });
 });

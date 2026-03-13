@@ -246,7 +246,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to a new rehydrated live session when persisted resumption fails', async () => {
+  it('fails cleanly without starting a fresh rehydrated session when persisted resumption fails', async () => {
     persistedMessages = [
       {
         id: 'message-1',
@@ -295,7 +295,6 @@ describe('createDesktopSessionController – lifecycle', () => {
     }));
     const failedResumeTransport = createVoiceTransportHarness();
     failedResumeTransport.setConnectError(new Error('resume rejected'));
-    const freshTransport = createVoiceTransportHarness();
     const voiceCapture = createVoiceCaptureHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -308,10 +307,7 @@ describe('createDesktopSessionController – lifecycle', () => {
         expireTime: '2099-03-09T12:30:00.000Z',
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
-      createTransport: vi
-        .fn()
-        .mockReturnValueOnce(failedResumeTransport.transport)
-        .mockReturnValueOnce(freshTransport.transport),
+      createTransport: vi.fn().mockReturnValueOnce(failedResumeTransport.transport),
       createVoiceCapture: voiceCapture.createVoiceCapture,
       settingsStore: useSettingsStore,
     });
@@ -333,36 +329,24 @@ describe('createDesktopSessionController – lifecycle', () => {
       status: 'failed',
       endedReason: 'resume rejected',
     });
-    expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
-      chatId: 'chat-1',
-      startedAt: expect.any(String),
+    expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+      id: 'persisted-live-session-1',
+      restorable: false,
+      invalidatedAt: expect.any(String),
+      invalidationReason: 'resume rejected',
     });
-    expect(freshTransport.connect).toHaveBeenCalledWith({
-      token: {
-        token: 'auth_tokens/test-token',
-        expireTime: '2099-03-09T12:30:00.000Z',
-        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
-      },
-      mode: 'voice',
-      history: [
-        {
-          role: 'user',
-          parts: [{ text: 'Persisted question' }],
-        },
-        {
-          role: 'model',
-          parts: [{ text: 'Persisted answer' }],
-        },
-      ],
-    });
+    expect(window.bridge.createLiveSession).not.toHaveBeenCalled();
+    expect(window.bridge.listChatMessages).not.toHaveBeenCalled();
     expect(useSessionStore.getState().voiceSessionResumption).toEqual({
-      status: 'connected',
-      latestHandle: null,
+      status: 'resumeFailed',
+      latestHandle: 'handles/persisted-live-session-1',
       resumable: false,
-      lastDetail: null,
+      lastDetail: 'resume rejected',
     });
-    expect(useSessionStore.getState().lastRuntimeError).toBeNull();
-    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().lastRuntimeError).toBe('resume rejected');
+    expect(useSessionStore.getState().currentMode).toBe('inactive');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
+    expect(voiceCapture.start).not.toHaveBeenCalled();
   });
 
   it('seeds a new Live session from canonical persisted chat history instead of renderer-only turns', async () => {

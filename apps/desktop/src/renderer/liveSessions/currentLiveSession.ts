@@ -11,13 +11,19 @@ type CurrentLiveSessionBridge = Pick<
 
 let activeLiveSession: LiveSessionRecord | null = null;
 
-function isRestorableLiveSession(candidate: LiveSessionRecord): boolean {
+function isRestoreCandidate(candidate: LiveSessionRecord): boolean {
   return (
-    candidate.status === 'active' &&
-    candidate.endedAt === null &&
     candidate.restorable &&
     candidate.resumptionHandle !== null &&
     candidate.invalidatedAt === null
+  );
+}
+
+function isSkippedActiveNonRestorableSession(candidate: LiveSessionRecord): boolean {
+  return (
+    candidate.status === 'active' &&
+    candidate.endedAt === null &&
+    !candidate.restorable
   );
 }
 
@@ -47,7 +53,24 @@ export async function restoreCurrentLiveSession(
 
   const chat = await bridge.getOrCreateCurrentChat();
   const liveSessions = await bridge.listLiveSessions(chat.id);
-  const liveSession = liveSessions.find(isRestorableLiveSession) ?? null;
+  const liveSession = liveSessions.find(isRestoreCandidate) ?? null;
+
+  if (liveSession === null) {
+    const skippedSessions = liveSessions.filter(isSkippedActiveNonRestorableSession);
+
+    await Promise.all(
+      skippedSessions.map((session) =>
+        bridge.endLiveSession({
+          id: session.id,
+          endedAt: new Date().toISOString(),
+          status: 'failed',
+          endedReason:
+            session.invalidationReason
+            ?? 'Skipped non-restorable persisted Live session during startup',
+        }),
+      ),
+    );
+  }
 
   activeLiveSession = liveSession;
   return liveSession;

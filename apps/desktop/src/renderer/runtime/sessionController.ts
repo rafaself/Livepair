@@ -408,6 +408,9 @@ export function createDesktopSessionController(
     },
     syncVoiceDurabilityState: (token, patch) => runtimeRef.current!.syncVoiceDurabilityState(token, patch),
     restorePersistedLiveSession: () => restoreCurrentLiveSession(),
+    invalidatePersistedLiveSession: async (patch) => {
+      await updateCurrentLiveSession(patch);
+    },
     createPersistedLiveSession: async () => {
       await startCurrentLiveSession();
     },
