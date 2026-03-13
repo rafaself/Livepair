@@ -39,6 +39,7 @@ function createMockOps() {
     setVoiceErrorState: vi.fn(),
     setVoiceResumptionInFlight: vi.fn(),
     refreshToken: vi.fn().mockResolvedValue(VALID_TOKEN),
+    stopScreenCapture: vi.fn().mockResolvedValue(undefined),
     stopVoicePlayback: vi.fn().mockResolvedValue(undefined),
     subscribeTransport: vi.fn(),
     handleTransportEvent: vi.fn(),
@@ -105,6 +106,21 @@ describe('createVoiceResumeController', () => {
     expect(ops.unsubscribePreviousTransport).toHaveBeenCalledTimes(1);
     expect(ops.resetTransportDeps).toHaveBeenCalledTimes(1);
     expect(ops.stopVoicePlayback).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops screen capture before replacing the transport', async () => {
+    const ops = createMockOps();
+    const { resume } = createVoiceResumeController(ops as never);
+
+    await resume('server draining');
+
+    expect(ops.stopScreenCapture).toHaveBeenCalledTimes(1);
+    const stopScreenCaptureOrder = ops.stopScreenCapture.mock.invocationCallOrder[0];
+    const createTransportOrder = ops.createTransport.mock.invocationCallOrder[0];
+
+    expect(stopScreenCaptureOrder).toBeDefined();
+    expect(createTransportOrder).toBeDefined();
+    expect(stopScreenCaptureOrder!).toBeLessThan(createTransportOrder!);
   });
 
   it('creates new transport and connects with valid token and resume handle', async () => {

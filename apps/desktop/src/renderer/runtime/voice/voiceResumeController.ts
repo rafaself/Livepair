@@ -31,6 +31,7 @@ export type VoiceResumeControllerOps = {
   setVoiceErrorState: (detail: string) => void;
   setVoiceResumptionInFlight: (v: boolean) => void;
   refreshToken: (operationId: number, detail: string) => Promise<CreateEphemeralTokenResponse | null>;
+  stopScreenCapture: () => Promise<void>;
   stopVoicePlayback: () => Promise<void>;
   subscribeTransport: (
     transport: DesktopSession,
@@ -109,6 +110,8 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
     ops.unsubscribePreviousTransport();
     ops.setActiveTransport(null);
     ops.resetTransportDeps();
+
+    await ops.stopScreenCapture();
 
     try {
       await ops.stopVoicePlayback();

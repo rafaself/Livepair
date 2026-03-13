@@ -92,7 +92,21 @@ describe('createScreenCaptureController', () => {
 
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('error');
     expect(store.setLastRuntimeError).toHaveBeenCalledWith(
-      'Screen context requires an active voice session',
+      'Screen context requires an active Live session',
+    );
+    expect(ctrl.isActive()).toBe(false);
+  });
+
+  it('start rejects when no active Live transport is attached', async () => {
+    const { ctrl, createCapture, store, setTransport } = createHarness({ voiceSessionStatus: 'ready' });
+    setTransport(null);
+
+    await ctrl.start();
+
+    expect(createCapture).not.toHaveBeenCalled();
+    expect(store.setScreenCaptureState).toHaveBeenCalledWith('error');
+    expect(store.setLastRuntimeError).toHaveBeenCalledWith(
+      'Screen context requires an active Live session',
     );
     expect(ctrl.isActive()).toBe(false);
   });
@@ -389,7 +403,7 @@ describe('createScreenCaptureController', () => {
   });
 
   it('start allowed for all active voice statuses', async () => {
-    for (const status of ['ready', 'capturing', 'streaming', 'recovering', 'interrupted'] as VoiceSessionStatus[]) {
+    for (const status of ['ready', 'capturing', 'streaming', 'interrupted'] as VoiceSessionStatus[]) {
       const { ctrl, createCapture } = createHarness({ voiceSessionStatus: status });
       await ctrl.start();
       expect(createCapture).toHaveBeenCalledTimes(1);

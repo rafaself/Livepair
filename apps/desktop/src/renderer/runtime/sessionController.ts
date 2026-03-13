@@ -357,6 +357,7 @@ export function createDesktopSessionController(
       runtimeRef.current!.setVoiceResumptionInFlight(v);
     },
     refreshToken: (id, d) => refreshVoiceSessionToken(id, d),
+    stopScreenCapture: () => runtimeRef.current!.stopScreenCaptureInternal(),
     stopVoicePlayback: () => runtimeRef.current!.stopVoicePlayback(),
     subscribeTransport: (t, h) => {
       runtimeRef.current!.subscribeTransport(t, h);

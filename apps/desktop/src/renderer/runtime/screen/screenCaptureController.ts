@@ -240,15 +240,18 @@ export function createScreenCaptureController(
 
     const state = store.getState();
     const voiceStatus = state.voiceSessionStatus;
+    const transport = getTransport();
 
     if (
-      voiceStatus !== 'ready' &&
-      voiceStatus !== 'capturing' &&
-      voiceStatus !== 'streaming' &&
-      voiceStatus !== 'recovering' &&
-      voiceStatus !== 'interrupted'
+      transport === null ||
+      (
+        voiceStatus !== 'ready' &&
+        voiceStatus !== 'capturing' &&
+        voiceStatus !== 'streaming' &&
+        voiceStatus !== 'interrupted'
+      )
     ) {
-      const detail = 'Screen context requires an active voice session';
+      const detail = 'Screen context requires an active Live session';
       state.setScreenCaptureState('error');
       state.setScreenCaptureDiagnostics({
         lastError: detail,

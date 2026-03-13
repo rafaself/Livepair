@@ -91,7 +91,7 @@ describe('createDesktopSessionController – screen capture', () => {
     expect(screenCapture.start).not.toHaveBeenCalled();
     expect(useSessionStore.getState().screenCaptureState).toBe('error');
     expect(useSessionStore.getState().lastRuntimeError).toBe(
-      'Screen context requires an active voice session',
+      'Screen context requires an active Live session',
     );
   });
 
@@ -307,6 +307,82 @@ describe('createDesktopSessionController – screen capture', () => {
     await expect(controller.submitTextTurn('screen toggle recovery check')).resolves.toBe(true);
     expect(voiceTransport.sendText).toHaveBeenCalledWith('screen toggle recovery check');
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+  });
+
+  it('stops screen capture when the active Live runtime is replaced during resume', async () => {
+    const firstTransport = createVoiceTransportHarness();
+    const resumedTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(resumedTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.startScreenCapture();
+
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: 'handles/voice-session-2',
+      resumable: true,
+    });
+    firstTransport.emit({
+      type: 'go-away',
+      detail: 'server draining',
+    });
+
+    await vi.waitFor(() => {
+      expect(screenCapture.stop).toHaveBeenCalledOnce();
+      expect(resumedTransport.connect).toHaveBeenCalledWith({
+        token: {
+          token: 'auth_tokens/test-token',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        },
+        mode: 'voice',
+        resumeHandle: 'handles/voice-session-2',
+      });
+      expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
+    });
+  });
+
+  it('does not persist raw screen frames into canonical chat memory', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.startScreenCapture();
+    screenCapture.emitFrame();
+
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(1);
+    });
+
+    expect(window.bridge.appendChatMessage).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().conversationTurns).toEqual([]);
   });
 
   it('does not send frames via transport after stopScreenCapture', async () => {
