@@ -175,22 +175,50 @@ export function isEndLiveSessionRequest(value: unknown): value is EndLiveSession
 export function isUpdateLiveSessionRequest(value: unknown): value is UpdateLiveSessionRequest {
   if (
     !isPlainRecord(value) ||
-    !hasOnlyAllowedKeys(value, ['id', 'latestResumeHandle', 'resumable'])
+    !hasOnlyAllowedKeys(value, [
+      'id',
+      'resumptionHandle',
+      'lastResumptionUpdateAt',
+      'restorable',
+      'invalidatedAt',
+      'invalidationReason',
+    ])
   ) {
     return false;
   }
 
   return (
     isChatId(value['id']) &&
-    ('latestResumeHandle' in value || 'resumable' in value) &&
     (
-      typeof value['latestResumeHandle'] === 'undefined' ||
-      value['latestResumeHandle'] === null ||
-      typeof value['latestResumeHandle'] === 'string'
+      'resumptionHandle' in value ||
+      'lastResumptionUpdateAt' in value ||
+      'restorable' in value ||
+      'invalidatedAt' in value ||
+      'invalidationReason' in value
     ) &&
     (
-      typeof value['resumable'] === 'undefined' ||
-      typeof value['resumable'] === 'boolean'
+      typeof value['resumptionHandle'] === 'undefined' ||
+      value['resumptionHandle'] === null ||
+      typeof value['resumptionHandle'] === 'string'
+    ) &&
+    (
+      typeof value['lastResumptionUpdateAt'] === 'undefined' ||
+      value['lastResumptionUpdateAt'] === null ||
+      typeof value['lastResumptionUpdateAt'] === 'string'
+    ) &&
+    (
+      typeof value['restorable'] === 'undefined' ||
+      typeof value['restorable'] === 'boolean'
+    ) &&
+    (
+      typeof value['invalidatedAt'] === 'undefined' ||
+      value['invalidatedAt'] === null ||
+      typeof value['invalidatedAt'] === 'string'
+    ) &&
+    (
+      typeof value['invalidationReason'] === 'undefined' ||
+      value['invalidationReason'] === null ||
+      typeof value['invalidationReason'] === 'string'
     )
   );
 }

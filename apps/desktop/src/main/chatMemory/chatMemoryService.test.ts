@@ -47,7 +47,7 @@ describe('ChatMemoryService', () => {
       appendMessage: vi.fn(() => ({ id: 'message-1' })),
       createLiveSession: vi.fn(() => ({ id: 'live-session-1' })),
       listLiveSessions: vi.fn(() => [{ id: 'live-session-1' }]),
-      updateLiveSession: vi.fn(() => ({ id: 'live-session-1', resumable: true })),
+      updateLiveSession: vi.fn(() => ({ id: 'live-session-1', restorable: true })),
       endLiveSession: vi.fn(() => ({ id: 'live-session-1', status: 'ended' })),
     };
     const service = new ChatMemoryService(repository as never);
@@ -70,12 +70,13 @@ describe('ChatMemoryService', () => {
     expect(
       service.updateLiveSession({
         id: 'live-session-1',
-        latestResumeHandle: 'handles/live-session-1',
-        resumable: true,
+        resumptionHandle: 'handles/live-session-1',
+        lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
+        restorable: true,
       }),
     ).toEqual({
       id: 'live-session-1',
-      resumable: true,
+      restorable: true,
     });
     expect(
       service.endLiveSession({
@@ -100,8 +101,9 @@ describe('ChatMemoryService', () => {
     expect(repository.listLiveSessions).toHaveBeenCalledWith('chat-1');
     expect(repository.updateLiveSession).toHaveBeenCalledWith({
       id: 'live-session-1',
-      latestResumeHandle: 'handles/live-session-1',
-      resumable: true,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
+      restorable: true,
     });
     expect(repository.endLiveSession).toHaveBeenCalledWith({
       id: 'live-session-1',

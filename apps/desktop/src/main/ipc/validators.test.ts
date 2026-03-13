@@ -54,8 +54,9 @@ describe('ipc validators', () => {
     };
     const updateRequest: UpdateLiveSessionRequest = {
       id: 'live-session-1',
-      latestResumeHandle: 'handles/live-session-1',
-      resumable: true,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
     };
 
     expect(isChatId('chat-1')).toBe(true);
@@ -75,11 +76,18 @@ describe('ipc validators', () => {
     expect(isAppendChatMessageRequest({ ...appendRequest, contentText: '' })).toBe(false);
     expect(isAppendChatMessageRequest(undefined)).toBe(false);
     expect(isUpdateLiveSessionRequest(updateRequest)).toBe(true);
-    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', latestResumeHandle: null })).toBe(true);
-    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', resumable: false })).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', resumptionHandle: null })).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', restorable: false })).toBe(true);
+    expect(
+      isUpdateLiveSessionRequest({
+        id: 'live-session-1',
+        invalidatedAt: '2026-03-12T00:02:00.000Z',
+        invalidationReason: 'session marked non-restorable',
+      }),
+    ).toBe(true);
     expect(isUpdateLiveSessionRequest({ id: '' })).toBe(false);
     expect(isUpdateLiveSessionRequest({ id: 'live-session-1' })).toBe(false);
-    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', resumable: 'yes' })).toBe(false);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', restorable: 'yes' })).toBe(false);
   });
 
   it('validates settings patch payloads', () => {

@@ -154,8 +154,11 @@ describe('preload bridge', () => {
       endedAt: null,
       status: 'active',
       endedReason: null,
-      latestResumeHandle: null,
-      resumable: false,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
     });
     await bridge.createLiveSession({ chatId: 'chat-1' });
     expect(mockInvoke).toHaveBeenCalledWith('liveSession:create', { chatId: 'chat-1' });
@@ -168,8 +171,11 @@ describe('preload bridge', () => {
         endedAt: null,
         status: 'active',
         endedReason: null,
-        latestResumeHandle: null,
-        resumable: false,
+        resumptionHandle: null,
+        lastResumptionUpdateAt: null,
+        restorable: false,
+        invalidatedAt: null,
+        invalidationReason: null,
       },
     ]);
     await bridge.listLiveSessions('chat-1');
@@ -182,18 +188,27 @@ describe('preload bridge', () => {
       endedAt: null,
       status: 'active',
       endedReason: null,
-      latestResumeHandle: 'handles/live-session-1',
-      resumable: true,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
     });
     await bridge.updateLiveSession({
       id: 'live-session-1',
-      latestResumeHandle: 'handles/live-session-1',
-      resumable: true,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
     });
     expect(mockInvoke).toHaveBeenCalledWith('liveSession:update', {
       id: 'live-session-1',
-      latestResumeHandle: 'handles/live-session-1',
-      resumable: true,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
     });
 
     mockInvoke.mockResolvedValueOnce({
@@ -203,8 +218,11 @@ describe('preload bridge', () => {
       endedAt: '2026-03-12T00:05:00.000Z',
       status: 'ended',
       endedReason: 'user-ended',
-      latestResumeHandle: null,
-      resumable: false,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
     });
     await bridge.endLiveSession({
       id: 'live-session-1',

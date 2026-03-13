@@ -79,8 +79,11 @@ function createLiveSessionRecord(
     endedAt: null,
     status: 'active',
     endedReason: null,
-    latestResumeHandle: null,
-    resumable: false,
+    resumptionHandle: null,
+    lastResumptionUpdateAt: null,
+    restorable: false,
+    invalidatedAt: null,
+    invalidationReason: null,
     ...overrides,
   };
 }
@@ -96,7 +99,7 @@ function createChatMemoryServiceDouble(): ChatMemoryService {
     ),
     createLiveSession: vi.fn(() => createLiveSessionRecord()),
     listLiveSessions: vi.fn(() => [createLiveSessionRecord()]),
-    updateLiveSession: vi.fn(() => createLiveSessionRecord({ resumable: true })),
+    updateLiveSession: vi.fn(() => createLiveSessionRecord({ restorable: true })),
     endLiveSession: vi.fn(() => createLiveSessionRecord({ status: 'ended' })),
   } as unknown as ChatMemoryService;
 }
@@ -328,7 +331,7 @@ describe('registerIpcHandlers', () => {
       'Invalid create live session payload',
     );
     await expect(listLiveSessionsHandler({}, '')).rejects.toThrow('Invalid chat id');
-    await expect(updateLiveSessionHandler({}, { id: '', resumable: true })).rejects.toThrow(
+    await expect(updateLiveSessionHandler({}, { id: '', restorable: true })).rejects.toThrow(
       'Invalid update live session payload',
     );
     await expect(endLiveSessionHandler({}, { id: '', status: 'ended' })).rejects.toThrow(
@@ -360,10 +363,13 @@ describe('registerIpcHandlers', () => {
     await expect(
       updateLiveSessionHandler({}, {
         id: 'live-session-1',
-        latestResumeHandle: 'handles/live-session-1',
-        resumable: true,
+        resumptionHandle: 'handles/live-session-1',
+        lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
       }),
-    ).resolves.toEqual(createLiveSessionRecord({ resumable: true }));
+    ).resolves.toEqual(createLiveSessionRecord({ restorable: true }));
     await expect(
       endLiveSessionHandler({}, { id: 'live-session-1', status: 'ended' }),
     ).resolves.toEqual(createLiveSessionRecord({ status: 'ended' }));
@@ -381,8 +387,11 @@ describe('registerIpcHandlers', () => {
     expect(chatMemoryService.listLiveSessions).toHaveBeenCalledWith('chat-1');
     expect(chatMemoryService.updateLiveSession).toHaveBeenCalledWith({
       id: 'live-session-1',
-      latestResumeHandle: 'handles/live-session-1',
-      resumable: true,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
     });
     expect(chatMemoryService.endLiveSession).toHaveBeenCalledWith({
       id: 'live-session-1',

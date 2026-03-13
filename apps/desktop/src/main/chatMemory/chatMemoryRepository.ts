@@ -37,8 +37,11 @@ type LiveSessionRow = {
   ended_at: string | null;
   status: LiveSessionStatus;
   ended_reason: string | null;
-  latest_resume_handle: string | null;
-  resumable: number;
+  resumption_handle: string | null;
+  last_resumption_update_at: string | null;
+  restorable: number;
+  invalidated_at: string | null;
+  invalidation_reason: string | null;
 };
 
 export interface ChatMemoryRepository {
@@ -82,8 +85,11 @@ function toLiveSessionRecord(row: LiveSessionRow): LiveSessionRecord {
     endedAt: row.ended_at,
     status: row.status,
     endedReason: row.ended_reason,
-    latestResumeHandle: row.latest_resume_handle,
-    resumable: row.resumable === 1,
+    resumptionHandle: row.resumption_handle,
+    lastResumptionUpdateAt: row.last_resumption_update_at,
+    restorable: row.restorable === 1,
+    invalidatedAt: row.invalidated_at,
+    invalidationReason: row.invalidation_reason,
   };
 }
 
@@ -156,8 +162,11 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
          ended_at,
          status,
          ended_reason,
-         latest_resume_handle,
-         resumable
+         resumption_handle,
+         last_resumption_update_at,
+         restorable,
+         invalidated_at,
+         invalidation_reason
        FROM live_sessions
        WHERE chat_id = ?
        ORDER BY started_at DESC, id DESC`,
@@ -170,8 +179,11 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         ended_at,
         status,
         ended_reason,
-        latest_resume_handle,
-        resumable
+        resumption_handle,
+        last_resumption_update_at,
+        restorable,
+        invalidated_at,
+        invalidation_reason
       ) VALUES (
         @id,
         @chatId,
@@ -179,8 +191,11 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         @endedAt,
         @status,
         @endedReason,
-        @latestResumeHandle,
-        @resumable
+        @resumptionHandle,
+        @lastResumptionUpdateAt,
+        @restorable,
+        @invalidatedAt,
+        @invalidationReason
       )
     `);
     this.selectLiveSessionByIdStatement = database.prepare(
@@ -191,22 +206,29 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
          ended_at,
          status,
          ended_reason,
-         latest_resume_handle,
-         resumable
+         resumption_handle,
+         last_resumption_update_at,
+         restorable,
+         invalidated_at,
+         invalidation_reason
        FROM live_sessions
        WHERE id = ?`,
     );
     this.updateLiveSessionRestoreMetadataStatement = database.prepare(`
       UPDATE live_sessions
-      SET latest_resume_handle = @latestResumeHandle,
-          resumable = @resumable
+      SET resumption_handle = @resumptionHandle,
+          last_resumption_update_at = @lastResumptionUpdateAt,
+          restorable = @restorable,
+          invalidated_at = @invalidatedAt,
+          invalidation_reason = @invalidationReason
       WHERE id = @id
     `);
     this.updateLiveSessionEndStateStatement = database.prepare(`
       UPDATE live_sessions
       SET ended_at = @endedAt,
           status = @status,
-          ended_reason = @endedReason
+          ended_reason = @endedReason,
+          restorable = 0
       WHERE id = @id
     `);
   }
@@ -314,8 +336,11 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         ended_at: null,
         status: 'active',
         ended_reason: null,
-        latest_resume_handle: null,
-        resumable: 0,
+        resumption_handle: null,
+        last_resumption_update_at: null,
+        restorable: 0,
+        invalidated_at: null,
+        invalidation_reason: null,
       };
 
       this.insertLiveSessionStatement.run({
@@ -325,8 +350,11 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         endedAt: liveSessionRow.ended_at,
         status: liveSessionRow.status,
         endedReason: liveSessionRow.ended_reason,
-        latestResumeHandle: liveSessionRow.latest_resume_handle,
-        resumable: liveSessionRow.resumable,
+        resumptionHandle: liveSessionRow.resumption_handle,
+        lastResumptionUpdateAt: liveSessionRow.last_resumption_update_at,
+        restorable: liveSessionRow.restorable,
+        invalidatedAt: liveSessionRow.invalidated_at,
+        invalidationReason: liveSessionRow.invalidation_reason,
       });
 
       return toLiveSessionRecord(liveSessionRow);
@@ -351,25 +379,54 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         throw new Error(`Live session not found: ${input.id}`);
       }
 
-      const latestResumeHandle =
-        typeof input.latestResumeHandle === 'undefined'
-          ? existingRow.latest_resume_handle
-          : input.latestResumeHandle;
-      const resumable =
-        typeof input.resumable === 'undefined'
-          ? existingRow.resumable === 1
-          : input.resumable;
+      const didReceiveResumptionMetadata =
+        typeof input.resumptionHandle !== 'undefined'
+        || typeof input.restorable !== 'undefined'
+        || typeof input.invalidatedAt !== 'undefined'
+        || typeof input.invalidationReason !== 'undefined';
+      const resumptionHandle =
+        typeof input.resumptionHandle === 'undefined'
+          ? existingRow.resumption_handle
+          : input.resumptionHandle;
+      const lastResumptionUpdateAt =
+        typeof input.lastResumptionUpdateAt === 'undefined'
+          ? didReceiveResumptionMetadata
+            ? new Date().toISOString()
+            : existingRow.last_resumption_update_at
+          : input.lastResumptionUpdateAt;
+      const restorable =
+        typeof input.restorable === 'undefined'
+          ? existingRow.restorable === 1
+          : input.restorable;
+      const invalidatedAt =
+        restorable
+          ? null
+          : typeof input.invalidatedAt === 'undefined'
+            ? existingRow.invalidated_at ?? (didReceiveResumptionMetadata ? lastResumptionUpdateAt : null)
+            : input.invalidatedAt;
+      const invalidationReason =
+        restorable
+          ? null
+          : typeof input.invalidationReason === 'undefined'
+            ? existingRow.invalidation_reason
+            : input.invalidationReason;
 
       this.updateLiveSessionRestoreMetadataStatement.run({
         id: input.id,
-        latestResumeHandle,
-        resumable: resumable ? 1 : 0,
+        resumptionHandle,
+        lastResumptionUpdateAt,
+        restorable: restorable ? 1 : 0,
+        invalidatedAt,
+        invalidationReason,
       });
 
       return toLiveSessionRecord({
         ...existingRow,
-        latest_resume_handle: latestResumeHandle,
-        resumable: resumable ? 1 : 0,
+        resumption_handle: resumptionHandle,
+        last_resumption_update_at: lastResumptionUpdateAt,
+        restorable: restorable ? 1 : 0,
+        invalidated_at: invalidatedAt,
+        invalidation_reason: invalidationReason,
       });
     });
 

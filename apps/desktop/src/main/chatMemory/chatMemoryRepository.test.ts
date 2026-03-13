@@ -168,20 +168,26 @@ describe('SqliteChatMemoryRepository', () => {
     });
     const updatedLiveSession = repository.updateLiveSession({
       id: liveSession.id,
-      latestResumeHandle: 'handles/live-session-1',
-      resumable: true,
+      resumptionHandle: 'handles/live-session-1',
+      restorable: true,
     });
 
     expect(updatedLiveSession).toEqual({
       ...liveSession,
-      latestResumeHandle: 'handles/live-session-1',
-      resumable: true,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: expect.any(String),
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
     });
     expect(repository.listLiveSessions(chat.id)).toEqual([
       {
         ...liveSession,
-        latestResumeHandle: 'handles/live-session-1',
-        resumable: true,
+        resumptionHandle: 'handles/live-session-1',
+        lastResumptionUpdateAt: expect.any(String),
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
       },
     ]);
     expect(repository.listMessages(chat.id)).toEqual([
@@ -191,5 +197,30 @@ describe('SqliteChatMemoryRepository', () => {
         contentText: 'Keep this answer intact',
       }),
     ]);
+  });
+
+  it('marks a live session as non-restorable when resumption metadata is invalidated', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    const updatedLiveSession = repository.updateLiveSession({
+      id: liveSession.id,
+      resumptionHandle: null,
+      restorable: false,
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
+
+    expect(updatedLiveSession).toEqual({
+      ...liveSession,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: expect.any(String),
+      restorable: false,
+      invalidatedAt: expect.any(String),
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
   });
 });
