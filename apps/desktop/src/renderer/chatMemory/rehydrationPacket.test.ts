@@ -3,11 +3,12 @@ import type { ChatMessageRecord } from '@livepair/shared-types';
 import {
   buildRehydrationPacket,
   DEFAULT_REHYDRATION_STABLE_INSTRUCTION,
+  MAX_REHYDRATION_RECENT_TURNS,
 } from './rehydrationPacket';
 import { mapRehydrationPacketToLiveSessionHistory } from './currentChatMemory';
 
 describe('rehydrationPacket', () => {
-  it('builds a deterministic packet from canonical persisted messages', () => {
+  it('builds a deterministic compact packet from canonical persisted messages', () => {
     const messages: ChatMessageRecord[] = [
       {
         id: 'message-3',
@@ -70,6 +71,66 @@ describe('rehydrationPacket', () => {
         },
       },
     });
+  });
+
+  it('keeps only the last recent turns in deterministic canonical order', () => {
+    const messages = Array.from({ length: MAX_REHYDRATION_RECENT_TURNS + 2 }, (_, index) => {
+      const sequence = index + 1;
+
+      return {
+        id: `message-${sequence}`,
+        chatId: 'chat-1',
+        role: sequence % 2 === 0 ? 'assistant' : 'user',
+        contentText: `Turn ${sequence}`,
+        createdAt: `2026-03-12T09:${String(sequence).padStart(2, '0')}:00.000Z`,
+        sequence,
+      } satisfies ChatMessageRecord;
+    });
+
+    expect(buildRehydrationPacket(messages).recentTurns).toEqual([
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 3',
+        createdAt: '2026-03-12T09:03:00.000Z',
+        sequence: 3,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 4',
+        createdAt: '2026-03-12T09:04:00.000Z',
+        sequence: 4,
+      },
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 5',
+        createdAt: '2026-03-12T09:05:00.000Z',
+        sequence: 5,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 6',
+        createdAt: '2026-03-12T09:06:00.000Z',
+        sequence: 6,
+      },
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 7',
+        createdAt: '2026-03-12T09:07:00.000Z',
+        sequence: 7,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 8',
+        createdAt: '2026-03-12T09:08:00.000Z',
+        sequence: 8,
+      },
+    ]);
   });
 
   it('maps packet turns back to the existing Live session history transport shape', () => {
