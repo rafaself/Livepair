@@ -106,13 +106,7 @@ describe('createVoiceTranscriptController', () => {
         source: 'voice',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
-      expect.objectContaining({
-        id: 'user-transcript-1',
-        attachedTurnId: 'user-turn-1',
-        state: 'complete',
-      }),
-    ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
     expect(onConversationTurnSettled).toHaveBeenCalledWith('user-turn-1');
   });
 
@@ -139,14 +133,7 @@ describe('createVoiceTranscriptController', () => {
         source: 'voice',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
-      expect.objectContaining({
-        id: 'assistant-transcript-1',
-        content: 'Transcript bubble reply',
-        attachedTurnId: 'assistant-turn-1',
-        state: 'complete',
-      }),
-    ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
   });
 
   it('keeps interrupted assistant transcript output visible as an artifact without creating a canonical assistant turn', () => {
@@ -169,7 +156,7 @@ describe('createVoiceTranscriptController', () => {
     ]);
   });
 
-  it('keeps interrupted assistant output on the same artifact when corrective transcript arrives later', () => {
+  it('ignores late assistant transcript corrections after interruption fences the turn', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
@@ -182,7 +169,7 @@ describe('createVoiceTranscriptController', () => {
     expect(useSessionStore.getState().transcriptArtifacts).toEqual([
       expect.objectContaining({
         id: 'assistant-transcript-1',
-        content: 'Partial answer corrected',
+        content: 'Partial answer',
         state: 'complete',
         statusLabel: 'Interrupted',
       }),
@@ -209,11 +196,6 @@ describe('createVoiceTranscriptController', () => {
       }),
     ]);
     expect(useSessionStore.getState().transcriptArtifacts).toEqual([
-      expect.objectContaining({
-        id: 'user-transcript-1',
-        attachedTurnId: 'user-turn-1',
-        state: 'complete',
-      }),
       expect.objectContaining({
         id: 'user-transcript-2',
         content: 'second turn',
@@ -249,15 +231,56 @@ describe('createVoiceTranscriptController', () => {
     ]);
     expect(useSessionStore.getState().transcriptArtifacts).toEqual([
       expect.objectContaining({
-        id: 'user-transcript-1',
-        attachedTurnId: 'user-turn-1',
-      }),
-      expect.objectContaining({
         id: 'assistant-transcript-2',
         content: 'typed reply',
         state: 'streaming',
       }),
     ]);
+  });
+
+  it('removes linked completed assistant transcript artifacts and ignores late transcript updates for the settled turn', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'Transcript bubble reply');
+
+    const canonicalAssistantTurnId = appendCompletedAssistantTurn(conversationCtx, 'Canonical reply', {
+      source: 'voice',
+    });
+
+    ctrl.finalizeCurrentVoiceTurns('completed');
+    ctrl.attachCurrentAssistantTurn(canonicalAssistantTurnId);
+    ctrl.applyTranscriptUpdate('assistant', 'late correction');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Canonical reply',
+      }),
+    ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+  });
+
+  it('treats duplicate completed finalization as idempotent for user turns', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const onConversationTurnSettled = vi.fn();
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx, {
+      onConversationTurnSettled,
+    });
+
+    ctrl.applyTranscriptUpdate('user', 'Only the user spoke', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
+    ctrl.finalizeCurrentVoiceTurns('completed');
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'Only the user spoke',
+      }),
+    ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(onConversationTurnSettled).toHaveBeenCalledTimes(1);
   });
 
   it('resetTurnTranscriptState clears transcript state and active artifact references', () => {
