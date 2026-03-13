@@ -18,7 +18,6 @@ describe('env config', () => {
     delete process.env['PORT'];
     delete process.env['HOST'];
     delete process.env['GEMINI_API_KEY'];
-    delete process.env['GEMINI_TEXT_MODEL'];
     delete process.env['EPHEMERAL_TOKEN_TTL_SECONDS'];
     delete process.env['REDIS_URL'];
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
@@ -30,7 +29,6 @@ describe('env config', () => {
         port: 3000,
         host: '127.0.0.1',
         geminiApiKey: '',
-        geminiTextModel: 'gemini-2.5-flash',
         ephemeralTokenTtlSeconds: 60,
         redisUrl: '',
       });
@@ -43,7 +41,6 @@ describe('env config', () => {
     process.env['PORT'] = '4321';
     process.env['HOST'] = '0.0.0.0';
     process.env['GEMINI_API_KEY'] = 'key-123';
-    process.env['GEMINI_TEXT_MODEL'] = 'gemini-2.5-flash';
     process.env['EPHEMERAL_TOKEN_TTL_SECONDS'] = '120';
     process.env['REDIS_URL'] = 'redis://localhost:6379';
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
@@ -55,7 +52,6 @@ describe('env config', () => {
         port: 4321,
         host: '0.0.0.0',
         geminiApiKey: 'key-123',
-        geminiTextModel: 'gemini-2.5-flash',
         ephemeralTokenTtlSeconds: 120,
         redisUrl: 'redis://localhost:6379',
       });
@@ -68,7 +64,6 @@ describe('env config', () => {
     delete process.env['PORT'];
     delete process.env['HOST'];
     delete process.env['GEMINI_API_KEY'];
-    delete process.env['GEMINI_TEXT_MODEL'];
     delete process.env['EPHEMERAL_TOKEN_TTL_SECONDS'];
     delete process.env['REDIS_URL'];
 
@@ -80,7 +75,6 @@ describe('env config', () => {
         'PORT=4010',
         'HOST=0.0.0.0',
         'GEMINI_API_KEY=dotenv-key',
-        'GEMINI_TEXT_MODEL=gemini-2.5-flash-lite',
         'EPHEMERAL_TOKEN_TTL_SECONDS=75',
         'REDIS_URL=redis://dotenv',
       ].join('\n'),
@@ -95,7 +89,6 @@ describe('env config', () => {
         port: 4010,
         host: '0.0.0.0',
         geminiApiKey: 'dotenv-key',
-        geminiTextModel: 'gemini-2.5-flash-lite',
         ephemeralTokenTtlSeconds: 75,
         redisUrl: 'redis://dotenv',
       });
@@ -105,16 +98,4 @@ describe('env config', () => {
     }
   });
 
-  it('fails fast when the text-model env uses a Live or audio model', async () => {
-    process.env['GEMINI_TEXT_MODEL'] = 'models/gemini-2.0-flash-live-001';
-    process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
-
-    try {
-      await expect(import('./env')).rejects.toThrow(
-        'Invalid GEMINI_TEXT_MODEL: text mode cannot use Gemini Live or audio models',
-      );
-    } finally {
-      delete process.env['DOTENV_CONFIG_PATH'];
-    }
-  });
 });
