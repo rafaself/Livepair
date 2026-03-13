@@ -10,7 +10,7 @@ import {
 import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
 import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
 import {
-  buildLiveSessionHistoryFromCurrentChat,
+  buildRehydrationPacketFromCurrentChat,
 } from '../chatMemory/currentChatMemory';
 import {
   endCurrentLiveSession,
@@ -402,7 +402,7 @@ export function createDesktopSessionController(
     resetVoiceSessionDurability: () => runtimeRef.current!.resetVoiceSessionDurability(),
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
     requestVoiceSessionToken: (operationId) => requestVoiceSessionToken(operationId),
-    buildLiveSessionHistoryFromCurrentChat,
+    buildRehydrationPacketFromCurrentChat,
     setCachedVoiceToken: (token) => {
       tokenMgr.set(token);
     },

@@ -12,8 +12,10 @@ import type {
 import type {
   CreateEphemeralTokenResponse,
   LiveSessionRecord,
+  RehydrationPacket,
 } from '@livepair/shared-types';
 import type { LiveSessionHistoryTurn } from './transport/transport.types';
+import { mapRehydrationPacketToLiveSessionHistory } from '../chatMemory/currentChatMemory';
 
 type SessionControllerLifecycleArgs = {
   store: SessionStoreApi;
@@ -39,7 +41,7 @@ type SessionControllerLifecycleArgs = {
   resetVoiceSessionDurability: () => void;
   resetVoiceToolState: () => void;
   requestVoiceSessionToken: (operationId: number) => Promise<CreateEphemeralTokenResponse | null>;
-  buildLiveSessionHistoryFromCurrentChat: () => Promise<LiveSessionHistoryTurn[]>;
+  buildRehydrationPacketFromCurrentChat: () => Promise<RehydrationPacket>;
   setCachedVoiceToken: (token: CreateEphemeralTokenResponse) => void;
   syncVoiceDurabilityState: (
     token: CreateEphemeralTokenResponse | null,
@@ -96,7 +98,7 @@ export function createSessionControllerLifecycle({
   resetVoiceSessionDurability,
   resetVoiceToolState,
   requestVoiceSessionToken,
-  buildLiveSessionHistoryFromCurrentChat,
+  buildRehydrationPacketFromCurrentChat,
   setCachedVoiceToken,
   syncVoiceDurabilityState,
   restorePersistedLiveSession,
@@ -260,11 +262,12 @@ export function createSessionControllerLifecycle({
     let history: LiveSessionHistoryTurn[];
 
     try {
-      history = await buildLiveSessionHistoryFromCurrentChat();
+      const rehydrationPacket = await buildRehydrationPacketFromCurrentChat();
+      history = mapRehydrationPacketToLiveSessionHistory(rehydrationPacket);
     } catch (error) {
       return {
         status: 'failed',
-        detail: asErrorDetail(error, 'Failed to load chat history'),
+        detail: asErrorDetail(error, 'Failed to build rehydration context'),
       };
     }
 

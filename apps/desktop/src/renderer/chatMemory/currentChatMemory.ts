@@ -2,12 +2,14 @@ import type {
   AppendChatMessageRequest,
   ChatMessageRecord,
   ChatRecord,
+  RehydrationPacket,
 } from '@livepair/shared-types';
 import { useSessionStore } from '../store/sessionStore';
 import {
   mapChatMessageRecordsToConversationTurns,
 } from '../runtime/conversation/chatMessageAdapter';
 import type { LiveSessionHistoryTurn } from '../runtime/transport/transport.types';
+import { buildRehydrationPacket } from './rehydrationPacket';
 
 type CurrentChatMemoryBridge = Pick<
   typeof window.bridge,
@@ -77,22 +79,20 @@ export async function listCurrentChatMessages(
   return bridge.listChatMessages(chat.id);
 }
 
-function mapChatMessageRecordsToLiveSessionHistory(
-  records: readonly ChatMessageRecord[],
-): LiveSessionHistoryTurn[] {
-  return [...records]
-    .sort((left, right) => left.sequence - right.sequence)
-    .map((record) => ({
-      role: record.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: record.contentText }],
-    }));
+export async function buildRehydrationPacketFromCurrentChat(
+  bridge: CurrentChatMemoryBridge = window.bridge,
+): Promise<RehydrationPacket> {
+  const messages = await listCurrentChatMessages(bridge);
+  return buildRehydrationPacket(messages);
 }
 
-export async function buildLiveSessionHistoryFromCurrentChat(
-  bridge: CurrentChatMemoryBridge = window.bridge,
-): Promise<LiveSessionHistoryTurn[]> {
-  const messages = await listCurrentChatMessages(bridge);
-  return mapChatMessageRecordsToLiveSessionHistory(messages);
+export function mapRehydrationPacketToLiveSessionHistory(
+  packet: RehydrationPacket,
+): LiveSessionHistoryTurn[] {
+  return packet.recentTurns.map((turn) => ({
+    role: turn.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: turn.text }],
+  }));
 }
 
 export async function appendMessageToCurrentChat(
