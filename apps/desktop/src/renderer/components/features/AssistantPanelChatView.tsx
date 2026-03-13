@@ -10,7 +10,8 @@ import { isSpeechLifecycleActive } from '../../runtime/speech/speechSessionLifec
 import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
 import type { TextSessionStatus } from '../../runtime/text/text.types';
 import type { TransportKind } from '../../runtime/transport/transport.types';
-import type { VoiceSessionStatus } from '../../runtime/voice/voice.types';
+import type { VoiceSessionResumptionState, VoiceSessionStatus } from '../../runtime/voice/voice.types';
+import { selectLiveSessionPhaseLabel } from '../../runtime/selectors';
 import { AssistantPanelChatComposer } from './AssistantPanelChatComposer';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
 import { AssistantPanelConversationEmptyState } from './AssistantPanelConversationEmptyState';
@@ -26,6 +27,7 @@ export type AssistantPanelChatViewProps = {
   canSubmitText: boolean;
   activeTransport?: TransportKind | null;
   voiceSessionStatus?: VoiceSessionStatus;
+  voiceSessionResumption?: VoiceSessionResumptionState | null;
   turns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
@@ -46,6 +48,7 @@ export function AssistantPanelChatView({
   canSubmitText,
   activeTransport = null,
   voiceSessionStatus = 'disconnected',
+  voiceSessionResumption = null,
   turns,
   isConversationEmpty,
   lastRuntimeError,
@@ -67,30 +70,34 @@ export function AssistantPanelChatView({
     isSubmittingTextTurn ||
     !canSubmitText ||
     !canSubmitComposerText(controlGatingSnapshot);
-  const isSpeechMode = currentMode === 'speech';
   const isLiveSessionActive = isSpeechLifecycleActive(speechLifecycleStatus);
+  const liveSessionPhaseLabel = selectLiveSessionPhaseLabel({
+    speechLifecycle: { status: speechLifecycleStatus },
+    voiceSessionResumption: voiceSessionResumption ?? { status: 'idle', latestHandle: null, resumable: false, lastDetail: null },
+    voiceSessionStatus,
+  });
   const composerAction = createAssistantPanelComposerAction({
     controlGatingSnapshot,
     draftText,
+    isConversationEmpty,
     isComposerDisabled,
     speechLifecycleStatus,
   });
-  const composerPlaceholder = isLiveSessionActive
-    ? 'Ask Livepair'
-    : 'Start a Live session to type';
+  const composerPlaceholder = 'Add a note to the session';
 
   return (
     <div className="assistant-panel__view-section">
       <section
         className="assistant-panel__chat-container"
-        aria-label="Conversation"
+        aria-label="Live session history"
       >
         <AssistantPanelConversationSection
           emptyState={
             <AssistantPanelConversationEmptyState
               assistantState={assistantState}
-              isSpeechMode={isSpeechMode}
+              isLiveSessionActive={isLiveSessionActive}
               lastRuntimeError={lastRuntimeError}
+              liveSessionPhaseLabel={liveSessionPhaseLabel}
             />
           }
           isConversationEmpty={isConversationEmpty}
@@ -100,8 +107,11 @@ export function AssistantPanelChatView({
         <AssistantPanelChatComposer
           composerAction={composerAction}
           draftText={draftText}
+          isConversationEmpty={isConversationEmpty}
           isComposerDisabled={isComposerDisabled}
+          isLiveSessionActive={isLiveSessionActive}
           isPanelOpen={isPanelOpen ?? false}
+          liveSessionPhaseLabel={liveSessionPhaseLabel}
           placeholder={composerPlaceholder}
           onDraftTextChange={onDraftTextChange}
           onEndSpeechMode={onEndSpeechMode}

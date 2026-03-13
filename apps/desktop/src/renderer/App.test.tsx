@@ -4,7 +4,6 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
@@ -178,7 +177,7 @@ describe('App', () => {
     expect(window.bridge.setOverlayPointerPassthrough).toHaveBeenCalled();
   });
 
-  it('keeps the chat visible but inactive outside a Live session', async () => {
+  it('shows the inactive history container CTA instead of a text form when no Live session is active', async () => {
     installMatchMedia(true);
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
       status: 'ok',
@@ -190,17 +189,14 @@ describe('App', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
     });
-    const composerForm = screen.getByRole('form', {
-      name: 'Send message to Livepair',
-    });
 
-    expect(within(composerForm).getByRole('textbox')).toBeDisabled();
-    expect(screen.getByText('Conversation inactive')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Start Live Session' })).toBeVisible();
+    expect(screen.queryByRole('form', { name: 'Send message to Livepair' })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
     expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
   });
 
-  it('ends speech mode without clearing history and leaves text input inactive', async () => {
+  it('ends speech mode without clearing history and returns to the inactive resume CTA', async () => {
     installMatchMedia(true);
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
       status: 'ok',
@@ -213,11 +209,11 @@ describe('App', () => {
       fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start speech mode' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start Live Session' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Starting speech mode' })).toBeDisabled();
-      expect(screen.getByText('Start speaking')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Starting Live session' })).toBeDisabled();
+      expect(screen.getByText('Starting Live session...')).toBeVisible();
       expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
     });
 
@@ -226,7 +222,7 @@ describe('App', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'End speech mode' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'End Live session' })).toBeEnabled();
     });
 
     await act(async () => {
@@ -254,20 +250,16 @@ describe('App', () => {
       expect(persistedMessages).toHaveLength(2);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'End speech mode' }));
+    fireEvent.click(screen.getByRole('button', { name: 'End Live session' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Resume Live Session' })).toBeEnabled();
       expect(screen.queryByText('Start speaking')).toBeNull();
     });
 
     expect(screen.getByText('Speech request')).toBeVisible();
     expect(screen.getByText('Speech reply')).toBeVisible();
-
-    const composerForm = screen.getByRole('form', {
-      name: 'Send message to Livepair',
-    });
-    expect(within(composerForm).getByRole('textbox')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
+    expect(screen.queryByRole('form', { name: 'Send message to Livepair' })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 });

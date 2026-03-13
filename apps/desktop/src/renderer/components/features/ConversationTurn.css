@@ -160,3 +160,25 @@
 .conversation-turn__copy-btn:focus-visible {
   opacity: 1;
 }
+
+/* ── Typed note: user text sent during a Live session, not spoken ────────── */
+
+.conversation-turn--typed-note.conversation-turn--user .conversation-turn__bubble {
+  background: color-mix(in srgb, var(--color-accent) 70%, var(--color-surface-elevated));
+  border-bottom-right-radius: 10px;
+}
+
+/* ── Transcript artifact: support text, not primary output ───────────────── */
+
+.conversation-turn--transcript .conversation-turn__bubble {
+  opacity: 0.65;
+}
+
+.conversation-turn--transcript .conversation-turn__body {
+  font-style: italic;
+}
+
+/* Interrupted/partial transcript: further muted to signal incomplete content */
+.conversation-turn--transcript-interrupted .conversation-turn__bubble {
+  opacity: 0.4;
+}

@@ -6,8 +6,11 @@ import type { AssistantPanelComposerAction } from './assistantPanelComposerActio
 export type AssistantPanelChatComposerProps = {
   composerAction: AssistantPanelComposerAction;
   draftText: string;
+  isConversationEmpty: boolean;
   isComposerDisabled: boolean;
+  isLiveSessionActive: boolean;
   isPanelOpen: boolean;
+  liveSessionPhaseLabel?: string | null;
   placeholder: string;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onEndSpeechMode: () => Promise<void>;
@@ -18,8 +21,11 @@ export type AssistantPanelChatComposerProps = {
 export function AssistantPanelChatComposer({
   composerAction,
   draftText,
+  isConversationEmpty,
   isComposerDisabled,
+  isLiveSessionActive,
   isPanelOpen,
+  liveSessionPhaseLabel = null,
   placeholder,
   onDraftTextChange,
   onEndSpeechMode,
@@ -37,10 +43,10 @@ export function AssistantPanelChatComposer({
   }, [draftText]);
 
   useEffect(() => {
-    if (isPanelOpen) {
+    if (isPanelOpen && isLiveSessionActive) {
       textareaRef.current?.focus();
     }
-  }, [isPanelOpen]);
+  }, [isLiveSessionActive, isPanelOpen]);
 
   const handleComposerSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     if (composerAction.kind === 'send') {
@@ -74,12 +80,47 @@ export function AssistantPanelChatComposer({
     }
   };
 
+  if (!isLiveSessionActive) {
+    return (
+      <div className="assistant-panel__composer-section">
+        <div className="assistant-panel__inactive-cta" role="note">
+          <div className="assistant-panel__inactive-cta-copy">
+            <p className="assistant-panel__inactive-cta-title">
+              {isConversationEmpty
+                ? 'Start a Live session to continue here'
+                : 'This history stays available while inactive'}
+            </p>
+            <p className="assistant-panel__inactive-cta-body">
+              {isConversationEmpty
+                ? 'Start Live Session to add turns here. When the session pauses, this container stays visible for context.'
+                : 'Resume Live Session to continue with the latest context in this container.'}
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="md"
+            className="assistant-panel__inactive-cta-button"
+            disabled={composerAction.disabled}
+            onClick={() => void onStartSpeechMode()}
+          >
+            {composerAction.label}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="assistant-panel__composer-section">
+      {liveSessionPhaseLabel && !isConversationEmpty ? (
+        <p className="assistant-panel__session-status" role="status" aria-live="polite">
+          {liveSessionPhaseLabel}
+        </p>
+      ) : null}
       <form
         ref={formRef}
         className="assistant-panel__composer"
-        aria-label="Send message to Livepair"
+        aria-label="Send a typed note to the Live session"
         onSubmit={handleComposerSubmit}
       >
         <div className="assistant-panel__composer-box">

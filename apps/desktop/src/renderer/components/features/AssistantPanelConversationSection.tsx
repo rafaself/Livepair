@@ -2,7 +2,6 @@ import { History, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ConversationList } from './ConversationList';
 import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
-import { Button } from '../primitives';
 
 export type AssistantPanelConversationSectionProps = {
   emptyState: ReactNode;
@@ -20,14 +19,10 @@ export function AssistantPanelConversationSection({
   return (
     <div className="assistant-panel__messages-section">
       <div className="assistant-panel__messages-header">
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="History"
-          className="assistant-panel__history-btn"
-        >
+        <div className="assistant-panel__history-label" aria-label="Session history">
           <History size={16} />
-        </Button>
+          <p className="assistant-panel__chat-title">Session history</p>
+        </div>
       </div>
       {lastRuntimeError && !isConversationEmpty ? (
         <div className="assistant-panel__messages-header">

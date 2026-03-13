@@ -1,24 +1,26 @@
-import { MessageCircle } from 'lucide-react';
+import { History, MessageCircle } from 'lucide-react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 
 export type AssistantPanelConversationEmptyStateProps = {
   assistantState: AssistantRuntimeState;
-  isSpeechMode: boolean;
+  isLiveSessionActive: boolean;
   lastRuntimeError: string | null;
+  liveSessionPhaseLabel?: string | null;
 };
 
 export function AssistantPanelConversationEmptyState({
   assistantState,
-  isSpeechMode,
+  isLiveSessionActive,
   lastRuntimeError,
+  liveSessionPhaseLabel = null,
 }: AssistantPanelConversationEmptyStateProps): JSX.Element {
   if (assistantState === 'error' && lastRuntimeError) {
     return (
       <div className="assistant-panel__conversation-card assistant-panel__conversation-card--empty">
-        <p className="assistant-panel__conversation-empty-title">Session failed</p>
+        <p className="assistant-panel__conversation-empty-title">Live session unavailable</p>
         <p className="assistant-panel__conversation-empty-body">{lastRuntimeError}</p>
         <p className="assistant-panel__conversation-empty-body">
-          Start the session again from the dock to reconnect.
+          Start Live Session again to reconnect. This container will keep the history visible here.
         </p>
       </div>
     );
@@ -26,20 +28,36 @@ export function AssistantPanelConversationEmptyState({
 
   return (
     <div className="assistant-panel__conversation-card assistant-panel__conversation-card--empty">
-      <MessageCircle
-        size={56}
-        strokeWidth={1.25}
-        className="assistant-panel__conversation-empty-icon"
-        aria-hidden="true"
-      />
-      <p className="assistant-panel__conversation-empty-title">
-        {isSpeechMode ? 'Start speaking' : 'Conversation inactive'}
+      {isLiveSessionActive ? (
+        <MessageCircle
+          size={56}
+          strokeWidth={1.25}
+          className="assistant-panel__conversation-empty-icon"
+          aria-hidden="true"
+        />
+      ) : (
+        <History
+          size={56}
+          strokeWidth={1.25}
+          className="assistant-panel__conversation-empty-icon"
+          aria-hidden="true"
+        />
+      )}
+      <p className="assistant-panel__conversation-empty-title" role="status" aria-live="polite">
+        {isLiveSessionActive
+          ? (liveSessionPhaseLabel ?? 'Start speaking')
+          : 'Live session history starts here'}
       </p>
       <p className="assistant-panel__conversation-empty-body">
-        {isSpeechMode
+        {isLiveSessionActive
           ? 'Your spoken turns and assistant replies will appear here.'
-          : 'Start speech mode to open a Live session. Your conversation history stays here.'}
+          : 'When the session is inactive, this container stays available for history and context.'}
       </p>
+      {!isLiveSessionActive ? (
+        <p className="assistant-panel__conversation-empty-body">
+          Start Live Session to begin adding turns.
+        </p>
+      ) : null}
     </div>
   );
 }

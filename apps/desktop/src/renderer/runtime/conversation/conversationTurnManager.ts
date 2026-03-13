@@ -130,6 +130,7 @@ function appendTranscriptArtifact(
   const artifactId = `${role}-transcript-${++ctx.nextTranscriptArtifactId}`;
 
   ctx.store.getState().appendTranscriptArtifact({
+    kind: 'transcript',
     id: artifactId,
     role,
     content,
@@ -194,7 +195,7 @@ function upsertTranscriptArtifact(
           ? 'Interrupted'
           : shouldCreateSettledArtifact
             ? undefined
-            : 'Responding...'
+            : 'Speaking...'
         : undefined,
       transcriptFinal,
     );
@@ -214,7 +215,7 @@ function upsertTranscriptArtifact(
           ? 'Interrupted'
           : shouldCreateSettledArtifact
             ? undefined
-            : 'Responding...'
+            : 'Speaking...'
         : undefined,
     ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
   });

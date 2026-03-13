@@ -207,3 +207,205 @@ describe('ConversationTurn', () => {
     expect(article.querySelector('b')).toBeNull();
   });
 });
+
+describe('ConversationTurn transcript artifact presentation', () => {
+  it('applies transcript modifier class to a transcript artifact', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'user-transcript-1',
+          role: 'user',
+          content: 'What is the capital of France?',
+          timestamp: '09:50',
+          state: 'complete',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'User transcript at 09:50' });
+
+    expect(article).toHaveClass('conversation-turn--transcript');
+    expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
+  });
+
+  it('applies both transcript and interrupted modifier classes to an interrupted transcript', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'assistant-transcript-interrupted',
+          role: 'assistant',
+          content: 'Partial answer cut off mid',
+          timestamp: '09:51',
+          state: 'complete',
+          source: 'voice',
+          statusLabel: 'Interrupted',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant transcript at 09:51' });
+
+    expect(article).toHaveClass('conversation-turn--transcript');
+    expect(article).toHaveClass('conversation-turn--transcript-interrupted');
+  });
+
+  it('does not apply transcript classes to canonical turns', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Canonical assistant response.',
+          timestamp: '09:52',
+          state: 'complete',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant turn at 09:52' });
+
+    expect(article).not.toHaveClass('conversation-turn--transcript');
+    expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
+  });
+
+  it('does not apply interrupted class to a canonical turn even when it has a status label', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-turn-error',
+          role: 'assistant',
+          content: 'Response failed.',
+          timestamp: '09:53',
+          state: 'error',
+          statusLabel: 'Error',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant turn at 09:53' });
+
+    expect(article).not.toHaveClass('conversation-turn--transcript');
+    expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
+  });
+
+  it('uses "transcript" in the aria-label for transcript artifacts instead of "turn"', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'assistant-transcript-2',
+          role: 'assistant',
+          content: 'Some transcribed reply',
+          timestamp: '09:55',
+          state: 'complete',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('article', { name: 'Assistant transcript at 09:55' })).toBeVisible();
+    expect(screen.queryByRole('article', { name: 'Assistant turn at 09:55' })).toBeNull();
+  });
+
+  it('does not show a copy button on an assistant transcript artifact', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'assistant-transcript-no-copy',
+          role: 'assistant',
+          content: 'Transcribed assistant speech.',
+          timestamp: '09:56',
+          state: 'complete',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant transcript at 09:56' });
+
+    expect(article.querySelector('.conversation-turn__copy-btn')).toBeNull();
+  });
+
+  it('shows a copy button on a canonical assistant turn', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-canonical',
+          role: 'assistant',
+          content: 'Canonical assistant reply.',
+          timestamp: '09:57',
+          state: 'complete',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant turn at 09:57' });
+
+    expect(article.querySelector('.conversation-turn__copy-btn')).not.toBeNull();
+  });
+});
+
+describe('ConversationTurn typed note presentation', () => {
+  it('applies the typed-note class and Note badge to a user turn with source text', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'user-typed-note-1',
+          role: 'user',
+          content: 'Can you explain that further?',
+          timestamp: '10:01',
+          state: 'complete',
+          source: 'text',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'User turn at 10:01' });
+
+    expect(article).toHaveClass('conversation-turn--typed-note');
+    expect(screen.getByText('Note')).toBeVisible();
+  });
+
+  it('does not apply typed-note treatment to a spoken user turn', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'user-spoken-1',
+          role: 'user',
+          content: 'What I said out loud.',
+          timestamp: '10:02',
+          state: 'complete',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'User turn at 10:02' });
+
+    expect(article).not.toHaveClass('conversation-turn--typed-note');
+    expect(screen.queryByText('Note')).toBeNull();
+  });
+
+  it('does not apply typed-note treatment to a user turn with no source set', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'user-no-source',
+          role: 'user',
+          content: 'Generic user turn.',
+          timestamp: '10:03',
+          state: 'complete',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'User turn at 10:03' });
+
+    expect(article).not.toHaveClass('conversation-turn--typed-note');
+    expect(screen.queryByText('Note')).toBeNull();
+  });
+});
