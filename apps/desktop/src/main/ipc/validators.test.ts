@@ -37,11 +37,19 @@ describe('ipc validators', () => {
 
   it('validates token request payloads', () => {
     const valid: CreateEphemeralTokenRequest = { sessionId: 'session-1' };
+    class TokenRequestCandidate {
+      sessionId = 'session-1';
+    }
 
     expect(isCreateEphemeralTokenRequest(valid)).toBe(true);
     expect(isCreateEphemeralTokenRequest({})).toBe(true);
     expect(isCreateEphemeralTokenRequest({ sessionId: undefined })).toBe(true);
     expect(isCreateEphemeralTokenRequest({ sessionId: 12 })).toBe(false);
+    expect(isCreateEphemeralTokenRequest(new Date())).toBe(false);
+    expect(isCreateEphemeralTokenRequest(new Map())).toBe(false);
+    expect(isCreateEphemeralTokenRequest(new Set())).toBe(false);
+    expect(isCreateEphemeralTokenRequest(/session/)).toBe(false);
+    expect(isCreateEphemeralTokenRequest(new TokenRequestCandidate())).toBe(false);
     expect(isCreateEphemeralTokenRequest(undefined)).toBe(false);
     expect(isCreateEphemeralTokenRequest([])).toBe(false);
   });

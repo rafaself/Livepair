@@ -132,7 +132,7 @@ export function toOverlayRectangles(input: unknown): Rectangle[] {
 export function isCreateEphemeralTokenRequest(
   req: unknown,
 ): req is CreateEphemeralTokenRequest {
-  if (typeof req !== 'object' || req === null || Array.isArray(req)) {
+  if (!isPlainRecord(req) || !hasOnlyAllowedKeys(req, ['sessionId'])) {
     return false;
   }
 
@@ -140,7 +140,7 @@ export function isCreateEphemeralTokenRequest(
     return true;
   }
 
-  const sessionId = (req as { sessionId?: unknown }).sessionId;
+  const sessionId = req['sessionId'];
   return typeof sessionId === 'string' || typeof sessionId === 'undefined';
 }
 
