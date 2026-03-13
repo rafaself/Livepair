@@ -4,8 +4,6 @@ import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   HealthResponse,
-  TextChatRequest,
-  TextChatStreamEvent,
 } from '@livepair/shared-types';
 import { createBackendClient } from './backendClient';
 
@@ -145,87 +143,4 @@ describe('backendClient', () => {
     );
   });
 
-  it('streams NDJSON text chat events through the configured backend URL', async () => {
-    const req: TextChatRequest = {
-      messages: [{ role: 'user', content: 'Summarize the current screen' }],
-    };
-    const events: TextChatStreamEvent[] = [];
-    fetchImpl.mockResolvedValue({
-      ok: true,
-      status: 200,
-      body: new ReadableStream({
-        start(controller) {
-          controller.enqueue(
-            new TextEncoder().encode(
-              [
-                '{"type":"text-delta","text":"Here is "}',
-                '{"type":"text-delta","text":"the summary."}',
-                '{"type":"completed"}',
-              ].join('\n'),
-            ),
-          );
-          controller.close();
-        },
-      }),
-    });
-
-    const client = createBackendClient({ fetchImpl, getBackendUrl });
-    const handle = client.startTextChatStream(req, {
-      onEvent: (event) => {
-        events.push(event);
-      },
-    });
-
-    await handle.done;
-
-    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/session/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
-      signal: expect.any(AbortSignal),
-    });
-    expect(events).toEqual([
-      { type: 'text-delta', text: 'Here is ' },
-      { type: 'text-delta', text: 'the summary.' },
-      { type: 'completed' },
-    ]);
-  });
-
-  it('maps text chat backend failures into normalized error events', async () => {
-    const events: TextChatStreamEvent[] = [];
-    fetchImpl.mockResolvedValue({
-      ok: false,
-      status: 503,
-      text: vi.fn(async () => '{"message":"Gemini API key is not configured"}'),
-    });
-
-    const client = createBackendClient({ fetchImpl, getBackendUrl });
-    const handle = client.startTextChatStream(
-      {
-        messages: [{ role: 'user', content: 'Summarize the current screen' }],
-      },
-      {
-        onEvent: (event) => {
-          events.push(event);
-        },
-      },
-    );
-
-    await handle.done;
-
-    expect(events).toEqual([
-      {
-        type: 'error',
-        detail: 'Text chat request failed: 503 - Gemini API key is not configured',
-      },
-    ]);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[desktop:backend-client] text chat request failed',
-      {
-        url: 'http://localhost:3000/session/chat',
-        status: 503,
-        detail: 'Gemini API key is not configured',
-      },
-    );
-  });
 });

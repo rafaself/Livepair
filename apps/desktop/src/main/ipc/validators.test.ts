@@ -5,7 +5,6 @@ import type { DesktopSettingsPatch } from '../../shared/settings';
 import type {
   AppendChatMessageRequest,
   CreateEphemeralTokenRequest,
-  TextChatRequest,
 } from '@livepair/shared-types';
 import {
   isAppendChatMessageRequest,
@@ -13,8 +12,6 @@ import {
   isCreateChatRequest,
   isCreateEphemeralTokenRequest,
   isDesktopSettingsPatch,
-  isTextChatCancelRequest,
-  isTextChatRequest,
   toOverlayRectangles,
 } from './validators';
 
@@ -100,23 +97,4 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ speechSilenceTimeout: '5m' })).toBe(false);
   });
 
-  it('validates text chat request payloads', () => {
-    const valid: TextChatRequest = {
-      messages: [{ role: 'user', content: 'Summarize the current screen' }],
-    };
-
-    expect(isTextChatRequest(valid)).toBe(true);
-    expect(isTextChatRequest({ messages: [] })).toBe(false);
-    expect(isTextChatRequest({ messages: [{ role: 'system', content: 'bad' }] })).toBe(
-      false,
-    );
-    expect(isTextChatRequest({ messages: [{ role: 'user', content: '' }] })).toBe(false);
-    expect(isTextChatRequest(undefined)).toBe(false);
-  });
-
-  it('validates text chat cancel payloads', () => {
-    expect(isTextChatCancelRequest({ streamId: 'stream-1' })).toBe(true);
-    expect(isTextChatCancelRequest({ streamId: '' })).toBe(false);
-    expect(isTextChatCancelRequest({})).toBe(false);
-  });
 });

@@ -3,7 +3,6 @@ import type {
   AppendChatMessageRequest,
   CreateChatRequest,
   CreateEphemeralTokenRequest,
-  TextChatRequest,
 } from '@livepair/shared-types';
 import type { DesktopSettingsPatch } from '../../shared/settings';
 
@@ -140,27 +139,6 @@ export function isAppendChatMessageRequest(value: unknown): value is AppendChatM
     (value['role'] === 'user' || value['role'] === 'assistant') &&
     isNonEmptyString(value['contentText'])
   );
-}
-
-export function isTextChatRequest(req: unknown): req is TextChatRequest {
-  if (!isPlainRecord(req) || !Array.isArray(req['messages']) || req['messages'].length === 0) {
-    return false;
-  }
-
-  return req['messages'].every((message) => {
-    if (!isPlainRecord(message)) {
-      return false;
-    }
-
-    return (
-      (message['role'] === 'user' || message['role'] === 'assistant') &&
-      isNonEmptyString(message['content'])
-    );
-  });
-}
-
-export function isTextChatCancelRequest(value: unknown): value is { streamId: string } {
-  return isPlainRecord(value) && isNonEmptyString(value['streamId']);
 }
 
 export function isDesktopSettingsPatch(value: unknown): value is DesktopSettingsPatch {
