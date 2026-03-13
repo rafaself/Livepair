@@ -5,6 +5,7 @@ import type {
   CreateEphemeralTokenRequest,
   CreateLiveSessionRequest,
   EndLiveSessionRequest,
+  RehydrationPacketContextState,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import type { DesktopSettingsPatch } from '../../shared/settings';
@@ -43,6 +44,37 @@ function isSpeechSilenceTimeout(value: unknown): boolean {
 
 function isNonEmptyString(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isNullableString(value: unknown): boolean {
+  return typeof value === 'undefined' || value === null || typeof value === 'string';
+}
+
+function isStateEntry(value: unknown): value is RehydrationPacketContextState['task']['entries'][number] {
+  return (
+    isPlainRecord(value) &&
+    hasOnlyAllowedKeys(value, ['key', 'value']) &&
+    typeof value['key'] === 'string' &&
+    typeof value['value'] === 'string'
+  );
+}
+
+function isStateSection(value: unknown): value is RehydrationPacketContextState['task'] {
+  return (
+    isPlainRecord(value) &&
+    hasOnlyAllowedKeys(value, ['entries']) &&
+    Array.isArray(value['entries']) &&
+    value['entries'].every((entry) => isStateEntry(entry))
+  );
+}
+
+function isContextStateSnapshot(value: unknown): value is RehydrationPacketContextState {
+  return (
+    isPlainRecord(value) &&
+    hasOnlyAllowedKeys(value, ['task', 'context']) &&
+    isStateSection(value['task']) &&
+    isStateSection(value['context'])
+  );
 }
 
 const DESKTOP_SETTINGS_PATCH_KEYS = [
@@ -178,11 +210,13 @@ export function isUpdateLiveSessionRequest(value: unknown): value is UpdateLiveS
     !hasOnlyAllowedKeys(value, [
       'id',
       'resumptionHandle',
-      'lastResumptionUpdateAt',
-      'restorable',
-      'invalidatedAt',
-      'invalidationReason',
-    ])
+        'lastResumptionUpdateAt',
+        'restorable',
+        'invalidatedAt',
+        'invalidationReason',
+        'summarySnapshot',
+        'contextStateSnapshot',
+      ])
   ) {
     return false;
   }
@@ -191,36 +225,28 @@ export function isUpdateLiveSessionRequest(value: unknown): value is UpdateLiveS
     isChatId(value['id']) &&
     (
       'resumptionHandle' in value ||
-      'lastResumptionUpdateAt' in value ||
-      'restorable' in value ||
-      'invalidatedAt' in value ||
-      'invalidationReason' in value
-    ) &&
-    (
-      typeof value['resumptionHandle'] === 'undefined' ||
-      value['resumptionHandle'] === null ||
-      typeof value['resumptionHandle'] === 'string'
-    ) &&
-    (
-      typeof value['lastResumptionUpdateAt'] === 'undefined' ||
-      value['lastResumptionUpdateAt'] === null ||
-      typeof value['lastResumptionUpdateAt'] === 'string'
-    ) &&
-    (
-      typeof value['restorable'] === 'undefined' ||
-      typeof value['restorable'] === 'boolean'
-    ) &&
-    (
-      typeof value['invalidatedAt'] === 'undefined' ||
-      value['invalidatedAt'] === null ||
-      typeof value['invalidatedAt'] === 'string'
-    ) &&
-    (
-      typeof value['invalidationReason'] === 'undefined' ||
-      value['invalidationReason'] === null ||
-      typeof value['invalidationReason'] === 'string'
-    )
-  );
+       'lastResumptionUpdateAt' in value ||
+       'restorable' in value ||
+       'invalidatedAt' in value ||
+       'invalidationReason' in value ||
+       'summarySnapshot' in value ||
+       'contextStateSnapshot' in value
+     ) &&
+     isNullableString(value['resumptionHandle']) &&
+     isNullableString(value['lastResumptionUpdateAt']) &&
+     (
+       typeof value['restorable'] === 'undefined' ||
+       typeof value['restorable'] === 'boolean'
+     ) &&
+     isNullableString(value['invalidatedAt']) &&
+     isNullableString(value['invalidationReason']) &&
+     isNullableString(value['summarySnapshot']) &&
+     (
+       typeof value['contextStateSnapshot'] === 'undefined' ||
+       value['contextStateSnapshot'] === null ||
+       isContextStateSnapshot(value['contextStateSnapshot'])
+     )
+   );
 }
 
 export function isDesktopSettingsPatch(value: unknown): value is DesktopSettingsPatch {

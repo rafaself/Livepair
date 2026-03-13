@@ -57,6 +57,15 @@ describe('ipc validators', () => {
       resumptionHandle: 'handles/live-session-1',
       lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
       restorable: true,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot: {
+        task: {
+          entries: [{ key: 'taskStatus', value: 'active' }],
+        },
+        context: {
+          entries: [{ key: 'repo', value: 'Livepair' }],
+        },
+      },
     };
 
     expect(isChatId('chat-1')).toBe(true);
@@ -78,6 +87,20 @@ describe('ipc validators', () => {
     expect(isUpdateLiveSessionRequest(updateRequest)).toBe(true);
     expect(isUpdateLiveSessionRequest({ id: 'live-session-1', resumptionHandle: null })).toBe(true);
     expect(isUpdateLiveSessionRequest({ id: 'live-session-1', restorable: false })).toBe(true);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', summarySnapshot: null })).toBe(true);
+    expect(
+      isUpdateLiveSessionRequest({
+        id: 'live-session-1',
+        contextStateSnapshot: {
+          task: {
+            entries: [{ key: 'taskStatus', value: 'active' }],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      }),
+    ).toBe(true);
     expect(
       isUpdateLiveSessionRequest({
         id: 'live-session-1',
@@ -88,6 +111,20 @@ describe('ipc validators', () => {
     expect(isUpdateLiveSessionRequest({ id: '' })).toBe(false);
     expect(isUpdateLiveSessionRequest({ id: 'live-session-1' })).toBe(false);
     expect(isUpdateLiveSessionRequest({ id: 'live-session-1', restorable: 'yes' })).toBe(false);
+    expect(isUpdateLiveSessionRequest({ id: 'live-session-1', summarySnapshot: 7 })).toBe(false);
+    expect(
+      isUpdateLiveSessionRequest({
+        id: 'live-session-1',
+        contextStateSnapshot: {
+          task: {
+            entries: [{ key: 'taskStatus', value: 7 }],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      }),
+    ).toBe(false);
   });
 
   it('validates settings patch payloads', () => {
