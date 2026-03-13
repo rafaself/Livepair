@@ -3,6 +3,7 @@ import type { LiveSessionRecord } from '@livepair/shared-types';
 import type { ReactNode } from 'react';
 import { ConversationList } from './ConversationList';
 import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
+import { Button } from '../primitives';
 
 export type AssistantPanelConversationSectionProps = {
   emptyState: ReactNode;
@@ -11,6 +12,7 @@ export type AssistantPanelConversationSectionProps = {
   lastRuntimeError: string | null;
   activeChatTitle?: string | null;
   latestLiveSession?: LiveSessionRecord | null;
+  onBackToHistory?: () => void;
   turns: ConversationTimelineEntry[];
 };
 
@@ -75,6 +77,7 @@ export function AssistantPanelConversationSection({
   lastRuntimeError,
   activeChatTitle = null,
   latestLiveSession = null,
+  onBackToHistory,
   turns,
 }: AssistantPanelConversationSectionProps): JSX.Element {
   const shouldShowLatestSessionMetadata = isViewingPastChat && latestLiveSession !== null;
@@ -91,10 +94,22 @@ export function AssistantPanelConversationSection({
       {isViewingPastChat ? (
         <div className="assistant-panel__messages-header">
           <div className="assistant-panel__history-state" role="status" aria-live="polite">
-            <p className="assistant-panel__history-state-label">Viewing past chat</p>
-            <p className="assistant-panel__history-state-title">
-              {activeChatTitle ?? 'Untitled chat'}
-            </p>
+            <div className="assistant-panel__history-state-header">
+              <div className="assistant-panel__history-state-copy">
+                <p className="assistant-panel__history-state-label">Viewing past chat</p>
+                <p className="assistant-panel__history-state-title">
+                  {activeChatTitle ?? 'Untitled chat'}
+                </p>
+                <p className="assistant-panel__history-state-body">
+                  Durable chat container with preserved context. Latest Live session details stay separate below.
+                </p>
+              </div>
+              {onBackToHistory ? (
+                <Button variant="ghost" size="sm" onClick={onBackToHistory}>
+                  Back to history
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}

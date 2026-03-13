@@ -214,4 +214,40 @@ describe('AssistantPanel', () => {
     expect(panelScope.getByText('Resume may be available')).toBeVisible();
     expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-history-4');
   });
+
+  it('lets users navigate back to history from an opened past chat', async () => {
+    useSessionStore.getState().setActiveChatId('chat-history-5');
+    window.bridge.getChat = vi.fn(async (chatId: string) => ({
+      id: chatId,
+      title: 'Retrospective notes',
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:40:00.000Z',
+      isCurrent: false,
+    }));
+    window.bridge.listChats = vi.fn(async () => [
+      {
+        id: 'chat-history-5',
+        title: 'Retrospective notes',
+        createdAt: '2026-03-12T09:00:00.000Z',
+        updatedAt: '2026-03-12T09:40:00.000Z',
+        isCurrent: false,
+      },
+    ]);
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    expect(await panelScope.findByRole('button', { name: 'Back to history' })).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Back to history' }));
+    });
+
+    expect(await panelScope.findByText('Past chats')).toBeVisible();
+  });
 });

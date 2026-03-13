@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChatRecord } from '@livepair/shared-types';
+import type { ChatMessageRecord, ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import { Button } from '../primitives';
 import './AssistantPanelHistoryView.css';
 
 export type AssistantPanelHistoryViewProps = {
   activeChatId: string | null;
   onSelectChat: (chatId: string) => void;
+};
+
+type ChatHistoryListItem = {
+  chat: ChatRecord;
+  preview: string;
+  latestSessionLabel: string | null;
+  resumeLabel: string | null;
 };
 
 function formatChatDate(isoString: string): string {
@@ -29,11 +36,47 @@ function formatChatDate(isoString: string): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+function formatPreview(messages: readonly ChatMessageRecord[]): string {
+  const latestMessage = messages[messages.length - 1] ?? null;
+
+  if (latestMessage === null) {
+    return 'No saved turns yet.';
+  }
+
+  return latestMessage.contentText.replace(/\s+/g, ' ').trim().slice(0, 96);
+}
+
+function getLatestSessionLabel(session: LiveSessionRecord | null): string | null {
+  if (session === null) {
+    return null;
+  }
+
+  if (session.status === 'failed') {
+    return 'Latest session ended unexpectedly';
+  }
+
+  if (session.status === 'ended') {
+    return 'Latest session ended';
+  }
+
+  return 'Latest session active';
+}
+
+function getResumeLabel(session: LiveSessionRecord | null): string | null {
+  if (session === null) {
+    return null;
+  }
+
+  return session.restorable && session.resumptionHandle !== null && session.invalidatedAt === null
+    ? 'Resume may be available'
+    : null;
+}
+
 export function AssistantPanelHistoryView({
   activeChatId,
   onSelectChat,
 }: AssistantPanelHistoryViewProps): JSX.Element {
-  const [chats, setChats] = useState<ChatRecord[]>([]);
+  const [chatItems, setChatItems] = useState<ChatHistoryListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -53,13 +96,29 @@ export function AssistantPanelHistoryView({
     setLoadError(null);
 
     try {
-      const result = await window.bridge.listChats();
+      const chats = await window.bridge.listChats();
+      const result = await Promise.all(
+        chats.map(async (chat) => {
+          const [messages, liveSessions] = await Promise.all([
+            window.bridge.listChatMessages(chat.id),
+            window.bridge.listLiveSessions(chat.id),
+          ]);
+          const latestLiveSession = liveSessions[0] ?? null;
+
+          return {
+            chat,
+            preview: formatPreview(messages),
+            latestSessionLabel: getLatestSessionLabel(latestLiveSession),
+            resumeLabel: getResumeLabel(latestLiveSession),
+          } satisfies ChatHistoryListItem;
+        }),
+      );
 
       if (latestRequestIdRef.current !== requestId) {
         return;
       }
 
-      setChats(result);
+      setChatItems(result);
     } catch {
       if (latestRequestIdRef.current !== requestId) {
         return;
@@ -96,7 +155,7 @@ export function AssistantPanelHistoryView({
     );
   }
 
-  if (loadError !== null && chats.length === 0) {
+  if (loadError !== null && chatItems.length === 0) {
     return (
       <div className="chat-history">
         <div className="chat-history__toolbar">
@@ -117,7 +176,7 @@ export function AssistantPanelHistoryView({
     );
   }
 
-  if (chats.length === 0) {
+  if (chatItems.length === 0) {
     return (
       <div className="chat-history">
         <div className="chat-history__toolbar">
@@ -159,7 +218,7 @@ export function AssistantPanelHistoryView({
         </p>
       ) : null}
       <ul className="chat-history__list" role="list">
-        {chats.map((chat) => (
+        {chatItems.map(({ chat, preview, latestSessionLabel, resumeLabel }) => (
           <li key={chat.id} className="chat-history__item">
             <button
               type="button"
@@ -171,11 +230,30 @@ export function AssistantPanelHistoryView({
               onClick={() => onSelectChat(chat.id)}
               aria-current={chat.id === activeChatId ? 'true' : undefined}
             >
-              <span className="chat-history__title">
-                {chat.title ?? 'Untitled chat'}
-              </span>
-              <span className="chat-history__date">
-                {formatChatDate(chat.updatedAt)}
+              <span className="chat-history__content">
+                <span className="chat-history__row">
+                  <span className="chat-history__title">
+                    {chat.title ?? 'Untitled chat'}
+                  </span>
+                  <span className="chat-history__date">
+                    {formatChatDate(chat.updatedAt)}
+                  </span>
+                </span>
+                <span className="chat-history__preview">{preview}</span>
+                <span className="chat-history__badges" aria-label="Chat relationship and latest session">
+                  {chat.isCurrent ? (
+                    <span className="chat-history__badge">Current chat</span>
+                  ) : null}
+                  {chat.id === activeChatId && !chat.isCurrent ? (
+                    <span className="chat-history__badge">Opened now</span>
+                  ) : null}
+                  {latestSessionLabel ? (
+                    <span className="chat-history__badge">{latestSessionLabel}</span>
+                  ) : null}
+                  {resumeLabel ? (
+                    <span className="chat-history__badge">{resumeLabel}</span>
+                  ) : null}
+                </span>
               </span>
             </button>
           </li>

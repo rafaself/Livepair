@@ -105,6 +105,9 @@ export function AssistantPanel(): JSX.Element {
     },
     [setPanelView],
   );
+  const handleBackToHistory = useCallback((): void => {
+    setPanelView('history');
+  }, [setPanelView]);
 
   return (
     <OverlayContainer>
@@ -140,6 +143,7 @@ export function AssistantPanel(): JSX.Element {
               lastRuntimeError={lastRuntimeError}
               draftText={draftText}
               isSubmittingTextTurn={isSubmittingTextTurn}
+              onBackToHistory={handleBackToHistory}
               onDraftTextChange={handleDraftTextChange}
               onSubmitTextTurn={handleSubmitTextTurn}
               onStartSpeechMode={handleStartSpeechMode}

@@ -36,6 +36,7 @@ export type AssistantPanelChatViewProps = {
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
+  onBackToHistory?: () => void;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
   onStartSpeechMode: () => Promise<void>;
@@ -59,6 +60,7 @@ export function AssistantPanelChatView({
   lastRuntimeError,
   draftText,
   isSubmittingTextTurn,
+  onBackToHistory,
   onDraftTextChange,
   onSubmitTextTurn,
   onStartSpeechMode,
@@ -112,6 +114,7 @@ export function AssistantPanelChatView({
           lastRuntimeError={lastRuntimeError}
           activeChatTitle={activeChatTitle}
           latestLiveSession={latestLiveSession}
+          {...(onBackToHistory ? { onBackToHistory } : {})}
           turns={turns}
         />
         <AssistantPanelChatComposer

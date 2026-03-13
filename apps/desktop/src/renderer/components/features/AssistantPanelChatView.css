@@ -47,6 +47,20 @@
   background: color-mix(in srgb, var(--color-surface-elevated) 82%, transparent);
 }
 
+.assistant-panel__history-state-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.assistant-panel__history-state-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .assistant-panel__history-state-label {
   margin: 0;
   font-size: 0.75rem;
@@ -61,6 +75,13 @@
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.assistant-panel__history-state-body {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.4;
 }
 
 .assistant-panel__session-history {
