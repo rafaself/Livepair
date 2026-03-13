@@ -5,6 +5,7 @@ import {
   getComposerSpeechActionKind,
 } from '../../runtime/controlGating';
 import type { ControlGatingSnapshot } from '../../runtime/controlGating';
+import { isSpeechLifecycleActive } from '../../runtime/speech/speechSessionLifecycle';
 import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
 
 export type AssistantPanelComposerAction = {
@@ -40,7 +41,10 @@ export function createAssistantPanelComposerAction({
   isComposerDisabled,
   speechLifecycleStatus,
 }: CreateAssistantPanelComposerActionOptions): AssistantPanelComposerAction {
-  if (draftText.trim().length > 0) {
+  if (
+    draftText.trim().length > 0 &&
+    isSpeechLifecycleActive(controlGatingSnapshot.speechLifecycleStatus)
+  ) {
     return {
       disabled: isComposerDisabled,
       icon: <SendHorizonal size={18} aria-hidden="true" />,

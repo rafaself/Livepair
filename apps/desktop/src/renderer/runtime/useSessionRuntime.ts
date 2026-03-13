@@ -47,10 +47,6 @@ export function useSessionRuntime() {
     await controller.checkBackendHealth();
   }, [controller]);
 
-  const handleStartSession = useCallback(async (): Promise<void> => {
-    await controller.startSession({ mode: 'text' });
-  }, [controller]);
-
   const handleStartVoiceSession = useCallback(async (): Promise<void> => {
     await controller.startSession({ mode: 'voice' });
   }, [controller]);
@@ -121,7 +117,6 @@ export function useSessionRuntime() {
     screenCaptureState,
     screenCaptureDiagnostics,
     handleCheckBackendHealth,
-    handleStartSession,
     handleStartVoiceSession,
     handleStartVoiceCapture,
     handleStopVoiceCapture,

@@ -202,7 +202,7 @@ describe('App', () => {
     expect(window.bridge.setOverlayPointerPassthrough).toHaveBeenCalled();
   });
 
-  it('streams a text turn through the app shell without requesting a Live token', async () => {
+  it('keeps the chat visible but inactive outside a Live session', async () => {
     const textChat = createTextChatHarness();
     installMatchMedia(true);
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
@@ -220,42 +220,14 @@ describe('App', () => {
       name: 'Send message to Livepair',
     });
 
-    await act(async () => {
-      fireEvent.change(within(composerForm).getByRole('textbox'), {
-        target: { value: 'Summarize the current screen' },
-      });
-    });
-
-    await act(async () => {
-      fireEvent.submit(composerForm);
-    });
-
-    await waitFor(() => {
-      expect(textChat.start).toHaveBeenCalledTimes(1);
-    });
+    expect(within(composerForm).getByRole('textbox')).toBeDisabled();
+    expect(screen.getByText('Conversation inactive')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
+    expect(textChat.start).not.toHaveBeenCalled();
     expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
-    expect(textChat.start).toHaveBeenCalledWith(
-      {
-        messages: [{ role: 'user', content: 'Summarize the current screen' }],
-      },
-      expect.any(Function),
-    );
-
-    act(() => {
-      textChat.emit({ type: 'text-delta', text: 'Here is the streamed response.' });
-    });
-
-    expect(await screen.findByText('Here is the streamed response.')).toBeVisible();
-
-    act(() => {
-      textChat.emit({ type: 'error', detail: 'transport offline' });
-    });
-
-    expect(await screen.findByText('transport offline')).toBeVisible();
-    expect(screen.getByText('Here is the streamed response.')).toBeVisible();
   });
 
-  it('ends speech mode without clearing history and supports a text follow-up', async () => {
+  it('ends speech mode without clearing history and leaves text input inactive', async () => {
     installMatchMedia(true);
     const textChat = createTextChatHarness();
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
@@ -323,29 +295,8 @@ describe('App', () => {
     const composerForm = screen.getByRole('form', {
       name: 'Send message to Livepair',
     });
-
-    await act(async () => {
-      fireEvent.change(within(composerForm).getByRole('textbox'), {
-        target: { value: 'Text after end' },
-      });
-    });
-
-    await act(async () => {
-      fireEvent.submit(composerForm);
-    });
-
-    await waitFor(() => {
-      expect(textChat.start).toHaveBeenCalledTimes(1);
-    });
-    expect(textChat.start).toHaveBeenCalledWith(
-      {
-        messages: [
-          { role: 'user', content: 'Speech request' },
-          { role: 'assistant', content: 'Speech reply' },
-          { role: 'user', content: 'Text after end' },
-        ],
-      },
-      expect.any(Function),
-    );
+    expect(within(composerForm).getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
+    expect(textChat.start).not.toHaveBeenCalled();
   });
 });

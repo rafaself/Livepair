@@ -15,6 +15,18 @@ describe('controlGating', () => {
     expect(
       canSubmitComposerText(
         createControlGatingSnapshot({
+          currentMode: 'text',
+          speechLifecycleStatus: 'off',
+          textSessionStatus: 'disconnected',
+          activeTransport: null,
+          voiceSessionStatus: 'disconnected',
+        }),
+      ),
+    ).toBe(false);
+
+    expect(
+      canSubmitComposerText(
+        createControlGatingSnapshot({
           currentMode: 'speech',
           speechLifecycleStatus: 'listening',
           textSessionStatus: 'disconnected',

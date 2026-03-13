@@ -33,12 +33,12 @@ export function AssistantPanelConversationEmptyState({
         aria-hidden="true"
       />
       <p className="assistant-panel__conversation-empty-title">
-        {isSpeechMode ? 'Start speaking' : 'No conversation yet'}
+        {isSpeechMode ? 'Start speaking' : 'Conversation inactive'}
       </p>
       <p className="assistant-panel__conversation-empty-body">
         {isSpeechMode
           ? 'Your spoken turns and assistant replies will appear here.'
-          : 'Send a text prompt to start the realtime loop and keep the latest exchange visible.'}
+          : 'Start speech mode to open a Live session. Your conversation history stays here.'}
       </p>
     </div>
   );

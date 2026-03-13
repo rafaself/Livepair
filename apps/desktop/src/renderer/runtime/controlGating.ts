@@ -95,7 +95,7 @@ export function canSubmitComposerText(snapshot: ControlGatingSnapshot): boolean 
   }
 
   if (!isSpeechLifecycleActive(snapshot.speechLifecycleStatus)) {
-    return true;
+    return false;
   }
 
   if (isSpeechLifecycleTransitioning(snapshot.speechLifecycleStatus)) {
