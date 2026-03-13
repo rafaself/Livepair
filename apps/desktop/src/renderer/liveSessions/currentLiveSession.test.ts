@@ -2,11 +2,63 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   resetCurrentLiveSessionForTests,
   restoreCurrentLiveSession,
+  startCurrentLiveSession,
 } from './currentLiveSession';
+import { resetCurrentChatMemoryForTests, switchToChat } from '../chatMemory/currentChatMemory';
 
 describe('currentLiveSession restore metadata', () => {
   beforeEach(() => {
+    resetCurrentChatMemoryForTests();
     resetCurrentLiveSessionForTests();
+  });
+
+  it('creates a new Live session against the selected historical chat container', async () => {
+    const bridge = {
+      createLiveSession: vi.fn(async (request) => ({
+        id: 'live-session-selected-chat',
+        chatId: request.chatId,
+        startedAt: request.startedAt ?? '2026-03-12T09:20:00.000Z',
+        endedAt: null,
+        status: 'active' as const,
+        endedReason: null,
+        resumptionHandle: null,
+        lastResumptionUpdateAt: null,
+        restorable: false,
+        invalidatedAt: null,
+        invalidationReason: null,
+      })),
+      updateLiveSession: vi.fn(),
+      endLiveSession: vi.fn(),
+      getChat: vi.fn(async (chatId: string) =>
+        chatId === 'chat-history-1'
+          ? {
+              id: 'chat-history-1',
+              title: 'Earlier session',
+              createdAt: '2026-03-10T09:00:00.000Z',
+              updatedAt: '2026-03-10T09:05:00.000Z',
+              isCurrent: false,
+            }
+          : null,
+      ),
+      getOrCreateCurrentChat: vi.fn().mockResolvedValue({
+        id: 'chat-current',
+        title: 'Current chat',
+        createdAt: '2026-03-12T09:00:00.000Z',
+        updatedAt: '2026-03-12T09:05:00.000Z',
+        isCurrent: true,
+      }),
+      listChatMessages: vi.fn().mockResolvedValue([]),
+      listLiveSessions: vi.fn().mockResolvedValue([]),
+    } as unknown as typeof window.bridge;
+
+    await switchToChat('chat-history-1', bridge as never);
+    await startCurrentLiveSession(bridge);
+
+    expect(bridge.createLiveSession).toHaveBeenCalledWith({
+      chatId: 'chat-history-1',
+      startedAt: expect.any(String),
+    });
+    expect(bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
   });
 
   it('restores only an explicitly restorable persisted Live session', async () => {

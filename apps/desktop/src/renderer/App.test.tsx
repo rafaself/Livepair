@@ -91,6 +91,13 @@ describe('App', () => {
       updatedAt: '2026-03-12T09:00:00.000Z',
       isCurrent: true,
     });
+    window.bridge.getChat = vi.fn().mockImplementation(async (chatId: string) => ({
+      id: chatId,
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: chatId === 'chat-1',
+    }));
     window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
     window.bridge.appendChatMessage = vi.fn().mockImplementation(
       async ({

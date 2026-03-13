@@ -106,6 +106,7 @@ beforeEach(async () => {
       updatedAt: '2026-03-12T09:00:00.000Z',
       isCurrent: true,
     })),
+    listChats: vi.fn(async () => []),
     listChatMessages: vi.fn(async () => []),
     appendChatMessage: vi.fn(async (req) => ({
       id: `${req.role}-message-1`,

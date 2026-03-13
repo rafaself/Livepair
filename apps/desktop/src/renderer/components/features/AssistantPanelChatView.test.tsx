@@ -79,6 +79,57 @@ describe('AssistantPanelChatView', () => {
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
+  it('marks an opened past chat as an inactive history container while keeping preserved turns visible', () => {
+    const turns: ConversationTurnModel[] = [
+      {
+        id: 'turn-1',
+        role: 'user',
+        content: 'Earlier question',
+        timestamp: '10:15',
+        state: 'complete',
+      },
+      {
+        id: 'turn-2',
+        role: 'assistant',
+        content: 'Earlier answer',
+        timestamp: '10:16',
+        state: 'complete',
+      },
+    ];
+
+    render(
+      <AssistantPanelChatView
+        assistantState="ready"
+        currentMode="inactive"
+        speechLifecycleStatus="off"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        turns={turns}
+        isConversationEmpty={false}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        activeChat={{
+          id: 'chat-history-1',
+          title: 'Interview prep',
+          createdAt: '2026-03-11T09:00:00.000Z',
+          updatedAt: '2026-03-11T10:00:00.000Z',
+          isCurrent: false,
+        }}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    expect(screen.getAllByText('Viewing past chat')).toHaveLength(2);
+    expect(screen.getByText('Interview prep')).toBeVisible();
+    expect(screen.getByText('Earlier question')).toBeVisible();
+    expect(screen.getByText('Earlier answer')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
+  });
+
   it('shows a visible runtime error state when the transport fails', () => {
     render(
       <AssistantPanelChatView

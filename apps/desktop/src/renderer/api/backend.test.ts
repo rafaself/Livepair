@@ -13,6 +13,7 @@ function createBridge() {
     createChat: vi.fn(),
     getChat: vi.fn(),
     getOrCreateCurrentChat: vi.fn(),
+    listChats: vi.fn(),
     listChatMessages: vi.fn(),
     appendChatMessage: vi.fn(),
     createLiveSession: vi.fn(),
