@@ -1,4 +1,4 @@
-import { Bug, MessageCircle, Settings } from 'lucide-react';
+import { Bug, Clock, MessageCircle, Settings } from 'lucide-react';
 import { type PanelView } from '../../store/uiStore';
 import { PanelHeader } from '../layout';
 import { Button, LivepairIcon } from '../primitives';
@@ -43,6 +43,17 @@ export function AssistantPanelHeader({
         className={getButtonClassName(panelView, 'settings')}
       >
         <Settings size={16} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        raised
+        onClick={() => setPanelView('history')}
+        aria-label="Chat history"
+        aria-pressed={panelView === 'history'}
+        className={getButtonClassName(panelView, 'history')}
+      >
+        <Clock size={16} />
       </Button>
       <Button
         variant="ghost"
