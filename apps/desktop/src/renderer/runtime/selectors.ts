@@ -3,6 +3,7 @@ import type { SessionStoreState } from '../store/sessionStore';
 import {
   getTextSessionStatus,
 } from '../store/sessionStore';
+import type { ConversationTimelineEntry } from './conversation/conversation.types';
 import { isSessionActiveLifecycle, isTextTurnInFlight } from './text/textSessionLifecycle';
 
 export function selectAssistantRuntimeState(
@@ -163,9 +164,18 @@ export function selectCanSubmitText(
 }
 
 export function selectIsConversationEmpty(
-  state: Pick<SessionStoreState, 'conversationTurns'>,
+  state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
 ): boolean {
-  return state.conversationTurns.length === 0;
+  return selectVisibleConversationTimeline(state).length === 0;
+}
+
+export function selectVisibleConversationTimeline(
+  state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
+): ConversationTimelineEntry[] {
+  return [
+    ...state.conversationTurns,
+    ...(state.transcriptArtifacts ?? []).filter((artifact) => artifact.attachedTurnId === undefined),
+  ];
 }
 
 export function selectIsSessionActive(

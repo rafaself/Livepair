@@ -13,3 +13,17 @@ export type ConversationTurnModel = {
   transcriptFinal?: boolean | undefined;
   persistedMessageId?: string | undefined;
 };
+
+export type TranscriptArtifactModel = {
+  id: string;
+  role: Extract<ConversationRole, 'user' | 'assistant'>;
+  content: string;
+  timestamp: string;
+  state?: Extract<ConversationTurnState, 'streaming' | 'complete'> | undefined;
+  statusLabel?: string | undefined;
+  source: 'voice';
+  transcriptFinal?: boolean | undefined;
+  attachedTurnId?: string | undefined;
+};
+
+export type ConversationTimelineEntry = ConversationTurnModel | TranscriptArtifactModel;

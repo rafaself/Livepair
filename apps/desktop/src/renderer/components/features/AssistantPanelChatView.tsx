@@ -1,6 +1,6 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
-import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
+import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
 import type { ProductMode } from '../../runtime/core/session.types';
 import {
   canSubmitComposerText,
@@ -26,7 +26,7 @@ export type AssistantPanelChatViewProps = {
   canSubmitText: boolean;
   activeTransport?: TransportKind | null;
   voiceSessionStatus?: VoiceSessionStatus;
-  turns: ConversationTurnModel[];
+  turns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
   draftText: string;

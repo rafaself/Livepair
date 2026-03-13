@@ -256,12 +256,24 @@ describe('selectCanSubmitText', () => {
 
 describe('selectIsConversationEmpty', () => {
   it('returns true for empty turns', () => {
-    expect(selectIsConversationEmpty({ conversationTurns: [] })).toBe(true);
+    expect(selectIsConversationEmpty({ conversationTurns: [], transcriptArtifacts: [] })).toBe(true);
   });
 
   it('returns false for non-empty turns', () => {
     expect(
-      selectIsConversationEmpty({ conversationTurns: [{ role: 'user' }] as never }),
+      selectIsConversationEmpty({
+        conversationTurns: [{ role: 'user' }] as never,
+        transcriptArtifacts: [],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when only an unattached transcript artifact is visible', () => {
+    expect(
+      selectIsConversationEmpty({
+        conversationTurns: [],
+        transcriptArtifacts: [{ role: 'assistant' }] as never,
+      }),
     ).toBe(false);
   });
 });

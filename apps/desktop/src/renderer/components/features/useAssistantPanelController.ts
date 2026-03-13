@@ -10,7 +10,7 @@ import { useUiStore, type PanelView } from '../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../store/sessionStore';
 import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 import type { ProductMode } from '../../runtime/core/session.types';
-import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
+import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
 import type {
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
@@ -33,7 +33,7 @@ export type AssistantPanelController = {
   assistantState: AssistantRuntimeState;
   isPanelOpen: boolean;
   panelView: PanelView;
-  conversationTurns: ConversationTurnModel[];
+  conversationTurns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
   setPanelView: (view: PanelView) => void;
   closePanel: () => void;
