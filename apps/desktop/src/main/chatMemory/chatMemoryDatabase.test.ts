@@ -32,11 +32,12 @@ describe('createChatMemoryDatabase', () => {
 
     const tables = database
       .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('schema_migrations', 'chats', 'messages', 'live_sessions') ORDER BY name",
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('schema_migrations', 'chats', 'messages', 'live_sessions', 'chat_summaries') ORDER BY name",
       )
       .all() as Array<{ name: string }>;
 
     expect(tables).toEqual([
+      { name: 'chat_summaries' },
       { name: 'chats' },
       { name: 'live_sessions' },
       { name: 'messages' },
@@ -45,7 +46,7 @@ describe('createChatMemoryDatabase', () => {
     expect(database.pragma('foreign_keys', { simple: true })).toBe(1);
     expect(
       database.prepare('SELECT version FROM schema_migrations ORDER BY version').all(),
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
   });
 
   it('reuses the existing schema without duplicating migrations on reopen', () => {
@@ -56,7 +57,7 @@ describe('createChatMemoryDatabase', () => {
 
     expect(
       reopenedDatabase.prepare('SELECT version FROM schema_migrations ORDER BY version').all(),
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
   });
 
   it('migrates an existing version 1 database to add live session persistence', () => {
@@ -104,7 +105,7 @@ describe('createChatMemoryDatabase', () => {
     ).toEqual([{ name: 'live_sessions' }]);
     expect(
       migratedDatabase.prepare('SELECT version FROM schema_migrations ORDER BY version').all(),
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
   });
 
   it('migrates a version 2 live_sessions table to normalized restore metadata columns', () => {
@@ -297,5 +298,73 @@ describe('createChatMemoryDatabase', () => {
         context_state_snapshot: null,
       }),
     );
+  });
+
+  it('migrates a version 4 database to add durable chat summary storage', () => {
+    const legacyDatabase = trackDatabase(new BetterSqlite3(databaseFilePath));
+
+    legacyDatabase.exec(`
+      PRAGMA foreign_keys = ON;
+      CREATE TABLE schema_migrations (
+        version INTEGER PRIMARY KEY
+      );
+      INSERT INTO schema_migrations (version) VALUES (1);
+      INSERT INTO schema_migrations (version) VALUES (2);
+      INSERT INTO schema_migrations (version) VALUES (3);
+      INSERT INTO schema_migrations (version) VALUES (4);
+
+      CREATE TABLE chats (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        title TEXT,
+        is_current INTEGER NOT NULL DEFAULT 0 CHECK (is_current IN (0, 1))
+      );
+
+      CREATE TABLE messages (
+        id TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+        content_text TEXT NOT NULL CHECK (length(content_text) > 0),
+        created_at TEXT NOT NULL,
+        sequence INTEGER NOT NULL,
+        UNIQUE(chat_id, sequence)
+      );
+
+      CREATE TABLE live_sessions (
+        id TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        status TEXT NOT NULL CHECK (status IN ('active', 'ended', 'failed')),
+        ended_reason TEXT,
+        resumption_handle TEXT,
+        last_resumption_update_at TEXT,
+        restorable INTEGER NOT NULL DEFAULT 0 CHECK (restorable IN (0, 1)),
+        invalidated_at TEXT,
+        invalidation_reason TEXT,
+        summary_snapshot TEXT,
+        context_state_snapshot TEXT
+      );
+    `);
+    legacyDatabase.close();
+    openDatabases.length = 0;
+
+    const migratedDatabase = trackDatabase(createChatMemoryDatabase(databaseFilePath));
+    const columns = migratedDatabase
+      .prepare("PRAGMA table_info('chat_summaries')")
+      .all() as Array<{ name: string }>;
+
+    expect(columns.map((column) => column.name)).toEqual([
+      'chat_id',
+      'schema_version',
+      'source',
+      'summary_text',
+      'covered_through_message_sequence',
+      'updated_at',
+    ]);
+    expect(
+      migratedDatabase.prepare('SELECT version FROM schema_migrations ORDER BY version').all(),
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
   });
 });

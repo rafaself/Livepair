@@ -13,6 +13,7 @@ import type {
   LiveSessionStatus,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
+import type { DurableChatSummaryRecord } from './chatSummary';
 
 type ChatRow = {
   id: string;
@@ -47,15 +48,26 @@ type LiveSessionRow = {
   context_state_snapshot: string | null;
 };
 
+type ChatSummaryRow = {
+  chat_id: string;
+  schema_version: number;
+  source: string;
+  summary_text: string;
+  covered_through_message_sequence: number;
+  updated_at: string;
+};
+
 export interface ChatMemoryRepository {
   createChat: (request?: CreateChatRequest) => ChatRecord;
   getChat: (chatId: ChatId) => ChatRecord | null;
   getOrCreateCurrentChat: () => ChatRecord;
   listChats: () => ChatRecord[];
   listMessages: (chatId: ChatId) => ChatMessageRecord[];
+  getChatSummary: (chatId: ChatId) => DurableChatSummaryRecord | null;
   appendMessage: (request: AppendChatMessageRequest) => ChatMessageRecord;
   createLiveSession: (request: CreateLiveSessionRequest) => LiveSessionRecord;
   listLiveSessions: (chatId: ChatId) => LiveSessionRecord[];
+  upsertChatSummary: (summary: DurableChatSummaryRecord) => DurableChatSummaryRecord;
   updateLiveSession: (request: UpdateLiveSessionRequest) => LiveSessionRecord;
   endLiveSession: (request: EndLiveSessionRequest) => LiveSessionRecord;
 }
@@ -78,6 +90,17 @@ function toChatMessageRecord(row: MessageRow): ChatMessageRecord {
     contentText: row.content_text,
     createdAt: row.created_at,
     sequence: row.sequence,
+  };
+}
+
+function toDurableChatSummaryRecord(row: ChatSummaryRow): DurableChatSummaryRecord {
+  return {
+    chatId: row.chat_id,
+    schemaVersion: 1,
+    source: 'local-recent-history-v1',
+    summaryText: row.summary_text,
+    coveredThroughSequence: row.covered_through_message_sequence,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -195,6 +218,8 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
   private readonly updateChatTimestampStatement;
   private readonly nextSequenceStatement;
   private readonly insertMessageStatement;
+  private readonly selectChatSummaryByChatIdStatement;
+  private readonly upsertChatSummaryStatement;
   private readonly listLiveSessionsByChatIdStatement;
   private readonly insertLiveSessionStatement;
   private readonly selectLiveSessionByIdStatement;
@@ -230,6 +255,40 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     this.insertMessageStatement = database.prepare(`
       INSERT INTO messages (id, chat_id, role, content_text, created_at, sequence)
       VALUES (@id, @chatId, @role, @contentText, @createdAt, @sequence)
+    `);
+    this.selectChatSummaryByChatIdStatement = database.prepare(
+      `SELECT
+         chat_id,
+         schema_version,
+         source,
+         summary_text,
+         covered_through_message_sequence,
+         updated_at
+       FROM chat_summaries
+       WHERE chat_id = ?`,
+    );
+    this.upsertChatSummaryStatement = database.prepare(`
+      INSERT INTO chat_summaries (
+        chat_id,
+        schema_version,
+        source,
+        summary_text,
+        covered_through_message_sequence,
+        updated_at
+      ) VALUES (
+        @chatId,
+        @schemaVersion,
+        @source,
+        @summaryText,
+        @coveredThroughSequence,
+        @updatedAt
+      )
+      ON CONFLICT(chat_id) DO UPDATE SET
+        schema_version = excluded.schema_version,
+        source = excluded.source,
+        summary_text = excluded.summary_text,
+        covered_through_message_sequence = excluded.covered_through_message_sequence,
+        updated_at = excluded.updated_at
     `);
     this.listLiveSessionsByChatIdStatement = database.prepare(
       `SELECT
@@ -379,6 +438,11 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     ).map((row) => toChatMessageRecord(row));
   }
 
+  getChatSummary(chatId: ChatId): DurableChatSummaryRecord | null {
+    const row = this.selectChatSummaryByChatIdStatement.get(chatId) as ChatSummaryRow | undefined;
+    return row ? toDurableChatSummaryRecord(row) : null;
+  }
+
   appendMessage(request: AppendChatMessageRequest): ChatMessageRecord {
     const appendMessage = this.database.transaction((input: AppendChatMessageRequest) => {
       const chat = this.getChat(input.chatId);
@@ -466,6 +530,17 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     return (
       this.listLiveSessionsByChatIdStatement.all(chatId) as LiveSessionRow[]
     ).map((row) => toLiveSessionRecord(row));
+  }
+
+  upsertChatSummary(summary: DurableChatSummaryRecord): DurableChatSummaryRecord {
+    const existingChat = this.getChat(summary.chatId);
+
+    if (!existingChat) {
+      throw new Error(`Chat not found: ${summary.chatId}`);
+    }
+
+    this.upsertChatSummaryStatement.run(summary);
+    return summary;
   }
 
   updateLiveSession(request: UpdateLiveSessionRequest): LiveSessionRecord {

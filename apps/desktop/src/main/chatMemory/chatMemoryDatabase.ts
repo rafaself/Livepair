@@ -6,6 +6,7 @@ const INITIAL_SCHEMA_VERSION = 1;
 const LIVE_SESSIONS_SCHEMA_VERSION = 2;
 const LIVE_SESSION_RESTORE_METADATA_SCHEMA_VERSION = 3;
 const LIVE_SESSION_REHYDRATION_SNAPSHOTS_SCHEMA_VERSION = 4;
+const CHAT_SUMMARIES_SCHEMA_VERSION = 5;
 
 function createLiveSessionsTable(database: SqliteDatabase, tableName = 'live_sessions'): void {
   database.exec(`
@@ -131,6 +132,23 @@ function applyLiveSessionRehydrationSnapshotsSchema(database: SqliteDatabase): v
   }
 }
 
+function applyChatSummariesSchema(database: SqliteDatabase): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS chat_summaries (
+      chat_id TEXT PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE,
+      schema_version INTEGER NOT NULL,
+      source TEXT NOT NULL,
+      summary_text TEXT NOT NULL CHECK (length(summary_text) > 0),
+      covered_through_message_sequence INTEGER NOT NULL
+        CHECK (covered_through_message_sequence > 0),
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chat_summaries_updated_at
+      ON chat_summaries(updated_at DESC, chat_id DESC);
+  `);
+}
+
 function bootstrapChatMemoryDatabase(database: SqliteDatabase): void {
   const migrate = database.transaction(() => {
     database.exec(`
@@ -173,6 +191,13 @@ function bootstrapChatMemoryDatabase(database: SqliteDatabase): void {
       database
         .prepare('INSERT INTO schema_migrations (version) VALUES (?)')
         .run(LIVE_SESSION_REHYDRATION_SNAPSHOTS_SCHEMA_VERSION);
+    }
+
+    if (!appliedVersions.has(CHAT_SUMMARIES_SCHEMA_VERSION)) {
+      applyChatSummariesSchema(database);
+      database
+        .prepare('INSERT INTO schema_migrations (version) VALUES (?)')
+        .run(CHAT_SUMMARIES_SCHEMA_VERSION);
     }
   });
 

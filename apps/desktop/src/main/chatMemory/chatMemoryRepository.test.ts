@@ -6,6 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createChatMemoryDatabase } from './chatMemoryDatabase';
 import { SqliteChatMemoryRepository } from './chatMemoryRepository';
+import {
+  DURABLE_CHAT_SUMMARY_SCHEMA_VERSION,
+  DURABLE_CHAT_SUMMARY_SOURCE,
+} from './chatSummary';
 
 describe('SqliteChatMemoryRepository', () => {
   let databaseFilePath: string;
@@ -93,11 +97,13 @@ describe('SqliteChatMemoryRepository', () => {
     expect(repository.getChat(nextChat.id)).toEqual(nextChat);
   });
 
-  it('lists all chats sorted by most recent updatedAt first', () => {
+  it('lists all chats sorted by most recent updatedAt first', async () => {
     const repository = openRepository();
 
     const firstChat = repository.getOrCreateCurrentChat();
     const secondChat = repository.createChat({ title: 'Second chat' });
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
 
     // Append a message to the first chat so it gets a newer updatedAt.
     repository.appendMessage({
@@ -143,6 +149,40 @@ describe('SqliteChatMemoryRepository', () => {
       secondLiveSession,
       firstLiveSession,
     ]);
+  });
+
+  it('persists durable chat summaries across reload', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+
+    repository.upsertChatSummary({
+      chatId: chat.id,
+      schemaVersion: DURABLE_CHAT_SUMMARY_SCHEMA_VERSION,
+      source: DURABLE_CHAT_SUMMARY_SOURCE,
+      summaryText: 'Compact continuity summary',
+      coveredThroughSequence: 2,
+      updatedAt: '2026-03-12T09:05:00.000Z',
+    });
+
+    expect(repository.getChatSummary(chat.id)).toEqual({
+      chatId: chat.id,
+      schemaVersion: DURABLE_CHAT_SUMMARY_SCHEMA_VERSION,
+      source: DURABLE_CHAT_SUMMARY_SOURCE,
+      summaryText: 'Compact continuity summary',
+      coveredThroughSequence: 2,
+      updatedAt: '2026-03-12T09:05:00.000Z',
+    });
+
+    const reopenedRepository = openRepository();
+
+    expect(reopenedRepository.getChatSummary(chat.id)).toEqual({
+      chatId: chat.id,
+      schemaVersion: DURABLE_CHAT_SUMMARY_SCHEMA_VERSION,
+      source: DURABLE_CHAT_SUMMARY_SOURCE,
+      summaryText: 'Compact continuity summary',
+      coveredThroughSequence: 2,
+      updatedAt: '2026-03-12T09:05:00.000Z',
+    });
   });
 
   it('ends a persisted live session without affecting canonical chat messages', () => {

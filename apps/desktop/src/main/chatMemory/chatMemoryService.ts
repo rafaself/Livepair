@@ -13,6 +13,10 @@ import type {
 } from '@livepair/shared-types';
 import { createChatMemoryDatabase } from './chatMemoryDatabase';
 import {
+  buildDurableChatSummary,
+  shouldReplaceDurableChatSummary,
+} from './chatSummary';
+import {
   type ChatMemoryRepository,
   SqliteChatMemoryRepository,
 } from './chatMemoryRepository';
@@ -57,7 +61,27 @@ export class ChatMemoryService {
   }
 
   endLiveSession(request: EndLiveSessionRequest): LiveSessionRecord {
-    return this.repository.endLiveSession(request);
+    const endedLiveSession = this.repository.endLiveSession(request);
+    const nextSummary = buildDurableChatSummary({
+      chatId: endedLiveSession.chatId,
+      messages: this.repository.listMessages(endedLiveSession.chatId),
+      updatedAt:
+        endedLiveSession.endedAt
+        ?? endedLiveSession.lastResumptionUpdateAt
+        ?? new Date().toISOString(),
+    });
+
+    if (nextSummary === null) {
+      return endedLiveSession;
+    }
+
+    const existingSummary = this.repository.getChatSummary(endedLiveSession.chatId);
+
+    if (shouldReplaceDurableChatSummary(existingSummary, nextSummary)) {
+      this.repository.upsertChatSummary(nextSummary);
+    }
+
+    return endedLiveSession;
   }
 }
 
