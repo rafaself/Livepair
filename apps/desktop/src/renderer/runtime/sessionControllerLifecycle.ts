@@ -14,8 +14,6 @@ import type {
   LiveSessionRecord,
   RehydrationPacket,
 } from '@livepair/shared-types';
-import type { LiveSessionHistoryTurn } from './transport/transport.types';
-import { mapRehydrationPacketToLiveSessionHistory } from '../chatMemory/currentChatMemory';
 
 type SessionControllerLifecycleArgs = {
   store: SessionStoreApi;
@@ -259,11 +257,10 @@ export function createSessionControllerLifecycle({
       previousDetail,
     });
 
-    let history: LiveSessionHistoryTurn[];
+    let rehydrationPacket: RehydrationPacket;
 
     try {
-      const rehydrationPacket = await buildRehydrationPacketFromCurrentChat();
-      history = mapRehydrationPacketToLiveSessionHistory(rehydrationPacket);
+      rehydrationPacket = await buildRehydrationPacketFromCurrentChat();
     } catch (error) {
       return {
         status: 'failed',
@@ -303,7 +300,7 @@ export function createSessionControllerLifecycle({
       await transport.connect({
         token,
         mode: 'voice',
-        ...(history.length > 0 ? { history } : {}),
+        ...(rehydrationPacket.recentTurns.length > 0 ? { rehydrationPacket } : {}),
       });
 
       if (!isCurrentSessionOperation(operationId)) {
