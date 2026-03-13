@@ -36,6 +36,10 @@ export type TransportEventRouterOps = {
   setVoiceSessionStatus: (status: VoiceSessionStatus) => void;
   setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;
+  persistLiveSessionResumption: (patch: {
+    latestResumeHandle: string | null;
+    resumable: boolean;
+  }) => void;
   syncVoiceDurabilityState: (
     token: CreateEphemeralTokenResponse | null,
     patch?: Partial<VoiceSessionDurabilityState>,
@@ -205,6 +209,10 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
         latestHandle: event.handle,
         resumable: event.resumable,
         lastDetail: event.detail ?? null,
+      });
+      ops.persistLiveSessionResumption({
+        latestResumeHandle: event.handle,
+        resumable: event.resumable,
       });
       return;
     }

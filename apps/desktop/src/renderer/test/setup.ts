@@ -126,6 +126,16 @@ beforeEach(async () => {
       resumable: false,
     })),
     listLiveSessions: vi.fn(async () => []),
+    updateLiveSession: vi.fn(async (req) => ({
+      id: req.id,
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T09:00:00.000Z',
+      endedAt: null,
+      status: 'active' as const,
+      endedReason: null,
+      latestResumeHandle: req.latestResumeHandle ?? null,
+      resumable: req.resumable ?? false,
+    })),
     endLiveSession: vi.fn(async (req) => ({
       id: req.id,
       chatId: 'chat-1',

@@ -14,7 +14,9 @@ import {
 } from '../chatMemory/currentChatMemory';
 import {
   endCurrentLiveSession,
+  restoreCurrentLiveSession,
   startCurrentLiveSession,
+  updateCurrentLiveSession,
 } from '../liveSessions/currentLiveSession';
 import { createAssistantAudioPlayback } from './audio/assistantAudioPlayback';
 import { createLocalVoiceCapture } from './audio/localVoiceCapture';
@@ -241,6 +243,9 @@ export function createDesktopSessionController(
     setVoiceSessionStatus: (s) => runtimeRef.current!.setVoiceSessionStatus(s),
     setVoiceSessionResumption: (p) => runtimeRef.current!.setVoiceSessionResumption(p),
     setVoiceSessionDurability: (p) => runtimeRef.current!.setVoiceSessionDurability(p),
+    persistLiveSessionResumption: (patch) => {
+      void updateCurrentLiveSession(patch);
+    },
     syncVoiceDurabilityState: (t, p) => runtimeRef.current!.syncVoiceDurabilityState(t, p),
     setVoicePlaybackState: (s) => runtimeRef.current!.setVoicePlaybackState(s),
     updateVoicePlaybackDiagnostics: (p) => runtimeRef.current!.updateVoicePlaybackDiagnostics(p),
@@ -402,8 +407,12 @@ export function createDesktopSessionController(
       tokenMgr.set(token);
     },
     syncVoiceDurabilityState: (token, patch) => runtimeRef.current!.syncVoiceDurabilityState(token, patch),
+    restorePersistedLiveSession: () => restoreCurrentLiveSession(),
     createPersistedLiveSession: async () => {
       await startCurrentLiveSession();
+    },
+    endPersistedLiveSession: async (liveSessionEnd) => {
+      await endCurrentLiveSession(liveSessionEnd);
     },
     setVoiceResumptionInFlight: (value) => {
       runtimeRef.current!.setVoiceResumptionInFlight(value);

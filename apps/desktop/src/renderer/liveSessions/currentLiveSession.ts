@@ -1,12 +1,12 @@
 import type {
   EndLiveSessionRequest,
   LiveSessionRecord,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
-import { getCurrentChat } from '../chatMemory/currentChatMemory';
 
 type CurrentLiveSessionBridge = Pick<
   typeof window.bridge,
-  'createLiveSession' | 'endLiveSession'
+  'createLiveSession' | 'getOrCreateCurrentChat' | 'listLiveSessions' | 'updateLiveSession' | 'endLiveSession'
 >;
 
 let activeLiveSession: LiveSessionRecord | null = null;
@@ -18,7 +18,7 @@ export async function startCurrentLiveSession(
     return activeLiveSession;
   }
 
-  const chat = await getCurrentChat();
+  const chat = await bridge.getOrCreateCurrentChat();
   const liveSession = await bridge.createLiveSession({
     chatId: chat.id,
     startedAt: new Date().toISOString(),
@@ -26,6 +26,40 @@ export async function startCurrentLiveSession(
 
   activeLiveSession = liveSession;
   return liveSession;
+}
+
+export async function restoreCurrentLiveSession(
+  bridge: CurrentLiveSessionBridge = window.bridge,
+): Promise<LiveSessionRecord | null> {
+  if (activeLiveSession) {
+    return activeLiveSession;
+  }
+
+  const chat = await bridge.getOrCreateCurrentChat();
+  const liveSessions = await bridge.listLiveSessions(chat.id);
+  const liveSession =
+    liveSessions.find((candidate) => candidate.status === 'active' && candidate.endedAt === null)
+    ?? null;
+
+  activeLiveSession = liveSession;
+  return liveSession;
+}
+
+export async function updateCurrentLiveSession(
+  request: Omit<UpdateLiveSessionRequest, 'id'>,
+  bridge: CurrentLiveSessionBridge = window.bridge,
+): Promise<LiveSessionRecord | null> {
+  if (!activeLiveSession) {
+    return null;
+  }
+
+  const updatedLiveSession = await bridge.updateLiveSession({
+    id: activeLiveSession.id,
+    ...request,
+  });
+
+  activeLiveSession = updatedLiveSession;
+  return updatedLiveSession;
 }
 
 export async function endCurrentLiveSession(

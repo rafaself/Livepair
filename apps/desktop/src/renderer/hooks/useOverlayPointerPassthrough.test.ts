@@ -19,6 +19,7 @@ describe('useOverlayPointerPassthrough', () => {
       appendChatMessage: vi.fn(),
       createLiveSession: vi.fn(),
       listLiveSessions: vi.fn(),
+      updateLiveSession: vi.fn(),
       endLiveSession: vi.fn(),
       getSettings: vi.fn(),
       updateSettings: vi.fn(),

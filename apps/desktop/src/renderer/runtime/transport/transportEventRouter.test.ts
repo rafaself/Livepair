@@ -34,6 +34,7 @@ function createMockOps() {
     setVoiceSessionStatus: vi.fn(),
     setVoiceSessionResumption: vi.fn(),
     setVoiceSessionDurability: vi.fn(),
+    persistLiveSessionResumption: vi.fn(),
     syncVoiceDurabilityState: vi.fn(),
     setVoicePlaybackState: vi.fn(),
     updateVoicePlaybackDiagnostics: vi.fn(),

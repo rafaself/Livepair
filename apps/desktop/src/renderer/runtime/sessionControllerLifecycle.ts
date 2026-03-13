@@ -9,7 +9,10 @@ import type {
   VoiceSessionDurabilityState,
   VoiceSessionStatus,
 } from './voice/voice.types';
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type {
+  CreateEphemeralTokenResponse,
+  LiveSessionRecord,
+} from '@livepair/shared-types';
 import type { LiveSessionHistoryTurn } from './transport/transport.types';
 
 type SessionControllerLifecycleArgs = {
@@ -31,7 +34,7 @@ type SessionControllerLifecycleArgs = {
     lastError: null;
   }) => void;
   selectedOutputDeviceId: () => string;
-  setVoiceSessionStatus: (status: 'connecting') => void;
+  setVoiceSessionStatus: (status: 'connecting' | 'recovering') => void;
   resetVoiceSessionResumption: () => void;
   resetVoiceSessionDurability: () => void;
   resetVoiceToolState: () => void;
@@ -42,7 +45,12 @@ type SessionControllerLifecycleArgs = {
     token: CreateEphemeralTokenResponse | null,
     patch?: Partial<VoiceSessionDurabilityState>,
   ) => void;
+  restorePersistedLiveSession: () => Promise<LiveSessionRecord | null>;
   createPersistedLiveSession: () => Promise<void>;
+  endPersistedLiveSession: (liveSessionEnd: {
+    status: 'ended' | 'failed';
+    endedReason?: string | null;
+  }) => Promise<void>;
   setVoiceResumptionInFlight: (value: boolean) => void;
   createTransport: () => DesktopSession;
   activateVoiceTransport: (transport: DesktopSession) => void;
@@ -78,7 +86,9 @@ export function createSessionControllerLifecycle({
   buildLiveSessionHistoryFromCurrentChat,
   setCachedVoiceToken,
   syncVoiceDurabilityState,
+  restorePersistedLiveSession,
   createPersistedLiveSession,
+  endPersistedLiveSession,
   setVoiceResumptionInFlight,
   createTransport,
   activateVoiceTransport,
@@ -127,6 +137,84 @@ export function createSessionControllerLifecycle({
     }
   };
 
+  const connectRestoredSession = async (
+    operationId: number,
+    token: CreateEphemeralTokenResponse,
+    liveSession: LiveSessionRecord,
+  ): Promise<boolean> => {
+    if (!liveSession.resumable || !liveSession.latestResumeHandle) {
+      await endPersistedLiveSession({
+        status: 'failed',
+        endedReason: liveSession.resumable
+          ? 'Persisted Live session is missing a resume handle'
+          : 'Persisted Live session is no longer resumable',
+      });
+      return false;
+    }
+
+    store.getState().setLastRuntimeError(null);
+    store.getState().setVoiceSessionResumption({
+      status: 'reconnecting',
+      latestHandle: liveSession.latestResumeHandle,
+      resumable: true,
+      lastDetail: 'Restoring persisted Live session',
+    });
+    setVoiceResumptionInFlight(true);
+
+    let transport: DesktopSession;
+    try {
+      transport = createTransport();
+    } catch (error) {
+      await endPersistedLiveSession({
+        status: 'failed',
+        endedReason: asErrorDetail(error, 'Failed to prepare voice session'),
+      });
+      setVoiceResumptionInFlight(false);
+      return false;
+    }
+
+    activateVoiceTransport(transport);
+
+    try {
+      await transport.connect({
+        token,
+        mode: 'voice',
+        resumeHandle: liveSession.latestResumeHandle,
+      });
+
+      if (!isCurrentSessionOperation(operationId)) {
+        return false;
+      }
+
+      const didStartVoiceCapture = await startVoiceCapture();
+
+      if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
+        return false;
+      }
+
+      applySpeechLifecycleEvent({ type: 'session.ready' });
+      return true;
+    } catch (error) {
+      const detail = asErrorDetail(error, 'Failed to resume voice session');
+      await endPersistedLiveSession({
+        status: 'failed',
+        endedReason: detail,
+      });
+      setVoiceResumptionInFlight(false);
+      store.getState().setVoiceSessionResumption({
+        status: 'resumeFailed',
+        latestHandle: liveSession.latestResumeHandle,
+        resumable: false,
+        lastDetail: detail,
+      });
+      logRuntimeDiagnostic('voice-session', 'restore fell back to fresh session', {
+        liveSessionId: liveSession.id,
+        detail,
+      });
+      return false;
+    }
+  };
+
   const startSessionInternal = async (_options: { mode: 'voice' }): Promise<void> => {
     const operationId = beginSessionOperation();
     await ensureExclusiveMode('speech', operationId);
@@ -161,19 +249,44 @@ export function createSessionControllerLifecycle({
     logRuntimeDiagnostic('voice-session', 'start requested', {
       transport: LIVE_ADAPTER_KEY,
     });
-    const historyPromise = buildLiveSessionHistoryFromCurrentChat();
-
     const token = await requestVoiceSessionToken(operationId);
 
     if (!token || !isCurrentSessionOperation(operationId)) {
-      void historyPromise.catch(() => undefined);
+      return;
+    }
+
+    setCachedVoiceToken(token);
+    syncVoiceDurabilityState(token);
+    setVoiceResumptionInFlight(false);
+    resetVoiceSessionResumption();
+
+    try {
+      const persistedLiveSession = await restorePersistedLiveSession();
+
+      if (!isCurrentSessionOperation(operationId)) {
+        return;
+      }
+
+      if (persistedLiveSession) {
+        const didResume = await connectRestoredSession(operationId, token, persistedLiveSession);
+
+        if (didResume || !isCurrentSessionOperation(operationId)) {
+          return;
+        }
+
+        setVoiceSessionStatus('connecting');
+        setVoiceResumptionInFlight(false);
+        resetVoiceSessionResumption();
+      }
+    } catch (error) {
+      await setVoiceErrorState(asErrorDetail(error, 'Failed to restore voice session'));
       return;
     }
 
     let history: LiveSessionHistoryTurn[];
 
     try {
-      history = await historyPromise;
+      history = await buildLiveSessionHistoryFromCurrentChat();
     } catch (error) {
       if (!isCurrentSessionOperation(operationId)) {
         return;
@@ -182,11 +295,6 @@ export function createSessionControllerLifecycle({
       await setVoiceErrorState(asErrorDetail(error, 'Failed to load chat history'));
       return;
     }
-
-    setCachedVoiceToken(token);
-    syncVoiceDurabilityState(token);
-    setVoiceResumptionInFlight(false);
-    resetVoiceSessionResumption();
 
     let transport: DesktopSession;
     try {
