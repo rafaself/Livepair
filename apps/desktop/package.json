@@ -4,7 +4,7 @@
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {
-    "rebuild:native:electron": "electron-rebuild -o better-sqlite3",
+    "rebuild:native:electron": "electron-rebuild -f -o better-sqlite3",
     "rebuild:native:node": "pnpm rebuild better-sqlite3",
     "predev": "pnpm run rebuild:native:electron",
     "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
