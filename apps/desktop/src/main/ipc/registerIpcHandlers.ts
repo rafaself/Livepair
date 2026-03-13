@@ -93,6 +93,17 @@ export function registerIpcHandlers({
   );
 
   ipcMain.handle(
+    IPC_CHANNELS.getChatSummary,
+    async (_event, chatId: unknown) => {
+      if (!isChatId(chatId)) {
+        throw new Error('Invalid chat id');
+      }
+
+      return chatMemoryService.getChatSummary(chatId);
+    },
+  );
+
+  ipcMain.handle(
     IPC_CHANNELS.appendChatMessage,
     async (_event, req: unknown) => {
       if (!isAppendChatMessageRequest(req)) {

@@ -5,6 +5,7 @@ import type {
   AppendChatMessageRequest,
   ChatMessageRecord,
   ChatRecord,
+  DurableChatSummaryRecord,
   LiveSessionRecord,
 } from '@livepair/shared-types';
 import type { DesktopSettings } from '../../shared/settings';
@@ -88,6 +89,20 @@ function createLiveSessionRecord(
   };
 }
 
+function createChatSummaryRecord(
+  overrides: Partial<DurableChatSummaryRecord> = {},
+): DurableChatSummaryRecord {
+  return {
+    chatId: 'chat-1',
+    schemaVersion: 1,
+    source: 'local-recent-history-v1',
+    summaryText: 'Compact continuity summary',
+    coveredThroughSequence: 3,
+    updatedAt: '2026-03-12T00:05:00.000Z',
+    ...overrides,
+  };
+}
+
 function createChatMemoryServiceDouble(): ChatMemoryService {
   return {
     createChat: vi.fn(() => createChatRecord()),
@@ -95,6 +110,7 @@ function createChatMemoryServiceDouble(): ChatMemoryService {
     getOrCreateCurrentChat: vi.fn(() => createChatRecord()),
     listChats: vi.fn(() => [createChatRecord()]),
     listMessages: vi.fn(() => [createChatMessageRecord()]),
+    getChatSummary: vi.fn(() => createChatSummaryRecord()),
     appendMessage: vi.fn((request: AppendChatMessageRequest) =>
       createChatMessageRecord(request),
     ),
@@ -120,7 +136,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(16);
+    expect(mockHandle).toHaveBeenCalledTimes(17);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -154,42 +170,51 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       8,
+      'chatMemory:getSummary',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      9,
       'chatMemory:appendMessage',
       expect.any(Function),
     );
-    expect(mockHandle).toHaveBeenNthCalledWith(9, 'liveSession:create', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       10,
-      'liveSession:listByChat',
+      'liveSession:create',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       11,
-      'liveSession:update',
+      'liveSession:listByChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       12,
-      'liveSession:end',
+      'liveSession:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       13,
-      'settings:get',
+      'liveSession:end',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       14,
-      'settings:update',
+      'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       15,
-      'overlay:setHitRegions',
+      'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       16,
+      'overlay:setHitRegions',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      17,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
@@ -309,6 +334,9 @@ describe('registerIpcHandlers', () => {
     const listMessagesHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'chatMemory:listMessages',
     )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatMessageRecord[]>;
+    const getChatSummaryHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'chatMemory:getSummary',
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<DurableChatSummaryRecord | null>;
     const appendMessageHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'chatMemory:appendMessage',
     )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
@@ -330,6 +358,7 @@ describe('registerIpcHandlers', () => {
     );
     await expect(getChatHandler({}, '')).rejects.toThrow('Invalid chat id');
     await expect(listMessagesHandler({}, '')).rejects.toThrow('Invalid chat id');
+    await expect(getChatSummaryHandler({}, '')).rejects.toThrow('Invalid chat id');
     await expect(
       appendMessageHandler({}, { chatId: 'chat-1', role: 'system', contentText: 'bad' }),
     ).rejects.toThrow('Invalid append chat message payload');
@@ -352,6 +381,7 @@ describe('registerIpcHandlers', () => {
     await expect(listMessagesHandler({}, 'chat-1')).resolves.toEqual([
       createChatMessageRecord(),
     ]);
+    await expect(getChatSummaryHandler({}, 'chat-1')).resolves.toEqual(createChatSummaryRecord());
     await expect(
       appendMessageHandler({}, { chatId: 'chat-1', role: 'assistant', contentText: 'Stored' }),
     ).resolves.toEqual(
@@ -384,6 +414,7 @@ describe('registerIpcHandlers', () => {
     expect(chatMemoryService.getChat).toHaveBeenCalledWith('chat-1');
     expect(chatMemoryService.getOrCreateCurrentChat).toHaveBeenCalledTimes(1);
     expect(chatMemoryService.listMessages).toHaveBeenCalledWith('chat-1');
+    expect(chatMemoryService.getChatSummary).toHaveBeenCalledWith('chat-1');
     expect(chatMemoryService.appendMessage).toHaveBeenCalledWith({
       chatId: 'chat-1',
       role: 'assistant',

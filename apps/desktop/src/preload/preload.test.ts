@@ -39,6 +39,7 @@ describe('preload bridge', () => {
       'getOrCreateCurrentChat',
       'listChats',
       'listChatMessages',
+      'getChatSummary',
       'appendChatMessage',
       'createLiveSession',
       'listLiveSessions',
@@ -58,6 +59,7 @@ describe('preload bridge', () => {
       getOrCreateCurrentChat: expect.any(Function),
       listChats: expect.any(Function),
       listChatMessages: expect.any(Function),
+      getChatSummary: expect.any(Function),
       appendChatMessage: expect.any(Function),
       createLiveSession: expect.any(Function),
       listLiveSessions: expect.any(Function),
@@ -141,6 +143,17 @@ describe('preload bridge', () => {
     ]);
     await bridge.listChatMessages('chat-1');
     expect(mockInvoke).toHaveBeenCalledWith('chatMemory:listMessages', 'chat-1');
+
+    mockInvoke.mockResolvedValueOnce({
+      chatId: 'chat-1',
+      schemaVersion: 1,
+      source: 'local-recent-history-v1',
+      summaryText: 'Compact continuity summary',
+      coveredThroughSequence: 3,
+      updatedAt: '2026-03-12T00:05:00.000Z',
+    });
+    await bridge.getChatSummary('chat-1');
+    expect(mockInvoke).toHaveBeenCalledWith('chatMemory:getSummary', 'chat-1');
 
     mockInvoke.mockResolvedValueOnce({
       id: 'message-1',
