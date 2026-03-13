@@ -1,4 +1,7 @@
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type {
+  CreateEphemeralTokenResponse,
+  RehydrationPacket,
+} from '@livepair/shared-types';
 import type { VoiceToolCall, VoiceToolResponse } from '../voice/voice.types';
 import type { LiveConnectMode } from '../core/session.types';
 
@@ -87,6 +90,7 @@ export type DesktopSessionConnectParams = {
   token: CreateEphemeralTokenResponse;
   mode: LiveConnectMode;
   resumeHandle?: string | undefined;
+  rehydrationPacket?: RehydrationPacket | undefined;
   history?: LiveSessionHistoryTurn[] | undefined;
 };
 
