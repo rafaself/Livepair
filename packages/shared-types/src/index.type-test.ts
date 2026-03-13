@@ -102,6 +102,21 @@ type _LiveSessionRecordShape = Assert<
       restorable: boolean;
       invalidatedAt: string | null;
       invalidationReason: string | null;
+      summarySnapshot?: string | null;
+      contextStateSnapshot?: {
+        task: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+        context: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+      } | null;
     }
   >
 >;
@@ -135,6 +150,21 @@ type _UpdateLiveSessionRequestShape = Assert<
       restorable?: boolean;
       invalidatedAt?: string | null;
       invalidationReason?: string | null;
+      summarySnapshot?: string | null;
+      contextStateSnapshot?: {
+        task: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+        context: {
+          entries: Array<{
+            key: string;
+            value: string;
+          }>;
+        };
+      } | null;
     }
   >
 >;

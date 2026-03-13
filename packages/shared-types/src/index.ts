@@ -83,6 +83,8 @@ export interface LiveSessionRecord {
   restorable: boolean;
   invalidatedAt: string | null;
   invalidationReason: string | null;
+  summarySnapshot?: string | null;
+  contextStateSnapshot?: RehydrationPacketContextState | null;
 }
 
 export interface CreateLiveSessionRequest {
@@ -97,6 +99,8 @@ export interface UpdateLiveSessionRequest {
   restorable?: boolean;
   invalidatedAt?: string | null;
   invalidationReason?: string | null;
+  summarySnapshot?: string | null;
+  contextStateSnapshot?: RehydrationPacketContextState | null;
 }
 
 export interface EndLiveSessionRequest {
