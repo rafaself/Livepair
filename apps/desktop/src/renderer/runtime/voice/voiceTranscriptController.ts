@@ -1,13 +1,14 @@
 import { normalizeTranscriptText } from './voiceTranscript';
 import type { ConversationContext } from '../conversation/conversationTurnManager';
 import {
+  appendUserTurn,
   clearCurrentVoiceTurns,
-  finalizeCurrentVoiceAssistantTurn,
-  finalizeCurrentVoiceUserTurn,
-  getConversationTurn,
-  interruptCurrentVoiceAssistantTurn,
-  upsertCurrentVoiceAssistantTurn,
-  upsertCurrentVoiceUserTurn,
+  finalizeCurrentVoiceAssistantTranscriptArtifact,
+  finalizeCurrentVoiceUserTranscriptArtifact,
+  getTranscriptArtifact,
+  interruptCurrentVoiceAssistantTranscriptArtifact,
+  upsertCurrentVoiceAssistantTranscriptArtifact,
+  upsertCurrentVoiceUserTranscriptArtifact,
 } from '../conversation/conversationTurnManager';
 
 type SessionStoreApi = {
@@ -33,7 +34,9 @@ export type VoiceTranscriptController = {
   ensureAssistantTurn: () => void;
   finalizeCurrentVoiceTurns: (
     finalizeReason: 'completed' | 'interrupted',
+    options?: { assistantTurnId?: string | null },
   ) => void;
+  attachCurrentAssistantTurn: (turnId: string | null) => void;
   queueMixedModeAssistantReply: () => void;
   clearQueuedMixedModeAssistantReply: () => void;
   resetTurnTranscriptState: () => void;
@@ -67,20 +70,20 @@ export function createVoiceTranscriptController(
     return previous === incoming;
   };
 
-  const currentAssistantTurn = () => {
-    if (!conversationCtx.currentVoiceAssistantTurnId) {
+  const currentAssistantArtifact = () => {
+    if (!conversationCtx.currentVoiceAssistantArtifactId) {
       return null;
     }
 
-    return getConversationTurn(conversationCtx, conversationCtx.currentVoiceAssistantTurnId) ?? null;
+    return getTranscriptArtifact(conversationCtx, conversationCtx.currentVoiceAssistantArtifactId) ?? null;
   };
 
-  const currentUserTurn = () => {
-    if (!conversationCtx.currentVoiceUserTurnId) {
+  const currentUserArtifact = () => {
+    if (!conversationCtx.currentVoiceUserArtifactId) {
       return null;
     }
 
-    return getConversationTurn(conversationCtx, conversationCtx.currentVoiceUserTurnId) ?? null;
+    return getTranscriptArtifact(conversationCtx, conversationCtx.currentVoiceUserArtifactId) ?? null;
   };
 
   const consumeQueuedMixedModeAssistantReply = (): void => {
@@ -88,18 +91,18 @@ export function createVoiceTranscriptController(
       return;
     }
 
-    const activeAssistantTurn = currentAssistantTurn();
+    const activeAssistantArtifact = currentAssistantArtifact();
 
-    if (activeAssistantTurn?.state === 'streaming') {
+    if (activeAssistantArtifact?.state === 'streaming') {
       return;
     }
 
     conversationCtx.hasQueuedMixedModeAssistantReply = false;
-    conversationCtx.currentVoiceAssistantTurnId = null;
+    conversationCtx.currentVoiceAssistantArtifactId = null;
 
-    const activeUserTurn = currentUserTurn();
-    if (!activeUserTurn || activeUserTurn.state !== 'streaming') {
-      conversationCtx.currentVoiceUserTurnId = null;
+    const activeUserArtifact = currentUserArtifact();
+    if (!activeUserArtifact || activeUserArtifact.state !== 'streaming') {
+      conversationCtx.currentVoiceUserArtifactId = null;
     }
 
     settledTurnReason = null;
@@ -152,16 +155,16 @@ export function createVoiceTranscriptController(
     });
 
     if (role === 'user') {
-      upsertCurrentVoiceUserTurn(conversationCtx, nextText, isFinal, preserveSettledState ?? undefined);
-
-      if (preserveSettledState !== null) {
-        finalizeCurrentVoiceUserTurn(conversationCtx);
-      }
-
+      upsertCurrentVoiceUserTranscriptArtifact(
+        conversationCtx,
+        nextText,
+        isFinal,
+        preserveSettledState ?? undefined,
+      );
       return;
     }
 
-    upsertCurrentVoiceAssistantTurn(
+    upsertCurrentVoiceAssistantTranscriptArtifact(
       conversationCtx,
       nextText,
       isFinal,
@@ -169,18 +172,13 @@ export function createVoiceTranscriptController(
     );
 
     if (preserveSettledState === 'interrupted') {
-      interruptCurrentVoiceAssistantTurn(conversationCtx);
-      return;
-    }
-
-    if (preserveSettledState === 'completed') {
-      finalizeCurrentVoiceAssistantTurn(conversationCtx);
+      interruptCurrentVoiceAssistantTranscriptArtifact(conversationCtx);
     }
   };
 
   const ensureAssistantTurn = (): void => {
     consumeQueuedMixedModeAssistantReply();
-    upsertCurrentVoiceAssistantTurn(
+    upsertCurrentVoiceAssistantTranscriptArtifact(
       conversationCtx,
       store.getState().currentVoiceTranscript.assistant.text,
       store.getState().currentVoiceTranscript.assistant.isFinal,
@@ -189,26 +187,50 @@ export function createVoiceTranscriptController(
 
   const finalizeCurrentVoiceTurns = (
     finalizeReason: 'completed' | 'interrupted',
+    finalizeOptions: { assistantTurnId?: string | null } = {},
   ): void => {
+    if (settledTurnReason === finalizeReason) {
+      return;
+    }
+
     if (settledTurnReason === 'interrupted' && finalizeReason === 'completed') {
       return;
     }
 
-    const finalizedUserTurnId = finalizeCurrentVoiceUserTurn(conversationCtx);
+    const currentTranscript = store.getState().currentVoiceTranscript;
+    const userTranscriptText = currentTranscript.user.text.trim();
+    const activeUserArtifact = currentUserArtifact();
+    let finalizedUserTurnId: string | null = null;
 
-    if (finalizeReason === 'interrupted') {
-      interruptCurrentVoiceAssistantTurn(conversationCtx);
+    if (
+      activeUserArtifact
+      && activeUserArtifact.attachedTurnId === undefined
+      && userTranscriptText.length > 0
+    ) {
+      finalizedUserTurnId = appendUserTurn(conversationCtx, userTranscriptText, {
+        source: 'voice',
+        ...(currentTranscript.user.isFinal !== undefined
+          ? { transcriptFinal: currentTranscript.user.isFinal }
+          : {}),
+      });
     }
 
-    const finalizedAssistantTurnId = finalizeCurrentVoiceAssistantTurn(conversationCtx);
+    finalizeCurrentVoiceUserTranscriptArtifact(conversationCtx, finalizedUserTurnId ?? undefined);
+
+    if (finalizeReason === 'interrupted') {
+      interruptCurrentVoiceAssistantTranscriptArtifact(conversationCtx);
+    }
+
+    finalizeCurrentVoiceAssistantTranscriptArtifact(conversationCtx, {
+      interrupted: finalizeReason === 'interrupted',
+      ...(finalizeReason === 'completed' && finalizeOptions.assistantTurnId
+        ? { attachedTurnId: finalizeOptions.assistantTurnId }
+        : {}),
+    });
     settledTurnReason = finalizeReason;
 
     if (finalizedUserTurnId) {
       options.onConversationTurnSettled?.(finalizedUserTurnId);
-    }
-
-    if (finalizedAssistantTurnId) {
-      options.onConversationTurnSettled?.(finalizedAssistantTurnId);
     }
   };
 
@@ -222,25 +244,33 @@ export function createVoiceTranscriptController(
   };
 
   const resetTurnTranscriptState = (): void => {
-    const activeUserTurn = currentUserTurn();
-    const activeAssistantTurn = currentAssistantTurn();
+    const currentTranscript = store.getState().currentVoiceTranscript;
+    const activeUserArtifact = currentUserArtifact();
+    const activeAssistantArtifact = currentAssistantArtifact();
 
-    if (activeUserTurn?.state === 'streaming') {
-      const finalizedUserTurnId = finalizeCurrentVoiceUserTurn(conversationCtx);
-      if (finalizedUserTurnId) {
-        options.onConversationTurnSettled?.(finalizedUserTurnId);
-      }
+    if (
+      activeUserArtifact?.state === 'streaming'
+      && activeUserArtifact.attachedTurnId === undefined
+      && currentTranscript.user.text.trim().length > 0
+    ) {
+      const finalizedUserTurnId = appendUserTurn(conversationCtx, currentTranscript.user.text.trim(), {
+        source: 'voice',
+        ...(currentTranscript.user.isFinal !== undefined
+          ? { transcriptFinal: currentTranscript.user.isFinal }
+          : {}),
+      });
+      finalizeCurrentVoiceUserTranscriptArtifact(conversationCtx, finalizedUserTurnId);
+      options.onConversationTurnSettled?.(finalizedUserTurnId);
     }
 
-    if (activeAssistantTurn?.state === 'streaming') {
-      if (activeAssistantTurn.content.trim().length > 0) {
-        interruptCurrentVoiceAssistantTurn(conversationCtx);
+    if (activeAssistantArtifact?.state === 'streaming') {
+      if (activeAssistantArtifact.content.trim().length > 0) {
+        interruptCurrentVoiceAssistantTranscriptArtifact(conversationCtx);
       }
 
-      const finalizedAssistantTurnId = finalizeCurrentVoiceAssistantTurn(conversationCtx);
-      if (finalizedAssistantTurnId) {
-        options.onConversationTurnSettled?.(finalizedAssistantTurnId);
-      }
+      finalizeCurrentVoiceAssistantTranscriptArtifact(conversationCtx, {
+        interrupted: activeAssistantArtifact.content.trim().length > 0,
+      });
     }
 
     settledTurnReason = null;
@@ -252,10 +282,21 @@ export function createVoiceTranscriptController(
     settledTurnReason = null;
   };
 
+  const attachCurrentAssistantTurn = (turnId: string | null): void => {
+    if (!turnId) {
+      return;
+    }
+
+    finalizeCurrentVoiceAssistantTranscriptArtifact(conversationCtx, {
+      attachedTurnId: turnId,
+    });
+  };
+
   return {
     applyTranscriptUpdate,
     ensureAssistantTurn,
     finalizeCurrentVoiceTurns,
+    attachCurrentAssistantTurn,
     queueMixedModeAssistantReply,
     clearQueuedMixedModeAssistantReply,
     resetTurnTranscriptState,
