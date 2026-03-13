@@ -63,7 +63,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     );
   });
 
-  it('starts text mode through backend health only and does not bootstrap Live', async () => {
+  it('ignores standalone text session start requests and keeps the runtime inactive', async () => {
     const textChat = createTextChatHarness();
     const requestSessionToken = vi.fn();
     const createTransport = vi.fn(() => createUnusedTransport());
@@ -83,22 +83,25 @@ describe('createDesktopSessionController – lifecycle', () => {
 
     expect(requestSessionToken).not.toHaveBeenCalled();
     expect(createTransport).not.toHaveBeenCalled();
+    expect(textChat.startTextChatStream).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        textSessionLifecycle: expect.objectContaining({ status: 'ready' }),
-        sessionPhase: 'active',
-        backendState: 'connected',
+        currentMode: 'inactive',
+        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+        sessionPhase: 'idle',
+        backendState: 'idle',
         tokenRequestState: 'idle',
-        transportState: 'connected',
-        activeTransport: 'backend-text',
+        transportState: 'idle',
+        activeTransport: null,
       }),
     );
-    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('disconnected');
     expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
-    expect(logger.onSessionEvent).toHaveBeenCalledWith({
-      type: 'session.start.requested',
-      transport: 'backend-text',
-    });
+    expect(logger.onSessionEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'session.start.requested',
+      }),
+    );
   });
 
   it('bootstraps a Gemini Live voice session with an ephemeral token', async () => {
@@ -241,7 +244,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     });
   });
 
-  it('fails fast when backend health prevents text session start', async () => {
+  it('does not promote backend failure state when typed input is blocked outside Live', async () => {
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
@@ -259,9 +262,10 @@ describe('createDesktopSessionController – lifecycle', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        textSessionLifecycle: expect.objectContaining({ status: 'error' }),
-        backendState: 'failed',
-        lastRuntimeError: 'Backend health check failed',
+        currentMode: 'inactive',
+        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+        backendState: 'idle',
+        lastRuntimeError: null,
         conversationTurns: [],
       }),
     );
@@ -283,7 +287,7 @@ describe('createDesktopSessionController – lifecycle', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        currentMode: 'text',
+        currentMode: 'inactive',
         speechLifecycle: expect.objectContaining({
           status: 'off',
         }),
@@ -317,7 +321,7 @@ describe('createDesktopSessionController – lifecycle', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        currentMode: 'text',
+        currentMode: 'inactive',
         speechLifecycle: expect.objectContaining({
           status: 'off',
         }),
@@ -327,7 +331,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     );
   });
 
-  it('cancels an active text stream when the session ends', async () => {
+  it('ends an inactive runtime without creating standalone text activity', async () => {
     const textChat = createTextChatHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -340,12 +344,12 @@ describe('createDesktopSessionController – lifecycle', () => {
       createTransport: vi.fn(() => createUnusedTransport()),
     });
 
-    await controller.submitTextTurn('Summarize the current screen');
     await controller.endSession();
 
-    expect(textChat.cancel).toHaveBeenCalledTimes(1);
+    expect(textChat.startTextChatStream).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        currentMode: 'inactive',
         textSessionLifecycle: expect.objectContaining({ status: 'disconnected' }),
         sessionPhase: 'idle',
         backendState: 'idle',

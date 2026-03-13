@@ -9,7 +9,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="disconnected"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="disconnected"
         canSubmitText={true}
@@ -51,7 +51,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="ready"
         canSubmitText={true}
@@ -77,7 +77,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="error"
         canSubmitText={true}
@@ -114,7 +114,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="error"
         canSubmitText={true}
@@ -144,7 +144,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="disconnected"
-        currentMode="text"
+        currentMode="inactive"
         textSessionStatus="disconnected"
         canSubmitText={true}
         turns={[]}
@@ -389,7 +389,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="receiving"
         canSubmitText={false}

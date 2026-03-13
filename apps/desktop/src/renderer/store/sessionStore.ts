@@ -188,7 +188,7 @@ function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
 function buildDefaultSessionState(): SessionStoreData {
   return {
     activeChatId: null,
-    currentMode: 'text',
+    currentMode: 'inactive',
     ...withDerivedLifecycleFields(createTextSessionLifecycle()),
     assistantActivity: 'idle',
     backendState: 'idle',

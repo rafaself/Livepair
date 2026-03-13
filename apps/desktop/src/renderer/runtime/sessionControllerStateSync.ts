@@ -112,7 +112,7 @@ export function createSessionControllerStateSync({
   };
 
   const resolveProductMode = (mode: SessionMode): ProductMode => {
-    return mode === 'voice' ? 'speech' : 'text';
+    return mode === 'voice' ? 'speech' : 'inactive';
   };
 
   const setVoiceSessionStatus = (status: VoiceSessionStatus): void => {

@@ -1,17 +1,11 @@
 import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
-import {
-  isSessionActiveLifecycle,
-  isTextSessionConnectable,
-} from './text/textSessionLifecycle';
 import { asErrorDetail } from './core/runtimeUtils';
 import type {
   SessionControllerEvent,
   SessionMode,
 } from './core/session.types';
 import type { DesktopSession } from './transport/transport.types';
-import type { TransportKind } from './transport/transport.types';
 import type { SessionStoreApi } from './core/sessionControllerTypes';
-import type { TextSessionStatus } from './text/text.types';
 import type {
   VoiceSessionDurabilityState,
   VoiceSessionStatus,
@@ -23,16 +17,9 @@ type SessionControllerLifecycleArgs = {
   store: SessionStoreApi;
   beginSessionOperation: () => number;
   isCurrentSessionOperation: (operationId: number) => boolean;
-  ensureExclusiveMode: (targetMode: 'text' | 'speech', operationId: number) => Promise<void>;
-  resolveProductMode: (mode: SessionMode) => 'text' | 'speech';
-  currentProductMode: () => 'text' | 'speech';
+  ensureExclusiveMode: (targetMode: 'inactive' | 'speech', operationId: number) => Promise<void>;
+  resolveProductMode: (mode: SessionMode) => 'inactive' | 'speech';
   currentVoiceSessionStatus: () => VoiceSessionStatus;
-  currentTextSessionStatus: () => TextSessionStatus;
-  hasSpeechRuntimeActivity: () => boolean;
-  resetRuntimeState: (
-    textSessionStatus?: TextSessionStatus,
-    options?: { preserveConversationTurns?: boolean },
-  ) => void;
   recordSessionEvent: (event: SessionControllerEvent) => void;
   applySpeechLifecycleEvent: (event: { type: string }) => void;
   setVoiceCaptureState: (state: 'idle') => void;
@@ -63,10 +50,7 @@ type SessionControllerLifecycleArgs = {
   startVoiceCapture: () => Promise<boolean>;
   setVoiceErrorState: (detail: string) => Promise<void>;
   checkBackendHealth: () => Promise<boolean>;
-  textBootstrapStarted: () => void;
   textRuntimeFailed: () => void;
-  textTransportConnected: () => void;
-  textAdapterKey: TransportKind;
   logRuntimeDiagnostic: (
     scope: 'session' | 'voice-session',
     message: string,
@@ -80,11 +64,7 @@ export function createSessionControllerLifecycle({
   isCurrentSessionOperation,
   ensureExclusiveMode,
   resolveProductMode,
-  currentProductMode,
   currentVoiceSessionStatus,
-  currentTextSessionStatus,
-  hasSpeechRuntimeActivity,
-  resetRuntimeState,
   recordSessionEvent,
   applySpeechLifecycleEvent,
   setVoiceCaptureState,
@@ -106,10 +86,7 @@ export function createSessionControllerLifecycle({
   startVoiceCapture,
   setVoiceErrorState,
   checkBackendHealth,
-  textBootstrapStarted,
   textRuntimeFailed,
-  textTransportConnected,
-  textAdapterKey,
   logRuntimeDiagnostic,
 }: SessionControllerLifecycleArgs) {
   const performBackendHealthCheck = async (operationId?: number): Promise<boolean> => {
@@ -158,118 +135,10 @@ export function createSessionControllerLifecycle({
   }): Promise<void> => {
     const targetMode = resolveProductMode(mode);
 
-    if (mode === 'voice') {
-      const operationId = beginSessionOperation();
-      await ensureExclusiveMode(targetMode, operationId);
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      if (currentVoiceSessionStatus() !== 'disconnected' && currentVoiceSessionStatus() !== 'error') {
-        return;
-      }
-
-      applySpeechLifecycleEvent({ type: 'session.start.requested' });
-      setVoiceCaptureState('idle');
-      setVoiceCaptureDiagnostics({ lastError: null });
-      setVoicePlaybackState('idle');
-      updateVoicePlaybackDiagnostics({
-        chunkCount: 0,
-        queueDepth: 0,
-        sampleRateHz: null,
-        selectedOutputDeviceId: selectedOutputDeviceId(),
-        lastError: null,
+    if (mode !== 'voice') {
+      logRuntimeDiagnostic('session', 'ignored standalone text session start request', {
+        mode,
       });
-      setVoiceSessionStatus('connecting');
-      resetVoiceSessionResumption();
-      resetVoiceSessionDurability();
-      resetVoiceToolState();
-      recordSessionEvent({
-        type: 'session.start.requested',
-        transport: LIVE_ADAPTER_KEY,
-      });
-      logRuntimeDiagnostic('voice-session', 'start requested', {
-        transport: LIVE_ADAPTER_KEY,
-      });
-      const historyPromise = buildLiveSessionHistoryFromCurrentChat();
-
-      const token = await requestVoiceSessionToken(operationId);
-
-      if (!token || !isCurrentSessionOperation(operationId)) {
-        void historyPromise.catch(() => undefined);
-        return;
-      }
-
-      let history: LiveSessionHistoryTurn[];
-
-      try {
-        history = await historyPromise;
-      } catch (error) {
-        if (!isCurrentSessionOperation(operationId)) {
-          return;
-        }
-
-        await setVoiceErrorState(asErrorDetail(error, 'Failed to load chat history'));
-        return;
-      }
-
-      setCachedVoiceToken(token);
-      syncVoiceDurabilityState(token);
-      setVoiceResumptionInFlight(false);
-      resetVoiceSessionResumption();
-
-      let transport: DesktopSession;
-      try {
-        transport = createTransport();
-      } catch (error) {
-        if (!isCurrentSessionOperation(operationId)) {
-          return;
-        }
-
-        await setVoiceErrorState(asErrorDetail(error, 'Failed to prepare voice session'));
-        return;
-      }
-
-      activateVoiceTransport(transport);
-
-      try {
-        await transport.connect({
-          token,
-          mode: 'voice',
-          ...(history.length > 0 ? { history } : {}),
-        });
-
-        if (!isCurrentSessionOperation(operationId)) {
-          return;
-        }
-
-        const didStartVoiceCapture = await startVoiceCapture();
-
-        if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
-          return;
-        }
-
-        applySpeechLifecycleEvent({ type: 'session.ready' });
-      } catch (error) {
-        if (!isCurrentSessionOperation(operationId)) {
-          return;
-        }
-
-        await setVoiceErrorState(asErrorDetail(error, 'Failed to connect voice session'));
-      }
-
-      return;
-    }
-
-    const status = currentTextSessionStatus();
-
-    if (
-      currentProductMode() === 'text' &&
-      !hasSpeechRuntimeActivity() &&
-      !isTextSessionConnectable(status) &&
-      isSessionActiveLifecycle(status)
-    ) {
       return;
     }
 
@@ -280,29 +149,98 @@ export function createSessionControllerLifecycle({
       return;
     }
 
-    resetRuntimeState('idle', {
-      preserveConversationTurns: store.getState().conversationTurns.length > 0,
-    });
-    textBootstrapStarted();
-    recordSessionEvent({
-      type: 'session.start.requested',
-      transport: textAdapterKey,
-    });
-    logRuntimeDiagnostic('session', 'start requested', {
-      mode,
-      transport: textAdapterKey,
-    });
-
-    const isHealthy = await performBackendHealthCheck(operationId);
-
-    if (!isHealthy || !isCurrentSessionOperation(operationId)) {
+    if (currentVoiceSessionStatus() !== 'disconnected' && currentVoiceSessionStatus() !== 'error') {
       return;
     }
 
-    textTransportConnected();
-    store.getState().setActiveTransport(textAdapterKey);
-    store.getState().setAssistantActivity('idle');
-    store.getState().setLastRuntimeError(null);
+    applySpeechLifecycleEvent({ type: 'session.start.requested' });
+    setVoiceCaptureState('idle');
+    setVoiceCaptureDiagnostics({ lastError: null });
+    setVoicePlaybackState('idle');
+    updateVoicePlaybackDiagnostics({
+      chunkCount: 0,
+      queueDepth: 0,
+      sampleRateHz: null,
+      selectedOutputDeviceId: selectedOutputDeviceId(),
+      lastError: null,
+    });
+    setVoiceSessionStatus('connecting');
+    resetVoiceSessionResumption();
+    resetVoiceSessionDurability();
+    resetVoiceToolState();
+    recordSessionEvent({
+      type: 'session.start.requested',
+      transport: LIVE_ADAPTER_KEY,
+    });
+    logRuntimeDiagnostic('voice-session', 'start requested', {
+      transport: LIVE_ADAPTER_KEY,
+    });
+    const historyPromise = buildLiveSessionHistoryFromCurrentChat();
+
+    const token = await requestVoiceSessionToken(operationId);
+
+    if (!token || !isCurrentSessionOperation(operationId)) {
+      void historyPromise.catch(() => undefined);
+      return;
+    }
+
+    let history: LiveSessionHistoryTurn[];
+
+    try {
+      history = await historyPromise;
+    } catch (error) {
+      if (!isCurrentSessionOperation(operationId)) {
+        return;
+      }
+
+      await setVoiceErrorState(asErrorDetail(error, 'Failed to load chat history'));
+      return;
+    }
+
+    setCachedVoiceToken(token);
+    syncVoiceDurabilityState(token);
+    setVoiceResumptionInFlight(false);
+    resetVoiceSessionResumption();
+
+    let transport: DesktopSession;
+    try {
+      transport = createTransport();
+    } catch (error) {
+      if (!isCurrentSessionOperation(operationId)) {
+        return;
+      }
+
+      await setVoiceErrorState(asErrorDetail(error, 'Failed to prepare voice session'));
+      return;
+    }
+
+    activateVoiceTransport(transport);
+
+    try {
+      await transport.connect({
+        token,
+        mode: 'voice',
+        ...(history.length > 0 ? { history } : {}),
+      });
+
+      if (!isCurrentSessionOperation(operationId)) {
+        return;
+      }
+
+      const didStartVoiceCapture = await startVoiceCapture();
+
+      if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
+        return;
+      }
+
+      applySpeechLifecycleEvent({ type: 'session.ready' });
+    } catch (error) {
+      if (!isCurrentSessionOperation(operationId)) {
+        return;
+      }
+
+      await setVoiceErrorState(asErrorDetail(error, 'Failed to connect voice session'));
+    }
   };
 
   return {

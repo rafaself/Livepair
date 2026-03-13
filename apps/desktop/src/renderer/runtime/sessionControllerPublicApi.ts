@@ -158,7 +158,7 @@ export function createSessionControllerPublicApi({
         }
       }
 
-      return textChatCtrl.submitTurn(trimmedText);
+      return false;
     },
     subscribeToVoiceChunks: (listener) => {
       return voiceChunkCtrl.addChunkListener(listener);

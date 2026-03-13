@@ -90,7 +90,6 @@ export function useSessionRuntime() {
     assistantState,
     currentMode,
     activeTransport,
-    isTextMode: currentMode === 'text',
     isSpeechMode: currentMode === 'speech',
     backendState,
     backendIndicatorState,

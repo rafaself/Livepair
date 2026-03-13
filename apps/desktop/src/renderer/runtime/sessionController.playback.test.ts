@@ -131,7 +131,7 @@ describe('createDesktopSessionController – playback', () => {
     await vi.waitFor(() => {
       expect(useSessionStore.getState()).toEqual(
         expect.objectContaining({
-          currentMode: 'text',
+          currentMode: 'inactive',
           speechLifecycle: expect.objectContaining({
             status: 'off',
           }),

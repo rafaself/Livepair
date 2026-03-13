@@ -140,7 +140,7 @@ describe('createDesktopSessionController – speech lifecycle', () => {
     expect(voiceCapture.stop).toHaveBeenCalledTimes(1);
     expect(voiceTransport.disconnect).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
-    expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().currentMode).toBe('inactive');
 
     vi.useRealTimers();
   });

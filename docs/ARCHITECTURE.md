@@ -20,14 +20,14 @@ User-facing product modes:
 Internal runtime terminology:
 
 - `voice` is the transport/session term used for the Gemini Live speech-mode path
-- `currentMode` is the product-level source of truth for `text` vs `speech`
+- `currentMode` is the product-level source of truth for inactive live-first state vs `speech`
 - `speechLifecycle` is the product-level source of truth for speech-session state once speech mode is active
 
 Current behavior:
 
-- `text` mode is backend-mediated through `POST /session/chat` and Gemini text models.
+- When no Live session is active, the desktop stays in an explicit inactive container state and keeps canonical chat history visible.
 - `speech` mode requests an ephemeral token from `POST /session/token`, then connects directly from the desktop to Gemini Live.
-- Typed input remains usable while speech mode is active, but it travels over the active Live session rather than the backend text endpoint.
+- Typed input remains usable only while speech mode is active, and it travels over the active Live session rather than the backend text endpoint.
 
 ## 2. Current Implementation Snapshot
 

@@ -382,12 +382,7 @@ export function createDesktopSessionController(
     isCurrentSessionOperation: (operationId) => runtimeRef.current!.isCurrentSessionOperation(operationId),
     ensureExclusiveMode: (targetMode, operationId) => ensureExclusiveMode(targetMode, operationId),
     resolveProductMode: (mode) => runtimeRef.current!.resolveProductMode(mode),
-    currentProductMode: () => runtimeRef.current!.currentProductMode(),
     currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
-    currentTextSessionStatus: () => textChatCtrl.currentStatus(),
-    hasSpeechRuntimeActivity: () => hasSpeechRuntimeActivity(),
-    resetRuntimeState: (textSessionStatus, options) =>
-      runtimeRef.current!.resetRuntimeState(textSessionStatus, options),
     recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
     applySpeechLifecycleEvent: (event) => {
       runtimeRef.current!.applySpeechLifecycleEvent(event as SpeechSessionLifecycleEvent);
@@ -429,16 +424,9 @@ export function createDesktopSessionController(
     startVoiceCapture: () => voiceChunkCtrl.startCapture({ shutdownOnFailure: true }),
     setVoiceErrorState: (detail) => settleVoiceErrorState(detail),
     checkBackendHealth: () => dependencies.checkBackendHealth(),
-    textBootstrapStarted: () => {
-      textChatCtrl.applyLifecycleEvent({ type: 'bootstrap.started' });
-    },
     textRuntimeFailed: () => {
       textChatCtrl.applyLifecycleEvent({ type: 'runtime.failed' });
     },
-    textTransportConnected: () => {
-      textChatCtrl.applyLifecycleEvent({ type: 'transport.connected' });
-    },
-    textAdapterKey: textChatCtrl.TEXT_CHAT_ADAPTER_KEY,
     logRuntimeDiagnostic,
   });
   performBackendHealthCheck = lifecycle.performBackendHealthCheck;
@@ -491,7 +479,7 @@ export function createDesktopSessionController(
       preserveLastRuntimeError,
       preserveVoiceRuntimeDiagnostics,
     });
-    runtimeRef.current!.setCurrentMode('text');
+    runtimeRef.current!.setCurrentMode('inactive');
 
     if (recordEvents) {
       runtimeRef.current!.recordSessionEvent({ type: 'session.ended' });
@@ -512,7 +500,7 @@ export function createDesktopSessionController(
       textSessionStatus: 'disconnected',
       preserveConversationTurns: true,
     });
-    runtimeRef.current!.setCurrentMode('text');
+    runtimeRef.current!.setCurrentMode('inactive');
 
     if (recordEvents) {
       runtimeRef.current!.recordSessionEvent({ type: 'session.ended' });

@@ -14,7 +14,7 @@ type SessionControllerErrorHandlingArgs = {
   setLastRuntimeError: (detail: string) => void;
   setAssistantActivity: (activity: 'idle') => void;
   setActiveTransport: (transport: null) => void;
-  setCurrentMode: (mode: 'text') => void;
+  setCurrentMode: (mode: 'inactive') => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
   getVoiceSessionResumptionStatus: () => string;
   setVoiceSessionResumption: (patch: {
@@ -75,7 +75,7 @@ export function createSessionControllerErrorHandling({
 
     setVoiceSessionStatus('error');
     setLastRuntimeError(detail);
-    setCurrentMode('text');
+    setCurrentMode('inactive');
     setVoiceToolState({
       status: 'toolError',
       lastError: detail,

@@ -56,7 +56,7 @@ export function createControlGatingSnapshot(
   overrides: Partial<ControlGatingSnapshot> = {},
 ): ControlGatingSnapshot {
   return {
-    currentMode: 'text',
+    currentMode: 'inactive',
     speechLifecycleStatus: 'off',
     textSessionStatus: 'idle',
     activeTransport: null,

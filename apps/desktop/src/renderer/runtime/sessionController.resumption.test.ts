@@ -206,7 +206,7 @@ describe('createDesktopSessionController – resumption', () => {
       newSessionExpireTime: '2026-03-09T12:00:20.000Z',
       lastDetail: 'token refresh failed',
     });
-    expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().currentMode).toBe('inactive');
     expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
     expect(useSessionStore.getState().lastRuntimeError).toBe('token refresh failed');
 
@@ -277,7 +277,7 @@ describe('createDesktopSessionController – resumption', () => {
       newSessionExpireTime: '2026-03-09T12:01:30.000Z',
       lastDetail: 'resume rejected',
     });
-    expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().currentMode).toBe('inactive');
     expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
     expect(useSessionStore.getState().lastRuntimeError).toBe('resume rejected');
 
