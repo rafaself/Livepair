@@ -6,7 +6,6 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import {
   createVoiceTransportHarness,
   createVoicePlaybackHarness,
-  createTextChatHarness,
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – playback', () => {
@@ -34,7 +33,6 @@ describe('createDesktopSessionController – playback', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -94,7 +92,6 @@ describe('createDesktopSessionController – playback', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -131,7 +128,7 @@ describe('createDesktopSessionController – playback', () => {
     await vi.waitFor(() => {
       expect(useSessionStore.getState()).toEqual(
         expect.objectContaining({
-          currentMode: 'text',
+          currentMode: 'inactive',
           speechLifecycle: expect.objectContaining({
             status: 'off',
           }),
@@ -152,7 +149,6 @@ describe('createDesktopSessionController – playback', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',

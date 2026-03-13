@@ -36,6 +36,7 @@ import type {
 } from '../runtime/voice/voice.types';
 import type {
   ConversationTurnModel,
+  TranscriptArtifactModel,
 } from '../runtime/conversation/conversation.types';
 import type {
   ScreenCaptureDiagnostics,
@@ -63,6 +64,7 @@ type SessionStoreData = {
   textSessionLifecycle: TextSessionLifecycle;
   activeTransport: TransportKind | null;
   conversationTurns: ConversationTurnModel[];
+  transcriptArtifacts: TranscriptArtifactModel[];
   lastRuntimeError: string | null;
   lastDebugEvent: RuntimeDebugEvent | null;
   speechLifecycle: SpeechLifecycle;
@@ -100,6 +102,18 @@ export type SessionStoreState = SessionStoreData & {
   ) => void;
   removeConversationTurn: (turnId: string) => void;
   clearConversationTurns: () => void;
+  appendTranscriptArtifact: (artifact: TranscriptArtifactModel) => void;
+  updateTranscriptArtifact: (
+    artifactId: string,
+    patch: Partial<
+      Pick<
+        TranscriptArtifactModel,
+        'content' | 'state' | 'statusLabel' | 'transcriptFinal' | 'attachedTurnId'
+      >
+    >,
+  ) => void;
+  removeTranscriptArtifact: (artifactId: string) => void;
+  clearTranscriptArtifacts: () => void;
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
   setSpeechLifecycle: (speechLifecycle: SpeechLifecycle) => void;
@@ -129,6 +143,36 @@ export type SessionStoreState = SessionStoreData & {
   ) => void;
   reset: (overrides?: Partial<SessionStoreData>) => void;
 };
+
+type TimelineEntryWithOrdinal = {
+  timelineOrdinal?: number | undefined;
+};
+
+function getNextTimelineOrdinal(
+  state: Pick<SessionStoreData, 'conversationTurns' | 'transcriptArtifacts'>,
+): number {
+  return [...state.conversationTurns, ...state.transcriptArtifacts].reduce((maxOrdinal, entry) => {
+    return Math.max(maxOrdinal, entry.timelineOrdinal ?? 0);
+  }, 0) + 1;
+}
+
+function normalizeTimelineOrdinals<T extends TimelineEntryWithOrdinal>(
+  entries: readonly T[],
+): T[] {
+  let nextOrdinal = 0;
+
+  return entries.map((entry) => {
+    const timelineOrdinal = entry.timelineOrdinal ?? (nextOrdinal + 1);
+    nextOrdinal = Math.max(nextOrdinal, timelineOrdinal);
+
+    return entry.timelineOrdinal === timelineOrdinal
+      ? entry
+      : {
+          ...entry,
+          timelineOrdinal,
+        };
+  });
+}
 
 function withDerivedLifecycleFields(
   textSessionLifecycle: TextSessionLifecycle,
@@ -188,13 +232,14 @@ function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
 function buildDefaultSessionState(): SessionStoreData {
   return {
     activeChatId: null,
-    currentMode: 'text',
+    currentMode: 'inactive',
     ...withDerivedLifecycleFields(createTextSessionLifecycle()),
     assistantActivity: 'idle',
     backendState: 'idle',
     tokenRequestState: 'idle',
     activeTransport: null,
     conversationTurns: [],
+    transcriptArtifacts: [],
     lastRuntimeError: null,
     lastDebugEvent: null,
     speechLifecycle: createSpeechSessionLifecycle(),
@@ -285,9 +330,18 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   setActiveTransport: (activeTransport) => set({ activeTransport }),
   appendConversationTurn: (turn) =>
     set((state) => ({
-      conversationTurns: [...state.conversationTurns, turn],
+      conversationTurns: [
+        ...state.conversationTurns,
+        turn.timelineOrdinal === undefined
+          ? {
+              ...turn,
+              timelineOrdinal: getNextTimelineOrdinal(state),
+            }
+          : turn,
+      ],
     })),
-  replaceConversationTurns: (conversationTurns) => set({ conversationTurns }),
+  replaceConversationTurns: (conversationTurns) =>
+    set({ conversationTurns: normalizeTimelineOrdinals(conversationTurns) }),
   updateConversationTurn: (turnId, patch) =>
     set((state) => ({
       conversationTurns: state.conversationTurns.map((turn) =>
@@ -299,6 +353,29 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       conversationTurns: state.conversationTurns.filter((turn) => turn.id !== turnId),
     })),
   clearConversationTurns: () => set({ conversationTurns: [] }),
+  appendTranscriptArtifact: (artifact) =>
+    set((state) => ({
+      transcriptArtifacts: [
+        ...state.transcriptArtifacts,
+        artifact.timelineOrdinal === undefined
+          ? {
+              ...artifact,
+              timelineOrdinal: getNextTimelineOrdinal(state),
+            }
+          : artifact,
+      ],
+    })),
+  updateTranscriptArtifact: (artifactId, patch) =>
+    set((state) => ({
+      transcriptArtifacts: state.transcriptArtifacts.map((artifact) =>
+        artifact.id === artifactId ? { ...artifact, ...patch } : artifact,
+      ),
+    })),
+  removeTranscriptArtifact: (artifactId) =>
+    set((state) => ({
+      transcriptArtifacts: state.transcriptArtifacts.filter((artifact) => artifact.id !== artifactId),
+    })),
+  clearTranscriptArtifacts: () => set({ transcriptArtifacts: [] }),
   setLastRuntimeError: (lastRuntimeError) => set({ lastRuntimeError }),
   setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
   setSpeechLifecycle: (speechLifecycle) => set({ speechLifecycle }),
@@ -377,6 +454,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       tokenRequestState: 'idle',
       activeTransport: null,
       conversationTurns: options.preserveConversationTurns ? state.conversationTurns : [],
+      transcriptArtifacts: [],
       lastRuntimeError: null,
       lastDebugEvent: null,
       speechLifecycle: createSpeechSessionLifecycle(),

@@ -7,9 +7,9 @@ describe('sessionStore', () => {
     useSessionStore.getState().reset();
   });
 
-  it('defaults currentMode to text and lets it change independently from runtime diagnostics', () => {
+  it('defaults currentMode to inactive and lets it change independently from runtime diagnostics', () => {
     expect(useSessionStore.getState().activeChatId).toBeNull();
-    expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().currentMode).toBe('inactive');
     expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
 
     useSessionStore.getState().setCurrentMode('speech');
@@ -68,7 +68,7 @@ describe('sessionStore', () => {
         textSessionLifecycle: expect.objectContaining({
           status: 'idle',
         }),
-        currentMode: 'text',
+        currentMode: 'inactive',
         speechLifecycle: expect.objectContaining({
           status: 'off',
         }),

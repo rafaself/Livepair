@@ -1,5 +1,5 @@
 import type { LiveSessionEvent } from './transport.types';
-import type { SessionMode } from '../core/session.types';
+import type { LiveConnectMode } from '../core/session.types';
 import type { GeminiLiveSdkServerMessage } from './geminiLiveSdkClient';
 import type { GeminiLiveTransportState } from './geminiLiveTransportState';
 import {
@@ -58,7 +58,7 @@ function emitToolCalls(
 
 function emitAudioEvents(
   emit: (event: LiveSessionEvent) => void,
-  activeMode: SessionMode | null,
+  activeMode: LiveConnectMode | null,
   message: GeminiLiveSdkServerMessage,
 ): void {
   if (activeMode !== 'voice') {
@@ -139,12 +139,12 @@ export function handleGeminiLiveSdkMessage({
   const textChunk = message.text ?? '';
 
   if (textChunk.length > 0) {
-    state.pendingOutputText = `${state.pendingOutputText}${textChunk}`;
+    state.hasPendingTextResponse = true;
     emit({ type: 'text-delta', text: textChunk });
   }
 
   if (message.serverContent?.interrupted) {
-    state.pendingOutputText = '';
+    state.hasPendingTextResponse = false;
     emit({ type: 'interrupted' });
     return;
   }
@@ -176,11 +176,7 @@ export function handleGeminiLiveSdkMessage({
   }
 
   if (message.serverContent?.turnComplete) {
-    if (state.pendingOutputText.length > 0) {
-      emit({ type: 'text-message', text: state.pendingOutputText });
-      state.pendingOutputText = '';
-    }
-
+    state.hasPendingTextResponse = false;
     emit({ type: 'turn-complete' });
   }
 }

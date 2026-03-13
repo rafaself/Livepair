@@ -11,12 +11,11 @@ import type {
 import type {
   SpeechLifecycleStatus,
 } from './speech/speech.types';
-import type { SessionMode } from './core/session.types';
 
 type SessionControllerPublicApiArgs = {
   store: SessionStoreApi;
   performBackendHealthCheck: () => Promise<boolean>;
-  startSessionInternal: (options: { mode: SessionMode }) => Promise<void>;
+  startSessionInternal: (options: { mode: 'voice' }) => Promise<void>;
   voiceChunkCtrl: {
     addChunkListener: (
       listener: Parameters<DesktopSessionController['subscribeToVoiceChunks']>[0],
@@ -31,10 +30,7 @@ type SessionControllerPublicApiArgs = {
     start: () => Promise<void>;
     stop: () => Promise<void>;
   };
-  textChatCtrl: {
-    appendUserTurn: (text: string) => string;
-    submitTurn: (text: string) => Promise<boolean>;
-  };
+  appendTypedUserTurn: (text: string) => string;
   voiceTranscriptCtrl: {
     clearQueuedMixedModeAssistantReply: () => void;
     queueMixedModeAssistantReply: () => void;
@@ -45,6 +41,10 @@ type SessionControllerPublicApiArgs = {
       preserveLastRuntimeError?: string | null;
       recordEvents?: boolean;
       preserveVoiceRuntimeDiagnostics?: boolean;
+      liveSessionEnd?: {
+        status: 'ended' | 'failed';
+        endedReason?: string | null;
+      };
     }) => Promise<void>;
     endSpeechModeInternal: (options?: { recordEvents?: boolean }) => Promise<void>;
     getActiveTransport: () => import('./transport/transport.types').DesktopSession | null;
@@ -68,7 +68,7 @@ export function createSessionControllerPublicApi({
   startSessionInternal,
   voiceChunkCtrl,
   screenCtrl,
-  textChatCtrl,
+  appendTypedUserTurn,
   voiceTranscriptCtrl,
   runtime,
   logRuntimeError,
@@ -143,7 +143,7 @@ export function createSessionControllerPublicApi({
         }
 
         try {
-          textChatCtrl.appendUserTurn(trimmedText);
+          appendTypedUserTurn(trimmedText);
           voiceTranscriptCtrl.queueMixedModeAssistantReply();
           store.getState().setLastRuntimeError(null);
           await activeTransport.sendText(trimmedText);
@@ -158,7 +158,7 @@ export function createSessionControllerPublicApi({
         }
       }
 
-      return textChatCtrl.submitTurn(trimmedText);
+      return false;
     },
     subscribeToVoiceChunks: (listener) => {
       return voiceChunkCtrl.addChunkListener(listener);

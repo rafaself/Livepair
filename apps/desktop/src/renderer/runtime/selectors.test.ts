@@ -9,6 +9,7 @@ import {
   selectCanSubmitText,
   selectIsConversationEmpty,
   selectIsSessionActive,
+  selectVisibleConversationTimeline,
 } from './selectors';
 
 const lifecycle = (status: string) => ({
@@ -221,18 +222,18 @@ describe('selectTextSessionStatus', () => {
 
 describe('selectTextSessionStatusLabel', () => {
   it.each([
-    ['connecting', 'Preparing text chat...'],
-    ['ready', 'Text chat ready'],
-    ['sending', 'Sending message...'],
+    ['connecting', 'Preparing typed input...'],
+    ['ready', 'Typed input ready'],
+    ['sending', 'Sending typed input...'],
     ['receiving', 'Receiving response...'],
     ['generationCompleted', 'Response generated, waiting for turn completion...'],
     ['completed', 'Response complete'],
     ['interrupted', 'Response interrupted'],
-    ['goAway', 'Text chat unavailable. Send again to retry.'],
-    ['disconnecting', 'Disconnecting text session...'],
-    ['error', 'Text session failed'],
-    ['idle', 'Text session disconnected'],
-    ['disconnected', 'Text session disconnected'],
+    ['goAway', 'Typed input unavailable. Send again to retry.'],
+    ['disconnecting', 'Ending typed input...'],
+    ['error', 'Typed input failed'],
+    ['idle', 'Typed input unavailable'],
+    ['disconnected', 'Typed input unavailable'],
   ])('maps %s to "%s"', (status, label) => {
     expect(selectTextSessionStatusLabel(lifecycle(status))).toBe(label);
   });
@@ -256,13 +257,64 @@ describe('selectCanSubmitText', () => {
 
 describe('selectIsConversationEmpty', () => {
   it('returns true for empty turns', () => {
-    expect(selectIsConversationEmpty({ conversationTurns: [] })).toBe(true);
+    expect(selectIsConversationEmpty({ conversationTurns: [], transcriptArtifacts: [] })).toBe(true);
   });
 
   it('returns false for non-empty turns', () => {
     expect(
-      selectIsConversationEmpty({ conversationTurns: [{ role: 'user' }] as never }),
+      selectIsConversationEmpty({
+        conversationTurns: [{ role: 'user' }] as never,
+        transcriptArtifacts: [],
+      }),
     ).toBe(false);
+  });
+
+  it('returns false when only an unattached transcript artifact is visible', () => {
+    expect(
+      selectIsConversationEmpty({
+        conversationTurns: [],
+        transcriptArtifacts: [{ role: 'assistant' }] as never,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('selectVisibleConversationTimeline', () => {
+  it('sorts canonical turns and visible transcript artifacts by explicit timeline ordinal', () => {
+    const timeline = selectVisibleConversationTimeline({
+      conversationTurns: [
+        {
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'second',
+          timestamp: '10:00 AM',
+          timelineOrdinal: 3,
+        },
+        {
+          id: 'user-turn-1',
+          role: 'user',
+          content: 'first',
+          timestamp: '9:59 AM',
+          timelineOrdinal: 1,
+        },
+      ] as never,
+      transcriptArtifacts: [
+        {
+          id: 'assistant-transcript-1',
+          role: 'assistant',
+          content: 'between',
+          timestamp: '9:59 AM',
+          source: 'voice',
+          timelineOrdinal: 2,
+        },
+      ] as never,
+    });
+
+    expect(timeline.map((entry) => entry.id)).toEqual([
+      'user-turn-1',
+      'assistant-transcript-1',
+      'assistant-turn-1',
+    ]);
   });
 });
 

@@ -8,7 +8,6 @@ import {
   createVoiceTransportHarness,
   createVoiceCaptureHarness,
   createVoicePlaybackHarness,
-  createTextChatHarness,
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – mode switching', () => {
@@ -61,52 +60,35 @@ describe('createDesktopSessionController – mode switching', () => {
     );
   });
 
-  it('switches from text mode to speech mode by tearing down text first', async () => {
-    const textChat = createTextChatHarness();
-    const voiceTransport = createVoiceTransportHarness();
-    const requestSessionToken = vi.fn().mockResolvedValue({
-      token: 'auth_tokens/test-token',
-      expireTime: '2099-03-09T12:30:00.000Z',
-      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
-    });
+  it('keeps the runtime inactive when typed input is submitted without an active Live session', async () => {
+    const requestSessionToken = vi.fn();
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken,
-      createTransport: vi.fn(() => voiceTransport.transport),
+      createTransport: vi.fn(() => createVoiceTransportHarness().transport),
     });
 
-    await controller.submitTextTurn('Summarize the current screen');
+    await expect(controller.submitTextTurn('Summarize the current screen')).resolves.toBe(false);
 
-    expect(useSessionStore.getState().currentMode).toBe('text');
-    expect(useSessionStore.getState().textSessionLifecycle.status).toBe('sending');
-
-    await controller.startSession({ mode: 'voice' });
-
-    expect(textChat.cancel).toHaveBeenCalledTimes(1);
-    expect(requestSessionToken).toHaveBeenCalledTimes(1);
+    expect(requestSessionToken).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        currentMode: 'speech',
+        currentMode: 'inactive',
         speechLifecycle: expect.objectContaining({
-          status: 'listening',
+          status: 'off',
         }),
-        voiceCaptureState: 'capturing',
-        voiceSessionStatus: 'ready',
-        activeTransport: 'gemini-live',
-        textSessionLifecycle: expect.objectContaining({
-          status: 'disconnected',
-        }),
+        voiceSessionStatus: 'disconnected',
+        activeTransport: null,
+        conversationTurns: [],
       }),
     );
   });
 
   it('keeps speech mode active when typed input is submitted during an active speech session', async () => {
-    const textChat = createTextChatHarness();
     const voiceTransport = createVoiceTransportHarness();
     const voiceCapture = createVoiceCaptureHarness();
     const voicePlayback = createVoicePlaybackHarness();
@@ -116,7 +98,6 @@ describe('createDesktopSessionController – mode switching', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -139,7 +120,6 @@ describe('createDesktopSessionController – mode switching', () => {
     expect(voiceCapture.stop).not.toHaveBeenCalled();
     expect(voiceTransport.sendAudioStreamEnd).not.toHaveBeenCalled();
     expect(voiceTransport.disconnect).not.toHaveBeenCalled();
-    expect(textChat.getLastRequest()).toBeNull();
     expect(voiceTransport.sendText).toHaveBeenCalledWith('Keep speaking');
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
@@ -152,8 +132,7 @@ describe('createDesktopSessionController – mode switching', () => {
     );
   });
 
-  it('never persists simultaneous active text and speech runtime state after a text submit switch', async () => {
-    const textChat = createTextChatHarness();
+  it('never persists simultaneous active text and speech runtime state after a typed Live turn', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const voiceCapture = createVoiceCaptureHarness();
     const controller = createDesktopSessionController({
@@ -162,7 +141,6 @@ describe('createDesktopSessionController – mode switching', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -183,11 +161,9 @@ describe('createDesktopSessionController – mode switching', () => {
     expect(useSessionStore.getState().speechLifecycle.status).not.toBe('off');
     expect(useSessionStore.getState().voiceSessionStatus).not.toBe('disconnected');
     expect(useSessionStore.getState().activeTransport).toBe('gemini-live');
-    expect(textChat.getLastRequest()).toBeNull();
   });
 
-  it('ends speech mode without clearing history and allows continued text chat', async () => {
-    const textChat = createTextChatHarness();
+  it('ends speech mode without clearing history and leaves typed input inactive', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const voiceCapture = createVoiceCaptureHarness();
     const controller = createDesktopSessionController({
@@ -196,7 +172,6 @@ describe('createDesktopSessionController – mode switching', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -210,6 +185,7 @@ describe('createDesktopSessionController – mode switching', () => {
     await controller.startSession({ mode: 'voice' });
     voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Speech reply' });
+    voiceTransport.emit({ type: 'text-delta', text: 'Speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
     await vi.waitFor(() => {
       expect(persistedMessages).toHaveLength(2);
@@ -219,7 +195,7 @@ describe('createDesktopSessionController – mode switching', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        currentMode: 'text',
+        currentMode: 'inactive',
         speechLifecycle: expect.objectContaining({
           status: 'off',
         }),
@@ -242,18 +218,15 @@ describe('createDesktopSessionController – mode switching', () => {
       }),
     );
 
-    await expect(controller.submitTextTurn('Text after end')).resolves.toBe(true);
+    await expect(controller.submitTextTurn('Text after end')).resolves.toBe(false);
 
-    expect(textChat.getLastRequest()).toEqual({
-      messages: [
-        { role: 'user', content: 'Speech request' },
-        { role: 'assistant', content: 'Speech reply' },
-        { role: 'user', content: 'Text after end' },
-      ],
-    });
+    expect(persistedMessages).toEqual([
+      expect.objectContaining({ role: 'user', contentText: 'Speech request' }),
+      expect.objectContaining({ role: 'assistant', contentText: 'Speech reply' }),
+    ]);
   });
 
-  it('preserves canonical text-live-text continuity and reuses persisted history when speech mode reopens', async () => {
+  it('reuses canonical persisted history when speech mode reopens after becoming inactive', async () => {
     persistedMessages = [
       {
         id: 'message-1',
@@ -272,7 +245,6 @@ describe('createDesktopSessionController – mode switching', () => {
         sequence: 2,
       },
     ];
-    const textChat = createTextChatHarness();
     const voiceTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -280,7 +252,6 @@ describe('createDesktopSessionController – mode switching', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -298,35 +269,38 @@ describe('createDesktopSessionController – mode switching', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
-      history: [
-        {
-          role: 'user',
-          parts: [{ text: 'Persisted text question' }],
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [
+          {
+            role: 'user',
+            kind: 'message',
+            text: 'Persisted text question',
+            createdAt: '2026-03-12T09:01:00.000Z',
+            sequence: 1,
+          },
+          {
+            role: 'assistant',
+            kind: 'message',
+            text: 'Persisted text answer',
+            createdAt: '2026-03-12T09:02:00.000Z',
+            sequence: 2,
+          },
+        ],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
         },
-        {
-          role: 'model',
-          parts: [{ text: 'Persisted text answer' }],
-        },
-      ],
+      },
     });
 
     await controller.endSpeechMode();
-    await expect(controller.submitTextTurn('Text after speech')).resolves.toBe(true);
-    textChat.emit({ type: 'text-delta', text: 'Persisted text follow-up answer' });
-    textChat.emit({ type: 'completed' });
-
-    await vi.waitFor(() => {
-      expect(persistedMessages).toEqual([
-        expect.objectContaining({ role: 'user', contentText: 'Persisted text question' }),
-        expect.objectContaining({ role: 'assistant', contentText: 'Persisted text answer' }),
-        expect.objectContaining({ role: 'user', contentText: 'Text after speech' }),
-        expect.objectContaining({
-          role: 'assistant',
-          contentText: 'Persisted text follow-up answer',
-        }),
-      ]);
-    });
-
     useSessionStore.getState().replaceConversationTurns([
       {
         id: 'renderer-only-turn',
@@ -339,13 +313,6 @@ describe('createDesktopSessionController – mode switching', () => {
 
     await controller.startSession({ mode: 'voice' });
 
-    expect(textChat.getLastRequest()).toEqual({
-      messages: [
-        { role: 'user', content: 'Persisted text question' },
-        { role: 'assistant', content: 'Persisted text answer' },
-        { role: 'user', content: 'Text after speech' },
-      ],
-    });
     expect(voiceTransport.connect).toHaveBeenNthCalledWith(2, {
       token: {
         token: 'auth_tokens/test-token',
@@ -353,24 +320,35 @@ describe('createDesktopSessionController – mode switching', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
-      history: [
-        {
-          role: 'user',
-          parts: [{ text: 'Persisted text question' }],
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [
+          {
+            role: 'user',
+            kind: 'message',
+            text: 'Persisted text question',
+            createdAt: '2026-03-12T09:01:00.000Z',
+            sequence: 1,
+          },
+          {
+            role: 'assistant',
+            kind: 'message',
+            text: 'Persisted text answer',
+            createdAt: '2026-03-12T09:02:00.000Z',
+            sequence: 2,
+          },
+        ],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
         },
-        {
-          role: 'model',
-          parts: [{ text: 'Persisted text answer' }],
-        },
-        {
-          role: 'user',
-          parts: [{ text: 'Text after speech' }],
-        },
-        {
-          role: 'model',
-          parts: [{ text: 'Persisted text follow-up answer' }],
-        },
-      ],
+      },
     });
   });
 
@@ -382,7 +360,6 @@ describe('createDesktopSessionController – mode switching', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -395,6 +372,7 @@ describe('createDesktopSessionController – mode switching', () => {
     await controller.startSession({ mode: 'voice' });
     voiceTransport.emit({ type: 'input-transcript', text: 'First speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'First speech reply' });
+    voiceTransport.emit({ type: 'text-delta', text: 'First speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
 
     await controller.endSpeechMode();
@@ -402,6 +380,7 @@ describe('createDesktopSessionController – mode switching', () => {
 
     voiceTransport.emit({ type: 'input-transcript', text: 'Second speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Second speech reply' });
+    voiceTransport.emit({ type: 'text-delta', text: 'Second speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
 
     expect(useSessionStore.getState().conversationTurns).toEqual([
@@ -437,7 +416,6 @@ describe('createDesktopSessionController – mode switching', () => {
   });
 
   it('keeps full conversation reset separate from speech-mode teardown', async () => {
-    const textChat = createTextChatHarness();
     const voiceTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -445,7 +423,6 @@ describe('createDesktopSessionController – mode switching', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -473,7 +450,7 @@ describe('createDesktopSessionController – mode switching', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        currentMode: 'text',
+        currentMode: 'inactive',
         speechLifecycle: expect.objectContaining({
           status: 'off',
         }),

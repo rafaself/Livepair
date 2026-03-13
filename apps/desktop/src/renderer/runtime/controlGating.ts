@@ -56,7 +56,7 @@ export function createControlGatingSnapshot(
   overrides: Partial<ControlGatingSnapshot> = {},
 ): ControlGatingSnapshot {
   return {
-    currentMode: 'text',
+    currentMode: 'inactive',
     speechLifecycleStatus: 'off',
     textSessionStatus: 'idle',
     activeTransport: null,
@@ -95,7 +95,7 @@ export function canSubmitComposerText(snapshot: ControlGatingSnapshot): boolean 
   }
 
   if (!isSpeechLifecycleActive(snapshot.speechLifecycleStatus)) {
-    return true;
+    return false;
   }
 
   if (isSpeechLifecycleTransitioning(snapshot.speechLifecycleStatus)) {

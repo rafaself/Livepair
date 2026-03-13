@@ -1,6 +1,9 @@
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type {
+  CreateEphemeralTokenResponse,
+  RehydrationPacket,
+} from '@livepair/shared-types';
 import type { VoiceToolCall, VoiceToolResponse } from '../voice/voice.types';
-import type { SessionMode } from '../core/session.types';
+import type { LiveConnectMode } from '../core/session.types';
 
 export type TransportKind = 'backend-text' | 'gemini-live';
 
@@ -83,12 +86,30 @@ export type LiveSessionEvent =
       detail: string;
     };
 
-export type DesktopSessionConnectParams = {
+type DesktopSessionConnectParamsBase = {
   token: CreateEphemeralTokenResponse;
-  mode: SessionMode;
-  resumeHandle?: string | undefined;
-  history?: LiveSessionHistoryTurn[] | undefined;
+  mode: LiveConnectMode;
 };
+
+type DesktopSessionFreshConnectParams = DesktopSessionConnectParamsBase & {
+  resumeHandle?: undefined;
+  rehydrationPacket?: undefined;
+};
+
+type DesktopSessionResumeConnectParams = DesktopSessionConnectParamsBase & {
+  resumeHandle: string;
+  rehydrationPacket?: undefined;
+};
+
+type DesktopSessionRehydrateConnectParams = DesktopSessionConnectParamsBase & {
+  resumeHandle?: undefined;
+  rehydrationPacket: RehydrationPacket;
+};
+
+export type DesktopSessionConnectParams =
+  | DesktopSessionFreshConnectParams
+  | DesktopSessionResumeConnectParams
+  | DesktopSessionRehydrateConnectParams;
 
 export type DesktopSession = {
   kind: TransportKind;

@@ -9,7 +9,7 @@ function createSnapshot(
   overrides: Partial<VoiceToolExecutionSnapshot> = {},
 ): VoiceToolExecutionSnapshot {
   return {
-    currentMode: 'text',
+    currentMode: 'inactive',
     textSessionStatus: 'idle',
     speechLifecycleStatus: 'off',
     voiceSessionStatus: 'disconnected',
@@ -21,7 +21,7 @@ function createSnapshot(
 
 describe('voiceTools', () => {
   it('returns the explicit product mode from the snapshot', () => {
-    expect(deriveCurrentMode(createSnapshot())).toBe('text');
+    expect(deriveCurrentMode(createSnapshot())).toBe('inactive');
     expect(
       deriveCurrentMode(
         createSnapshot({

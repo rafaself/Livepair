@@ -3,7 +3,7 @@ import { appendMessageToCurrentChat } from '../../chatMemory/currentChatMemory';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 
-const pendingPersistByTurnId = new Map<string, Promise<void>>();
+const pendingPersistByEntryId = new Map<string, Promise<void>>();
 
 export async function persistConversationTurn(
   store: SessionStoreApi,
@@ -27,7 +27,7 @@ export async function persistConversationTurn(
 
   const role = turn.role;
 
-  const inFlightPersist = pendingPersistByTurnId.get(turnId);
+  const inFlightPersist = pendingPersistByEntryId.get(turnId);
 
   if (inFlightPersist) {
     return inFlightPersist;
@@ -54,12 +54,12 @@ export async function persistConversationTurn(
     });
   })();
 
-  pendingPersistByTurnId.set(turnId, persistTask);
+  pendingPersistByEntryId.set(turnId, persistTask);
 
   try {
     await persistTask;
   } finally {
-    pendingPersistByTurnId.delete(turnId);
+    pendingPersistByEntryId.delete(turnId);
   }
 }
 

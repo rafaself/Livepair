@@ -3,7 +3,6 @@ import type { DesktopBridge } from '../../shared/desktopBridge';
 import {
   checkBackendHealth,
   requestSessionToken,
-  startTextChatStream,
 } from './backend';
 
 function createBridge() {
@@ -11,12 +10,15 @@ function createBridge() {
     overlayMode: 'linux-shape' as const,
     checkHealth: vi.fn(),
     requestSessionToken: vi.fn(),
-    startTextChatStream: vi.fn(),
     createChat: vi.fn(),
     getChat: vi.fn(),
     getOrCreateCurrentChat: vi.fn(),
     listChatMessages: vi.fn(),
     appendChatMessage: vi.fn(),
+    createLiveSession: vi.fn(),
+    listLiveSessions: vi.fn(),
+    updateLiveSession: vi.fn(),
+    endLiveSession: vi.fn(),
     getSettings: vi.fn(),
     updateSettings: vi.fn(),
     setOverlayHitRegions: vi.fn(),
@@ -65,21 +67,5 @@ describe('renderer backend api helper', () => {
     window.bridge = bridge;
 
     await expect(requestSessionToken({})).rejects.toThrow('token failed');
-  });
-
-  it('delegates text stream startup to the bridge and returns the handle', async () => {
-    const handle = {
-      cancel: vi.fn(async () => undefined),
-    };
-    const onEvent = vi.fn();
-    const bridge = createBridge();
-    bridge.startTextChatStream.mockResolvedValue(handle);
-    window.bridge = bridge;
-    const request = {
-      messages: [{ role: 'user' as const, content: 'Summarize the current screen' }],
-    };
-
-    await expect(startTextChatStream(request, onEvent)).resolves.toBe(handle);
-    expect(bridge.startTextChatStream).toHaveBeenCalledWith(request, onEvent);
   });
 });

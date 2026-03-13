@@ -25,8 +25,8 @@ export function createSessionControllerModeSwitching({
     operationId: number,
   ): Promise<void> => {
     const shouldTearDownSpeech =
-      targetMode === 'text' &&
-      (currentProductMode() !== 'text' || hasSpeechRuntimeActivity());
+      targetMode === 'inactive' &&
+      (currentProductMode() !== 'inactive' || hasSpeechRuntimeActivity());
     const shouldTearDownText =
       targetMode === 'speech' &&
       (currentProductMode() !== 'speech' || hasTextRuntimeActivity());

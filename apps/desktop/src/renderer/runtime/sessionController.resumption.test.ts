@@ -7,7 +7,6 @@ import {
   createUnusedTransport,
   createVoiceTransportHarness,
   expectDefaultResumptionState,
-  createTextChatHarness,
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – resumption', () => {
@@ -33,7 +32,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi
         .fn()
@@ -105,7 +103,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi
         .fn()
@@ -170,7 +167,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi.fn(() => firstTransport.transport),
     });
@@ -206,7 +202,7 @@ describe('createDesktopSessionController – resumption', () => {
       newSessionExpireTime: '2026-03-09T12:00:20.000Z',
       lastDetail: 'token refresh failed',
     });
-    expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().currentMode).toBe('inactive');
     expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
     expect(useSessionStore.getState().lastRuntimeError).toBe('token refresh failed');
 
@@ -238,7 +234,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi
         .fn()
@@ -277,7 +272,7 @@ describe('createDesktopSessionController – resumption', () => {
       newSessionExpireTime: '2026-03-09T12:01:30.000Z',
       lastDetail: 'resume rejected',
     });
-    expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().currentMode).toBe('inactive');
     expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
     expect(useSessionStore.getState().lastRuntimeError).toBe('resume rejected');
 
@@ -298,7 +293,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi
         .fn()
@@ -353,7 +347,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -390,6 +383,20 @@ describe('createDesktopSessionController – resumption', () => {
     expect(useSessionStore.getState().lastRuntimeError).toBe(
       'transport recycled (session marked non-resumable)',
     );
+    expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      resumptionHandle: null,
+      lastResumptionUpdateAt: expect.any(String),
+      restorable: false,
+      invalidatedAt: expect.any(String),
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
+    expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      status: 'failed',
+      endedAt: expect.any(String),
+      endedReason: 'transport recycled (session marked non-resumable)',
+    });
   });
 
   it('does not reuse a stale resumption handle after the transport clears it', async () => {
@@ -400,7 +407,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -441,20 +447,17 @@ describe('createDesktopSessionController – resumption', () => {
     );
   });
 
-  it('keeps text mode durability state idle', async () => {
-    const textChat = createTextChatHarness();
+  it('keeps live-session durability state idle when typed input is blocked outside speech mode', async () => {
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
 
-    await controller.startSession({ mode: 'text' });
     await controller.submitTextTurn('Hello');
 
     expect(useSessionStore.getState().voiceSessionResumption).toEqual({
@@ -474,20 +477,17 @@ describe('createDesktopSessionController – resumption', () => {
     });
   });
 
-  it('keeps text mode resumption state idle', async () => {
-    const textChat = createTextChatHarness();
+  it('keeps live-session resumption state idle when typed input is blocked outside speech mode', async () => {
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
 
-    await controller.startSession({ mode: 'text' });
     await controller.submitTextTurn('Hello');
 
     expect(useSessionStore.getState().voiceSessionResumption).toEqual(
