@@ -1,4 +1,4 @@
-import type { SessionMode } from '../core/session.types';
+import type { LiveConnectMode } from '../core/session.types';
 import { VOICE_TOOL_DECLARATIONS } from '../voice/voiceTools';
 
 export const LIVE_PROVIDER = 'gemini' as const;
@@ -22,7 +22,7 @@ export type RawLiveConfig = {
   adapterKey: string;
   model: string;
   apiVersion: string;
-  sessionModes: Record<SessionMode, RawLiveSessionModeConfig>;
+  sessionModes: Record<LiveConnectMode, RawLiveSessionModeConfig>;
   mediaResolution: string;
   sessionResumptionEnabled: boolean;
   contextCompressionEnabled: boolean;
@@ -40,7 +40,7 @@ export type LiveConfig = {
   model: string;
   apiVersion: LiveApiVersion;
   url: string;
-  sessionModes: Record<SessionMode, LiveSessionModeConfig>;
+  sessionModes: Record<LiveConnectMode, LiveSessionModeConfig>;
   mediaResolution: LiveMediaResolution;
   sessionResumptionEnabled: boolean;
   contextCompressionEnabled: boolean;
@@ -135,7 +135,7 @@ function parseApiVersion(value: string): LiveApiVersion {
   throw createConfigError(`Live API version "${value}" is not supported`);
 }
 
-function parseResponseModality(value: string, mode: SessionMode): LiveResponseModality {
+function parseResponseModality(value: string, mode: LiveConnectMode): LiveResponseModality {
   if (value === 'TEXT' || value === 'AUDIO') {
     return value;
   }
@@ -156,7 +156,7 @@ function parseMediaResolution(value: string): LiveMediaResolution {
 }
 
 function parseSessionModeConfig(
-  mode: SessionMode,
+  mode: LiveConnectMode,
   value: RawLiveSessionModeConfig | undefined,
 ): LiveSessionModeConfig {
   if (!value) {
@@ -171,7 +171,7 @@ function parseSessionModeConfig(
 }
 
 function validateSessionModeConfig(
-  mode: SessionMode,
+  mode: LiveConnectMode,
   value: LiveSessionModeConfig,
 ): LiveSessionModeConfig {
   if (mode === 'text') {
@@ -297,7 +297,7 @@ export function parseLiveConfig(rawConfig: Partial<RawLiveConfig>): LiveConfig {
 
 export function buildGeminiLiveConnectConfig(
   config: LiveConfig,
-  mode: SessionMode,
+  mode: LiveConnectMode,
   options: {
     resumeHandle?: string | undefined;
   } = {},

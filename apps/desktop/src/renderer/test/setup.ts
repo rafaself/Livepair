@@ -95,9 +95,6 @@ beforeEach(async () => {
     overlayMode: 'linux-shape',
     checkHealth: vi.fn(),
     requestSessionToken: vi.fn(),
-    startTextChatStream: vi.fn(async () => ({
-      cancel: vi.fn(async () => undefined),
-    })),
     createChat: vi.fn(),
     getChat: vi.fn(),
     getOrCreateCurrentChat: vi.fn(async () => ({

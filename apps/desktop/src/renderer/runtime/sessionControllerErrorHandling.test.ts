@@ -115,7 +115,7 @@ describe('createSessionControllerErrorHandling', () => {
       expect(args.setVoiceSessionResumption).not.toHaveBeenCalled();
     });
 
-    it('sets voice status to error, switches to text mode, and sets tool error', () => {
+    it('sets voice status to error, switches to inactive mode, and sets tool error', () => {
       const args = createMockArgs();
       const { setVoiceErrorState } = createSessionControllerErrorHandling(args);
 
@@ -123,7 +123,7 @@ describe('createSessionControllerErrorHandling', () => {
 
       expect(args.setVoiceSessionStatus).toHaveBeenCalledWith('error');
       expect(args.setLastRuntimeError).toHaveBeenCalledWith('transport failed');
-      expect(args.setCurrentMode).toHaveBeenCalledWith('text');
+      expect(args.setCurrentMode).toHaveBeenCalledWith('inactive');
       expect(args.setVoiceToolState).toHaveBeenCalledWith({
         status: 'toolError',
         lastError: 'transport failed',

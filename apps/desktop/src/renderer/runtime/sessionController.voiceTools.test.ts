@@ -6,7 +6,6 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import * as voiceToolsModule from './voice/voiceTools';
 import {
   createVoiceTransportHarness,
-  createTextChatHarness,
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – voice tools', () => {
@@ -30,7 +29,6 @@ describe('createDesktopSessionController – voice tools', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -86,7 +84,6 @@ describe('createDesktopSessionController – voice tools', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -155,7 +152,6 @@ describe('createDesktopSessionController – voice tools', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -227,7 +223,6 @@ describe('createDesktopSessionController – voice tools', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',

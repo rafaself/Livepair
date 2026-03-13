@@ -1,5 +1,4 @@
 import { vi } from 'vitest';
-import type { TextChatRequest, TextChatStreamEvent } from '@livepair/shared-types';
 import type { AssistantAudioPlaybackObserver } from './audio/assistantAudioPlayback';
 import type { DesktopSession } from './transport/transport.types';
 import type {
@@ -95,33 +94,6 @@ export function expectDefaultResumptionState(): VoiceSessionResumptionState {
     latestHandle: null,
     resumable: false,
     lastDetail: null,
-  };
-}
-
-export function createTextChatHarness(): {
-  startTextChatStream: ReturnType<typeof vi.fn>;
-  getLastRequest: () => TextChatRequest | null;
-  emit: (event: TextChatStreamEvent) => void;
-  cancel: ReturnType<typeof vi.fn>;
-} {
-  let lastRequest: TextChatRequest | null = null;
-  let listener: ((event: TextChatStreamEvent) => void) | null = null;
-  const cancel = vi.fn(async () => undefined);
-  const startTextChatStream = vi.fn(
-    async (request: TextChatRequest, onEvent: (event: TextChatStreamEvent) => void) => {
-      lastRequest = request;
-      listener = onEvent;
-      return { cancel };
-    },
-  );
-
-  return {
-    startTextChatStream,
-    getLastRequest: () => lastRequest,
-    emit: (event) => {
-      listener?.(event);
-    },
-    cancel,
   };
 }
 

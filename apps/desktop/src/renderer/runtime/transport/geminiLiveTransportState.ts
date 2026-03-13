@@ -1,4 +1,4 @@
-import type { SessionMode } from '../core/session.types';
+import type { LiveConnectMode } from '../core/session.types';
 import type { GeminiLiveSdkSession } from './geminiLiveSdkClient';
 
 export type GeminiLiveTransportState = {
@@ -8,7 +8,7 @@ export type GeminiLiveTransportState = {
   closingByClient: boolean;
   pendingOutputText: string;
   disconnectResolver: (() => void) | null;
-  activeMode: SessionMode | null;
+  activeMode: LiveConnectMode | null;
   hasOpenAudioStream: boolean;
 };
 

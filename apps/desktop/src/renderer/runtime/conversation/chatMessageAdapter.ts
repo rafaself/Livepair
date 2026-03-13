@@ -1,4 +1,4 @@
-import type { ChatMessageRecord, TextChatMessage } from '@livepair/shared-types';
+import type { ChatMessageRecord } from '@livepair/shared-types';
 import type { ConversationTurnModel } from './conversation.types';
 import { formatConversationTimestamp } from './conversationTimestamp';
 
@@ -26,22 +26,5 @@ export function mapChatMessageRecordsToConversationTurns(
 ): ConversationTurnModel[] {
   return sortChatMessageRecords(records).map((record) =>
     mapChatMessageRecordToConversationTurn(record),
-  );
-}
-
-export function mapChatMessageRecordToTextChatMessage(
-  record: ChatMessageRecord,
-): TextChatMessage {
-  return {
-    role: record.role,
-    content: record.contentText,
-  };
-}
-
-export function mapChatMessageRecordsToTextChatMessages(
-  records: readonly ChatMessageRecord[],
-): TextChatMessage[] {
-  return sortChatMessageRecords(records).map((record) =>
-    mapChatMessageRecordToTextChatMessage(record),
   );
 }

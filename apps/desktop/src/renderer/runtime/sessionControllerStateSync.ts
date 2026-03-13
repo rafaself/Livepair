@@ -9,7 +9,6 @@ import {
 } from './speech/speechSessionLifecycle';
 import type { AssistantAudioPlayback } from './audio/audio.types';
 import type {
-  SessionMode,
   ProductMode,
 } from './core/session.types';
 import type {
@@ -111,10 +110,6 @@ export function createSessionControllerStateSync({
     store.getState().setCurrentMode(mode);
   };
 
-  const resolveProductMode = (mode: SessionMode): ProductMode => {
-    return mode === 'voice' ? 'speech' : 'inactive';
-  };
-
   const setVoiceSessionStatus = (status: VoiceSessionStatus): void => {
     store.getState().setVoiceSessionStatus(status);
   };
@@ -177,7 +172,6 @@ export function createSessionControllerStateSync({
     resetVoiceSessionResumption,
     resetVoiceToolState,
     resetVoiceTurnTranscriptState,
-    resolveProductMode,
     setCurrentMode,
     setVoicePlaybackState,
     setVoiceSessionDurability,

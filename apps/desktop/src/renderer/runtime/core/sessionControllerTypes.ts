@@ -1,6 +1,6 @@
 import type { useSessionStore } from '../../store/sessionStore';
 import type { useSettingsStore } from '../../store/settingsStore';
-import type { checkBackendHealth, requestSessionToken, startTextChatStream } from '../../api/backend';
+import type { checkBackendHealth, requestSessionToken } from '../../api/backend';
 import type { AssistantAudioPlaybackObserver } from '../audio/assistantAudioPlayback';
 import type { LocalScreenCaptureObserver, LocalScreenCapture } from '../screen/localScreenCapture';
 import type { LocalVoiceCapture } from '../audio/localVoiceCapture';
@@ -17,7 +17,7 @@ import type {
 } from '../voice/voice.types';
 import type {
   RuntimeLogger,
-  SessionMode,
+  LiveConnectMode,
 } from './session.types';
 
 export type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
@@ -28,7 +28,7 @@ export type DebugAssistantState = Parameters<
 
 export type DesktopSessionController = {
   checkBackendHealth: () => Promise<void>;
-  startSession: (options: { mode: SessionMode }) => Promise<void>;
+  startSession: (options: { mode: 'voice' }) => Promise<void>;
   startVoiceCapture: () => Promise<void>;
   stopVoiceCapture: () => Promise<void>;
   startScreenCapture: () => Promise<void>;
@@ -43,7 +43,6 @@ export type DesktopSessionController = {
 export type DesktopSessionControllerDependencies = {
   logger: RuntimeLogger;
   checkBackendHealth: typeof checkBackendHealth;
-  startTextChatStream: typeof startTextChatStream;
   requestSessionToken: typeof requestSessionToken;
   createTransport: (kind: TransportKind) => DesktopSession;
   createVoiceCapture: (

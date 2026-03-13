@@ -1,6 +1,6 @@
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import type { VoiceToolCall, VoiceToolResponse } from '../voice/voice.types';
-import type { SessionMode } from '../core/session.types';
+import type { LiveConnectMode } from '../core/session.types';
 
 export type TransportKind = 'backend-text' | 'gemini-live';
 
@@ -85,7 +85,7 @@ export type LiveSessionEvent =
 
 export type DesktopSessionConnectParams = {
   token: CreateEphemeralTokenResponse;
-  mode: SessionMode;
+  mode: LiveConnectMode;
   resumeHandle?: string | undefined;
   history?: LiveSessionHistoryTurn[] | undefined;
 };

@@ -1,5 +1,5 @@
 import type { LiveSessionEvent } from './transport.types';
-import type { SessionMode } from '../core/session.types';
+import type { LiveConnectMode } from '../core/session.types';
 import type { GeminiLiveSdkServerMessage } from './geminiLiveSdkClient';
 import type { GeminiLiveTransportState } from './geminiLiveTransportState';
 import {
@@ -58,7 +58,7 @@ function emitToolCalls(
 
 function emitAudioEvents(
   emit: (event: LiveSessionEvent) => void,
-  activeMode: SessionMode | null,
+  activeMode: LiveConnectMode | null,
   message: GeminiLiveSdkServerMessage,
 ): void {
   if (activeMode !== 'voice') {

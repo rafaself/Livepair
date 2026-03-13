@@ -5,7 +5,6 @@ import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import {
-  createTextChatHarness,
   createVoiceTransportHarness,
 } from './sessionController.testUtils';
 import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
@@ -61,7 +60,6 @@ describe('createDesktopSessionController – typed turns', () => {
   });
 
   it('rejects typed input while no Live session is active', async () => {
-    const textChat = createTextChatHarness();
     const requestSessionToken = vi.fn();
     const createTransport = vi.fn(() => createVoiceTransportHarness().transport);
     const controller = createDesktopSessionController({
@@ -70,7 +68,6 @@ describe('createDesktopSessionController – typed turns', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken,
       createTransport,
     });
@@ -79,7 +76,6 @@ describe('createDesktopSessionController – typed turns', () => {
 
     expect(requestSessionToken).not.toHaveBeenCalled();
     expect(createTransport).not.toHaveBeenCalled();
-    expect(textChat.startTextChatStream).not.toHaveBeenCalled();
     expect(window.bridge.appendChatMessage).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
@@ -92,7 +88,6 @@ describe('createDesktopSessionController – typed turns', () => {
   });
 
   it('keeps typed input on the voice transport while speech mode is active', async () => {
-    const textChat = createTextChatHarness();
     const voiceTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({
       logger: {
@@ -100,7 +95,6 @@ describe('createDesktopSessionController – typed turns', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -114,7 +108,6 @@ describe('createDesktopSessionController – typed turns', () => {
     await expect(controller.submitTextTurn('Keep going')).resolves.toBe(true);
 
     expect(voiceTransport.sendText).toHaveBeenCalledWith('Keep going');
-    expect(textChat.startTextChatStream).not.toHaveBeenCalled();
     expect(useSessionStore.getState().currentMode).toBe('speech');
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
@@ -126,7 +119,6 @@ describe('createDesktopSessionController – typed turns', () => {
   });
 
   it('returns false without mutating runtime state when the active Live transport is unavailable', async () => {
-    const textChat = createTextChatHarness();
     const logger: RuntimeLogger = {
       onSessionEvent: vi.fn(),
       onTransportEvent: vi.fn(),
@@ -134,7 +126,6 @@ describe('createDesktopSessionController – typed turns', () => {
     const controller = createDesktopSessionController({
       logger,
       checkBackendHealth: vi.fn(),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -148,7 +139,6 @@ describe('createDesktopSessionController – typed turns', () => {
 
     await expect(controller.submitTextTurn('Retry')).resolves.toBe(false);
 
-    expect(textChat.startTextChatStream).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
         currentMode: 'inactive',

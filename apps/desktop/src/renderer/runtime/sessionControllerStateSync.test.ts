@@ -96,22 +96,6 @@ describe('createSessionControllerStateSync', () => {
     });
   });
 
-  describe('resolveProductMode', () => {
-    it('maps voice to speech', () => {
-      const args = createMockArgs();
-      const sync = createSessionControllerStateSync(args as never);
-
-      expect(sync.resolveProductMode('voice')).toBe('speech');
-    });
-
-    it('maps text to inactive', () => {
-      const args = createMockArgs();
-      const sync = createSessionControllerStateSync(args as never);
-
-      expect(sync.resolveProductMode('text')).toBe('inactive');
-    });
-  });
-
   describe('hasSpeechLifecycleActivity', () => {
     it('returns false when speech is off', () => {
       const args = createMockArgs('off');

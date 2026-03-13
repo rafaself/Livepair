@@ -70,27 +70,6 @@ function installMatchMedia(initialMatches: boolean): {
   };
 }
 
-function createTextChatHarness(): {
-  start: ReturnType<typeof vi.fn>;
-  emit: (event: Parameters<Parameters<typeof window.bridge.startTextChatStream>[1]>[0]) => void;
-} {
-  let listener:
-    | Parameters<typeof window.bridge.startTextChatStream>[1]
-    | null = null;
-
-  return {
-    start: vi.fn(async (_request, onEvent) => {
-      listener = onEvent;
-      return {
-        cancel: vi.fn(async () => undefined),
-      };
-    }),
-    emit: (event) => {
-      listener?.(event);
-    },
-  };
-}
-
 describe('App', () => {
   let persistedMessages: PersistedChatMessage[];
 
@@ -141,9 +120,6 @@ describe('App', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
-    window.bridge.startTextChatStream = vi.fn(async () => ({
-      cancel: vi.fn(async () => undefined),
-    }));
     document.documentElement.dataset['theme'] = '';
     document.documentElement.style.colorScheme = '';
     window.bridge.overlayMode = 'linux-shape';
@@ -203,13 +179,11 @@ describe('App', () => {
   });
 
   it('keeps the chat visible but inactive outside a Live session', async () => {
-    const textChat = createTextChatHarness();
     installMatchMedia(true);
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
       status: 'ok',
       timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
     });
-    window.bridge.startTextChatStream = textChat.start;
 
     render(<App />);
 
@@ -223,18 +197,15 @@ describe('App', () => {
     expect(within(composerForm).getByRole('textbox')).toBeDisabled();
     expect(screen.getByText('Conversation inactive')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
-    expect(textChat.start).not.toHaveBeenCalled();
     expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
   });
 
   it('ends speech mode without clearing history and leaves text input inactive', async () => {
     installMatchMedia(true);
-    const textChat = createTextChatHarness();
     window.bridge.checkHealth = vi.fn().mockResolvedValue({
       status: 'ok',
       timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
     });
-    window.bridge.startTextChatStream = textChat.start;
 
     render(<App />);
 
@@ -297,6 +268,5 @@ describe('App', () => {
     });
     expect(within(composerForm).getByRole('textbox')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
-    expect(textChat.start).not.toHaveBeenCalled();
   });
 });

@@ -22,7 +22,6 @@ describe('useOverlayHitRegions', () => {
       overlayMode: 'linux-shape',
       checkHealth: vi.fn(),
       requestSessionToken: vi.fn(),
-      startTextChatStream: vi.fn(),
       createChat: vi.fn(),
       getChat: vi.fn(),
       getOrCreateCurrentChat: vi.fn(),

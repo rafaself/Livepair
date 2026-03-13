@@ -47,9 +47,6 @@ describe('useAssistantPanelController', () => {
       status: 'ok',
       timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
     });
-    window.bridge.startTextChatStream = vi.fn(async () => ({
-      cancel: vi.fn(async () => undefined),
-    }));
     window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
       token: 'ephemeral-token',
       expireTime: '2099-03-09T12:30:00.000Z',

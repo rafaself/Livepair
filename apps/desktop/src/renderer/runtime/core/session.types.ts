@@ -1,6 +1,6 @@
 import type { TransportKind, LiveSessionEvent } from '../transport/transport.types';
 
-export type SessionMode = 'text' | 'voice';
+export type LiveConnectMode = 'text' | 'voice';
 export type ProductMode = 'inactive' | 'speech';
 export type SessionPhase = 'idle' | 'starting' | 'active' | 'ending' | 'error';
 

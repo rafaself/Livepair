@@ -1,4 +1,4 @@
-import { checkBackendHealth, requestSessionToken, startTextChatStream } from '../api/backend';
+import { checkBackendHealth, requestSessionToken } from '../api/backend';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import {
@@ -12,7 +12,6 @@ import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
 import {
   appendMessageToCurrentChat,
   buildLiveSessionHistoryFromCurrentChat,
-  buildTextChatRequestFromCurrentChat,
 } from '../chatMemory/currentChatMemory';
 import { createAssistantAudioPlayback } from './audio/assistantAudioPlayback';
 import { createLocalVoiceCapture } from './audio/localVoiceCapture';
@@ -26,7 +25,10 @@ import { createVoiceInterruptionController } from './voice/voiceInterruptionCont
 import { createVoiceTokenManager } from './voice/voiceTokenManager';
 import { createSpeechSilenceController } from './speech/speechSilenceController';
 import { createConversationContext } from './conversation/conversationTurnManager';
-import { createTextChatController } from './text/textChatController';
+import {
+  appendUserTurn as appendConversationUserTurn,
+  clearPendingAssistantTurn,
+} from './conversation/conversationTurnManager';
 import { persistConversationTurnInBackground } from './conversation/persistConversationTurn';
 import { createTransportEventRouter } from './transport/transportEventRouter';
 import { createVoiceChunkPipeline } from './voice/voiceChunkPipeline';
@@ -40,7 +42,6 @@ import { createSessionControllerMutableRuntime } from './sessionControllerMutabl
 import { createSessionControllerRuntime } from './sessionControllerRuntime';
 import { createSessionControllerPublicApi } from './sessionControllerPublicApi';
 import type {
-  SessionMode,
   ProductMode,
 } from './core/session.types';
 import type {
@@ -66,7 +67,6 @@ export function createDesktopSessionController(
   const dependencies: DesktopSessionControllerDependencies = {
     logger: defaultRuntimeLogger,
     checkBackendHealth,
-    startTextChatStream,
     requestSessionToken,
     createTransport: (_kind) => createGeminiLiveTransport(),
     createVoiceCapture: (observer) => createLocalVoiceCapture(observer),
@@ -83,7 +83,7 @@ export function createDesktopSessionController(
   let performBackendHealthCheck = async (_operationId?: number): Promise<boolean> => {
     throw new Error('performBackendHealthCheck called before initialization');
   };
-  let startSessionInternal = async (_options: { mode: SessionMode }): Promise<void> => {
+  let startSessionInternal = async (_options: { mode: 'voice' }): Promise<void> => {
     throw new Error('startSessionInternal called before initialization');
   };
   let endSessionInternal = async (
@@ -113,12 +113,6 @@ export function createDesktopSessionController(
     dependencies.createScreenCapture,
     () => mutableRuntime.getActiveTransport(),
   );
-  let setErrorState = (
-    _detail: string,
-    _failedTurnStatusLabel = 'Disconnected',
-  ): void => {
-    throw new Error('setErrorState called before initialization');
-  };
   let setVoiceErrorState = (_detail: string): void => {
     throw new Error('setVoiceErrorState called before initialization');
   };
@@ -169,21 +163,11 @@ export function createDesktopSessionController(
     endSessionInternal: (o) => void endSessionInternal(o),
     logRuntimeError,
   });
-  const textChatCtrl = createTextChatController({
-    store: dependencies.store,
-    logger: dependencies.logger,
-    appendUserMessageToCurrentChat: (text) =>
-      appendMessageToCurrentChat({
-        role: 'user',
-        contentText: text,
-      }),
-    buildTextChatRequestFromCurrentChat,
-    startTextChatStream: dependencies.startTextChatStream,
-    conversationCtx,
-    startSessionInternal: (options) => startSessionInternal(options),
-    setErrorState: (detail, label) => setErrorState(detail, label),
-    onConversationTurnSettled: persistSettledConversationTurn,
-  });
+  const appendTypedUserTurn = (text: string): string => {
+    const turnId = appendConversationUserTurn(conversationCtx, text);
+    persistSettledConversationTurn(turnId);
+    return turnId;
+  };
   const stateSync = createSessionControllerStateSync({
     store: dependencies.store,
     settingsStore: dependencies.settingsStore,
@@ -229,7 +213,13 @@ export function createDesktopSessionController(
     voiceToolCtrl,
     screenCtrl,
     interruptionCtrl,
-    textChatCtrl,
+    currentTextSessionStatus: () => dependencies.store.getState().textSessionLifecycle.status,
+    resetTextSessionRuntime: (textSessionStatus, options) => {
+      dependencies.store.getState().resetTextSessionRuntime(textSessionStatus, options);
+    },
+    clearPendingAssistantTurn: () => {
+      clearPendingAssistantTurn(conversationCtx);
+    },
     voiceTranscript,
     silenceCtrl,
   });
@@ -304,14 +294,14 @@ export function createDesktopSessionController(
       voiceToolCtrl.cancel('voice transport replaced');
       screenCtrl.resetSendChain();
       interruptionCtrl.reset();
-      textChatCtrl.clearPendingAssistantTurn();
+      clearPendingAssistantTurn(conversationCtx);
       voiceTranscript.resetTurnCompletedFlag();
     },
   });
   const teardown = createSessionControllerTeardown({
     store: dependencies.store,
     currentSpeechLifecycleStatus: () => runtimeRef.current!.currentSpeechLifecycleStatus(),
-    currentTextSessionStatus: () => textChatCtrl.currentStatus(),
+    currentTextSessionStatus: () => runtimeRef.current!.currentTextSessionStatus(),
     applySpeechLifecycleEvent: (event) => {
       runtimeRef.current!.applySpeechLifecycleEvent(event as SpeechSessionLifecycleEvent);
     },
@@ -322,9 +312,9 @@ export function createDesktopSessionController(
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     getActiveTransport: () => runtimeRef.current!.getActiveTransport(),
     getVoiceCapture: () => voiceChunkCtrl.getVoiceCapture(),
-    hasActiveTextStream: () => textChatCtrl.hasActiveStream(),
+    hasActiveTextStream: () => false,
     hasScreenCapture: () => screenCtrl.isActive(),
-    hasTextRuntimeActivity: () => textChatCtrl.hasRuntimeActivity(),
+    hasTextRuntimeActivity: () => false,
     hasVoiceCapture: () => voiceChunkCtrl.hasCapture(),
     hasVoicePlayback: () => playbackCtrl.isActive(),
     resetRuntimeState: (textSessionStatus, options) =>
@@ -358,9 +348,7 @@ export function createDesktopSessionController(
       await voiceChunkCtrl.flush();
     },
     stopVoicePlayback: () => runtimeRef.current!.stopVoicePlayback(),
-    textDisconnectRequested: () => {
-      textChatCtrl.applyLifecycleEvent({ type: 'disconnect.requested' });
-    },
+    textDisconnectRequested: () => undefined,
   });
 
   const { handleTransportEvent } = transportRouter;
@@ -381,7 +369,6 @@ export function createDesktopSessionController(
     beginSessionOperation: () => runtimeRef.current!.beginSessionOperation(),
     isCurrentSessionOperation: (operationId) => runtimeRef.current!.isCurrentSessionOperation(operationId),
     ensureExclusiveMode: (targetMode, operationId) => ensureExclusiveMode(targetMode, operationId),
-    resolveProductMode: (mode) => runtimeRef.current!.resolveProductMode(mode),
     currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
     recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
     applySpeechLifecycleEvent: (event) => {
@@ -424,9 +411,7 @@ export function createDesktopSessionController(
     startVoiceCapture: () => voiceChunkCtrl.startCapture({ shutdownOnFailure: true }),
     setVoiceErrorState: (detail) => settleVoiceErrorState(detail),
     checkBackendHealth: () => dependencies.checkBackendHealth(),
-    textRuntimeFailed: () => {
-      textChatCtrl.applyLifecycleEvent({ type: 'runtime.failed' });
-    },
+    textRuntimeFailed: () => undefined,
     logRuntimeDiagnostic,
   });
   performBackendHealthCheck = lifecycle.performBackendHealthCheck;
@@ -506,7 +491,7 @@ export function createDesktopSessionController(
       runtimeRef.current!.recordSessionEvent({ type: 'session.ended' });
     }
   };
-  ({ setErrorState, setVoiceErrorState, settleVoiceErrorState } = createSessionControllerErrorHandling({
+  ({ setVoiceErrorState, settleVoiceErrorState } = createSessionControllerErrorHandling({
     clearToken: () => {
       tokenMgr.clear();
     },
@@ -540,17 +525,13 @@ export function createDesktopSessionController(
     setVoiceToolState: (patch) => {
       runtimeRef.current!.setVoiceToolState(patch);
     },
-    textRuntimeFailed: () => {
-      textChatCtrl.applyLifecycleEvent({ type: 'runtime.failed' });
-    },
-    failPendingAssistantTurn: (statusLabel) => {
-      textChatCtrl.failPendingAssistantTurn(statusLabel);
-    },
+    textRuntimeFailed: () => undefined,
+    failPendingAssistantTurn: () => undefined,
   }));
   const modeSwitching = createSessionControllerModeSwitching({
     currentProductMode: () => runtimeRef.current!.currentProductMode(),
     hasSpeechRuntimeActivity: () => hasSpeechRuntimeActivity(),
-    hasTextRuntimeActivity: () => textChatCtrl.hasRuntimeActivity(),
+    hasTextRuntimeActivity: () => false,
     isCurrentSessionOperation: (operationId) => runtimeRef.current!.isCurrentSessionOperation(operationId),
     setCurrentMode: (mode) => {
       runtimeRef.current!.setCurrentMode(mode);
@@ -570,7 +551,7 @@ export function createDesktopSessionController(
     startSessionInternal,
     voiceChunkCtrl,
     screenCtrl,
-    textChatCtrl,
+    appendTypedUserTurn,
     voiceTranscriptCtrl: {
       queueMixedModeAssistantReply: () => {
         voiceTranscript.queueMixedModeAssistantReply();

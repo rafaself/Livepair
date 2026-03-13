@@ -4,8 +4,6 @@ import { formatConversationTimestamp } from './conversationTimestamp';
 import {
   mapChatMessageRecordToConversationTurn,
   mapChatMessageRecordsToConversationTurns,
-  mapChatMessageRecordToTextChatMessage,
-  mapChatMessageRecordsToTextChatMessages,
 } from './chatMessageAdapter';
 
 function createChatMessageRecord(
@@ -68,40 +66,6 @@ describe('chatMessageAdapter', () => {
         role: 'assistant',
         content: 'Second reply',
       }),
-    ]);
-  });
-
-  it('maps a persisted chat message into an explicit Gemini text chat message', () => {
-    const record = createChatMessageRecord({
-      role: 'assistant',
-      contentText: 'Stored response',
-    });
-
-    expect(mapChatMessageRecordToTextChatMessage(record)).toEqual({
-      role: 'assistant',
-      content: 'Stored response',
-    });
-  });
-
-  it('preserves sequence ordering when building text request messages from persisted history', () => {
-    const messages = mapChatMessageRecordsToTextChatMessages([
-      createChatMessageRecord({
-        id: 'message-2',
-        role: 'assistant',
-        contentText: 'Second reply',
-        sequence: 2,
-      }),
-      createChatMessageRecord({
-        id: 'message-1',
-        role: 'user',
-        contentText: 'First prompt',
-        sequence: 1,
-      }),
-    ]);
-
-    expect(messages).toEqual([
-      { role: 'user', content: 'First prompt' },
-      { role: 'assistant', content: 'Second reply' },
     ]);
   });
 });

@@ -114,15 +114,15 @@ export function selectTextSessionStatusLabel(
   const textSessionStatus = getTextSessionStatus(state);
 
   if (textSessionStatus === 'connecting') {
-    return 'Preparing text chat...';
+    return 'Preparing typed input...';
   }
 
   if (textSessionStatus === 'ready') {
-    return 'Text chat ready';
+    return 'Typed input ready';
   }
 
   if (textSessionStatus === 'sending') {
-    return 'Sending message...';
+    return 'Sending typed input...';
   }
 
   if (textSessionStatus === 'receiving') {
@@ -142,18 +142,18 @@ export function selectTextSessionStatusLabel(
   }
 
   if (textSessionStatus === 'goAway') {
-    return 'Text chat unavailable. Send again to retry.';
+    return 'Typed input unavailable. Send again to retry.';
   }
 
   if (textSessionStatus === 'disconnecting') {
-    return 'Disconnecting text session...';
+    return 'Ending typed input...';
   }
 
   if (textSessionStatus === 'error') {
-    return 'Text session failed';
+    return 'Typed input failed';
   }
 
-  return 'Text session disconnected';
+  return 'Typed input unavailable';
 }
 
 export function selectCanSubmitText(

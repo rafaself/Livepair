@@ -2,7 +2,6 @@ import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
 import { asErrorDetail } from './core/runtimeUtils';
 import type {
   SessionControllerEvent,
-  SessionMode,
 } from './core/session.types';
 import type { DesktopSession } from './transport/transport.types';
 import type { SessionStoreApi } from './core/sessionControllerTypes';
@@ -17,8 +16,7 @@ type SessionControllerLifecycleArgs = {
   store: SessionStoreApi;
   beginSessionOperation: () => number;
   isCurrentSessionOperation: (operationId: number) => boolean;
-  ensureExclusiveMode: (targetMode: 'inactive' | 'speech', operationId: number) => Promise<void>;
-  resolveProductMode: (mode: SessionMode) => 'inactive' | 'speech';
+  ensureExclusiveMode: (targetMode: 'speech', operationId: number) => Promise<void>;
   currentVoiceSessionStatus: () => VoiceSessionStatus;
   recordSessionEvent: (event: SessionControllerEvent) => void;
   applySpeechLifecycleEvent: (event: { type: string }) => void;
@@ -63,7 +61,6 @@ export function createSessionControllerLifecycle({
   beginSessionOperation,
   isCurrentSessionOperation,
   ensureExclusiveMode,
-  resolveProductMode,
   currentVoiceSessionStatus,
   recordSessionEvent,
   applySpeechLifecycleEvent,
@@ -131,19 +128,10 @@ export function createSessionControllerLifecycle({
   const startSessionInternal = async ({
     mode,
   }: {
-    mode: SessionMode;
+    mode: 'voice';
   }): Promise<void> => {
-    const targetMode = resolveProductMode(mode);
-
-    if (mode !== 'voice') {
-      logRuntimeDiagnostic('session', 'ignored standalone text session start request', {
-        mode,
-      });
-      return;
-    }
-
     const operationId = beginSessionOperation();
-    await ensureExclusiveMode(targetMode, operationId);
+    await ensureExclusiveMode('speech', operationId);
 
     if (!isCurrentSessionOperation(operationId)) {
       return;

@@ -10,7 +10,6 @@ import {
   createUnusedTransport,
   createVoiceTransportHarness,
   createVoiceCaptureHarness,
-  createTextChatHarness,
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – lifecycle', () => {
@@ -63,8 +62,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     );
   });
 
-  it('ignores standalone text session start requests and keeps the runtime inactive', async () => {
-    const textChat = createTextChatHarness();
+  it('keeps the runtime inactive when no live session is started', async () => {
     const requestSessionToken = vi.fn();
     const createTransport = vi.fn(() => createUnusedTransport());
     const logger: RuntimeLogger = {
@@ -74,16 +72,12 @@ describe('createDesktopSessionController – lifecycle', () => {
     const controller = createDesktopSessionController({
       logger,
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken,
       createTransport,
     });
 
-    await controller.startSession({ mode: 'text' });
-
     expect(requestSessionToken).not.toHaveBeenCalled();
     expect(createTransport).not.toHaveBeenCalled();
-    expect(textChat.startTextChatStream).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
         currentMode: 'inactive',
@@ -118,7 +112,6 @@ describe('createDesktopSessionController – lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi.fn(() => voiceTransport.transport),
       createVoiceCapture: voiceCapture.createVoiceCapture,
@@ -210,7 +203,6 @@ describe('createDesktopSessionController – lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -251,7 +243,6 @@ describe('createDesktopSessionController – lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(false),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
@@ -278,7 +269,6 @@ describe('createDesktopSessionController – lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockRejectedValue(new Error('token failed')),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
@@ -304,7 +294,6 @@ describe('createDesktopSessionController – lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -332,21 +321,18 @@ describe('createDesktopSessionController – lifecycle', () => {
   });
 
   it('ends an inactive runtime without creating standalone text activity', async () => {
-    const textChat = createTextChatHarness();
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
 
     await controller.endSession();
 
-    expect(textChat.startTextChatStream).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
         currentMode: 'inactive',
@@ -371,7 +357,6 @@ describe('createDesktopSessionController – lifecycle', () => {
     const controller = createDesktopSessionController({
       logger,
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });

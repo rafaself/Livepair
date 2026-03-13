@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionMode } from '../core/session.types';
+import type { LiveConnectMode } from '../core/session.types';
 import {
   LIVE_ADAPTER_KEY,
   LIVE_PROVIDER,
@@ -25,7 +25,7 @@ function createRawLiveConfig(overrides: Partial<Parameters<typeof parseLiveConfi
         inputAudioTranscription: false,
         outputAudioTranscription: false,
       },
-    } satisfies Record<SessionMode, {
+    } satisfies Record<LiveConnectMode, {
       responseModality: 'TEXT' | 'AUDIO';
       inputAudioTranscription: boolean;
       outputAudioTranscription: boolean;

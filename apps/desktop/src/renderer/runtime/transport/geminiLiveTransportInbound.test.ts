@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SessionMode } from '../core/session.types';
+import type { LiveConnectMode } from '../core/session.types';
 import { createGeminiLiveTransportState } from './geminiLiveTransportState';
 import type { GeminiLiveSdkServerMessage } from './geminiLiveSdkClient';
 import { handleGeminiLiveSdkMessage } from './geminiLiveTransportInbound';
 import type { LiveSessionEvent } from './transport.types';
 
-function createHarness(activeMode: SessionMode | null = 'text') {
+function createHarness(activeMode: LiveConnectMode | null = 'text') {
   const state = createGeminiLiveTransportState();
   state.activeMode = activeMode;
 

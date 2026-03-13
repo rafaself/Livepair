@@ -7,7 +7,6 @@ import {
   createUnusedTransport,
   createVoiceTransportHarness,
   expectDefaultResumptionState,
-  createTextChatHarness,
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – resumption', () => {
@@ -33,7 +32,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi
         .fn()
@@ -105,7 +103,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi
         .fn()
@@ -170,7 +167,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi.fn(() => firstTransport.transport),
     });
@@ -238,7 +234,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi
         .fn()
@@ -298,7 +293,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi
         .fn()
@@ -353,7 +347,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -400,7 +393,6 @@ describe('createDesktopSessionController – resumption', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -441,20 +433,17 @@ describe('createDesktopSessionController – resumption', () => {
     );
   });
 
-  it('keeps text mode durability state idle', async () => {
-    const textChat = createTextChatHarness();
+  it('keeps live-session durability state idle when typed input is blocked outside speech mode', async () => {
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
 
-    await controller.startSession({ mode: 'text' });
     await controller.submitTextTurn('Hello');
 
     expect(useSessionStore.getState().voiceSessionResumption).toEqual({
@@ -474,20 +463,17 @@ describe('createDesktopSessionController – resumption', () => {
     });
   });
 
-  it('keeps text mode resumption state idle', async () => {
-    const textChat = createTextChatHarness();
+  it('keeps live-session resumption state idle when typed input is blocked outside speech mode', async () => {
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
 
-    await controller.startSession({ mode: 'text' });
     await controller.submitTextTurn('Hello');
 
     expect(useSessionStore.getState().voiceSessionResumption).toEqual(

@@ -6,7 +6,6 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import {
   createUnusedTransport,
   createVoiceTransportHarness,
-  createTextChatHarness,
   createScreenCaptureHarness,
 } from './sessionController.testUtils';
 
@@ -25,7 +24,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -61,7 +59,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -83,7 +80,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
       createScreenCapture: screenCapture.createScreenCapture,
@@ -105,7 +101,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -132,7 +127,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -165,7 +159,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -196,7 +189,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -220,7 +212,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -263,7 +254,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -296,7 +286,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -326,7 +315,6 @@ describe('createDesktopSessionController – screen capture', () => {
     const controller = createDesktopSessionController({
       logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',

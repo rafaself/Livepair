@@ -2,12 +2,10 @@ import type {
   AppendChatMessageRequest,
   ChatMessageRecord,
   ChatRecord,
-  TextChatRequest,
 } from '@livepair/shared-types';
 import { useSessionStore } from '../store/sessionStore';
 import {
   mapChatMessageRecordsToConversationTurns,
-  mapChatMessageRecordsToTextChatMessages,
 } from '../runtime/conversation/chatMessageAdapter';
 import type { LiveSessionHistoryTurn } from '../runtime/transport/transport.types';
 
@@ -71,16 +69,6 @@ export async function listCurrentChatMessages(
 ): Promise<ChatMessageRecord[]> {
   const chat = await ensureActiveChat(bridge);
   return bridge.listChatMessages(chat.id);
-}
-
-export async function buildTextChatRequestFromCurrentChat(
-  bridge: CurrentChatMemoryBridge = window.bridge,
-): Promise<TextChatRequest> {
-  const messages = await listCurrentChatMessages(bridge);
-
-  return {
-    messages: mapChatMessageRecordsToTextChatMessages(messages),
-  };
 }
 
 function mapChatMessageRecordsToLiveSessionHistory(
