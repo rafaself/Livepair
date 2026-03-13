@@ -7,6 +7,8 @@ export type ConversationTurnModel = {
   role: ConversationRole;
   content: string;
   timestamp: string;
+  timelineOrdinal?: number | undefined;
+  liveTurnId?: string | undefined;
   state?: ConversationTurnState | undefined;
   statusLabel?: string | undefined;
   source?: 'text' | 'voice' | undefined;
@@ -19,6 +21,8 @@ export type TranscriptArtifactModel = {
   role: Extract<ConversationRole, 'user' | 'assistant'>;
   content: string;
   timestamp: string;
+  timelineOrdinal?: number | undefined;
+  liveTurnId?: string | undefined;
   state?: Extract<ConversationTurnState, 'streaming' | 'complete'> | undefined;
   statusLabel?: string | undefined;
   source: 'voice';

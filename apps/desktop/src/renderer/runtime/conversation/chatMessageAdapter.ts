@@ -16,6 +16,7 @@ export function mapChatMessageRecordToConversationTurn(
     role: record.role,
     content: record.contentText,
     timestamp: formatConversationTimestamp(new Date(record.createdAt)),
+    timelineOrdinal: record.sequence,
     state: 'complete',
     persistedMessageId: record.id,
   };

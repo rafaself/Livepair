@@ -34,6 +34,7 @@ describe('chatMessageAdapter', () => {
       role: 'user',
       content: 'Stored prompt',
       timestamp: formatConversationTimestamp(new Date(record.createdAt)),
+      timelineOrdinal: 2,
       state: 'complete',
       persistedMessageId: 'message-7',
     });

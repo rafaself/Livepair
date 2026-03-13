@@ -144,6 +144,36 @@ export type SessionStoreState = SessionStoreData & {
   reset: (overrides?: Partial<SessionStoreData>) => void;
 };
 
+type TimelineEntryWithOrdinal = {
+  timelineOrdinal?: number | undefined;
+};
+
+function getNextTimelineOrdinal(
+  state: Pick<SessionStoreData, 'conversationTurns' | 'transcriptArtifacts'>,
+): number {
+  return [...state.conversationTurns, ...state.transcriptArtifacts].reduce((maxOrdinal, entry) => {
+    return Math.max(maxOrdinal, entry.timelineOrdinal ?? 0);
+  }, 0) + 1;
+}
+
+function normalizeTimelineOrdinals<T extends TimelineEntryWithOrdinal>(
+  entries: readonly T[],
+): T[] {
+  let nextOrdinal = 0;
+
+  return entries.map((entry) => {
+    const timelineOrdinal = entry.timelineOrdinal ?? (nextOrdinal + 1);
+    nextOrdinal = Math.max(nextOrdinal, timelineOrdinal);
+
+    return entry.timelineOrdinal === timelineOrdinal
+      ? entry
+      : {
+          ...entry,
+          timelineOrdinal,
+        };
+  });
+}
+
 function withDerivedLifecycleFields(
   textSessionLifecycle: TextSessionLifecycle,
 ): Pick<SessionStoreData, 'sessionPhase' | 'textSessionLifecycle' | 'transportState'> {
@@ -300,9 +330,18 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   setActiveTransport: (activeTransport) => set({ activeTransport }),
   appendConversationTurn: (turn) =>
     set((state) => ({
-      conversationTurns: [...state.conversationTurns, turn],
+      conversationTurns: [
+        ...state.conversationTurns,
+        turn.timelineOrdinal === undefined
+          ? {
+              ...turn,
+              timelineOrdinal: getNextTimelineOrdinal(state),
+            }
+          : turn,
+      ],
     })),
-  replaceConversationTurns: (conversationTurns) => set({ conversationTurns }),
+  replaceConversationTurns: (conversationTurns) =>
+    set({ conversationTurns: normalizeTimelineOrdinals(conversationTurns) }),
   updateConversationTurn: (turnId, patch) =>
     set((state) => ({
       conversationTurns: state.conversationTurns.map((turn) =>
@@ -316,7 +355,15 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   clearConversationTurns: () => set({ conversationTurns: [] }),
   appendTranscriptArtifact: (artifact) =>
     set((state) => ({
-      transcriptArtifacts: [...state.transcriptArtifacts, artifact],
+      transcriptArtifacts: [
+        ...state.transcriptArtifacts,
+        artifact.timelineOrdinal === undefined
+          ? {
+              ...artifact,
+              timelineOrdinal: getNextTimelineOrdinal(state),
+            }
+          : artifact,
+      ],
     })),
   updateTranscriptArtifact: (artifactId, patch) =>
     set((state) => ({

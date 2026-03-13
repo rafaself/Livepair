@@ -12,8 +12,11 @@ export type AssistantDraftModel = {
   id: string;
   role: 'assistant';
   content: string;
+  liveTurnId?: string | undefined;
   status: 'streaming' | 'complete' | 'interrupted';
 };
+
+export type VoiceTurnFenceState = 'idle' | 'open' | 'completed' | 'interrupted';
 
 /**
  * Mutable context bag that backs conversation turn management. All counter
@@ -24,8 +27,12 @@ export interface ConversationContext {
   pendingAssistantTurnId: string | null;
   assistantDraft: AssistantDraftModel | null;
   hasQueuedMixedModeAssistantReply: boolean;
+  currentVoiceTurnId: string | null;
+  currentVoiceTurnState: VoiceTurnFenceState;
+  lastSettledAssistantArtifactId: string | null;
   currentVoiceAssistantArtifactId: string | null;
   currentVoiceUserArtifactId: string | null;
+  nextVoiceTurnId: number;
   nextAssistantTurnId: number;
   nextUserTurnId: number;
   nextTranscriptArtifactId: number;
@@ -37,8 +44,12 @@ export function createConversationContext(store: SessionStoreApi): ConversationC
     pendingAssistantTurnId: null,
     assistantDraft: null,
     hasQueuedMixedModeAssistantReply: false,
+    currentVoiceTurnId: null,
+    currentVoiceTurnState: 'idle',
+    lastSettledAssistantArtifactId: null,
     currentVoiceAssistantArtifactId: null,
     currentVoiceUserArtifactId: null,
+    nextVoiceTurnId: 0,
     nextAssistantTurnId: 0,
     nextUserTurnId: 0,
     nextTranscriptArtifactId: 0,
@@ -71,8 +82,41 @@ export function clearPendingAssistantTurn(ctx: ConversationContext): void {
 
 export function clearCurrentVoiceTurns(ctx: ConversationContext): void {
   ctx.hasQueuedMixedModeAssistantReply = false;
+  ctx.currentVoiceTurnId = null;
+  ctx.currentVoiceTurnState = 'idle';
+  ctx.lastSettledAssistantArtifactId = null;
   ctx.currentVoiceAssistantArtifactId = null;
   ctx.currentVoiceUserArtifactId = null;
+}
+
+export function hasOpenVoiceTurnFence(ctx: ConversationContext): boolean {
+  return ctx.currentVoiceTurnId !== null && ctx.currentVoiceTurnState === 'open';
+}
+
+export function beginVoiceTurnFence(ctx: ConversationContext): string {
+  if (hasOpenVoiceTurnFence(ctx) && ctx.currentVoiceTurnId) {
+    return ctx.currentVoiceTurnId;
+  }
+
+  ctx.currentVoiceTurnId = `voice-turn-${++ctx.nextVoiceTurnId}`;
+  ctx.currentVoiceTurnState = 'open';
+  ctx.lastSettledAssistantArtifactId = null;
+  ctx.currentVoiceAssistantArtifactId = null;
+  ctx.currentVoiceUserArtifactId = null;
+
+  return ctx.currentVoiceTurnId;
+}
+
+export function settleVoiceTurnFence(
+  ctx: ConversationContext,
+  nextState: Extract<VoiceTurnFenceState, 'completed' | 'interrupted'>,
+): boolean {
+  if (!hasOpenVoiceTurnFence(ctx)) {
+    return false;
+  }
+
+  ctx.currentVoiceTurnState = nextState;
+  return true;
 }
 
 function appendTranscriptArtifact(
@@ -93,6 +137,7 @@ function appendTranscriptArtifact(
     state,
     statusLabel,
     source: 'voice',
+    ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
     ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
   });
 
@@ -187,6 +232,7 @@ function createAssistantDraft(ctx: ConversationContext): AssistantDraftModel {
     id: draftId,
     role: 'assistant',
     content: '',
+    ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
     status: 'streaming',
   };
   ctx.assistantDraft = draft;
@@ -278,6 +324,7 @@ export function appendCompletedAssistantTurn(
     source?: ConversationTurnModel['source'];
     transcriptFinal?: boolean;
     statusLabel?: string;
+    timelineOrdinal?: number;
   },
 ): string | null {
   const trimmedContent = content.trim();
@@ -293,6 +340,8 @@ export function appendCompletedAssistantTurn(
     content: trimmedContent,
     timestamp: formatConversationTimestamp(),
     state: 'complete',
+    ...(options?.timelineOrdinal !== undefined ? { timelineOrdinal: options.timelineOrdinal } : {}),
+    ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
     ...(options?.statusLabel ? { statusLabel: options.statusLabel } : {}),
     ...(options?.source ? { source: options.source } : {}),
     ...(options?.transcriptFinal !== undefined
@@ -381,11 +430,22 @@ export function finalizeCurrentVoiceUserTranscriptArtifact(
     return null;
   }
 
+  if (attachedTurnId) {
+    updateTranscriptArtifact(ctx, artifact.id, {
+      state: 'complete',
+      statusLabel: undefined,
+      attachedTurnId,
+    });
+    ctx.store.getState().removeTranscriptArtifact(artifact.id);
+    ctx.currentVoiceUserArtifactId = null;
+    return artifact.id;
+  }
+
   updateTranscriptArtifact(ctx, artifact.id, {
     state: 'complete',
     statusLabel: undefined,
-    ...(attachedTurnId ? { attachedTurnId } : {}),
   });
+  ctx.currentVoiceUserArtifactId = null;
   return artifact.id;
 }
 
@@ -425,11 +485,24 @@ export function finalizeCurrentVoiceAssistantTranscriptArtifact(
     return null;
   }
 
+  if (options.attachedTurnId) {
+    updateTranscriptArtifact(ctx, artifact.id, {
+      state: 'complete',
+      statusLabel: options.interrupted ? 'Interrupted' : undefined,
+      attachedTurnId: options.attachedTurnId,
+    });
+    ctx.store.getState().removeTranscriptArtifact(artifact.id);
+    ctx.currentVoiceAssistantArtifactId = null;
+    ctx.lastSettledAssistantArtifactId = null;
+    return artifact.id;
+  }
+
   updateTranscriptArtifact(ctx, artifact.id, {
     state: 'complete',
     statusLabel: options.interrupted ? 'Interrupted' : undefined,
-    ...(options.attachedTurnId ? { attachedTurnId: options.attachedTurnId } : {}),
   });
+  ctx.currentVoiceAssistantArtifactId = null;
+  ctx.lastSettledAssistantArtifactId = artifact.id;
   return artifact.id;
 }
 
@@ -438,6 +511,31 @@ export function interruptCurrentVoiceAssistantTranscriptArtifact(ctx: Conversati
     state: 'complete',
     statusLabel: 'Interrupted',
   });
+}
+
+export function attachSettledVoiceAssistantTranscriptArtifact(
+  ctx: ConversationContext,
+  turnId: string,
+): string | null {
+  const artifactId = ctx.lastSettledAssistantArtifactId;
+
+  if (!artifactId) {
+    return null;
+  }
+
+  const artifact = getTranscriptArtifact(ctx, artifactId);
+
+  if (!artifact) {
+    ctx.lastSettledAssistantArtifactId = null;
+    return null;
+  }
+
+  updateTranscriptArtifact(ctx, artifact.id, {
+    attachedTurnId: turnId,
+  });
+  ctx.store.getState().removeTranscriptArtifact(artifact.id);
+  ctx.lastSettledAssistantArtifactId = null;
+  return artifact.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -451,6 +549,7 @@ export function appendUserTurn(
     persistedMessageId?: string;
     source?: ConversationTurnModel['source'];
     transcriptFinal?: boolean;
+    timelineOrdinal?: number;
   },
 ): string {
   const turnId = `user-turn-${++ctx.nextUserTurnId}`;
@@ -461,6 +560,8 @@ export function appendUserTurn(
     content,
     timestamp: formatConversationTimestamp(),
     state: 'complete',
+    ...(options?.timelineOrdinal !== undefined ? { timelineOrdinal: options.timelineOrdinal } : {}),
+    ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
     ...(options?.persistedMessageId
       ? { persistedMessageId: options.persistedMessageId }
       : {}),
