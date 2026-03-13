@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import {
   createVoiceTransportHarness,
@@ -10,11 +11,7 @@ import {
 
 describe('createDesktopSessionController – playback', () => {
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
   });
 
   it('routes assistant audio chunks into playback state and diagnostics without affecting text mode', async () => {

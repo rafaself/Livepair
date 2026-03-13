@@ -1,7 +1,7 @@
 
 # MVP Development Watchouts
 
-> **Status:** This document is aspirational design guidance, not a current-state description. Some items describe goals or constraints that are not yet fully implemented. Specifically: checkpoint saving (item 2) and the backend tool endpoints (item 8) are planned but not implemented yet. For the current implementation state, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) and [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md).
+> **Status:** This document captures the current MVP guardrails plus a small number of clearly labeled planned extensions. For the current implementation state, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) and [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md).
 
 ## 1. Latency
 - Keep the hot path short: client → Gemini Live API.
@@ -12,9 +12,9 @@
 
 ## 2. Long sessions
 - Assume the technical session will reconnect.
-- Enable session resumption.
-- Enable context compression.
-- Save short checkpoints periodically.
+- Keep session resumption enabled.
+- Keep context compression enabled when supported.
+- Save short checkpoints periodically (`Planned`).
 
 ## 3. Context growth
 - Do not keep raw full history.
@@ -47,7 +47,7 @@
 - Treat token renewal as a normal flow.
 - Handle token expiration explicitly.
 
-## 8. Tooling scope
+## 8. Tool scope
 - Keep MVP tools minimal.
 - Approved (planned, not yet implemented) tool endpoints:
   - `screenshot-hd`

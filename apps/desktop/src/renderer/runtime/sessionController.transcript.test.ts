@@ -3,7 +3,7 @@ import { createDesktopSessionController } from './sessionController';
 import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import {
   createVoicePlaybackHarness,
   createVoiceTransportHarness,
@@ -43,11 +43,7 @@ function visibleTimeline() {
 
 describe('createDesktopSessionController – transcript', () => {
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
     resetCurrentChatMemoryForTests();
   });
 

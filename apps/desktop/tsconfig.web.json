@@ -11,6 +11,8 @@
     "composite": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "out"

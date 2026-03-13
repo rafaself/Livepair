@@ -5,7 +5,7 @@ import { createDesktopSessionController } from './sessionController';
 import { selectAssistantRuntimeState, selectIsConversationEmpty } from './selectors';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetDesktopStoresWithDefaults } from '../store/testing';
 import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import {
   createUnusedTransport,
@@ -24,11 +24,7 @@ describe('createDesktopSessionController – lifecycle', () => {
   }>;
 
   beforeEach(() => {
-    useSessionStore.getState().reset();
-    useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
-      isReady: true,
-    });
+    resetDesktopStoresWithDefaults();
     resetCurrentChatMemoryForTests();
     persistedMessages = [];
     window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue({

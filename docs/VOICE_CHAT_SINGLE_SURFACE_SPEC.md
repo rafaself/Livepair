@@ -1,11 +1,11 @@
 # Voice Chat Single-Surface Spec
 
 **Status:** Shipped
-**Last updated:** 2026-03-12
+**Last updated:** 2026-03-13
 
 ## Goal
 
-Document the shipped speech-chat architecture after Waves 1 to 5. This file describes the current repository behavior, not the intermediate migration plan.
+Document the current shipped speech-chat architecture. This file describes the current repository behavior, not the intermediate migration plan.
 
 ## Final UX Contract
 
@@ -16,16 +16,16 @@ Document the shipped speech-chat architecture after Waves 1 to 5. This file desc
 
 Primary surface:
 
-- [`apps/desktop/src/renderer/components/features/AssistantPanelChatView.tsx`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/components/features/AssistantPanelChatView.tsx)
-- [`apps/desktop/src/renderer/components/features/AssistantPanelConversationSection.tsx`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/components/features/AssistantPanelConversationSection.tsx)
+- [`apps/desktop/src/renderer/components/features/AssistantPanelChatView.tsx`](../apps/desktop/src/renderer/components/features/AssistantPanelChatView.tsx)
+- [`apps/desktop/src/renderer/components/features/AssistantPanelConversationSection.tsx`](../apps/desktop/src/renderer/components/features/AssistantPanelConversationSection.tsx)
 
 Visible state source of truth:
 
-- `conversationTurns` in [`apps/desktop/src/renderer/store/sessionStore.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/store/sessionStore.ts)
+- `conversationTurns` in [`apps/desktop/src/renderer/store/sessionStore.ts`](../apps/desktop/src/renderer/store/sessionStore.ts)
 
 Compatibility-only mirror:
 
-- `currentVoiceTranscript` in [`apps/desktop/src/renderer/store/sessionStore.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/store/sessionStore.ts)
+- `currentVoiceTranscript` in [`apps/desktop/src/renderer/store/sessionStore.ts`](../apps/desktop/src/renderer/store/sessionStore.ts)
 - This mirror is retained for runtime compatibility and targeted tests, but it is not a primary rendered speech surface.
 
 ## Runtime Ownership Model
@@ -33,9 +33,9 @@ Compatibility-only mirror:
 ### Spoken user turns
 
 - Create:
-  the first `input-transcript` event for a speech turn creates the in-progress user bubble through [`apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.ts)
+  the first `input-transcript` event for a speech turn creates the in-progress user bubble through [`apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.ts`](../apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.ts)
 - Update:
-  later user transcript updates revise the same bubble in place through [`apps/desktop/src/renderer/runtime/conversation/conversationTurnManager.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/conversation/conversationTurnManager.ts)
+  later user transcript updates revise the same bubble in place through [`apps/desktop/src/renderer/runtime/conversation/conversationTurnManager.ts`](../apps/desktop/src/renderer/runtime/conversation/conversationTurnManager.ts)
 - Finalize:
   `turn-complete` finalizes the existing user bubble when the user side of the turn settles
 - Carry-over rule:
@@ -73,10 +73,10 @@ Compatibility-only mirror:
 
 Focused regression coverage for the shipped contract lives in:
 
-- [`apps/desktop/src/renderer/runtime/sessionController.transcript.test.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/sessionController.transcript.test.ts)
-- [`apps/desktop/src/renderer/runtime/sessionController.interruption.test.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/sessionController.interruption.test.ts)
-- [`apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.test.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.test.ts)
-- [`apps/desktop/src/renderer/runtime/transport/transportEventRouter.test.ts`](/home/rafa/dev/Livepair/main/apps/desktop/src/renderer/runtime/transport/transportEventRouter.test.ts)
+- [`apps/desktop/src/renderer/runtime/sessionController.transcript.test.ts`](../apps/desktop/src/renderer/runtime/sessionController.transcript.test.ts)
+- [`apps/desktop/src/renderer/runtime/sessionController.interruption.test.ts`](../apps/desktop/src/renderer/runtime/sessionController.interruption.test.ts)
+- [`apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.test.ts`](../apps/desktop/src/renderer/runtime/voice/voiceTranscriptController.test.ts)
+- [`apps/desktop/src/renderer/runtime/transport/transportEventRouter.test.ts`](../apps/desktop/src/renderer/runtime/transport/transportEventRouter.test.ts)
 
 The regression suite covers:
 

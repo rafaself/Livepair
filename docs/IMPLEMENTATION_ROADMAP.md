@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-12
 
-This roadmap is forward-looking from the current stable baseline. Completed milestones are recorded as completed history rather than future work. For the status grid, see [docs/MILESTONE_MATRIX.md](./MILESTONE_MATRIX.md).
+This roadmap is forward-looking from the current stable baseline. For completed-release status, see [docs/MILESTONE_MATRIX.md](./MILESTONE_MATRIX.md).
 
 ## Current Baseline
 
@@ -22,17 +22,6 @@ Already implemented:
 - product state sources of truth: `currentMode` and `speechLifecycle`
 - visible speech-turn source of truth: `conversationTurns`
 - retained compatibility-only speech transcript mirror: `currentVoiceTranscript`
-
-## Completed Milestones
-
-| Milestone | Status | Delivered outcome |
-| --- | --- | --- |
-| Release 0: Runtime Infrastructure | Completed | Desktop runtime scaffolding, transport abstraction, and state/logging foundations are in place. |
-| Release 1: Real Token Issuance | Completed | `POST /session/token` issues real Gemini Live ephemeral tokens. |
-| Release 2: Desktop Realtime Session Skeleton | Completed | Desktop session controller and Gemini Live transport are present and wired into runtime state. |
-| Release 3: Text-First Realtime Turn | Completed | `text` mode runs end to end through backend-mediated streaming chat. |
-| Release 4: Microphone Capture And Playback | Completed | Speech sessions can stream microphone audio and play assistant audio. |
-| Release 5: Local VAD And Interruption Handling | Completed | Local interruption flow stops playback quickly and recovers the speech lifecycle. |
 
 ## Remaining Roadmap
 

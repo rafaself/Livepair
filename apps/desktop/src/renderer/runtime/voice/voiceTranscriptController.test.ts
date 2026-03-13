@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetDesktopStores } from '../../store/testing';
 import { useSessionStore } from '../../store/sessionStore';
 import {
   appendCompletedAssistantTurn,
@@ -9,7 +10,7 @@ import { createVoiceTranscriptController } from './voiceTranscriptController';
 
 describe('createVoiceTranscriptController', () => {
   beforeEach(() => {
-    useSessionStore.getState().reset();
+    resetDesktopStores();
   });
 
   it('stores user transcript updates in the compatibility transcript store and transcript artifacts', () => {
