@@ -63,6 +63,11 @@ export type TransportEventRouterOps = {
   // Lifecycle events
   applySpeechLifecycleEvent: (event: SpeechSessionLifecycleEvent) => SpeechLifecycleStatus;
   applyVoiceTranscriptUpdate: (role: 'user' | 'assistant', text: string, isFinal?: boolean) => void;
+  appendAssistantDraftTextDelta: (text: string) => void;
+  completeAssistantDraft: () => void;
+  interruptAssistantDraft: () => void;
+  discardAssistantDraft: () => void;
+  commitAssistantDraft: () => void;
   // Error and cleanup
   setVoiceErrorState: (detail: string) => void;
   cleanupTransport: () => void;
@@ -238,9 +243,16 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'interrupted') {
+      ops.interruptAssistantDraft();
+      ops.discardAssistantDraft();
       ops.cancelVoiceToolCalls('voice turn interrupted');
       ops.finalizeCurrentVoiceTurns('interrupted');
       ops.handleVoiceInterruption();
+      return;
+    }
+
+    if (event.type === 'text-delta') {
+      ops.appendAssistantDraftTextDelta(event.text);
       return;
     }
 
@@ -288,6 +300,8 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'turn-complete') {
+      ops.completeAssistantDraft();
+      ops.commitAssistantDraft();
       ops.finalizeCurrentVoiceTurns('completed');
       if (ops.currentSpeechLifecycleStatus() === 'assistantSpeaking') {
         ops.applySpeechLifecycleEvent({ type: 'assistant.turn.completed' });
