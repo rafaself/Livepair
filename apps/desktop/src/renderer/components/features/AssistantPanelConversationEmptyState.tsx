@@ -5,12 +5,14 @@ export type AssistantPanelConversationEmptyStateProps = {
   assistantState: AssistantRuntimeState;
   isLiveSessionActive: boolean;
   lastRuntimeError: string | null;
+  liveSessionPhaseLabel?: string | null;
 };
 
 export function AssistantPanelConversationEmptyState({
   assistantState,
   isLiveSessionActive,
   lastRuntimeError,
+  liveSessionPhaseLabel = null,
 }: AssistantPanelConversationEmptyStateProps): JSX.Element {
   if (assistantState === 'error' && lastRuntimeError) {
     return (
@@ -41,8 +43,10 @@ export function AssistantPanelConversationEmptyState({
           aria-hidden="true"
         />
       )}
-      <p className="assistant-panel__conversation-empty-title">
-        {isLiveSessionActive ? 'Start speaking' : 'Live session history starts here'}
+      <p className="assistant-panel__conversation-empty-title" role="status" aria-live="polite">
+        {isLiveSessionActive
+          ? (liveSessionPhaseLabel ?? 'Start speaking')
+          : 'Live session history starts here'}
       </p>
       <p className="assistant-panel__conversation-empty-body">
         {isLiveSessionActive

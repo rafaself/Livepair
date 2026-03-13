@@ -10,6 +10,7 @@ export type AssistantPanelChatComposerProps = {
   isComposerDisabled: boolean;
   isLiveSessionActive: boolean;
   isPanelOpen: boolean;
+  liveSessionPhaseLabel?: string | null;
   placeholder: string;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onEndSpeechMode: () => Promise<void>;
@@ -24,6 +25,7 @@ export function AssistantPanelChatComposer({
   isComposerDisabled,
   isLiveSessionActive,
   isPanelOpen,
+  liveSessionPhaseLabel = null,
   placeholder,
   onDraftTextChange,
   onEndSpeechMode,
@@ -110,6 +112,11 @@ export function AssistantPanelChatComposer({
 
   return (
     <div className="assistant-panel__composer-section">
+      {liveSessionPhaseLabel && !isConversationEmpty ? (
+        <p className="assistant-panel__session-status" role="status" aria-live="polite">
+          {liveSessionPhaseLabel}
+        </p>
+      ) : null}
       <form
         ref={formRef}
         className="assistant-panel__composer"

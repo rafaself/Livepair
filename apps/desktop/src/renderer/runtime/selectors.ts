@@ -5,6 +5,7 @@ import {
 } from '../store/sessionStore';
 import type { ConversationTimelineEntry } from './conversation/conversation.types';
 import { isSessionActiveLifecycle, isTextTurnInFlight } from './text/textSessionLifecycle';
+import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
 
 export function selectAssistantRuntimeState(
   state: Pick<
@@ -202,4 +203,26 @@ export function selectIsSessionActive(
   state: Pick<SessionStoreState, 'textSessionLifecycle'>,
 ): boolean {
   return isSessionActiveLifecycle(getTextSessionStatus(state));
+}
+
+export function selectLiveSessionPhaseLabel(
+  state: Pick<SessionStoreState, 'speechLifecycle' | 'voiceSessionResumption' | 'voiceSessionStatus'>,
+): string | null {
+  const speechStatus = state.speechLifecycle.status;
+
+  if (speechStatus === 'starting') {
+    return state.voiceSessionResumption.status === 'reconnecting'
+      ? 'Resuming Live session...'
+      : 'Starting Live session...';
+  }
+
+  if (speechStatus === 'ending') {
+    return 'Ending Live session...';
+  }
+
+  if (isSpeechLifecycleActive(speechStatus) && state.voiceSessionStatus === 'recovering') {
+    return 'Reconnecting...';
+  }
+
+  return null;
 }

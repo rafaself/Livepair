@@ -9,6 +9,7 @@ import {
   selectCanSubmitText,
   selectIsConversationEmpty,
   selectIsSessionActive,
+  selectLiveSessionPhaseLabel,
   selectVisibleConversationTimeline,
 } from './selectors';
 
@@ -332,4 +333,68 @@ describe('selectIsSessionActive', () => {
       expect(selectIsSessionActive(lifecycle(status))).toBe(false);
     },
   );
+});
+
+const livePhaseInput = (
+  speechStatus: string,
+  resumptionStatus: string = 'idle',
+  voiceSessionStatus: string = 'disconnected',
+) => ({
+  speechLifecycle: { status: speechStatus } as never,
+  voiceSessionResumption: { status: resumptionStatus } as never,
+  voiceSessionStatus: voiceSessionStatus as never,
+});
+
+describe('selectLiveSessionPhaseLabel', () => {
+  it('returns Starting Live session... when speechStatus is starting (no resumption)', () => {
+    expect(
+      selectLiveSessionPhaseLabel(livePhaseInput('starting', 'idle')),
+    ).toBe('Starting Live session...');
+  });
+
+  it('returns Starting Live session... when speechStatus is starting and resumption is connected', () => {
+    expect(
+      selectLiveSessionPhaseLabel(livePhaseInput('starting', 'connected')),
+    ).toBe('Starting Live session...');
+  });
+
+  it('returns Resuming Live session... when speechStatus is starting and resumption is reconnecting', () => {
+    expect(
+      selectLiveSessionPhaseLabel(livePhaseInput('starting', 'reconnecting')),
+    ).toBe('Resuming Live session...');
+  });
+
+  it('returns Starting Live session... when speechStatus is starting and resumption has failed (fallback path)', () => {
+    expect(
+      selectLiveSessionPhaseLabel(livePhaseInput('starting', 'resumeFailed')),
+    ).toBe('Starting Live session...');
+  });
+
+  it('returns Ending Live session... when speechStatus is ending', () => {
+    expect(
+      selectLiveSessionPhaseLabel(livePhaseInput('ending')),
+    ).toBe('Ending Live session...');
+  });
+
+  it('returns Reconnecting... when speech is active and voiceSessionStatus is recovering', () => {
+    expect(
+      selectLiveSessionPhaseLabel(livePhaseInput('listening', 'connected', 'recovering')),
+    ).toBe('Reconnecting...');
+  });
+
+  it('returns null when speech is off', () => {
+    expect(selectLiveSessionPhaseLabel(livePhaseInput('off'))).toBeNull();
+  });
+
+  it('returns null when speech is listening with no voice recovery', () => {
+    expect(
+      selectLiveSessionPhaseLabel(livePhaseInput('listening', 'connected', 'ready')),
+    ).toBeNull();
+  });
+
+  it('returns null when speech is assistantSpeaking', () => {
+    expect(
+      selectLiveSessionPhaseLabel(livePhaseInput('assistantSpeaking', 'connected', 'streaming')),
+    ).toBeNull();
+  });
 });
