@@ -9,6 +9,9 @@ import { normalizeScreenContextState } from './screenContextState';
 export const DEFAULT_REHYDRATION_STABLE_INSTRUCTION =
   'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.';
 export const MAX_REHYDRATION_RECENT_TURNS = 6;
+export const MAX_REHYDRATION_SUMMARY_LENGTH = 1600;
+export const MAX_REHYDRATION_TURN_TEXT_LENGTH = 400;
+const MAX_REHYDRATION_SUMMARY_COVERAGE_LAG = 24;
 const SUMMARY_TAIL_BOUNDARY_ANCHOR_TURNS = 2;
 
 type BuildRehydrationPacketOptions = {
@@ -29,11 +32,15 @@ function compareMessages(left: ChatMessageRecord, right: ChatMessageRecord): num
   return left.id.localeCompare(right.id);
 }
 
+function normalizeTurnText(text: string): string {
+  return text.trim().slice(0, MAX_REHYDRATION_TURN_TEXT_LENGTH);
+}
+
 function mapMessageToPacketTurn(record: ChatMessageRecord): RehydrationPacketTurn {
   return {
     role: record.role,
     kind: 'message',
-    text: record.contentText,
+    text: normalizeTurnText(record.contentText),
     createdAt: record.createdAt,
     sequence: record.sequence,
   };
@@ -41,6 +48,7 @@ function mapMessageToPacketTurn(record: ChatMessageRecord): RehydrationPacketTur
 
 function normalizeSummaryCoverageSequence(
   summaryCoveredThroughSequence: number | null | undefined,
+  latestMessageSequence: number | null,
 ): number | null {
   if (
     typeof summaryCoveredThroughSequence !== 'number'
@@ -50,7 +58,18 @@ function normalizeSummaryCoverageSequence(
   }
 
   const normalizedCoverage = Math.floor(summaryCoveredThroughSequence);
-  return normalizedCoverage > 0 ? normalizedCoverage : null;
+
+  if (normalizedCoverage <= 0) {
+    return null;
+  }
+
+  if (latestMessageSequence === null || normalizedCoverage > latestMessageSequence) {
+    return null;
+  }
+
+  return latestMessageSequence - normalizedCoverage > MAX_REHYDRATION_SUMMARY_COVERAGE_LAG
+    ? null
+    : normalizedCoverage;
 }
 
 function selectRecentTurns(
@@ -94,7 +113,7 @@ function normalizeSummary(summary: string | null | undefined): string | null {
     return null;
   }
 
-  const trimmedSummary = summary.trim();
+  const trimmedSummary = summary.trim().slice(0, MAX_REHYDRATION_SUMMARY_LENGTH);
   return trimmedSummary.length > 0 ? trimmedSummary : null;
 }
 
@@ -130,10 +149,23 @@ export function buildRehydrationPacket(
   messages: readonly ChatMessageRecord[],
   options: BuildRehydrationPacketOptions = {},
 ): RehydrationPacket {
+  const latestMessageSequence = messages.reduce<number | null>(
+    (latestSequence, message) => {
+      if (latestSequence === null || message.sequence > latestSequence) {
+        return message.sequence;
+      }
+
+      return latestSequence;
+    },
+    null,
+  );
   const normalizedSummary = normalizeSummary(options.summary);
   const summaryCoveredThroughSequence = normalizedSummary === null
     ? null
-    : normalizeSummaryCoverageSequence(options.summaryCoveredThroughSequence);
+    : normalizeSummaryCoverageSequence(
+      options.summaryCoveredThroughSequence,
+      latestMessageSequence,
+    );
 
   return {
     stableInstruction: DEFAULT_REHYDRATION_STABLE_INSTRUCTION,

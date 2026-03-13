@@ -4,9 +4,13 @@ import {
   buildRehydrationPacket,
   DEFAULT_REHYDRATION_STABLE_INSTRUCTION,
   MAX_REHYDRATION_RECENT_TURNS,
+  MAX_REHYDRATION_SUMMARY_LENGTH,
+  MAX_REHYDRATION_TURN_TEXT_LENGTH,
 } from './rehydrationPacket';
 import { mapRehydrationPacketToLiveSessionHistory } from './currentChatMemory';
 import {
+  MAX_REHYDRATION_STATE_ENTRY_KEY_LENGTH,
+  MAX_REHYDRATION_STATE_ENTRY_VALUE_LENGTH,
   MAX_SCREEN_CONTEXT_SUMMARY_LENGTH,
   SCREEN_CONTEXT_SUMMARY_KEY,
 } from './screenContextState';
@@ -355,6 +359,102 @@ describe('rehydrationPacket', () => {
     ]);
   });
 
+  it('falls back to the latest bounded recent turns when summary coverage is too stale for a very long chat', () => {
+    const messages = Array.from({ length: 40 }, (_, index) => {
+      const sequence = index + 1;
+
+      return {
+        id: `message-${sequence}`,
+        chatId: 'chat-1',
+        role: sequence % 2 === 0 ? 'assistant' : 'user',
+        contentText: `Turn ${sequence}`,
+        createdAt: `2026-03-12T09:${String((sequence - 1) % 60).padStart(2, '0')}:00.000Z`,
+        sequence,
+      } satisfies ChatMessageRecord;
+    });
+
+    expect(
+      buildRehydrationPacket(messages, {
+        summary: 'Persisted chat summary',
+        summaryCoveredThroughSequence: 10,
+      }).recentTurns,
+    ).toEqual([
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 35',
+        createdAt: '2026-03-12T09:34:00.000Z',
+        sequence: 35,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 36',
+        createdAt: '2026-03-12T09:35:00.000Z',
+        sequence: 36,
+      },
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 37',
+        createdAt: '2026-03-12T09:36:00.000Z',
+        sequence: 37,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 38',
+        createdAt: '2026-03-12T09:37:00.000Z',
+        sequence: 38,
+      },
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 39',
+        createdAt: '2026-03-12T09:38:00.000Z',
+        sequence: 39,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 40',
+        createdAt: '2026-03-12T09:39:00.000Z',
+        sequence: 40,
+      },
+    ]);
+  });
+
+  it('truncates oversized summary and recent turn text to deterministic restore limits', () => {
+    const oversizedSummary = 'S'.repeat(MAX_REHYDRATION_SUMMARY_LENGTH + 25);
+    const oversizedTurn = 'T'.repeat(MAX_REHYDRATION_TURN_TEXT_LENGTH + 25);
+    const packet = buildRehydrationPacket(
+      [
+        {
+          id: 'message-1',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: oversizedTurn,
+          createdAt: '2026-03-12T09:01:00.000Z',
+          sequence: 1,
+        },
+      ],
+      {
+        summary: `  ${oversizedSummary}  `,
+      },
+    );
+
+    expect(packet.summary).toBe('S'.repeat(MAX_REHYDRATION_SUMMARY_LENGTH));
+    expect(packet.recentTurns).toEqual([
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'T'.repeat(MAX_REHYDRATION_TURN_TEXT_LENGTH),
+        createdAt: '2026-03-12T09:01:00.000Z',
+        sequence: 1,
+      },
+    ]);
+  });
+
   it('keeps only a compact text-only screenContextSummary inside persisted context state', () => {
     const packet = buildRehydrationPacket(
       [
@@ -481,6 +581,48 @@ describe('rehydrationPacket', () => {
             value: 'Dense IDE screen with failing tests and two edited files.'
               .repeat(20)
               .slice(0, MAX_SCREEN_CONTEXT_SUMMARY_LENGTH),
+          },
+        ],
+      },
+    });
+  });
+
+  it('truncates generic task and context keys and values after trimming and deduping', () => {
+    const packet = buildRehydrationPacket([], {
+      contextState: {
+        task: {
+          entries: [
+            {
+              key: `  ${'taskKey'.repeat(20)}  `,
+              value: `  ${'taskValue'.repeat(40)}  `,
+            },
+          ],
+        },
+        context: {
+          entries: [
+            {
+              key: `  ${'contextKey'.repeat(20)}  `,
+              value: `  ${'contextValue'.repeat(40)}  `,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(packet.contextState).toEqual({
+      task: {
+        entries: [
+          {
+            key: 'taskKey'.repeat(20).slice(0, MAX_REHYDRATION_STATE_ENTRY_KEY_LENGTH),
+            value: 'taskValue'.repeat(40).slice(0, MAX_REHYDRATION_STATE_ENTRY_VALUE_LENGTH),
+          },
+        ],
+      },
+      context: {
+        entries: [
+          {
+            key: 'contextKey'.repeat(20).slice(0, MAX_REHYDRATION_STATE_ENTRY_KEY_LENGTH),
+            value: 'contextValue'.repeat(40).slice(0, MAX_REHYDRATION_STATE_ENTRY_VALUE_LENGTH),
           },
         ],
       },

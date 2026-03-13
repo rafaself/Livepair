@@ -381,4 +381,92 @@ describe('currentChatMemory rehydration packet sourcing', () => {
       },
     });
   });
+
+  it('keeps the persisted summary but ignores a stale coverage boundary for very long chats', async () => {
+    const messages = Array.from({ length: 40 }, (_, index) => {
+      const sequence = index + 1;
+
+      return {
+        id: `message-${sequence}`,
+        chatId: 'chat-1',
+        role: sequence % 2 === 0 ? 'assistant' : 'user',
+        contentText: `Turn ${sequence}`,
+        createdAt: `2026-03-12T09:${String((sequence - 1) % 60).padStart(2, '0')}:00.000Z`,
+        sequence,
+      };
+    });
+
+    const bridge = {
+      appendChatMessage: vi.fn(),
+      getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-1' }),
+      listChatMessages: vi.fn().mockResolvedValue(messages),
+      getChatSummary: vi.fn().mockResolvedValue({
+        chatId: 'chat-1',
+        schemaVersion: 1,
+        source: 'local-recent-history-v1',
+        summaryText: 'Persisted long-chat summary',
+        coveredThroughSequence: 10,
+        updatedAt: '2026-03-12T09:10:30.000Z',
+      }),
+      listLiveSessions: vi.fn().mockResolvedValue([]),
+    };
+
+    await expect(buildRehydrationPacketFromCurrentChat(bridge as never)).resolves.toEqual({
+      stableInstruction:
+        'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+      summary: 'Persisted long-chat summary',
+      recentTurns: [
+        {
+          role: 'user',
+          kind: 'message',
+          text: 'Turn 35',
+          createdAt: '2026-03-12T09:34:00.000Z',
+          sequence: 35,
+        },
+        {
+          role: 'assistant',
+          kind: 'message',
+          text: 'Turn 36',
+          createdAt: '2026-03-12T09:35:00.000Z',
+          sequence: 36,
+        },
+        {
+          role: 'user',
+          kind: 'message',
+          text: 'Turn 37',
+          createdAt: '2026-03-12T09:36:00.000Z',
+          sequence: 37,
+        },
+        {
+          role: 'assistant',
+          kind: 'message',
+          text: 'Turn 38',
+          createdAt: '2026-03-12T09:37:00.000Z',
+          sequence: 38,
+        },
+        {
+          role: 'user',
+          kind: 'message',
+          text: 'Turn 39',
+          createdAt: '2026-03-12T09:38:00.000Z',
+          sequence: 39,
+        },
+        {
+          role: 'assistant',
+          kind: 'message',
+          text: 'Turn 40',
+          createdAt: '2026-03-12T09:39:00.000Z',
+          sequence: 40,
+        },
+      ],
+      contextState: {
+        task: {
+          entries: [],
+        },
+        context: {
+          entries: [],
+        },
+      },
+    });
+  });
 });

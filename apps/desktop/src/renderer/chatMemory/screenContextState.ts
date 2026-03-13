@@ -5,6 +5,8 @@ import type {
 
 export const SCREEN_CONTEXT_SUMMARY_KEY = 'screenContextSummary';
 export const MAX_SCREEN_CONTEXT_SUMMARY_LENGTH = 500;
+export const MAX_REHYDRATION_STATE_ENTRY_KEY_LENGTH = 80;
+export const MAX_REHYDRATION_STATE_ENTRY_VALUE_LENGTH = 240;
 const MAX_REHYDRATION_TASK_STATE_ENTRIES = 4;
 const MAX_REHYDRATION_CONTEXT_STATE_ENTRIES = 4;
 
@@ -23,8 +25,8 @@ function normalizeStateEntry(
   }
 
   return {
-    key,
-    value,
+    key: key.slice(0, MAX_REHYDRATION_STATE_ENTRY_KEY_LENGTH),
+    value: value.slice(0, MAX_REHYDRATION_STATE_ENTRY_VALUE_LENGTH),
   };
 }
 
