@@ -9,7 +9,9 @@ import {
   isChatId,
   isCreateChatRequest,
   isCreateEphemeralTokenRequest,
+  isCreateLiveSessionRequest,
   isDesktopSettingsPatch,
+  isEndLiveSessionRequest,
   toOverlayRectangles,
 } from './validators';
 
@@ -93,6 +95,39 @@ export function registerIpcHandlers({
       }
 
       return chatMemoryService.appendMessage(req);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.createLiveSession,
+    async (_event, req: unknown) => {
+      if (!isCreateLiveSessionRequest(req)) {
+        throw new Error('Invalid create live session payload');
+      }
+
+      return chatMemoryService.createLiveSession(req);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.listLiveSessions,
+    async (_event, chatId: unknown) => {
+      if (!isChatId(chatId)) {
+        throw new Error('Invalid chat id');
+      }
+
+      return chatMemoryService.listLiveSessions(chatId);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.endLiveSession,
+    async (_event, req: unknown) => {
+      if (!isEndLiveSessionRequest(req)) {
+        throw new Error('Invalid end live session payload');
+      }
+
+      return chatMemoryService.endLiveSession(req);
     },
   );
 

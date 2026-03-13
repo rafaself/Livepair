@@ -6,6 +6,10 @@ import type {
   ChatMessageRecord,
   ChatRecord,
   CreateChatRequest,
+  CreateLiveSessionRequest,
+  EndLiveSessionRequest,
+  LiveSessionRecord,
+  LiveSessionStatus,
 } from '@livepair/shared-types';
 
 type ChatRow = {
@@ -25,12 +29,26 @@ type MessageRow = {
   sequence: number;
 };
 
+type LiveSessionRow = {
+  id: string;
+  chat_id: string;
+  started_at: string;
+  ended_at: string | null;
+  status: LiveSessionStatus;
+  ended_reason: string | null;
+  latest_resume_handle: string | null;
+  resumable: number;
+};
+
 export interface ChatMemoryRepository {
   createChat: (request?: CreateChatRequest) => ChatRecord;
   getChat: (chatId: ChatId) => ChatRecord | null;
   getOrCreateCurrentChat: () => ChatRecord;
   listMessages: (chatId: ChatId) => ChatMessageRecord[];
   appendMessage: (request: AppendChatMessageRequest) => ChatMessageRecord;
+  createLiveSession: (request: CreateLiveSessionRequest) => LiveSessionRecord;
+  listLiveSessions: (chatId: ChatId) => LiveSessionRecord[];
+  endLiveSession: (request: EndLiveSessionRequest) => LiveSessionRecord;
 }
 
 function toChatRecord(row: ChatRow): ChatRecord {
@@ -51,6 +69,19 @@ function toChatMessageRecord(row: MessageRow): ChatMessageRecord {
     contentText: row.content_text,
     createdAt: row.created_at,
     sequence: row.sequence,
+  };
+}
+
+function toLiveSessionRecord(row: LiveSessionRow): LiveSessionRecord {
+  return {
+    id: row.id,
+    chatId: row.chat_id,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    status: row.status,
+    endedReason: row.ended_reason,
+    latestResumeHandle: row.latest_resume_handle,
+    resumable: row.resumable === 1,
   };
 }
 
@@ -82,6 +113,10 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
   private readonly updateChatTimestampStatement;
   private readonly nextSequenceStatement;
   private readonly insertMessageStatement;
+  private readonly listLiveSessionsByChatIdStatement;
+  private readonly insertLiveSessionStatement;
+  private readonly selectLiveSessionByIdStatement;
+  private readonly updateLiveSessionEndStateStatement;
 
   constructor(private readonly database: SqliteDatabase) {
     this.selectChatByIdStatement = database.prepare(
@@ -109,6 +144,61 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     this.insertMessageStatement = database.prepare(`
       INSERT INTO messages (id, chat_id, role, content_text, created_at, sequence)
       VALUES (@id, @chatId, @role, @contentText, @createdAt, @sequence)
+    `);
+    this.listLiveSessionsByChatIdStatement = database.prepare(
+      `SELECT
+         id,
+         chat_id,
+         started_at,
+         ended_at,
+         status,
+         ended_reason,
+         latest_resume_handle,
+         resumable
+       FROM live_sessions
+       WHERE chat_id = ?
+       ORDER BY started_at DESC, id DESC`,
+    );
+    this.insertLiveSessionStatement = database.prepare(`
+      INSERT INTO live_sessions (
+        id,
+        chat_id,
+        started_at,
+        ended_at,
+        status,
+        ended_reason,
+        latest_resume_handle,
+        resumable
+      ) VALUES (
+        @id,
+        @chatId,
+        @startedAt,
+        @endedAt,
+        @status,
+        @endedReason,
+        @latestResumeHandle,
+        @resumable
+      )
+    `);
+    this.selectLiveSessionByIdStatement = database.prepare(
+      `SELECT
+         id,
+         chat_id,
+         started_at,
+         ended_at,
+         status,
+         ended_reason,
+         latest_resume_handle,
+         resumable
+       FROM live_sessions
+       WHERE id = ?`,
+    );
+    this.updateLiveSessionEndStateStatement = database.prepare(`
+      UPDATE live_sessions
+      SET ended_at = @endedAt,
+          status = @status,
+          ended_reason = @endedReason
+      WHERE id = @id
     `);
   }
 
@@ -198,5 +288,78 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
     });
 
     return appendMessage(request);
+  }
+
+  createLiveSession(request: CreateLiveSessionRequest): LiveSessionRecord {
+    const createLiveSession = this.database.transaction((input: CreateLiveSessionRequest) => {
+      const chat = this.getChat(input.chatId);
+
+      if (!chat) {
+        throw new Error(`Chat not found: ${input.chatId}`);
+      }
+
+      const liveSessionRow: LiveSessionRow = {
+        id: randomUUID(),
+        chat_id: input.chatId,
+        started_at: input.startedAt ?? new Date().toISOString(),
+        ended_at: null,
+        status: 'active',
+        ended_reason: null,
+        latest_resume_handle: null,
+        resumable: 0,
+      };
+
+      this.insertLiveSessionStatement.run({
+        id: liveSessionRow.id,
+        chatId: liveSessionRow.chat_id,
+        startedAt: liveSessionRow.started_at,
+        endedAt: liveSessionRow.ended_at,
+        status: liveSessionRow.status,
+        endedReason: liveSessionRow.ended_reason,
+        latestResumeHandle: liveSessionRow.latest_resume_handle,
+        resumable: liveSessionRow.resumable,
+      });
+
+      return toLiveSessionRecord(liveSessionRow);
+    });
+
+    return createLiveSession(request);
+  }
+
+  listLiveSessions(chatId: ChatId): LiveSessionRecord[] {
+    return (
+      this.listLiveSessionsByChatIdStatement.all(chatId) as LiveSessionRow[]
+    ).map((row) => toLiveSessionRecord(row));
+  }
+
+  endLiveSession(request: EndLiveSessionRequest): LiveSessionRecord {
+    const endLiveSession = this.database.transaction((input: EndLiveSessionRequest) => {
+      const existingRow = this.selectLiveSessionByIdStatement.get(input.id) as
+        | LiveSessionRow
+        | undefined;
+
+      if (!existingRow) {
+        throw new Error(`Live session not found: ${input.id}`);
+      }
+
+      const endedAt = input.endedAt ?? new Date().toISOString();
+      const endedReason = input.endedReason ?? null;
+
+      this.updateLiveSessionEndStateStatement.run({
+        id: input.id,
+        endedAt,
+        status: input.status,
+        endedReason,
+      });
+
+      return toLiveSessionRecord({
+        ...existingRow,
+        ended_at: endedAt,
+        status: input.status,
+        ended_reason: endedReason,
+      });
+    });
+
+    return endLiveSession(request);
   }
 }

@@ -39,6 +39,9 @@ describe('preload bridge', () => {
       'getOrCreateCurrentChat',
       'listChatMessages',
       'appendChatMessage',
+      'createLiveSession',
+      'listLiveSessions',
+      'endLiveSession',
       'getSettings',
       'updateSettings',
       'setOverlayHitRegions',
@@ -53,6 +56,9 @@ describe('preload bridge', () => {
       getOrCreateCurrentChat: expect.any(Function),
       listChatMessages: expect.any(Function),
       appendChatMessage: expect.any(Function),
+      createLiveSession: expect.any(Function),
+      listLiveSessions: expect.any(Function),
+      endLiveSession: expect.any(Function),
       getSettings: expect.any(Function),
       updateSettings: expect.any(Function),
       setOverlayHitRegions: expect.any(Function),
@@ -137,6 +143,55 @@ describe('preload bridge', () => {
       chatId: 'chat-1',
       role: 'user',
       contentText: 'Hello',
+    });
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'live-session-1',
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T00:00:00.000Z',
+      endedAt: null,
+      status: 'active',
+      endedReason: null,
+      latestResumeHandle: null,
+      resumable: false,
+    });
+    await bridge.createLiveSession({ chatId: 'chat-1' });
+    expect(mockInvoke).toHaveBeenCalledWith('liveSession:create', { chatId: 'chat-1' });
+
+    mockInvoke.mockResolvedValueOnce([
+      {
+        id: 'live-session-1',
+        chatId: 'chat-1',
+        startedAt: '2026-03-12T00:00:00.000Z',
+        endedAt: null,
+        status: 'active',
+        endedReason: null,
+        latestResumeHandle: null,
+        resumable: false,
+      },
+    ]);
+    await bridge.listLiveSessions('chat-1');
+    expect(mockInvoke).toHaveBeenCalledWith('liveSession:listByChat', 'chat-1');
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'live-session-1',
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T00:00:00.000Z',
+      endedAt: '2026-03-12T00:05:00.000Z',
+      status: 'ended',
+      endedReason: 'user-ended',
+      latestResumeHandle: null,
+      resumable: false,
+    });
+    await bridge.endLiveSession({
+      id: 'live-session-1',
+      status: 'ended',
+      endedReason: 'user-ended',
+    });
+    expect(mockInvoke).toHaveBeenCalledWith('liveSession:end', {
+      id: 'live-session-1',
+      status: 'ended',
+      endedReason: 'user-ended',
     });
 
     mockInvoke.mockResolvedValueOnce({

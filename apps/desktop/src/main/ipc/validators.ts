@@ -3,6 +3,8 @@ import type {
   AppendChatMessageRequest,
   CreateChatRequest,
   CreateEphemeralTokenRequest,
+  CreateLiveSessionRequest,
+  EndLiveSessionRequest,
 } from '@livepair/shared-types';
 import type { DesktopSettingsPatch } from '../../shared/settings';
 
@@ -138,6 +140,34 @@ export function isAppendChatMessageRequest(value: unknown): value is AppendChatM
     isChatId(value['chatId']) &&
     (value['role'] === 'user' || value['role'] === 'assistant') &&
     isNonEmptyString(value['contentText'])
+  );
+}
+
+export function isCreateLiveSessionRequest(value: unknown): value is CreateLiveSessionRequest {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['chatId', 'startedAt'])) {
+    return false;
+  }
+
+  return (
+    isChatId(value['chatId']) &&
+    (typeof value['startedAt'] === 'undefined' || typeof value['startedAt'] === 'string')
+  );
+}
+
+export function isEndLiveSessionRequest(value: unknown): value is EndLiveSessionRequest {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['id', 'endedAt', 'status', 'endedReason'])) {
+    return false;
+  }
+
+  return (
+    isChatId(value['id']) &&
+    (value['status'] === 'ended' || value['status'] === 'failed') &&
+    (typeof value['endedAt'] === 'undefined' || typeof value['endedAt'] === 'string') &&
+    (
+      typeof value['endedReason'] === 'undefined' ||
+      value['endedReason'] === null ||
+      typeof value['endedReason'] === 'string'
+    )
   );
 }
 

@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const INITIAL_SCHEMA_VERSION = 1;
+const LIVE_SESSIONS_SCHEMA_VERSION = 2;
 
 function applyInitialSchema(database: SqliteDatabase): void {
   database.exec(`
@@ -31,6 +32,26 @@ function applyInitialSchema(database: SqliteDatabase): void {
   `);
 }
 
+function applyLiveSessionsSchema(database: SqliteDatabase): void {
+  database.exec(`
+    CREATE TABLE live_sessions (
+      id TEXT PRIMARY KEY,
+      chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      status TEXT NOT NULL CHECK (status IN ('active', 'ended', 'failed')),
+      ended_reason TEXT,
+      latest_resume_handle TEXT,
+      resumable INTEGER NOT NULL DEFAULT 0 CHECK (resumable IN (0, 1))
+    );
+
+    CREATE INDEX idx_live_sessions_chat_started_at
+      ON live_sessions(chat_id, started_at DESC, id DESC);
+    CREATE INDEX idx_live_sessions_status_started_at
+      ON live_sessions(status, started_at DESC, id DESC);
+  `);
+}
+
 function bootstrapChatMemoryDatabase(database: SqliteDatabase): void {
   const migrate = database.transaction(() => {
     database.exec(`
@@ -52,6 +73,13 @@ function bootstrapChatMemoryDatabase(database: SqliteDatabase): void {
       database
         .prepare('INSERT INTO schema_migrations (version) VALUES (?)')
         .run(INITIAL_SCHEMA_VERSION);
+    }
+
+    if (!appliedVersions.has(LIVE_SESSIONS_SCHEMA_VERSION)) {
+      applyLiveSessionsSchema(database);
+      database
+        .prepare('INSERT INTO schema_migrations (version) VALUES (?)')
+        .run(LIVE_SESSIONS_SCHEMA_VERSION);
     }
   });
 

@@ -92,4 +92,64 @@ describe('SqliteChatMemoryRepository', () => {
     });
     expect(repository.getChat(nextChat.id)).toEqual(nextChat);
   });
+
+  it('creates and lists multiple historical live sessions for a chat', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+
+    const firstLiveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+    const secondLiveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T10:00:00.000Z',
+    });
+
+    expect(repository.listLiveSessions(chat.id)).toEqual([
+      secondLiveSession,
+      firstLiveSession,
+    ]);
+
+    const reopenedRepository = openRepository();
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([
+      secondLiveSession,
+      firstLiveSession,
+    ]);
+  });
+
+  it('ends a persisted live session without affecting canonical chat messages', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    repository.appendMessage({
+      chatId: chat.id,
+      role: 'user',
+      contentText: 'Keep this history intact',
+    });
+
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+    const endedLiveSession = repository.endLiveSession({
+      id: liveSession.id,
+      status: 'ended',
+      endedAt: '2026-03-12T09:05:00.000Z',
+      endedReason: 'user-ended',
+    });
+
+    expect(endedLiveSession).toEqual({
+      ...liveSession,
+      endedAt: '2026-03-12T09:05:00.000Z',
+      status: 'ended',
+      endedReason: 'user-ended',
+    });
+    expect(repository.listMessages(chat.id)).toEqual([
+      expect.objectContaining({
+        chatId: chat.id,
+        role: 'user',
+        contentText: 'Keep this history intact',
+      }),
+    ]);
+  });
 });
