@@ -42,6 +42,18 @@ describe('backendClient', () => {
     await expect(client.checkHealth()).rejects.toThrow('Health check failed: 503');
   });
 
+  it('rejects malformed health responses from successful requests', async () => {
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => ({ status: 'ok' })),
+    });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(client.checkHealth()).rejects.toThrow('Health response was invalid');
+  });
+
   it('requests a session token through the configured backend URL', async () => {
     const req: CreateEphemeralTokenRequest = { sessionId: 'session-1' };
     const response: CreateEphemeralTokenResponse = {

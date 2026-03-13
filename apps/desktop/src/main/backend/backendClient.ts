@@ -21,6 +21,23 @@ function isExpiredTimestamp(value: string, now = Date.now()): boolean {
   return Date.parse(value) <= now;
 }
 
+function parseHealthResponse(value: unknown): HealthResponse {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Health response was invalid');
+  }
+
+  const payload = value as Record<string, unknown>;
+
+  if (payload['status'] !== 'ok' || typeof payload['timestamp'] !== 'string') {
+    throw new Error('Health response was invalid');
+  }
+
+  return {
+    status: 'ok',
+    timestamp: payload['timestamp'],
+  };
+}
+
 function parseCreateEphemeralTokenResponse(
   value: unknown,
 ): CreateEphemeralTokenResponse {
@@ -111,7 +128,7 @@ export function createBackendClient({
         );
       }
 
-      return (await res.json()) as HealthResponse;
+      return parseHealthResponse(await res.json());
     },
 
     async requestSessionToken(
