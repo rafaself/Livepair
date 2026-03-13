@@ -35,6 +35,7 @@ export interface DesktopBridge {
   createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
+  listChats: () => Promise<ChatRecord[]>;
   listChatMessages: (chatId: ChatId) => Promise<ChatMessageRecord[]>;
   appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
   createLiveSession: (req: CreateLiveSessionRequest) => Promise<LiveSessionRecord>;
@@ -53,6 +54,7 @@ export const IPC_CHANNELS = {
   createChat: 'chatMemory:createChat',
   getChat: 'chatMemory:getChat',
   getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',
+  listChats: 'chatMemory:listChats',
   listChatMessages: 'chatMemory:listMessages',
   appendChatMessage: 'chatMemory:appendMessage',
   createLiveSession: 'liveSession:create',

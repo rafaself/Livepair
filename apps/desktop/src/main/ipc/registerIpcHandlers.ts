@@ -77,6 +77,10 @@ export function registerIpcHandlers({
     return chatMemoryService.getOrCreateCurrentChat();
   });
 
+  ipcMain.handle(IPC_CHANNELS.listChats, async () => {
+    return chatMemoryService.listChats();
+  });
+
   ipcMain.handle(
     IPC_CHANNELS.listChatMessages,
     async (_event, chatId: unknown) => {

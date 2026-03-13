@@ -37,6 +37,7 @@ describe('preload bridge', () => {
       'createChat',
       'getChat',
       'getOrCreateCurrentChat',
+      'listChats',
       'listChatMessages',
       'appendChatMessage',
       'createLiveSession',
@@ -55,6 +56,7 @@ describe('preload bridge', () => {
       createChat: expect.any(Function),
       getChat: expect.any(Function),
       getOrCreateCurrentChat: expect.any(Function),
+      listChats: expect.any(Function),
       listChatMessages: expect.any(Function),
       appendChatMessage: expect.any(Function),
       createLiveSession: expect.any(Function),
@@ -114,6 +116,18 @@ describe('preload bridge', () => {
     });
     await bridge.getOrCreateCurrentChat();
     expect(mockInvoke).toHaveBeenCalledWith('chatMemory:getOrCreateCurrentChat');
+
+    mockInvoke.mockResolvedValueOnce([
+      {
+        id: 'chat-1',
+        title: null,
+        createdAt: '2026-03-12T00:00:00.000Z',
+        updatedAt: '2026-03-12T00:00:00.000Z',
+        isCurrent: true,
+      },
+    ]);
+    await bridge.listChats();
+    expect(mockInvoke).toHaveBeenCalledWith('chatMemory:listChats');
 
     mockInvoke.mockResolvedValueOnce([
       {

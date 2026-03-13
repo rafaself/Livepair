@@ -93,6 +93,7 @@ function createChatMemoryServiceDouble(): ChatMemoryService {
     createChat: vi.fn(() => createChatRecord()),
     getChat: vi.fn(() => createChatRecord()),
     getOrCreateCurrentChat: vi.fn(() => createChatRecord()),
+    listChats: vi.fn(() => [createChatRecord()]),
     listMessages: vi.fn(() => [createChatMessageRecord()]),
     appendMessage: vi.fn((request: AppendChatMessageRequest) =>
       createChatMessageRecord(request),
@@ -119,7 +120,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(15);
+    expect(mockHandle).toHaveBeenCalledTimes(16);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -143,47 +144,52 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       6,
-      'chatMemory:listMessages',
+      'chatMemory:listChats',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       7,
+      'chatMemory:listMessages',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      8,
       'chatMemory:appendMessage',
       expect.any(Function),
     );
-    expect(mockHandle).toHaveBeenNthCalledWith(8, 'liveSession:create', expect.any(Function));
+    expect(mockHandle).toHaveBeenNthCalledWith(9, 'liveSession:create', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
-      9,
+      10,
       'liveSession:listByChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      10,
+      11,
       'liveSession:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      11,
+      12,
       'liveSession:end',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      12,
+      13,
       'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      13,
+      14,
       'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      14,
+      15,
       'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      15,
+      16,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
