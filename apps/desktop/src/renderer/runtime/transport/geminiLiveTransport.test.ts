@@ -459,10 +459,6 @@ describe('createGeminiLiveTransport', () => {
           text: ' response',
         },
         {
-          type: 'text-message',
-          text: 'Streaming response',
-        },
-        {
           type: 'turn-complete',
         },
       ]),
@@ -639,17 +635,13 @@ describe('createGeminiLiveTransport', () => {
       text: 'Done',
     });
 
-    expect(events.slice(-4)).toEqual([
+    expect(events.slice(-3)).toEqual([
       {
         type: 'text-delta',
         text: 'Done',
       },
       {
         type: 'generation-complete',
-      },
-      {
-        type: 'text-message',
-        text: 'Done',
       },
       {
         type: 'turn-complete',

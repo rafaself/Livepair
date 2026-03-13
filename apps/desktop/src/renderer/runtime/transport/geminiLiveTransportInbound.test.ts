@@ -60,7 +60,7 @@ describe('handleGeminiLiveSdkMessage', () => {
   it('resets transport state and emits go-away without rejecting after setup completes', () => {
     const harness = createHarness('voice');
     harness.state.hasCompletedSetup = true;
-    harness.state.pendingOutputText = 'partial response';
+    harness.state.hasPendingTextResponse = true;
     harness.state.hasOpenAudioStream = true;
 
     harness.dispatch({
@@ -71,7 +71,7 @@ describe('handleGeminiLiveSdkMessage', () => {
 
     expect(harness.state.hasCompletedSetup).toBe(false);
     expect(harness.state.hasReceivedGoAway).toBe(true);
-    expect(harness.state.pendingOutputText).toBe('');
+    expect(harness.state.hasPendingTextResponse).toBe(false);
     expect(harness.state.activeMode).toBe(null);
     expect(harness.state.hasOpenAudioStream).toBe(false);
     expect(harness.events).toEqual([
@@ -115,7 +115,7 @@ describe('handleGeminiLiveSdkMessage', () => {
     ]);
   });
 
-  it('accumulates text deltas and emits generation-complete before the completed text message', () => {
+  it('emits text deltas and generation-complete while leaving turn assembly to the runtime draft owner', () => {
     const harness = createHarness();
 
     harness.dispatch({ text: 'Streaming' });
@@ -131,15 +131,14 @@ describe('handleGeminiLiveSdkMessage', () => {
       { type: 'text-delta', text: 'Streaming' },
       { type: 'text-delta', text: ' response' },
       { type: 'generation-complete' },
-      { type: 'text-message', text: 'Streaming response' },
       { type: 'turn-complete' },
     ]);
-    expect(harness.state.pendingOutputText).toBe('');
+    expect(harness.state.hasPendingTextResponse).toBe(false);
   });
 
-  it('clears pending output and short-circuits later handling when Gemini interrupts the turn', () => {
+  it('clears transient text-response tracking and short-circuits later handling when Gemini interrupts the turn', () => {
     const harness = createHarness();
-    harness.state.pendingOutputText = 'Existing';
+    harness.state.hasPendingTextResponse = true;
 
     harness.dispatch({
       text: ' delta',
@@ -169,7 +168,7 @@ describe('handleGeminiLiveSdkMessage', () => {
       { type: 'text-delta', text: ' delta' },
       { type: 'interrupted' },
     ]);
-    expect(harness.state.pendingOutputText).toBe('');
+    expect(harness.state.hasPendingTextResponse).toBe(false);
   });
 
   it('normalizes malformed tool calls into runtime-safe payloads', () => {

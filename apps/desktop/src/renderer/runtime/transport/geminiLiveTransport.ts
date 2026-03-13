@@ -289,8 +289,8 @@ export class GeminiLiveTransport implements DesktopSession {
       throw createTransportError('Gemini Live session is not connected');
     }
 
-    if (this.state.pendingOutputText.length > 0) {
-      this.state.pendingOutputText = '';
+    if (this.state.hasPendingTextResponse) {
+      this.state.hasPendingTextResponse = false;
       this.emit({ type: 'interrupted' });
     }
 

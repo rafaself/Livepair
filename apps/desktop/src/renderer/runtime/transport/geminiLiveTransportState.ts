@@ -6,7 +6,7 @@ export type GeminiLiveTransportState = {
   hasCompletedSetup: boolean;
   hasReceivedGoAway: boolean;
   closingByClient: boolean;
-  pendingOutputText: string;
+  hasPendingTextResponse: boolean;
   disconnectResolver: (() => void) | null;
   activeMode: LiveConnectMode | null;
   hasOpenAudioStream: boolean;
@@ -18,7 +18,7 @@ export function createGeminiLiveTransportState(): GeminiLiveTransportState {
     hasCompletedSetup: false,
     hasReceivedGoAway: false,
     closingByClient: false,
-    pendingOutputText: '',
+    hasPendingTextResponse: false,
     disconnectResolver: null,
     activeMode: null,
     hasOpenAudioStream: false,
@@ -39,7 +39,7 @@ export function resetGeminiLiveTransportState(
   state.hasCompletedSetup = false;
   state.hasReceivedGoAway = options.hasReceivedGoAway ?? state.hasReceivedGoAway;
   state.closingByClient = options.closingByClient ?? state.closingByClient;
-  state.pendingOutputText = '';
+  state.hasPendingTextResponse = false;
   state.disconnectResolver = options.disconnectResolver ?? state.disconnectResolver;
   state.activeMode = null;
   state.hasOpenAudioStream = false;

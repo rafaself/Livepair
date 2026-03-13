@@ -139,12 +139,12 @@ export function handleGeminiLiveSdkMessage({
   const textChunk = message.text ?? '';
 
   if (textChunk.length > 0) {
-    state.pendingOutputText = `${state.pendingOutputText}${textChunk}`;
+    state.hasPendingTextResponse = true;
     emit({ type: 'text-delta', text: textChunk });
   }
 
   if (message.serverContent?.interrupted) {
-    state.pendingOutputText = '';
+    state.hasPendingTextResponse = false;
     emit({ type: 'interrupted' });
     return;
   }
@@ -176,11 +176,7 @@ export function handleGeminiLiveSdkMessage({
   }
 
   if (message.serverContent?.turnComplete) {
-    if (state.pendingOutputText.length > 0) {
-      emit({ type: 'text-message', text: state.pendingOutputText });
-      state.pendingOutputText = '';
-    }
-
+    state.hasPendingTextResponse = false;
     emit({ type: 'turn-complete' });
   }
 }
