@@ -71,7 +71,7 @@ export function AssistantPanelChatView({
   const composerAction = createAssistantPanelComposerAction({
     controlGatingSnapshot,
     draftText,
-    hasConversationHistory: !isConversationEmpty,
+    isConversationEmpty,
     isComposerDisabled,
     speechLifecycleStatus,
   });
@@ -97,7 +97,7 @@ export function AssistantPanelChatView({
         <AssistantPanelChatComposer
           composerAction={composerAction}
           draftText={draftText}
-          hasConversationHistory={!isConversationEmpty}
+          isConversationEmpty={isConversationEmpty}
           isComposerDisabled={isComposerDisabled}
           isLiveSessionActive={isLiveSessionActive}
           isPanelOpen={isPanelOpen ?? false}

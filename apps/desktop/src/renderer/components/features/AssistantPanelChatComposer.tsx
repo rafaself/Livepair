@@ -6,7 +6,7 @@ import type { AssistantPanelComposerAction } from './assistantPanelComposerActio
 export type AssistantPanelChatComposerProps = {
   composerAction: AssistantPanelComposerAction;
   draftText: string;
-  hasConversationHistory: boolean;
+  isConversationEmpty: boolean;
   isComposerDisabled: boolean;
   isLiveSessionActive: boolean;
   isPanelOpen: boolean;
@@ -19,7 +19,7 @@ export type AssistantPanelChatComposerProps = {
 export function AssistantPanelChatComposer({
   composerAction,
   draftText,
-  hasConversationHistory,
+  isConversationEmpty,
   isComposerDisabled,
   isLiveSessionActive,
   isPanelOpen,
@@ -82,14 +82,14 @@ export function AssistantPanelChatComposer({
         <div className="assistant-panel__inactive-cta" role="note">
           <div className="assistant-panel__inactive-cta-copy">
             <p className="assistant-panel__inactive-cta-title">
-              {hasConversationHistory
-                ? 'This history stays available while inactive'
-                : 'Start a Live session to continue here'}
+              {isConversationEmpty
+                ? 'Start a Live session to continue here'
+                : 'This history stays available while inactive'}
             </p>
             <p className="assistant-panel__inactive-cta-body">
-              {hasConversationHistory
-                ? 'Resume Live Session to continue with the latest context in this container.'
-                : 'Start Live Session to add turns here. When the session pauses, this container stays visible for context.'}
+              {isConversationEmpty
+                ? 'Start Live Session to add turns here. When the session pauses, this container stays visible for context.'
+                : 'Resume Live Session to continue with the latest context in this container.'}
             </p>
           </div>
           <Button

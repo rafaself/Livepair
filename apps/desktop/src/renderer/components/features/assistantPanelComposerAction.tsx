@@ -19,7 +19,7 @@ export type AssistantPanelComposerAction = {
 export type CreateAssistantPanelComposerActionOptions = {
   controlGatingSnapshot: ControlGatingSnapshot;
   draftText: string;
-  hasConversationHistory: boolean;
+  isConversationEmpty: boolean;
   isComposerDisabled: boolean;
   speechLifecycleStatus: SpeechLifecycleStatus;
 };
@@ -39,7 +39,7 @@ function getEndSpeechModeLabel(speechLifecycleStatus: SpeechLifecycleStatus): st
 export function createAssistantPanelComposerAction({
   controlGatingSnapshot,
   draftText,
-  hasConversationHistory,
+  isConversationEmpty,
   isComposerDisabled,
   speechLifecycleStatus,
 }: CreateAssistantPanelComposerActionOptions): AssistantPanelComposerAction {
@@ -77,6 +77,6 @@ export function createAssistantPanelComposerAction({
     icon: <AudioLines size={18} aria-hidden="true" />,
     isLoading: false,
     kind: 'startSpeech',
-    label: hasConversationHistory ? 'Resume Live Session' : 'Start Live Session',
+    label: isConversationEmpty ? 'Start Live Session' : 'Resume Live Session',
   };
 }
