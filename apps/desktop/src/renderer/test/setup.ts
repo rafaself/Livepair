@@ -3,6 +3,7 @@ import { beforeEach, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import type { DesktopBridge } from '../../shared/desktopBridge';
 import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
+import { resetCurrentLiveSessionForTests } from '../liveSessions/currentLiveSession';
 import { __resetGeminiLiveSdkMock } from './geminiLiveSdkMock';
 import { resetDesktopSessionController } from '../runtime/sessionController';
 import { resetLiveConfigForTests } from '../runtime/transport/liveConfig';
@@ -89,6 +90,7 @@ beforeEach(async () => {
   await resetDesktopSessionController();
   resetDesktopStores();
   resetCurrentChatMemoryForTests();
+  resetCurrentLiveSessionForTests();
   resetLiveConfigForTests();
   __resetGeminiLiveSdkMock();
   window.bridge = {
@@ -112,6 +114,27 @@ beforeEach(async () => {
       contentText: req.contentText,
       createdAt: '2026-03-12T09:00:00.000Z',
       sequence: 1,
+    })),
+    createLiveSession: vi.fn(async (req) => ({
+      id: 'live-session-1',
+      chatId: req.chatId,
+      startedAt: req.startedAt ?? '2026-03-12T09:00:00.000Z',
+      endedAt: null,
+      status: 'active' as const,
+      endedReason: null,
+      latestResumeHandle: null,
+      resumable: false,
+    })),
+    listLiveSessions: vi.fn(async () => []),
+    endLiveSession: vi.fn(async (req) => ({
+      id: req.id,
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T09:00:00.000Z',
+      endedAt: req.endedAt ?? '2026-03-12T09:05:00.000Z',
+      status: req.status,
+      endedReason: req.endedReason ?? null,
+      latestResumeHandle: null,
+      resumable: false,
     })),
     getSettings: vi.fn(async () => DEFAULT_DESKTOP_SETTINGS),
     updateSettings: vi.fn(async (patch) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...patch })),

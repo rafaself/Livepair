@@ -36,6 +36,12 @@ async function ensureActiveChat(
   return chat;
 }
 
+export async function getCurrentChat(
+  bridge: CurrentChatMemoryBridge = window.bridge,
+): Promise<ChatRecord> {
+  return ensureActiveChat(bridge);
+}
+
 export async function hydrateCurrentChat(
   bridge: CurrentChatMemoryBridge = window.bridge,
 ): Promise<HydratedCurrentChat> {

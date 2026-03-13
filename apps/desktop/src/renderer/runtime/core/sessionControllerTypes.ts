@@ -17,7 +17,6 @@ import type {
 } from '../voice/voice.types';
 import type {
   RuntimeLogger,
-  LiveConnectMode,
 } from './session.types';
 
 export type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;

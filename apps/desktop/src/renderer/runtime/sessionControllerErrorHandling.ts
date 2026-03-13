@@ -4,6 +4,10 @@ type SessionControllerErrorHandlingArgs = {
   endSessionInternal: (options: {
     preserveLastRuntimeError?: string | null;
     preserveVoiceRuntimeDiagnostics?: boolean;
+    liveSessionEnd?: {
+      status: 'ended' | 'failed';
+      endedReason?: string | null;
+    };
   }) => Promise<void>;
   logRuntimeError: (
     scope: 'session' | 'voice-session',
@@ -83,6 +87,10 @@ export function createSessionControllerErrorHandling({
     await endSessionInternal({
       preserveLastRuntimeError: detail,
       preserveVoiceRuntimeDiagnostics: true,
+      liveSessionEnd: {
+        status: 'failed',
+        endedReason: detail,
+      },
     });
   };
 

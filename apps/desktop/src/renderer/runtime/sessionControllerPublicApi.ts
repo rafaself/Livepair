@@ -41,6 +41,10 @@ type SessionControllerPublicApiArgs = {
       preserveLastRuntimeError?: string | null;
       recordEvents?: boolean;
       preserveVoiceRuntimeDiagnostics?: boolean;
+      liveSessionEnd?: {
+        status: 'ended' | 'failed';
+        endedReason?: string | null;
+      };
     }) => Promise<void>;
     endSpeechModeInternal: (options?: { recordEvents?: boolean }) => Promise<void>;
     getActiveTransport: () => import('./transport/transport.types').DesktopSession | null;

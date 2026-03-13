@@ -42,6 +42,7 @@ type SessionControllerLifecycleArgs = {
     token: CreateEphemeralTokenResponse | null,
     patch?: Partial<VoiceSessionDurabilityState>,
   ) => void;
+  createPersistedLiveSession: () => Promise<void>;
   setVoiceResumptionInFlight: (value: boolean) => void;
   createTransport: () => DesktopSession;
   activateVoiceTransport: (transport: DesktopSession) => void;
@@ -77,6 +78,7 @@ export function createSessionControllerLifecycle({
   buildLiveSessionHistoryFromCurrentChat,
   setCachedVoiceToken,
   syncVoiceDurabilityState,
+  createPersistedLiveSession,
   setVoiceResumptionInFlight,
   createTransport,
   activateVoiceTransport,
@@ -125,11 +127,7 @@ export function createSessionControllerLifecycle({
     }
   };
 
-  const startSessionInternal = async ({
-    mode,
-  }: {
-    mode: 'voice';
-  }): Promise<void> => {
+  const startSessionInternal = async (_options: { mode: 'voice' }): Promise<void> => {
     const operationId = beginSessionOperation();
     await ensureExclusiveMode('speech', operationId);
 
@@ -202,6 +200,7 @@ export function createSessionControllerLifecycle({
       return;
     }
 
+    await createPersistedLiveSession();
     activateVoiceTransport(transport);
 
     try {

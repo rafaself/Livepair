@@ -139,6 +139,10 @@ describe('createSessionControllerErrorHandling', () => {
       expect(args.endSessionInternal).toHaveBeenCalledWith({
         preserveLastRuntimeError: 'transport failed',
         preserveVoiceRuntimeDiagnostics: true,
+        liveSessionEnd: {
+          status: 'failed',
+          endedReason: 'transport failed',
+        },
       });
     });
 

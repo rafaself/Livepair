@@ -60,6 +60,26 @@ describe('createDesktopSessionController – lifecycle', () => {
         return nextRecord;
       },
     );
+    window.bridge.createLiveSession = vi.fn(async ({ chatId, startedAt }) => ({
+      id: 'live-session-1',
+      chatId,
+      startedAt: startedAt ?? '2026-03-12T09:00:00.000Z',
+      endedAt: null,
+      status: 'active' as const,
+      endedReason: null,
+      latestResumeHandle: null,
+      resumable: false,
+    }));
+    window.bridge.endLiveSession = vi.fn(async ({ id, status, endedAt, endedReason }) => ({
+      id,
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T09:00:00.000Z',
+      endedAt: endedAt ?? '2026-03-12T09:05:00.000Z',
+      status,
+      endedReason: endedReason ?? null,
+      latestResumeHandle: null,
+      resumable: false,
+    }));
   });
 
   it('keeps the runtime inactive when no live session is started', async () => {
@@ -69,7 +89,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       onSessionEvent: vi.fn(),
       onTransportEvent: vi.fn(),
     };
-    const controller = createDesktopSessionController({
+    createDesktopSessionController({
       logger,
       checkBackendHealth: vi.fn().mockResolvedValue(true),
       requestSessionToken,
@@ -155,6 +175,10 @@ describe('createDesktopSessionController – lifecycle', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
+    });
+    expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
+      chatId: 'chat-1',
+      startedAt: expect.any(String),
     });
     expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
@@ -347,6 +371,36 @@ describe('createDesktopSessionController – lifecycle', () => {
     );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('disconnected');
     expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
+  });
+
+  it('persists live session end metadata when an active Live session stops', async () => {
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.endSession();
+
+    expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      status: 'ended',
+      endedAt: expect.any(String),
+      endedReason: null,
+    });
   });
 
   it('sets the assistant debug state and records the matching session event', () => {

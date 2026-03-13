@@ -10,9 +10,12 @@ import {
 import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
 import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
 import {
-  appendMessageToCurrentChat,
   buildLiveSessionHistoryFromCurrentChat,
 } from '../chatMemory/currentChatMemory';
+import {
+  endCurrentLiveSession,
+  startCurrentLiveSession,
+} from '../liveSessions/currentLiveSession';
 import { createAssistantAudioPlayback } from './audio/assistantAudioPlayback';
 import { createLocalVoiceCapture } from './audio/localVoiceCapture';
 import { createLocalScreenCapture } from './screen/localScreenCapture';
@@ -399,6 +402,9 @@ export function createDesktopSessionController(
       tokenMgr.set(token);
     },
     syncVoiceDurabilityState: (token, patch) => runtimeRef.current!.syncVoiceDurabilityState(token, patch),
+    createPersistedLiveSession: async () => {
+      await startCurrentLiveSession();
+    },
     setVoiceResumptionInFlight: (value) => {
       runtimeRef.current!.setVoiceResumptionInFlight(value);
     },
@@ -445,12 +451,20 @@ export function createDesktopSessionController(
       preserveLastRuntimeError?: string | null;
       recordEvents?: boolean;
       preserveVoiceRuntimeDiagnostics?: boolean;
+      liveSessionEnd?: {
+        status: 'ended' | 'failed';
+        endedReason?: string | null;
+      };
     } = {},
   ): Promise<void> => {
     const {
       preserveLastRuntimeError = null,
       recordEvents = false,
       preserveVoiceRuntimeDiagnostics = false,
+      liveSessionEnd = {
+        status: 'ended' as const,
+        endedReason: null,
+      },
     } = options;
 
     runtimeRef.current!.beginSessionOperation();
@@ -464,6 +478,7 @@ export function createDesktopSessionController(
       preserveLastRuntimeError,
       preserveVoiceRuntimeDiagnostics,
     });
+    await endCurrentLiveSession(liveSessionEnd);
     runtimeRef.current!.setCurrentMode('inactive');
 
     if (recordEvents) {
@@ -484,6 +499,10 @@ export function createDesktopSessionController(
     await teardownActiveRuntime({
       textSessionStatus: 'disconnected',
       preserveConversationTurns: true,
+    });
+    await endCurrentLiveSession({
+      status: 'ended',
+      endedReason: null,
     });
     runtimeRef.current!.setCurrentMode('inactive');
 
