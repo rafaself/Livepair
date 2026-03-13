@@ -2,12 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useSessionStore } from '../../store/sessionStore';
 import {
   appendCompletedAssistantTurn,
-  appendAssistantTextDelta,
+  appendAssistantDraftTextDelta,
   appendAssistantTurn,
   appendUserTurn,
+  completeAssistantDraft,
   clearCurrentVoiceTurns,
+  clearAssistantDraft,
   clearPendingAssistantTurn,
   completePendingAssistantTurn,
+  consumeCompletedAssistantDraft,
   createConversationContext,
   failPendingAssistantTurn,
   finalizeCurrentVoiceAssistantTurn,
@@ -31,6 +34,7 @@ describe('conversationTurnManager', () => {
   describe('createConversationContext', () => {
     it('initializes with null pending turn and zero counters', () => {
       expect(ctx.pendingAssistantTurnId).toBeNull();
+      expect(ctx.assistantDraft).toBeNull();
       expect(ctx.currentVoiceAssistantTurnId).toBeNull();
       expect(ctx.currentVoiceUserTurnId).toBeNull();
       expect(ctx.nextAssistantTurnId).toBe(0);
@@ -289,25 +293,64 @@ describe('conversationTurnManager', () => {
     });
   });
 
-  describe('appendAssistantTextDelta', () => {
-    it('creates a new streaming turn when no pending turn exists', () => {
-      appendAssistantTextDelta(ctx, 'Hello');
-      const turns = useSessionStore.getState().conversationTurns;
-      expect(turns).toHaveLength(1);
-      expect(turns[0]).toEqual(
-        expect.objectContaining({
-          content: 'Hello',
-          state: 'streaming',
-          statusLabel: 'Responding...',
-        }),
-      );
+  describe('assistant draft lifecycle', () => {
+    it('keeps streamed assistant text only in the in-memory draft while the turn is active', () => {
+      appendAssistantDraftTextDelta(ctx, 'Hello');
+
+      expect(ctx.assistantDraft).toEqual({
+        id: 'assistant-draft-1',
+        role: 'assistant',
+        content: 'Hello',
+        status: 'streaming',
+      });
+      expect(useSessionStore.getState().conversationTurns).toEqual([]);
     });
 
-    it('appends to existing pending turn content', () => {
-      appendAssistantTextDelta(ctx, 'Hello');
-      appendAssistantTextDelta(ctx, ' world');
-      const turn = useSessionStore.getState().conversationTurns[0];
-      expect(turn!.content).toBe('Hello world');
+    it('appends later deltas onto the same draft instead of mutating canonical turns', () => {
+      appendAssistantDraftTextDelta(ctx, 'Hello');
+      appendAssistantDraftTextDelta(ctx, ' world');
+
+      expect(ctx.assistantDraft).toEqual({
+        id: 'assistant-draft-1',
+        role: 'assistant',
+        content: 'Hello world',
+        status: 'streaming',
+      });
+      expect(useSessionStore.getState().conversationTurns).toEqual([]);
+    });
+
+    it('marks the active draft complete without creating a durable conversation turn yet', () => {
+      appendAssistantDraftTextDelta(ctx, 'Hello world');
+
+      expect(completeAssistantDraft(ctx)).toEqual({
+        id: 'assistant-draft-1',
+        role: 'assistant',
+        content: 'Hello world',
+        status: 'complete',
+      });
+      expect(useSessionStore.getState().conversationTurns).toEqual([]);
+    });
+
+    it('consumes a completed draft once when the durable commit boundary is reached', () => {
+      appendAssistantDraftTextDelta(ctx, 'Hello world');
+      completeAssistantDraft(ctx);
+
+      expect(consumeCompletedAssistantDraft(ctx)).toEqual({
+        id: 'assistant-draft-1',
+        role: 'assistant',
+        content: 'Hello world',
+        status: 'complete',
+      });
+      expect(consumeCompletedAssistantDraft(ctx)).toBeNull();
+      expect(ctx.assistantDraft).toBeNull();
+    });
+
+    it('clears the transient draft when assistant turn state is reset', () => {
+      appendAssistantDraftTextDelta(ctx, 'Partial reply');
+      clearAssistantDraft(ctx);
+
+      expect(ctx.assistantDraft).toBeNull();
+      expect(useSessionStore.getState().conversationTurns).toEqual([]);
     });
   });
 
@@ -333,6 +376,15 @@ describe('conversationTurnManager', () => {
       expect(useSessionStore.getState().conversationTurns).toHaveLength(0);
     });
 
+    it('drops any transient assistant draft when the runtime fails before a canonical turn exists', () => {
+      appendAssistantDraftTextDelta(ctx, 'Partial');
+
+      failPendingAssistantTurn(ctx, 'Disconnected');
+
+      expect(ctx.assistantDraft).toBeNull();
+      expect(useSessionStore.getState().conversationTurns).toEqual([]);
+    });
+
     it('marks the pending turn as error and clears pending id', () => {
       appendAssistantTurn(ctx, 'Partial', 'streaming');
       failPendingAssistantTurn(ctx, 'Response failed');
@@ -344,11 +396,13 @@ describe('conversationTurnManager', () => {
   });
 
   describe('clearPendingAssistantTurn', () => {
-    it('sets pendingAssistantTurnId to null', () => {
+    it('sets pendingAssistantTurnId to null and clears any transient draft', () => {
       appendAssistantTurn(ctx, 'Response', 'streaming');
+      appendAssistantDraftTextDelta(ctx, 'Partial');
       expect(ctx.pendingAssistantTurnId).not.toBeNull();
       clearPendingAssistantTurn(ctx);
       expect(ctx.pendingAssistantTurnId).toBeNull();
+      expect(ctx.assistantDraft).toBeNull();
     });
   });
 

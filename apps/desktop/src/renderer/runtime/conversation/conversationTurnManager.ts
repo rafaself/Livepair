@@ -5,6 +5,13 @@ import { normalizeTranscriptText } from '../voice/voiceTranscript';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 
+export type AssistantDraftModel = {
+  id: string;
+  role: 'assistant';
+  content: string;
+  status: 'streaming' | 'complete' | 'interrupted';
+};
+
 /**
  * Mutable context bag that backs conversation turn management. All counter
  * and ID fields are mutated directly by the manager functions so changes are
@@ -12,6 +19,7 @@ type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
  */
 export interface ConversationContext {
   pendingAssistantTurnId: string | null;
+  assistantDraft: AssistantDraftModel | null;
   hasQueuedMixedModeAssistantReply: boolean;
   currentVoiceAssistantTurnId: string | null;
   currentVoiceUserTurnId: string | null;
@@ -23,6 +31,7 @@ export interface ConversationContext {
 export function createConversationContext(store: SessionStoreApi): ConversationContext {
   return {
     pendingAssistantTurnId: null,
+    assistantDraft: null,
     hasQueuedMixedModeAssistantReply: false,
     currentVoiceAssistantTurnId: null,
     currentVoiceUserTurnId: null,
@@ -45,6 +54,7 @@ export function getConversationTurn(
 
 export function clearPendingAssistantTurn(ctx: ConversationContext): void {
   ctx.pendingAssistantTurnId = null;
+  clearAssistantDraft(ctx);
 }
 
 export function clearCurrentVoiceTurns(ctx: ConversationContext): void {
@@ -163,6 +173,61 @@ function upsertVoiceTurn(
 // Assistant turn lifecycle
 // ---------------------------------------------------------------------------
 
+function createAssistantDraft(ctx: ConversationContext): AssistantDraftModel {
+  const draftId = `assistant-draft-${ctx.nextAssistantTurnId + 1}`;
+  const draft: AssistantDraftModel = {
+    id: draftId,
+    role: 'assistant',
+    content: '',
+    status: 'streaming',
+  };
+  ctx.assistantDraft = draft;
+  return draft;
+}
+
+export function clearAssistantDraft(ctx: ConversationContext): void {
+  ctx.assistantDraft = null;
+}
+
+export function appendAssistantDraftTextDelta(ctx: ConversationContext, text: string): AssistantDraftModel {
+  const draft =
+    ctx.assistantDraft === null || ctx.assistantDraft.status !== 'streaming'
+      ? createAssistantDraft(ctx)
+      : ctx.assistantDraft;
+
+  draft.content = `${draft.content}${text}`;
+  draft.status = 'streaming';
+  return draft;
+}
+
+export function completeAssistantDraft(ctx: ConversationContext): AssistantDraftModel | null {
+  if (ctx.assistantDraft === null) {
+    return null;
+  }
+
+  ctx.assistantDraft.status = 'complete';
+  return ctx.assistantDraft;
+}
+
+export function interruptAssistantDraft(ctx: ConversationContext): AssistantDraftModel | null {
+  if (ctx.assistantDraft === null) {
+    return null;
+  }
+
+  ctx.assistantDraft.status = 'interrupted';
+  return ctx.assistantDraft;
+}
+
+export function consumeCompletedAssistantDraft(ctx: ConversationContext): AssistantDraftModel | null {
+  if (ctx.assistantDraft === null || ctx.assistantDraft.status !== 'complete') {
+    return null;
+  }
+
+  const draft = ctx.assistantDraft;
+  ctx.assistantDraft = null;
+  return draft;
+}
+
 export function updatePendingAssistantTurn(
   ctx: ConversationContext,
   content: string,
@@ -221,19 +286,7 @@ export function appendCompletedAssistantTurn(
 }
 
 export function appendAssistantTextDelta(ctx: ConversationContext, text: string): void {
-  if (!ctx.pendingAssistantTurnId) {
-    appendAssistantTurn(ctx, text, 'streaming', 'Responding...');
-    return;
-  }
-
-  const currentTurn = getConversationTurn(ctx, ctx.pendingAssistantTurnId);
-
-  if (!currentTurn) {
-    appendAssistantTurn(ctx, text, 'streaming', 'Responding...');
-    return;
-  }
-
-  updatePendingAssistantTurn(ctx, `${currentTurn.content}${text}`, 'streaming', 'Responding...');
+  appendAssistantDraftTextDelta(ctx, text);
 }
 
 export function completePendingAssistantTurn(
@@ -262,6 +315,7 @@ export function failPendingAssistantTurn(
   statusLabel: string,
 ): string | null {
   if (!ctx.pendingAssistantTurnId) {
+    clearAssistantDraft(ctx);
     return null;
   }
 
