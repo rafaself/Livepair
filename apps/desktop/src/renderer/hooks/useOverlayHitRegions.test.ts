@@ -27,6 +27,7 @@ describe('useOverlayHitRegions', () => {
       getOrCreateCurrentChat: vi.fn(),
       listChats: vi.fn(),
       listChatMessages: vi.fn(),
+      getChatSummary: vi.fn(),
       appendChatMessage: vi.fn(),
       createLiveSession: vi.fn(),
       listLiveSessions: vi.fn(),

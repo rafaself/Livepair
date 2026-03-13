@@ -3,6 +3,7 @@ import type {
   ChatId,
   ChatMessageRecord,
   ChatRecord,
+  DurableChatSummaryRecord,
   LiveSessionRecord,
   RehydrationPacket,
 } from '@livepair/shared-types';
@@ -19,6 +20,7 @@ type CurrentChatMemoryBridge = Pick<
   | 'getChat'
   | 'getOrCreateCurrentChat'
   | 'listChatMessages'
+  | 'getChatSummary'
   | 'listLiveSessions'
 >;
 
@@ -91,25 +93,38 @@ export async function buildRehydrationPacketFromCurrentChat(
   bridge: CurrentChatMemoryBridge = window.bridge,
 ): Promise<RehydrationPacket> {
   const chat = await ensureActiveChat(bridge);
-  const [messages, liveSessions] = await Promise.all([
+  const [messages, chatSummary, liveSessions] = await Promise.all([
     bridge.listChatMessages(chat.id),
+    bridge.getChatSummary(chat.id),
     bridge.listLiveSessions(chat.id),
   ]);
   const latestLiveSession = liveSessions[0] ?? null;
 
-  return buildRehydrationPacket(messages, getPersistedSnapshotInputs(latestLiveSession));
+  return buildRehydrationPacket(messages, getPersistedSnapshotInputs(chatSummary, latestLiveSession));
 }
 
 function getPersistedSnapshotInputs(
+  chatSummary: DurableChatSummaryRecord | null,
   liveSession: LiveSessionRecord | null,
 ): Parameters<typeof buildRehydrationPacket>[1] {
-  if (liveSession === null) {
+  const hasValidChatSummary =
+    chatSummary !== null
+    && chatSummary.summaryText.trim().length > 0
+    && Number.isFinite(chatSummary.coveredThroughSequence)
+    && chatSummary.coveredThroughSequence > 0;
+
+  if (liveSession === null && !hasValidChatSummary) {
     return {};
   }
 
   return {
-    summary: liveSession.summarySnapshot ?? null,
-    contextState: liveSession.contextStateSnapshot ?? null,
+    summary: hasValidChatSummary
+      ? chatSummary.summaryText
+      : liveSession?.summarySnapshot ?? null,
+    summaryCoveredThroughSequence: hasValidChatSummary
+      ? chatSummary.coveredThroughSequence
+      : null,
+    contextState: liveSession?.contextStateSnapshot ?? null,
   };
 }
 

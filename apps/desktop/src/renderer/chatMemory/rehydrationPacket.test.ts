@@ -229,6 +229,67 @@ describe('rehydrationPacket', () => {
     ]);
   });
 
+  it('replays only the unsummarized recent tail when summary coverage is available', () => {
+    const packet = buildRehydrationPacket(
+      [
+        {
+          id: 'message-1',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: 'Turn 1',
+          createdAt: '2026-03-12T09:01:00.000Z',
+          sequence: 1,
+        },
+        {
+          id: 'message-2',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Turn 2',
+          createdAt: '2026-03-12T09:02:00.000Z',
+          sequence: 2,
+        },
+        {
+          id: 'message-3',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: 'Turn 3',
+          createdAt: '2026-03-12T09:03:00.000Z',
+          sequence: 3,
+        },
+        {
+          id: 'message-4',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Turn 4',
+          createdAt: '2026-03-12T09:04:00.000Z',
+          sequence: 4,
+        },
+      ],
+      {
+        summary: 'Persisted chat summary',
+        summaryCoveredThroughSequence: 2,
+      },
+    );
+
+    expect(packet.summary).toBe('Persisted chat summary');
+    expect(packet.recentTurns).toEqual([
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 3',
+        createdAt: '2026-03-12T09:03:00.000Z',
+        sequence: 3,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 4',
+        createdAt: '2026-03-12T09:04:00.000Z',
+        sequence: 4,
+      },
+    ]);
+  });
+
   it('keeps only a compact text-only screenContextSummary inside persisted context state', () => {
     const packet = buildRehydrationPacket(
       [

@@ -12,6 +12,7 @@ export const MAX_REHYDRATION_RECENT_TURNS = 6;
 
 type BuildRehydrationPacketOptions = {
   summary?: string | null;
+  summaryCoveredThroughSequence?: number | null;
   contextState?: RehydrationPacketContextState | null;
 };
 
@@ -37,9 +38,29 @@ function mapMessageToPacketTurn(record: ChatMessageRecord): RehydrationPacketTur
   };
 }
 
-function selectRecentTurns(messages: readonly ChatMessageRecord[]): RehydrationPacketTurn[] {
+function normalizeSummaryCoverageSequence(
+  summaryCoveredThroughSequence: number | null | undefined,
+): number | null {
+  if (
+    typeof summaryCoveredThroughSequence !== 'number'
+    || !Number.isFinite(summaryCoveredThroughSequence)
+  ) {
+    return null;
+  }
+
+  const normalizedCoverage = Math.floor(summaryCoveredThroughSequence);
+  return normalizedCoverage > 0 ? normalizedCoverage : null;
+}
+
+function selectRecentTurns(
+  messages: readonly ChatMessageRecord[],
+  summaryCoveredThroughSequence: number | null,
+): RehydrationPacketTurn[] {
   const orderedMessages = [...messages].sort(compareMessages);
-  const compactMessages = orderedMessages.slice(-MAX_REHYDRATION_RECENT_TURNS);
+  const candidateMessages = summaryCoveredThroughSequence === null
+    ? orderedMessages
+    : orderedMessages.filter((message) => message.sequence > summaryCoveredThroughSequence);
+  const compactMessages = candidateMessages.slice(-MAX_REHYDRATION_RECENT_TURNS);
 
   return compactMessages.map(mapMessageToPacketTurn);
 }
@@ -85,10 +106,15 @@ export function buildRehydrationPacket(
   messages: readonly ChatMessageRecord[],
   options: BuildRehydrationPacketOptions = {},
 ): RehydrationPacket {
+  const normalizedSummary = normalizeSummary(options.summary);
+  const summaryCoveredThroughSequence = normalizedSummary === null
+    ? null
+    : normalizeSummaryCoverageSequence(options.summaryCoveredThroughSequence);
+
   return {
     stableInstruction: DEFAULT_REHYDRATION_STABLE_INSTRUCTION,
-    summary: normalizeSummary(options.summary),
-    recentTurns: selectRecentTurns(messages),
+    summary: normalizedSummary,
+    recentTurns: selectRecentTurns(messages, summaryCoveredThroughSequence),
     contextState: normalizeContextState(options.contextState),
   };
 }

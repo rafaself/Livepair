@@ -10,7 +10,97 @@ describe('currentChatMemory rehydration packet sourcing', () => {
     resetCurrentChatMemoryForTests();
   });
 
-  it('uses the latest persisted live-session summary and context snapshot when available', async () => {
+  it('prefers the persisted chat summary and trims replay turns after its coverage boundary', async () => {
+    const bridge = {
+      appendChatMessage: vi.fn(),
+      getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-1' }),
+      listChatMessages: vi.fn().mockResolvedValue([
+        {
+          id: 'message-1',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: 'Persisted question',
+          createdAt: '2026-03-12T09:01:00.000Z',
+          sequence: 1,
+        },
+        {
+          id: 'message-2',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Persisted answer',
+          createdAt: '2026-03-12T09:02:00.000Z',
+          sequence: 2,
+        },
+        {
+          id: 'message-3',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: 'Unsummarized follow-up',
+          createdAt: '2026-03-12T09:03:00.000Z',
+          sequence: 3,
+        },
+      ]),
+      getChatSummary: vi.fn().mockResolvedValue({
+        chatId: 'chat-1',
+        schemaVersion: 1,
+        source: 'local-recent-history-v1',
+        summaryText: 'Compact continuity summary',
+        coveredThroughSequence: 2,
+        updatedAt: '2026-03-12T09:02:30.000Z',
+      }),
+      listLiveSessions: vi.fn().mockResolvedValue([
+        {
+          id: 'live-session-2',
+          chatId: 'chat-1',
+          startedAt: '2026-03-12T09:30:00.000Z',
+          endedAt: null,
+          status: 'active',
+          endedReason: null,
+          resumptionHandle: null,
+          lastResumptionUpdateAt: null,
+          restorable: false,
+          invalidatedAt: null,
+          invalidationReason: null,
+          summarySnapshot: 'Older live-session snapshot',
+          contextStateSnapshot: {
+            task: {
+              entries: [{ key: 'taskStatus', value: 'active' }],
+            },
+            context: {
+              entries: [{ key: 'repo', value: 'Livepair' }],
+            },
+          },
+        },
+      ]),
+    };
+
+    await expect(buildRehydrationPacketFromCurrentChat(bridge as never)).resolves.toEqual({
+      stableInstruction:
+        'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+      summary: 'Compact continuity summary',
+      recentTurns: [
+        {
+          role: 'user',
+          kind: 'message',
+          text: 'Unsummarized follow-up',
+          createdAt: '2026-03-12T09:03:00.000Z',
+          sequence: 3,
+        },
+      ],
+      contextState: {
+        task: {
+          entries: [{ key: 'taskStatus', value: 'active' }],
+        },
+        context: {
+          entries: [{ key: 'repo', value: 'Livepair' }],
+        },
+      },
+    });
+    expect(bridge.getChatSummary).toHaveBeenCalledWith('chat-1');
+    expect(bridge.listLiveSessions).toHaveBeenCalledWith('chat-1');
+  });
+
+  it('falls back to the latest persisted live-session summary and context snapshot when no chat summary exists', async () => {
     const bridge = {
       appendChatMessage: vi.fn(),
       getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-1' }),
@@ -24,6 +114,7 @@ describe('currentChatMemory rehydration packet sourcing', () => {
           sequence: 1,
         },
       ]),
+      getChatSummary: vi.fn().mockResolvedValue(null),
       listLiveSessions: vi.fn().mockResolvedValue([
         {
           id: 'live-session-2',
@@ -72,7 +163,6 @@ describe('currentChatMemory rehydration packet sourcing', () => {
         },
       },
     });
-    expect(bridge.listLiveSessions).toHaveBeenCalledWith('chat-1');
   });
 
   it('sanitizes persisted screenContextSummary from the latest live-session snapshot for rehydration', async () => {
@@ -80,6 +170,7 @@ describe('currentChatMemory rehydration packet sourcing', () => {
       appendChatMessage: vi.fn(),
       getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-1' }),
       listChatMessages: vi.fn().mockResolvedValue([]),
+      getChatSummary: vi.fn().mockResolvedValue(null),
       listLiveSessions: vi.fn().mockResolvedValue([
         {
           id: 'live-session-2',

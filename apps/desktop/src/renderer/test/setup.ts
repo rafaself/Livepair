@@ -108,6 +108,7 @@ beforeEach(async () => {
     })),
     listChats: vi.fn(async () => []),
     listChatMessages: vi.fn(async () => []),
+    getChatSummary: vi.fn(async () => null),
     appendChatMessage: vi.fn(async (req) => ({
       id: `${req.role}-message-1`,
       chatId: req.chatId,
