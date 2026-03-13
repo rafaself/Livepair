@@ -8,9 +8,6 @@ import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   HealthResponse,
-  TextChatMessage,
-  TextChatRequest,
-  TextChatStreamEvent,
 } from './index';
 
 type Assert<T extends true> = T;
@@ -80,23 +77,6 @@ type _CreateChatRequestShape = Assert<
     {
       title?: string | null;
     }
-  >
->;
-type _TextChatMessageRole = Assert<
-  IsExact<TextChatMessage['role'], 'user' | 'assistant'>
->;
-type _TextChatMessageContent = Assert<
-  IsExact<TextChatMessage['content'], string>
->;
-type _TextChatRequestShape = Assert<
-  IsExact<TextChatRequest['messages'], TextChatMessage[]>
->;
-type _TextChatStreamEventShape = Assert<
-  IsExact<
-    TextChatStreamEvent,
-    | { type: 'text-delta'; text: string }
-    | { type: 'completed' }
-    | { type: 'error'; detail: string }
   >
 >;
 

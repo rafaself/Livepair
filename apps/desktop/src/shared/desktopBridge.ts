@@ -7,8 +7,6 @@ import type {
   CreateEphemeralTokenResponse,
   CreateChatRequest,
   HealthResponse,
-  TextChatRequest,
-  TextChatStreamEvent,
 } from '@livepair/shared-types';
 import type {
   DesktopSettings,
@@ -23,9 +21,6 @@ export type OverlayHitRegion = {
 };
 
 export type OverlayMode = 'linux-shape' | 'forwarded-pointer';
-export type TextChatStreamHandle = {
-  cancel: () => Promise<void>;
-};
 
 export interface DesktopBridge {
   overlayMode: OverlayMode;
@@ -33,10 +28,6 @@ export interface DesktopBridge {
   requestSessionToken: (
     req: CreateEphemeralTokenRequest,
   ) => Promise<CreateEphemeralTokenResponse>;
-  startTextChatStream: (
-    req: TextChatRequest,
-    onEvent: (event: TextChatStreamEvent) => void,
-  ) => Promise<TextChatStreamHandle>;
   createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
@@ -51,9 +42,6 @@ export interface DesktopBridge {
 export const IPC_CHANNELS = {
   checkHealth: 'health:check',
   requestSessionToken: 'session:requestToken',
-  startTextChatStream: 'session:startTextChat',
-  cancelTextChatStream: 'session:cancelTextChat',
-  textChatEvent: 'session:textChatEvent',
   createChat: 'chatMemory:createChat',
   getChat: 'chatMemory:getChat',
   getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',
