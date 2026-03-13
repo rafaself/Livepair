@@ -39,6 +39,7 @@ function createMockOps() {
     setVoiceErrorState: vi.fn(),
     setVoiceResumptionInFlight: vi.fn(),
     refreshToken: vi.fn().mockResolvedValue(VALID_TOKEN),
+    fallbackToNewSession: vi.fn().mockResolvedValue({ status: 'connected' }),
     stopScreenCapture: vi.fn().mockResolvedValue(undefined),
     stopVoicePlayback: vi.fn().mockResolvedValue(undefined),
     subscribeTransport: vi.fn(),
@@ -53,32 +54,35 @@ function createMockOps() {
 }
 
 describe('createVoiceResumeController', () => {
-  it('rejects early when no resume handle is available', async () => {
+  it('falls back to a new session when no resume handle is available', async () => {
     const ops = createMockOps();
     ops._storeState.voiceSessionResumption.latestHandle = null;
     const { resume } = createVoiceResumeController(ops as never);
 
     await resume('server draining');
 
-    expect(ops.setVoiceSessionResumption).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'resumeFailed' }),
-    );
-    expect(ops.setVoiceErrorState).toHaveBeenCalledWith(
+    expect(ops.fallbackToNewSession).toHaveBeenCalledWith(
+      1,
+      VALID_TOKEN,
       'server draining (resume handle unavailable)',
     );
+    expect(ops.setVoiceErrorState).not.toHaveBeenCalled();
     expect(ops.createTransport).not.toHaveBeenCalled();
   });
 
-  it('rejects early when session is not resumable', async () => {
+  it('falls back to a new session when the current session is not resumable', async () => {
     const ops = createMockOps();
     ops._storeState.voiceSessionResumption.resumable = false;
     const { resume } = createVoiceResumeController(ops as never);
 
     await resume('detail');
 
-    expect(ops.setVoiceErrorState).toHaveBeenCalledWith(
+    expect(ops.fallbackToNewSession).toHaveBeenCalledWith(
+      1,
+      VALID_TOKEN,
       'detail (session marked non-resumable)',
     );
+    expect(ops.setVoiceErrorState).not.toHaveBeenCalled();
     expect(ops.createTransport).not.toHaveBeenCalled();
   });
 
@@ -207,9 +211,28 @@ describe('createVoiceResumeController', () => {
     expect(ops.createTransport).not.toHaveBeenCalled();
   });
 
-  it('sets error state when connect throws', async () => {
+  it('falls back to a new session when resume connect throws', async () => {
     const ops = createMockOps();
     ops._transport.connect.mockRejectedValue(new Error('resume rejected'));
+    const { resume } = createVoiceResumeController(ops as never);
+
+    await resume('detail');
+
+    expect(ops.fallbackToNewSession).toHaveBeenCalledWith(
+      1,
+      VALID_TOKEN,
+      'resume rejected',
+    );
+    expect(ops.setVoiceErrorState).not.toHaveBeenCalled();
+  });
+
+  it('sets error state when fallback also fails after resume connect throws', async () => {
+    const ops = createMockOps();
+    ops._transport.connect.mockRejectedValue(new Error('resume rejected'));
+    ops.fallbackToNewSession.mockResolvedValue({
+      status: 'failed',
+      detail: 'fallback connect failed',
+    });
     const { resume } = createVoiceResumeController(ops as never);
 
     await resume('detail');
@@ -217,11 +240,11 @@ describe('createVoiceResumeController', () => {
     expect(ops.setVoiceSessionResumption).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'resumeFailed',
-        lastDetail: 'resume rejected',
+        lastDetail: 'fallback connect failed',
       }),
     );
     expect(ops.setVoiceResumptionInFlight).toHaveBeenCalledWith(false);
-    expect(ops.setVoiceErrorState).toHaveBeenCalledWith('resume rejected');
+    expect(ops.setVoiceErrorState).toHaveBeenCalledWith('fallback connect failed');
   });
 
   it('disconnects and aborts when operation cancelled after connect', async () => {

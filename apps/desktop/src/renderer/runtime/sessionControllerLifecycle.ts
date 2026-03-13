@@ -1,5 +1,6 @@
 import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
 import { asErrorDetail } from './core/runtimeUtils';
+import { connectFallbackVoiceSession } from './voice/connectFallbackVoiceSession';
 import type {
   SessionControllerEvent,
 } from './core/session.types';
@@ -252,81 +253,23 @@ export function createSessionControllerLifecycle({
     reason: 'no-restore-candidate' | 'resume-failed',
     previousDetail: string | null = null,
   ): Promise<FallbackAttemptResult> => {
-    logRuntimeDiagnostic('voice-session', 'starting explicit fallback session', {
+    return connectFallbackVoiceSession({
+      operationId,
+      token,
       reason,
       previousDetail,
+      logRuntimeDiagnostic,
+      buildRehydrationPacketFromCurrentChat,
+      isCurrentSessionOperation,
+      createTransport,
+      createPersistedLiveSession,
+      activateVoiceTransport,
+      setVoiceResumptionInFlight,
+      startVoiceCapture,
+      applySpeechLifecycleEvent: (event) => {
+        applySpeechLifecycleEvent(event);
+      },
     });
-
-    let rehydrationPacket: RehydrationPacket;
-
-    try {
-      rehydrationPacket = await buildRehydrationPacketFromCurrentChat();
-    } catch (error) {
-      return {
-        status: 'failed',
-        detail: asErrorDetail(error, 'Failed to build rehydration context'),
-      };
-    }
-
-    if (!isCurrentSessionOperation(operationId)) {
-      return {
-        status: 'failed',
-        detail: 'Voice session fallback was superseded',
-      };
-    }
-
-    let transport: DesktopSession;
-    try {
-      transport = createTransport();
-    } catch (error) {
-      return {
-        status: 'failed',
-        detail: asErrorDetail(error, 'Failed to prepare voice session'),
-      };
-    }
-
-    if (!isCurrentSessionOperation(operationId)) {
-      return {
-        status: 'failed',
-        detail: 'Voice session fallback was superseded',
-      };
-    }
-
-    await createPersistedLiveSession();
-    activateVoiceTransport(transport);
-    setVoiceResumptionInFlight(false);
-
-    try {
-      await transport.connect({
-        token,
-        mode: 'voice',
-        rehydrationPacket,
-      });
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return {
-          status: 'failed',
-          detail: 'Voice session fallback was superseded',
-        };
-      }
-
-      const didStartVoiceCapture = await startVoiceCapture();
-
-      if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
-        return {
-          status: 'failed',
-          detail: 'Failed to start voice capture after fallback session startup',
-        };
-      }
-
-      applySpeechLifecycleEvent({ type: 'session.ready' });
-      return { status: 'connected' };
-    } catch (error) {
-      return {
-        status: 'failed',
-        detail: asErrorDetail(error, 'Failed to connect voice session'),
-      };
-    }
   };
 
   const startSessionInternal = async (_options: { mode: 'voice' }): Promise<void> => {

@@ -3,6 +3,7 @@ import type {
   LiveSessionEvent,
   TransportKind,
 } from '../transport/transport.types';
+import type { VoiceFallbackAttemptResult } from './connectFallbackVoiceSession';
 import type {
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
@@ -31,6 +32,11 @@ export type VoiceResumeControllerOps = {
   setVoiceErrorState: (detail: string) => void;
   setVoiceResumptionInFlight: (v: boolean) => void;
   refreshToken: (operationId: number, detail: string) => Promise<CreateEphemeralTokenResponse | null>;
+  fallbackToNewSession: (
+    operationId: number,
+    token: CreateEphemeralTokenResponse,
+    detail: string,
+  ) => Promise<VoiceFallbackAttemptResult>;
   stopScreenCapture: () => Promise<void>;
   stopVoicePlayback: () => Promise<void>;
   subscribeTransport: (
@@ -56,18 +62,17 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
     const store = ops.store.getState();
     const resumeHandle = store.voiceSessionResumption.latestHandle;
     let tokenToUse: CreateEphemeralTokenResponse | null = ops.getToken();
+    const resumeUnavailableDetail =
+      !resumeHandle || !store.voiceSessionResumption.resumable
+        ? describeUnavailableResume(
+            detail,
+            store.voiceSessionResumption.resumable ? 'missing-handle' : 'non-resumable',
+          )
+        : null;
 
-    if (!resumeHandle || !store.voiceSessionResumption.resumable) {
-      const failureDetail = describeUnavailableResume(
-        detail,
-        store.voiceSessionResumption.resumable ? 'missing-handle' : 'non-resumable',
-      );
-      ops.logRuntimeDiagnostic('voice-session', 'resume skipped', {
-        triggerDetail: detail,
-        failureDetail,
-        latestHandle: resumeHandle,
-        resumable: store.voiceSessionResumption.resumable,
-      });
+    const operationId = ops.beginSessionOperation();
+    const previousTransport = ops.getActiveTransport();
+    const finalizeFailedFallback = (failureDetail: string): void => {
       ops.setVoiceSessionResumption({
         status: 'resumeFailed',
         latestHandle: resumeHandle,
@@ -75,15 +80,60 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
         lastDetail: failureDetail,
       });
       ops.setVoiceSessionDurability({
-        tokenValid: isTokenValidForReconnect(ops.getToken()),
+        tokenValid: isTokenValidForReconnect(tokenToUse),
+        tokenRefreshing: false,
+        tokenRefreshFailed: false,
         lastDetail: failureDetail,
       });
+      ops.setVoiceResumptionInFlight(false);
       ops.setVoiceErrorState(failureDetail);
-      return;
+    };
+    const attemptFallback = async (failureDetail: string): Promise<void> => {
+      if (!tokenToUse) {
+        finalizeFailedFallback('Voice session token was unavailable for fallback');
+        return;
+      }
+
+      ops.setVoiceSessionResumption({
+        latestHandle: resumeHandle,
+        resumable: false,
+        lastDetail: failureDetail,
+      });
+      ops.setVoiceSessionDurability({
+        tokenValid: isTokenValidForReconnect(tokenToUse),
+        tokenRefreshing: false,
+        tokenRefreshFailed: false,
+        lastDetail: failureDetail,
+      });
+
+      const fallbackResult = await ops.fallbackToNewSession(operationId, tokenToUse, failureDetail);
+
+      if (!ops.isCurrentSessionOperation(operationId)) {
+        return;
+      }
+
+      if (fallbackResult.status === 'connected') {
+        return;
+      }
+
+      ops.logRuntimeDiagnostic('voice-session', 'fallback connect failed', {
+        operationId,
+        latestHandle: resumeHandle,
+        detail: fallbackResult.detail,
+      });
+      finalizeFailedFallback(fallbackResult.detail);
+    };
+
+    if (resumeUnavailableDetail) {
+      ops.logRuntimeDiagnostic('voice-session', 'resume skipped', {
+        operationId,
+        triggerDetail: detail,
+        failureDetail: resumeUnavailableDetail,
+        latestHandle: resumeHandle,
+        resumable: store.voiceSessionResumption.resumable,
+      });
     }
 
-    const operationId = ops.beginSessionOperation();
-    const previousTransport = ops.getActiveTransport();
     ops.logRuntimeDiagnostic('voice-session', 'resume requested', {
       operationId,
       detail,
@@ -150,6 +200,17 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       }
     }
 
+    if (resumeUnavailableDetail) {
+      await attemptFallback(resumeUnavailableDetail);
+      return;
+    }
+
+    const activeResumeHandle = resumeHandle;
+    if (activeResumeHandle === null) {
+      finalizeFailedFallback('Resume handle became unavailable before reconnect');
+      return;
+    }
+
     const transport = ops.createTransport(LIVE_ADAPTER_KEY);
     ops.setActiveTransport(transport);
     ops.subscribeTransport(transport, ops.handleTransportEvent);
@@ -162,11 +223,11 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       await transport.connect({
         token: tokenToUse,
         mode: 'voice',
-        resumeHandle,
+        resumeHandle: activeResumeHandle,
       });
       ops.logRuntimeDiagnostic('voice-session', 'resume connect resolved', {
         operationId,
-        latestHandle: resumeHandle,
+        latestHandle: activeResumeHandle,
       });
 
       if (!ops.isCurrentSessionOperation(operationId)) {
@@ -180,7 +241,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       const resumeDetail = asErrorDetail(error, 'Failed to resume voice session');
       ops.logRuntimeDiagnostic('voice-session', 'resume connect failed', {
         operationId,
-        latestHandle: resumeHandle,
+        latestHandle: activeResumeHandle,
         detail: resumeDetail,
       });
       ops.setVoiceSessionResumption({
@@ -193,8 +254,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
         tokenRefreshFailed: false,
         lastDetail: resumeDetail,
       });
-      ops.setVoiceResumptionInFlight(false);
-      ops.setVoiceErrorState(resumeDetail);
+      await attemptFallback(resumeDetail);
     }
   };
 

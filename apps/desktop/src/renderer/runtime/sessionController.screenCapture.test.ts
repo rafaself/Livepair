@@ -357,6 +357,67 @@ describe('createDesktopSessionController – screen capture', () => {
     });
   });
 
+  it('keeps screen capture disabled after fallback replaces the active Live runtime until manually re-enabled', async () => {
+    const firstTransport = createVoiceTransportHarness();
+    const fallbackTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(fallbackTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.startScreenCapture();
+
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: null,
+      resumable: false,
+      detail: 'Gemini Live session is not resumable at this point',
+    });
+    firstTransport.emit({
+      type: 'connection-terminated',
+      detail: 'transport recycled',
+    });
+
+    await vi.waitFor(() => {
+      expect(screenCapture.stop).toHaveBeenCalledOnce();
+      expect(fallbackTransport.connect).toHaveBeenCalledWith({
+        token: {
+          token: 'auth_tokens/test-token',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        },
+        mode: 'voice',
+        rehydrationPacket: expect.any(Object),
+      });
+      expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
+    });
+
+    await controller.startScreenCapture();
+    screenCapture.emitFrame({ sequence: 2 });
+
+    await vi.waitFor(() => {
+      expect(screenCapture.start).toHaveBeenCalledTimes(2);
+      expect(fallbackTransport.sendVideoFrame).toHaveBeenCalledWith(
+        new Uint8Array([1, 2, 3]),
+        'image/jpeg',
+      );
+      expect(useSessionStore.getState().screenCaptureState).toBe('streaming');
+    });
+  });
+
   it('does not persist raw screen frames into canonical chat memory', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const screenCapture = createScreenCaptureHarness();

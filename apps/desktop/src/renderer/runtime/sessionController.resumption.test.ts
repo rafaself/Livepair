@@ -209,12 +209,13 @@ describe('createDesktopSessionController – resumption', () => {
     vi.useRealTimers();
   });
 
-  it('handles resume failure after a successful token refresh', async () => {
+  it('falls back to a fresh Live session when resume fails after a successful token refresh', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
 
     const firstTransport = createVoiceTransportHarness();
     const resumedTransport = createVoiceTransportHarness();
+    const fallbackTransport = createVoiceTransportHarness();
     resumedTransport.setConnectError(new Error('resume rejected'));
     const requestSessionToken = vi
       .fn()
@@ -238,7 +239,8 @@ describe('createDesktopSessionController – resumption', () => {
       createTransport: vi
         .fn()
         .mockReturnValueOnce(firstTransport.transport)
-        .mockReturnValueOnce(resumedTransport.transport),
+        .mockReturnValueOnce(resumedTransport.transport)
+        .mockReturnValueOnce(fallbackTransport.transport),
     });
 
     await controller.startSession({ mode: 'voice' });
@@ -254,14 +256,22 @@ describe('createDesktopSessionController – resumption', () => {
     });
 
     await vi.waitFor(() => {
-      expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
+      expect(fallbackTransport.connect).toHaveBeenCalledWith({
+        token: {
+          token: 'auth_tokens/refreshed-token',
+          expireTime: '2026-03-09T12:31:30.000Z',
+          newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+        },
+        mode: 'voice',
+        rehydrationPacket: expect.any(Object),
+      });
     });
 
     expect(useSessionStore.getState().voiceSessionResumption).toEqual({
-      status: 'resumeFailed',
+      status: 'connected',
       latestHandle: 'handles/voice-session-2',
       resumable: false,
-      lastDetail: 'resume rejected',
+      lastDetail: null,
     });
     expect(useSessionStore.getState().voiceSessionDurability).toEqual({
       compressionEnabled: true,
@@ -272,9 +282,15 @@ describe('createDesktopSessionController – resumption', () => {
       newSessionExpireTime: '2026-03-09T12:01:30.000Z',
       lastDetail: 'resume rejected',
     });
-    expect(useSessionStore.getState().currentMode).toBe('inactive');
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
-    expect(useSessionStore.getState().lastRuntimeError).toBe('resume rejected');
+    expect(useSessionStore.getState().currentMode).toBe('speech');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(useSessionStore.getState().lastRuntimeError).toBeNull();
+    expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      status: 'failed',
+      endedAt: expect.any(String),
+      endedReason: 'resume rejected',
+    });
 
     vi.useRealTimers();
   });
@@ -339,8 +355,9 @@ describe('createDesktopSessionController – resumption', () => {
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
   });
 
-  it('falls back to resumeFailed when a voice disconnect has no usable handle', async () => {
+  it('falls back to a fresh Live session when a voice disconnect has no usable handle', async () => {
     const firstTransport = createVoiceTransportHarness();
+    const fallbackTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
@@ -352,7 +369,10 @@ describe('createDesktopSessionController – resumption', () => {
         expireTime: '2099-03-09T12:30:00.000Z',
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
-      createTransport: vi.fn(() => firstTransport.transport),
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(fallbackTransport.transport),
     });
 
     await controller.startSession({ mode: 'voice' });
@@ -368,21 +388,26 @@ describe('createDesktopSessionController – resumption', () => {
     });
 
     await vi.waitFor(() => {
-      expect(useSessionStore.getState().voiceSessionResumption).toEqual({
-        status: 'resumeFailed',
-        latestHandle: null,
-        resumable: false,
-        lastDetail: 'transport recycled (session marked non-resumable)',
+      expect(fallbackTransport.connect).toHaveBeenCalledWith({
+        token: {
+          token: 'auth_tokens/test-token',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        },
+        mode: 'voice',
+        rehydrationPacket: expect.any(Object),
       });
     });
-
-    await vi.waitFor(() => {
-      expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'connected',
+      latestHandle: null,
+      resumable: false,
+      lastDetail: null,
     });
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('disconnected');
-    expect(useSessionStore.getState().lastRuntimeError).toBe(
-      'transport recycled (session marked non-resumable)',
-    );
+    expect(useSessionStore.getState().speechLifecycle.status).toBe('listening');
+    expect(useSessionStore.getState().currentMode).toBe('speech');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(useSessionStore.getState().lastRuntimeError).toBeNull();
     expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
       id: 'live-session-1',
       resumptionHandle: null,
@@ -401,6 +426,7 @@ describe('createDesktopSessionController – resumption', () => {
 
   it('does not reuse a stale resumption handle after the transport clears it', async () => {
     const firstTransport = createVoiceTransportHarness();
+    const fallbackTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
@@ -412,7 +438,10 @@ describe('createDesktopSessionController – resumption', () => {
         expireTime: '2099-03-09T12:30:00.000Z',
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       }),
-      createTransport: vi.fn(() => firstTransport.transport),
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(fallbackTransport.transport),
     });
 
     await controller.startSession({ mode: 'voice' });
@@ -433,18 +462,25 @@ describe('createDesktopSessionController – resumption', () => {
     });
 
     await vi.waitFor(() => {
-      expect(useSessionStore.getState().voiceSessionResumption).toEqual({
-        status: 'resumeFailed',
-        latestHandle: null,
-        resumable: false,
-        lastDetail: 'transport recycled (session marked non-resumable)',
+      expect(fallbackTransport.connect).toHaveBeenCalledWith({
+        token: {
+          token: 'auth_tokens/test-token',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        },
+        mode: 'voice',
+        rehydrationPacket: expect.any(Object),
       });
     });
 
     expect(firstTransport.connect).toHaveBeenCalledTimes(1);
-    expect(useSessionStore.getState().lastRuntimeError).toBe(
-      'transport recycled (session marked non-resumable)',
-    );
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'connected',
+      latestHandle: null,
+      resumable: false,
+      lastDetail: null,
+    });
+    expect(useSessionStore.getState().lastRuntimeError).toBeNull();
   });
 
   it('keeps live-session durability state idle when typed input is blocked outside speech mode', async () => {

@@ -156,6 +156,7 @@ Implemented:
 - Active speech session required
 - Lightweight JPEG frames at explicit conservative settings: 1 FPS, compressed JPEG, reduced width, and latest-frame-wins while an earlier frame send is still in flight
 - Voice-mode screen sharing uses `MEDIA_RESOLUTION_LOW` by default unless the desktop env overrides it
+- Runtime replacement during reconnect/resume/fallback always stops screen capture; users must manually re-enable it on the replacement Live runtime
 
 Planned:
 

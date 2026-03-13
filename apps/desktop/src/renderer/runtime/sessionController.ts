@@ -7,6 +7,7 @@ import {
   logRuntimeDiagnostic,
   logRuntimeError,
 } from './core/logger';
+import { asErrorDetail } from './core/runtimeUtils';
 import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
 import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
 import {
@@ -48,6 +49,7 @@ import {
 } from './conversation/persistConversationTurn';
 import { createTransportEventRouter } from './transport/transportEventRouter';
 import { createVoiceChunkPipeline } from './voice/voiceChunkPipeline';
+import { connectFallbackVoiceSession } from './voice/connectFallbackVoiceSession';
 import { createVoiceResumeController } from './voice/voiceResumeController';
 import { createSessionControllerErrorHandling } from './sessionControllerErrorHandling';
 import { createSessionControllerLifecycle } from './sessionControllerLifecycle';
@@ -357,6 +359,52 @@ export function createDesktopSessionController(
       runtimeRef.current!.setVoiceResumptionInFlight(v);
     },
     refreshToken: (id, d) => refreshVoiceSessionToken(id, d),
+    fallbackToNewSession: async (operationId, token, detail) => {
+      const invalidatedAt = new Date().toISOString();
+
+      try {
+        await updateCurrentLiveSession({
+          restorable: false,
+          invalidatedAt,
+          invalidationReason: detail,
+        });
+        await endCurrentLiveSession({
+          status: 'failed',
+          endedReason: detail,
+        });
+      } catch (error) {
+        return {
+          status: 'failed' as const,
+          detail: asErrorDetail(error, 'Failed to retire replaced Live session'),
+        };
+      }
+
+      return connectFallbackVoiceSession({
+        operationId,
+        token,
+        reason: 'resume-failed',
+        previousDetail: detail,
+        logRuntimeDiagnostic,
+        buildRehydrationPacketFromCurrentChat,
+        isCurrentSessionOperation: (id) => runtimeRef.current!.isCurrentSessionOperation(id),
+        createTransport: () => dependencies.createTransport(LIVE_ADAPTER_KEY),
+        createPersistedLiveSession: async () => {
+          await startCurrentLiveSession();
+        },
+        activateVoiceTransport: (transport) => {
+          runtimeRef.current!.cleanupTransport();
+          runtimeRef.current!.setActiveTransport(transport);
+          runtimeRef.current!.subscribeTransport(transport, handleTransportEvent);
+        },
+        setVoiceResumptionInFlight: (value) => {
+          runtimeRef.current!.setVoiceResumptionInFlight(value);
+        },
+        startVoiceCapture: () => voiceChunkCtrl.startCapture({ shutdownOnFailure: true }),
+        applySpeechLifecycleEvent: (event) => {
+          runtimeRef.current!.applySpeechLifecycleEvent(event);
+        },
+      });
+    },
     stopScreenCapture: () => runtimeRef.current!.stopScreenCaptureInternal(),
     stopVoicePlayback: () => runtimeRef.current!.stopVoicePlayback(),
     subscribeTransport: (t, h) => {
