@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSessionControllerErrorHandling } from './sessionControllerErrorHandling';
+import { createSessionControllerErrorHandling } from './sessionErrorHandling';
 
 function createMockArgs() {
   return {

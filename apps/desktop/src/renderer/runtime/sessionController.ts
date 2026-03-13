@@ -51,14 +51,14 @@ import { createTransportEventRouter } from './transport/transportEventRouter';
 import { createVoiceChunkPipeline } from './voice/voiceChunkPipeline';
 import { connectFallbackVoiceSession } from './voice/connectFallbackVoiceSession';
 import { createVoiceResumeController } from './voice/voiceResumeController';
-import { createSessionControllerErrorHandling } from './sessionControllerErrorHandling';
-import { createSessionControllerLifecycle } from './sessionControllerLifecycle';
-import { createSessionControllerModeSwitching } from './sessionControllerModeSwitching';
-import { createSessionControllerTeardown } from './sessionControllerTeardown';
-import { createSessionControllerStateSync } from './sessionControllerStateSync';
-import { createSessionControllerMutableRuntime } from './sessionControllerMutableRuntime';
-import { createSessionControllerRuntime } from './sessionControllerRuntime';
-import { createSessionControllerPublicApi } from './sessionControllerPublicApi';
+import { createSessionControllerErrorHandling } from './session/sessionErrorHandling';
+import { createSessionControllerLifecycle } from './session/sessionLifecycle';
+import { createSessionControllerModeSwitching } from './session/sessionModeSwitching';
+import { createSessionControllerTeardown } from './session/sessionTeardown';
+import { createSessionControllerStateSync } from './session/sessionStateSync';
+import { createSessionControllerMutableRuntime } from './session/sessionMutableRuntime';
+import { createSessionControllerRuntime } from './session/sessionRuntime';
+import { createSessionControllerPublicApi } from './session/sessionPublicApi';
 import type {
   ProductMode,
 } from './core/session.types';

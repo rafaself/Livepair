@@ -1,23 +1,23 @@
 import {
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
-} from './core/defaults';
+} from '../core/defaults';
 import {
   isSpeechLifecycleActive,
   reduceSpeechSessionLifecycle,
   type SpeechSessionLifecycleEvent,
-} from './speech/speechSessionLifecycle';
-import type { AssistantAudioPlayback } from './audio/audio.types';
+} from '../speech/speechSessionLifecycle';
+import type { AssistantAudioPlayback } from '../audio/audio.types';
 import type {
   ProductMode,
-} from './core/session.types';
+} from '../core/session.types';
 import type {
   SessionStoreApi,
   SettingsStoreApi,
-} from './core/sessionControllerTypes';
+} from '../core/sessionControllerTypes';
 import type {
   SpeechLifecycleStatus,
-} from './speech/speech.types';
+} from '../speech/speech.types';
 import type {
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
@@ -25,7 +25,7 @@ import type {
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceToolState,
-} from './voice/voice.types';
+} from '../voice/voice.types';
 import type {
   CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';

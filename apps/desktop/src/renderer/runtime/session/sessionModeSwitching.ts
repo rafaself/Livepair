@@ -1,4 +1,4 @@
-import type { ProductMode } from './core/session.types';
+import type { ProductMode } from '../core/session.types';
 
 type SessionControllerModeSwitchingArgs = {
   currentProductMode: () => ProductMode;

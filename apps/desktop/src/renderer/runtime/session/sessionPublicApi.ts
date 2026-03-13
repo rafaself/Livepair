@@ -1,16 +1,16 @@
 import {
   isSpeechLifecycleActive,
-} from './speech/speechSessionLifecycle';
-import { asErrorDetail } from './core/runtimeUtils';
-import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
+} from '../speech/speechSessionLifecycle';
+import { asErrorDetail } from '../core/runtimeUtils';
+import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import type {
   DesktopSessionController,
   DebugAssistantState,
   SessionStoreApi,
-} from './core/sessionControllerTypes';
+} from '../core/sessionControllerTypes';
 import type {
   SpeechLifecycleStatus,
-} from './speech/speech.types';
+} from '../speech/speech.types';
 
 type SessionControllerPublicApiArgs = {
   store: SessionStoreApi;
@@ -47,7 +47,7 @@ type SessionControllerPublicApiArgs = {
       };
     }) => Promise<void>;
     endSpeechModeInternal: (options?: { recordEvents?: boolean }) => Promise<void>;
-    getActiveTransport: () => import('./transport/transport.types').DesktopSession | null;
+    getActiveTransport: () => import('../transport/transport.types').DesktopSession | null;
     recordSessionEvent: (event: {
       type: 'session.debug.state.set';
       detail: DebugAssistantState;

@@ -1,15 +1,15 @@
-import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
-import { asErrorDetail } from './core/runtimeUtils';
-import { connectFallbackVoiceSession } from './voice/connectFallbackVoiceSession';
+import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
+import { asErrorDetail } from '../core/runtimeUtils';
+import { connectFallbackVoiceSession } from '../voice/connectFallbackVoiceSession';
 import type {
   SessionControllerEvent,
-} from './core/session.types';
-import type { DesktopSession } from './transport/transport.types';
-import type { SessionStoreApi } from './core/sessionControllerTypes';
+} from '../core/session.types';
+import type { DesktopSession } from '../transport/transport.types';
+import type { SessionStoreApi } from '../core/sessionControllerTypes';
 import type {
   VoiceSessionDurabilityState,
   VoiceSessionStatus,
-} from './voice/voice.types';
+} from '../voice/voice.types';
 import type {
   CreateEphemeralTokenResponse,
   LiveSessionRecord,

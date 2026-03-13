@@ -1,8 +1,8 @@
-import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
-import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
-import { isSessionActiveLifecycle } from './text/textSessionLifecycle';
-import type { SessionStoreApi } from './core/sessionControllerTypes';
-import type { TextSessionStatus } from './text/text.types';
+import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
+import { isSpeechLifecycleActive } from '../speech/speechSessionLifecycle';
+import { isSessionActiveLifecycle } from '../text/textSessionLifecycle';
+import type { SessionStoreApi } from '../core/sessionControllerTypes';
+import type { TextSessionStatus } from '../text/text.types';
 
 type SessionControllerTeardownArgs = {
   store: SessionStoreApi;

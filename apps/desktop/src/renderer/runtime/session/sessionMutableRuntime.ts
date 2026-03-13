@@ -1,4 +1,4 @@
-import type { DesktopSession } from './transport/transport.types';
+import type { DesktopSession } from '../transport/transport.types';
 
 export function createSessionControllerMutableRuntime() {
   let activeTransport: DesktopSession | null = null;

@@ -1,15 +1,15 @@
-import { createDebugEvent } from './core/runtimeUtils';
-import type { AssistantAudioPlayback } from './audio/audio.types';
+import { createDebugEvent } from '../core/runtimeUtils';
+import type { AssistantAudioPlayback } from '../audio/audio.types';
 import type {
   ProductMode,
   SessionControllerEvent,
-} from './core/session.types';
+} from '../core/session.types';
 import type {
   SessionStoreApi,
-} from './core/sessionControllerTypes';
-import type { SpeechLifecycleStatus } from './speech/speech.types';
-import type { TextSessionStatus } from './text/text.types';
-import type { DesktopSession } from './transport/transport.types';
+} from '../core/sessionControllerTypes';
+import type { SpeechLifecycleStatus } from '../speech/speech.types';
+import type { TextSessionStatus } from '../text/text.types';
+import type { DesktopSession } from '../transport/transport.types';
 import type {
   VoiceSessionDurabilityState,
   VoicePlaybackDiagnostics,
@@ -18,10 +18,10 @@ import type {
   VoiceSessionStatus,
   VoiceToolCall,
   VoiceToolState,
-} from './voice/voice.types';
+} from '../voice/voice.types';
 import type {
   SpeechSessionLifecycleEvent,
-} from './speech/speechSessionLifecycle';
+} from '../speech/speechSessionLifecycle';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 
 type SessionControllerRuntimeArgs = {

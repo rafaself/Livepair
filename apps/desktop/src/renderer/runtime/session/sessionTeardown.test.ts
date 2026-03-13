@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSessionControllerTeardown } from './sessionControllerTeardown';
+import { createSessionControllerTeardown } from './sessionTeardown';
 
 function createMockStore(overrides: Record<string, unknown> = {}) {
   return {

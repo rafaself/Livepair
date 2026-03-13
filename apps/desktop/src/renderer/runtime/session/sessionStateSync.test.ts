@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSessionControllerStateSync } from './sessionControllerStateSync';
+import { createSessionControllerStateSync } from './sessionStateSync';
 
 function createMockArgs(speechStatus = 'off', mode = 'text') {
   const storeState = {
