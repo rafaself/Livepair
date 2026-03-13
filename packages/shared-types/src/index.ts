@@ -24,6 +24,39 @@ export interface ChatMessageRecord {
   sequence: number;
 }
 
+export type RehydrationPacketTurnRole = ChatMessageRole;
+
+export type RehydrationPacketTurnKind = 'message' | 'transcript';
+
+export interface RehydrationPacketTurn {
+  role: RehydrationPacketTurnRole;
+  kind: RehydrationPacketTurnKind;
+  text: string;
+  createdAt: string;
+  sequence: number;
+}
+
+export interface RehydrationPacketStateEntry {
+  key: string;
+  value: string;
+}
+
+export interface RehydrationPacketStateSection {
+  entries: RehydrationPacketStateEntry[];
+}
+
+export interface RehydrationPacketContextState {
+  task: RehydrationPacketStateSection;
+  context: RehydrationPacketStateSection;
+}
+
+export interface RehydrationPacket {
+  stableInstruction: string;
+  summary: string | null;
+  recentTurns: RehydrationPacketTurn[];
+  contextState: RehydrationPacketContextState;
+}
+
 export interface CreateChatRequest {
   title?: string | null;
 }
