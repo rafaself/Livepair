@@ -22,6 +22,7 @@ import { createVoiceTokenManager } from './voice/voiceTokenManager';
 import { createSpeechSilenceController } from './speech/speechSilenceController';
 import { createConversationContext } from './conversation/conversationTurnManager';
 import { createTextChatController } from './text/textChatController';
+import { persistConversationTurnInBackground } from './conversation/persistConversationTurn';
 import { createTransportEventRouter } from './transport/transportEventRouter';
 import { createVoiceChunkPipeline } from './voice/voiceChunkPipeline';
 import { createVoiceResumeController } from './voice/voiceResumeController';
@@ -132,7 +133,12 @@ export function createDesktopSessionController(
     (event) => runtimeRef.current!.applySpeechLifecycleEvent(event),
     () => runtimeRef.current!.stopVoicePlayback(),
   );
-  const voiceTranscript = createVoiceTranscriptController(dependencies.store, conversationCtx);
+  const persistSettledConversationTurn = (turnId: string): void => {
+    persistConversationTurnInBackground(dependencies.store, turnId);
+  };
+  const voiceTranscript = createVoiceTranscriptController(dependencies.store, conversationCtx, {
+    onConversationTurnSettled: persistSettledConversationTurn,
+  });
   const tokenMgr = createVoiceTokenManager(
     dependencies.store,
     dependencies.requestSessionToken,
@@ -165,6 +171,7 @@ export function createDesktopSessionController(
     conversationCtx,
     startSessionInternal: (options) => startSessionInternal(options),
     setErrorState: (detail, label) => setErrorState(detail, label),
+    onConversationTurnSettled: persistSettledConversationTurn,
   });
   const stateSync = createSessionControllerStateSync({
     store: dependencies.store,
@@ -537,7 +544,10 @@ export function createDesktopSessionController(
       textChatCtrl.applyLifecycleEvent({ type: 'runtime.failed' });
     },
     failPendingAssistantTurn: (statusLabel) => {
-      textChatCtrl.failPendingAssistantTurn(statusLabel);
+      const failedTurnId = textChatCtrl.failPendingAssistantTurn(statusLabel);
+      if (failedTurnId) {
+        persistSettledConversationTurn(failedTurnId);
+      }
     },
   }));
   const modeSwitching = createSessionControllerModeSwitching({

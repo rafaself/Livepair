@@ -237,36 +237,46 @@ export function appendAssistantTextDelta(ctx: ConversationContext, text: string)
   updatePendingAssistantTurn(ctx, `${currentTurn.content}${text}`, 'streaming', 'Responding...');
 }
 
-export function completePendingAssistantTurn(ctx: ConversationContext, statusLabel?: string): void {
+export function completePendingAssistantTurn(
+  ctx: ConversationContext,
+  statusLabel?: string,
+): string | null {
   if (!ctx.pendingAssistantTurnId) {
-    return;
+    return null;
   }
 
   const currentTurn = getConversationTurn(ctx, ctx.pendingAssistantTurnId);
 
   if (!currentTurn) {
     clearPendingAssistantTurn(ctx);
-    return;
+    return null;
   }
 
   updatePendingAssistantTurn(ctx, currentTurn.content, 'complete', statusLabel);
+  const settledTurnId = currentTurn.id;
   clearPendingAssistantTurn(ctx);
+  return settledTurnId;
 }
 
-export function failPendingAssistantTurn(ctx: ConversationContext, statusLabel: string): void {
+export function failPendingAssistantTurn(
+  ctx: ConversationContext,
+  statusLabel: string,
+): string | null {
   if (!ctx.pendingAssistantTurnId) {
-    return;
+    return null;
   }
 
   const currentTurn = getConversationTurn(ctx, ctx.pendingAssistantTurnId);
 
   if (!currentTurn) {
     clearPendingAssistantTurn(ctx);
-    return;
+    return null;
   }
 
   updatePendingAssistantTurn(ctx, currentTurn.content, 'error', statusLabel);
+  const failedTurnId = currentTurn.id;
   clearPendingAssistantTurn(ctx);
+  return failedTurnId;
 }
 
 // ---------------------------------------------------------------------------
@@ -289,11 +299,13 @@ export function upsertCurrentVoiceUserTurn(
   );
 }
 
-export function finalizeCurrentVoiceUserTurn(ctx: ConversationContext): void {
+export function finalizeCurrentVoiceUserTurn(ctx: ConversationContext): string | null {
+  const currentTurnId = ctx.currentVoiceUserTurnId;
   updateVoiceTurn(ctx, ctx.currentVoiceUserTurnId, {
     state: 'complete',
     statusLabel: undefined,
   });
+  return currentTurnId;
 }
 
 export function upsertCurrentVoiceAssistantTurn(
@@ -312,24 +324,25 @@ export function upsertCurrentVoiceAssistantTurn(
   );
 }
 
-export function finalizeCurrentVoiceAssistantTurn(ctx: ConversationContext): void {
+export function finalizeCurrentVoiceAssistantTurn(ctx: ConversationContext): string | null {
   const turn = getConversationTurn(ctx, ctx.currentVoiceAssistantTurnId ?? '');
 
   if (!turn) {
     ctx.currentVoiceAssistantTurnId = null;
-    return;
+    return null;
   }
 
   if (turn.content.trim().length === 0) {
     ctx.store.getState().removeConversationTurn(turn.id);
     ctx.currentVoiceAssistantTurnId = null;
-    return;
+    return null;
   }
 
   updateVoiceTurn(ctx, turn.id, {
     state: 'complete',
     statusLabel: turn.statusLabel === 'Interrupted' ? 'Interrupted' : undefined,
   });
+  return turn.id;
 }
 
 export function interruptCurrentVoiceAssistantTurn(ctx: ConversationContext): void {

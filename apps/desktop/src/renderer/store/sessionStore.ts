@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ChatId } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
 import { LIVE_ADAPTER_KEY } from '../runtime/transport/liveConfig';
 import {
@@ -52,6 +53,7 @@ export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed
 export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
 
 type SessionStoreData = {
+  activeChatId: ChatId | null;
   currentMode: ProductMode;
   sessionPhase: SessionPhase;
   assistantActivity: AssistantActivityState;
@@ -78,6 +80,7 @@ type SessionStoreData = {
 };
 
 export type SessionStoreState = SessionStoreData & {
+  setActiveChatId: (activeChatId: ChatId | null) => void;
   setCurrentMode: (currentMode: ProductMode) => void;
   setAssistantActivity: (assistantActivity: AssistantActivityState) => void;
   setBackendState: (backendState: BackendConnectionState) => void;
@@ -85,10 +88,14 @@ export type SessionStoreState = SessionStoreData & {
   setTextSessionLifecycle: (textSessionLifecycle: TextSessionLifecycle) => void;
   setActiveTransport: (activeTransport: TransportKind | null) => void;
   appendConversationTurn: (turn: ConversationTurnModel) => void;
+  replaceConversationTurns: (turns: ConversationTurnModel[]) => void;
   updateConversationTurn: (
     turnId: string,
     patch: Partial<
-      Pick<ConversationTurnModel, 'content' | 'state' | 'statusLabel' | 'source' | 'transcriptFinal'>
+      Pick<
+        ConversationTurnModel,
+        'content' | 'state' | 'statusLabel' | 'source' | 'transcriptFinal' | 'persistedMessageId'
+      >
     >,
   ) => void;
   removeConversationTurn: (turnId: string) => void;
@@ -180,6 +187,7 @@ function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
 
 function buildDefaultSessionState(): SessionStoreData {
   return {
+    activeChatId: null,
     currentMode: 'text',
     ...withDerivedLifecycleFields(createTextSessionLifecycle()),
     assistantActivity: 'idle',
@@ -267,6 +275,7 @@ const defaultSessionState = buildDefaultSessionState();
 
 export const useSessionStore = create<SessionStoreState>((set) => ({
   ...defaultSessionState,
+  setActiveChatId: (activeChatId) => set({ activeChatId }),
   setCurrentMode: (currentMode) => set({ currentMode }),
   setAssistantActivity: (assistantActivity) => set({ assistantActivity }),
   setBackendState: (backendState) => set({ backendState }),
@@ -278,6 +287,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
     set((state) => ({
       conversationTurns: [...state.conversationTurns, turn],
     })),
+  replaceConversationTurns: (conversationTurns) => set({ conversationTurns }),
   updateConversationTurn: (turnId, patch) =>
     set((state) => ({
       conversationTurns: state.conversationTurns.map((turn) =>
@@ -360,6 +370,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
   resetTextSessionRuntime: (textSessionStatus = 'idle', options = {}) =>
     set((state) => ({
       currentMode: state.currentMode,
+      activeChatId: state.activeChatId,
       ...withDerivedLifecycleFields(createTextSessionLifecycle(textSessionStatus)),
       assistantActivity: 'idle',
       backendState: 'idle',

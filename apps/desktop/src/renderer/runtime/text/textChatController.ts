@@ -41,6 +41,7 @@ export type TextChatControllerOps = {
   conversationCtx: ConversationContext;
   startSessionInternal: (options: { mode: SessionMode }) => Promise<void>;
   setErrorState: (detail: string, failedTurnStatusLabel?: string) => void;
+  onConversationTurnSettled?: (turnId: string) => void;
 };
 
 export type TextChatController = ReturnType<typeof createTextChatController>;
@@ -81,12 +82,12 @@ export function createTextChatController(ops: TextChatControllerOps) {
     appendCompletedAssistantTurnCtx(ops.conversationCtx, content, statusLabel);
   };
 
-  const completePendingAssistantTurn = (statusLabel?: string): void => {
-    completePendingAssistantTurnCtx(ops.conversationCtx, statusLabel);
+  const completePendingAssistantTurn = (statusLabel?: string): string | null => {
+    return completePendingAssistantTurnCtx(ops.conversationCtx, statusLabel);
   };
 
-  const failPendingAssistantTurn = (statusLabel: string): void => {
-    failPendingAssistantTurnCtx(ops.conversationCtx, statusLabel);
+  const failPendingAssistantTurn = (statusLabel: string): string | null => {
+    return failPendingAssistantTurnCtx(ops.conversationCtx, statusLabel);
   };
 
   const clearPendingAssistantTurn = (): void => {
@@ -94,7 +95,9 @@ export function createTextChatController(ops: TextChatControllerOps) {
   };
 
   const appendUserTurn = (content: string): string => {
-    return appendUserTurnCtx(ops.conversationCtx, content);
+    const turnId = appendUserTurnCtx(ops.conversationCtx, content);
+    ops.onConversationTurnSettled?.(turnId);
+    return turnId;
   };
 
   const buildTextChatRequest = (text: string): TextChatRequest => {
@@ -112,9 +115,12 @@ export function createTextChatController(ops: TextChatControllerOps) {
       const previousStatus = currentStatus();
       releaseStream();
       applyLifecycleEvent({ type: 'response.turn.completed' });
-      completePendingAssistantTurn(
+      const settledTurnId = completePendingAssistantTurn(
         previousStatus === 'interrupted' ? 'Interrupted' : undefined,
       );
+      if (settledTurnId) {
+        ops.onConversationTurnSettled?.(settledTurnId);
+      }
       ops.store.getState().setAssistantActivity('idle');
       return;
     }

@@ -11,4 +11,5 @@ export type ConversationTurnModel = {
   statusLabel?: string | undefined;
   source?: 'text' | 'voice' | undefined;
   transcriptFinal?: boolean | undefined;
+  persistedMessageId?: string | undefined;
 };

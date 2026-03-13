@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSessionStore } from '../../store/sessionStore';
 import {
   appendUserTurn,
@@ -190,6 +190,22 @@ describe('createVoiceTranscriptController', () => {
         statusLabel: 'Interrupted',
       }),
     ]);
+  });
+
+  it('emits settled turn ids when voice turns finalize for persistence', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const onConversationTurnSettled = vi.fn();
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx, {
+      onConversationTurnSettled,
+    });
+
+    ctrl.applyTranscriptUpdate('user', 'Voice question', true);
+    ctrl.ensureAssistantTurn();
+    ctrl.applyTranscriptUpdate('assistant', 'Voice answer', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
+
+    expect(onConversationTurnSettled).toHaveBeenCalledWith('user-turn-1');
+    expect(onConversationTurnSettled).toHaveBeenCalledWith('assistant-turn-1');
   });
 
   it('keeps interrupted assistant output labeled as interrupted when a corrective transcript arrives later', () => {
