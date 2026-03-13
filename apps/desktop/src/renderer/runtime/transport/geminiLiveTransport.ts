@@ -43,7 +43,7 @@ import {
 } from './geminiLiveTransportState';
 import { logRuntimeDiagnostic, logRuntimeError } from '../core/logger';
 
-export type CreateGeminiLiveTransportOptions = {
+type CreateGeminiLiveTransportOptions = {
   connectSession?: (
     options: ConnectGeminiLiveSdkSessionOptions,
   ) => Promise<GeminiLiveSdkSession>;

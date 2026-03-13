@@ -352,10 +352,6 @@ export function appendCompletedAssistantTurn(
   return turnId;
 }
 
-export function appendAssistantTextDelta(ctx: ConversationContext, text: string): void {
-  appendAssistantDraftTextDelta(ctx, text);
-}
-
 export function completePendingAssistantTurn(
   ctx: ConversationContext,
   statusLabel?: string,

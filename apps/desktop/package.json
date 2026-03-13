@@ -20,7 +20,6 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@electron-toolkit/preload": "^3.0.1",
     "@google/genai": "^1.44.0",
     "@livepair/shared-types": "workspace:*",
     "better-sqlite3": "^12.6.2",

@@ -5,7 +5,7 @@ import type {
   RehydrationPacket,
 } from '@livepair/shared-types';
 
-export type VoiceFallbackReason =
+type VoiceFallbackReason =
   | 'no-restore-candidate'
   | 'resume-failed'
   | 'resume-unavailable';

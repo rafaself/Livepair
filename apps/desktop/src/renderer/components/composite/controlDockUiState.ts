@@ -12,7 +12,7 @@ import type { ScreenCaptureState } from '../../runtime/screen/screen.types';
 import type { TransportKind } from '../../runtime/transport/transport.types';
 import type { VoiceCaptureState, VoiceSessionStatus } from '../../runtime/voice/voice.types';
 
-export type ControlDockUiStateInput = {
+type ControlDockUiStateInput = {
   currentMode: ProductMode;
   speechLifecycleStatus: SpeechLifecycleStatus;
   activeTransport?: TransportKind | null;

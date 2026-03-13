@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const DEFAULT_CLOSE_ANIMATION_MS = 140;
 
-export type UseFloatingLayerOptions = {
+type UseFloatingLayerOptions = {
   closeAnimationMs?: number;
   initialOpen?: boolean;
 };
 
-export type UseFloatingLayerReturn = {
+type UseFloatingLayerReturn = {
   isOpen: boolean;
   isClosing: boolean;
   shouldRender: boolean;

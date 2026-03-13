@@ -17,7 +17,7 @@ import type {
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import type { SessionStoreApi, SettingsStoreApi } from '../core/sessionControllerTypes';
 
-export type TransportEventRouterOps = {
+type TransportEventRouterOps = {
   store: SessionStoreApi;
   settingsStore: SettingsStoreApi;
   logger: RuntimeLogger;

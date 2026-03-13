@@ -9,7 +9,7 @@ import type { SessionStoreApi, SettingsStoreApi } from '../core/sessionControlle
 
 const VOICE_SESSION_NOT_READY_DETAIL = 'Voice session is not ready';
 
-export type VoiceChunkPipelineOps = {
+type VoiceChunkPipelineOps = {
   store: SessionStoreApi;
   settingsStore: SettingsStoreApi;
   createVoiceCapture: (observer: LocalVoiceCaptureObserver) => LocalVoiceCapture;

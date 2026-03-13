@@ -44,7 +44,7 @@ export type AssistantPanelSettingsController = {
   handleBackendUrlBlur: () => Promise<void>;
 };
 
-export type UseAssistantPanelSettingsControllerOptions = {
+type UseAssistantPanelSettingsControllerOptions = {
   enabled?: boolean;
 };
 

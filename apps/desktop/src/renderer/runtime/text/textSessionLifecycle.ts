@@ -126,15 +126,6 @@ export function deriveTransportStateFromLifecycle(
   return 'connected';
 }
 
-export function isTextSessionConnectable(status: TextSessionStatus): boolean {
-  return (
-    status === 'idle' ||
-    status === 'disconnected' ||
-    status === 'error' ||
-    status === 'goAway'
-  );
-}
-
 export function isTextTurnInFlight(status: TextSessionStatus): boolean {
   return (
     status === 'connecting' ||

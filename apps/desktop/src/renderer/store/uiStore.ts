@@ -42,7 +42,7 @@ function buildDeviceOptions(
 let deviceWatcherCleanup: (() => void) | null = null;
 let deviceRefreshRequestId = 0;
 
-export type UiStoreState = {
+type UiStoreState = {
   isPanelOpen: boolean;
   panelView: PanelView;
   isDebugMode: boolean;
