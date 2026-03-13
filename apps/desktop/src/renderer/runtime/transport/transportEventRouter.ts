@@ -1,4 +1,8 @@
 import { LIVE_ADAPTER_KEY } from './liveConfig';
+import {
+  isAssistantTurnUnavailable,
+  shouldIgnoreTermination,
+} from './transportEventGating';
 import { isTokenValidForReconnect } from '../voice/voiceSessionToken';
 import { createDebugEvent } from '../core/runtimeUtils';
 import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
@@ -84,20 +88,6 @@ type TransportEventRouterOps = {
 };
 
 export function createTransportEventRouter(ops: TransportEventRouterOps) {
-  const shouldIgnoreTermination = (status: VoiceSessionStatus): boolean => {
-    return status === 'stopping' || status === 'disconnected' || status === 'error';
-  };
-
-  const isAssistantTurnUnavailable = (status: VoiceSessionStatus): boolean => {
-    return (
-      status === 'interrupted'
-      || status === 'recovering'
-      || status === 'stopping'
-      || status === 'disconnected'
-      || status === 'error'
-    );
-  };
-
   const shouldIgnoreCanonicalAssistantOutput = (
     eventType: 'text-delta' | 'turn-complete',
   ): boolean => {
