@@ -32,9 +32,18 @@ import { createSpeechSilenceController } from './speech/speechSilenceController'
 import { createConversationContext } from './conversation/conversationTurnManager';
 import {
   appendUserTurn as appendConversationUserTurn,
+  appendAssistantDraftTextDelta,
+  clearAssistantDraft,
   clearPendingAssistantTurn,
+  completeAssistantDraft,
+  consumeCompletedAssistantDraft,
+  failPendingAssistantTurn as failConversationPendingAssistantTurn,
+  interruptAssistantDraft,
 } from './conversation/conversationTurnManager';
-import { persistConversationTurnInBackground } from './conversation/persistConversationTurn';
+import {
+  persistAssistantDraftInBackground,
+  persistConversationTurnInBackground,
+} from './conversation/persistConversationTurn';
 import { createTransportEventRouter } from './transport/transportEventRouter';
 import { createVoiceChunkPipeline } from './voice/voiceChunkPipeline';
 import { createVoiceResumeController } from './voice/voiceResumeController';
@@ -266,6 +275,26 @@ export function createDesktopSessionController(
     handleVoiceInterruption: () => runtimeRef.current!.handleVoiceInterruption(),
     applySpeechLifecycleEvent: (e) => runtimeRef.current!.applySpeechLifecycleEvent(e),
     applyVoiceTranscriptUpdate: (r, t, f) => runtimeRef.current!.applyVoiceTranscriptUpdate(r, t, f),
+    appendAssistantDraftTextDelta: (text) => {
+      appendAssistantDraftTextDelta(conversationCtx, text);
+    },
+    completeAssistantDraft: () => {
+      completeAssistantDraft(conversationCtx);
+    },
+    interruptAssistantDraft: () => {
+      interruptAssistantDraft(conversationCtx);
+    },
+    discardAssistantDraft: () => {
+      clearAssistantDraft(conversationCtx);
+    },
+    commitAssistantDraft: () => {
+      const draft = consumeCompletedAssistantDraft(conversationCtx);
+      persistAssistantDraftInBackground(
+        dependencies.store,
+        draft,
+        conversationCtx.currentVoiceAssistantTurnId,
+      );
+    },
     setVoiceErrorState: (d) => setVoiceErrorState(d),
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     resumeVoiceSession: (d) => voiceResumeCtrl.resume(d),
@@ -557,7 +586,9 @@ export function createDesktopSessionController(
       runtimeRef.current!.setVoiceToolState(patch);
     },
     textRuntimeFailed: () => undefined,
-    failPendingAssistantTurn: () => undefined,
+    failPendingAssistantTurn: (statusLabel) => {
+      failConversationPendingAssistantTurn(conversationCtx, statusLabel);
+    },
   }));
   const modeSwitching = createSessionControllerModeSwitching({
     currentProductMode: () => runtimeRef.current!.currentProductMode(),

@@ -250,7 +250,7 @@ describe('App', () => {
     expect(await screen.findByText('Speech request')).toBeVisible();
     expect(await screen.findByText('Speech reply')).toBeVisible();
     await waitFor(() => {
-      expect(persistedMessages).toHaveLength(2);
+      expect(persistedMessages).toHaveLength(1);
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'End speech mode' }));

@@ -187,7 +187,7 @@ describe('createDesktopSessionController – mode switching', () => {
     voiceTransport.emit({ type: 'output-transcript', text: 'Speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
     await vi.waitFor(() => {
-      expect(persistedMessages).toHaveLength(2);
+      expect(persistedMessages).toHaveLength(1);
     });
 
     await controller.endSpeechMode();
@@ -221,7 +221,6 @@ describe('createDesktopSessionController – mode switching', () => {
 
     expect(persistedMessages).toEqual([
       expect.objectContaining({ role: 'user', contentText: 'Speech request' }),
-      expect.objectContaining({ role: 'assistant', contentText: 'Speech reply' }),
     ]);
   });
 

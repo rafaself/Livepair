@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
+import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
@@ -15,6 +16,7 @@ describe('createDesktopSessionController – transcript', () => {
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
+    resetCurrentChatMemoryForTests();
   });
 
   it('stores live voice transcripts in the conversation timeline and rolls the compatibility transcript on the next user turn', async () => {
@@ -637,6 +639,155 @@ describe('createDesktopSessionController – transcript', () => {
         source: 'voice',
       }),
     ]);
+  });
+
+  it('persists the explicit assistant draft on turn-complete instead of the transcript bubble text', async () => {
+    const persistedMessages: Array<{
+      id: string;
+      chatId: string;
+      role: 'user' | 'assistant';
+      contentText: string;
+      createdAt: string;
+      sequence: number;
+    }> = [];
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({
+        chatId,
+        role,
+        contentText,
+      }: {
+        chatId: string;
+        role: 'user' | 'assistant';
+        contentText: string;
+      }) => {
+        const nextRecord = {
+          id: `${role}-message-${persistedMessages.length + 1}`,
+          chatId,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Transcript bubble reply' });
+    voiceTransport.emit({ type: 'text-delta', text: 'Canonical' });
+    voiceTransport.emit({ type: 'text-delta', text: ' reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await vi.waitFor(() => {
+      expect(window.bridge.appendChatMessage).toHaveBeenCalledWith({
+        chatId: 'chat-1',
+        role: 'assistant',
+        contentText: 'Canonical reply',
+      });
+    });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Transcript bubble reply',
+        state: 'complete',
+        source: 'voice',
+        persistedMessageId: 'assistant-message-1',
+      }),
+    ]);
+  });
+
+  it('does not persist interrupted assistant output as a completed canonical assistant message', async () => {
+    const persistedMessages: Array<{
+      id: string;
+      chatId: string;
+      role: 'user' | 'assistant';
+      contentText: string;
+      createdAt: string;
+      sequence: number;
+    }> = [];
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({
+        chatId,
+        role,
+        contentText,
+      }: {
+        chatId: string;
+        role: 'user' | 'assistant';
+        contentText: string;
+      }) => {
+        const nextRecord = {
+          id: `${role}-message-${persistedMessages.length + 1}`,
+          chatId,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Interrupted transcript reply' });
+    voiceTransport.emit({ type: 'text-delta', text: 'Interrupted canonical reply' });
+    voiceTransport.emit({ type: 'interrupted' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'assistant-turn-1',
+          content: 'Interrupted transcript reply',
+          statusLabel: 'Interrupted',
+          source: 'voice',
+        }),
+      ]);
+    });
+
+    expect(window.bridge.appendChatMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'assistant',
+        contentText: 'Interrupted canonical reply',
+      }),
+    );
+    expect(persistedMessages).toEqual([]);
   });
 
   it('normalizes corrective transcript updates and clears voice transcripts on session end', async () => {
