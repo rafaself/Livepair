@@ -228,7 +228,11 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
       SET ended_at = @endedAt,
           status = @status,
           ended_reason = @endedReason,
-          restorable = 0
+          resumption_handle = NULL,
+          last_resumption_update_at = @lastResumptionUpdateAt,
+          restorable = 0,
+          invalidated_at = @invalidatedAt,
+          invalidation_reason = @invalidationReason
       WHERE id = @id
     `);
   }
@@ -384,28 +388,32 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         || typeof input.restorable !== 'undefined'
         || typeof input.invalidatedAt !== 'undefined'
         || typeof input.invalidationReason !== 'undefined';
+      const requestedRestorable =
+        typeof input.restorable === 'undefined'
+          ? existingRow.restorable === 1
+          : input.restorable;
       const resumptionHandle =
-        typeof input.resumptionHandle === 'undefined'
-          ? existingRow.resumption_handle
-          : input.resumptionHandle;
+        requestedRestorable
+          ? (
+            typeof input.resumptionHandle === 'undefined'
+              ? existingRow.resumption_handle
+              : input.resumptionHandle
+          )
+          : null;
       const lastResumptionUpdateAt =
         typeof input.lastResumptionUpdateAt === 'undefined'
           ? didReceiveResumptionMetadata
             ? new Date().toISOString()
             : existingRow.last_resumption_update_at
           : input.lastResumptionUpdateAt;
-      const restorable =
-        typeof input.restorable === 'undefined'
-          ? existingRow.restorable === 1
-          : input.restorable;
       const invalidatedAt =
-        restorable
+        requestedRestorable
           ? null
           : typeof input.invalidatedAt === 'undefined'
             ? existingRow.invalidated_at ?? (didReceiveResumptionMetadata ? lastResumptionUpdateAt : null)
             : input.invalidatedAt;
       const invalidationReason =
-        restorable
+        requestedRestorable
           ? null
           : typeof input.invalidationReason === 'undefined'
             ? existingRow.invalidation_reason
@@ -415,7 +423,7 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         id: input.id,
         resumptionHandle,
         lastResumptionUpdateAt,
-        restorable: restorable ? 1 : 0,
+        restorable: requestedRestorable ? 1 : 0,
         invalidatedAt,
         invalidationReason,
       });
@@ -424,7 +432,7 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         ...existingRow,
         resumption_handle: resumptionHandle,
         last_resumption_update_at: lastResumptionUpdateAt,
-        restorable: restorable ? 1 : 0,
+        restorable: requestedRestorable ? 1 : 0,
         invalidated_at: invalidatedAt,
         invalidation_reason: invalidationReason,
       });
@@ -445,12 +453,16 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
 
       const endedAt = input.endedAt ?? new Date().toISOString();
       const endedReason = input.endedReason ?? null;
+      const invalidationReason = endedReason ?? existingRow.invalidation_reason;
 
       this.updateLiveSessionEndStateStatement.run({
         id: input.id,
         endedAt,
         status: input.status,
         endedReason,
+        lastResumptionUpdateAt: endedAt,
+        invalidatedAt: endedAt,
+        invalidationReason,
       });
 
       return toLiveSessionRecord({
@@ -458,6 +470,11 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         ended_at: endedAt,
         status: input.status,
         ended_reason: endedReason,
+        resumption_handle: null,
+        last_resumption_update_at: endedAt,
+        restorable: 0,
+        invalidated_at: endedAt,
+        invalidation_reason: invalidationReason,
       });
     });
 

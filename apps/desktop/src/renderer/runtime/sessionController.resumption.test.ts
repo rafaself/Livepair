@@ -383,6 +383,20 @@ describe('createDesktopSessionController – resumption', () => {
     expect(useSessionStore.getState().lastRuntimeError).toBe(
       'transport recycled (session marked non-resumable)',
     );
+    expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      resumptionHandle: null,
+      lastResumptionUpdateAt: expect.any(String),
+      restorable: false,
+      invalidatedAt: expect.any(String),
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
+    expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      status: 'failed',
+      endedAt: expect.any(String),
+      endedReason: 'transport recycled (session marked non-resumable)',
+    });
   });
 
   it('does not reuse a stale resumption handle after the transport clears it', async () => {

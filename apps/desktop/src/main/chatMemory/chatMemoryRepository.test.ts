@@ -143,6 +143,11 @@ describe('SqliteChatMemoryRepository', () => {
       endedAt: '2026-03-12T09:05:00.000Z',
       status: 'ended',
       endedReason: 'user-ended',
+      resumptionHandle: null,
+      lastResumptionUpdateAt: '2026-03-12T09:05:00.000Z',
+      restorable: false,
+      invalidatedAt: '2026-03-12T09:05:00.000Z',
+      invalidationReason: 'user-ended',
     });
     expect(repository.listMessages(chat.id)).toEqual([
       expect.objectContaining({
@@ -220,6 +225,38 @@ describe('SqliteChatMemoryRepository', () => {
       lastResumptionUpdateAt: expect.any(String),
       restorable: false,
       invalidatedAt: expect.any(String),
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
+  });
+
+  it('clears stale resume handles when a live session becomes non-restorable', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    repository.updateLiveSession({
+      id: liveSession.id,
+      resumptionHandle: 'handles/live-session-1',
+      restorable: true,
+    });
+
+    const invalidatedLiveSession = repository.updateLiveSession({
+      id: liveSession.id,
+      resumptionHandle: 'handles/stale-live-session-1',
+      restorable: false,
+      invalidatedAt: '2026-03-12T09:02:00.000Z',
+      invalidationReason: 'Gemini Live session is not resumable at this point',
+    });
+
+    expect(invalidatedLiveSession).toEqual({
+      ...liveSession,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: expect.any(String),
+      restorable: false,
+      invalidatedAt: '2026-03-12T09:02:00.000Z',
       invalidationReason: 'Gemini Live session is not resumable at this point',
     });
   });
