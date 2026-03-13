@@ -260,4 +260,55 @@ describe('SqliteChatMemoryRepository', () => {
       invalidationReason: 'Gemini Live session is not resumable at this point',
     });
   });
+
+  it('persists live-session summary and context snapshots across reload', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    const updatedLiveSession = repository.updateLiveSession({
+      id: liveSession.id,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot: {
+        task: {
+          entries: [{ key: 'taskStatus', value: 'active' }],
+        },
+        context: {
+          entries: [{ key: 'repo', value: 'Livepair' }],
+        },
+      },
+    });
+
+    expect(updatedLiveSession).toEqual({
+      ...liveSession,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot: {
+        task: {
+          entries: [{ key: 'taskStatus', value: 'active' }],
+        },
+        context: {
+          entries: [{ key: 'repo', value: 'Livepair' }],
+        },
+      },
+    });
+
+    const reopenedRepository = openRepository();
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([
+      {
+        ...liveSession,
+        summarySnapshot: 'Persisted summary snapshot',
+        contextStateSnapshot: {
+          task: {
+            entries: [{ key: 'taskStatus', value: 'active' }],
+          },
+          context: {
+            entries: [{ key: 'repo', value: 'Livepair' }],
+          },
+        },
+      },
+    ]);
+  });
 });

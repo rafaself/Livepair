@@ -45,7 +45,7 @@ describe('createChatMemoryDatabase', () => {
     expect(database.pragma('foreign_keys', { simple: true })).toBe(1);
     expect(
       database.prepare('SELECT version FROM schema_migrations ORDER BY version').all(),
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
   });
 
   it('reuses the existing schema without duplicating migrations on reopen', () => {
@@ -56,7 +56,7 @@ describe('createChatMemoryDatabase', () => {
 
     expect(
       reopenedDatabase.prepare('SELECT version FROM schema_migrations ORDER BY version').all(),
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
   });
 
   it('migrates an existing version 1 database to add live session persistence', () => {
@@ -104,7 +104,7 @@ describe('createChatMemoryDatabase', () => {
     ).toEqual([{ name: 'live_sessions' }]);
     expect(
       migratedDatabase.prepare('SELECT version FROM schema_migrations ORDER BY version').all(),
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
   });
 
   it('migrates a version 2 live_sessions table to normalized restore metadata columns', () => {
@@ -183,6 +183,8 @@ describe('createChatMemoryDatabase', () => {
       'restorable',
       'invalidated_at',
       'invalidation_reason',
+      'summary_snapshot',
+      'context_state_snapshot',
     ]);
     expect(liveSession).toEqual(
       expect.objectContaining({
@@ -193,6 +195,106 @@ describe('createChatMemoryDatabase', () => {
         restorable: 1,
         invalidated_at: null,
         invalidation_reason: null,
+        summary_snapshot: null,
+        context_state_snapshot: null,
+      }),
+    );
+  });
+
+  it('migrates a version 3 live_sessions table to add snapshot columns', () => {
+    const legacyDatabase = trackDatabase(new BetterSqlite3(databaseFilePath));
+
+    legacyDatabase.exec(`
+      PRAGMA foreign_keys = ON;
+      CREATE TABLE schema_migrations (
+        version INTEGER PRIMARY KEY
+      );
+      INSERT INTO schema_migrations (version) VALUES (1);
+      INSERT INTO schema_migrations (version) VALUES (2);
+      INSERT INTO schema_migrations (version) VALUES (3);
+
+      CREATE TABLE chats (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        title TEXT,
+        is_current INTEGER NOT NULL DEFAULT 0 CHECK (is_current IN (0, 1))
+      );
+
+      CREATE TABLE live_sessions (
+        id TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        status TEXT NOT NULL CHECK (status IN ('active', 'ended', 'failed')),
+        ended_reason TEXT,
+        resumption_handle TEXT,
+        last_resumption_update_at TEXT,
+        restorable INTEGER NOT NULL DEFAULT 0 CHECK (restorable IN (0, 1)),
+        invalidated_at TEXT,
+        invalidation_reason TEXT
+      );
+
+      INSERT INTO chats (id, created_at, updated_at, title, is_current)
+      VALUES ('chat-1', '2026-03-12T09:00:00.000Z', '2026-03-12T09:00:00.000Z', NULL, 1);
+
+      INSERT INTO live_sessions (
+        id,
+        chat_id,
+        started_at,
+        ended_at,
+        status,
+        ended_reason,
+        resumption_handle,
+        last_resumption_update_at,
+        restorable,
+        invalidated_at,
+        invalidation_reason
+      ) VALUES (
+        'live-session-1',
+        'chat-1',
+        '2026-03-12T09:00:00.000Z',
+        NULL,
+        'active',
+        NULL,
+        NULL,
+        NULL,
+        0,
+        NULL,
+        NULL
+      );
+    `);
+    legacyDatabase.close();
+    openDatabases.length = 0;
+
+    const migratedDatabase = trackDatabase(createChatMemoryDatabase(databaseFilePath));
+    const columns = migratedDatabase
+      .prepare("PRAGMA table_info('live_sessions')")
+      .all() as Array<{ name: string }>;
+    const liveSession = migratedDatabase
+      .prepare('SELECT * FROM live_sessions WHERE id = ?')
+      .get('live-session-1') as Record<string, unknown>;
+
+    expect(columns.map((column) => column.name)).toEqual([
+      'id',
+      'chat_id',
+      'started_at',
+      'ended_at',
+      'status',
+      'ended_reason',
+      'resumption_handle',
+      'last_resumption_update_at',
+      'restorable',
+      'invalidated_at',
+      'invalidation_reason',
+      'summary_snapshot',
+      'context_state_snapshot',
+    ]);
+    expect(liveSession).toEqual(
+      expect.objectContaining({
+        id: 'live-session-1',
+        summary_snapshot: null,
+        context_state_snapshot: null,
       }),
     );
   });

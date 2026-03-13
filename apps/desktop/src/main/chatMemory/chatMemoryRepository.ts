@@ -9,6 +9,7 @@ import type {
   CreateLiveSessionRequest,
   EndLiveSessionRequest,
   LiveSessionRecord,
+  RehydrationPacketContextState,
   LiveSessionStatus,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
@@ -42,6 +43,8 @@ type LiveSessionRow = {
   restorable: number;
   invalidated_at: string | null;
   invalidation_reason: string | null;
+  summary_snapshot: string | null;
+  context_state_snapshot: string | null;
 };
 
 export interface ChatMemoryRepository {
@@ -78,7 +81,7 @@ function toChatMessageRecord(row: MessageRow): ChatMessageRecord {
 }
 
 function toLiveSessionRecord(row: LiveSessionRow): LiveSessionRecord {
-  return {
+  const record: LiveSessionRecord = {
     id: row.id,
     chatId: row.chat_id,
     startedAt: row.started_at,
@@ -91,6 +94,16 @@ function toLiveSessionRecord(row: LiveSessionRow): LiveSessionRecord {
     invalidatedAt: row.invalidated_at,
     invalidationReason: row.invalidation_reason,
   };
+
+  if (row.summary_snapshot !== null) {
+    record.summarySnapshot = row.summary_snapshot;
+  }
+
+  if (row.context_state_snapshot !== null) {
+    record.contextStateSnapshot = JSON.parse(row.context_state_snapshot) as RehydrationPacketContextState;
+  }
+
+  return record;
 }
 
 function normalizeTitle(title: string | null | undefined): string | null {
@@ -166,7 +179,9 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
          last_resumption_update_at,
          restorable,
          invalidated_at,
-         invalidation_reason
+         invalidation_reason,
+         summary_snapshot,
+         context_state_snapshot
        FROM live_sessions
        WHERE chat_id = ?
        ORDER BY started_at DESC, id DESC`,
@@ -183,7 +198,9 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         last_resumption_update_at,
         restorable,
         invalidated_at,
-        invalidation_reason
+        invalidation_reason,
+        summary_snapshot,
+        context_state_snapshot
       ) VALUES (
         @id,
         @chatId,
@@ -195,7 +212,9 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         @lastResumptionUpdateAt,
         @restorable,
         @invalidatedAt,
-        @invalidationReason
+        @invalidationReason,
+        @summarySnapshot,
+        @contextStateSnapshot
       )
     `);
     this.selectLiveSessionByIdStatement = database.prepare(
@@ -210,7 +229,9 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
          last_resumption_update_at,
          restorable,
          invalidated_at,
-         invalidation_reason
+         invalidation_reason,
+         summary_snapshot,
+         context_state_snapshot
        FROM live_sessions
        WHERE id = ?`,
     );
@@ -220,7 +241,9 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
           last_resumption_update_at = @lastResumptionUpdateAt,
           restorable = @restorable,
           invalidated_at = @invalidatedAt,
-          invalidation_reason = @invalidationReason
+          invalidation_reason = @invalidationReason,
+          summary_snapshot = @summarySnapshot,
+          context_state_snapshot = @contextStateSnapshot
       WHERE id = @id
     `);
     this.updateLiveSessionEndStateStatement = database.prepare(`
@@ -345,6 +368,8 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         restorable: 0,
         invalidated_at: null,
         invalidation_reason: null,
+        summary_snapshot: null,
+        context_state_snapshot: null,
       };
 
       this.insertLiveSessionStatement.run({
@@ -359,6 +384,8 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         restorable: liveSessionRow.restorable,
         invalidatedAt: liveSessionRow.invalidated_at,
         invalidationReason: liveSessionRow.invalidation_reason,
+        summarySnapshot: liveSessionRow.summary_snapshot,
+        contextStateSnapshot: liveSessionRow.context_state_snapshot,
       });
 
       return toLiveSessionRecord(liveSessionRow);
@@ -418,6 +445,16 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
           : typeof input.invalidationReason === 'undefined'
             ? existingRow.invalidation_reason
             : input.invalidationReason;
+      const summarySnapshot =
+        typeof input.summarySnapshot === 'undefined'
+          ? existingRow.summary_snapshot
+          : input.summarySnapshot;
+      const contextStateSnapshot =
+        typeof input.contextStateSnapshot === 'undefined'
+          ? existingRow.context_state_snapshot
+          : input.contextStateSnapshot === null
+            ? null
+            : JSON.stringify(input.contextStateSnapshot);
 
       this.updateLiveSessionRestoreMetadataStatement.run({
         id: input.id,
@@ -426,6 +463,8 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         restorable: requestedRestorable ? 1 : 0,
         invalidatedAt,
         invalidationReason,
+        summarySnapshot,
+        contextStateSnapshot,
       });
 
       return toLiveSessionRecord({
@@ -435,6 +474,8 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
         restorable: requestedRestorable ? 1 : 0,
         invalidated_at: invalidatedAt,
         invalidation_reason: invalidationReason,
+        summary_snapshot: summarySnapshot,
+        context_state_snapshot: contextStateSnapshot,
       });
     });
 
