@@ -39,6 +39,8 @@ import {
   completeAssistantDraft,
   consumeCompletedAssistantDraft,
   failPendingAssistantTurn as failConversationPendingAssistantTurn,
+  getTranscriptArtifact,
+  hasOpenVoiceTurnFence,
   interruptAssistantDraft,
 } from './conversation/conversationTurnManager';
 import {
@@ -266,7 +268,7 @@ export function createDesktopSessionController(
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
     resetVoiceTurnTranscriptState: () => runtimeRef.current!.resetVoiceTurnTranscriptState(),
     ensureAssistantVoiceTurn: () => {
-      voiceTranscript.ensureAssistantTurn();
+      return voiceTranscript.ensureAssistantTurn();
     },
     finalizeCurrentVoiceTurns: (finalizeReason, options) => {
       voiceTranscript.finalizeCurrentVoiceTurns(finalizeReason, options);
@@ -292,9 +294,15 @@ export function createDesktopSessionController(
     },
     commitAssistantDraft: () => {
       const draft = consumeCompletedAssistantDraft(conversationCtx);
+      const settledAssistantArtifact = conversationCtx.lastSettledAssistantArtifactId
+        ? getTranscriptArtifact(conversationCtx, conversationCtx.lastSettledAssistantArtifactId)
+        : null;
       const assistantTurnId = draft
         ? appendCompletedAssistantTurn(conversationCtx, draft.content, {
             source: 'voice',
+            ...(settledAssistantArtifact?.timelineOrdinal !== undefined
+              ? { timelineOrdinal: settledAssistantArtifact.timelineOrdinal }
+              : {}),
           })
         : null;
 
@@ -303,6 +311,12 @@ export function createDesktopSessionController(
       }
 
       return assistantTurnId;
+    },
+    hasOpenVoiceTurnFence: () => {
+      return hasOpenVoiceTurnFence(conversationCtx);
+    },
+    hasPendingVoiceToolCall: () => {
+      return dependencies.store.getState().voiceToolState.status !== 'idle';
     },
     hasActiveAssistantVoiceTurn: () => {
       return conversationCtx.currentVoiceAssistantArtifactId !== null;

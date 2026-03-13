@@ -45,7 +45,7 @@ function createMockOps() {
     cancelVoiceToolCalls: vi.fn(),
     resetVoiceToolState: vi.fn(),
     resetVoiceTurnTranscriptState: vi.fn(),
-    ensureAssistantVoiceTurn: vi.fn(),
+    ensureAssistantVoiceTurn: vi.fn().mockReturnValue(true),
     finalizeCurrentVoiceTurns: vi.fn(),
     attachCurrentAssistantTurn: vi.fn(),
     enqueueVoiceToolCalls: vi.fn(),
@@ -57,6 +57,8 @@ function createMockOps() {
     interruptAssistantDraft: vi.fn(),
     discardAssistantDraft: vi.fn(),
     commitAssistantDraft: vi.fn().mockReturnValue(null),
+    hasOpenVoiceTurnFence: vi.fn().mockReturnValue(true),
+    hasPendingVoiceToolCall: vi.fn().mockReturnValue(false),
     hasActiveAssistantVoiceTurn: vi.fn().mockReturnValue(false),
     hasQueuedMixedModeAssistantReply: vi.fn().mockReturnValue(false),
     hasStreamingAssistantVoiceTurn: vi.fn().mockReturnValue(false),
@@ -349,6 +351,22 @@ describe('createTransportEventRouter', () => {
       expect(ops.handleVoiceInterruption).toHaveBeenCalledTimes(1);
     });
 
+    it('ignores duplicate interrupted events after the current turn is already fenced', () => {
+      const ops = createMockOps();
+      ops.hasOpenVoiceTurnFence
+        .mockReturnValueOnce(true)
+        .mockReturnValue(false);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'interrupted' });
+      handleTransportEvent({ type: 'interrupted' });
+
+      expect(ops.interruptAssistantDraft).toHaveBeenCalledTimes(1);
+      expect(ops.discardAssistantDraft).toHaveBeenCalledTimes(1);
+      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledTimes(1);
+      expect(ops.handleVoiceInterruption).toHaveBeenCalledTimes(1);
+    });
+
     it('ignores late assistant text deltas while the interrupted turn is unavailable', () => {
       const ops = createMockOps();
       ops.currentVoiceSessionStatus.mockReturnValue('interrupted');
@@ -379,17 +397,16 @@ describe('createTransportEventRouter', () => {
       expect(ops.logRuntimeDiagnostic).not.toHaveBeenCalled();
     });
 
-    it('allows assistant transcript corrections on an interrupted turn without reopening canonical draft state', () => {
+    it('ignores assistant transcript packets after interruption fences the turn', () => {
       const ops = createMockOps();
       ops.currentVoiceSessionStatus.mockReturnValue('interrupted');
-      ops.hasActiveAssistantVoiceTurn.mockReturnValue(true);
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
 
       handleTransportEvent({ type: 'output-transcript', text: 'late transcript', isFinal: false } as never);
 
-      expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.output.started' });
-      expect(ops.ensureAssistantVoiceTurn).toHaveBeenCalledTimes(1);
-      expect(ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('assistant', 'late transcript', false);
+      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.ensureAssistantVoiceTurn).not.toHaveBeenCalled();
+      expect(ops.applyVoiceTranscriptUpdate).not.toHaveBeenCalled();
       expect(ops.appendAssistantDraftTextDelta).not.toHaveBeenCalled();
       expect(ops.commitAssistantDraft).not.toHaveBeenCalled();
     });
@@ -494,6 +511,19 @@ describe('createTransportEventRouter', () => {
       expect(ops.commitAssistantDraft).toHaveBeenCalledTimes(1);
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
       expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
+    });
+
+    it('ignores turn-complete when there is no open fenced turn to finalize', () => {
+      const ops = createMockOps();
+      ops.hasOpenVoiceTurnFence.mockReturnValue(false);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'turn-complete' });
+
+      expect(ops.completeAssistantDraft).not.toHaveBeenCalled();
+      expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalled();
+      expect(ops.commitAssistantDraft).not.toHaveBeenCalled();
+      expect(ops.attachCurrentAssistantTurn).not.toHaveBeenCalled();
     });
 
     it('ignores late turn-complete after interruption so interrupted drafts cannot commit normally', () => {

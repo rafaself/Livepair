@@ -105,11 +105,6 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
     expect(useSessionStore.getState().transcriptArtifacts).toEqual([
       expect.objectContaining({
-        id: 'user-transcript-1',
-        attachedTurnId: 'user-turn-1',
-        state: 'complete',
-      }),
-      expect.objectContaining({
         id: 'assistant-transcript-2',
         content: 'Hi',
         state: 'complete',
@@ -229,13 +224,7 @@ describe('createDesktopSessionController – transcript', () => {
         persistedMessageId: 'assistant-message-1',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
-      expect.objectContaining({
-        id: 'assistant-transcript-1',
-        content: 'Transcript bubble reply',
-        attachedTurnId: 'assistant-turn-1',
-      }),
-    ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
         id: 'assistant-turn-1',
@@ -302,6 +291,44 @@ describe('createDesktopSessionController – transcript', () => {
       }),
     );
     expect(persistedMessages).toEqual([]);
+  });
+
+  it('ignores late assistant packets and duplicate turn-complete after a completed turn is fenced', async () => {
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'voice' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Hello there' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Transcript bubble reply' });
+    voiceTransport.emit({ type: 'text-delta', text: 'Canonical reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'late transcript' });
+    voiceTransport.emit({ type: 'text-delta', text: 'late canonical' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'Hello there',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Canonical reply',
+        source: 'voice',
+      }),
+    ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        content: 'Hello there',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Canonical reply',
+      }),
+    ]);
   });
 
   it('does not finalize a voice turn on generation-complete before turn-complete arrives', async () => {
