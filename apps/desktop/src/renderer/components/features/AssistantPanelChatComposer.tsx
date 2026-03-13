@@ -6,7 +6,9 @@ import type { AssistantPanelComposerAction } from './assistantPanelComposerActio
 export type AssistantPanelChatComposerProps = {
   composerAction: AssistantPanelComposerAction;
   draftText: string;
+  hasConversationHistory: boolean;
   isComposerDisabled: boolean;
+  isLiveSessionActive: boolean;
   isPanelOpen: boolean;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onEndSpeechMode: () => Promise<void>;
@@ -17,7 +19,9 @@ export type AssistantPanelChatComposerProps = {
 export function AssistantPanelChatComposer({
   composerAction,
   draftText,
+  hasConversationHistory,
   isComposerDisabled,
+  isLiveSessionActive,
   isPanelOpen,
   onDraftTextChange,
   onEndSpeechMode,
@@ -35,10 +39,10 @@ export function AssistantPanelChatComposer({
   }, [draftText]);
 
   useEffect(() => {
-    if (isPanelOpen) {
+    if (isPanelOpen && isLiveSessionActive) {
       textareaRef.current?.focus();
     }
-  }, [isPanelOpen]);
+  }, [isLiveSessionActive, isPanelOpen]);
 
   const handleComposerSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     if (composerAction.kind === 'send') {
@@ -71,6 +75,36 @@ export function AssistantPanelChatComposer({
       formRef.current?.requestSubmit();
     }
   };
+
+  if (!isLiveSessionActive) {
+    return (
+      <div className="assistant-panel__composer-section">
+        <div className="assistant-panel__inactive-cta" role="note">
+          <div className="assistant-panel__inactive-cta-copy">
+            <p className="assistant-panel__inactive-cta-title">
+              {hasConversationHistory
+                ? 'This history stays available while inactive'
+                : 'Start a Live session to continue here'}
+            </p>
+            <p className="assistant-panel__inactive-cta-body">
+              {hasConversationHistory
+                ? 'Resume Live Session to continue with the latest context in this container.'
+                : 'Start Live Session to add turns here. When the session pauses, this container stays visible for context.'}
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="md"
+            className="assistant-panel__inactive-cta-button"
+            disabled={composerAction.disabled}
+            onClick={() => void onStartSpeechMode()}
+          >
+            {composerAction.label}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="assistant-panel__composer-section">

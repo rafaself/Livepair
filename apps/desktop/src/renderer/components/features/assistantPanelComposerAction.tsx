@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import {
   canEndSpeechMode,
   getComposerSpeechActionKind,
+  shouldShowSpeechControls,
 } from '../../runtime/controlGating';
 import type { ControlGatingSnapshot } from '../../runtime/controlGating';
 import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
@@ -18,6 +19,7 @@ export type AssistantPanelComposerAction = {
 export type CreateAssistantPanelComposerActionOptions = {
   controlGatingSnapshot: ControlGatingSnapshot;
   draftText: string;
+  hasConversationHistory: boolean;
   isComposerDisabled: boolean;
   speechLifecycleStatus: SpeechLifecycleStatus;
 };
@@ -37,10 +39,11 @@ function getEndSpeechModeLabel(speechLifecycleStatus: SpeechLifecycleStatus): st
 export function createAssistantPanelComposerAction({
   controlGatingSnapshot,
   draftText,
+  hasConversationHistory,
   isComposerDisabled,
   speechLifecycleStatus,
 }: CreateAssistantPanelComposerActionOptions): AssistantPanelComposerAction {
-  if (draftText.trim().length > 0) {
+  if (shouldShowSpeechControls(controlGatingSnapshot) && draftText.trim().length > 0) {
     return {
       disabled: isComposerDisabled,
       icon: <SendHorizonal size={18} aria-hidden="true" />,
@@ -74,6 +77,6 @@ export function createAssistantPanelComposerAction({
     icon: <AudioLines size={18} aria-hidden="true" />,
     isLoading: false,
     kind: 'startSpeech',
-    label: 'Start speech mode',
+    label: hasConversationHistory ? 'Resume Live Session' : 'Start Live Session',
   };
 }
