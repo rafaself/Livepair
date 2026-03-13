@@ -176,4 +176,42 @@ describe('AssistantPanel', () => {
     ).toBeVisible();
     expect(panelScope.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
   });
+
+  it('fetches and shows latest session-history metadata for an opened past chat', async () => {
+    useSessionStore.getState().setActiveChatId('chat-history-4');
+    window.bridge.getChat = vi.fn(async (chatId: string) => ({
+      id: chatId,
+      title: 'System design review',
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:40:00.000Z',
+      isCurrent: false,
+    }));
+    window.bridge.listLiveSessions = vi.fn(async () => [
+      {
+        id: 'live-session-history-4',
+        chatId: 'chat-history-4',
+        startedAt: '2026-03-12T09:10:00.000Z',
+        endedAt: null,
+        status: 'active' as const,
+        endedReason: null,
+        resumptionHandle: 'handles/live-session-history-4',
+        lastResumptionUpdateAt: '2026-03-12T09:18:00.000Z',
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
+      },
+    ]);
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    expect(await panelScope.findByText('Latest Live session')).toBeVisible();
+    expect(panelScope.getByText('Resume may be available')).toBeVisible();
+    expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-history-4');
+  });
 });

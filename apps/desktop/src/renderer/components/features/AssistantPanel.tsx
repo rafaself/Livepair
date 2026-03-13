@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ChatRecord } from '@livepair/shared-types';
+import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import { OverlayContainer, Panel } from '../layout';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 import { AssistantPanelChatView } from './AssistantPanelChatView';
@@ -18,6 +18,7 @@ export function AssistantPanel(): JSX.Element {
   const isDebugMode = useUiStore((state) => state.isDebugMode);
   const activeChatId = useSessionStore((state) => state.activeChatId);
   const [activeChat, setActiveChat] = useState<ChatRecord | null>(null);
+  const [latestLiveSession, setLatestLiveSession] = useState<LiveSessionRecord | null>(null);
   const {
     assistantState,
     isPanelOpen,
@@ -60,6 +61,7 @@ export function AssistantPanel(): JSX.Element {
 
     if (activeChatId === null) {
       setActiveChat(null);
+      setLatestLiveSession(null);
       return () => {
         isCancelled = true;
       };
@@ -75,6 +77,19 @@ export function AssistantPanel(): JSX.Element {
       .catch(() => {
         if (!isCancelled) {
           setActiveChat(null);
+        }
+      });
+
+    void window.bridge
+      .listLiveSessions(activeChatId)
+      .then((liveSessions) => {
+        if (!isCancelled) {
+          setLatestLiveSession(liveSessions[0] ?? null);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setLatestLiveSession(null);
         }
       });
 
@@ -119,6 +134,7 @@ export function AssistantPanel(): JSX.Element {
               voiceSessionStatus={voiceSessionStatus}
               voiceSessionResumption={voiceSessionResumption}
               activeChat={activeChat}
+              latestLiveSession={latestLiveSession}
               turns={conversationTurns}
               isConversationEmpty={isConversationEmpty}
               lastRuntimeError={lastRuntimeError}

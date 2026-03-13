@@ -130,6 +130,99 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
   });
 
+  it('shows safe latest-session metadata for an opened past chat when resume is potentially available', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="ready"
+        currentMode="inactive"
+        speechLifecycleStatus="off"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        activeChat={{
+          id: 'chat-history-2',
+          title: 'Debug review',
+          createdAt: '2026-03-11T09:00:00.000Z',
+          updatedAt: '2026-03-11T10:00:00.000Z',
+          isCurrent: false,
+        }}
+        latestLiveSession={{
+          id: 'live-session-2',
+          chatId: 'chat-history-2',
+          startedAt: '2026-03-11T09:15:00.000Z',
+          endedAt: null,
+          status: 'active',
+          endedReason: null,
+          resumptionHandle: 'handles/live-session-2',
+          lastResumptionUpdateAt: '2026-03-11T09:25:00.000Z',
+          restorable: true,
+          invalidatedAt: null,
+          invalidationReason: null,
+        }}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    expect(screen.getByText('Latest Live session')).toBeVisible();
+    expect(screen.getByText('Active')).toBeVisible();
+    expect(screen.getByText('Resume may be available')).toBeVisible();
+    expect(screen.getByText(/Started/)).toBeVisible();
+    expect(screen.getByText(/Resume state updated/)).toBeVisible();
+  });
+
+  it('shows safe fallback-oriented metadata without exposing raw restore diagnostics', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="ready"
+        currentMode="inactive"
+        speechLifecycleStatus="off"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        activeChat={{
+          id: 'chat-history-3',
+          title: 'Incident follow-up',
+          createdAt: '2026-03-10T09:00:00.000Z',
+          updatedAt: '2026-03-10T10:00:00.000Z',
+          isCurrent: false,
+        }}
+        latestLiveSession={{
+          id: 'live-session-3',
+          chatId: 'chat-history-3',
+          startedAt: '2026-03-10T09:15:00.000Z',
+          endedAt: '2026-03-10T09:45:00.000Z',
+          status: 'failed',
+          endedReason: 'Gemini Live session is not resumable at this point',
+          resumptionHandle: null,
+          lastResumptionUpdateAt: '2026-03-10T09:40:00.000Z',
+          restorable: false,
+          invalidatedAt: '2026-03-10T09:40:00.000Z',
+          invalidationReason: 'Gemini Live session is not resumable at this point',
+        }}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    expect(screen.getByText('Ended unexpectedly')).toBeVisible();
+    expect(screen.getByText('New Live session likely')).toBeVisible();
+    expect(screen.getByText(/^Ended$/)).toBeVisible();
+    expect(screen.queryByText('Gemini Live session is not resumable at this point')).toBeNull();
+  });
+
   it('shows a visible runtime error state when the transport fails', () => {
     render(
       <AssistantPanelChatView

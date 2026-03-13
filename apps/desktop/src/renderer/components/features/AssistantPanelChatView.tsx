@@ -1,5 +1,5 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
-import type { ChatRecord } from '@livepair/shared-types';
+import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
 import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
 import type { ProductMode } from '../../runtime/core/session.types';
@@ -30,6 +30,7 @@ export type AssistantPanelChatViewProps = {
   voiceSessionStatus?: VoiceSessionStatus;
   voiceSessionResumption?: VoiceSessionResumptionState | null;
   activeChat?: ChatRecord | null;
+  latestLiveSession?: LiveSessionRecord | null;
   turns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
@@ -52,6 +53,7 @@ export function AssistantPanelChatView({
   voiceSessionStatus = 'disconnected',
   voiceSessionResumption = null,
   activeChat = null,
+  latestLiveSession = null,
   turns,
   isConversationEmpty,
   lastRuntimeError,
@@ -109,6 +111,7 @@ export function AssistantPanelChatView({
           isViewingPastChat={isViewingPastChat}
           lastRuntimeError={lastRuntimeError}
           activeChatTitle={activeChatTitle}
+          latestLiveSession={latestLiveSession}
           turns={turns}
         />
         <AssistantPanelChatComposer
