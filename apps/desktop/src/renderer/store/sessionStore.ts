@@ -36,6 +36,7 @@ import type {
 } from '../runtime/voice/voice.types';
 import type {
   ConversationTurnModel,
+  TranscriptArtifactModel,
 } from '../runtime/conversation/conversation.types';
 import type {
   ScreenCaptureDiagnostics,
@@ -63,6 +64,7 @@ type SessionStoreData = {
   textSessionLifecycle: TextSessionLifecycle;
   activeTransport: TransportKind | null;
   conversationTurns: ConversationTurnModel[];
+  transcriptArtifacts: TranscriptArtifactModel[];
   lastRuntimeError: string | null;
   lastDebugEvent: RuntimeDebugEvent | null;
   speechLifecycle: SpeechLifecycle;
@@ -100,6 +102,18 @@ export type SessionStoreState = SessionStoreData & {
   ) => void;
   removeConversationTurn: (turnId: string) => void;
   clearConversationTurns: () => void;
+  appendTranscriptArtifact: (artifact: TranscriptArtifactModel) => void;
+  updateTranscriptArtifact: (
+    artifactId: string,
+    patch: Partial<
+      Pick<
+        TranscriptArtifactModel,
+        'content' | 'state' | 'statusLabel' | 'transcriptFinal' | 'attachedTurnId'
+      >
+    >,
+  ) => void;
+  removeTranscriptArtifact: (artifactId: string) => void;
+  clearTranscriptArtifacts: () => void;
   setLastRuntimeError: (lastRuntimeError: string | null) => void;
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
   setSpeechLifecycle: (speechLifecycle: SpeechLifecycle) => void;
@@ -195,6 +209,7 @@ function buildDefaultSessionState(): SessionStoreData {
     tokenRequestState: 'idle',
     activeTransport: null,
     conversationTurns: [],
+    transcriptArtifacts: [],
     lastRuntimeError: null,
     lastDebugEvent: null,
     speechLifecycle: createSpeechSessionLifecycle(),
@@ -299,6 +314,21 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       conversationTurns: state.conversationTurns.filter((turn) => turn.id !== turnId),
     })),
   clearConversationTurns: () => set({ conversationTurns: [] }),
+  appendTranscriptArtifact: (artifact) =>
+    set((state) => ({
+      transcriptArtifacts: [...state.transcriptArtifacts, artifact],
+    })),
+  updateTranscriptArtifact: (artifactId, patch) =>
+    set((state) => ({
+      transcriptArtifacts: state.transcriptArtifacts.map((artifact) =>
+        artifact.id === artifactId ? { ...artifact, ...patch } : artifact,
+      ),
+    })),
+  removeTranscriptArtifact: (artifactId) =>
+    set((state) => ({
+      transcriptArtifacts: state.transcriptArtifacts.filter((artifact) => artifact.id !== artifactId),
+    })),
+  clearTranscriptArtifacts: () => set({ transcriptArtifacts: [] }),
   setLastRuntimeError: (lastRuntimeError) => set({ lastRuntimeError }),
   setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
   setSpeechLifecycle: (speechLifecycle) => set({ speechLifecycle }),
@@ -377,6 +407,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       tokenRequestState: 'idle',
       activeTransport: null,
       conversationTurns: options.preserveConversationTurns ? state.conversationTurns : [],
+      transcriptArtifacts: [],
       lastRuntimeError: null,
       lastDebugEvent: null,
       speechLifecycle: createSpeechSessionLifecycle(),

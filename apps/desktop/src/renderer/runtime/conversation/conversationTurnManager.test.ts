@@ -1,26 +1,27 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useSessionStore } from '../../store/sessionStore';
 import {
-  appendCompletedAssistantTurn,
   appendAssistantDraftTextDelta,
   appendAssistantTurn,
+  appendCompletedAssistantTurn,
   appendUserTurn,
-  completeAssistantDraft,
-  clearCurrentVoiceTurns,
   clearAssistantDraft,
+  clearCurrentVoiceTurns,
   clearPendingAssistantTurn,
+  completeAssistantDraft,
   completePendingAssistantTurn,
-  consumeCompletedAssistantDraft,
   createConversationContext,
   failPendingAssistantTurn,
-  finalizeCurrentVoiceAssistantTurn,
-  finalizeCurrentVoiceUserTurn,
+  finalizeCurrentVoiceAssistantTranscriptArtifact,
+  finalizeCurrentVoiceUserTranscriptArtifact,
   getConversationTurn,
-  interruptCurrentVoiceAssistantTurn,
-  upsertCurrentVoiceAssistantTurn,
-  upsertCurrentVoiceUserTurn,
-  updatePendingAssistantTurn,
+  getTranscriptArtifact,
+  interruptAssistantDraft,
+  interruptCurrentVoiceAssistantTranscriptArtifact,
   type ConversationContext,
+  upsertCurrentVoiceAssistantTranscriptArtifact,
+  upsertCurrentVoiceUserTranscriptArtifact,
+  updatePendingAssistantTurn,
 } from './conversationTurnManager';
 
 describe('conversationTurnManager', () => {
@@ -32,170 +33,105 @@ describe('conversationTurnManager', () => {
   });
 
   describe('createConversationContext', () => {
-    it('initializes with null pending turn and zero counters', () => {
+    it('initializes canonical and transcript tracking independently', () => {
       expect(ctx.pendingAssistantTurnId).toBeNull();
       expect(ctx.assistantDraft).toBeNull();
-      expect(ctx.currentVoiceAssistantTurnId).toBeNull();
-      expect(ctx.currentVoiceUserTurnId).toBeNull();
+      expect(ctx.currentVoiceAssistantArtifactId).toBeNull();
+      expect(ctx.currentVoiceUserArtifactId).toBeNull();
       expect(ctx.nextAssistantTurnId).toBe(0);
       expect(ctx.nextUserTurnId).toBe(0);
+      expect(ctx.nextTranscriptArtifactId).toBe(0);
     });
   });
 
   describe('appendUserTurn', () => {
-    it('appends a user turn with incremented id', () => {
+    it('appends a canonical user turn with incremented id', () => {
       appendUserTurn(ctx, 'Hello');
-      const turns = useSessionStore.getState().conversationTurns;
-      expect(turns).toHaveLength(1);
-      expect(turns[0]).toEqual(
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
         expect.objectContaining({
           id: 'user-turn-1',
           role: 'user',
           content: 'Hello',
           state: 'complete',
         }),
-      );
+      ]);
       expect(ctx.nextUserTurnId).toBe(1);
     });
 
-    it('increments the user turn id on each call', () => {
-      appendUserTurn(ctx, 'First');
-      appendUserTurn(ctx, 'Second');
-      const turns = useSessionStore.getState().conversationTurns;
-      expect(turns[0]!.id).toBe('user-turn-1');
-      expect(turns[1]!.id).toBe('user-turn-2');
-    });
-
-    it('can mark the projected user turn with a persisted message id', () => {
-      appendUserTurn(ctx, 'Stored prompt', { persistedMessageId: 'message-7' });
+    it('can mark a canonical voice user turn distinctly from transcript artifacts', () => {
+      appendUserTurn(ctx, 'Spoken request', {
+        source: 'voice',
+        transcriptFinal: true,
+        persistedMessageId: 'message-7',
+      });
 
       expect(useSessionStore.getState().conversationTurns).toEqual([
         expect.objectContaining({
           id: 'user-turn-1',
-          role: 'user',
-          content: 'Stored prompt',
+          source: 'voice',
+          transcriptFinal: true,
           persistedMessageId: 'message-7',
         }),
       ]);
     });
   });
 
-  describe('voice user turn lifecycle', () => {
-    it('creates and updates the same in-progress user voice turn', () => {
-      upsertCurrentVoiceUserTurn(ctx, 'Hello', false);
+  describe('voice transcript artifact lifecycle', () => {
+    it('stores user transcript artifacts separately from canonical conversation turns', () => {
+      upsertCurrentVoiceUserTranscriptArtifact(ctx, 'Hello', false);
+      upsertCurrentVoiceUserTranscriptArtifact(ctx, 'Hello there', true);
 
-      const firstTurn = useSessionStore.getState().conversationTurns[0];
-
-      expect(firstTurn).toEqual(
+      expect(useSessionStore.getState().conversationTurns).toEqual([]);
+      expect(useSessionStore.getState().transcriptArtifacts).toEqual([
         expect.objectContaining({
-          id: 'user-turn-1',
+          id: 'user-transcript-1',
           role: 'user',
-          content: 'Hello',
-          state: 'streaming',
-          transcriptFinal: false,
-          source: 'voice',
-        }),
-      );
-      expect(ctx.currentVoiceUserTurnId).toBe('user-turn-1');
-
-      upsertCurrentVoiceUserTurn(ctx, 'Hello there', true);
-
-      const updatedTurn = useSessionStore.getState().conversationTurns[0];
-
-      expect(updatedTurn).toEqual(
-        expect.objectContaining({
-          id: 'user-turn-1',
           content: 'Hello there',
           state: 'streaming',
           transcriptFinal: true,
           source: 'voice',
         }),
-      );
-      expect(useSessionStore.getState().conversationTurns).toHaveLength(1);
+      ]);
+      expect(ctx.currentVoiceUserArtifactId).toBe('user-transcript-1');
     });
 
-    it('finalizes the current voice user turn in place', () => {
-      upsertCurrentVoiceUserTurn(ctx, 'Only the user spoke', true);
+    it('attaches a finalized user transcript artifact to a canonical user turn', () => {
+      upsertCurrentVoiceUserTranscriptArtifact(ctx, 'Only the user spoke', true);
+      const userTurnId = appendUserTurn(ctx, 'Only the user spoke', {
+        source: 'voice',
+        transcriptFinal: true,
+      });
 
-      finalizeCurrentVoiceUserTurn(ctx);
+      finalizeCurrentVoiceUserTranscriptArtifact(ctx, userTurnId);
 
+      expect(getTranscriptArtifact(ctx, 'user-transcript-1')).toEqual(
+        expect.objectContaining({
+          attachedTurnId: 'user-turn-1',
+          state: 'complete',
+          transcriptFinal: true,
+        }),
+      );
       expect(useSessionStore.getState().conversationTurns).toEqual([
         expect.objectContaining({
           id: 'user-turn-1',
           role: 'user',
           content: 'Only the user spoke',
-          state: 'complete',
-          transcriptFinal: true,
-          source: 'voice',
-        }),
-      ]);
-      expect(ctx.currentVoiceUserTurnId).toBe('user-turn-1');
-    });
-  });
-
-  describe('voice assistant turn lifecycle', () => {
-    it('creates an empty in-progress assistant voice turn before transcript text arrives', () => {
-      upsertCurrentVoiceAssistantTurn(ctx, '');
-
-      expect(useSessionStore.getState().conversationTurns).toEqual([
-        expect.objectContaining({
-          id: 'assistant-turn-1',
-          role: 'assistant',
-          content: '',
-          state: 'streaming',
-          statusLabel: 'Responding...',
-          source: 'voice',
-        }),
-      ]);
-      expect(ctx.currentVoiceAssistantTurnId).toBe('assistant-turn-1');
-    });
-
-    it('reconciles assistant transcript updates onto the same voice turn', () => {
-      upsertCurrentVoiceAssistantTurn(ctx, 'Hi');
-      upsertCurrentVoiceAssistantTurn(ctx, ' there');
-      upsertCurrentVoiceAssistantTurn(ctx, 'Hi there, corrected', true);
-
-      expect(useSessionStore.getState().conversationTurns).toEqual([
-        expect.objectContaining({
-          id: 'assistant-turn-1',
-          role: 'assistant',
-          content: 'Hi there, corrected',
-          state: 'streaming',
-          transcriptFinal: true,
-          statusLabel: 'Responding...',
           source: 'voice',
         }),
       ]);
     });
 
-    it('finalizes the current assistant voice turn in place', () => {
-      upsertCurrentVoiceAssistantTurn(ctx, 'Final answer', true);
+    it('keeps interrupted assistant transcript artifacts separate from canonical assistant turns', () => {
+      upsertCurrentVoiceAssistantTranscriptArtifact(ctx, 'Partial answer');
 
-      finalizeCurrentVoiceAssistantTurn(ctx);
+      interruptCurrentVoiceAssistantTranscriptArtifact(ctx);
+      finalizeCurrentVoiceAssistantTranscriptArtifact(ctx, { interrupted: true });
 
-      expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect(useSessionStore.getState().conversationTurns).toEqual([]);
+      expect(useSessionStore.getState().transcriptArtifacts).toEqual([
         expect.objectContaining({
-          id: 'assistant-turn-1',
-          role: 'assistant',
-          content: 'Final answer',
-          state: 'complete',
-          transcriptFinal: true,
-          statusLabel: undefined,
-          source: 'voice',
-        }),
-      ]);
-      expect(ctx.currentVoiceAssistantTurnId).toBe('assistant-turn-1');
-    });
-
-    it('marks interrupted assistant voice output in place without duplicating the turn', () => {
-      upsertCurrentVoiceAssistantTurn(ctx, 'Partial answer');
-
-      interruptCurrentVoiceAssistantTurn(ctx);
-      finalizeCurrentVoiceAssistantTurn(ctx);
-
-      expect(useSessionStore.getState().conversationTurns).toEqual([
-        expect.objectContaining({
-          id: 'assistant-turn-1',
+          id: 'assistant-transcript-1',
           role: 'assistant',
           content: 'Partial answer',
           state: 'complete',
@@ -203,43 +139,68 @@ describe('conversationTurnManager', () => {
           source: 'voice',
         }),
       ]);
-      expect(useSessionStore.getState().conversationTurns).toHaveLength(1);
     });
 
-    it('removes an empty assistant placeholder when the voice turn finalizes without transcript text', () => {
-      upsertCurrentVoiceAssistantTurn(ctx, '');
+    it('links completed assistant transcript artifacts to a separately created canonical assistant turn', () => {
+      upsertCurrentVoiceAssistantTranscriptArtifact(ctx, 'Transcript bubble reply', true);
+      const assistantTurnId = appendCompletedAssistantTurn(ctx, 'Canonical reply', {
+        source: 'voice',
+      });
 
-      finalizeCurrentVoiceAssistantTurn(ctx);
+      finalizeCurrentVoiceAssistantTranscriptArtifact(
+        ctx,
+        assistantTurnId ? { attachedTurnId: assistantTurnId } : {},
+      );
 
-      expect(useSessionStore.getState().conversationTurns).toEqual([]);
-      expect(ctx.currentVoiceAssistantTurnId).toBeNull();
+      expect(getTranscriptArtifact(ctx, 'assistant-transcript-1')).toEqual(
+        expect.objectContaining({
+          content: 'Transcript bubble reply',
+          attachedTurnId: 'assistant-turn-1',
+          state: 'complete',
+          transcriptFinal: true,
+        }),
+      );
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Canonical reply',
+          source: 'voice',
+        }),
+      ]);
+    });
+
+    it('removes an empty assistant placeholder transcript artifact when finalized', () => {
+      upsertCurrentVoiceAssistantTranscriptArtifact(ctx, '');
+
+      finalizeCurrentVoiceAssistantTranscriptArtifact(ctx);
+
+      expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+      expect(ctx.currentVoiceAssistantArtifactId).toBeNull();
     });
   });
 
   describe('clearCurrentVoiceTurns', () => {
-    it('clears tracked voice turn ids without deleting finalized history', () => {
-      upsertCurrentVoiceUserTurn(ctx, 'Voice request', true);
-      upsertCurrentVoiceAssistantTurn(ctx, 'Voice reply', true);
-      finalizeCurrentVoiceUserTurn(ctx);
-      finalizeCurrentVoiceAssistantTurn(ctx);
+    it('clears active artifact references without deleting stored transcript records', () => {
+      upsertCurrentVoiceUserTranscriptArtifact(ctx, 'Voice request', true);
+      upsertCurrentVoiceAssistantTranscriptArtifact(ctx, 'Voice reply', true);
 
       clearCurrentVoiceTurns(ctx);
 
-      expect(ctx.currentVoiceUserTurnId).toBeNull();
-      expect(ctx.currentVoiceAssistantTurnId).toBeNull();
-      expect(useSessionStore.getState().conversationTurns).toEqual([
-        expect.objectContaining({ id: 'user-turn-1', state: 'complete' }),
-        expect.objectContaining({ id: 'assistant-turn-1', state: 'complete' }),
+      expect(ctx.currentVoiceUserArtifactId).toBeNull();
+      expect(ctx.currentVoiceAssistantArtifactId).toBeNull();
+      expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+        expect.objectContaining({ id: 'user-transcript-1' }),
+        expect.objectContaining({ id: 'assistant-transcript-2' }),
       ]);
     });
   });
 
   describe('appendAssistantTurn', () => {
-    it('appends an assistant turn and sets pendingAssistantTurnId', () => {
+    it('appends a canonical assistant turn and sets pendingAssistantTurnId', () => {
       appendAssistantTurn(ctx, 'Response', 'streaming', 'Responding...');
-      const turns = useSessionStore.getState().conversationTurns;
-      expect(turns).toHaveLength(1);
-      expect(turns[0]).toEqual(
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
         expect.objectContaining({
           id: 'assistant-turn-1',
           role: 'assistant',
@@ -247,28 +208,32 @@ describe('conversationTurnManager', () => {
           state: 'streaming',
           statusLabel: 'Responding...',
         }),
-      );
+      ]);
       expect(ctx.pendingAssistantTurnId).toBe('assistant-turn-1');
     });
   });
 
   describe('appendCompletedAssistantTurn', () => {
     it('appends a completed assistant turn without setting a pending id', () => {
-      appendCompletedAssistantTurn(ctx, 'Final answer');
+      const turnId = appendCompletedAssistantTurn(ctx, 'Final answer', {
+        source: 'voice',
+      });
 
+      expect(turnId).toBe('assistant-turn-1');
       expect(useSessionStore.getState().conversationTurns).toEqual([
         expect.objectContaining({
           id: 'assistant-turn-1',
           role: 'assistant',
           content: 'Final answer',
           state: 'complete',
+          source: 'voice',
         }),
       ]);
       expect(ctx.pendingAssistantTurnId).toBeNull();
     });
 
-    it('ignores empty assistant transcript content', () => {
-      appendCompletedAssistantTurn(ctx, '   ');
+    it('ignores empty assistant content', () => {
+      expect(appendCompletedAssistantTurn(ctx, '   ')).toBeNull();
       expect(useSessionStore.getState().conversationTurns).toEqual([]);
     });
   });
@@ -279,145 +244,109 @@ describe('conversationTurnManager', () => {
       expect(useSessionStore.getState().conversationTurns).toHaveLength(0);
     });
 
-    it('updates the pending turn content and state', () => {
-      appendAssistantTurn(ctx, 'Initial', 'streaming');
-      updatePendingAssistantTurn(ctx, 'Updated', 'complete', 'Done');
-      const turn = useSessionStore.getState().conversationTurns[0];
-      expect(turn).toEqual(
+    it('updates the active pending assistant turn in place', () => {
+      appendAssistantTurn(ctx, 'Draft', 'streaming', 'Responding...');
+
+      updatePendingAssistantTurn(ctx, 'Draft updated', 'complete');
+
+      expect(useSessionStore.getState().conversationTurns).toEqual([
         expect.objectContaining({
-          content: 'Updated',
+          id: 'assistant-turn-1',
+          content: 'Draft updated',
           state: 'complete',
-          statusLabel: 'Done',
         }),
-      );
+      ]);
     });
   });
 
   describe('assistant draft lifecycle', () => {
-    it('keeps streamed assistant text only in the in-memory draft while the turn is active', () => {
-      appendAssistantDraftTextDelta(ctx, 'Hello');
+    it('creates, completes, interrupts, and clears the assistant draft', () => {
+      appendAssistantDraftTextDelta(ctx, 'Canon');
+      appendAssistantDraftTextDelta(ctx, 'ical');
 
       expect(ctx.assistantDraft).toEqual({
         id: 'assistant-draft-1',
         role: 'assistant',
-        content: 'Hello',
+        content: 'Canonical',
         status: 'streaming',
       });
-      expect(useSessionStore.getState().conversationTurns).toEqual([]);
-    });
 
-    it('appends later deltas onto the same draft instead of mutating canonical turns', () => {
-      appendAssistantDraftTextDelta(ctx, 'Hello');
-      appendAssistantDraftTextDelta(ctx, ' world');
-
-      expect(ctx.assistantDraft).toEqual({
-        id: 'assistant-draft-1',
-        role: 'assistant',
-        content: 'Hello world',
-        status: 'streaming',
-      });
-      expect(useSessionStore.getState().conversationTurns).toEqual([]);
-    });
-
-    it('marks the active draft complete without creating a durable conversation turn yet', () => {
-      appendAssistantDraftTextDelta(ctx, 'Hello world');
-
-      expect(completeAssistantDraft(ctx)).toEqual({
-        id: 'assistant-draft-1',
-        role: 'assistant',
-        content: 'Hello world',
-        status: 'complete',
-      });
-      expect(useSessionStore.getState().conversationTurns).toEqual([]);
-    });
-
-    it('consumes a completed draft once when the durable commit boundary is reached', () => {
-      appendAssistantDraftTextDelta(ctx, 'Hello world');
       completeAssistantDraft(ctx);
+      expect(ctx.assistantDraft?.status).toBe('complete');
 
-      expect(consumeCompletedAssistantDraft(ctx)).toEqual({
-        id: 'assistant-draft-1',
-        role: 'assistant',
-        content: 'Hello world',
-        status: 'complete',
-      });
-      expect(consumeCompletedAssistantDraft(ctx)).toBeNull();
-      expect(ctx.assistantDraft).toBeNull();
-    });
+      interruptAssistantDraft(ctx);
+      expect(ctx.assistantDraft?.status).toBe('interrupted');
 
-    it('clears the transient draft when assistant turn state is reset', () => {
-      appendAssistantDraftTextDelta(ctx, 'Partial reply');
       clearAssistantDraft(ctx);
-
       expect(ctx.assistantDraft).toBeNull();
-      expect(useSessionStore.getState().conversationTurns).toEqual([]);
     });
   });
 
   describe('completePendingAssistantTurn', () => {
-    it('does nothing when no pending turn exists', () => {
-      completePendingAssistantTurn(ctx);
-      expect(useSessionStore.getState().conversationTurns).toHaveLength(0);
+    it('returns null when no pending turn exists', () => {
+      expect(completePendingAssistantTurn(ctx)).toBeNull();
     });
 
-    it('marks the pending turn as complete and clears pending id', () => {
-      appendAssistantTurn(ctx, 'Response', 'streaming');
-      completePendingAssistantTurn(ctx, 'Done');
-      const turn = useSessionStore.getState().conversationTurns[0];
-      expect(turn!.state).toBe('complete');
-      expect(turn!.statusLabel).toBe('Done');
+    it('marks the pending assistant turn complete and clears the pending id', () => {
+      appendAssistantTurn(ctx, 'Draft', 'streaming');
+
+      expect(completePendingAssistantTurn(ctx)).toBe('assistant-turn-1');
       expect(ctx.pendingAssistantTurnId).toBeNull();
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'assistant-turn-1',
+          state: 'complete',
+        }),
+      ]);
     });
   });
 
   describe('failPendingAssistantTurn', () => {
-    it('does nothing when no pending turn exists', () => {
-      failPendingAssistantTurn(ctx, 'Error');
-      expect(useSessionStore.getState().conversationTurns).toHaveLength(0);
+    it('returns null when no pending turn exists', () => {
+      expect(failPendingAssistantTurn(ctx, 'failed')).toBeNull();
     });
 
-    it('drops any transient assistant draft when the runtime fails before a canonical turn exists', () => {
-      appendAssistantDraftTextDelta(ctx, 'Partial');
+    it('marks the pending assistant turn errored and clears the pending id', () => {
+      appendAssistantTurn(ctx, 'Draft', 'streaming');
 
-      failPendingAssistantTurn(ctx, 'Disconnected');
-
-      expect(ctx.assistantDraft).toBeNull();
-      expect(useSessionStore.getState().conversationTurns).toEqual([]);
-    });
-
-    it('marks the pending turn as error and clears pending id', () => {
-      appendAssistantTurn(ctx, 'Partial', 'streaming');
-      failPendingAssistantTurn(ctx, 'Response failed');
-      const turn = useSessionStore.getState().conversationTurns[0];
-      expect(turn!.state).toBe('error');
-      expect(turn!.statusLabel).toBe('Response failed');
+      expect(failPendingAssistantTurn(ctx, 'failed')).toBe('assistant-turn-1');
       expect(ctx.pendingAssistantTurnId).toBeNull();
+      expect(useSessionStore.getState().conversationTurns).toEqual([
+        expect.objectContaining({
+          id: 'assistant-turn-1',
+          state: 'error',
+          statusLabel: 'failed',
+        }),
+      ]);
     });
   });
 
   describe('clearPendingAssistantTurn', () => {
-    it('abandons any transient assistant draft when transport reset happens before turn-complete', () => {
-      appendAssistantTurn(ctx, 'Response', 'streaming');
-      appendAssistantDraftTextDelta(ctx, 'Partial');
-      expect(ctx.pendingAssistantTurnId).not.toBeNull();
+    it('clears both pending assistant turn and assistant draft', () => {
+      appendAssistantTurn(ctx, 'Draft', 'streaming');
+      appendAssistantDraftTextDelta(ctx, 'Canonical');
+
       clearPendingAssistantTurn(ctx);
+
       expect(ctx.pendingAssistantTurnId).toBeNull();
       expect(ctx.assistantDraft).toBeNull();
     });
   });
 
   describe('getConversationTurn', () => {
-    it('returns undefined for non-existent turn', () => {
-      expect(getConversationTurn(ctx, 'nonexistent')).toBeUndefined();
-    });
-
-    it('returns the turn matching the given id', () => {
+    it('returns the matching canonical conversation turn when present', () => {
       appendUserTurn(ctx, 'Hello');
-      const turn = getConversationTurn(ctx, 'user-turn-1');
-      expect(turn).toEqual(
-        expect.objectContaining({ id: 'user-turn-1', content: 'Hello' }),
+
+      expect(getConversationTurn(ctx, 'user-turn-1')).toEqual(
+        expect.objectContaining({
+          id: 'user-turn-1',
+          content: 'Hello',
+        }),
       );
     });
-  });
 
+    it('returns undefined when the canonical turn does not exist', () => {
+      expect(getConversationTurn(ctx, 'missing-turn')).toBeUndefined();
+    });
+  });
 });
