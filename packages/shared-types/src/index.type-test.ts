@@ -12,6 +12,7 @@ import type {
   HealthResponse,
   LiveSessionRecord,
   LiveSessionStatus,
+  UpdateLiveSessionRequest,
 } from './index';
 
 type Assert<T extends true> = T;
@@ -118,6 +119,16 @@ type _EndLiveSessionRequestShape = Assert<
       endedAt?: string;
       status: 'ended' | 'failed';
       endedReason?: string | null;
+    }
+  >
+>;
+type _UpdateLiveSessionRequestShape = Assert<
+  IsExact<
+    UpdateLiveSessionRequest,
+    {
+      id: string;
+      latestResumeHandle?: string | null;
+      resumable?: boolean;
     }
   >
 >;

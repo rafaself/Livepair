@@ -54,6 +54,12 @@ export interface CreateLiveSessionRequest {
   startedAt?: string;
 }
 
+export interface UpdateLiveSessionRequest {
+  id: LiveSessionId;
+  latestResumeHandle?: string | null;
+  resumable?: boolean;
+}
+
 export interface EndLiveSessionRequest {
   id: LiveSessionId;
   endedAt?: string;

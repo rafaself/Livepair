@@ -10,6 +10,7 @@ import type {
   EndLiveSessionRequest,
   HealthResponse,
   LiveSessionRecord,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import type {
   DesktopSettings,
@@ -38,6 +39,7 @@ export interface DesktopBridge {
   appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
   createLiveSession: (req: CreateLiveSessionRequest) => Promise<LiveSessionRecord>;
   listLiveSessions: (chatId: ChatId) => Promise<LiveSessionRecord[]>;
+  updateLiveSession: (req: UpdateLiveSessionRequest) => Promise<LiveSessionRecord>;
   endLiveSession: (req: EndLiveSessionRequest) => Promise<LiveSessionRecord>;
   getSettings: () => Promise<DesktopSettings>;
   updateSettings: (patch: DesktopSettingsPatch) => Promise<DesktopSettings>;
@@ -55,6 +57,7 @@ export const IPC_CHANNELS = {
   appendChatMessage: 'chatMemory:appendMessage',
   createLiveSession: 'liveSession:create',
   listLiveSessions: 'liveSession:listByChat',
+  updateLiveSession: 'liveSession:update',
   endLiveSession: 'liveSession:end',
   getSettings: 'settings:get',
   updateSettings: 'settings:update',

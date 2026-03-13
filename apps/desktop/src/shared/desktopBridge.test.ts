@@ -13,6 +13,7 @@ describe('IPC_CHANNELS', () => {
       appendChatMessage: 'chatMemory:appendMessage',
       createLiveSession: 'liveSession:create',
       listLiveSessions: 'liveSession:listByChat',
+      updateLiveSession: 'liveSession:update',
       endLiveSession: 'liveSession:end',
       getSettings: 'settings:get',
       updateSettings: 'settings:update',
