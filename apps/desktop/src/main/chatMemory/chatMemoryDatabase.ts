@@ -4,6 +4,34 @@ import { dirname } from 'node:path';
 
 const INITIAL_SCHEMA_VERSION = 1;
 const LIVE_SESSIONS_SCHEMA_VERSION = 2;
+const LIVE_SESSION_RESTORE_METADATA_SCHEMA_VERSION = 3;
+
+function createLiveSessionsTable(database: SqliteDatabase, tableName = 'live_sessions'): void {
+  database.exec(`
+    CREATE TABLE ${tableName} (
+      id TEXT PRIMARY KEY,
+      chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      status TEXT NOT NULL CHECK (status IN ('active', 'ended', 'failed')),
+      ended_reason TEXT,
+      resumption_handle TEXT,
+      last_resumption_update_at TEXT,
+      restorable INTEGER NOT NULL DEFAULT 0 CHECK (restorable IN (0, 1)),
+      invalidated_at TEXT,
+      invalidation_reason TEXT
+    );
+  `);
+}
+
+function createLiveSessionsIndexes(database: SqliteDatabase, tableName = 'live_sessions'): void {
+  database.exec(`
+    CREATE INDEX idx_${tableName}_chat_started_at
+      ON ${tableName}(chat_id, started_at DESC, id DESC);
+    CREATE INDEX idx_${tableName}_restore_started_at
+      ON ${tableName}(status, restorable, started_at DESC, id DESC);
+  `);
+}
 
 function applyInitialSchema(database: SqliteDatabase): void {
   database.exec(`
@@ -33,23 +61,55 @@ function applyInitialSchema(database: SqliteDatabase): void {
 }
 
 function applyLiveSessionsSchema(database: SqliteDatabase): void {
-  database.exec(`
-    CREATE TABLE live_sessions (
-      id TEXT PRIMARY KEY,
-      chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-      started_at TEXT NOT NULL,
-      ended_at TEXT,
-      status TEXT NOT NULL CHECK (status IN ('active', 'ended', 'failed')),
-      ended_reason TEXT,
-      latest_resume_handle TEXT,
-      resumable INTEGER NOT NULL DEFAULT 0 CHECK (resumable IN (0, 1))
-    );
+  createLiveSessionsTable(database);
+  createLiveSessionsIndexes(database);
+}
 
-    CREATE INDEX idx_live_sessions_chat_started_at
-      ON live_sessions(chat_id, started_at DESC, id DESC);
-    CREATE INDEX idx_live_sessions_status_started_at
-      ON live_sessions(status, started_at DESC, id DESC);
+function applyLiveSessionRestoreMetadataSchema(database: SqliteDatabase): void {
+  const liveSessionColumns = new Set<string>(
+    (
+      database.prepare("PRAGMA table_info('live_sessions')").all() as Array<{ name: string }>
+    ).map((row) => row.name),
+  );
+
+  if (liveSessionColumns.has('restorable')) {
+    return;
+  }
+
+  database.exec(`
+    ALTER TABLE live_sessions RENAME TO live_sessions_legacy;
   `);
+  createLiveSessionsTable(database);
+  database.exec(`
+    INSERT INTO live_sessions (
+      id,
+      chat_id,
+      started_at,
+      ended_at,
+      status,
+      ended_reason,
+      resumption_handle,
+      last_resumption_update_at,
+      restorable,
+      invalidated_at,
+      invalidation_reason
+    )
+    SELECT
+      id,
+      chat_id,
+      started_at,
+      ended_at,
+      status,
+      ended_reason,
+      latest_resume_handle,
+      NULL,
+      resumable,
+      NULL,
+      NULL
+    FROM live_sessions_legacy;
+    DROP TABLE live_sessions_legacy;
+  `);
+  createLiveSessionsIndexes(database);
 }
 
 function bootstrapChatMemoryDatabase(database: SqliteDatabase): void {
@@ -80,6 +140,13 @@ function bootstrapChatMemoryDatabase(database: SqliteDatabase): void {
       database
         .prepare('INSERT INTO schema_migrations (version) VALUES (?)')
         .run(LIVE_SESSIONS_SCHEMA_VERSION);
+    }
+
+    if (!appliedVersions.has(LIVE_SESSION_RESTORE_METADATA_SCHEMA_VERSION)) {
+      applyLiveSessionRestoreMetadataSchema(database);
+      database
+        .prepare('INSERT INTO schema_migrations (version) VALUES (?)')
+        .run(LIVE_SESSION_RESTORE_METADATA_SCHEMA_VERSION);
     }
   });
 

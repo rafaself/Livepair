@@ -97,8 +97,11 @@ type _LiveSessionRecordShape = Assert<
       endedAt: string | null;
       status: 'active' | 'ended' | 'failed';
       endedReason: string | null;
-      latestResumeHandle: string | null;
-      resumable: boolean;
+      resumptionHandle: string | null;
+      lastResumptionUpdateAt: string | null;
+      restorable: boolean;
+      invalidatedAt: string | null;
+      invalidationReason: string | null;
     }
   >
 >;
@@ -127,8 +130,11 @@ type _UpdateLiveSessionRequestShape = Assert<
     UpdateLiveSessionRequest,
     {
       id: string;
-      latestResumeHandle?: string | null;
-      resumable?: boolean;
+      resumptionHandle?: string | null;
+      lastResumptionUpdateAt?: string | null;
+      restorable?: boolean;
+      invalidatedAt?: string | null;
+      invalidationReason?: string | null;
     }
   >
 >;

@@ -45,8 +45,11 @@ export interface LiveSessionRecord {
   endedAt: string | null;
   status: LiveSessionStatus;
   endedReason: string | null;
-  latestResumeHandle: string | null;
-  resumable: boolean;
+  resumptionHandle: string | null;
+  lastResumptionUpdateAt: string | null;
+  restorable: boolean;
+  invalidatedAt: string | null;
+  invalidationReason: string | null;
 }
 
 export interface CreateLiveSessionRequest {
@@ -56,8 +59,11 @@ export interface CreateLiveSessionRequest {
 
 export interface UpdateLiveSessionRequest {
   id: LiveSessionId;
-  latestResumeHandle?: string | null;
-  resumable?: boolean;
+  resumptionHandle?: string | null;
+  lastResumptionUpdateAt?: string | null;
+  restorable?: boolean;
+  invalidatedAt?: string | null;
+  invalidationReason?: string | null;
 }
 
 export interface EndLiveSessionRequest {
