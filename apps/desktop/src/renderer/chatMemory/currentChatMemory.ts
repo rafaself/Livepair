@@ -100,28 +100,37 @@ export async function buildRehydrationPacketFromCurrentChat(
   ]);
   const latestLiveSession = liveSessions[0] ?? null;
 
-  return buildRehydrationPacket(messages, getPersistedSnapshotInputs(chatSummary, latestLiveSession));
+  return buildRehydrationPacket(
+    messages,
+    getPersistedSnapshotInputs(messages, chatSummary, latestLiveSession),
+  );
 }
 
 function getPersistedSnapshotInputs(
+  messages: readonly ChatMessageRecord[],
   chatSummary: DurableChatSummaryRecord | null,
   liveSession: LiveSessionRecord | null,
 ): Parameters<typeof buildRehydrationPacket>[1] {
+  const latestMessageSequence = messages[messages.length - 1]?.sequence ?? null;
   const hasValidChatSummary =
     chatSummary !== null
     && chatSummary.summaryText.trim().length > 0
     && Number.isFinite(chatSummary.coveredThroughSequence)
     && chatSummary.coveredThroughSequence > 0;
+  const hasFreshChatSummary =
+    hasValidChatSummary
+    && latestMessageSequence !== null
+    && chatSummary.coveredThroughSequence <= latestMessageSequence;
 
-  if (liveSession === null && !hasValidChatSummary) {
+  if (liveSession === null && !hasFreshChatSummary) {
     return {};
   }
 
   return {
-    summary: hasValidChatSummary
+    summary: hasFreshChatSummary
       ? chatSummary.summaryText
       : liveSession?.summarySnapshot ?? null,
-    summaryCoveredThroughSequence: hasValidChatSummary
+    summaryCoveredThroughSequence: hasFreshChatSummary
       ? chatSummary.coveredThroughSequence
       : null,
     contextState: liveSession?.contextStateSnapshot ?? null,

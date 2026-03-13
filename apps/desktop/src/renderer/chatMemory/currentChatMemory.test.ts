@@ -10,7 +10,7 @@ describe('currentChatMemory rehydration packet sourcing', () => {
     resetCurrentChatMemoryForTests();
   });
 
-  it('prefers the persisted chat summary and trims replay turns after its coverage boundary', async () => {
+  it('prefers the persisted chat summary and keeps a boundary anchor plus the newest unsummarized turns', async () => {
     const bridge = {
       appendChatMessage: vi.fn(),
       getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-1' }),
@@ -38,6 +38,46 @@ describe('currentChatMemory rehydration packet sourcing', () => {
           contentText: 'Unsummarized follow-up',
           createdAt: '2026-03-12T09:03:00.000Z',
           sequence: 3,
+        },
+        {
+          id: 'message-4',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Unsummarized reply',
+          createdAt: '2026-03-12T09:04:00.000Z',
+          sequence: 4,
+        },
+        {
+          id: 'message-5',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: 'Recent turn 5',
+          createdAt: '2026-03-12T09:05:00.000Z',
+          sequence: 5,
+        },
+        {
+          id: 'message-6',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Recent turn 6',
+          createdAt: '2026-03-12T09:06:00.000Z',
+          sequence: 6,
+        },
+        {
+          id: 'message-7',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: 'Recent turn 7',
+          createdAt: '2026-03-12T09:07:00.000Z',
+          sequence: 7,
+        },
+        {
+          id: 'message-8',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Recent turn 8',
+          createdAt: '2026-03-12T09:08:00.000Z',
+          sequence: 8,
         },
       ]),
       getChatSummary: vi.fn().mockResolvedValue({
@@ -86,6 +126,41 @@ describe('currentChatMemory rehydration packet sourcing', () => {
           createdAt: '2026-03-12T09:03:00.000Z',
           sequence: 3,
         },
+        {
+          role: 'assistant',
+          kind: 'message',
+          text: 'Unsummarized reply',
+          createdAt: '2026-03-12T09:04:00.000Z',
+          sequence: 4,
+        },
+        {
+          role: 'user',
+          kind: 'message',
+          text: 'Recent turn 5',
+          createdAt: '2026-03-12T09:05:00.000Z',
+          sequence: 5,
+        },
+        {
+          role: 'assistant',
+          kind: 'message',
+          text: 'Recent turn 6',
+          createdAt: '2026-03-12T09:06:00.000Z',
+          sequence: 6,
+        },
+        {
+          role: 'user',
+          kind: 'message',
+          text: 'Recent turn 7',
+          createdAt: '2026-03-12T09:07:00.000Z',
+          sequence: 7,
+        },
+        {
+          role: 'assistant',
+          kind: 'message',
+          text: 'Recent turn 8',
+          createdAt: '2026-03-12T09:08:00.000Z',
+          sequence: 8,
+        },
       ],
       contextState: {
         task: {
@@ -98,6 +173,86 @@ describe('currentChatMemory rehydration packet sourcing', () => {
     });
     expect(bridge.getChatSummary).toHaveBeenCalledWith('chat-1');
     expect(bridge.listLiveSessions).toHaveBeenCalledWith('chat-1');
+  });
+
+  it('falls back from a stale chat summary to the live-session snapshot summary when coverage exceeds canonical history', async () => {
+    const bridge = {
+      appendChatMessage: vi.fn(),
+      getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-1' }),
+      listChatMessages: vi.fn().mockResolvedValue([
+        {
+          id: 'message-1',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: 'Persisted question',
+          createdAt: '2026-03-12T09:01:00.000Z',
+          sequence: 1,
+        },
+        {
+          id: 'message-2',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Persisted answer',
+          createdAt: '2026-03-12T09:02:00.000Z',
+          sequence: 2,
+        },
+      ]),
+      getChatSummary: vi.fn().mockResolvedValue({
+        chatId: 'chat-1',
+        schemaVersion: 1,
+        source: 'local-recent-history-v1',
+        summaryText: 'Stale chat summary',
+        coveredThroughSequence: 99,
+        updatedAt: '2026-03-12T09:02:30.000Z',
+      }),
+      listLiveSessions: vi.fn().mockResolvedValue([
+        {
+          id: 'live-session-2',
+          chatId: 'chat-1',
+          startedAt: '2026-03-12T09:30:00.000Z',
+          endedAt: null,
+          status: 'active',
+          endedReason: null,
+          resumptionHandle: null,
+          lastResumptionUpdateAt: null,
+          restorable: false,
+          invalidatedAt: null,
+          invalidationReason: null,
+          summarySnapshot: 'Fallback live-session summary',
+          contextStateSnapshot: null,
+        },
+      ]),
+    };
+
+    await expect(buildRehydrationPacketFromCurrentChat(bridge as never)).resolves.toEqual({
+      stableInstruction:
+        'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+      summary: 'Fallback live-session summary',
+      recentTurns: [
+        {
+          role: 'user',
+          kind: 'message',
+          text: 'Persisted question',
+          createdAt: '2026-03-12T09:01:00.000Z',
+          sequence: 1,
+        },
+        {
+          role: 'assistant',
+          kind: 'message',
+          text: 'Persisted answer',
+          createdAt: '2026-03-12T09:02:00.000Z',
+          sequence: 2,
+        },
+      ],
+      contextState: {
+        task: {
+          entries: [],
+        },
+        context: {
+          entries: [],
+        },
+      },
+    });
   });
 
   it('falls back to the latest persisted live-session summary and context snapshot when no chat summary exists', async () => {

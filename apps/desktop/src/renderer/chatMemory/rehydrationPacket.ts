@@ -9,6 +9,7 @@ import { normalizeScreenContextState } from './screenContextState';
 export const DEFAULT_REHYDRATION_STABLE_INSTRUCTION =
   'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.';
 export const MAX_REHYDRATION_RECENT_TURNS = 6;
+const SUMMARY_TAIL_BOUNDARY_ANCHOR_TURNS = 2;
 
 type BuildRehydrationPacketOptions = {
   summary?: string | null;
@@ -60,7 +61,30 @@ function selectRecentTurns(
   const candidateMessages = summaryCoveredThroughSequence === null
     ? orderedMessages
     : orderedMessages.filter((message) => message.sequence > summaryCoveredThroughSequence);
-  const compactMessages = candidateMessages.slice(-MAX_REHYDRATION_RECENT_TURNS);
+
+  if (
+    summaryCoveredThroughSequence === null
+    || candidateMessages.length <= MAX_REHYDRATION_RECENT_TURNS
+  ) {
+    return candidateMessages
+      .slice(-MAX_REHYDRATION_RECENT_TURNS)
+      .map(mapMessageToPacketTurn);
+  }
+
+  const boundaryAnchorMessages = candidateMessages.slice(0, SUMMARY_TAIL_BOUNDARY_ANCHOR_TURNS);
+  const remainingCapacity = MAX_REHYDRATION_RECENT_TURNS - boundaryAnchorMessages.length;
+  const newestTailMessages = remainingCapacity > 0
+    ? candidateMessages.slice(-remainingCapacity)
+    : [];
+  const compactMessages = [...boundaryAnchorMessages];
+
+  for (const message of newestTailMessages) {
+    if (compactMessages.some((existingMessage) => existingMessage.id === message.id)) {
+      continue;
+    }
+
+    compactMessages.push(message);
+  }
 
   return compactMessages.map(mapMessageToPacketTurn);
 }

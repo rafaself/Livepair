@@ -290,6 +290,71 @@ describe('rehydrationPacket', () => {
     ]);
   });
 
+  it('keeps a short boundary anchor plus the newest unsummarized turns when the post-summary tail is long', () => {
+    const messages = Array.from({ length: 10 }, (_, index) => {
+      const sequence = index + 1;
+
+      return {
+        id: `message-${sequence}`,
+        chatId: 'chat-1',
+        role: sequence % 2 === 0 ? 'assistant' : 'user',
+        contentText: `Turn ${sequence}`,
+        createdAt: `2026-03-12T09:${String(sequence).padStart(2, '0')}:00.000Z`,
+        sequence,
+      } satisfies ChatMessageRecord;
+    });
+
+    expect(
+      buildRehydrationPacket(messages, {
+        summary: 'Persisted chat summary',
+        summaryCoveredThroughSequence: 2,
+      }).recentTurns,
+    ).toEqual([
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 3',
+        createdAt: '2026-03-12T09:03:00.000Z',
+        sequence: 3,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 4',
+        createdAt: '2026-03-12T09:04:00.000Z',
+        sequence: 4,
+      },
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 7',
+        createdAt: '2026-03-12T09:07:00.000Z',
+        sequence: 7,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 8',
+        createdAt: '2026-03-12T09:08:00.000Z',
+        sequence: 8,
+      },
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Turn 9',
+        createdAt: '2026-03-12T09:09:00.000Z',
+        sequence: 9,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Turn 10',
+        createdAt: '2026-03-12T09:10:00.000Z',
+        sequence: 10,
+      },
+    ]);
+  });
+
   it('keeps only a compact text-only screenContextSummary inside persisted context state', () => {
     const packet = buildRehydrationPacket(
       [
@@ -362,6 +427,62 @@ describe('rehydrationPacket', () => {
       },
       context: {
         entries: [{ key: 'repo', value: 'Livepair' }],
+      },
+    });
+  });
+
+  it('compacts task and context state to the latest explicit entries plus sanitized screen summary', () => {
+    const packet = buildRehydrationPacket([], {
+      contextState: {
+        task: {
+          entries: [
+            { key: 'taskStatus', value: 'active' },
+            { key: 'goal', value: 'Ship summary-first restore' },
+            { key: 'taskStatus', value: 'reviewing' },
+            { key: 'owner', value: 'copilot' },
+            { key: 'milestone', value: 'wave-3' },
+            { key: 'extra', value: '   ' },
+          ],
+        },
+        context: {
+          entries: [
+            { key: 'repo', value: 'Livepair' },
+            { key: 'branch', value: 'main' },
+            { key: 'repo', value: 'Livepair/main' },
+            { key: 'file', value: 'rehydrationPacket.ts' },
+            { key: 'mode', value: 'speech' },
+            { key: 'unused', value: '   ' },
+            {
+              key: SCREEN_CONTEXT_SUMMARY_KEY,
+              value: `  ${'Dense IDE screen with failing tests and two edited files.'.repeat(20)}  `,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(packet.contextState).toEqual({
+      task: {
+        entries: [
+          { key: 'goal', value: 'Ship summary-first restore' },
+          { key: 'taskStatus', value: 'reviewing' },
+          { key: 'owner', value: 'copilot' },
+          { key: 'milestone', value: 'wave-3' },
+        ],
+      },
+      context: {
+        entries: [
+          { key: 'branch', value: 'main' },
+          { key: 'repo', value: 'Livepair/main' },
+          { key: 'file', value: 'rehydrationPacket.ts' },
+          { key: 'mode', value: 'speech' },
+          {
+            key: SCREEN_CONTEXT_SUMMARY_KEY,
+            value: 'Dense IDE screen with failing tests and two edited files.'
+              .repeat(20)
+              .slice(0, MAX_SCREEN_CONTEXT_SUMMARY_LENGTH),
+          },
+        ],
       },
     });
   });
