@@ -6,6 +6,10 @@ import {
   MAX_REHYDRATION_RECENT_TURNS,
 } from './rehydrationPacket';
 import { mapRehydrationPacketToLiveSessionHistory } from './currentChatMemory';
+import {
+  MAX_SCREEN_CONTEXT_SUMMARY_LENGTH,
+  SCREEN_CONTEXT_SUMMARY_KEY,
+} from './screenContextState';
 
 describe('rehydrationPacket', () => {
   it('builds a deterministic compact packet from canonical persisted messages', () => {
@@ -223,5 +227,81 @@ describe('rehydrationPacket', () => {
         sequence: 2,
       },
     ]);
+  });
+
+  it('keeps only a compact text-only screenContextSummary inside persisted context state', () => {
+    const packet = buildRehydrationPacket(
+      [
+        {
+          id: 'message-1',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: 'Persisted question',
+          createdAt: '2026-03-12T09:01:00.000Z',
+          sequence: 1,
+        },
+      ],
+      {
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [
+              { key: 'repo', value: 'Livepair' },
+              {
+                key: SCREEN_CONTEXT_SUMMARY_KEY,
+                value: `  ${'Dense IDE screen with failing tests and two edited files.'.repeat(20)}  `,
+              },
+            ],
+          },
+        },
+      },
+    );
+
+    expect(packet.contextState).toEqual({
+      task: {
+        entries: [],
+      },
+      context: {
+        entries: [
+          { key: 'repo', value: 'Livepair' },
+          {
+            key: SCREEN_CONTEXT_SUMMARY_KEY,
+            value: 'Dense IDE screen with failing tests and two edited files.'
+              .repeat(20)
+              .slice(0, MAX_SCREEN_CONTEXT_SUMMARY_LENGTH),
+          },
+        ],
+      },
+    });
+  });
+
+  it('drops empty persisted screenContextSummary entries instead of storing blank screen state', () => {
+    const packet = buildRehydrationPacket(
+      [],
+      {
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [
+              { key: 'repo', value: 'Livepair' },
+              { key: SCREEN_CONTEXT_SUMMARY_KEY, value: '   ' },
+            ],
+          },
+        },
+      },
+    );
+
+    expect(packet.contextState).toEqual({
+      task: {
+        entries: [],
+      },
+      context: {
+        entries: [{ key: 'repo', value: 'Livepair' }],
+      },
+    });
   });
 });

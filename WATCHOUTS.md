@@ -19,6 +19,7 @@
 ## 3. Context growth
 - Do not keep raw full history.
 - Store only: current goal, short recent turns, compressed summary, last relevant visual context.
+- If visual context persists, keep it as one compact text summary rather than raw frames, screenshots, or stream payloads.
 - Compress context on a schedule, not only on failure.
 
 ## 4. Screen capture cost

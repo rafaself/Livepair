@@ -214,6 +214,7 @@ Current implementation:
 * uploaded frames use an explicit conservative policy: 1 FPS capture, compressed JPEG, reduced width, and latest-frame-wins backpressure while a prior upload is in flight
 * Live voice sessions use `MEDIA_RESOLUTION_LOW` by default for screen sharing unless explicitly overridden
 * if reconnect/resume falls through to a replacement Live runtime, screen capture is stopped and must be manually re-enabled on the new runtime
+* durable chat memory may carry at most one compact text-only `screenContextSummary` inside the existing rehydration `contextState`; raw frames, screenshots, and live screen state never persist or auto-restore
 
 Planned follow-up:
 

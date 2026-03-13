@@ -4,6 +4,7 @@ import type {
   RehydrationPacketContextState,
   RehydrationPacketTurn,
 } from '@livepair/shared-types';
+import { normalizeScreenContextState } from './screenContextState';
 
 export const DEFAULT_REHYDRATION_STABLE_INSTRUCTION =
   'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.';
@@ -70,14 +71,14 @@ function normalizeContextState(
     return buildEmptyContextState();
   }
 
-  return {
+  return normalizeScreenContextState({
     task: {
       entries: [...contextState.task.entries],
     },
     context: {
       entries: [...contextState.context.entries],
     },
-  };
+  });
 }
 
 export function buildRehydrationPacket(
