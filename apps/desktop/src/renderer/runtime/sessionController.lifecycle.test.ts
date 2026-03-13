@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuntimeLogger } from './core/session.types';
+import { MAX_REHYDRATION_RECENT_TURNS } from '../chatMemory/rehydrationPacket';
 import { createDesktopSessionController } from './sessionController';
 import { selectAssistantRuntimeState, selectIsConversationEmpty } from './selectors';
 import { useSessionStore } from '../store/sessionStore';
@@ -332,16 +333,35 @@ describe('createDesktopSessionController – lifecycle', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
-      history: [
-        {
-          role: 'user',
-          parts: [{ text: 'Persisted question' }],
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [
+          {
+            role: 'user',
+            kind: 'message',
+            text: 'Persisted question',
+            createdAt: '2026-03-12T09:01:00.000Z',
+            sequence: 1,
+          },
+          {
+            role: 'assistant',
+            kind: 'message',
+            text: 'Persisted answer',
+            createdAt: '2026-03-12T09:02:00.000Z',
+            sequence: 2,
+          },
+        ],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
         },
-        {
-          role: 'model',
-          parts: [{ text: 'Persisted answer' }],
-        },
-      ],
+      },
     });
     expect(useSessionStore.getState().voiceSessionResumption).toEqual({
       status: 'connected',
@@ -459,16 +479,35 @@ describe('createDesktopSessionController – lifecycle', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
-      history: [
-        {
-          role: 'user',
-          parts: [{ text: 'Persisted question' }],
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [
+          {
+            role: 'user',
+            kind: 'message',
+            text: 'Persisted question',
+            createdAt: '2026-03-12T09:01:00.000Z',
+            sequence: 1,
+          },
+          {
+            role: 'assistant',
+            kind: 'message',
+            text: 'Persisted answer',
+            createdAt: '2026-03-12T09:02:00.000Z',
+            sequence: 2,
+          },
+        ],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
         },
-        {
-          role: 'model',
-          parts: [{ text: 'Persisted answer' }],
-        },
-      ],
+      },
     });
     expect(useSessionStore.getState().voiceSessionResumption).toEqual({
       status: 'connected',
@@ -546,17 +585,92 @@ describe('createDesktopSessionController – lifecycle', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
-      history: [
-        {
-          role: 'user',
-          parts: [{ text: 'Persisted question' }],
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [
+          {
+            role: 'user',
+            kind: 'message',
+            text: 'Persisted question',
+            createdAt: '2026-03-12T09:01:00.000Z',
+            sequence: 1,
+          },
+          {
+            role: 'assistant',
+            kind: 'message',
+            text: 'Persisted answer',
+            createdAt: '2026-03-12T09:02:00.000Z',
+            sequence: 2,
+          },
+        ],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
         },
-        {
-          role: 'model',
-          parts: [{ text: 'Persisted answer' }],
-        },
-      ],
+      },
     });
+  });
+
+  it('uses a compact rehydration packet for fallback startup with long persisted histories', async () => {
+    persistedMessages = Array.from({ length: MAX_REHYDRATION_RECENT_TURNS + 4 }, (_, index) => {
+      const sequence = index + 1;
+
+      return {
+        id: `message-${sequence}`,
+        chatId: 'chat-1',
+        role: sequence % 2 === 0 ? 'assistant' : 'user',
+        contentText: `Persisted turn ${sequence}`,
+        createdAt: `2026-03-12T09:${String(sequence).padStart(2, '0')}:00.000Z`,
+        sequence,
+      } as const;
+    });
+
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(voiceTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      rehydrationPacket: expect.objectContaining({
+        summary: null,
+        recentTurns: [
+          expect.objectContaining({ text: 'Persisted turn 5', sequence: 5 }),
+          expect.objectContaining({ text: 'Persisted turn 6', sequence: 6 }),
+          expect.objectContaining({ text: 'Persisted turn 7', sequence: 7 }),
+          expect.objectContaining({ text: 'Persisted turn 8', sequence: 8 }),
+          expect.objectContaining({ text: 'Persisted turn 9', sequence: 9 }),
+          expect.objectContaining({ text: 'Persisted turn 10', sequence: 10 }),
+        ],
+      }),
+    });
+    expect(voiceTransport.connect.mock.calls[0]?.[0]).not.toHaveProperty('history');
   });
 
   it('does not promote backend failure state when typed input is blocked outside Live', async () => {
