@@ -164,4 +164,64 @@ describe('rehydrationPacket', () => {
       },
     ]);
   });
+
+  it('uses persisted summary and context snapshots when they are available', () => {
+    const packet = buildRehydrationPacket(
+      [
+        {
+          id: 'message-1',
+          chatId: 'chat-1',
+          role: 'user',
+          contentText: 'Persisted question',
+          createdAt: '2026-03-12T09:01:00.000Z',
+          sequence: 1,
+        },
+        {
+          id: 'message-2',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Persisted answer',
+          createdAt: '2026-03-12T09:02:00.000Z',
+          sequence: 2,
+        },
+      ],
+      {
+        summary: 'Persisted summary snapshot',
+        contextState: {
+          task: {
+            entries: [{ key: 'taskStatus', value: 'active' }],
+          },
+          context: {
+            entries: [{ key: 'repo', value: 'Livepair' }],
+          },
+        },
+      },
+    );
+
+    expect(packet.summary).toBe('Persisted summary snapshot');
+    expect(packet.contextState).toEqual({
+      task: {
+        entries: [{ key: 'taskStatus', value: 'active' }],
+      },
+      context: {
+        entries: [{ key: 'repo', value: 'Livepair' }],
+      },
+    });
+    expect(packet.recentTurns).toEqual([
+      {
+        role: 'user',
+        kind: 'message',
+        text: 'Persisted question',
+        createdAt: '2026-03-12T09:01:00.000Z',
+        sequence: 1,
+      },
+      {
+        role: 'assistant',
+        kind: 'message',
+        text: 'Persisted answer',
+        createdAt: '2026-03-12T09:02:00.000Z',
+        sequence: 2,
+      },
+    ]);
+  });
 });

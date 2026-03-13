@@ -2,6 +2,7 @@ import type {
   AppendChatMessageRequest,
   ChatMessageRecord,
   ChatRecord,
+  LiveSessionRecord,
   RehydrationPacket,
 } from '@livepair/shared-types';
 import { useSessionStore } from '../store/sessionStore';
@@ -13,7 +14,7 @@ import { buildRehydrationPacket } from './rehydrationPacket';
 
 type CurrentChatMemoryBridge = Pick<
   typeof window.bridge,
-  'appendChatMessage' | 'getOrCreateCurrentChat' | 'listChatMessages'
+  'appendChatMessage' | 'getOrCreateCurrentChat' | 'listChatMessages' | 'listLiveSessions'
 >;
 
 type HydratedCurrentChat = {
@@ -82,8 +83,27 @@ export async function listCurrentChatMessages(
 export async function buildRehydrationPacketFromCurrentChat(
   bridge: CurrentChatMemoryBridge = window.bridge,
 ): Promise<RehydrationPacket> {
-  const messages = await listCurrentChatMessages(bridge);
-  return buildRehydrationPacket(messages);
+  const chat = await ensureActiveChat(bridge);
+  const [messages, liveSessions] = await Promise.all([
+    bridge.listChatMessages(chat.id),
+    bridge.listLiveSessions(chat.id),
+  ]);
+  const latestLiveSession = liveSessions[0] ?? null;
+
+  return buildRehydrationPacket(messages, getPersistedSnapshotInputs(latestLiveSession));
+}
+
+function getPersistedSnapshotInputs(
+  liveSession: LiveSessionRecord | null,
+): Parameters<typeof buildRehydrationPacket>[1] {
+  if (liveSession === null) {
+    return {};
+  }
+
+  return {
+    summary: liveSession.summarySnapshot ?? null,
+    contextState: liveSession.contextStateSnapshot ?? null,
+  };
 }
 
 export function mapRehydrationPacketToLiveSessionHistory(
