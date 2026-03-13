@@ -5,6 +5,7 @@ import { selectAssistantRuntimeState, selectIsConversationEmpty } from './select
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import {
   createUnusedTransport,
   createVoiceTransportHarness,
@@ -13,12 +14,53 @@ import {
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – lifecycle', () => {
+  let persistedMessages: Array<{
+    id: string;
+    chatId: string;
+    role: 'user' | 'assistant';
+    contentText: string;
+    createdAt: string;
+    sequence: number;
+  }>;
+
   beforeEach(() => {
     useSessionStore.getState().reset();
     useSettingsStore.setState({
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
+    resetCurrentChatMemoryForTests();
+    persistedMessages = [];
+    window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue({
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    });
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({
+        chatId,
+        role,
+        contentText,
+      }: {
+        chatId: string;
+        role: 'user' | 'assistant';
+        contentText: string;
+      }) => {
+        const nextRecord = {
+          id: `${role}-message-${persistedMessages.length + 1}`,
+          chatId,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
   });
 
   it('starts text mode through backend health only and does not bootstrap Live', async () => {
@@ -119,6 +161,84 @@ describe('createDesktopSessionController – lifecycle', () => {
       mode: 'voice',
     });
     expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('seeds a new Live session from canonical persisted chat history instead of renderer-only turns', async () => {
+    persistedMessages = [
+      {
+        id: 'message-1',
+        chatId: 'chat-1',
+        role: 'user',
+        contentText: 'Persisted question',
+        createdAt: '2026-03-12T09:01:00.000Z',
+        sequence: 1,
+      },
+      {
+        id: 'message-2',
+        chatId: 'chat-1',
+        role: 'assistant',
+        contentText: 'Persisted answer',
+        createdAt: '2026-03-12T09:02:00.000Z',
+        sequence: 2,
+      },
+    ];
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'renderer-only-user',
+        role: 'user',
+        content: 'Renderer-only question',
+        timestamp: '9:05 AM',
+        state: 'complete',
+      },
+      {
+        id: 'renderer-only-assistant',
+        role: 'assistant',
+        content: 'Renderer-only answer',
+        timestamp: '9:06 AM',
+        state: 'complete',
+      },
+    ]);
+
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      startTextChatStream: createTextChatHarness().startTextChatStream,
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-1');
+    expect(voiceTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      history: [
+        {
+          role: 'user',
+          parts: [{ text: 'Persisted question' }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Persisted answer' }],
+        },
+      ],
+    });
   });
 
   it('fails fast when backend health prevents text session start', async () => {

@@ -2,7 +2,6 @@ import { formatConversationTimestamp } from './conversationTimestamp';
 import type { useSessionStore } from '../../store/sessionStore';
 import type { ConversationTurnModel } from './conversation.types';
 import { normalizeTranscriptText } from '../voice/voiceTranscript';
-import type { TextChatMessage, TextChatRequest } from '@livepair/shared-types';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 
@@ -237,36 +236,46 @@ export function appendAssistantTextDelta(ctx: ConversationContext, text: string)
   updatePendingAssistantTurn(ctx, `${currentTurn.content}${text}`, 'streaming', 'Responding...');
 }
 
-export function completePendingAssistantTurn(ctx: ConversationContext, statusLabel?: string): void {
+export function completePendingAssistantTurn(
+  ctx: ConversationContext,
+  statusLabel?: string,
+): string | null {
   if (!ctx.pendingAssistantTurnId) {
-    return;
+    return null;
   }
 
   const currentTurn = getConversationTurn(ctx, ctx.pendingAssistantTurnId);
 
   if (!currentTurn) {
     clearPendingAssistantTurn(ctx);
-    return;
+    return null;
   }
 
   updatePendingAssistantTurn(ctx, currentTurn.content, 'complete', statusLabel);
+  const settledTurnId = currentTurn.id;
   clearPendingAssistantTurn(ctx);
+  return settledTurnId;
 }
 
-export function failPendingAssistantTurn(ctx: ConversationContext, statusLabel: string): void {
+export function failPendingAssistantTurn(
+  ctx: ConversationContext,
+  statusLabel: string,
+): string | null {
   if (!ctx.pendingAssistantTurnId) {
-    return;
+    return null;
   }
 
   const currentTurn = getConversationTurn(ctx, ctx.pendingAssistantTurnId);
 
   if (!currentTurn) {
     clearPendingAssistantTurn(ctx);
-    return;
+    return null;
   }
 
   updatePendingAssistantTurn(ctx, currentTurn.content, 'error', statusLabel);
+  const failedTurnId = currentTurn.id;
   clearPendingAssistantTurn(ctx);
+  return failedTurnId;
 }
 
 // ---------------------------------------------------------------------------
@@ -289,11 +298,13 @@ export function upsertCurrentVoiceUserTurn(
   );
 }
 
-export function finalizeCurrentVoiceUserTurn(ctx: ConversationContext): void {
+export function finalizeCurrentVoiceUserTurn(ctx: ConversationContext): string | null {
+  const currentTurnId = ctx.currentVoiceUserTurnId;
   updateVoiceTurn(ctx, ctx.currentVoiceUserTurnId, {
     state: 'complete',
     statusLabel: undefined,
   });
+  return currentTurnId;
 }
 
 export function upsertCurrentVoiceAssistantTurn(
@@ -312,24 +323,25 @@ export function upsertCurrentVoiceAssistantTurn(
   );
 }
 
-export function finalizeCurrentVoiceAssistantTurn(ctx: ConversationContext): void {
+export function finalizeCurrentVoiceAssistantTurn(ctx: ConversationContext): string | null {
   const turn = getConversationTurn(ctx, ctx.currentVoiceAssistantTurnId ?? '');
 
   if (!turn) {
     ctx.currentVoiceAssistantTurnId = null;
-    return;
+    return null;
   }
 
   if (turn.content.trim().length === 0) {
     ctx.store.getState().removeConversationTurn(turn.id);
     ctx.currentVoiceAssistantTurnId = null;
-    return;
+    return null;
   }
 
   updateVoiceTurn(ctx, turn.id, {
     state: 'complete',
     statusLabel: turn.statusLabel === 'Interrupted' ? 'Interrupted' : undefined,
   });
+  return turn.id;
 }
 
 export function interruptCurrentVoiceAssistantTurn(ctx: ConversationContext): void {
@@ -343,7 +355,11 @@ export function interruptCurrentVoiceAssistantTurn(ctx: ConversationContext): vo
 // User turn + request building
 // ---------------------------------------------------------------------------
 
-export function appendUserTurn(ctx: ConversationContext, content: string): string {
+export function appendUserTurn(
+  ctx: ConversationContext,
+  content: string,
+  options?: { persistedMessageId?: string },
+): string {
   const turnId = `user-turn-${++ctx.nextUserTurnId}`;
 
   ctx.store.getState().appendConversationTurn({
@@ -352,27 +368,10 @@ export function appendUserTurn(ctx: ConversationContext, content: string): strin
     content,
     timestamp: formatConversationTimestamp(),
     state: 'complete',
+    ...(options?.persistedMessageId
+      ? { persistedMessageId: options.persistedMessageId }
+      : {}),
   });
 
   return turnId;
-}
-
-export function buildTextChatRequest(ctx: ConversationContext, text: string): TextChatRequest {
-  const messages: TextChatMessage[] = ctx.store
-    .getState()
-    .conversationTurns.filter(
-      (turn) =>
-        (turn.role === 'user' || turn.role === 'assistant') &&
-        turn.content.trim().length > 0 &&
-        turn.state !== 'error' &&
-        turn.state !== 'streaming',
-    )
-    .map((turn) => ({
-      role: turn.role === 'assistant' ? ('assistant' as const) : ('user' as const),
-      content: turn.content,
-    }));
-
-  messages.push({ role: 'user', content: text });
-
-  return { messages };
 }

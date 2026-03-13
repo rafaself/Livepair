@@ -2,7 +2,6 @@ import {
   appendCompletedAssistantTurn as appendCompletedAssistantTurnCtx,
   appendAssistantTextDelta as appendAssistantTextDeltaCtx,
   appendUserTurn as appendUserTurnCtx,
-  buildTextChatRequest as buildTextChatRequestCtx,
   clearPendingAssistantTurn as clearPendingAssistantTurnCtx,
   completePendingAssistantTurn as completePendingAssistantTurnCtx,
   failPendingAssistantTurn as failPendingAssistantTurnCtx,
@@ -22,7 +21,7 @@ import type {
 } from '../core/session.types';
 import type { TransportKind } from '../transport/transport.types';
 import type { TextSessionStatus } from './text.types';
-import type { TextChatRequest, TextChatStreamEvent } from '@livepair/shared-types';
+import type { ChatMessageRecord, TextChatRequest, TextChatStreamEvent } from '@livepair/shared-types';
 import type {
   DesktopSessionControllerDependencies,
   SessionStoreApi,
@@ -37,10 +36,13 @@ type TextChatStream = Awaited<
 export type TextChatControllerOps = {
   store: SessionStoreApi;
   logger: RuntimeLogger;
+  appendUserMessageToCurrentChat: (text: string) => Promise<ChatMessageRecord | null>;
+  buildTextChatRequestFromCurrentChat: () => Promise<TextChatRequest>;
   startTextChatStream: DesktopSessionControllerDependencies['startTextChatStream'];
   conversationCtx: ConversationContext;
   startSessionInternal: (options: { mode: SessionMode }) => Promise<void>;
   setErrorState: (detail: string, failedTurnStatusLabel?: string) => void;
+  onConversationTurnSettled?: (turnId: string) => void;
 };
 
 export type TextChatController = ReturnType<typeof createTextChatController>;
@@ -81,24 +83,29 @@ export function createTextChatController(ops: TextChatControllerOps) {
     appendCompletedAssistantTurnCtx(ops.conversationCtx, content, statusLabel);
   };
 
-  const completePendingAssistantTurn = (statusLabel?: string): void => {
-    completePendingAssistantTurnCtx(ops.conversationCtx, statusLabel);
+  const completePendingAssistantTurn = (statusLabel?: string): string | null => {
+    return completePendingAssistantTurnCtx(ops.conversationCtx, statusLabel);
   };
 
-  const failPendingAssistantTurn = (statusLabel: string): void => {
-    failPendingAssistantTurnCtx(ops.conversationCtx, statusLabel);
+  const failPendingAssistantTurn = (statusLabel: string): string | null => {
+    return failPendingAssistantTurnCtx(ops.conversationCtx, statusLabel);
   };
 
   const clearPendingAssistantTurn = (): void => {
     clearPendingAssistantTurnCtx(ops.conversationCtx);
   };
 
-  const appendUserTurn = (content: string): string => {
-    return appendUserTurnCtx(ops.conversationCtx, content);
-  };
-
-  const buildTextChatRequest = (text: string): TextChatRequest => {
-    return buildTextChatRequestCtx(ops.conversationCtx, text);
+  const appendUserTurn = (
+    content: string,
+    options?: { persistedMessageId?: string; persistTurn?: boolean },
+  ): string => {
+    const turnId = appendUserTurnCtx(ops.conversationCtx, content, options?.persistedMessageId
+      ? { persistedMessageId: options.persistedMessageId }
+      : undefined);
+    if (options?.persistTurn ?? !options?.persistedMessageId) {
+      ops.onConversationTurnSettled?.(turnId);
+    }
+    return turnId;
   };
 
   const handleStreamEvent = (event: TextChatStreamEvent): void => {
@@ -112,9 +119,12 @@ export function createTextChatController(ops: TextChatControllerOps) {
       const previousStatus = currentStatus();
       releaseStream();
       applyLifecycleEvent({ type: 'response.turn.completed' });
-      completePendingAssistantTurn(
+      const settledTurnId = completePendingAssistantTurn(
         previousStatus === 'interrupted' ? 'Interrupted' : undefined,
       );
+      if (settledTurnId) {
+        ops.onConversationTurnSettled?.(settledTurnId);
+      }
       ops.store.getState().setAssistantActivity('idle');
       return;
     }
@@ -153,9 +163,21 @@ export function createTextChatController(ops: TextChatControllerOps) {
 
     applyLifecycleEvent({ type: 'submit.started' });
 
+    let persistedUserMessage: ChatMessageRecord | null = null;
+
     try {
+      persistedUserMessage = await ops.appendUserMessageToCurrentChat(text);
+      appendUserTurn(
+        text,
+        persistedUserMessage?.id
+          ? {
+              persistedMessageId: persistedUserMessage.id,
+              persistTurn: false,
+            }
+          : { persistTurn: false },
+      );
       activeTextChatStream = await ops.startTextChatStream(
-        buildTextChatRequest(text),
+        await ops.buildTextChatRequestFromCurrentChat(),
         handleStreamEvent,
       );
     } catch (error) {
@@ -163,7 +185,6 @@ export function createTextChatController(ops: TextChatControllerOps) {
       return false;
     }
 
-    appendUserTurn(text);
     logRuntimeDiagnostic('session', 'text turn submitted', {
       textLength: text.length,
     });

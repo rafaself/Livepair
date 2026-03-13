@@ -2,8 +2,15 @@
 import { describe, expect, it } from 'vitest';
 import type { Rectangle } from 'electron';
 import type { DesktopSettingsPatch } from '../../shared/settings';
-import type { CreateEphemeralTokenRequest, TextChatRequest } from '@livepair/shared-types';
+import type {
+  AppendChatMessageRequest,
+  CreateEphemeralTokenRequest,
+  TextChatRequest,
+} from '@livepair/shared-types';
 import {
+  isAppendChatMessageRequest,
+  isChatId,
+  isCreateChatRequest,
   isCreateEphemeralTokenRequest,
   isDesktopSettingsPatch,
   isTextChatCancelRequest,
@@ -38,6 +45,31 @@ describe('ipc validators', () => {
     expect(isCreateEphemeralTokenRequest({ sessionId: 12 })).toBe(false);
     expect(isCreateEphemeralTokenRequest(undefined)).toBe(false);
     expect(isCreateEphemeralTokenRequest([])).toBe(false);
+  });
+
+  it('validates chat memory payloads', () => {
+    const appendRequest: AppendChatMessageRequest = {
+      chatId: 'chat-1',
+      role: 'assistant',
+      contentText: 'Stored reply',
+    };
+
+    expect(isChatId('chat-1')).toBe(true);
+    expect(isChatId('')).toBe(false);
+    expect(isChatId(12)).toBe(false);
+
+    expect(isCreateChatRequest(undefined)).toBe(true);
+    expect(isCreateChatRequest({})).toBe(true);
+    expect(isCreateChatRequest({ title: null })).toBe(true);
+    expect(isCreateChatRequest({ title: ' New chat ' })).toBe(true);
+    expect(isCreateChatRequest({ title: 42 })).toBe(false);
+    expect(isCreateChatRequest([])).toBe(false);
+
+    expect(isAppendChatMessageRequest(appendRequest)).toBe(true);
+    expect(isAppendChatMessageRequest({ ...appendRequest, role: 'system' })).toBe(false);
+    expect(isAppendChatMessageRequest({ ...appendRequest, chatId: '' })).toBe(false);
+    expect(isAppendChatMessageRequest({ ...appendRequest, contentText: '' })).toBe(false);
+    expect(isAppendChatMessageRequest(undefined)).toBe(false);
   });
 
   it('validates settings patch payloads', () => {

@@ -60,6 +60,11 @@ export const bridge: DesktopBridge = {
       },
     };
   },
+  createChat: (req) => ipcRenderer.invoke(IPC_CHANNELS.createChat, req),
+  getChat: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.getChat, chatId),
+  getOrCreateCurrentChat: () => ipcRenderer.invoke(IPC_CHANNELS.getOrCreateCurrentChat),
+  listChatMessages: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.listChatMessages, chatId),
+  appendChatMessage: (req) => ipcRenderer.invoke(IPC_CHANNELS.appendChatMessage, req),
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.getSettings),
   updateSettings: (patch) => ipcRenderer.invoke(IPC_CHANNELS.updateSettings, patch),
   setOverlayHitRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayHitRegions, regions),

@@ -44,6 +44,9 @@ export type VoiceTranscriptController = {
 export function createVoiceTranscriptController(
   store: SessionStoreApi,
   conversationCtx: ConversationContext,
+  options: {
+    onConversationTurnSettled?: (turnId: string) => void;
+  } = {},
 ): VoiceTranscriptController {
   let settledTurnReason: 'completed' | 'interrupted' | null = null;
 
@@ -191,14 +194,22 @@ export function createVoiceTranscriptController(
       return;
     }
 
-    finalizeCurrentVoiceUserTurn(conversationCtx);
+    const finalizedUserTurnId = finalizeCurrentVoiceUserTurn(conversationCtx);
 
     if (finalizeReason === 'interrupted') {
       interruptCurrentVoiceAssistantTurn(conversationCtx);
     }
 
-    finalizeCurrentVoiceAssistantTurn(conversationCtx);
+    const finalizedAssistantTurnId = finalizeCurrentVoiceAssistantTurn(conversationCtx);
     settledTurnReason = finalizeReason;
+
+    if (finalizedUserTurnId) {
+      options.onConversationTurnSettled?.(finalizedUserTurnId);
+    }
+
+    if (finalizedAssistantTurnId) {
+      options.onConversationTurnSettled?.(finalizedAssistantTurnId);
+    }
   };
 
   const queueMixedModeAssistantReply = (): void => {
@@ -215,7 +226,10 @@ export function createVoiceTranscriptController(
     const activeAssistantTurn = currentAssistantTurn();
 
     if (activeUserTurn?.state === 'streaming') {
-      finalizeCurrentVoiceUserTurn(conversationCtx);
+      const finalizedUserTurnId = finalizeCurrentVoiceUserTurn(conversationCtx);
+      if (finalizedUserTurnId) {
+        options.onConversationTurnSettled?.(finalizedUserTurnId);
+      }
     }
 
     if (activeAssistantTurn?.state === 'streaming') {
@@ -223,7 +237,10 @@ export function createVoiceTranscriptController(
         interruptCurrentVoiceAssistantTurn(conversationCtx);
       }
 
-      finalizeCurrentVoiceAssistantTurn(conversationCtx);
+      const finalizedAssistantTurnId = finalizeCurrentVoiceAssistantTurn(conversationCtx);
+      if (finalizedAssistantTurnId) {
+        options.onConversationTurnSettled?.(finalizedAssistantTurnId);
+      }
     }
 
     settledTurnReason = null;

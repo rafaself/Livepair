@@ -8,6 +8,7 @@ describe('sessionStore', () => {
   });
 
   it('defaults currentMode to text and lets it change independently from runtime diagnostics', () => {
+    expect(useSessionStore.getState().activeChatId).toBeNull();
     expect(useSessionStore.getState().currentMode).toBe('text');
     expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
 
@@ -162,6 +163,7 @@ describe('sessionStore', () => {
   });
 
   it('can reset runtime state while preserving conversation turns', () => {
+    useSessionStore.getState().setActiveChatId('chat-1');
     useSessionStore.getState().appendConversationTurn({
       id: 'user-turn-1',
       role: 'user',
@@ -179,6 +181,7 @@ describe('sessionStore', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        activeChatId: 'chat-1',
         textSessionLifecycle: expect.objectContaining({
           status: 'disconnected',
         }),
@@ -191,6 +194,41 @@ describe('sessionStore', () => {
             role: 'user',
             content: 'Speech request',
             source: 'voice',
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('can replace the visible conversation while keeping the active chat identity stable', () => {
+    useSessionStore.getState().setActiveChatId('chat-7');
+    useSessionStore.getState().appendConversationTurn({
+      id: 'user-turn-1',
+      role: 'user',
+      content: 'Transient',
+      timestamp: '2026-03-12T00:00:00.000Z',
+      state: 'complete',
+    });
+
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'persisted-message-1',
+        role: 'assistant',
+        content: 'Restored',
+        timestamp: '10:15',
+        state: 'complete',
+        persistedMessageId: 'message-1',
+      },
+    ]);
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        activeChatId: 'chat-7',
+        conversationTurns: [
+          expect.objectContaining({
+            id: 'persisted-message-1',
+            content: 'Restored',
+            persistedMessageId: 'message-1',
           }),
         ],
       }),

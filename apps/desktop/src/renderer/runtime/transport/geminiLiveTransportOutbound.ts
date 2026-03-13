@@ -1,5 +1,6 @@
 import { buildGeminiLiveSdkToolResponse } from './geminiLiveSdkClient';
 import { encodeChunkToBase64 } from './geminiLiveTransportProtocol';
+import type { LiveSessionHistoryTurn } from './transport.types';
 
 export const LIVE_AUDIO_PCM_MIME_TYPE = 'audio/pcm;rate=16000';
 
@@ -15,6 +16,16 @@ export function buildGeminiLiveTextTurn(text: string): {
       },
     ],
     turnComplete: true,
+  };
+}
+
+export function buildGeminiLiveHistoryPrefill(
+  history: LiveSessionHistoryTurn[],
+): {
+  turns: LiveSessionHistoryTurn[];
+} {
+  return {
+    turns: history,
   };
 }
 

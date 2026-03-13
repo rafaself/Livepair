@@ -10,14 +10,56 @@ import {
   createTextChatHarness,
   createVoiceTransportHarness,
 } from './sessionController.testUtils';
+import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 
 describe('createDesktopSessionController – text chat', () => {
+  let persistedMessages: Array<{
+    id: string;
+    chatId: string;
+    role: 'user' | 'assistant';
+    contentText: string;
+    createdAt: string;
+    sequence: number;
+  }>;
+
   beforeEach(() => {
     useSessionStore.getState().reset();
     useSettingsStore.setState({
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
+    resetCurrentChatMemoryForTests();
+    persistedMessages = [];
+    window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue({
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    });
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({
+        chatId,
+        role,
+        contentText,
+      }: {
+        chatId: string;
+        role: 'user' | 'assistant';
+        contentText: string;
+      }) => {
+        const nextRecord = {
+          id: `${role}-message-${persistedMessages.length + 1}`,
+          chatId,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
   });
 
   it('auto-starts text mode, streams assistant text, and completes the turn', async () => {
@@ -135,6 +177,251 @@ describe('createDesktopSessionController – text chat', () => {
     });
   });
 
+  it('persists the user turn before request execution and builds the request from canonical history', async () => {
+    const textChat = createTextChatHarness();
+    const chat = {
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    };
+    persistedMessages = [
+      {
+        id: 'message-1',
+        chatId: chat.id,
+        role: 'user',
+        contentText: 'Persisted question',
+        createdAt: '2026-03-12T09:01:00.000Z',
+        sequence: 1,
+      },
+      {
+        id: 'message-2',
+        chatId: chat.id,
+        role: 'assistant',
+        contentText: 'Persisted answer',
+        createdAt: '2026-03-12T09:02:00.000Z',
+        sequence: 2,
+      },
+    ];
+
+    window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue(chat);
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({ role, contentText }: { role: 'user' | 'assistant'; contentText: string }) => {
+        const nextRecord = {
+          id: `message-${persistedMessages.length + 1}`,
+          chatId: chat.id,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
+
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'renderer-only-user',
+        role: 'user',
+        content: 'Renderer only question',
+        timestamp: '9:00 AM',
+        state: 'complete',
+      },
+      {
+        id: 'renderer-only-assistant',
+        role: 'assistant',
+        content: 'Renderer only answer',
+        timestamp: '9:01 AM',
+        state: 'complete',
+      },
+    ]);
+
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+    });
+
+    await expect(controller.submitTextTurn('Canonical follow-up')).resolves.toBe(true);
+
+    expect(window.bridge.appendChatMessage).toHaveBeenCalledWith({
+      chatId: chat.id,
+      role: 'user',
+      contentText: 'Canonical follow-up',
+    });
+    expect(
+      (window.bridge.appendChatMessage as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0],
+    ).toBeLessThan(textChat.startTextChatStream.mock.invocationCallOrder[0]!);
+    expect(textChat.getLastRequest()).toEqual({
+      messages: [
+        { role: 'user', content: 'Persisted question' },
+        { role: 'assistant', content: 'Persisted answer' },
+        { role: 'user', content: 'Canonical follow-up' },
+      ],
+    });
+    expect(useSessionStore.getState().conversationTurns.at(-1)).toEqual(
+      expect.objectContaining({
+        role: 'user',
+        content: 'Canonical follow-up',
+        persistedMessageId: 'message-3',
+      }),
+    );
+  });
+
+  it('persists assistant text only when the text turn finalizes and avoids duplicate commits', async () => {
+    const textChat = createTextChatHarness();
+    const chat = {
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    };
+    persistedMessages = [];
+
+    window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue(chat);
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({ role, contentText }: { role: 'user' | 'assistant'; contentText: string }) => {
+        const nextRecord = {
+          id: `message-${persistedMessages.length + 1}`,
+          chatId: chat.id,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
+
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: textChat.startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+    });
+
+    await controller.submitTextTurn('Hello');
+
+    expect(persistedMessages).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        contentText: 'Hello',
+        sequence: 1,
+      }),
+    ]);
+
+    textChat.emit({ type: 'text-delta', text: 'Partial' });
+    await vi.waitFor(() => {
+      expect(window.bridge.appendChatMessage).toHaveBeenCalledTimes(1);
+    });
+
+    textChat.emit({ type: 'completed' });
+    textChat.emit({ type: 'completed' });
+
+    await vi.waitFor(() => {
+      expect(persistedMessages).toEqual([
+        expect.objectContaining({
+          role: 'user',
+          contentText: 'Hello',
+          sequence: 1,
+        }),
+        expect.objectContaining({
+          role: 'assistant',
+          contentText: 'Partial',
+          sequence: 2,
+        }),
+      ]);
+    });
+    expect(window.bridge.appendChatMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it('retains canonical text history across restart when building the next request', async () => {
+    const firstTextChat = createTextChatHarness();
+    const secondTextChat = createTextChatHarness();
+    const chat = {
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    };
+    persistedMessages = [];
+
+    window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue(chat);
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({ role, contentText }: { role: 'user' | 'assistant'; contentText: string }) => {
+        const nextRecord = {
+          id: `message-${persistedMessages.length + 1}`,
+          chatId: chat.id,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
+
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: firstTextChat.startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+    });
+
+    await controller.submitTextTurn('First question');
+    firstTextChat.emit({ type: 'text-delta', text: 'First answer' });
+    firstTextChat.emit({ type: 'completed' });
+    await vi.waitFor(() => {
+      expect(persistedMessages).toHaveLength(2);
+    });
+
+    useSessionStore.getState().reset();
+    resetCurrentChatMemoryForTests();
+
+    const restartedController = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      startTextChatStream: secondTextChat.startTextChatStream,
+      requestSessionToken: vi.fn(),
+      createTransport: vi.fn(() => createUnusedTransport()),
+    });
+
+    await restartedController.submitTextTurn('Second question');
+
+    expect(secondTextChat.getLastRequest()).toEqual({
+      messages: [
+        { role: 'user', content: 'First question' },
+        { role: 'assistant', content: 'First answer' },
+        { role: 'user', content: 'Second question' },
+      ],
+    });
+  });
+
   it('maps backend stream errors into an inline failed assistant turn', async () => {
     const textChat = createTextChatHarness();
     const logger: RuntimeLogger = {
@@ -173,9 +460,10 @@ describe('createDesktopSessionController – text chat', () => {
       type: 'error',
       detail: 'backend overloaded',
     });
+    expect(window.bridge.appendChatMessage).toHaveBeenCalledTimes(1);
   });
 
-  it('does not append a user turn when text chat cannot start', async () => {
+  it('keeps the persisted user turn visible when text chat cannot start', async () => {
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
@@ -191,7 +479,13 @@ describe('createDesktopSessionController – text chat', () => {
       false,
     );
 
-    expect(useSessionStore.getState().conversationTurns).toEqual([]);
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'Summarize the current screen',
+        persistedMessageId: 'user-message-1',
+      }),
+    ]);
     expect(useSessionStore.getState().lastRuntimeError).toBe('stream setup failed');
   });
 

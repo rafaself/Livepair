@@ -1,21 +1,38 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { ConversationContext } from '../conversation/conversationTurnManager';
 import { createTextChatController } from './textChatController';
 
 function createMockOps(textStatus = 'idle') {
   const storeState = {
     textSessionLifecycle: { status: textStatus },
     activeTransport: null as string | null,
-    conversationTurns: [] as { role: string; content: string; state: string }[],
+    conversationTurns: [] as Array<{
+      id: string;
+      role: string;
+      content: string;
+      state: string;
+      statusLabel?: string;
+      persistedMessageId?: string;
+    }>,
     setTextSessionLifecycle: vi.fn(),
     setAssistantActivity: vi.fn(),
     setLastDebugEvent: vi.fn(),
     setLastRuntimeError: vi.fn(),
     resetTextSessionRuntime: vi.fn(),
-    appendConversationTurn: vi.fn(),
-    updateConversationTurn: vi.fn(),
+    appendConversationTurn: vi.fn((turn) => {
+      storeState.conversationTurns = [...storeState.conversationTurns, turn];
+    }),
+    updateConversationTurn: vi.fn((turnId: string, patch) => {
+      storeState.conversationTurns = storeState.conversationTurns.map((turn) =>
+        turn.id === turnId ? { ...turn, ...patch } : turn,
+      );
+    }),
   };
-  const conversationCtx = {
+  const conversationCtx: ConversationContext = {
     pendingAssistantTurnId: null,
+    hasQueuedMixedModeAssistantReply: false,
+    currentVoiceAssistantTurnId: null,
+    currentVoiceUserTurnId: null,
     nextAssistantTurnId: 0,
     nextUserTurnId: 0,
     store: { getState: vi.fn().mockReturnValue(storeState) },
@@ -30,6 +47,17 @@ function createMockOps(textStatus = 'idle') {
       onTransportEvent: vi.fn(),
       onSessionEvent: vi.fn(),
     },
+    appendUserMessageToCurrentChat: vi.fn(async (content: string) => ({
+      id: 'message-1',
+      chatId: 'chat-1',
+      role: 'user',
+      contentText: content,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      sequence: 1,
+    })),
+    buildTextChatRequestFromCurrentChat: vi.fn(async () => ({
+      messages: [{ role: 'user', content: 'Persisted request' }],
+    })),
     startTextChatStream: vi.fn().mockResolvedValue(stream),
     conversationCtx,
     startSessionInternal: vi.fn().mockImplementation(async () => {
@@ -158,7 +186,22 @@ describe('createTextChatController', () => {
       const result = await controller.submitTurn('hello');
 
       expect(result).toBe(true);
+      expect(ops.appendUserMessageToCurrentChat).toHaveBeenCalledWith('hello');
+      expect(ops.buildTextChatRequestFromCurrentChat).toHaveBeenCalledTimes(1);
       expect(ops.startTextChatStream).toHaveBeenCalledTimes(1);
+      expect(ops.startTextChatStream).toHaveBeenCalledWith(
+        {
+          messages: [{ role: 'user', content: 'Persisted request' }],
+        },
+        expect.any(Function),
+      );
+      expect(ops._storeState.appendConversationTurn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: 'user',
+          content: 'hello',
+          persistedMessageId: 'message-1',
+        }),
+      );
       expect(ops._storeState.setLastRuntimeError).toHaveBeenCalledWith(null);
     });
 

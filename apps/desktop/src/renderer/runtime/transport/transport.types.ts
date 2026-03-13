@@ -13,6 +13,13 @@ export type TransportConnectionState =
 
 export type SessionConnectionState = 'connecting' | 'connected' | 'disconnected';
 
+export type LiveSessionHistoryTurn = {
+  role: 'user' | 'model';
+  parts: Array<{
+    text: string;
+  }>;
+};
+
 export type LiveSessionEvent =
   | {
       type: 'connection-state-changed';
@@ -80,6 +87,7 @@ export type DesktopSessionConnectParams = {
   token: CreateEphemeralTokenResponse;
   mode: SessionMode;
   resumeHandle?: string | undefined;
+  history?: LiveSessionHistoryTurn[] | undefined;
 };
 
 export type DesktopSession = {

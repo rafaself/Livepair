@@ -1,9 +1,13 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/desktopBridge';
+import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
 import type { DesktopSettingsService } from '../settings/settingsService';
 import { createBackendClient } from '../backend/backendClient';
 import {
+  isAppendChatMessageRequest,
+  isChatId,
+  isCreateChatRequest,
   isCreateEphemeralTokenRequest,
   isDesktopSettingsPatch,
   isTextChatCancelRequest,
@@ -12,6 +16,7 @@ import {
 } from './validators';
 
 type RegisterIpcHandlersOptions = {
+  chatMemoryService: ChatMemoryService;
   fetchImpl?: typeof fetch;
   getMainWindow: () => BrowserWindow | null;
   platform?: NodeJS.Platform;
@@ -19,6 +24,7 @@ type RegisterIpcHandlersOptions = {
 };
 
 export function registerIpcHandlers({
+  chatMemoryService,
   fetchImpl = fetch,
   getMainWindow,
   platform = process.platform,
@@ -82,6 +88,54 @@ export function registerIpcHandlers({
       activeStream?.cancel();
       await activeStream?.done;
       activeTextChatStreams.delete(req.streamId);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.createChat,
+    async (_event, req: unknown) => {
+      if (!isCreateChatRequest(req)) {
+        throw new Error('Invalid create chat payload');
+      }
+
+      return chatMemoryService.createChat(req);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.getChat,
+    async (_event, chatId: unknown) => {
+      if (!isChatId(chatId)) {
+        throw new Error('Invalid chat id');
+      }
+
+      return chatMemoryService.getChat(chatId);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.getOrCreateCurrentChat, async () => {
+    return chatMemoryService.getOrCreateCurrentChat();
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.listChatMessages,
+    async (_event, chatId: unknown) => {
+      if (!isChatId(chatId)) {
+        throw new Error('Invalid chat id');
+      }
+
+      return chatMemoryService.listMessages(chatId);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.appendChatMessage,
+    async (_event, req: unknown) => {
+      if (!isAppendChatMessageRequest(req)) {
+        throw new Error('Invalid append chat message payload');
+      }
+
+      return chatMemoryService.appendMessage(req);
     },
   );
 

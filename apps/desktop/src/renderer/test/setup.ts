@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import type { DesktopBridge } from '../../shared/desktopBridge';
+import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import { __resetGeminiLiveSdkMock } from './geminiLiveSdkMock';
 import { resetDesktopSessionController } from '../runtime/sessionController';
 import { resetLiveConfigForTests } from '../runtime/transport/liveConfig';
@@ -86,6 +88,7 @@ beforeEach(async () => {
 
   await resetDesktopSessionController();
   resetDesktopStores();
+  resetCurrentChatMemoryForTests();
   resetLiveConfigForTests();
   __resetGeminiLiveSdkMock();
   window.bridge = {
@@ -95,9 +98,27 @@ beforeEach(async () => {
     startTextChatStream: vi.fn(async () => ({
       cancel: vi.fn(async () => undefined),
     })),
+    createChat: vi.fn(),
+    getChat: vi.fn(),
+    getOrCreateCurrentChat: vi.fn(async () => ({
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    })),
+    listChatMessages: vi.fn(async () => []),
+    appendChatMessage: vi.fn(async (req) => ({
+      id: `${req.role}-message-1`,
+      chatId: req.chatId,
+      role: req.role,
+      contentText: req.contentText,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      sequence: 1,
+    })),
     getSettings: vi.fn(async () => DEFAULT_DESKTOP_SETTINGS),
     updateSettings: vi.fn(async (patch) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...patch })),
     setOverlayHitRegions: vi.fn(),
     setOverlayPointerPassthrough: vi.fn(),
-  };
+  } satisfies DesktopBridge;
 });

@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import { getChatMemoryService } from './chatMemory/chatMemoryService';
 import { getDesktopSettingsService } from './settings/settingsService';
 import { registerIpcHandlers } from './ipc/registerIpcHandlers';
 import {
@@ -8,8 +9,9 @@ import {
   handleWindowAllClosed,
 } from './window/overlayWindow';
 
+const chatMemoryService = getChatMemoryService();
 const settingsService = getDesktopSettingsService();
-registerIpcHandlers({ getMainWindow, settingsService });
+registerIpcHandlers({ chatMemoryService, getMainWindow, settingsService });
 
 app.whenReady().then(() => {
   createWindow();

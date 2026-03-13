@@ -9,6 +9,11 @@ import {
 } from './core/logger';
 import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
 import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
+import {
+  appendMessageToCurrentChat,
+  buildLiveSessionHistoryFromCurrentChat,
+  buildTextChatRequestFromCurrentChat,
+} from '../chatMemory/currentChatMemory';
 import { createAssistantAudioPlayback } from './audio/assistantAudioPlayback';
 import { createLocalVoiceCapture } from './audio/localVoiceCapture';
 import { createLocalScreenCapture } from './screen/localScreenCapture';
@@ -22,6 +27,7 @@ import { createVoiceTokenManager } from './voice/voiceTokenManager';
 import { createSpeechSilenceController } from './speech/speechSilenceController';
 import { createConversationContext } from './conversation/conversationTurnManager';
 import { createTextChatController } from './text/textChatController';
+import { persistConversationTurnInBackground } from './conversation/persistConversationTurn';
 import { createTransportEventRouter } from './transport/transportEventRouter';
 import { createVoiceChunkPipeline } from './voice/voiceChunkPipeline';
 import { createVoiceResumeController } from './voice/voiceResumeController';
@@ -132,7 +138,12 @@ export function createDesktopSessionController(
     (event) => runtimeRef.current!.applySpeechLifecycleEvent(event),
     () => runtimeRef.current!.stopVoicePlayback(),
   );
-  const voiceTranscript = createVoiceTranscriptController(dependencies.store, conversationCtx);
+  const persistSettledConversationTurn = (turnId: string): void => {
+    persistConversationTurnInBackground(dependencies.store, turnId);
+  };
+  const voiceTranscript = createVoiceTranscriptController(dependencies.store, conversationCtx, {
+    onConversationTurnSettled: persistSettledConversationTurn,
+  });
   const tokenMgr = createVoiceTokenManager(
     dependencies.store,
     dependencies.requestSessionToken,
@@ -161,10 +172,17 @@ export function createDesktopSessionController(
   const textChatCtrl = createTextChatController({
     store: dependencies.store,
     logger: dependencies.logger,
+    appendUserMessageToCurrentChat: (text) =>
+      appendMessageToCurrentChat({
+        role: 'user',
+        contentText: text,
+      }),
+    buildTextChatRequestFromCurrentChat,
     startTextChatStream: dependencies.startTextChatStream,
     conversationCtx,
     startSessionInternal: (options) => startSessionInternal(options),
     setErrorState: (detail, label) => setErrorState(detail, label),
+    onConversationTurnSettled: persistSettledConversationTurn,
   });
   const stateSync = createSessionControllerStateSync({
     store: dependencies.store,
@@ -394,6 +412,7 @@ export function createDesktopSessionController(
     resetVoiceSessionDurability: () => runtimeRef.current!.resetVoiceSessionDurability(),
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
     requestVoiceSessionToken: (operationId) => requestVoiceSessionToken(operationId),
+    buildLiveSessionHistoryFromCurrentChat,
     setCachedVoiceToken: (token) => {
       tokenMgr.set(token);
     },

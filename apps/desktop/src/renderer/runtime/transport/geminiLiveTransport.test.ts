@@ -228,6 +228,66 @@ describe('createGeminiLiveTransport', () => {
     await connectPromise;
   });
 
+  it('prefills canonical history once after setup completes before later user sends', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      history: [
+        {
+          role: 'user',
+          parts: [{ text: 'Persisted question' }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Persisted answer' }],
+        },
+      ],
+    });
+
+    await Promise.resolve();
+    expect(sdkHarness.session.sendClientContent).not.toHaveBeenCalled();
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+
+    expect(sdkHarness.session.sendClientContent).toHaveBeenCalledTimes(1);
+    expect(sdkHarness.session.sendClientContent).toHaveBeenNthCalledWith(1, {
+      turns: [
+        {
+          role: 'user',
+          parts: [{ text: 'Persisted question' }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Persisted answer' }],
+        },
+      ],
+    });
+
+    await transport.sendText('Fresh user prompt');
+
+    expect(sdkHarness.session.sendClientContent).toHaveBeenCalledTimes(2);
+    expect(sdkHarness.session.sendClientContent).toHaveBeenNthCalledWith(2, {
+      turns: [
+        {
+          role: 'user',
+          parts: [{ text: 'Fresh user prompt' }],
+        },
+      ],
+      turnComplete: true,
+    });
+  });
+
   it('passes voice-only compression and resume handle into the SDK connect config', async () => {
     const sdkHarness = createSdkHarness();
     const transport = createGeminiLiveTransport({

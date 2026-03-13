@@ -1,5 +1,10 @@
 import type { Rectangle } from 'electron';
-import type { CreateEphemeralTokenRequest, TextChatRequest } from '@livepair/shared-types';
+import type {
+  AppendChatMessageRequest,
+  CreateChatRequest,
+  CreateEphemeralTokenRequest,
+  TextChatRequest,
+} from '@livepair/shared-types';
 import type { DesktopSettingsPatch } from '../../shared/settings';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -35,7 +40,7 @@ function isSpeechSilenceTimeout(value: unknown): boolean {
 }
 
 function isNonEmptyString(value: unknown): boolean {
-  return typeof value === 'string' && value.length > 0;
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 const DESKTOP_SETTINGS_PATCH_KEYS = [
@@ -103,6 +108,38 @@ export function isCreateEphemeralTokenRequest(
 
   const sessionId = (req as { sessionId?: unknown }).sessionId;
   return typeof sessionId === 'string' || typeof sessionId === 'undefined';
+}
+
+export function isChatId(value: unknown): value is string {
+  return isNonEmptyString(value);
+}
+
+export function isCreateChatRequest(value: unknown): value is CreateChatRequest | undefined {
+  if (typeof value === 'undefined') {
+    return true;
+  }
+
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+
+  if (!hasOnlyAllowedKeys(value, ['title'])) {
+    return false;
+  }
+
+  return typeof value['title'] === 'undefined' || value['title'] === null || typeof value['title'] === 'string';
+}
+
+export function isAppendChatMessageRequest(value: unknown): value is AppendChatMessageRequest {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['chatId', 'role', 'contentText'])) {
+    return false;
+  }
+
+  return (
+    isChatId(value['chatId']) &&
+    (value['role'] === 'user' || value['role'] === 'assistant') &&
+    isNonEmptyString(value['contentText'])
+  );
 }
 
 export function isTextChatRequest(req: unknown): req is TextChatRequest {
