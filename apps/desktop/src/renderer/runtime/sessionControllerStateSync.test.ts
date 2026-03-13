@@ -91,24 +91,8 @@ describe('createSessionControllerStateSync', () => {
 
       expect(sync.currentProductMode()).toBe('speech');
 
-      sync.setCurrentMode('text');
-      expect(args._storeState.setCurrentMode).toHaveBeenCalledWith('text');
-    });
-  });
-
-  describe('resolveProductMode', () => {
-    it('maps voice to speech', () => {
-      const args = createMockArgs();
-      const sync = createSessionControllerStateSync(args as never);
-
-      expect(sync.resolveProductMode('voice')).toBe('speech');
-    });
-
-    it('maps text to text', () => {
-      const args = createMockArgs();
-      const sync = createSessionControllerStateSync(args as never);
-
-      expect(sync.resolveProductMode('text')).toBe('text');
+      sync.setCurrentMode('inactive');
+      expect(args._storeState.setCurrentMode).toHaveBeenCalledWith('inactive');
     });
   });
 

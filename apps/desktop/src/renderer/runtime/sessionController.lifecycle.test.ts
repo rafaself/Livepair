@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuntimeLogger } from './core/session.types';
+import { MAX_REHYDRATION_RECENT_TURNS } from '../chatMemory/rehydrationPacket';
 import { createDesktopSessionController } from './sessionController';
 import { selectAssistantRuntimeState, selectIsConversationEmpty } from './selectors';
 import { useSessionStore } from '../store/sessionStore';
@@ -10,7 +11,6 @@ import {
   createUnusedTransport,
   createVoiceTransportHarness,
   createVoiceCaptureHarness,
-  createTextChatHarness,
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – lifecycle', () => {
@@ -61,44 +61,69 @@ describe('createDesktopSessionController – lifecycle', () => {
         return nextRecord;
       },
     );
+    window.bridge.createLiveSession = vi.fn(async ({ chatId, startedAt }) => ({
+      id: 'live-session-1',
+      chatId,
+      startedAt: startedAt ?? '2026-03-12T09:00:00.000Z',
+      endedAt: null,
+      status: 'active' as const,
+      endedReason: null,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
+    }));
+    window.bridge.listLiveSessions = vi.fn().mockResolvedValue([]);
+    window.bridge.endLiveSession = vi.fn(async ({ id, status, endedAt, endedReason }) => ({
+      id,
+      chatId: 'chat-1',
+      startedAt: '2026-03-12T09:00:00.000Z',
+      endedAt: endedAt ?? '2026-03-12T09:05:00.000Z',
+      status,
+      endedReason: endedReason ?? null,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
+    }));
   });
 
-  it('starts text mode through backend health only and does not bootstrap Live', async () => {
-    const textChat = createTextChatHarness();
+  it('keeps the runtime inactive when no live session is started', async () => {
     const requestSessionToken = vi.fn();
     const createTransport = vi.fn(() => createUnusedTransport());
     const logger: RuntimeLogger = {
       onSessionEvent: vi.fn(),
       onTransportEvent: vi.fn(),
     };
-    const controller = createDesktopSessionController({
+    createDesktopSessionController({
       logger,
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken,
       createTransport,
     });
-
-    await controller.startSession({ mode: 'text' });
 
     expect(requestSessionToken).not.toHaveBeenCalled();
     expect(createTransport).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        textSessionLifecycle: expect.objectContaining({ status: 'ready' }),
-        sessionPhase: 'active',
-        backendState: 'connected',
+        currentMode: 'inactive',
+        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+        sessionPhase: 'idle',
+        backendState: 'idle',
         tokenRequestState: 'idle',
-        transportState: 'connected',
-        activeTransport: 'backend-text',
+        transportState: 'idle',
+        activeTransport: null,
       }),
     );
-    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('ready');
+    expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('disconnected');
     expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
-    expect(logger.onSessionEvent).toHaveBeenCalledWith({
-      type: 'session.start.requested',
-      transport: 'backend-text',
-    });
+    expect(logger.onSessionEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'session.start.requested',
+      }),
+    );
   });
 
   it('bootstraps a Gemini Live voice session with an ephemeral token', async () => {
@@ -115,7 +140,6 @@ describe('createDesktopSessionController – lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken,
       createTransport: vi.fn(() => voiceTransport.transport),
       createVoiceCapture: voiceCapture.createVoiceCapture,
@@ -159,7 +183,355 @@ describe('createDesktopSessionController – lifecycle', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      },
     });
+    expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
+      chatId: 'chat-1',
+      startedAt: expect.any(String),
+    });
+    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('attempts persisted live-session resumption before opening a fresh session', async () => {
+    const voiceCapture = createVoiceCaptureHarness();
+    const resumedTransport = createVoiceTransportHarness();
+    window.bridge.listLiveSessions = vi.fn().mockResolvedValue([
+      {
+        id: 'persisted-live-session-1',
+        chatId: 'chat-1',
+        startedAt: '2026-03-12T08:55:00.000Z',
+        endedAt: null,
+        status: 'active',
+        endedReason: null,
+        resumptionHandle: 'handles/persisted-live-session-1',
+        lastResumptionUpdateAt: '2026-03-12T08:56:00.000Z',
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
+      },
+    ]);
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => resumedTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-1');
+    expect(resumedTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      resumeHandle: 'handles/persisted-live-session-1',
+    });
+    expect(window.bridge.createLiveSession).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'resumed',
+      latestHandle: 'handles/persisted-live-session-1',
+      resumable: true,
+      lastDetail: 'Restoring persisted Live session',
+    });
+    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to a new rehydrated Live session when no restore candidate exists', async () => {
+    persistedMessages = [
+      {
+        id: 'message-1',
+        chatId: 'chat-1',
+        role: 'user',
+        contentText: 'Persisted question',
+        createdAt: '2026-03-12T09:01:00.000Z',
+        sequence: 1,
+      },
+      {
+        id: 'message-2',
+        chatId: 'chat-1',
+        role: 'assistant',
+        contentText: 'Persisted answer',
+        createdAt: '2026-03-12T09:02:00.000Z',
+        sequence: 2,
+      },
+    ];
+    window.bridge.listLiveSessions = vi.fn().mockResolvedValue([
+      {
+        id: 'persisted-live-session-stale',
+        chatId: 'chat-1',
+        startedAt: '2026-03-12T08:55:00.000Z',
+        endedAt: null,
+        status: 'active',
+        endedReason: null,
+        resumptionHandle: null,
+        lastResumptionUpdateAt: '2026-03-12T08:56:00.000Z',
+        restorable: false,
+        invalidatedAt: '2026-03-12T08:56:30.000Z',
+        invalidationReason: 'Gemini Live session is not resumable at this point',
+      },
+    ]);
+    window.bridge.createLiveSession = vi.fn(async ({ chatId, startedAt }) => ({
+      id: 'live-session-2',
+      chatId,
+      startedAt: startedAt ?? '2026-03-12T09:10:00.000Z',
+      endedAt: null,
+      status: 'active' as const,
+      endedReason: null,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
+    }));
+    const freshTransport = createVoiceTransportHarness();
+    const voiceCapture = createVoiceCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => freshTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-1');
+    expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
+      id: 'persisted-live-session-stale',
+      endedAt: expect.any(String),
+      status: 'failed',
+      endedReason: 'Gemini Live session is not resumable at this point',
+    });
+    expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-1');
+    expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
+      chatId: 'chat-1',
+      startedAt: expect.any(String),
+    });
+    expect(freshTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [
+          {
+            role: 'user',
+            kind: 'message',
+            text: 'Persisted question',
+            createdAt: '2026-03-12T09:01:00.000Z',
+            sequence: 1,
+          },
+          {
+            role: 'assistant',
+            kind: 'message',
+            text: 'Persisted answer',
+            createdAt: '2026-03-12T09:02:00.000Z',
+            sequence: 2,
+          },
+        ],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      },
+    });
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'connected',
+      latestHandle: null,
+      resumable: false,
+      lastDetail: null,
+    });
+    expect(useSessionStore.getState().lastRuntimeError).toBeNull();
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to a new rehydrated Live session when persisted resumption fails', async () => {
+    persistedMessages = [
+      {
+        id: 'message-1',
+        chatId: 'chat-1',
+        role: 'user',
+        contentText: 'Persisted question',
+        createdAt: '2026-03-12T09:01:00.000Z',
+        sequence: 1,
+      },
+      {
+        id: 'message-2',
+        chatId: 'chat-1',
+        role: 'assistant',
+        contentText: 'Persisted answer',
+        createdAt: '2026-03-12T09:02:00.000Z',
+        sequence: 2,
+      },
+    ];
+    window.bridge.listLiveSessions = vi.fn().mockResolvedValue([
+      {
+        id: 'persisted-live-session-1',
+        chatId: 'chat-1',
+        startedAt: '2026-03-12T08:55:00.000Z',
+        endedAt: null,
+        status: 'active',
+        endedReason: null,
+        resumptionHandle: 'handles/persisted-live-session-1',
+        lastResumptionUpdateAt: '2026-03-12T08:56:00.000Z',
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
+      },
+    ]);
+    window.bridge.createLiveSession = vi.fn(async ({ chatId, startedAt }) => ({
+      id: 'live-session-2',
+      chatId,
+      startedAt: startedAt ?? '2026-03-12T09:10:00.000Z',
+      endedAt: null,
+      status: 'active' as const,
+      endedReason: null,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
+    }));
+    const failedResumeTransport = createVoiceTransportHarness();
+    failedResumeTransport.setConnectError(new Error('resume rejected'));
+    const freshTransport = createVoiceTransportHarness();
+    const voiceCapture = createVoiceCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(failedResumeTransport.transport)
+        .mockReturnValueOnce(freshTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(failedResumeTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      resumeHandle: 'handles/persisted-live-session-1',
+    });
+    expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
+      id: 'persisted-live-session-1',
+      endedAt: expect.any(String),
+      status: 'failed',
+      endedReason: 'resume rejected',
+    });
+    expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+      id: 'persisted-live-session-1',
+      restorable: false,
+      invalidatedAt: expect.any(String),
+      invalidationReason: 'resume rejected',
+    });
+    expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-1');
+    expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
+      chatId: 'chat-1',
+      startedAt: expect.any(String),
+    });
+    expect(freshTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [
+          {
+            role: 'user',
+            kind: 'message',
+            text: 'Persisted question',
+            createdAt: '2026-03-12T09:01:00.000Z',
+            sequence: 1,
+          },
+          {
+            role: 'assistant',
+            kind: 'message',
+            text: 'Persisted answer',
+            createdAt: '2026-03-12T09:02:00.000Z',
+            sequence: 2,
+          },
+        ],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      },
+    });
+    expect(useSessionStore.getState().voiceSessionResumption).toEqual({
+      status: 'connected',
+      latestHandle: 'handles/persisted-live-session-1',
+      resumable: false,
+      lastDetail: null,
+    });
+    expect(useSessionStore.getState().lastRuntimeError).toBeNull();
+    expect(useSessionStore.getState().currentMode).toBe('speech');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
     expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 
@@ -207,7 +579,6 @@ describe('createDesktopSessionController – lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -228,27 +599,148 @@ describe('createDesktopSessionController – lifecycle', () => {
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       },
       mode: 'voice',
-      history: [
-        {
-          role: 'user',
-          parts: [{ text: 'Persisted question' }],
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [
+          {
+            role: 'user',
+            kind: 'message',
+            text: 'Persisted question',
+            createdAt: '2026-03-12T09:01:00.000Z',
+            sequence: 1,
+          },
+          {
+            role: 'assistant',
+            kind: 'message',
+            text: 'Persisted answer',
+            createdAt: '2026-03-12T09:02:00.000Z',
+            sequence: 2,
+          },
+        ],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
         },
-        {
-          role: 'model',
-          parts: [{ text: 'Persisted answer' }],
-        },
-      ],
+      },
     });
   });
 
-  it('fails fast when backend health prevents text session start', async () => {
+  it('uses a compact rehydration packet for fallback startup with long persisted histories', async () => {
+    persistedMessages = Array.from({ length: MAX_REHYDRATION_RECENT_TURNS + 4 }, (_, index) => {
+      const sequence = index + 1;
+
+      return {
+        id: `message-${sequence}`,
+        chatId: 'chat-1',
+        role: sequence % 2 === 0 ? 'assistant' : 'user',
+        contentText: `Persisted turn ${sequence}`,
+        createdAt: `2026-03-12T09:${String(sequence).padStart(2, '0')}:00.000Z`,
+        sequence,
+      } as const;
+    });
+
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(voiceTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      rehydrationPacket: expect.objectContaining({
+        summary: null,
+        recentTurns: [
+          expect.objectContaining({ text: 'Persisted turn 5', sequence: 5 }),
+          expect.objectContaining({ text: 'Persisted turn 6', sequence: 6 }),
+          expect.objectContaining({ text: 'Persisted turn 7', sequence: 7 }),
+          expect.objectContaining({ text: 'Persisted turn 8', sequence: 8 }),
+          expect.objectContaining({ text: 'Persisted turn 9', sequence: 9 }),
+          expect.objectContaining({ text: 'Persisted turn 10', sequence: 10 }),
+        ],
+      }),
+    });
+    expect(voiceTransport.connect.mock.calls[0]?.[0]).not.toHaveProperty('history');
+  });
+
+  it('always passes a rehydration packet during fallback startup even when persisted history is empty', async () => {
+    persistedMessages = [];
+
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+
+    expect(voiceTransport.connect).toHaveBeenCalledWith({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+      rehydrationPacket: {
+        stableInstruction:
+          'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
+        summary: null,
+        recentTurns: [],
+        contextState: {
+          task: {
+            entries: [],
+          },
+          context: {
+            entries: [],
+          },
+        },
+      },
+    });
+  });
+
+  it('does not promote backend failure state when typed input is blocked outside Live', async () => {
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(false),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
@@ -259,9 +751,10 @@ describe('createDesktopSessionController – lifecycle', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        textSessionLifecycle: expect.objectContaining({ status: 'error' }),
-        backendState: 'failed',
-        lastRuntimeError: 'Backend health check failed',
+        currentMode: 'inactive',
+        textSessionLifecycle: expect.objectContaining({ status: 'idle' }),
+        backendState: 'idle',
+        lastRuntimeError: null,
         conversationTurns: [],
       }),
     );
@@ -274,7 +767,6 @@ describe('createDesktopSessionController – lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockRejectedValue(new Error('token failed')),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
@@ -283,7 +775,7 @@ describe('createDesktopSessionController – lifecycle', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        currentMode: 'text',
+        currentMode: 'inactive',
         speechLifecycle: expect.objectContaining({
           status: 'off',
         }),
@@ -300,7 +792,6 @@ describe('createDesktopSessionController – lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -317,7 +808,7 @@ describe('createDesktopSessionController – lifecycle', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        currentMode: 'text',
+        currentMode: 'inactive',
         speechLifecycle: expect.objectContaining({
           status: 'off',
         }),
@@ -327,25 +818,22 @@ describe('createDesktopSessionController – lifecycle', () => {
     );
   });
 
-  it('cancels an active text stream when the session ends', async () => {
-    const textChat = createTextChatHarness();
+  it('ends an inactive runtime without creating standalone text activity', async () => {
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: textChat.startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });
 
-    await controller.submitTextTurn('Summarize the current screen');
     await controller.endSession();
 
-    expect(textChat.cancel).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        currentMode: 'inactive',
         textSessionLifecycle: expect.objectContaining({ status: 'disconnected' }),
         sessionPhase: 'idle',
         backendState: 'idle',
@@ -359,6 +847,36 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(selectIsConversationEmpty(useSessionStore.getState())).toBe(true);
   });
 
+  it('persists live session end metadata when an active Live session stops', async () => {
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'voice' });
+    await controller.endSession();
+
+    expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      status: 'ended',
+      endedAt: expect.any(String),
+      endedReason: null,
+    });
+  });
+
   it('sets the assistant debug state and records the matching session event', () => {
     const logger: RuntimeLogger = {
       onSessionEvent: vi.fn(),
@@ -367,7 +885,6 @@ describe('createDesktopSessionController – lifecycle', () => {
     const controller = createDesktopSessionController({
       logger,
       checkBackendHealth: vi.fn().mockResolvedValue(true),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn(),
       createTransport: vi.fn(() => createUnusedTransport()),
     });

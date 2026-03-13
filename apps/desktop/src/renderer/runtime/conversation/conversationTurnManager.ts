@@ -1,9 +1,22 @@
 import { formatConversationTimestamp } from './conversationTimestamp';
 import type { useSessionStore } from '../../store/sessionStore';
-import type { ConversationTurnModel } from './conversation.types';
+import type {
+  ConversationTurnModel,
+  TranscriptArtifactModel,
+} from './conversation.types';
 import { normalizeTranscriptText } from '../voice/voiceTranscript';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
+
+export type AssistantDraftModel = {
+  id: string;
+  role: 'assistant';
+  content: string;
+  liveTurnId?: string | undefined;
+  status: 'streaming' | 'complete' | 'interrupted';
+};
+
+export type VoiceTurnFenceState = 'idle' | 'open' | 'completed' | 'interrupted';
 
 /**
  * Mutable context bag that backs conversation turn management. All counter
@@ -12,22 +25,34 @@ type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
  */
 export interface ConversationContext {
   pendingAssistantTurnId: string | null;
+  assistantDraft: AssistantDraftModel | null;
   hasQueuedMixedModeAssistantReply: boolean;
-  currentVoiceAssistantTurnId: string | null;
-  currentVoiceUserTurnId: string | null;
+  currentVoiceTurnId: string | null;
+  currentVoiceTurnState: VoiceTurnFenceState;
+  lastSettledAssistantArtifactId: string | null;
+  currentVoiceAssistantArtifactId: string | null;
+  currentVoiceUserArtifactId: string | null;
+  nextVoiceTurnId: number;
   nextAssistantTurnId: number;
   nextUserTurnId: number;
+  nextTranscriptArtifactId: number;
   store: SessionStoreApi;
 }
 
 export function createConversationContext(store: SessionStoreApi): ConversationContext {
   return {
     pendingAssistantTurnId: null,
+    assistantDraft: null,
     hasQueuedMixedModeAssistantReply: false,
-    currentVoiceAssistantTurnId: null,
-    currentVoiceUserTurnId: null,
+    currentVoiceTurnId: null,
+    currentVoiceTurnState: 'idle',
+    lastSettledAssistantArtifactId: null,
+    currentVoiceAssistantArtifactId: null,
+    currentVoiceUserArtifactId: null,
+    nextVoiceTurnId: 0,
     nextAssistantTurnId: 0,
     nextUserTurnId: 0,
+    nextTranscriptArtifactId: 0,
     store,
   };
 }
@@ -43,93 +68,131 @@ export function getConversationTurn(
   return ctx.store.getState().conversationTurns.find((turn) => turn.id === turnId);
 }
 
+export function getTranscriptArtifact(
+  ctx: ConversationContext,
+  artifactId: string,
+): TranscriptArtifactModel | undefined {
+  return ctx.store.getState().transcriptArtifacts.find((artifact) => artifact.id === artifactId);
+}
+
 export function clearPendingAssistantTurn(ctx: ConversationContext): void {
   ctx.pendingAssistantTurnId = null;
+  clearAssistantDraft(ctx);
 }
 
 export function clearCurrentVoiceTurns(ctx: ConversationContext): void {
   ctx.hasQueuedMixedModeAssistantReply = false;
-  ctx.currentVoiceAssistantTurnId = null;
-  ctx.currentVoiceUserTurnId = null;
+  ctx.currentVoiceTurnId = null;
+  ctx.currentVoiceTurnState = 'idle';
+  ctx.lastSettledAssistantArtifactId = null;
+  ctx.currentVoiceAssistantArtifactId = null;
+  ctx.currentVoiceUserArtifactId = null;
 }
 
-function appendVoiceTurn(
+export function hasOpenVoiceTurnFence(ctx: ConversationContext): boolean {
+  return ctx.currentVoiceTurnId !== null && ctx.currentVoiceTurnState === 'open';
+}
+
+export function beginVoiceTurnFence(ctx: ConversationContext): string {
+  if (hasOpenVoiceTurnFence(ctx) && ctx.currentVoiceTurnId) {
+    return ctx.currentVoiceTurnId;
+  }
+
+  ctx.currentVoiceTurnId = `voice-turn-${++ctx.nextVoiceTurnId}`;
+  ctx.currentVoiceTurnState = 'open';
+  ctx.lastSettledAssistantArtifactId = null;
+  ctx.currentVoiceAssistantArtifactId = null;
+  ctx.currentVoiceUserArtifactId = null;
+
+  return ctx.currentVoiceTurnId;
+}
+
+export function settleVoiceTurnFence(
+  ctx: ConversationContext,
+  nextState: Extract<VoiceTurnFenceState, 'completed' | 'interrupted'>,
+): boolean {
+  if (!hasOpenVoiceTurnFence(ctx)) {
+    return false;
+  }
+
+  ctx.currentVoiceTurnState = nextState;
+  return true;
+}
+
+function appendTranscriptArtifact(
   ctx: ConversationContext,
   role: 'user' | 'assistant',
   content: string,
-  state: ConversationTurnModel['state'],
+  state: TranscriptArtifactModel['state'],
   statusLabel?: string,
   transcriptFinal?: boolean,
 ): string {
-  const turnId =
-    role === 'assistant'
-      ? `assistant-turn-${++ctx.nextAssistantTurnId}`
-      : `user-turn-${++ctx.nextUserTurnId}`;
+  const artifactId = `${role}-transcript-${++ctx.nextTranscriptArtifactId}`;
 
-  ctx.store.getState().appendConversationTurn({
-    id: turnId,
+  ctx.store.getState().appendTranscriptArtifact({
+    id: artifactId,
     role,
     content,
     timestamp: formatConversationTimestamp(),
     state,
     statusLabel,
     source: 'voice',
+    ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
     ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
   });
 
-  return turnId;
+  return artifactId;
 }
 
-function updateVoiceTurn(
+function updateTranscriptArtifact(
   ctx: ConversationContext,
-  turnId: string | null,
+  artifactId: string | null,
   patch: Partial<
-    Pick<ConversationTurnModel, 'content' | 'state' | 'statusLabel' | 'transcriptFinal' | 'source'>
+    Pick<
+      TranscriptArtifactModel,
+      'content' | 'state' | 'statusLabel' | 'transcriptFinal' | 'attachedTurnId'
+    >
   >,
-): ConversationTurnModel | null {
-  if (!turnId) {
+): TranscriptArtifactModel | null {
+  if (!artifactId) {
     return null;
   }
 
-  const currentTurn = getConversationTurn(ctx, turnId);
+  const currentArtifact = getTranscriptArtifact(ctx, artifactId);
 
-  if (!currentTurn) {
+  if (!currentArtifact) {
     return null;
   }
 
-  ctx.store.getState().updateConversationTurn(turnId, {
-    ...patch,
-    source: 'voice',
-  });
+  ctx.store.getState().updateTranscriptArtifact(artifactId, patch);
 
   return {
-    ...currentTurn,
+    ...currentArtifact,
     ...patch,
-    source: 'voice',
   };
 }
 
-function upsertVoiceTurn(
+function upsertTranscriptArtifact(
   ctx: ConversationContext,
   role: 'user' | 'assistant',
-  turnId: string | null,
+  artifactId: string | null,
   content: string,
   transcriptFinal?: boolean,
   settledReason?: 'completed' | 'interrupted',
 ): string {
-  const currentTurn = turnId ? getConversationTurn(ctx, turnId) : null;
-  const shouldCreateSettledTurn = settledReason !== undefined;
+  const currentArtifact = artifactId ? getTranscriptArtifact(ctx, artifactId) : null;
+  const shouldCreateSettledArtifact = settledReason !== undefined;
 
-  if (!currentTurn) {
-    return appendVoiceTurn(
+  if (!currentArtifact) {
+    return appendTranscriptArtifact(
       ctx,
       role,
       content,
-      shouldCreateSettledTurn ? 'complete' : 'streaming',
+      shouldCreateSettledArtifact ? 'complete' : 'streaming',
       role === 'assistant'
         ? settledReason === 'interrupted'
           ? 'Interrupted'
-          : shouldCreateSettledTurn
+          : shouldCreateSettledArtifact
             ? undefined
             : 'Responding...'
         : undefined,
@@ -137,31 +200,87 @@ function upsertVoiceTurn(
     );
   }
 
-  const nextContent = normalizeTranscriptText(currentTurn.content, content, {
+  const nextContent = normalizeTranscriptText(currentArtifact.content, content, {
     role,
     isFinal: transcriptFinal,
   });
 
-  updateVoiceTurn(ctx, currentTurn.id, {
+  updateTranscriptArtifact(ctx, currentArtifact.id, {
     content: nextContent,
-    state: shouldCreateSettledTurn ? 'complete' : 'streaming',
+    state: shouldCreateSettledArtifact ? 'complete' : 'streaming',
     statusLabel:
       role === 'assistant'
         ? settledReason === 'interrupted'
           ? 'Interrupted'
-          : shouldCreateSettledTurn
+          : shouldCreateSettledArtifact
             ? undefined
             : 'Responding...'
         : undefined,
     ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
   });
 
-  return currentTurn.id;
+  return currentArtifact.id;
 }
 
 // ---------------------------------------------------------------------------
 // Assistant turn lifecycle
 // ---------------------------------------------------------------------------
+
+function createAssistantDraft(ctx: ConversationContext): AssistantDraftModel {
+  const draftId = `assistant-draft-${ctx.nextAssistantTurnId + 1}`;
+  const draft: AssistantDraftModel = {
+    id: draftId,
+    role: 'assistant',
+    content: '',
+    ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
+    status: 'streaming',
+  };
+  ctx.assistantDraft = draft;
+  return draft;
+}
+
+export function clearAssistantDraft(ctx: ConversationContext): void {
+  ctx.assistantDraft = null;
+}
+
+export function appendAssistantDraftTextDelta(ctx: ConversationContext, text: string): AssistantDraftModel {
+  const draft =
+    ctx.assistantDraft === null || ctx.assistantDraft.status !== 'streaming'
+      ? createAssistantDraft(ctx)
+      : ctx.assistantDraft;
+
+  draft.content = `${draft.content}${text}`;
+  draft.status = 'streaming';
+  return draft;
+}
+
+export function completeAssistantDraft(ctx: ConversationContext): AssistantDraftModel | null {
+  if (ctx.assistantDraft === null) {
+    return null;
+  }
+
+  ctx.assistantDraft.status = 'complete';
+  return ctx.assistantDraft;
+}
+
+export function interruptAssistantDraft(ctx: ConversationContext): AssistantDraftModel | null {
+  if (ctx.assistantDraft === null) {
+    return null;
+  }
+
+  ctx.assistantDraft.status = 'interrupted';
+  return ctx.assistantDraft;
+}
+
+export function consumeCompletedAssistantDraft(ctx: ConversationContext): AssistantDraftModel | null {
+  if (ctx.assistantDraft === null || ctx.assistantDraft.status !== 'complete') {
+    return null;
+  }
+
+  const draft = ctx.assistantDraft;
+  ctx.assistantDraft = null;
+  return draft;
+}
 
 export function updatePendingAssistantTurn(
   ctx: ConversationContext,
@@ -201,12 +320,17 @@ export function appendAssistantTurn(
 export function appendCompletedAssistantTurn(
   ctx: ConversationContext,
   content: string,
-  statusLabel?: string,
-): void {
+  options?: {
+    source?: ConversationTurnModel['source'];
+    transcriptFinal?: boolean;
+    statusLabel?: string;
+    timelineOrdinal?: number;
+  },
+): string | null {
   const trimmedContent = content.trim();
 
   if (trimmedContent.length === 0) {
-    return;
+    return null;
   }
 
   const turnId = `assistant-turn-${++ctx.nextAssistantTurnId}`;
@@ -216,24 +340,19 @@ export function appendCompletedAssistantTurn(
     content: trimmedContent,
     timestamp: formatConversationTimestamp(),
     state: 'complete',
-    statusLabel,
+    ...(options?.timelineOrdinal !== undefined ? { timelineOrdinal: options.timelineOrdinal } : {}),
+    ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
+    ...(options?.statusLabel ? { statusLabel: options.statusLabel } : {}),
+    ...(options?.source ? { source: options.source } : {}),
+    ...(options?.transcriptFinal !== undefined
+      ? { transcriptFinal: options.transcriptFinal }
+      : {}),
   });
+  return turnId;
 }
 
 export function appendAssistantTextDelta(ctx: ConversationContext, text: string): void {
-  if (!ctx.pendingAssistantTurnId) {
-    appendAssistantTurn(ctx, text, 'streaming', 'Responding...');
-    return;
-  }
-
-  const currentTurn = getConversationTurn(ctx, ctx.pendingAssistantTurnId);
-
-  if (!currentTurn) {
-    appendAssistantTurn(ctx, text, 'streaming', 'Responding...');
-    return;
-  }
-
-  updatePendingAssistantTurn(ctx, `${currentTurn.content}${text}`, 'streaming', 'Responding...');
+  appendAssistantDraftTextDelta(ctx, text);
 }
 
 export function completePendingAssistantTurn(
@@ -262,6 +381,7 @@ export function failPendingAssistantTurn(
   statusLabel: string,
 ): string | null {
   if (!ctx.pendingAssistantTurnId) {
+    clearAssistantDraft(ctx);
     return null;
   }
 
@@ -279,76 +399,143 @@ export function failPendingAssistantTurn(
 }
 
 // ---------------------------------------------------------------------------
-// Voice turn lifecycle
+// Voice transcript artifact lifecycle
 // ---------------------------------------------------------------------------
 
-export function upsertCurrentVoiceUserTurn(
+export function upsertCurrentVoiceUserTranscriptArtifact(
   ctx: ConversationContext,
   content: string,
   transcriptFinal?: boolean,
   settledReason?: 'completed' | 'interrupted',
 ): void {
-  ctx.currentVoiceUserTurnId = upsertVoiceTurn(
+  ctx.currentVoiceUserArtifactId = upsertTranscriptArtifact(
     ctx,
     'user',
-    ctx.currentVoiceUserTurnId,
+    ctx.currentVoiceUserArtifactId,
     content,
     transcriptFinal,
     settledReason,
   );
 }
 
-export function finalizeCurrentVoiceUserTurn(ctx: ConversationContext): string | null {
-  const currentTurnId = ctx.currentVoiceUserTurnId;
-  updateVoiceTurn(ctx, ctx.currentVoiceUserTurnId, {
+export function finalizeCurrentVoiceUserTranscriptArtifact(
+  ctx: ConversationContext,
+  attachedTurnId?: string,
+): string | null {
+  const currentArtifactId = ctx.currentVoiceUserArtifactId;
+  const artifact = currentArtifactId ? getTranscriptArtifact(ctx, currentArtifactId) : null;
+
+  if (!artifact) {
+    ctx.currentVoiceUserArtifactId = null;
+    return null;
+  }
+
+  if (attachedTurnId) {
+    updateTranscriptArtifact(ctx, artifact.id, {
+      state: 'complete',
+      statusLabel: undefined,
+      attachedTurnId,
+    });
+    ctx.store.getState().removeTranscriptArtifact(artifact.id);
+    ctx.currentVoiceUserArtifactId = null;
+    return artifact.id;
+  }
+
+  updateTranscriptArtifact(ctx, artifact.id, {
     state: 'complete',
     statusLabel: undefined,
   });
-  return currentTurnId;
+  ctx.currentVoiceUserArtifactId = null;
+  return artifact.id;
 }
 
-export function upsertCurrentVoiceAssistantTurn(
+export function upsertCurrentVoiceAssistantTranscriptArtifact(
   ctx: ConversationContext,
   content: string,
   transcriptFinal?: boolean,
   settledReason?: 'completed' | 'interrupted',
 ): void {
-  ctx.currentVoiceAssistantTurnId = upsertVoiceTurn(
+  ctx.currentVoiceAssistantArtifactId = upsertTranscriptArtifact(
     ctx,
     'assistant',
-    ctx.currentVoiceAssistantTurnId,
+    ctx.currentVoiceAssistantArtifactId,
     content,
     transcriptFinal,
     settledReason,
   );
 }
 
-export function finalizeCurrentVoiceAssistantTurn(ctx: ConversationContext): string | null {
-  const turn = getConversationTurn(ctx, ctx.currentVoiceAssistantTurnId ?? '');
+export function finalizeCurrentVoiceAssistantTranscriptArtifact(
+  ctx: ConversationContext,
+  options: {
+    attachedTurnId?: string;
+    interrupted?: boolean;
+  } = {},
+): string | null {
+  const artifact = getTranscriptArtifact(ctx, ctx.currentVoiceAssistantArtifactId ?? '');
 
-  if (!turn) {
-    ctx.currentVoiceAssistantTurnId = null;
+  if (!artifact) {
+    ctx.currentVoiceAssistantArtifactId = null;
     return null;
   }
 
-  if (turn.content.trim().length === 0) {
-    ctx.store.getState().removeConversationTurn(turn.id);
-    ctx.currentVoiceAssistantTurnId = null;
+  if (artifact.content.trim().length === 0) {
+    ctx.store.getState().removeTranscriptArtifact(artifact.id);
+    ctx.currentVoiceAssistantArtifactId = null;
     return null;
   }
 
-  updateVoiceTurn(ctx, turn.id, {
+  if (options.attachedTurnId) {
+    updateTranscriptArtifact(ctx, artifact.id, {
+      state: 'complete',
+      statusLabel: options.interrupted ? 'Interrupted' : undefined,
+      attachedTurnId: options.attachedTurnId,
+    });
+    ctx.store.getState().removeTranscriptArtifact(artifact.id);
+    ctx.currentVoiceAssistantArtifactId = null;
+    ctx.lastSettledAssistantArtifactId = null;
+    return artifact.id;
+  }
+
+  updateTranscriptArtifact(ctx, artifact.id, {
     state: 'complete',
-    statusLabel: turn.statusLabel === 'Interrupted' ? 'Interrupted' : undefined,
+    statusLabel: options.interrupted ? 'Interrupted' : undefined,
   });
-  return turn.id;
+  ctx.currentVoiceAssistantArtifactId = null;
+  ctx.lastSettledAssistantArtifactId = artifact.id;
+  return artifact.id;
 }
 
-export function interruptCurrentVoiceAssistantTurn(ctx: ConversationContext): void {
-  updateVoiceTurn(ctx, ctx.currentVoiceAssistantTurnId, {
+export function interruptCurrentVoiceAssistantTranscriptArtifact(ctx: ConversationContext): void {
+  updateTranscriptArtifact(ctx, ctx.currentVoiceAssistantArtifactId, {
     state: 'complete',
     statusLabel: 'Interrupted',
   });
+}
+
+export function attachSettledVoiceAssistantTranscriptArtifact(
+  ctx: ConversationContext,
+  turnId: string,
+): string | null {
+  const artifactId = ctx.lastSettledAssistantArtifactId;
+
+  if (!artifactId) {
+    return null;
+  }
+
+  const artifact = getTranscriptArtifact(ctx, artifactId);
+
+  if (!artifact) {
+    ctx.lastSettledAssistantArtifactId = null;
+    return null;
+  }
+
+  updateTranscriptArtifact(ctx, artifact.id, {
+    attachedTurnId: turnId,
+  });
+  ctx.store.getState().removeTranscriptArtifact(artifact.id);
+  ctx.lastSettledAssistantArtifactId = null;
+  return artifact.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -358,7 +545,12 @@ export function interruptCurrentVoiceAssistantTurn(ctx: ConversationContext): vo
 export function appendUserTurn(
   ctx: ConversationContext,
   content: string,
-  options?: { persistedMessageId?: string },
+  options?: {
+    persistedMessageId?: string;
+    source?: ConversationTurnModel['source'];
+    transcriptFinal?: boolean;
+    timelineOrdinal?: number;
+  },
 ): string {
   const turnId = `user-turn-${++ctx.nextUserTurnId}`;
 
@@ -368,8 +560,14 @@ export function appendUserTurn(
     content,
     timestamp: formatConversationTimestamp(),
     state: 'complete',
+    ...(options?.timelineOrdinal !== undefined ? { timelineOrdinal: options.timelineOrdinal } : {}),
+    ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
     ...(options?.persistedMessageId
       ? { persistedMessageId: options.persistedMessageId }
+      : {}),
+    ...(options?.source ? { source: options.source } : {}),
+    ...(options?.transcriptFinal !== undefined
+      ? { transcriptFinal: options.transcriptFinal }
       : {}),
   });
 

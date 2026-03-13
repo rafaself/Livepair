@@ -42,6 +42,49 @@ describe('persistConversationTurn', () => {
     expect(window.bridge.appendChatMessage).not.toHaveBeenCalled();
   });
 
+  it('persists completed canonical assistant voice turns now that transcript artifacts are separate', async () => {
+    useSessionStore.getState().appendConversationTurn({
+      id: 'assistant-turn-1',
+      role: 'assistant',
+      content: 'Canonical voice reply',
+      timestamp: '9:00 AM',
+      state: 'complete',
+      source: 'voice',
+    });
+
+    await persistConversationTurn(useSessionStore, 'assistant-turn-1');
+
+    expect(window.bridge.appendChatMessage).toHaveBeenCalledWith({
+      chatId: 'chat-1',
+      role: 'assistant',
+      contentText: 'Canonical voice reply',
+    });
+    expect(useSessionStore.getState().conversationTurns[0]).toEqual(
+      expect.objectContaining({
+        persistedMessageId: 'assistant-message-1',
+      }),
+    );
+  });
+
+  it('still persists completed canonical user voice turns into history', async () => {
+    useSessionStore.getState().appendConversationTurn({
+      id: 'user-turn-1',
+      role: 'user',
+      content: 'Spoken request',
+      timestamp: '9:00 AM',
+      state: 'complete',
+      source: 'voice',
+    });
+
+    await persistConversationTurn(useSessionStore, 'user-turn-1');
+
+    expect(window.bridge.appendChatMessage).toHaveBeenCalledWith({
+      chatId: 'chat-1',
+      role: 'user',
+      contentText: 'Spoken request',
+    });
+  });
+
   it('deduplicates concurrent persistence for the same turn', async () => {
     let resolveAppend: ((value: ChatMessageRecord) => void) | undefined;
 
@@ -67,8 +110,7 @@ describe('persistConversationTurn', () => {
       expect(window.bridge.appendChatMessage).toHaveBeenCalledTimes(1);
     });
 
-    const finishAppend = resolveAppend;
-    finishAppend?.({
+    resolveAppend?.({
       id: 'assistant-message-1',
       chatId: 'chat-1',
       role: 'assistant',

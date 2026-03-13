@@ -7,7 +7,6 @@ import {
   createVoiceTransportHarness,
   createVoiceCaptureHarness,
   createVoicePlaybackHarness,
-  createTextChatHarness,
 } from './sessionController.testUtils';
 
 describe('createDesktopSessionController – speech lifecycle', () => {
@@ -31,7 +30,6 @@ describe('createDesktopSessionController – speech lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -86,7 +84,6 @@ describe('createDesktopSessionController – speech lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -123,7 +120,6 @@ describe('createDesktopSessionController – speech lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',
@@ -140,7 +136,7 @@ describe('createDesktopSessionController – speech lifecycle', () => {
     expect(voiceCapture.stop).toHaveBeenCalledTimes(1);
     expect(voiceTransport.disconnect).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
-    expect(useSessionStore.getState().currentMode).toBe('text');
+    expect(useSessionStore.getState().currentMode).toBe('inactive');
 
     vi.useRealTimers();
   });
@@ -162,7 +158,6 @@ describe('createDesktopSessionController – speech lifecycle', () => {
         onTransportEvent: vi.fn(),
       },
       checkBackendHealth: vi.fn(),
-      startTextChatStream: createTextChatHarness().startTextChatStream,
       requestSessionToken: vi.fn().mockResolvedValue({
         token: 'auth_tokens/test-token',
         expireTime: '2099-03-09T12:30:00.000Z',

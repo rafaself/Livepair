@@ -17,15 +17,19 @@ vi.mock('./chatMemoryDatabase', () => ({
   }),
 }));
 
-vi.mock('./chatMemoryRepository', () => ({
-  SqliteChatMemoryRepository: vi.fn().mockImplementation(() => ({
-    createChat: vi.fn(),
-    getChat: vi.fn(),
-    getOrCreateCurrentChat: vi.fn(),
-    listMessages: vi.fn(),
-    appendMessage: vi.fn(),
-  })),
-}));
+    vi.mock('./chatMemoryRepository', () => ({
+      SqliteChatMemoryRepository: vi.fn().mockImplementation(() => ({
+        createChat: vi.fn(),
+        getChat: vi.fn(),
+        getOrCreateCurrentChat: vi.fn(),
+        listMessages: vi.fn(),
+        appendMessage: vi.fn(),
+        createLiveSession: vi.fn(),
+        listLiveSessions: vi.fn(),
+        updateLiveSession: vi.fn(),
+        endLiveSession: vi.fn(),
+      })),
+    }));
 
 describe('ChatMemoryService', () => {
   beforeEach(() => {
@@ -41,6 +45,10 @@ describe('ChatMemoryService', () => {
       getOrCreateCurrentChat: vi.fn(() => ({ id: 'chat-1' })),
       listMessages: vi.fn(() => [{ id: 'message-1' }]),
       appendMessage: vi.fn(() => ({ id: 'message-1' })),
+      createLiveSession: vi.fn(() => ({ id: 'live-session-1' })),
+      listLiveSessions: vi.fn(() => [{ id: 'live-session-1' }]),
+      updateLiveSession: vi.fn(() => ({ id: 'live-session-1', restorable: true })),
+      endLiveSession: vi.fn(() => ({ id: 'live-session-1', status: 'ended' })),
     };
     const service = new ChatMemoryService(repository as never);
 
@@ -55,6 +63,30 @@ describe('ChatMemoryService', () => {
         contentText: 'Hello',
       }),
     ).toEqual({ id: 'message-1' });
+    expect(service.createLiveSession({ chatId: 'chat-1' })).toEqual({
+      id: 'live-session-1',
+    });
+    expect(service.listLiveSessions('chat-1')).toEqual([{ id: 'live-session-1' }]);
+    expect(
+      service.updateLiveSession({
+        id: 'live-session-1',
+        resumptionHandle: 'handles/live-session-1',
+        lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
+        restorable: true,
+      }),
+    ).toEqual({
+      id: 'live-session-1',
+      restorable: true,
+    });
+    expect(
+      service.endLiveSession({
+        id: 'live-session-1',
+        status: 'ended',
+      }),
+    ).toEqual({
+      id: 'live-session-1',
+      status: 'ended',
+    });
 
     expect(repository.createChat).toHaveBeenCalledWith({ title: 'New chat' });
     expect(repository.getChat).toHaveBeenCalledWith('chat-1');
@@ -64,6 +96,18 @@ describe('ChatMemoryService', () => {
       chatId: 'chat-1',
       role: 'user',
       contentText: 'Hello',
+    });
+    expect(repository.createLiveSession).toHaveBeenCalledWith({ chatId: 'chat-1' });
+    expect(repository.listLiveSessions).toHaveBeenCalledWith('chat-1');
+    expect(repository.updateLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
+      restorable: true,
+    });
+    expect(repository.endLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      status: 'ended',
     });
   });
 

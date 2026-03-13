@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { resetDesktopStores } from '../../store/testing';
@@ -28,9 +28,6 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={togglePanel}>
         toggle panel
       </button>
-      <button type="button" onClick={() => void controller.handleStartTalking()}>
-        start talking
-      </button>
       <button type="button" onClick={() => useSessionStore.getState().setAssistantState('listening')}>
         start mock session
       </button>
@@ -50,9 +47,6 @@ describe('useAssistantPanelController', () => {
       status: 'ok',
       timestamp: new Date('2026-03-09T00:00:00.000Z').toISOString(),
     });
-    window.bridge.startTextChatStream = vi.fn(async () => ({
-      cancel: vi.fn(async () => undefined),
-    }));
     window.bridge.requestSessionToken = vi.fn().mockResolvedValue({
       token: 'ephemeral-token',
       expireTime: '2099-03-09T12:30:00.000Z',
@@ -70,24 +64,6 @@ describe('useAssistantPanelController', () => {
       expect(screen.getByLabelText('backend-label')).toHaveTextContent('Connected');
     });
     expect(screen.getByLabelText('assistant-state')).toHaveTextContent('disconnected');
-  });
-
-  it('starts text mode without requesting a Live token', async () => {
-    render(<HookHarness />);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'start talking' }));
-    });
-
-    expect(window.bridge.checkHealth).toHaveBeenCalledTimes(1);
-    expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
-    expect(window.bridge.startTextChatStream).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('current-mode')).toHaveTextContent('text');
-    expect(screen.getByLabelText('assistant-state')).toHaveTextContent('ready');
-    expect(screen.getByLabelText('text-session-status')).toHaveTextContent('ready');
-    expect(screen.getByLabelText('text-session-label')).toHaveTextContent('Text chat ready');
-    expect(screen.getByLabelText('can-submit-text')).toHaveTextContent('true');
-    expect(screen.getByLabelText('token-feedback')).toHaveTextContent('none');
   });
 
   it('maps unhealthy backend checks into the derived labels and states', async () => {

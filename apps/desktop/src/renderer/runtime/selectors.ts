@@ -3,6 +3,7 @@ import type { SessionStoreState } from '../store/sessionStore';
 import {
   getTextSessionStatus,
 } from '../store/sessionStore';
+import type { ConversationTimelineEntry } from './conversation/conversation.types';
 import { isSessionActiveLifecycle, isTextTurnInFlight } from './text/textSessionLifecycle';
 
 export function selectAssistantRuntimeState(
@@ -114,15 +115,15 @@ export function selectTextSessionStatusLabel(
   const textSessionStatus = getTextSessionStatus(state);
 
   if (textSessionStatus === 'connecting') {
-    return 'Preparing text chat...';
+    return 'Preparing typed input...';
   }
 
   if (textSessionStatus === 'ready') {
-    return 'Text chat ready';
+    return 'Typed input ready';
   }
 
   if (textSessionStatus === 'sending') {
-    return 'Sending message...';
+    return 'Sending typed input...';
   }
 
   if (textSessionStatus === 'receiving') {
@@ -142,18 +143,18 @@ export function selectTextSessionStatusLabel(
   }
 
   if (textSessionStatus === 'goAway') {
-    return 'Text chat unavailable. Send again to retry.';
+    return 'Typed input unavailable. Send again to retry.';
   }
 
   if (textSessionStatus === 'disconnecting') {
-    return 'Disconnecting text session...';
+    return 'Ending typed input...';
   }
 
   if (textSessionStatus === 'error') {
-    return 'Text session failed';
+    return 'Typed input failed';
   }
 
-  return 'Text session disconnected';
+  return 'Typed input unavailable';
 }
 
 export function selectCanSubmitText(
@@ -163,9 +164,38 @@ export function selectCanSubmitText(
 }
 
 export function selectIsConversationEmpty(
-  state: Pick<SessionStoreState, 'conversationTurns'>,
+  state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
 ): boolean {
-  return state.conversationTurns.length === 0;
+  return selectVisibleConversationTimeline(state).length === 0;
+}
+
+export function selectVisibleConversationTimeline(
+  state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
+): ConversationTimelineEntry[] {
+  return [
+    ...state.conversationTurns,
+    ...(state.transcriptArtifacts ?? []).filter((artifact) => artifact.attachedTurnId === undefined),
+  ]
+    .map((entry, index) => ({ entry, index }))
+    .sort((left, right) => {
+      const leftOrdinal = left.entry.timelineOrdinal;
+      const rightOrdinal = right.entry.timelineOrdinal;
+
+      if (leftOrdinal !== undefined && rightOrdinal !== undefined && leftOrdinal !== rightOrdinal) {
+        return leftOrdinal - rightOrdinal;
+      }
+
+      if (leftOrdinal !== undefined && rightOrdinal === undefined) {
+        return -1;
+      }
+
+      if (leftOrdinal === undefined && rightOrdinal !== undefined) {
+        return 1;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ entry }) => entry);
 }
 
 export function selectIsSessionActive(

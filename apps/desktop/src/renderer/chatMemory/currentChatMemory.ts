@@ -2,18 +2,19 @@ import type {
   AppendChatMessageRequest,
   ChatMessageRecord,
   ChatRecord,
-  TextChatRequest,
+  LiveSessionRecord,
+  RehydrationPacket,
 } from '@livepair/shared-types';
 import { useSessionStore } from '../store/sessionStore';
 import {
   mapChatMessageRecordsToConversationTurns,
-  mapChatMessageRecordsToTextChatMessages,
 } from '../runtime/conversation/chatMessageAdapter';
 import type { LiveSessionHistoryTurn } from '../runtime/transport/transport.types';
+import { buildRehydrationPacket } from './rehydrationPacket';
 
 type CurrentChatMemoryBridge = Pick<
   typeof window.bridge,
-  'appendChatMessage' | 'getOrCreateCurrentChat' | 'listChatMessages'
+  'appendChatMessage' | 'getOrCreateCurrentChat' | 'listChatMessages' | 'listLiveSessions'
 >;
 
 type HydratedCurrentChat = {
@@ -36,6 +37,12 @@ async function ensureActiveChat(
   activeChat = chat;
   useSessionStore.getState().setActiveChatId(chat.id);
   return chat;
+}
+
+export async function getCurrentChat(
+  bridge: CurrentChatMemoryBridge = window.bridge,
+): Promise<ChatRecord> {
+  return ensureActiveChat(bridge);
 }
 
 export async function hydrateCurrentChat(
@@ -73,32 +80,39 @@ export async function listCurrentChatMessages(
   return bridge.listChatMessages(chat.id);
 }
 
-export async function buildTextChatRequestFromCurrentChat(
+export async function buildRehydrationPacketFromCurrentChat(
   bridge: CurrentChatMemoryBridge = window.bridge,
-): Promise<TextChatRequest> {
-  const messages = await listCurrentChatMessages(bridge);
+): Promise<RehydrationPacket> {
+  const chat = await ensureActiveChat(bridge);
+  const [messages, liveSessions] = await Promise.all([
+    bridge.listChatMessages(chat.id),
+    bridge.listLiveSessions(chat.id),
+  ]);
+  const latestLiveSession = liveSessions[0] ?? null;
+
+  return buildRehydrationPacket(messages, getPersistedSnapshotInputs(latestLiveSession));
+}
+
+function getPersistedSnapshotInputs(
+  liveSession: LiveSessionRecord | null,
+): Parameters<typeof buildRehydrationPacket>[1] {
+  if (liveSession === null) {
+    return {};
+  }
 
   return {
-    messages: mapChatMessageRecordsToTextChatMessages(messages),
+    summary: liveSession.summarySnapshot ?? null,
+    contextState: liveSession.contextStateSnapshot ?? null,
   };
 }
 
-function mapChatMessageRecordsToLiveSessionHistory(
-  records: readonly ChatMessageRecord[],
+export function mapRehydrationPacketToLiveSessionHistory(
+  packet: RehydrationPacket,
 ): LiveSessionHistoryTurn[] {
-  return [...records]
-    .sort((left, right) => left.sequence - right.sequence)
-    .map((record) => ({
-      role: record.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: record.contentText }],
-    }));
-}
-
-export async function buildLiveSessionHistoryFromCurrentChat(
-  bridge: CurrentChatMemoryBridge = window.bridge,
-): Promise<LiveSessionHistoryTurn[]> {
-  const messages = await listCurrentChatMessages(bridge);
-  return mapChatMessageRecordsToLiveSessionHistory(messages);
+  return packet.recentTurns.map((turn) => ({
+    role: turn.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: turn.text }],
+  }));
 }
 
 export async function appendMessageToCurrentChat(

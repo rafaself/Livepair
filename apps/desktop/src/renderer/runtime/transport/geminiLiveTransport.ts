@@ -36,6 +36,7 @@ import {
   createTransportError,
   getErrorDetail,
 } from './geminiLiveTransportProtocol';
+import { mapRehydrationPacketToLiveSessionHistory } from '../../chatMemory/currentChatMemory';
 import {
   createGeminiLiveTransportState,
   resetGeminiLiveTransportState,
@@ -75,7 +76,26 @@ export class GeminiLiveTransport implements DesktopSession {
     };
   }
 
-  async connect({ token, mode, resumeHandle, history }: DesktopSessionConnectParams): Promise<void> {
+  async connect(params: DesktopSessionConnectParams): Promise<void> {
+    if ('history' in (params as Record<string, unknown>)) {
+      throw createTransportError(
+        'Gemini Live fallback rehydration must use a RehydrationPacket instead of raw history',
+      );
+    }
+
+    const {
+      token,
+      mode,
+      resumeHandle,
+      rehydrationPacket,
+    } = params;
+
+    if (typeof resumeHandle === 'string' && typeof rehydrationPacket !== 'undefined') {
+      throw createTransportError(
+        'Gemini Live connect cannot mix resumption handles with fallback rehydration packets',
+      );
+    }
+
     if (!token.token) {
       const detail = 'Gemini Live token was missing';
       this.emit({ type: 'error', detail });
@@ -241,16 +261,20 @@ export class GeminiLiveTransport implements DesktopSession {
     try {
       await setupPromise;
       const session = this.state.session ?? activeSession;
+      const effectiveHistory =
+        rehydrationPacket && rehydrationPacket.recentTurns.length > 0
+          ? mapRehydrationPacketToLiveSessionHistory(rehydrationPacket)
+          : undefined;
 
-      if (history && history.length > 0) {
+      if (effectiveHistory && effectiveHistory.length > 0) {
         if (!session) {
           throw createTransportError('Gemini Live session did not initialize correctly');
         }
 
         logRuntimeDiagnostic('gemini-live-transport', 'prefill history', {
-          turnCount: history.length,
+          turnCount: effectiveHistory.length,
         });
-        session.sendClientContent(buildGeminiLiveHistoryPrefill(history));
+        session.sendClientContent(buildGeminiLiveHistoryPrefill(effectiveHistory));
       }
     } catch (error) {
       closeGeminiLiveSdkSession(activeSession);
@@ -265,8 +289,8 @@ export class GeminiLiveTransport implements DesktopSession {
       throw createTransportError('Gemini Live session is not connected');
     }
 
-    if (this.state.pendingOutputText.length > 0) {
-      this.state.pendingOutputText = '';
+    if (this.state.hasPendingTextResponse) {
+      this.state.hasPendingTextResponse = false;
       this.emit({ type: 'interrupted' });
     }
 

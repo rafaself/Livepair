@@ -6,21 +6,16 @@ import { useSessionStore } from '../../store/sessionStore';
 import { resetDesktopStores } from '../../store/testing';
 import { useUiStore } from '../../store/uiStore';
 import { AssistantPanel } from './AssistantPanel';
-import { useSessionRuntime } from '../../runtime/useSessionRuntime';
 
 const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();
 
 function AssistantPanelHarness(): JSX.Element {
   const togglePanel = useUiStore((state) => state.togglePanel);
-  const { handleStartSession } = useSessionRuntime();
 
   return (
     <>
       <button type="button" onClick={togglePanel}>
         toggle panel
-      </button>
-      <button type="button" onClick={() => void handleStartSession()}>
-        start session
       </button>
       <AssistantPanel />
     </>

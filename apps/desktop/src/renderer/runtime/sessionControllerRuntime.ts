@@ -3,7 +3,6 @@ import type { AssistantAudioPlayback } from './audio/audio.types';
 import type {
   ProductMode,
   SessionControllerEvent,
-  SessionMode,
 } from './core/session.types';
 import type {
   SessionStoreApi,
@@ -61,7 +60,6 @@ type SessionControllerRuntimeArgs = {
     resetVoiceSessionResumption: () => void;
     resetVoiceToolState: () => void;
     resetVoiceTurnTranscriptState: () => void;
-    resolveProductMode: (mode: SessionMode) => ProductMode;
     setCurrentMode: (mode: ProductMode) => void;
     setVoicePlaybackState: (state: VoicePlaybackState) => void;
     setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;
@@ -103,15 +101,12 @@ type SessionControllerRuntimeArgs = {
     handle: () => void;
     reset: () => void;
   };
-  textChatCtrl: {
-    clearPendingAssistantTurn: () => void;
-    currentStatus: () => TextSessionStatus;
-    releaseStream: () => void;
-    resetRuntime: (
-      textSessionStatus?: TextSessionStatus,
-      options?: { preserveConversationTurns?: boolean },
-    ) => void;
-  };
+  currentTextSessionStatus: () => TextSessionStatus;
+  resetTextSessionRuntime: (
+    textSessionStatus?: TextSessionStatus,
+    options?: { preserveConversationTurns?: boolean },
+  ) => void;
+  clearPendingAssistantTurn: () => void;
   voiceTranscript: {
     resetTurnTranscriptState: () => void;
     resetTurnCompletedFlag: () => void;
@@ -131,7 +126,9 @@ export function createSessionControllerRuntime({
   voiceToolCtrl,
   screenCtrl,
   interruptionCtrl,
-  textChatCtrl,
+  currentTextSessionStatus,
+  resetTextSessionRuntime,
+  clearPendingAssistantTurn,
   voiceTranscript,
   silenceCtrl,
 }: SessionControllerRuntimeArgs) {
@@ -156,9 +153,8 @@ export function createSessionControllerRuntime({
     voiceToolCtrl.cancel('voice transport cleaned up');
     screenCtrl.resetSendChain();
     interruptionCtrl.reset();
-    textChatCtrl.releaseStream();
     silenceCtrl.clearAll();
-    textChatCtrl.clearPendingAssistantTurn();
+    clearPendingAssistantTurn();
     voiceTranscript.resetTurnCompletedFlag();
   };
 
@@ -170,7 +166,7 @@ export function createSessionControllerRuntime({
     clearCurrentVoiceTranscript: stateSync.clearCurrentVoiceTranscript,
     currentProductMode: stateSync.currentProductMode,
     currentSpeechLifecycleStatus: stateSync.currentSpeechLifecycleStatus,
-    currentTextSessionStatus: textChatCtrl.currentStatus,
+    currentTextSessionStatus,
     currentVoiceSessionStatus: stateSync.currentVoiceSessionStatus,
     enqueueVoiceToolCalls: (calls: VoiceToolCall[]): void => {
       voiceToolCtrl.enqueue(calls);
@@ -187,14 +183,13 @@ export function createSessionControllerRuntime({
       textSessionStatus: TextSessionStatus = 'idle',
       options?: { preserveConversationTurns?: boolean },
     ): void => {
-      textChatCtrl.resetRuntime(textSessionStatus, options);
+      resetTextSessionRuntime(textSessionStatus, options);
       voiceTranscript.resetTurnTranscriptState();
     },
     resetVoiceSessionDurability: stateSync.resetVoiceSessionDurability,
     resetVoiceSessionResumption: stateSync.resetVoiceSessionResumption,
     resetVoiceToolState: stateSync.resetVoiceToolState,
     resetVoiceTurnTranscriptState: stateSync.resetVoiceTurnTranscriptState,
-    resolveProductMode: stateSync.resolveProductMode,
     setActiveTransport: mutableRuntime.setActiveTransport,
     setCurrentMode: stateSync.setCurrentMode,
     setVoicePlaybackState: stateSync.setVoicePlaybackState,

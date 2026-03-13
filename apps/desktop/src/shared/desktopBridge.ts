@@ -6,9 +6,11 @@ import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   CreateChatRequest,
+  CreateLiveSessionRequest,
+  EndLiveSessionRequest,
   HealthResponse,
-  TextChatRequest,
-  TextChatStreamEvent,
+  LiveSessionRecord,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import type {
   DesktopSettings,
@@ -23,9 +25,6 @@ export type OverlayHitRegion = {
 };
 
 export type OverlayMode = 'linux-shape' | 'forwarded-pointer';
-export type TextChatStreamHandle = {
-  cancel: () => Promise<void>;
-};
 
 export interface DesktopBridge {
   overlayMode: OverlayMode;
@@ -33,15 +32,15 @@ export interface DesktopBridge {
   requestSessionToken: (
     req: CreateEphemeralTokenRequest,
   ) => Promise<CreateEphemeralTokenResponse>;
-  startTextChatStream: (
-    req: TextChatRequest,
-    onEvent: (event: TextChatStreamEvent) => void,
-  ) => Promise<TextChatStreamHandle>;
   createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
   listChatMessages: (chatId: ChatId) => Promise<ChatMessageRecord[]>;
   appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
+  createLiveSession: (req: CreateLiveSessionRequest) => Promise<LiveSessionRecord>;
+  listLiveSessions: (chatId: ChatId) => Promise<LiveSessionRecord[]>;
+  updateLiveSession: (req: UpdateLiveSessionRequest) => Promise<LiveSessionRecord>;
+  endLiveSession: (req: EndLiveSessionRequest) => Promise<LiveSessionRecord>;
   getSettings: () => Promise<DesktopSettings>;
   updateSettings: (patch: DesktopSettingsPatch) => Promise<DesktopSettings>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
@@ -51,14 +50,15 @@ export interface DesktopBridge {
 export const IPC_CHANNELS = {
   checkHealth: 'health:check',
   requestSessionToken: 'session:requestToken',
-  startTextChatStream: 'session:startTextChat',
-  cancelTextChatStream: 'session:cancelTextChat',
-  textChatEvent: 'session:textChatEvent',
   createChat: 'chatMemory:createChat',
   getChat: 'chatMemory:getChat',
   getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',
   listChatMessages: 'chatMemory:listMessages',
   appendChatMessage: 'chatMemory:appendMessage',
+  createLiveSession: 'liveSession:create',
+  listLiveSessions: 'liveSession:listByChat',
+  updateLiveSession: 'liveSession:update',
+  endLiveSession: 'liveSession:end',
   getSettings: 'settings:get',
   updateSettings: 'settings:update',
   setOverlayHitRegions: 'overlay:setHitRegions',

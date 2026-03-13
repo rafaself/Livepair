@@ -1,11 +1,11 @@
 import { ArrowDown } from 'lucide-react';
 import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { ConversationTurn } from './ConversationTurn';
-import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
+import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
 import './ConversationList.css';
 
 export type ConversationListProps = {
-  turns: readonly ConversationTurnModel[];
+  turns: readonly ConversationTimelineEntry[];
   emptyState: ReactNode;
 } & HTMLAttributes<HTMLDivElement>;
 

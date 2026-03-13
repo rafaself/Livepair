@@ -9,7 +9,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="disconnected"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="disconnected"
         canSubmitText={true}
@@ -26,8 +26,8 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.queryByRole('status', { name: 'Disconnected' })).toBeNull();
-    expect(screen.getByText('No conversation yet')).toBeVisible();
-    expect(screen.getByPlaceholderText('Ask Livepair')).toBeVisible();
+    expect(screen.getByText('Conversation inactive')).toBeVisible();
+    expect(screen.getByPlaceholderText('Start a Live session to type')).toBeDisabled();
   });
 
   it('renders populated conversation turns without the empty state copy', () => {
@@ -51,7 +51,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="ready"
         canSubmitText={true}
@@ -77,7 +77,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="error"
         canSubmitText={true}
@@ -114,7 +114,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="error"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="error"
         canSubmitText={true}
@@ -135,7 +135,41 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByText('Disconnected')).toBeVisible();
   });
 
-  it('submits text with Enter and disables the composer while a send is pending', () => {
+  it('keeps the composer inactive outside a Live session', () => {
+    const handleSubmitTextTurn = vi.fn((event?: FormEvent<HTMLFormElement>) => {
+      event?.preventDefault();
+    });
+    const handleStartSpeechMode = vi.fn(async () => undefined);
+
+    render(
+      <AssistantPanelChatView
+        assistantState="disconnected"
+        currentMode="inactive"
+        textSessionStatus="disconnected"
+        canSubmitText={true}
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Summarize this"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={handleSubmitTextTurn}
+        speechLifecycleStatus="off"
+        onStartSpeechMode={handleStartSpeechMode}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Start a Live session to type')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Start speech mode' })).toBeEnabled();
+
+    fireEvent.submit(screen.getByRole('form', { name: 'Send message to Livepair' }));
+
+    expect(handleStartSpeechMode).toHaveBeenCalledTimes(1);
+    expect(handleSubmitTextTurn).not.toHaveBeenCalled();
+  });
+
+  it('submits text with Enter and disables the composer while a send is pending during Live', () => {
     const handleDraftTextChange = () => {};
     const handleSubmitTextTurn = vi.fn((event?: FormEvent<HTMLFormElement>) => {
       event?.preventDefault();
@@ -144,9 +178,11 @@ describe('AssistantPanelChatView', () => {
     const { rerender } = render(
       <AssistantPanelChatView
         assistantState="ready"
-        currentMode="text"
+        currentMode="speech"
         textSessionStatus="ready"
         canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError={null}
@@ -154,7 +190,7 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={handleDraftTextChange}
         onSubmitTextTurn={handleSubmitTextTurn}
-        speechLifecycleStatus="off"
+        speechLifecycleStatus="listening"
         onStartSpeechMode={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
@@ -167,9 +203,11 @@ describe('AssistantPanelChatView', () => {
     rerender(
       <AssistantPanelChatView
         assistantState="thinking"
-        currentMode="text"
+        currentMode="speech"
         textSessionStatus="receiving"
         canSubmitText={false}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError={null}
@@ -177,7 +215,7 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={true}
         onDraftTextChange={handleDraftTextChange}
         onSubmitTextTurn={handleSubmitTextTurn}
-        speechLifecycleStatus="off"
+        speechLifecycleStatus="assistantSpeaking"
         onStartSpeechMode={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
@@ -187,13 +225,15 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
   });
 
-  it('keeps the composer enabled after a completed turn and disables it while connecting', () => {
+  it('keeps the composer enabled after a completed turn during Live and disables it while connecting', () => {
     const { rerender } = render(
       <AssistantPanelChatView
         assistantState="ready"
-        currentMode="text"
+        currentMode="speech"
         textSessionStatus="completed"
         canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError={null}
@@ -201,7 +241,7 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={false}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
-        speechLifecycleStatus="off"
+        speechLifecycleStatus="listening"
         onStartSpeechMode={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
@@ -212,9 +252,11 @@ describe('AssistantPanelChatView', () => {
     rerender(
       <AssistantPanelChatView
         assistantState="thinking"
-        currentMode="text"
+        currentMode="speech"
         textSessionStatus="connecting"
         canSubmitText={false}
+        activeTransport="gemini-live"
+        voiceSessionStatus="connecting"
         turns={[]}
         isConversationEmpty={true}
         lastRuntimeError={null}
@@ -222,7 +264,7 @@ describe('AssistantPanelChatView', () => {
         isSubmittingTextTurn={true}
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
-        speechLifecycleStatus="off"
+        speechLifecycleStatus="starting"
         onStartSpeechMode={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
@@ -298,7 +340,7 @@ describe('AssistantPanelChatView', () => {
     expect(
       screen.getByText('Your spoken turns and assistant replies will appear here.'),
     ).toBeVisible();
-    expect(screen.queryByText('No conversation yet')).toBeNull();
+    expect(screen.queryByText('Conversation inactive')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
   });
 
@@ -347,7 +389,7 @@ describe('AssistantPanelChatView', () => {
     render(
       <AssistantPanelChatView
         assistantState="ready"
-        currentMode="text"
+        currentMode="inactive"
         speechLifecycleStatus="off"
         textSessionStatus="receiving"
         canSubmitText={false}

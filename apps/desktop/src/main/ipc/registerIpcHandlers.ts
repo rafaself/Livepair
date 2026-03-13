@@ -9,9 +9,10 @@ import {
   isChatId,
   isCreateChatRequest,
   isCreateEphemeralTokenRequest,
+  isCreateLiveSessionRequest,
   isDesktopSettingsPatch,
-  isTextChatCancelRequest,
-  isTextChatRequest,
+  isEndLiveSessionRequest,
+  isUpdateLiveSessionRequest,
   toOverlayRectangles,
 } from './validators';
 
@@ -34,7 +35,6 @@ export function registerIpcHandlers({
     fetchImpl,
     getBackendUrl: async () => (await settingsService.getSettings()).backendUrl,
   });
-  const activeTextChatStreams = new Map<string, ReturnType<ReturnType<typeof createBackendClient>['startTextChatStream']>>();
 
   ipcMain.handle(IPC_CHANNELS.checkHealth, async () => {
     return backendClient.checkHealth();
@@ -48,46 +48,6 @@ export function registerIpcHandlers({
       }
 
       return backendClient.requestSessionToken(req);
-    },
-  );
-
-  ipcMain.handle(
-    IPC_CHANNELS.startTextChatStream,
-    async (event, req: unknown) => {
-      if (!isTextChatRequest(req)) {
-        throw new Error('Invalid text chat request payload');
-      }
-
-      const streamId = `text-stream-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      const handle = backendClient.startTextChatStream(req, {
-        onEvent: (streamEvent) => {
-          event.sender.send(IPC_CHANNELS.textChatEvent, {
-            streamId,
-            event: streamEvent,
-          });
-        },
-      });
-
-      activeTextChatStreams.set(streamId, handle);
-      void handle.done.finally(() => {
-        activeTextChatStreams.delete(streamId);
-      });
-
-      return { streamId };
-    },
-  );
-
-  ipcMain.handle(
-    IPC_CHANNELS.cancelTextChatStream,
-    async (_event, req: unknown) => {
-      if (!isTextChatCancelRequest(req)) {
-        throw new Error('Invalid text chat cancel payload');
-      }
-
-      const activeStream = activeTextChatStreams.get(req.streamId);
-      activeStream?.cancel();
-      await activeStream?.done;
-      activeTextChatStreams.delete(req.streamId);
     },
   );
 
@@ -136,6 +96,50 @@ export function registerIpcHandlers({
       }
 
       return chatMemoryService.appendMessage(req);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.createLiveSession,
+    async (_event, req: unknown) => {
+      if (!isCreateLiveSessionRequest(req)) {
+        throw new Error('Invalid create live session payload');
+      }
+
+      return chatMemoryService.createLiveSession(req);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.listLiveSessions,
+    async (_event, chatId: unknown) => {
+      if (!isChatId(chatId)) {
+        throw new Error('Invalid chat id');
+      }
+
+      return chatMemoryService.listLiveSessions(chatId);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.updateLiveSession,
+    async (_event, req: unknown) => {
+      if (!isUpdateLiveSessionRequest(req)) {
+        throw new Error('Invalid update live session payload');
+      }
+
+      return chatMemoryService.updateLiveSession(req);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.endLiveSession,
+    async (_event, req: unknown) => {
+      if (!isEndLiveSessionRequest(req)) {
+        throw new Error('Invalid end live session payload');
+      }
+
+      return chatMemoryService.endLiveSession(req);
     },
   );
 

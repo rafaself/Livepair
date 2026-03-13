@@ -34,6 +34,7 @@ function createMockOps() {
     setVoiceSessionStatus: vi.fn(),
     setVoiceSessionResumption: vi.fn(),
     setVoiceSessionDurability: vi.fn(),
+    persistLiveSessionResumption: vi.fn(),
     syncVoiceDurabilityState: vi.fn(),
     setVoicePlaybackState: vi.fn(),
     updateVoicePlaybackDiagnostics: vi.fn(),
@@ -44,12 +45,23 @@ function createMockOps() {
     cancelVoiceToolCalls: vi.fn(),
     resetVoiceToolState: vi.fn(),
     resetVoiceTurnTranscriptState: vi.fn(),
-    ensureAssistantVoiceTurn: vi.fn(),
+    ensureAssistantVoiceTurn: vi.fn().mockReturnValue(true),
     finalizeCurrentVoiceTurns: vi.fn(),
+    attachCurrentAssistantTurn: vi.fn(),
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
     applySpeechLifecycleEvent: vi.fn(),
     applyVoiceTranscriptUpdate: vi.fn(),
+    appendAssistantDraftTextDelta: vi.fn(),
+    completeAssistantDraft: vi.fn(),
+    interruptAssistantDraft: vi.fn(),
+    discardAssistantDraft: vi.fn(),
+    commitAssistantDraft: vi.fn().mockReturnValue(null),
+    hasOpenVoiceTurnFence: vi.fn().mockReturnValue(true),
+    hasPendingVoiceToolCall: vi.fn().mockReturnValue(false),
+    hasActiveAssistantVoiceTurn: vi.fn().mockReturnValue(false),
+    hasQueuedMixedModeAssistantReply: vi.fn().mockReturnValue(false),
+    hasStreamingAssistantVoiceTurn: vi.fn().mockReturnValue(false),
     setVoiceErrorState: vi.fn(),
     cleanupTransport: vi.fn(),
     resumeVoiceSession: vi.fn().mockResolvedValue(undefined),
@@ -275,6 +287,13 @@ describe('createTransportEventRouter', () => {
           resumable: true,
         }),
       );
+      expect(ops.persistLiveSessionResumption).toHaveBeenCalledWith({
+        resumptionHandle: 'handles/v2',
+        lastResumptionUpdateAt: expect.any(String),
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
+      });
     });
 
     it('clears the latest handle when the transport explicitly reports no resumable handle', () => {
@@ -295,6 +314,13 @@ describe('createTransportEventRouter', () => {
           lastDetail: null,
         }),
       );
+      expect(ops.persistLiveSessionResumption).toHaveBeenCalledWith({
+        resumptionHandle: null,
+        lastResumptionUpdateAt: expect.any(String),
+        restorable: false,
+        invalidatedAt: expect.any(String),
+        invalidationReason: null,
+      });
     });
   });
 
@@ -318,9 +344,106 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'interrupted' });
 
+      expect(ops.interruptAssistantDraft).toHaveBeenCalledTimes(1);
+      expect(ops.discardAssistantDraft).toHaveBeenCalledTimes(1);
       expect(ops.cancelVoiceToolCalls).toHaveBeenCalledWith('voice turn interrupted');
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('interrupted');
       expect(ops.handleVoiceInterruption).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores duplicate interrupted events after the current turn is already fenced', () => {
+      const ops = createMockOps();
+      ops.hasOpenVoiceTurnFence
+        .mockReturnValueOnce(true)
+        .mockReturnValue(false);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'interrupted' });
+      handleTransportEvent({ type: 'interrupted' });
+
+      expect(ops.interruptAssistantDraft).toHaveBeenCalledTimes(1);
+      expect(ops.discardAssistantDraft).toHaveBeenCalledTimes(1);
+      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledTimes(1);
+      expect(ops.handleVoiceInterruption).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores late assistant text deltas while the interrupted turn is unavailable', () => {
+      const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('interrupted');
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'text-delta', text: 'late text' });
+
+      expect(ops.appendAssistantDraftTextDelta).not.toHaveBeenCalled();
+      expect(ops.logRuntimeDiagnostic).toHaveBeenCalledWith(
+        'voice-session',
+        'ignored assistant output while turn is unavailable',
+        expect.objectContaining({
+          voiceStatus: 'interrupted',
+          eventType: 'text-delta',
+        }),
+      );
+    });
+
+    it('allows assistant text deltas for a queued mixed-mode reply while recovery is settling', () => {
+      const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('recovering');
+      ops.hasQueuedMixedModeAssistantReply.mockReturnValue(true);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'text-delta', text: 'next reply' });
+
+      expect(ops.appendAssistantDraftTextDelta).toHaveBeenCalledWith('next reply');
+      expect(ops.logRuntimeDiagnostic).not.toHaveBeenCalled();
+    });
+
+    it('ignores assistant transcript packets after interruption fences the turn', () => {
+      const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('interrupted');
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'output-transcript', text: 'late transcript', isFinal: false } as never);
+
+      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.ensureAssistantVoiceTurn).not.toHaveBeenCalled();
+      expect(ops.applyVoiceTranscriptUpdate).not.toHaveBeenCalled();
+      expect(ops.appendAssistantDraftTextDelta).not.toHaveBeenCalled();
+      expect(ops.commitAssistantDraft).not.toHaveBeenCalled();
+    });
+
+    it('ignores late assistant audio chunks while no interrupted or queued assistant turn can accept them', () => {
+      const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('recovering');
+      const chunk = new Uint8Array([9, 9, 9]);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'audio-chunk', chunk });
+
+      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.ensureAssistantVoiceTurn).not.toHaveBeenCalled();
+      expect(ops.getVoicePlayback().enqueue).not.toHaveBeenCalled();
+      expect(ops.logRuntimeDiagnostic).toHaveBeenCalledWith(
+        'voice-session',
+        'ignored assistant output while turn is unavailable',
+        expect.objectContaining({
+          voiceStatus: 'recovering',
+          eventType: 'audio-chunk',
+        }),
+      );
+    });
+
+  });
+
+  describe('text-delta', () => {
+    it('routes streamed assistant text into the transient assistant draft only', () => {
+      const ops = createMockOps();
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'text-delta', text: 'Hello' });
+
+      expect(ops.appendAssistantDraftTextDelta).toHaveBeenCalledWith('Hello');
+      expect(ops.completeAssistantDraft).not.toHaveBeenCalled();
+      expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalled();
     });
   });
 
@@ -364,14 +487,78 @@ describe('createTransportEventRouter', () => {
   });
 
   describe('generation-complete', () => {
-    it('does not finalize voice turns or advance the speech lifecycle on its own', () => {
+    it('does not finalize voice turns, draft ownership, or advance the speech lifecycle on its own', () => {
       const ops = createMockOps();
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
 
       handleTransportEvent({ type: 'generation-complete' });
 
+      expect(ops.completeAssistantDraft).not.toHaveBeenCalled();
+      expect(ops.commitAssistantDraft).not.toHaveBeenCalled();
       expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalled();
       expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('turn-complete', () => {
+    it('finalizes and commits the assistant draft only when turn-complete arrives', () => {
+      const ops = createMockOps();
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'turn-complete' });
+
+      expect(ops.completeAssistantDraft).toHaveBeenCalledTimes(1);
+      expect(ops.commitAssistantDraft).toHaveBeenCalledTimes(1);
+      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
+    });
+
+    it('ignores turn-complete when there is no open fenced turn to finalize', () => {
+      const ops = createMockOps();
+      ops.hasOpenVoiceTurnFence.mockReturnValue(false);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'turn-complete' });
+
+      expect(ops.completeAssistantDraft).not.toHaveBeenCalled();
+      expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalled();
+      expect(ops.commitAssistantDraft).not.toHaveBeenCalled();
+      expect(ops.attachCurrentAssistantTurn).not.toHaveBeenCalled();
+    });
+
+    it('ignores late turn-complete after interruption so interrupted drafts cannot commit normally', () => {
+      const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('interrupted');
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'turn-complete' });
+
+      expect(ops.completeAssistantDraft).not.toHaveBeenCalled();
+      expect(ops.commitAssistantDraft).not.toHaveBeenCalled();
+      expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalledWith('completed');
+      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.logRuntimeDiagnostic).toHaveBeenCalledWith(
+        'voice-session',
+        'ignored assistant output while turn is unavailable',
+        expect.objectContaining({
+          voiceStatus: 'interrupted',
+          eventType: 'turn-complete',
+        }),
+      );
+    });
+
+    it('allows turn-complete once a new assistant turn is actively streaming during recovery', () => {
+      const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('recovering');
+      ops.hasStreamingAssistantVoiceTurn.mockReturnValue(true);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'turn-complete' });
+
+      expect(ops.completeAssistantDraft).toHaveBeenCalledTimes(1);
+      expect(ops.commitAssistantDraft).toHaveBeenCalledTimes(1);
+      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
     });
   });
 
@@ -415,6 +602,7 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'turn-complete' });
 
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.turn.completed' });
     });
 
@@ -426,6 +614,7 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'turn-complete' });
 
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
       expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'user.turn.settled' });
     });
 
@@ -437,17 +626,18 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'turn-complete' });
 
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
       expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
     });
 
     it('does not treat a post-interruption turn-complete as a normal assistant completion transition', () => {
       const ops = createMockOps();
-      ops.currentSpeechLifecycleStatus.mockReturnValue('interrupted');
+      ops.currentVoiceSessionStatus.mockReturnValue('interrupted');
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
 
       handleTransportEvent({ type: 'turn-complete' });
 
-      expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
+      expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalledWith('completed');
       expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
     });
   });

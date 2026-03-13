@@ -1,11 +1,12 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { AssistantRuntimeState } from '../../state/assistantUiState';
-import type { ConversationTurnModel } from '../../runtime/conversation/conversation.types';
+import type { ConversationTimelineEntry } from '../../runtime/conversation/conversation.types';
 import type { ProductMode } from '../../runtime/core/session.types';
 import {
   canSubmitComposerText,
   createControlGatingSnapshot,
 } from '../../runtime/controlGating';
+import { isSpeechLifecycleActive } from '../../runtime/speech/speechSessionLifecycle';
 import type { SpeechLifecycleStatus } from '../../runtime/speech/speech.types';
 import type { TextSessionStatus } from '../../runtime/text/text.types';
 import type { TransportKind } from '../../runtime/transport/transport.types';
@@ -25,7 +26,7 @@ export type AssistantPanelChatViewProps = {
   canSubmitText: boolean;
   activeTransport?: TransportKind | null;
   voiceSessionStatus?: VoiceSessionStatus;
-  turns: ConversationTurnModel[];
+  turns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -67,12 +68,16 @@ export function AssistantPanelChatView({
     !canSubmitText ||
     !canSubmitComposerText(controlGatingSnapshot);
   const isSpeechMode = currentMode === 'speech';
+  const isLiveSessionActive = isSpeechLifecycleActive(speechLifecycleStatus);
   const composerAction = createAssistantPanelComposerAction({
     controlGatingSnapshot,
     draftText,
     isComposerDisabled,
     speechLifecycleStatus,
   });
+  const composerPlaceholder = isLiveSessionActive
+    ? 'Ask Livepair'
+    : 'Start a Live session to type';
 
   return (
     <div className="assistant-panel__view-section">
@@ -97,6 +102,7 @@ export function AssistantPanelChatView({
           draftText={draftText}
           isComposerDisabled={isComposerDisabled}
           isPanelOpen={isPanelOpen ?? false}
+          placeholder={composerPlaceholder}
           onDraftTextChange={onDraftTextChange}
           onEndSpeechMode={onEndSpeechMode}
           onStartSpeechMode={onStartSpeechMode}

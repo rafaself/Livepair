@@ -11,7 +11,7 @@ function createDockProps(
   overrides: Partial<ControlDockProps> = {},
 ): ControlDockProps {
   return {
-    currentMode: 'text',
+    currentMode: 'inactive',
     speechLifecycleStatus: 'off',
     activeTransport: null,
     voiceSessionStatus: 'disconnected',
@@ -185,7 +185,7 @@ describe('ControlDock', () => {
 
   it('keeps speech controls visible but disabled while speech teardown is still in progress', () => {
     renderDock({
-      currentMode: 'text',
+      currentMode: 'inactive',
       speechLifecycleStatus: 'ending',
       activeTransport: null,
       voiceSessionStatus: 'stopping',

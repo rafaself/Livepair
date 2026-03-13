@@ -7,9 +7,27 @@ export type ConversationTurnModel = {
   role: ConversationRole;
   content: string;
   timestamp: string;
+  timelineOrdinal?: number | undefined;
+  liveTurnId?: string | undefined;
   state?: ConversationTurnState | undefined;
   statusLabel?: string | undefined;
   source?: 'text' | 'voice' | undefined;
   transcriptFinal?: boolean | undefined;
   persistedMessageId?: string | undefined;
 };
+
+export type TranscriptArtifactModel = {
+  id: string;
+  role: Extract<ConversationRole, 'user' | 'assistant'>;
+  content: string;
+  timestamp: string;
+  timelineOrdinal?: number | undefined;
+  liveTurnId?: string | undefined;
+  state?: Extract<ConversationTurnState, 'streaming' | 'complete'> | undefined;
+  statusLabel?: string | undefined;
+  source: 'voice';
+  transcriptFinal?: boolean | undefined;
+  attachedTurnId?: string | undefined;
+};
+
+export type ConversationTimelineEntry = ConversationTurnModel | TranscriptArtifactModel;

@@ -15,6 +15,18 @@ describe('controlGating', () => {
     expect(
       canSubmitComposerText(
         createControlGatingSnapshot({
+          currentMode: 'inactive',
+          speechLifecycleStatus: 'off',
+          textSessionStatus: 'disconnected',
+          activeTransport: null,
+          voiceSessionStatus: 'disconnected',
+        }),
+      ),
+    ).toBe(false);
+
+    expect(
+      canSubmitComposerText(
+        createControlGatingSnapshot({
           currentMode: 'speech',
           speechLifecycleStatus: 'listening',
           textSessionStatus: 'disconnected',
@@ -63,7 +75,7 @@ describe('controlGating', () => {
 
   it('keeps speech-mode action gating aligned to currentMode and speechLifecycle', () => {
     const textModeSnapshot = createControlGatingSnapshot({
-      currentMode: 'text',
+      currentMode: 'inactive',
       speechLifecycleStatus: 'off',
     });
     expect(getComposerSpeechActionKind(textModeSnapshot)).toBe('start');
@@ -76,7 +88,7 @@ describe('controlGating', () => {
     expect(canEndSpeechMode(activeSpeechSnapshot)).toBe(true);
 
     const teardownSnapshot = createControlGatingSnapshot({
-      currentMode: 'text',
+      currentMode: 'inactive',
       speechLifecycleStatus: 'ending',
     });
     expect(getComposerSpeechActionKind(teardownSnapshot)).toBe('end');
@@ -175,7 +187,7 @@ describe('controlGating', () => {
     expect(shouldShowDockEndControl(activeSpeechSnapshot, false)).toBe(true);
 
     const teardownSnapshot = createControlGatingSnapshot({
-      currentMode: 'text',
+      currentMode: 'inactive',
       speechLifecycleStatus: 'ending',
     });
     expect(shouldShowSpeechControls(teardownSnapshot)).toBe(true);

@@ -6,6 +6,10 @@ import type {
   ChatMessageRecord,
   ChatRecord,
   CreateChatRequest,
+  CreateLiveSessionRequest,
+  EndLiveSessionRequest,
+  LiveSessionRecord,
+  UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import { createChatMemoryDatabase } from './chatMemoryDatabase';
 import {
@@ -34,6 +38,22 @@ export class ChatMemoryService {
 
   appendMessage(request: AppendChatMessageRequest): ChatMessageRecord {
     return this.repository.appendMessage(request);
+  }
+
+  createLiveSession(request: CreateLiveSessionRequest): LiveSessionRecord {
+    return this.repository.createLiveSession(request);
+  }
+
+  listLiveSessions(chatId: ChatId): LiveSessionRecord[] {
+    return this.repository.listLiveSessions(chatId);
+  }
+
+  updateLiveSession(request: UpdateLiveSessionRequest): LiveSessionRecord {
+    return this.repository.updateLiveSession(request);
+  }
+
+  endLiveSession(request: EndLiveSessionRequest): LiveSessionRecord {
+    return this.repository.endLiveSession(request);
   }
 }
 
