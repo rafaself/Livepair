@@ -67,8 +67,11 @@ describe('createDesktopSessionController – lifecycle', () => {
       endedAt: null,
       status: 'active' as const,
       endedReason: null,
-      latestResumeHandle: null,
-      resumable: false,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
     }));
     window.bridge.listLiveSessions = vi.fn().mockResolvedValue([]);
     window.bridge.endLiveSession = vi.fn(async ({ id, status, endedAt, endedReason }) => ({
@@ -78,8 +81,11 @@ describe('createDesktopSessionController – lifecycle', () => {
       endedAt: endedAt ?? '2026-03-12T09:05:00.000Z',
       status,
       endedReason: endedReason ?? null,
-      latestResumeHandle: null,
-      resumable: false,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
     }));
   });
 
@@ -195,8 +201,11 @@ describe('createDesktopSessionController – lifecycle', () => {
         endedAt: null,
         status: 'active',
         endedReason: null,
-        latestResumeHandle: 'handles/persisted-live-session-1',
-        resumable: true,
+        resumptionHandle: 'handles/persisted-live-session-1',
+        lastResumptionUpdateAt: '2026-03-12T08:56:00.000Z',
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
       },
     ]);
     const controller = createDesktopSessionController({
@@ -264,8 +273,11 @@ describe('createDesktopSessionController – lifecycle', () => {
         endedAt: null,
         status: 'active',
         endedReason: null,
-        latestResumeHandle: 'handles/persisted-live-session-1',
-        resumable: true,
+        resumptionHandle: 'handles/persisted-live-session-1',
+        lastResumptionUpdateAt: '2026-03-12T08:56:00.000Z',
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
       },
     ]);
     window.bridge.createLiveSession = vi.fn(async ({ chatId, startedAt }) => ({
@@ -275,8 +287,11 @@ describe('createDesktopSessionController – lifecycle', () => {
       endedAt: null,
       status: 'active' as const,
       endedReason: null,
-      latestResumeHandle: null,
-      resumable: false,
+      resumptionHandle: null,
+      lastResumptionUpdateAt: null,
+      restorable: false,
+      invalidatedAt: null,
+      invalidationReason: null,
     }));
     const failedResumeTransport = createVoiceTransportHarness();
     failedResumeTransport.setConnectError(new Error('resume rejected'));

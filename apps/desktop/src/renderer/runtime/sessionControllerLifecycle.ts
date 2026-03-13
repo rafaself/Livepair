@@ -142,12 +142,12 @@ export function createSessionControllerLifecycle({
     token: CreateEphemeralTokenResponse,
     liveSession: LiveSessionRecord,
   ): Promise<boolean> => {
-    if (!liveSession.resumable || !liveSession.latestResumeHandle) {
+    if (!liveSession.restorable || !liveSession.resumptionHandle) {
       await endPersistedLiveSession({
         status: 'failed',
-        endedReason: liveSession.resumable
+        endedReason: liveSession.restorable
           ? 'Persisted Live session is missing a resume handle'
-          : 'Persisted Live session is no longer resumable',
+          : liveSession.invalidationReason ?? 'Persisted Live session is no longer restorable',
       });
       return false;
     }
@@ -155,7 +155,7 @@ export function createSessionControllerLifecycle({
     store.getState().setLastRuntimeError(null);
     store.getState().setVoiceSessionResumption({
       status: 'reconnecting',
-      latestHandle: liveSession.latestResumeHandle,
+      latestHandle: liveSession.resumptionHandle,
       resumable: true,
       lastDetail: 'Restoring persisted Live session',
     });
@@ -179,7 +179,7 @@ export function createSessionControllerLifecycle({
       await transport.connect({
         token,
         mode: 'voice',
-        resumeHandle: liveSession.latestResumeHandle,
+        resumeHandle: liveSession.resumptionHandle,
       });
 
       if (!isCurrentSessionOperation(operationId)) {
@@ -203,7 +203,7 @@ export function createSessionControllerLifecycle({
       setVoiceResumptionInFlight(false);
       store.getState().setVoiceSessionResumption({
         status: 'resumeFailed',
-        latestHandle: liveSession.latestResumeHandle,
+        latestHandle: liveSession.resumptionHandle,
         resumable: false,
         lastDetail: detail,
       });

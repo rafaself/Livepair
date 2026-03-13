@@ -37,8 +37,11 @@ export type TransportEventRouterOps = {
   setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;
   persistLiveSessionResumption: (patch: {
-    latestResumeHandle: string | null;
-    resumable: boolean;
+    resumptionHandle: string | null;
+    lastResumptionUpdateAt: string;
+    restorable: boolean;
+    invalidatedAt: string | null;
+    invalidationReason: string | null;
   }) => void;
   syncVoiceDurabilityState: (
     token: CreateEphemeralTokenResponse | null,
@@ -199,6 +202,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     }
 
     if (event.type === 'session-resumption-update') {
+      const updatedAt = new Date().toISOString();
       ops.logRuntimeDiagnostic('voice-session', 'resumption handle updated', {
         previousHandle: store.voiceSessionResumption.latestHandle,
         latestHandle: event.handle,
@@ -211,8 +215,11 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
         lastDetail: event.detail ?? null,
       });
       ops.persistLiveSessionResumption({
-        latestResumeHandle: event.handle,
-        resumable: event.resumable,
+        resumptionHandle: event.handle,
+        lastResumptionUpdateAt: updatedAt,
+        restorable: event.resumable,
+        invalidatedAt: event.resumable ? null : updatedAt,
+        invalidationReason: event.resumable ? null : (event.detail ?? null),
       });
       return;
     }

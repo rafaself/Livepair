@@ -276,6 +276,13 @@ describe('createTransportEventRouter', () => {
           resumable: true,
         }),
       );
+      expect(ops.persistLiveSessionResumption).toHaveBeenCalledWith({
+        resumptionHandle: 'handles/v2',
+        lastResumptionUpdateAt: expect.any(String),
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
+      });
     });
 
     it('clears the latest handle when the transport explicitly reports no resumable handle', () => {
@@ -296,6 +303,13 @@ describe('createTransportEventRouter', () => {
           lastDetail: null,
         }),
       );
+      expect(ops.persistLiveSessionResumption).toHaveBeenCalledWith({
+        resumptionHandle: null,
+        lastResumptionUpdateAt: expect.any(String),
+        restorable: false,
+        invalidatedAt: expect.any(String),
+        invalidationReason: null,
+      });
     });
   });
 

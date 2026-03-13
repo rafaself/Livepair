@@ -11,6 +11,16 @@ type CurrentLiveSessionBridge = Pick<
 
 let activeLiveSession: LiveSessionRecord | null = null;
 
+function isRestorableLiveSession(candidate: LiveSessionRecord): boolean {
+  return (
+    candidate.status === 'active' &&
+    candidate.endedAt === null &&
+    candidate.restorable &&
+    candidate.resumptionHandle !== null &&
+    candidate.invalidatedAt === null
+  );
+}
+
 export async function startCurrentLiveSession(
   bridge: CurrentLiveSessionBridge = window.bridge,
 ): Promise<LiveSessionRecord> {
@@ -37,9 +47,7 @@ export async function restoreCurrentLiveSession(
 
   const chat = await bridge.getOrCreateCurrentChat();
   const liveSessions = await bridge.listLiveSessions(chat.id);
-  const liveSession =
-    liveSessions.find((candidate) => candidate.status === 'active' && candidate.endedAt === null)
-    ?? null;
+  const liveSession = liveSessions.find(isRestorableLiveSession) ?? null;
 
   activeLiveSession = liveSession;
   return liveSession;
