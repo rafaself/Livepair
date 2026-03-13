@@ -28,7 +28,7 @@ export {
   deriveSessionPhaseFromLifecycle,
   deriveTransportStateFromLifecycle,
 } from './text/textSessionLifecycle';
-export { mapRehydrationPacketToLiveSessionHistory } from './transport/liveSessionHistory';
+export { mapRehydrationTurnsToLiveSessionHistory } from './transport/liveSessionHistory';
 export { isTranscriptArtifact } from './conversation/conversation.types';
 export type {
   ConversationRole,

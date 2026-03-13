@@ -57,7 +57,7 @@ export function useSessionRuntime() {
   }, [controller]);
 
   const handleStartVoiceSession = useCallback(async (): Promise<void> => {
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
   }, [controller]);
 
   const handleSubmitTextTurn = useCallback(async (text: string): Promise<boolean> => {

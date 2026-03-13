@@ -1,21 +1,21 @@
-export type VoiceTranscriptRole = 'user' | 'assistant';
+import type {
+  CurrentVoiceTranscript,
+  VoiceTranscriptEntry,
+} from './voice.types';
 
-export type VoiceTranscriptEntry = {
-  text: string;
-  isFinal?: boolean | undefined;
+export type {
+  CurrentVoiceTranscript,
+  VoiceTranscriptEntry,
 };
 
-export type CurrentVoiceTranscriptState = {
-  user: VoiceTranscriptEntry;
-  assistant: VoiceTranscriptEntry;
-};
+export type VoiceTranscriptRole = keyof CurrentVoiceTranscript;
 
 export type SessionStoreApi = {
   getState: () => {
-    currentVoiceTranscript: CurrentVoiceTranscriptState;
+    currentVoiceTranscript: CurrentVoiceTranscript;
     setCurrentVoiceTranscriptEntry: (
       role: VoiceTranscriptRole,
-      entry: VoiceTranscriptEntry,
+      entry: Partial<VoiceTranscriptEntry>,
     ) => void;
     clearCurrentVoiceTranscript: () => void;
   };

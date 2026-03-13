@@ -37,7 +37,7 @@ describe('createDesktopSessionController – interruption', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     voicePlayback.emitState('playing');
     voicePlayback.emitDiagnostics({
@@ -108,7 +108,7 @@ describe('createDesktopSessionController – interruption', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startVoiceCapture();
     voicePlayback.enableDeferredStop();
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
@@ -179,7 +179,7 @@ describe('createDesktopSessionController – interruption', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voicePlayback.enableDeferredStop();
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     voicePlayback.emitState('playing');

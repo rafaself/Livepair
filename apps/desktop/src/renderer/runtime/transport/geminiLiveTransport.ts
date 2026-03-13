@@ -36,7 +36,7 @@ import {
   createTransportError,
   getErrorDetail,
 } from './geminiLiveTransportProtocol';
-import { mapRehydrationPacketToLiveSessionHistory } from './liveSessionHistory';
+import { mapRehydrationTurnsToLiveSessionHistory } from './liveSessionHistory';
 import {
   createGeminiLiveTransportState,
   resetGeminiLiveTransportState,
@@ -263,7 +263,7 @@ export class GeminiLiveTransport implements DesktopSession {
       const session = this.state.session ?? activeSession;
       const effectiveHistory =
         rehydrationPacket && rehydrationPacket.recentTurns.length > 0
-          ? mapRehydrationPacketToLiveSessionHistory(rehydrationPacket)
+          ? mapRehydrationTurnsToLiveSessionHistory(rehydrationPacket.recentTurns)
           : undefined;
 
       if (effectiveHistory && effectiveHistory.length > 0) {

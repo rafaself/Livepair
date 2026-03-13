@@ -103,7 +103,7 @@ describe('createDesktopSessionController – typed turns', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     await expect(controller.submitTextTurn('Keep going')).resolves.toBe(true);
 
@@ -134,7 +134,7 @@ describe('createDesktopSessionController – typed turns', () => {
       createTransport: vi.fn(() => createVoiceTransportHarness().transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.endSpeechMode();
 
     await expect(controller.submitTextTurn('Retry')).resolves.toBe(false);

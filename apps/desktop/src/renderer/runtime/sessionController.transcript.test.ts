@@ -54,7 +54,7 @@ describe('createDesktopSessionController – transcript', () => {
   it('keeps live transcript artifacts visible without making them canonical before settlement', async () => {
     const { controller, voiceTransport, voicePlayback } = buildVoiceController();
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'input-transcript', text: 'Hello' });
     voiceTransport.emit({ type: 'input-transcript', text: 'Hello there' });
@@ -88,7 +88,7 @@ describe('createDesktopSessionController – transcript', () => {
   it('creates the canonical voice user turn only at the settle fence and rolls transcript state on the next user turn', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'input-transcript', text: 'Hello there' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Hi' });
@@ -149,7 +149,7 @@ describe('createDesktopSessionController – transcript', () => {
   it('keeps the same in-progress assistant transcript artifact as transcript corrections arrive', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'output-transcript', text: 'Hi' });
     voiceTransport.emit({ type: 'output-transcript', text: ' there' });
@@ -200,7 +200,7 @@ describe('createDesktopSessionController – transcript', () => {
     );
     const { controller, voiceTransport } = buildVoiceController();
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'output-transcript', text: 'Transcript bubble reply' });
     voiceTransport.emit({ type: 'text-delta', text: 'Canonical' });
@@ -268,7 +268,7 @@ describe('createDesktopSessionController – transcript', () => {
     );
     const { controller, voiceTransport } = buildVoiceController();
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'output-transcript', text: 'Interrupted transcript reply' });
     voiceTransport.emit({ type: 'text-delta', text: 'Interrupted canonical reply' });
@@ -296,7 +296,7 @@ describe('createDesktopSessionController – transcript', () => {
   it('ignores late assistant packets and duplicate turn-complete after a completed turn is fenced', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'input-transcript', text: 'Hello there' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Transcript bubble reply' });
@@ -334,7 +334,7 @@ describe('createDesktopSessionController – transcript', () => {
   it('does not finalize a voice turn on generation-complete before turn-complete arrives', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'output-transcript', text: 'Preview reply' });
     voiceTransport.emit({ type: 'text-delta', text: 'Canonical preview' });
@@ -363,7 +363,7 @@ describe('createDesktopSessionController – transcript', () => {
   it('keeps mixed-mode ordering stable when a typed follow-up lands during active Live mode', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'input-transcript', text: 'spoken request' });
     voiceTransport.emit({ type: 'turn-complete' });

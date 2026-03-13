@@ -207,7 +207,10 @@ export function createSessionLifecycleAssembly({
     syncVoiceDurabilityState: (token, patch) => runtimeRef.current!.syncVoiceDurabilityState(token, patch),
     restorePersistedLiveSession: () => restoreCurrentLiveSession(),
     invalidatePersistedLiveSession: async (patch) => {
-      await updateCurrentLiveSession(patch);
+      await updateCurrentLiveSession({
+        kind: 'resumption',
+        ...patch,
+      });
     },
     createPersistedLiveSession: async () => {
       await startCurrentLiveSession();

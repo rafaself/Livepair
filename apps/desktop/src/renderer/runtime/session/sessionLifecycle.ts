@@ -272,7 +272,7 @@ export function createSessionControllerLifecycle({
     });
   };
 
-  const startSessionInternal = async (_options: { mode: 'voice' }): Promise<void> => {
+  const startSessionInternal = async (_options: { mode: 'speech' }): Promise<void> => {
     const operationId = beginSessionOperation();
     await ensureExclusiveMode('speech', operationId);
 

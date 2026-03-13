@@ -1,10 +1,10 @@
-import type { RehydrationPacket } from '@livepair/shared-types';
+import type { RehydrationPacketTurn } from '@livepair/shared-types';
 import type { LiveSessionHistoryTurn } from './transport.types';
 
-export function mapRehydrationPacketToLiveSessionHistory(
-  packet: RehydrationPacket,
+export function mapRehydrationTurnsToLiveSessionHistory(
+  turns: RehydrationPacketTurn[],
 ): LiveSessionHistoryTurn[] {
-  return packet.recentTurns.map((turn) => ({
+  return turns.map((turn) => ({
     role: turn.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: turn.text }],
   }));

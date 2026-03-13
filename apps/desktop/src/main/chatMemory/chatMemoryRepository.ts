@@ -387,50 +387,81 @@ export class SqliteChatMemoryRepository implements ChatMemoryRepository {
       }
 
       const didReceiveResumptionMetadata =
-        typeof input.resumptionHandle !== 'undefined'
-        || typeof input.restorable !== 'undefined'
-        || typeof input.invalidatedAt !== 'undefined'
-        || typeof input.invalidationReason !== 'undefined';
+        input.kind === 'resumption'
+        && (
+          typeof input.resumptionHandle !== 'undefined'
+          || typeof input.restorable !== 'undefined'
+          || typeof input.invalidatedAt !== 'undefined'
+          || typeof input.invalidationReason !== 'undefined'
+        );
       const requestedRestorable =
-        typeof input.restorable === 'undefined'
-          ? existingRow.restorable === 1
-          : input.restorable;
-      const resumptionHandle =
-        requestedRestorable
+        input.kind === 'resumption'
           ? (
-            typeof input.resumptionHandle === 'undefined'
-              ? existingRow.resumption_handle
-              : input.resumptionHandle
+            typeof input.restorable === 'undefined'
+              ? existingRow.restorable === 1
+              : input.restorable
           )
-          : null;
+          : existingRow.restorable === 1;
+      const resumptionHandle =
+        input.kind === 'resumption'
+          ? (
+            requestedRestorable
+              ? (
+                typeof input.resumptionHandle === 'undefined'
+                  ? existingRow.resumption_handle
+                  : input.resumptionHandle
+              )
+              : null
+          )
+          : existingRow.resumption_handle;
       const lastResumptionUpdateAt =
-        typeof input.lastResumptionUpdateAt === 'undefined'
-          ? didReceiveResumptionMetadata
-            ? new Date().toISOString()
-            : existingRow.last_resumption_update_at
-          : input.lastResumptionUpdateAt;
+        input.kind === 'resumption'
+          ? (
+            typeof input.lastResumptionUpdateAt === 'undefined'
+              ? didReceiveResumptionMetadata
+                ? new Date().toISOString()
+                : existingRow.last_resumption_update_at
+              : input.lastResumptionUpdateAt
+          )
+          : existingRow.last_resumption_update_at;
       const invalidatedAt =
-        requestedRestorable
-          ? null
-          : typeof input.invalidatedAt === 'undefined'
-            ? existingRow.invalidated_at ?? (didReceiveResumptionMetadata ? lastResumptionUpdateAt : null)
-            : input.invalidatedAt;
+        input.kind === 'resumption'
+          ? (
+            requestedRestorable
+              ? null
+              : typeof input.invalidatedAt === 'undefined'
+                ? existingRow.invalidated_at ?? (didReceiveResumptionMetadata ? lastResumptionUpdateAt : null)
+                : input.invalidatedAt
+          )
+          : existingRow.invalidated_at;
       const invalidationReason =
-        requestedRestorable
-          ? null
-          : typeof input.invalidationReason === 'undefined'
-            ? existingRow.invalidation_reason
-            : input.invalidationReason;
+        input.kind === 'resumption'
+          ? (
+            requestedRestorable
+              ? null
+              : typeof input.invalidationReason === 'undefined'
+                ? existingRow.invalidation_reason
+                : input.invalidationReason
+          )
+          : existingRow.invalidation_reason;
       const summarySnapshot =
-        typeof input.summarySnapshot === 'undefined'
-          ? existingRow.summary_snapshot
-          : input.summarySnapshot;
+        input.kind === 'snapshot'
+          ? (
+            typeof input.summarySnapshot === 'undefined'
+              ? existingRow.summary_snapshot
+              : input.summarySnapshot
+          )
+          : existingRow.summary_snapshot;
       const contextStateSnapshot =
-        typeof input.contextStateSnapshot === 'undefined'
-          ? existingRow.context_state_snapshot
-          : input.contextStateSnapshot === null
-            ? null
-            : JSON.stringify(input.contextStateSnapshot);
+        input.kind === 'snapshot'
+          ? (
+            typeof input.contextStateSnapshot === 'undefined'
+              ? existingRow.context_state_snapshot
+              : input.contextStateSnapshot === null
+                ? null
+                : JSON.stringify(input.contextStateSnapshot)
+          )
+          : existingRow.context_state_snapshot;
 
       this.updateLiveSessionRestoreMetadataStatement.run({
         id: input.id,

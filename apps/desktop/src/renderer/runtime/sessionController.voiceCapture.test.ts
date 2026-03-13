@@ -49,7 +49,7 @@ describe('createDesktopSessionController – voice capture', () => {
     const chunkListener = vi.fn();
     const unsubscribe = controller.subscribeToVoiceChunks(chunkListener);
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startVoiceCapture();
     voiceCapture.emitChunk();
     await Promise.resolve();
@@ -117,7 +117,7 @@ describe('createDesktopSessionController – voice capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startVoiceCapture();
     voiceCapture.emitChunk();
     await controller.stopVoiceCapture();
@@ -175,7 +175,7 @@ describe('createDesktopSessionController – voice capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startVoiceCapture();
     voiceCapture.emitError('Microphone permission was denied');
 

@@ -1,7 +1,8 @@
 import type {
   EndLiveSessionRequest,
   LiveSessionRecord,
-  UpdateLiveSessionRequest,
+  UpdateLiveSessionResumptionRequest,
+  UpdateLiveSessionSnapshotRequest,
 } from '@livepair/shared-types';
 import { getCurrentChat } from '../chatMemory/currentChatMemory';
 import type { ActiveChatQueryBridge } from '../chatMemory/queries';
@@ -16,6 +17,10 @@ import {
 type CurrentLiveSessionBridge = ActiveChatQueryBridge & LiveSessionsBridge;
 
 let activeLiveSession: LiveSessionRecord | null = null;
+
+type UpdateCurrentLiveSessionRequest =
+  | Omit<UpdateLiveSessionResumptionRequest, 'id'>
+  | Omit<UpdateLiveSessionSnapshotRequest, 'id'>;
 
 function isRestoreCandidate(candidate: LiveSessionRecord): boolean {
   return (
@@ -83,7 +88,7 @@ export async function restoreCurrentLiveSession(
 }
 
 export async function updateCurrentLiveSession(
-  request: Omit<UpdateLiveSessionRequest, 'id'>,
+  request: UpdateCurrentLiveSessionRequest,
   bridge: CurrentLiveSessionBridge = window.bridge,
 ): Promise<LiveSessionRecord | null> {
   if (!activeLiveSession) {

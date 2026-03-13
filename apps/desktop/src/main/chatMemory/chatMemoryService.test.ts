@@ -99,6 +99,7 @@ describe('ChatMemoryService', () => {
     expect(service.listLiveSessions('chat-1')).toEqual([{ id: 'live-session-1' }]);
     expect(
       service.updateLiveSession({
+        kind: 'resumption',
         id: 'live-session-1',
         resumptionHandle: 'handles/live-session-1',
         lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
@@ -134,6 +135,7 @@ describe('ChatMemoryService', () => {
     expect(repository.listLiveSessions).toHaveBeenCalledWith('chat-1');
     expect(repository.getChatSummary).toHaveBeenCalledWith('chat-1');
     expect(repository.updateLiveSession).toHaveBeenCalledWith({
+      kind: 'resumption',
       id: 'live-session-1',
       resumptionHandle: 'handles/live-session-1',
       lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',

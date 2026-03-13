@@ -34,7 +34,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
 
     expect(screenCapture.start).toHaveBeenCalledOnce();
@@ -69,7 +69,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(screenCapture.start).not.toHaveBeenCalled();
     expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
@@ -111,7 +111,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
     expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
 
@@ -137,7 +137,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
     await controller.stopScreenCapture();
     await controller.startScreenCapture();
@@ -169,7 +169,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
     expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
 
@@ -199,7 +199,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
 
     expect(useSessionStore.getState().screenCaptureState).toBe('error');
@@ -222,7 +222,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
 
     expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
@@ -264,7 +264,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
     screenCapture.emitFrame();
 
@@ -296,7 +296,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
     screenCapture.emitFrame();
 
@@ -329,7 +329,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
 
     firstTransport.emit({
@@ -377,7 +377,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
 
     firstTransport.emit({
@@ -434,7 +434,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
     screenCapture.emitFrame();
 
@@ -462,7 +462,7 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
     await controller.stopScreenCapture();
 

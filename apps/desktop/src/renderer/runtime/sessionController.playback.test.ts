@@ -43,7 +43,7 @@ describe('createDesktopSessionController – playback', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voicePlayback.enableDeferredStop();
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     voicePlayback.emitState('playing');
@@ -102,7 +102,7 @@ describe('createDesktopSessionController – playback', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     await Promise.resolve();
 
@@ -119,7 +119,7 @@ describe('createDesktopSessionController – playback', () => {
       }),
     );
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([5, 6, 7, 8]) });
     voicePlayback.emitState('playing');
     voiceTransport.emit({ type: 'error', detail: 'transport failed' });
@@ -159,7 +159,7 @@ describe('createDesktopSessionController – playback', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
     await Promise.resolve();
     voiceTransport.emit({

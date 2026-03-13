@@ -41,7 +41,7 @@ describe('createDesktopSessionController – speech lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'input-transcript', text: 'hello' });
     expect(useSessionStore.getState().speechLifecycle.status).toBe('userSpeaking');
@@ -94,7 +94,7 @@ describe('createDesktopSessionController – speech lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await vi.advanceTimersByTimeAsync(5 * 60_000);
 
     expect(useSessionStore.getState().speechLifecycle.status).toBe('listening');
@@ -130,7 +130,7 @@ describe('createDesktopSessionController – speech lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     await vi.advanceTimersByTimeAsync(30_000);
 
     expect(voiceCapture.stop).toHaveBeenCalledTimes(1);
@@ -168,7 +168,7 @@ describe('createDesktopSessionController – speech lifecycle', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     await vi.advanceTimersByTimeAsync(179_000);
     voiceTransport.emit({ type: 'input-transcript', text: 'still here' });

@@ -94,7 +94,10 @@ export function createSessionTransportAssembly({
     setVoiceSessionResumption: (patch) => runtimeRef.current!.setVoiceSessionResumption(patch),
     setVoiceSessionDurability: (patch) => runtimeRef.current!.setVoiceSessionDurability(patch),
     persistLiveSessionResumption: (patch) => {
-      void updateCurrentLiveSession(patch);
+      void updateCurrentLiveSession({
+        kind: 'resumption',
+        ...patch,
+      });
     },
     syncVoiceDurabilityState: (token, patch) => runtimeRef.current!.syncVoiceDurabilityState(token, patch),
     setVoicePlaybackState: (state) => runtimeRef.current!.setVoicePlaybackState(state),
@@ -211,6 +214,7 @@ export function createSessionTransportAssembly({
 
       try {
         await updateCurrentLiveSession({
+          kind: 'resumption',
           restorable: false,
           invalidatedAt,
           invalidationReason: detail,

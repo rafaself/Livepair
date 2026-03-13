@@ -9,7 +9,7 @@ import {
   settleVoiceTurnFence,
 } from '../conversation/conversationTurnManager';
 import type {
-  CurrentVoiceTranscriptState,
+  CurrentVoiceTranscript,
   SessionStoreApi,
   VoiceTranscriptControllerOptions,
 } from './voiceTranscriptController.shared';
@@ -25,7 +25,7 @@ type VoiceTranscriptLifecycleArgs = {
 
 function appendFinalizedUserTurn(
   conversationCtx: ConversationContext,
-  currentTranscript: CurrentVoiceTranscriptState,
+  currentTranscript: CurrentVoiceTranscript,
   activeUserArtifact: ReturnType<typeof getTranscriptArtifact> | null,
 ): string | null {
   const userTranscriptText = currentTranscript.user.text.trim();

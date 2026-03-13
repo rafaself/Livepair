@@ -109,7 +109,7 @@ describe('createDesktopSessionController – mode switching', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceCapture.emitChunk();
     await Promise.resolve();
     voiceTransport.emit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
@@ -151,7 +151,7 @@ describe('createDesktopSessionController – mode switching', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceCapture.emitChunk();
     await Promise.resolve();
 
@@ -182,7 +182,7 @@ describe('createDesktopSessionController – mode switching', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Speech reply' });
     voiceTransport.emit({ type: 'text-delta', text: 'Speech reply' });
@@ -261,7 +261,7 @@ describe('createDesktopSessionController – mode switching', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     expect(voiceTransport.connect).toHaveBeenNthCalledWith(1, {
       token: {
         token: 'auth_tokens/test-token',
@@ -311,7 +311,7 @@ describe('createDesktopSessionController – mode switching', () => {
       },
     ]);
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     expect(voiceTransport.connect).toHaveBeenNthCalledWith(2, {
       token: {
@@ -369,14 +369,14 @@ describe('createDesktopSessionController – mode switching', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'input-transcript', text: 'First speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'First speech reply' });
     voiceTransport.emit({ type: 'text-delta', text: 'First speech reply' });
     voiceTransport.emit({ type: 'turn-complete' });
 
     await controller.endSpeechMode();
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({ type: 'input-transcript', text: 'Second speech request' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Second speech reply' });
@@ -432,7 +432,7 @@ describe('createDesktopSessionController – mode switching', () => {
       settingsStore: useSettingsStore,
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
     voiceTransport.emit({ type: 'input-transcript', text: 'Speech request' });
     voiceTransport.emit({ type: 'turn-complete' });
 

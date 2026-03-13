@@ -37,7 +37,7 @@ describe('createDesktopSessionController – voice tools', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({
       type: 'tool-call',
@@ -92,7 +92,7 @@ describe('createDesktopSessionController – voice tools', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({
       type: 'tool-call',
@@ -160,7 +160,7 @@ describe('createDesktopSessionController – voice tools', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({
       type: 'tool-call',
@@ -231,7 +231,7 @@ describe('createDesktopSessionController – voice tools', () => {
       createTransport: vi.fn(() => voiceTransport.transport),
     });
 
-    await controller.startSession({ mode: 'voice' });
+    await controller.startSession({ mode: 'speech' });
 
     voiceTransport.emit({
       type: 'tool-call',

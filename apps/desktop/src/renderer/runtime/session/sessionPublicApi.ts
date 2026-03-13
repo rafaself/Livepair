@@ -15,7 +15,7 @@ import type {
 type SessionControllerPublicApiArgs = {
   store: SessionStoreApi;
   performBackendHealthCheck: () => Promise<boolean>;
-  startSessionInternal: (options: { mode: 'voice' }) => Promise<void>;
+  startSessionInternal: (options: { mode: 'speech' }) => Promise<void>;
   voiceChunkCtrl: {
     addChunkListener: (
       listener: Parameters<DesktopSessionController['subscribeToVoiceChunks']>[0],
