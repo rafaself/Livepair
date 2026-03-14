@@ -3,27 +3,19 @@ import {
   logRuntimeError,
 } from '../core/logger';
 import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
-import { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
 import { createVoicePlaybackController } from '../voice/media/voicePlaybackController';
 import { createScreenCaptureController } from '../screen/screenCaptureController';
 import { createVoiceToolController } from '../voice/tools/voiceToolController';
 import { createVoiceInterruptionController } from '../voice/session/voiceInterruptionController';
 import { createVoiceTokenManager } from '../voice/session/voiceTokenManager';
 import { createSpeechSilenceController } from '../speech/speechSilenceController';
-import { createConversationContext } from '../conversation/conversationTurnManager';
-import {
-  appendUserTurn as appendConversationUserTurn,
-  clearPendingAssistantTurn,
-} from '../conversation/conversationTurnManager';
-import {
-  persistConversationTurnInBackground,
-} from '../conversation/persistConversationTurn';
 import { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
 import { createSessionControllerStateSync } from './sessionStateSync';
 import { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionTransportAssembly } from './sessionTransportAssembly';
 import { createSessionLifecycleAssembly } from './sessionLifecycleAssembly';
+import { createSessionConversationSupport } from './sessionConversationSupport';
 import { useUiStore } from '../../store/uiStore';
 import type {
   DesktopSessionController,
@@ -38,7 +30,13 @@ export function createSessionControllerAssembly(
       dependencies.store.getState().setRealtimeOutboundDiagnostics(diagnostics);
     },
   });
-  const conversationCtx = createConversationContext(dependencies.store);
+  const {
+    appendTypedUserTurn,
+    clearPendingAssistantTurn,
+    conversationCtx,
+    persistSettledConversationTurn,
+    voiceTranscript,
+  } = createSessionConversationSupport(dependencies.store);
   let endSessionInternal = async (
     _options: {
       preserveLastRuntimeError?: string | null;
@@ -93,12 +91,6 @@ export function createSessionControllerAssembly(
     (event) => runtimeRef.current!.applySpeechLifecycleEvent(event),
     () => runtimeRef.current!.stopVoicePlayback(),
   );
-  const persistSettledConversationTurn = (turnId: string): void => {
-    persistConversationTurnInBackground(dependencies.store, turnId);
-  };
-  const voiceTranscript = createVoiceTranscriptController(dependencies.store, conversationCtx, {
-    onConversationTurnSettled: persistSettledConversationTurn,
-  });
   const tokenMgr = createVoiceTokenManager(
     dependencies.store,
     dependencies.requestSessionToken,
@@ -125,11 +117,6 @@ export function createSessionControllerAssembly(
     endSessionInternal: (o) => void endSessionInternal(o),
     logRuntimeError,
   });
-  const appendTypedUserTurn = (text: string): string => {
-    const turnId = appendConversationUserTurn(conversationCtx, text, { source: 'text' });
-    persistSettledConversationTurn(turnId);
-    return turnId;
-  };
   const stateSync = createSessionControllerStateSync({
     store: dependencies.store,
     settingsStore: dependencies.settingsStore,
@@ -180,7 +167,7 @@ export function createSessionControllerAssembly(
       dependencies.store.getState().resetTextSessionRuntime(textSessionStatus, options);
     },
     clearPendingAssistantTurn: () => {
-      clearPendingAssistantTurn(conversationCtx);
+      clearPendingAssistantTurn();
     },
     voiceTranscript,
     silenceCtrl,
