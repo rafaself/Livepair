@@ -57,6 +57,7 @@ export function AssistantPanel(): JSX.Element {
     handleDraftTextChange,
     handleSubmitTextTurn,
     handleStartSpeechMode,
+    handleStartSpeechModeWithScreen,
     handleEndSpeechMode,
     handleCheckBackendHealth,
   } = useAssistantPanelController();
@@ -162,6 +163,7 @@ export function AssistantPanel(): JSX.Element {
               onDraftTextChange={handleDraftTextChange}
               onSubmitTextTurn={handleSubmitTextTurn}
               onStartSpeechMode={handleStartSpeechMode}
+              onStartSpeechModeWithScreen={handleStartSpeechModeWithScreen}
               onEndSpeechMode={handleEndSpeechMode}
             />
           ) : null}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { AssistantRuntimeState } from '../../../state/assistantUiState';
 import {
   canEndSpeechMode,
@@ -62,6 +62,7 @@ export type AssistantPanelController = {
   handleSubmitTextTurn: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   handleCheckBackendHealth: () => Promise<void>;
   handleStartSpeechMode: () => Promise<void>;
+  handleStartSpeechModeWithScreen: () => Promise<void>;
   handleEndSpeechMode: () => Promise<void>;
 };
 
@@ -99,6 +100,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     isConversationEmpty,
     handleCheckBackendHealth,
     handleStartVoiceSession,
+    handleStartScreenCapture,
     handleEndSpeechMode,
     handleSubmitTextTurn,
   } = useSessionRuntime();
@@ -118,6 +120,25 @@ export function useAssistantPanelController(): AssistantPanelController {
   }, [handleCheckBackendHealthCallback, isPanelOpen]);
 
   const handleStartSpeechMode = useCallback(async (): Promise<void> => {
+    await handleStartVoiceSession();
+  }, [handleStartVoiceSession]);
+
+  const pendingScreenShareRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      pendingScreenShareRef.current &&
+      (voiceSessionStatus === 'ready' ||
+        voiceSessionStatus === 'capturing' ||
+        voiceSessionStatus === 'streaming')
+    ) {
+      pendingScreenShareRef.current = false;
+      void handleStartScreenCapture();
+    }
+  }, [voiceSessionStatus, handleStartScreenCapture]);
+
+  const handleStartSpeechModeWithScreen = useCallback(async (): Promise<void> => {
+    pendingScreenShareRef.current = true;
     await handleStartVoiceSession();
   }, [handleStartVoiceSession]);
 
@@ -228,6 +249,13 @@ export function useAssistantPanelController(): AssistantPanelController {
       }
 
       await handleStartSpeechMode();
+    },
+    handleStartSpeechModeWithScreen: async () => {
+      if (composerSpeechActionKind !== 'start') {
+        return;
+      }
+
+      await handleStartSpeechModeWithScreen();
     },
     handleEndSpeechMode: async () => {
       if (!canEndSpeechMode(controlGatingSnapshot)) {

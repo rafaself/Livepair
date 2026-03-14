@@ -43,6 +43,7 @@ export type AssistantPanelChatViewProps = {
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
   onStartSpeechMode: () => Promise<void>;
+  onStartSpeechModeWithScreen: () => Promise<void>;
   onEndSpeechMode: () => Promise<void>;
 };
 
@@ -69,6 +70,7 @@ export function AssistantPanelChatView({
   onDraftTextChange,
   onSubmitTextTurn,
   onStartSpeechMode,
+  onStartSpeechModeWithScreen,
   onEndSpeechMode,
 }: AssistantPanelChatViewProps): JSX.Element {
   const controlGatingSnapshot = createControlGatingSnapshot({
@@ -113,6 +115,7 @@ export function AssistantPanelChatView({
               isLiveSessionActive={isLiveSessionActive}
               lastRuntimeError={lastRuntimeError}
               onStartSpeechMode={onStartSpeechMode}
+              onStartSpeechModeWithScreen={onStartSpeechModeWithScreen}
             />
           }
           isConversationEmpty={isConversationEmpty}

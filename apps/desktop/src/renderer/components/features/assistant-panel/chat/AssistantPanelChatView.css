@@ -241,6 +241,11 @@
   padding: 16px;
 }
 
+.assistant-panel__inactive-cta-buttons {
+  display: flex;
+  gap: 12px;
+}
+
 .assistant-panel__inactive-cta-button {
   min-width: 180px;
 }

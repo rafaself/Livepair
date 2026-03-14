@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, MessageCircle, Mic } from 'lucide-react';
+import { Loader2, MessageCircle, Mic, Cast } from 'lucide-react';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 import { Button } from '../../../primitives';
 
@@ -8,6 +8,7 @@ export type AssistantPanelConversationEmptyStateProps = {
   isLiveSessionActive: boolean;
   lastRuntimeError: string | null;
   onStartSpeechMode?: () => Promise<void>;
+  onStartSpeechModeWithScreen?: () => Promise<void>;
 };
 
 export function AssistantPanelConversationEmptyState({
@@ -15,6 +16,7 @@ export function AssistantPanelConversationEmptyState({
   isLiveSessionActive,
   lastRuntimeError,
   onStartSpeechMode,
+  onStartSpeechModeWithScreen,
 }: AssistantPanelConversationEmptyStateProps): JSX.Element {
   const [isStarting, setIsStarting] = useState(false);
 
@@ -61,28 +63,61 @@ export function AssistantPanelConversationEmptyState({
         aria-hidden="true"
       />
       <p className="assistant-panel__conversation-empty-title">Talk to Livepair</p>
-      {!isLiveSessionActive && onStartSpeechMode ? (
-        <Button
-          variant="primary"
-          size="md"
-          className={[
-            'assistant-panel__inactive-cta-button',
-            isStarting && 'assistant-panel__inactive-cta-button--loading',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          disabled={isStarting}
-          onClick={handleStart}
-        >
-          {isStarting ? (
-            <Loader2 size={18} aria-hidden="true" />
-          ) : (
-            <>
-              <Mic size={16} aria-hidden="true" />
-              Talk
-            </>
-          )}
-        </Button>
+      {!isLiveSessionActive && (onStartSpeechMode || onStartSpeechModeWithScreen) ? (
+        <div className="assistant-panel__inactive-cta-buttons">
+          {onStartSpeechMode ? (
+            <Button
+              variant="primary"
+              size="md"
+              className={[
+                'assistant-panel__inactive-cta-button',
+                isStarting && 'assistant-panel__inactive-cta-button--loading',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              disabled={isStarting}
+              onClick={handleStart}
+            >
+              {isStarting ? (
+                <Loader2 size={18} aria-hidden="true" />
+              ) : (
+                <>
+                  <Mic size={16} aria-hidden="true" />
+                  Talk
+                </>
+              )}
+            </Button>
+          ) : null}
+          {onStartSpeechModeWithScreen ? (
+            <Button
+              variant="secondary"
+              size="md"
+              className={[
+                'assistant-panel__inactive-cta-button',
+                isStarting && 'assistant-panel__inactive-cta-button--loading',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              disabled={isStarting}
+              onClick={() => {
+                if (!onStartSpeechModeWithScreen) return;
+                setIsStarting(true);
+                void onStartSpeechModeWithScreen().catch(() => {
+                  setIsStarting(false);
+                });
+              }}
+            >
+              {isStarting ? (
+                <Loader2 size={18} aria-hidden="true" />
+              ) : (
+                <>
+                  <Cast size={16} aria-hidden="true" />
+                  Share screen
+                </>
+              )}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
