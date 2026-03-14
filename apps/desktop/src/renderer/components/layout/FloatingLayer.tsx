@@ -126,14 +126,16 @@ export function FloatingLayer({
   }
 
   const resolvedPosition = position ?? FALLBACK_POSITION;
-  const style: CSSProperties = {
+  const maxHeightPx = `${resolvedPosition.maxHeight}px`;
+  const style = {
     left: `${resolvedPosition.left}px`,
     width: `${resolvedPosition.width}px`,
-    maxHeight: `${resolvedPosition.maxHeight}px`,
+    maxHeight: maxHeightPx,
+    '--floating-content-max-height': maxHeightPx,
     ...(resolvedPosition.placement === 'up'
       ? { top: 'auto', bottom: `${resolvedPosition.offset}px` }
       : { top: `${resolvedPosition.offset}px`, bottom: 'auto' }),
-  };
+  } as CSSProperties;
 
   const classes = [
     'floating-layer',

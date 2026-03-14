@@ -8,6 +8,21 @@ describe('Select', () => {
     { value: 'thinking', label: 'Thinking' },
   ] as const;
 
+  it('exposes --floating-content-max-height on the floating layer when opened', () => {
+    render(
+      <Select
+        options={options}
+        value="fast"
+        aria-label="Mode"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mode' }));
+
+    const layer = document.querySelector('.floating-layer') as HTMLElement;
+    expect(layer.style.getPropertyValue('--floating-content-max-height')).toMatch(/^\d+px$/);
+  });
+
   it('opens options and selects an option', () => {
     const onChange = vi.fn((event: { target: { value: string } }) => event.target.value);
 
