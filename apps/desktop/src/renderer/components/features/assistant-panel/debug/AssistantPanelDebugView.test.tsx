@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 import type { VisualSendDiagnostics } from '../../../../runtime';
@@ -168,7 +168,7 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Last transition')).toBeVisible();
     expect(screen.getByText('Enable streaming')).toBeVisible();
     expect(screen.getByText('Snapshots triggered')).toBeVisible();
-    expect(screen.getByText('2')).toBeVisible();
+    expect(within(getFieldListItem('Snapshots triggered')).getByText('2')).toBeVisible();
     expect(screen.getByText('Streaming entered')).toBeVisible();
     expect(screen.getByText('2026-03-10T10:14:00.000Z')).toBeVisible();
     expect(screen.getByText('Streaming ended')).toBeVisible();
@@ -264,6 +264,16 @@ function buildBaseProps(visualSendDiagnostics: VisualSendDiagnostics) {
     onToggleSaveScreenFrames: vi.fn(),
     onRetryBackendHealth: vi.fn(async () => undefined),
   };
+}
+
+function getFieldListItem(label: string): HTMLElement {
+  const item = screen.getByText(label).closest('.field-list__item');
+
+  if (!(item instanceof HTMLElement)) {
+    throw new Error(`Expected field list item for label "${label}"`);
+  }
+
+  return item;
 }
 
 describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
@@ -364,6 +374,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
     );
     expect(screen.getByText('Sent (snapshot)')).toBeVisible();
     expect(screen.getByText('Sent (streaming)')).toBeVisible();
-    expect(screen.getByText('3')).toBeVisible();
+    expect(within(getFieldListItem('Snapshots triggered')).getByText('3')).toBeVisible();
+    expect(within(getFieldListItem('Sent (snapshot)')).getByText('3')).toBeVisible();
+    expect(within(getFieldListItem('Sent (streaming)')).getByText('0')).toBeVisible();
   });
 });
