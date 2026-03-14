@@ -130,42 +130,6 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
   });
 
-  it('keeps chat navigation inside the chat view with New chat and History actions', () => {
-    render(
-      <AssistantPanelChatView
-        assistantState="ready"
-        currentMode="inactive"
-        speechLifecycleStatus="off"
-        textSessionStatus="ready"
-        canSubmitText={true}
-        turns={[]}
-        isConversationEmpty={true}
-        lastRuntimeError={null}
-        draftText=""
-        isSubmittingTextTurn={false}
-        activeChat={{
-          id: 'chat-history-navigation',
-          title: 'Interview prep',
-          createdAt: '2026-03-11T09:00:00.000Z',
-          updatedAt: '2026-03-11T10:00:00.000Z',
-          isCurrent: false,
-        }}
-        onBackToHistory={() => {}}
-        onDraftTextChange={() => {}}
-        onSubmitTextTurn={() => {}}
-        onStartSpeechMode={() => Promise.resolve()}
-        onStartSpeechModeWithScreen={() => Promise.resolve()}
-        onEndSpeechMode={() => Promise.resolve()}
-      />,
-    );
-
-    expect(screen.queryByRole('button', { name: 'Back to history' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'History' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'New chat' })).toBeVisible();
-    expect(screen.queryByText(/^History$/)).toBeNull();
-    expect(screen.queryByText(/^New chat$/)).toBeNull();
-  });
-
   it('shows safe latest-session metadata for an opened past chat when resume is potentially available', () => {
     render(
       <AssistantPanelChatView

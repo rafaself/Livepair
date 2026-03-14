@@ -1,9 +1,8 @@
-import { History, MessageCirclePlus, TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import type { LiveSessionRecord } from '@livepair/shared-types';
 import type { ReactNode } from 'react';
 import { ConversationList } from '../../conversation/ConversationList';
 import type { ConversationTimelineEntry } from '../../../../runtime';
-import { IconButton } from '../../../primitives';
 
 export type AssistantPanelConversationSectionProps = {
   emptyState: ReactNode;
@@ -12,8 +11,6 @@ export type AssistantPanelConversationSectionProps = {
   lastRuntimeError: string | null;
   activeChatTitle?: string | null;
   latestLiveSession?: LiveSessionRecord | null;
-  onCreateChat?: () => Promise<void>;
-  onOpenHistory?: () => void;
   turns: ConversationTimelineEntry[];
 };
 
@@ -78,89 +75,62 @@ export function AssistantPanelConversationSection({
   lastRuntimeError,
   activeChatTitle = null,
   latestLiveSession = null,
-  onCreateChat,
-  onOpenHistory,
   turns,
 }: AssistantPanelConversationSectionProps): JSX.Element {
   const shouldShowLatestSessionMetadata = isViewingPastChat && latestLiveSession !== null;
   const latestSessionMetadataRows = latestLiveSession ? buildSessionMetadataRows(latestLiveSession) : [];
+  const shouldShowInlineRuntimeError = Boolean(lastRuntimeError) && !isConversationEmpty;
+  const shouldShowMessageMeta =
+    isViewingPastChat || shouldShowLatestSessionMetadata || shouldShowInlineRuntimeError;
 
   return (
     <div className="assistant-panel__messages-section">
-      <div className="assistant-panel__messages-header">
-        <div className="assistant-panel__history-label" aria-label="Session history">
-          <History size={16} />
-          <p className="assistant-panel__chat-title">Session history</p>
-        </div>
-        <div className="assistant-panel__history-actions">
-          <IconButton
-            label="History"
-            size="sm"
-            disabled={onOpenHistory === undefined}
-            onClick={onOpenHistory}
-          >
-            <History size={16} />
-          </IconButton>
-          <IconButton
-            label="New chat"
-            size="sm"
-            disabled={onCreateChat === undefined}
-            onClick={() => {
-              void onCreateChat?.();
-            }}
-          >
-            <MessageCirclePlus size={16} />
-          </IconButton>
-        </div>
-      </div>
-      {isViewingPastChat ? (
-        <div className="assistant-panel__messages-header">
-          <div className="assistant-panel__history-state" role="status" aria-live="polite">
-            <div className="assistant-panel__history-state-header">
-              <div className="assistant-panel__history-state-copy">
-                <p className="assistant-panel__history-state-label">Viewing past chat</p>
-                <p className="assistant-panel__history-state-title">
-                  {activeChatTitle ?? 'Untitled chat'}
-                </p>
-                <p className="assistant-panel__history-state-body">
-                  Durable chat container with preserved context. Latest Live session details stay separate below.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {shouldShowLatestSessionMetadata ? (
-        <div className="assistant-panel__messages-header">
-          <section className="assistant-panel__session-history" aria-label="Latest Live session">
-            <div className="assistant-panel__session-history-header">
-              <p className="assistant-panel__session-history-title">Latest Live session</p>
-              <div className="assistant-panel__session-history-badges">
-                <span className="assistant-panel__session-history-badge">
-                  {getLatestSessionStatusLabel(latestLiveSession)}
-                </span>
-                <span className="assistant-panel__session-history-badge">
-                  {getLatestSessionContinuationLabel(latestLiveSession)}
-                </span>
-              </div>
-            </div>
-            <dl className="assistant-panel__session-history-list">
-              {latestSessionMetadataRows.map((row) => (
-                <div key={row.label} className="assistant-panel__session-history-item">
-                  <dt>{row.label}</dt>
-                  <dd>{row.value}</dd>
+      {shouldShowMessageMeta ? (
+        <div className="assistant-panel__messages-meta">
+          {isViewingPastChat ? (
+            <div className="assistant-panel__history-state" role="status" aria-live="polite">
+              <div className="assistant-panel__history-state-header">
+                <div className="assistant-panel__history-state-copy">
+                  <p className="assistant-panel__history-state-label">Viewing past chat</p>
+                  <p className="assistant-panel__history-state-title">
+                    {activeChatTitle ?? 'Untitled chat'}
+                  </p>
+                  <p className="assistant-panel__history-state-body">
+                    Durable chat container with preserved context. Latest Live session details stay separate below.
+                  </p>
                 </div>
-              ))}
-            </dl>
-          </section>
-        </div>
-      ) : null}
-      {lastRuntimeError && !isConversationEmpty ? (
-        <div className="assistant-panel__messages-header">
-          <div className="assistant-panel__runtime-error" role="alert">
-            <TriangleAlert size={16} aria-hidden="true" />
-            <p>{lastRuntimeError}</p>
-          </div>
+              </div>
+            </div>
+          ) : null}
+          {shouldShowLatestSessionMetadata ? (
+            <section className="assistant-panel__session-history" aria-label="Latest Live session">
+              <div className="assistant-panel__session-history-header">
+                <p className="assistant-panel__session-history-title">Latest Live session</p>
+                <div className="assistant-panel__session-history-badges">
+                  <span className="assistant-panel__session-history-badge">
+                    {getLatestSessionStatusLabel(latestLiveSession)}
+                  </span>
+                  <span className="assistant-panel__session-history-badge">
+                    {getLatestSessionContinuationLabel(latestLiveSession)}
+                  </span>
+                </div>
+              </div>
+              <dl className="assistant-panel__session-history-list">
+                {latestSessionMetadataRows.map((row) => (
+                  <div key={row.label} className="assistant-panel__session-history-item">
+                    <dt>{row.label}</dt>
+                    <dd>{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+          {shouldShowInlineRuntimeError ? (
+            <div className="assistant-panel__runtime-error" role="alert">
+              <TriangleAlert size={16} aria-hidden="true" />
+              <p>{lastRuntimeError}</p>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

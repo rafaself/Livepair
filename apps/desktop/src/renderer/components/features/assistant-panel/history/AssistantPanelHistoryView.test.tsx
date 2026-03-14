@@ -1,18 +1,59 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { AssistantPanelHistoryView } from './AssistantPanelHistoryView';
+import {
+  AssistantPanelHistoryHeader,
+  AssistantPanelHistoryView,
+  useAssistantPanelHistoryViewModel,
+} from './AssistantPanelHistoryView';
+
+type HistoryViewHarnessProps = {
+  activeChatId: string | null;
+  onBackToChat?: () => void;
+  onSelectChat?: (chatId: string) => void;
+};
+
+function HistoryViewHarness({
+  activeChatId,
+  onBackToChat,
+  onSelectChat = () => {},
+}: HistoryViewHarnessProps): JSX.Element {
+  const viewModel = useAssistantPanelHistoryViewModel({
+    activeChatId,
+    isEnabled: true,
+  });
+
+  return (
+    <div className="assistant-panel__inner-shell">
+      <div className="assistant-panel__inner-header">
+        <AssistantPanelHistoryHeader
+          onRefresh={viewModel.refreshChats}
+          refreshLabel={viewModel.refreshLabel}
+          refreshDisabled={viewModel.refreshDisabled}
+          {...(onBackToChat ? { onBackToChat } : {})}
+        />
+      </div>
+      <div className="assistant-panel__inner-body">
+        <AssistantPanelHistoryView
+          activeChatId={activeChatId}
+          onSelectChat={onSelectChat}
+          viewModel={viewModel}
+        />
+      </div>
+    </div>
+  );
+}
 
 describe('AssistantPanelHistoryView', () => {
-  it('keeps chat navigation in the history view with a Back to chat action', async () => {
+  it('renders the history body inside the shared header harness with a Back to chat action', async () => {
     window.bridge.listChats = vi.fn(async () => []);
 
-    render(<AssistantPanelHistoryView activeChatId={null} onSelectChat={() => {}} />);
+    render(<HistoryViewHarness activeChatId={null} onBackToChat={() => {}} />);
 
     expect(await screen.findByText('No past chats yet.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Back to chat' })).toBeVisible();
   });
 
-  it('supports safely refreshing the history list when it becomes stale', async () => {
+  it('supports safely refreshing the shared history body when it becomes stale', async () => {
     const listChats = vi
       .fn()
       .mockResolvedValueOnce([
@@ -42,7 +83,7 @@ describe('AssistantPanelHistoryView', () => {
       ]);
     window.bridge.listChats = listChats;
 
-    render(<AssistantPanelHistoryView activeChatId="chat-1" onSelectChat={() => {}} />);
+    render(<HistoryViewHarness activeChatId="chat-1" />);
 
     expect(await screen.findByText('Older chat')).toBeVisible();
     expect(screen.queryByText('Fresh chat')).toBeNull();
@@ -129,7 +170,7 @@ describe('AssistantPanelHistoryView', () => {
           ],
     );
 
-    render(<AssistantPanelHistoryView activeChatId="chat-past" onSelectChat={() => {}} />);
+    render(<HistoryViewHarness activeChatId="chat-past" />);
 
     const currentTitle = await screen.findByText('Design review');
     const currentButton = currentTitle.closest('button');

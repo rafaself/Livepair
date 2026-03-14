@@ -2,9 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import { OverlayContainer, Panel } from '../../layout';
 import { AssistantPanelDebugView } from './debug/AssistantPanelDebugView';
-import { AssistantPanelChatView } from './chat/AssistantPanelChatView';
+import { AssistantPanelChatHeader, AssistantPanelChatView } from './chat/AssistantPanelChatView';
 import { AssistantPanelHeader } from './AssistantPanelHeader';
-import { AssistantPanelHistoryView } from './history/AssistantPanelHistoryView';
+import {
+  AssistantPanelHistoryHeader,
+  AssistantPanelHistoryView,
+  useAssistantPanelHistoryViewModel,
+} from './history/AssistantPanelHistoryView';
 import { AssistantPanelSettingsContent } from './settings/AssistantPanelSettingsView';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
@@ -71,6 +75,11 @@ export function AssistantPanel(): JSX.Element {
     handleCheckBackendHealth,
   } = useAssistantPanelController();
   const settingsController = useAssistantPanelSettingsController();
+  const isSharedInnerView = panelView === 'chat' || panelView === 'history';
+  const historyViewModel = useAssistantPanelHistoryViewModel({
+    activeChatId,
+    isEnabled: panelView === 'history',
+  });
 
   useEffect(() => {
     let isCancelled = false;
@@ -148,42 +157,57 @@ export function AssistantPanel(): JSX.Element {
           isDebugMode={isDebugMode}
         />
         <div className="assistant-panel__view">
-          {panelView === 'chat' ? (
-            <AssistantPanelChatView
-              assistantState={assistantState}
-              currentMode={currentMode}
-              isPanelOpen={isPanelOpen}
-              speechLifecycleStatus={speechLifecycleStatus}
-              textSessionStatus={textSessionStatus}
-              canSubmitText={canSubmitText}
-              activeTransport={activeTransport}
-              voiceSessionStatus={voiceSessionStatus}
-              voiceSessionResumption={voiceSessionResumption}
-              activeChat={activeChat}
-              latestLiveSession={latestLiveSession}
-              turns={conversationTurns}
-              isConversationEmpty={isConversationEmpty}
-              lastRuntimeError={lastRuntimeError}
-              draftText={draftText}
-              isSubmittingTextTurn={isSubmittingTextTurn}
-              localUserSpeechActive={localUserSpeechActive}
-              onBackToHistory={handleBackToHistory}
-              onCreateChat={handleCreateChat}
-              onDraftTextChange={handleDraftTextChange}
-              onSubmitTextTurn={handleSubmitTextTurn}
-              onStartSpeechMode={handleStartSpeechMode}
-              onStartSpeechModeWithScreen={handleStartSpeechModeWithScreen}
-              onEndSpeechMode={handleEndSpeechMode}
-            />
-          ) : null}
-
-          {panelView === 'history' ? (
-            <div className="assistant-panel__view-section">
-              <AssistantPanelHistoryView
-                activeChatId={activeChatId}
-                onBackToChat={handleBackToChat}
-                onSelectChat={handleSelectChat}
-              />
+          {isSharedInnerView ? (
+            <div className="assistant-panel__inner-shell">
+              <div className="assistant-panel__inner-header">
+                {panelView === 'chat' ? (
+                  <AssistantPanelChatHeader
+                    onCreateChat={handleCreateChat}
+                    onOpenHistory={handleBackToHistory}
+                  />
+                ) : (
+                  <AssistantPanelHistoryHeader
+                    onBackToChat={handleBackToChat}
+                    onRefresh={historyViewModel.refreshChats}
+                    refreshLabel={historyViewModel.refreshLabel}
+                    refreshDisabled={historyViewModel.refreshDisabled}
+                  />
+                )}
+              </div>
+              <div className="assistant-panel__inner-body">
+                {panelView === 'chat' ? (
+                  <AssistantPanelChatView
+                    assistantState={assistantState}
+                    currentMode={currentMode}
+                    isPanelOpen={isPanelOpen}
+                    speechLifecycleStatus={speechLifecycleStatus}
+                    textSessionStatus={textSessionStatus}
+                    canSubmitText={canSubmitText}
+                    activeTransport={activeTransport}
+                    voiceSessionStatus={voiceSessionStatus}
+                    voiceSessionResumption={voiceSessionResumption}
+                    activeChat={activeChat}
+                    latestLiveSession={latestLiveSession}
+                    turns={conversationTurns}
+                    isConversationEmpty={isConversationEmpty}
+                    lastRuntimeError={lastRuntimeError}
+                    draftText={draftText}
+                    isSubmittingTextTurn={isSubmittingTextTurn}
+                    localUserSpeechActive={localUserSpeechActive}
+                    onDraftTextChange={handleDraftTextChange}
+                    onSubmitTextTurn={handleSubmitTextTurn}
+                    onStartSpeechMode={handleStartSpeechMode}
+                    onStartSpeechModeWithScreen={handleStartSpeechModeWithScreen}
+                    onEndSpeechMode={handleEndSpeechMode}
+                  />
+                ) : (
+                  <AssistantPanelHistoryView
+                    activeChatId={activeChatId}
+                    onSelectChat={handleSelectChat}
+                    viewModel={historyViewModel}
+                  />
+                )}
+              </div>
             </div>
           ) : null}
 
