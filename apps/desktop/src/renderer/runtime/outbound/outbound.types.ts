@@ -37,6 +37,7 @@ export type RealtimeOutboundDecisionReason =
   | 'accepted'
   | 'stale-sequence'
   | 'superseded-latest'
+  | 'lane-saturated'
   | 'breaker-open';
 
 export type RealtimeOutboundBreakerState = 'closed' | 'open';
@@ -71,6 +72,7 @@ export type RealtimeOutboundGatewayOptions = {
 
 export type RealtimeOutboundGateway = {
   submit: (event: RealtimeOutboundEvent) => RealtimeOutboundDecision;
+  settle: (event: RealtimeOutboundEvent) => void;
   recordFailure: (detail: string) => void;
   recordSuccess: () => void;
   reset: () => void;

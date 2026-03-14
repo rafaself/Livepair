@@ -76,6 +76,22 @@ describe('realtimeOutboundGateway', () => {
     expect(visualDecision.classification).toBe('replaceable');
   });
 
+  it('bounds the audio lane to one in-flight and one pending chunk', () => {
+    const gateway = createRealtimeOutboundGateway();
+
+    expect(gateway.submit(createAudioChunkEvent({ sequence: 1 })).outcome).toBe('send');
+    expect(gateway.submit(createAudioChunkEvent({ sequence: 2 })).outcome).toBe('send');
+    expect(gateway.submit(createAudioChunkEvent({ sequence: 3 }))).toEqual({
+      outcome: 'drop',
+      classification: 'non-replaceable',
+      reason: 'lane-saturated',
+    });
+
+    gateway.settle(createAudioChunkEvent({ sequence: 1 }));
+
+    expect(gateway.submit(createAudioChunkEvent({ sequence: 4 })).outcome).toBe('send');
+  });
+
   it('updates diagnostics for send, drop, replace, and block outcomes', () => {
     const gateway = createRealtimeOutboundGateway({ maxConsecutiveFailures: 2 });
 

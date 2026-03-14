@@ -114,6 +114,7 @@ export function createSessionControllerAssembly(
     settingsStore: dependencies.settingsStore,
     createVoiceCapture: dependencies.createVoiceCapture,
     getActiveTransport: () => mutableRuntime.getActiveTransport(),
+    getRealtimeOutboundGateway: () => mutableRuntime.getRealtimeOutboundGateway(),
     currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
     setVoiceSessionStatus: (s) => runtimeRef.current!.setVoiceSessionStatus(s),
     setVoiceErrorState: (d) => setVoiceErrorState(d),

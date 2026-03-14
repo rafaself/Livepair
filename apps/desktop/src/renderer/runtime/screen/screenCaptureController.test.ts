@@ -79,6 +79,7 @@ function createHarness(options: {
         reason: gatewaySubmitCount === 1 ? 'accepted' : 'superseded-latest',
       };
     }),
+    settle: vi.fn(),
     recordFailure: vi.fn(),
     recordSuccess: vi.fn(),
     reset: vi.fn(),

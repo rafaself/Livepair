@@ -8,6 +8,7 @@ import type {
 } from './outbound.types';
 
 const DEFAULT_MAX_CONSECUTIVE_FAILURES = 3;
+const AUDIO_MAX_OUTSTANDING_EVENTS = 2;
 
 export function createDefaultRealtimeOutboundDiagnostics(): RealtimeOutboundDiagnostics {
   return {
@@ -45,6 +46,7 @@ export function createRealtimeOutboundGateway(
   let diagnostics = createDefaultRealtimeOutboundDiagnostics();
   const latestSequenceByChannel = new Map<string, number>();
   const latestReplaceableByKey = new Map<string, number>();
+  const outstandingAudioEventsByChannel = new Map<string, number>();
 
   const finalizeDecision = (
     event: RealtimeOutboundEvent,
@@ -84,6 +86,19 @@ export function createRealtimeOutboundGateway(
       });
     }
 
+    if (event.kind === 'audio_chunk') {
+      const outstandingAudioEvents =
+        outstandingAudioEventsByChannel.get(event.channelKey) ?? 0;
+
+      if (outstandingAudioEvents >= AUDIO_MAX_OUTSTANDING_EVENTS) {
+        return finalizeDecision(event, {
+          outcome: 'drop',
+          classification,
+          reason: 'lane-saturated',
+        });
+      }
+    }
+
     const latestSequence = latestSequenceByChannel.get(event.channelKey);
     if (
       typeof latestSequence === 'number' &&
@@ -97,6 +112,13 @@ export function createRealtimeOutboundGateway(
     }
 
     latestSequenceByChannel.set(event.channelKey, event.sequence);
+
+    if (event.kind === 'audio_chunk') {
+      outstandingAudioEventsByChannel.set(
+        event.channelKey,
+        (outstandingAudioEventsByChannel.get(event.channelKey) ?? 0) + 1,
+      );
+    }
 
     if (event.kind === 'visual_frame') {
       const hadLatestFrame = latestReplaceableByKey.has(event.replaceKey);
@@ -120,10 +142,29 @@ export function createRealtimeOutboundGateway(
     diagnostics = createDefaultRealtimeOutboundDiagnostics();
     latestSequenceByChannel.clear();
     latestReplaceableByKey.clear();
+    outstandingAudioEventsByChannel.clear();
   };
 
   return {
     submit,
+    settle: (event: RealtimeOutboundEvent): void => {
+      if (event.kind !== 'audio_chunk') {
+        return;
+      }
+
+      const outstandingAudioEvents =
+        outstandingAudioEventsByChannel.get(event.channelKey) ?? 0;
+
+      if (outstandingAudioEvents <= 1) {
+        outstandingAudioEventsByChannel.delete(event.channelKey);
+        return;
+      }
+
+      outstandingAudioEventsByChannel.set(
+        event.channelKey,
+        outstandingAudioEvents - 1,
+      );
+    },
     recordFailure: (detail: string): void => {
       const consecutiveFailureCount = diagnostics.consecutiveFailureCount + 1;
       diagnostics = {
