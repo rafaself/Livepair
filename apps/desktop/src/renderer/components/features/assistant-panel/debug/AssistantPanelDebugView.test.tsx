@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 import type { VisualSendDiagnostics } from '../../../../runtime';
@@ -168,7 +168,10 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Last transition')).toBeVisible();
     expect(screen.getByText('Enable streaming')).toBeVisible();
     expect(screen.getByText('Snapshots triggered')).toBeVisible();
-    expect(screen.getByText('2')).toBeVisible();
+    expect(
+      within(screen.getByText('Snapshots triggered').closest('.field-list__item')!)
+        .getByText('2'),
+    ).toBeVisible();
     expect(screen.getByText('Streaming entered')).toBeVisible();
     expect(screen.getByText('2026-03-10T10:14:00.000Z')).toBeVisible();
     expect(screen.getByText('Streaming ended')).toBeVisible();
@@ -364,6 +367,9 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
     );
     expect(screen.getByText('Sent (snapshot)')).toBeVisible();
     expect(screen.getByText('Sent (streaming)')).toBeVisible();
-    expect(screen.getByText('3')).toBeVisible();
+    expect(
+      within(screen.getByText('Sent (snapshot)').closest('.field-list__item')!)
+        .getByText('3'),
+    ).toBeVisible();
   });
 });

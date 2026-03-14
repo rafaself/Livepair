@@ -142,6 +142,64 @@ describe('createScreenCaptureController', () => {
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('capturing');
   });
 
+  it('flushes visual diagnostics through start, snapshot send, and stop', async () => {
+    const { ctrl, store } = createHarness();
+
+    await ctrl.start();
+    expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
+      lastTransitionReason: 'screenShareStarted',
+      snapshotCount: 0,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: {
+        snapshot: 0,
+        streaming: 0,
+      },
+    });
+
+    ctrl.analyzeScreenNow();
+    expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
+      lastTransitionReason: 'analyzeScreenNow',
+      snapshotCount: 1,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: {
+        snapshot: 0,
+        streaming: 0,
+      },
+    });
+
+    await ctrl.enqueueFrameSend({
+      data: new Uint8Array([1]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 640,
+      heightPx: 360,
+    });
+    expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
+      lastTransitionReason: 'snapshotConsumed',
+      snapshotCount: 1,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: {
+        snapshot: 1,
+        streaming: 0,
+      },
+    });
+
+    await ctrl.stop();
+    expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
+      lastTransitionReason: 'screenShareStopped',
+      snapshotCount: 1,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: {
+        snapshot: 1,
+        streaming: 0,
+      },
+    });
+  });
+
   it('start passes the explicit conservative screen policy to local capture', async () => {
     const { ctrl, mockCapture } = createHarness();
 
@@ -567,6 +625,38 @@ describe('createScreenCaptureController', () => {
     expect(store.setLastRuntimeError).not.toHaveBeenCalledWith(
       'frame upload failed after stop',
     );
+  });
+
+  it('stops capture and preserves error diagnostics when an active frame send fails', async () => {
+    const { ctrl, sendVideoFrame, store, outboundGateway, mockCapture } = createHarness();
+    sendVideoFrame.mockRejectedValueOnce(new Error('frame upload failed'));
+
+    await ctrl.start();
+    ctrl.enableStreaming();
+    await ctrl.enqueueFrameSend({
+      data: new Uint8Array([1]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 320,
+      heightPx: 240,
+    });
+
+    await vi.waitFor(() => {
+      expect(outboundGateway.recordFailure).toHaveBeenCalledWith('frame upload failed');
+      expect(mockCapture.stop).toHaveBeenCalledTimes(1);
+      expect(store.setLastRuntimeError).toHaveBeenCalledWith('frame upload failed');
+      expect(store.setScreenCaptureState.mock.calls.slice(-2)).toEqual([
+        ['stopping'],
+        ['error'],
+      ]);
+      expect(store.setScreenCaptureDiagnostics).toHaveBeenLastCalledWith({
+        lastUploadStatus: 'error',
+        lastError: 'frame upload failed',
+      });
+    });
+
+    expect(ctrl.getVisualSendState()).toBe('inactive');
+    expect(ctrl.isActive()).toBe(false);
   });
 
   it('resets the send chain when capture is toggled off and back on', async () => {
