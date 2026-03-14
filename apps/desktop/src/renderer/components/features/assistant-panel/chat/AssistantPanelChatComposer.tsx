@@ -10,7 +10,6 @@ export type AssistantPanelChatComposerProps = {
   isComposerDisabled: boolean;
   isLiveSessionActive: boolean;
   isPanelOpen: boolean;
-  isViewingPastChat?: boolean;
   liveSessionPhaseLabel?: string | null;
   placeholder: string;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
@@ -26,7 +25,6 @@ export function AssistantPanelChatComposer({
   isComposerDisabled,
   isLiveSessionActive,
   isPanelOpen,
-  isViewingPastChat = false,
   liveSessionPhaseLabel = null,
   placeholder,
   onDraftTextChange,

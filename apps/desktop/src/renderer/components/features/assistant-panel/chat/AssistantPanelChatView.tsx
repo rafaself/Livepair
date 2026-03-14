@@ -125,7 +125,6 @@ export function AssistantPanelChatView({
           isComposerDisabled={isComposerDisabled}
           isLiveSessionActive={isLiveSessionActive}
           isPanelOpen={isPanelOpen ?? false}
-          isViewingPastChat={isViewingPastChat}
           liveSessionPhaseLabel={liveSessionPhaseLabel}
           placeholder={composerPlaceholder}
           onDraftTextChange={onDraftTextChange}
