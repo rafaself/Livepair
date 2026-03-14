@@ -197,7 +197,7 @@ describe('App', () => {
       fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
     });
 
-    expect(screen.getByRole('button', { name: 'Start Live Session' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Talk' })).toBeVisible();
     expect(screen.queryByRole('form', { name: 'Send message to Livepair' })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
@@ -216,7 +216,7 @@ describe('App', () => {
       fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start Live Session' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Talk' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Starting Live session' })).toBeDisabled();

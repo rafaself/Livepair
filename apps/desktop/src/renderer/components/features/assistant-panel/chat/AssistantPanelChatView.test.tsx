@@ -27,7 +27,7 @@ describe('AssistantPanelChatView', () => {
 
     expect(screen.queryByRole('status', { name: 'Disconnected' })).toBeNull();
     expect(screen.getByText('Talk to Livepair')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Start Live Session' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Talk' })).toBeVisible();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
@@ -339,7 +339,7 @@ describe('AssistantPanelChatView', () => {
 
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send note to session' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Start Live Session' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Talk' })).toBeEnabled();
   });
 
   it('submits text with Enter and disables the composer while a send is pending during an active Live session', () => {
@@ -510,7 +510,7 @@ describe('AssistantPanelChatView', () => {
     );
 
     // CTA button is removed from the empty state once the session is active
-    expect(screen.queryByRole('button', { name: 'Start Live Session' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Talk' })).toBeNull();
     // The End button is accessible in the active composer
     expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
     // Old inactive copy is not shown
@@ -579,9 +579,9 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Start Live Session' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Talk' })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start Live Session' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Talk' }));
 
     expect(handleStartSpeechMode).toHaveBeenCalledTimes(1);
     expect(handleSubmitTextTurn).not.toHaveBeenCalled();
