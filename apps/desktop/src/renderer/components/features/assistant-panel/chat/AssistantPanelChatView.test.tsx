@@ -26,10 +26,7 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.queryByRole('status', { name: 'Disconnected' })).toBeNull();
-    expect(screen.getByText('Live session')).toBeVisible();
-    expect(
-      screen.getByText('Your spoken turns and assistant replies will appear here.'),
-    ).toBeVisible();
+    expect(screen.getByText('Talk to Livepair')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Start Live Session' })).toBeVisible();
     expect(screen.queryByRole('textbox')).toBeNull();
   });

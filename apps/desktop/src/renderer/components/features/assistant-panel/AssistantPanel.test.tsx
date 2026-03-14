@@ -171,9 +171,6 @@ describe('AssistantPanel', () => {
     const panelScope = within(panel);
 
     expect(panelScope.getByRole('button', { name: 'End Live session' })).toBeVisible();
-    expect(
-      panelScope.getByText('Your spoken turns and assistant replies will appear here.'),
-    ).toBeVisible();
     expect(panelScope.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
   });
 
@@ -233,7 +230,7 @@ describe('AssistantPanel', () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Back to chat' }));
     });
 
-    expect(await panelScope.findByText('Live session')).toBeVisible();
+    expect(await panelScope.findByText('Talk to Livepair')).toBeVisible();
     expect(useUiStore.getState().panelView).toBe('chat');
   });
 
@@ -314,9 +311,6 @@ describe('AssistantPanel', () => {
     });
 
     expect(panelScope.queryByText('Leaked reply from the previous chat')).toBeNull();
-    expect(
-      panelScope.getByText('Your spoken turns and assistant replies will appear here.'),
-    ).toBeVisible();
   });
 
   it('creates a new empty chat from an opened past chat without leaking past metadata or turns', async () => {
@@ -408,9 +402,6 @@ describe('AssistantPanel', () => {
     expect(panelScope.queryByText('Resume may be available')).toBeNull();
     expect(panelScope.queryByText('Viewing past chat')).toBeNull();
     expect(panelScope.queryByText('Past-session reply that should disappear')).toBeNull();
-    expect(
-      panelScope.getByText('Your spoken turns and assistant replies will appear here.'),
-    ).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
   });
@@ -474,9 +465,6 @@ describe('AssistantPanel', () => {
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
 
-    expect(
-      panelScope.getByText('Your spoken turns and assistant replies will appear here.'),
-    ).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
 
@@ -489,9 +477,6 @@ describe('AssistantPanel', () => {
       expect(useSessionStore.getState().activeChatId).toBe('chat-fresh-empty');
     });
 
-    expect(
-      panelScope.getByText('Your spoken turns and assistant replies will appear here.'),
-    ).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
 
@@ -511,9 +496,6 @@ describe('AssistantPanel', () => {
 
     expect(useSessionStore.getState().activeChatId).toBe('chat-fresh-empty');
     expect(useUiStore.getState().panelView).toBe('chat');
-    expect(
-      panelScope.getByText('Your spoken turns and assistant replies will appear here.'),
-    ).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
   });

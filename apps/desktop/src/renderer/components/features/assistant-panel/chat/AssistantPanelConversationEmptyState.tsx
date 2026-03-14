@@ -60,10 +60,7 @@ export function AssistantPanelConversationEmptyState({
         className="assistant-panel__conversation-empty-icon"
         aria-hidden="true"
       />
-      <p className="assistant-panel__conversation-empty-title">Live session</p>
-      <p className="assistant-panel__conversation-empty-body">
-        Your spoken turns and assistant replies will appear here.
-      </p>
+      <p className="assistant-panel__conversation-empty-title">Talk to Livepair</p>
       {!isLiveSessionActive && onStartSpeechMode ? (
         <Button
           variant="primary"
