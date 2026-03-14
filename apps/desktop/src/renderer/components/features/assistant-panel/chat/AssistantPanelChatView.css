@@ -310,6 +310,16 @@
   color: var(--color-text-secondary);
 }
 
+.assistant-panel__composer-control--active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.assistant-panel__composer-control--inactive {
+  color: var(--color-text-secondary);
+  opacity: 0.72;
+}
+
 .assistant-panel__composer-control:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
 }

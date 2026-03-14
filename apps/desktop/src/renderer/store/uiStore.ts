@@ -72,6 +72,7 @@ type UiStoreState = {
   isPanelOpen: boolean;
   panelView: PanelView;
   isDebugMode: boolean;
+  isComposerMicrophoneEnabled: boolean;
   saveScreenFramesEnabled: boolean;
   screenFrameDumpDirectoryPath: string | null;
   backendUrlDraft: string;
@@ -82,6 +83,8 @@ type UiStoreState = {
   closePanel: () => void;
   setPanelView: (view: PanelView) => void;
   toggleDebugMode: () => void;
+  toggleComposerMicrophoneEnabled: () => void;
+  setComposerMicrophoneEnabled: (enabled: boolean) => void;
   setSaveScreenFramesEnabled: (enabled: boolean) => void;
   setScreenFrameDumpDirectoryPath: (directoryPath: string | null) => void;
   initializeSettingsUi: (settings: { backendUrl: string }) => void;
@@ -95,6 +98,7 @@ const defaultUiState = {
   isPanelOpen: false,
   panelView: 'chat' as PanelView,
   isDebugMode: false,
+  isComposerMicrophoneEnabled: true,
   saveScreenFramesEnabled: false,
   screenFrameDumpDirectoryPath: null,
   backendUrlDraft: '',
@@ -127,6 +131,11 @@ export const useUiStore = create<UiStoreState>((set) => ({
       saveScreenFramesEnabled: state.isDebugMode ? false : state.saveScreenFramesEnabled,
       screenFrameDumpDirectoryPath: state.isDebugMode ? null : state.screenFrameDumpDirectoryPath,
     })),
+  toggleComposerMicrophoneEnabled: () =>
+    set((state) => ({
+      isComposerMicrophoneEnabled: !state.isComposerMicrophoneEnabled,
+    })),
+  setComposerMicrophoneEnabled: (isComposerMicrophoneEnabled) => set({ isComposerMicrophoneEnabled }),
   setSaveScreenFramesEnabled: (saveScreenFramesEnabled) => set({ saveScreenFramesEnabled }),
   setScreenFrameDumpDirectoryPath: (screenFrameDumpDirectoryPath) =>
     set({ screenFrameDumpDirectoryPath }),

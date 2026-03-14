@@ -67,10 +67,12 @@ export function AssistantPanel(): JSX.Element {
     lastRuntimeError,
     draftText,
     isSubmittingTextTurn,
+    isComposerMicrophoneEnabled,
     handleDraftTextChange,
     handleSubmitTextTurn,
     handleStartSpeechMode,
     handleStartSpeechModeWithScreen,
+    handleToggleComposerMicrophone,
     handleEndSpeechMode,
     handleCheckBackendHealth,
   } = useAssistantPanelController();
@@ -183,17 +185,19 @@ export function AssistantPanel(): JSX.Element {
                     latestLiveSession={latestLiveSession}
                     turns={conversationTurns}
                     isConversationEmpty={isConversationEmpty}
-                    lastRuntimeError={lastRuntimeError}
-                    draftText={draftText}
-                    isSubmittingTextTurn={isSubmittingTextTurn}
-                    localUserSpeechActive={localUserSpeechActive}
-                    onDraftTextChange={handleDraftTextChange}
-                    onSubmitTextTurn={handleSubmitTextTurn}
-                    onStartSpeechMode={handleStartSpeechMode}
-                    onStartSpeechModeWithScreen={handleStartSpeechModeWithScreen}
-                    onEndSpeechMode={handleEndSpeechMode}
-                  />
-                ) : (
+                     lastRuntimeError={lastRuntimeError}
+                     draftText={draftText}
+                     isSubmittingTextTurn={isSubmittingTextTurn}
+                     isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
+                     localUserSpeechActive={localUserSpeechActive}
+                     onDraftTextChange={handleDraftTextChange}
+                     onSubmitTextTurn={handleSubmitTextTurn}
+                     onStartSpeechMode={handleStartSpeechMode}
+                     onStartSpeechModeWithScreen={handleStartSpeechModeWithScreen}
+                     onToggleComposerMicrophone={handleToggleComposerMicrophone}
+                     onEndSpeechMode={handleEndSpeechMode}
+                   />
+                 ) : (
                   <AssistantPanelHistoryView
                     activeChatId={activeChatId}
                     onSelectChat={handleSelectChat}
