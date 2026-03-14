@@ -310,7 +310,6 @@
 }
 
 .assistant-panel__composer-control-group {
-  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -361,53 +360,47 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
-.assistant-panel__composer-dropdown-layer {
-  pointer-events: auto;
-  transform-origin: top left;
+.assistant-panel__composer-select-trigger.select__trigger {
+  justify-content: center;
+  gap: 0;
+  min-height: 34px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
-.assistant-panel__composer-source-dropdown {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-elevated);
-  box-shadow: var(--shadow-md);
-  min-width: 248px;
+.assistant-panel__composer-select-trigger.select__trigger:hover:not(:disabled),
+.assistant-panel__composer-select-trigger.select__trigger[data-state='open'] {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 
-.assistant-panel__composer-source-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+.assistant-panel__composer-select-trigger.select__trigger:focus-visible {
+  outline-offset: 1px;
 }
 
-.assistant-panel__composer-source-group-header {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.assistant-panel__composer-select-icon.select__icon {
+  color: inherit;
 }
 
-.assistant-panel__composer-source-group-title,
-.assistant-panel__composer-source-group-current {
-  margin: 0;
+.assistant-panel__composer-select-icon.select__icon svg {
+  width: 16px;
+  height: 16px;
 }
 
-.assistant-panel__composer-source-group-title {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
+.assistant-panel__composer-select-content.select__content {
+  z-index: var(--z-overlay);
 }
 
-.assistant-panel__composer-source-group-current {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
+.assistant-panel__composer-select-viewport.select__viewport {
+  min-width: 180px;
 }
 
-.assistant-panel__composer-source-list {
-  width: 100%;
+:root[data-theme='light'] .assistant-panel__composer-select-trigger.select__trigger:hover:not(:disabled),
+:root[data-theme='light'] .assistant-panel__composer-select-trigger.select__trigger[data-state='open'] {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .assistant-panel__composer-submit {

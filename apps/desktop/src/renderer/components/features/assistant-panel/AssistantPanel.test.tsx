@@ -694,11 +694,10 @@ describe('AssistantPanel', () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Microphone options' }));
     });
 
-    const microphoneDropdown = await screen.findByRole('dialog', {
-      name: 'Microphone selection',
+    const microphoneDropdown = await screen.findByRole('listbox', {
+      name: 'Microphone input options',
     });
     const microphoneDropdownScope = within(microphoneDropdown);
-    expect(microphoneDropdownScope.getByText('Current: USB Microphone')).toBeVisible();
     expect(
       microphoneDropdownScope.getByRole('option', { name: 'USB Microphone' }),
     ).toHaveAttribute(
@@ -714,18 +713,17 @@ describe('AssistantPanel', () => {
       expect(window.bridge.updateSettings).toHaveBeenCalledWith({
         selectedInputDeviceId: 'headset-mic',
       });
-      expect(screen.queryByRole('dialog', { name: 'Microphone selection' })).toBeNull();
+      expect(screen.queryByRole('listbox', { name: 'Microphone input options' })).toBeNull();
     });
 
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Microphone options' }));
     });
 
-    const reopenedAfterMicChange = await screen.findByRole('dialog', {
-      name: 'Microphone selection',
+    const reopenedAfterMicChange = await screen.findByRole('listbox', {
+      name: 'Microphone input options',
     });
     const reopenedAfterMicChangeScope = within(reopenedAfterMicChange);
-    expect(reopenedAfterMicChangeScope.getByText('Current: Headset Mic')).toBeVisible();
     expect(
       reopenedAfterMicChangeScope.getByRole('option', { name: 'Headset Mic' }),
     ).toHaveAttribute('aria-selected', 'true');
@@ -734,22 +732,21 @@ describe('AssistantPanel', () => {
     ).toHaveAttribute('aria-selected', 'false');
 
     await act(async () => {
-      fireEvent.pointerDown(document.body);
+      fireEvent.mouseDown(document.body);
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Microphone selection' })).toBeNull();
+      expect(screen.queryByRole('listbox', { name: 'Microphone input options' })).toBeNull();
     });
 
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Screen share options' }));
     });
 
-    const screenDropdown = await screen.findByRole('dialog', {
-      name: 'Screen share selection',
+    const screenDropdown = await screen.findByRole('listbox', {
+      name: 'Screen source options',
     });
     const screenDropdownScope = within(screenDropdown);
-    expect(screenDropdownScope.getByText('Current: VSCode')).toBeVisible();
     expect(
       screenDropdownScope.getByRole('option', { name: 'VSCode' }),
     ).toHaveAttribute('aria-selected', 'true');
@@ -766,28 +763,27 @@ describe('AssistantPanel', () => {
       expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith('screen:1:0');
       expect(useSettingsStore.getState().settings.selectedInputDeviceId).toBe('headset-mic');
       expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('screen:1:0');
-      expect(screen.queryByRole('dialog', { name: 'Screen share selection' })).toBeNull();
+      expect(screen.queryByRole('listbox', { name: 'Screen source options' })).toBeNull();
     });
 
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Screen share options' }));
     });
 
-    const reopenedAfterScreenChange = await screen.findByRole('dialog', {
-      name: 'Screen share selection',
+    const reopenedAfterScreenChange = await screen.findByRole('listbox', {
+      name: 'Screen source options',
     });
     const reopenedAfterScreenChangeScope = within(reopenedAfterScreenChange);
-    expect(reopenedAfterScreenChangeScope.getByText('Current: Entire Screen')).toBeVisible();
     expect(
       reopenedAfterScreenChangeScope.getByRole('option', { name: 'Entire Screen' }),
     ).toHaveAttribute('aria-selected', 'true');
 
     await act(async () => {
-      fireEvent.pointerDown(document.body);
+      fireEvent.mouseDown(document.body);
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Screen share selection' })).toBeNull();
+      expect(screen.queryByRole('listbox', { name: 'Screen source options' })).toBeNull();
     });
 
     await act(async () => {
