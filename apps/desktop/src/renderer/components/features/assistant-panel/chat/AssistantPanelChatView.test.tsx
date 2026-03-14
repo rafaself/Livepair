@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ConversationTurnModel } from '../../conversation/mockConversation';
@@ -860,5 +860,80 @@ describe('AssistantPanelChatView', () => {
     expect(disabledMicButton).not.toHaveClass('assistant-panel__composer-control--active');
     expect(screen.getByRole('button', { name: 'Input options' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
+  });
+
+  it('toggles a source dropdown from the chevron and exposes microphone and screen source choices without regressing the mic toggle or primary action', async () => {
+    const handleToggleMicrophone = vi.fn();
+    const handleSelectInputDevice = vi.fn();
+    const handleSelectScreenSource = vi.fn();
+
+    render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        isComposerMicrophoneEnabled={true}
+        inputDeviceOptions={[
+          { value: 'default', label: 'System default' },
+          { value: 'usb-mic', label: 'USB Microphone' },
+          { value: 'desk-mic', label: 'Desk Mic' },
+        ]}
+        selectedInputDeviceId="usb-mic"
+        screenCaptureSourceOptions={[
+          { value: 'auto', label: 'Automatic (first available source)' },
+          { value: 'screen:1:0', label: 'Entire Screen' },
+          { value: 'window:42:0', label: 'VSCode' },
+        ]}
+        selectedScreenCaptureSourceId="screen:1:0"
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onToggleComposerMicrophone={handleToggleMicrophone}
+        onSelectComposerInputDevice={handleSelectInputDevice}
+        onSelectComposerScreenSource={handleSelectScreenSource}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Input options' }));
+
+    const dropdown = screen.getByRole('dialog', { name: 'Source selection' });
+    expect(within(dropdown).getByText('Microphone input')).toBeVisible();
+    expect(within(dropdown).getByText('Screen source')).toBeVisible();
+    expect(within(dropdown).getByText('Current: USB Microphone')).toBeVisible();
+    expect(within(dropdown).getByText('Current: Entire Screen')).toBeVisible();
+    expect(within(dropdown).getByRole('option', { name: 'System default' })).toBeVisible();
+    expect(within(dropdown).getByRole('option', { name: 'USB Microphone' })).toBeVisible();
+    expect(within(dropdown).getByRole('option', { name: 'Desk Mic' })).toBeVisible();
+    expect(
+      within(dropdown).getByRole('option', { name: 'Automatic (first available source)' }),
+    ).toBeVisible();
+    expect(within(dropdown).getByRole('option', { name: 'Entire Screen' })).toBeVisible();
+    expect(within(dropdown).getByRole('option', { name: 'VSCode' })).toBeVisible();
+
+    fireEvent.click(within(dropdown).getByRole('option', { name: 'Desk Mic' }));
+    fireEvent.click(within(dropdown).getByRole('option', { name: 'VSCode' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disable microphone' }));
+
+    expect(handleSelectInputDevice).toHaveBeenCalledWith('desk-mic');
+    expect(handleSelectScreenSource).toHaveBeenCalledWith('window:42:0');
+    expect(handleToggleMicrophone).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Input options' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Source selection' })).toBeNull();
+    });
   });
 });

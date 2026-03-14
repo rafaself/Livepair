@@ -1,6 +1,7 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
+import type { SelectOptionItem } from '../../../primitives';
 import {
   canSubmitComposerText,
   createControlGatingSnapshot,
@@ -38,9 +39,15 @@ export type AssistantPanelChatViewProps = {
   draftText: string;
   isSubmittingTextTurn: boolean;
   isComposerMicrophoneEnabled?: boolean;
+  inputDeviceOptions?: readonly SelectOptionItem[];
   localUserSpeechActive?: boolean;
+  screenCaptureSourceOptions?: readonly SelectOptionItem[];
+  selectedInputDeviceId?: string;
+  selectedScreenCaptureSourceId?: string;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
+  onSelectComposerInputDevice?: (deviceId: string) => void;
+  onSelectComposerScreenSource?: (sourceId: string) => void;
   onStartSpeechMode: () => Promise<void>;
   onStartSpeechModeWithScreen: () => Promise<void>;
   onToggleComposerMicrophone?: () => Promise<void>;
@@ -65,9 +72,15 @@ export function AssistantPanelChatView({
   draftText,
   isSubmittingTextTurn,
   isComposerMicrophoneEnabled = true,
+  inputDeviceOptions = [],
   localUserSpeechActive = false,
+  screenCaptureSourceOptions = [],
+  selectedInputDeviceId = '',
+  selectedScreenCaptureSourceId = '',
   onDraftTextChange,
   onSubmitTextTurn,
+  onSelectComposerInputDevice = () => undefined,
+  onSelectComposerScreenSource = () => undefined,
   onStartSpeechMode,
   onStartSpeechModeWithScreen,
   onToggleComposerMicrophone = async () => undefined,
@@ -132,10 +145,16 @@ export function AssistantPanelChatView({
         isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
         isLiveSessionActive={isLiveSessionActive}
         isPanelOpen={isPanelOpen ?? false}
+        inputDeviceOptions={inputDeviceOptions}
         liveSessionPhaseLabel={liveSessionPhaseLabel}
         placeholder={composerPlaceholder}
+        screenCaptureSourceOptions={screenCaptureSourceOptions}
+        selectedInputDeviceId={selectedInputDeviceId}
+        selectedScreenCaptureSourceId={selectedScreenCaptureSourceId}
         onDraftTextChange={onDraftTextChange}
         onEndSpeechMode={onEndSpeechMode}
+        onSelectComposerInputDevice={onSelectComposerInputDevice}
+        onSelectComposerScreenSource={onSelectComposerScreenSource}
         onStartSpeechMode={onStartSpeechMode}
         onToggleComposerMicrophone={onToggleComposerMicrophone}
         onSubmitTextTurn={onSubmitTextTurn}

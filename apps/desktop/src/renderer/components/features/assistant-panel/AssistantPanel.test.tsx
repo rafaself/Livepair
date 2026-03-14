@@ -9,6 +9,18 @@ import { AssistantPanel } from './AssistantPanel';
 
 const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();
 
+function createDevice(
+  overrides: Partial<MediaDeviceInfo> & Pick<MediaDeviceInfo, 'deviceId' | 'kind'>,
+): MediaDeviceInfo {
+  return {
+    deviceId: overrides.deviceId,
+    groupId: overrides.groupId ?? `${overrides.deviceId}-group`,
+    kind: overrides.kind,
+    label: overrides.label ?? overrides.deviceId,
+    toJSON: overrides.toJSON ?? (() => ({})),
+  } satisfies MediaDeviceInfo;
+}
+
 function AssistantPanelHarness(): JSX.Element {
   const togglePanel = useUiStore((state) => state.togglePanel);
 
@@ -613,6 +625,114 @@ describe('AssistantPanel', () => {
     expect(useUiStore.getState().panelView).toBe('chat');
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
+  });
+
+  it('opens an in-chat source dropdown and applies microphone and screen selections through the existing source paths', async () => {
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'turn-source-1',
+        role: 'assistant',
+        content: 'Resume the session from here.',
+        timestamp: '10:00',
+        state: 'complete',
+      },
+    ]);
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        backendUrl: 'https://persisted.livepair.dev',
+        selectedInputDeviceId: 'usb-mic',
+      },
+      isReady: true,
+    });
+    enumerateDevices.mockResolvedValue([
+      createDevice({
+        deviceId: 'default',
+        kind: 'audioinput',
+        label: 'Default microphone',
+      }),
+      createDevice({
+        deviceId: 'usb-mic',
+        kind: 'audioinput',
+        label: 'USB Microphone',
+      }),
+      createDevice({
+        deviceId: 'headset-mic',
+        kind: 'audioinput',
+        label: 'Headset Mic',
+      }),
+    ]);
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'window:42:0',
+    }));
+    window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: sourceId,
+    }));
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+    await waitFor(() => {
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+    });
+
+    expect(panelScope.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Input options' }));
+    });
+
+    const dropdown = await screen.findByRole('dialog', { name: 'Source selection' });
+    const dropdownScope = within(dropdown);
+    expect(dropdownScope.getByText('Current: USB Microphone')).toBeVisible();
+    expect(dropdownScope.getByText('Current: VSCode')).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(dropdownScope.getByRole('option', { name: 'Headset Mic' }));
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        selectedInputDeviceId: 'headset-mic',
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(dropdownScope.getByRole('option', { name: 'Entire Screen' }));
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith('screen:1:0');
+      expect(useSettingsStore.getState().settings.selectedInputDeviceId).toBe('headset-mic');
+      expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('screen:1:0');
+    });
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Disable microphone' }));
+    });
+
+    expect(await panelScope.findByRole('button', { name: 'Enable microphone' })).toBeVisible();
+    expect(panelScope.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Input options' }));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Source selection' })).toBeNull();
+    });
   });
 
   it('returns from history without corrupting an opened past chat state', async () => {
