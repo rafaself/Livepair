@@ -65,8 +65,21 @@ export function createAssistantPanelComposerAction({
         <Loader2 size={18} aria-hidden="true" />
       ) : (
         <>
+          <span
+            className={[
+              'speech-activity-indicator',
+              speechLifecycleStatus === 'userSpeaking' &&
+                'speech-activity-indicator--active',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-hidden="true"
+          >
+            <span className="speech-activity-indicator__bar" />
+            <span className="speech-activity-indicator__bar" />
+            <span className="speech-activity-indicator__bar" />
+          </span>
           <span aria-hidden="true">End</span>
-          <AudioLines size={18} aria-hidden="true" />
         </>
       ),
       isLoading: isTransitioning,
