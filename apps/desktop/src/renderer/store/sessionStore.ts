@@ -7,6 +7,7 @@ import {
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
   createDefaultVoiceToolState,
+  createDefaultRealtimeOutboundDiagnostics,
   createSpeechSessionLifecycle,
   createTextSessionLifecycle,
   deriveSessionPhaseFromLifecycle,
@@ -15,9 +16,11 @@ import {
   type ConversationTurnModel,
   type CurrentVoiceTranscript,
   type ProductMode,
+  type RealtimeOutboundDiagnostics,
   type RuntimeDebugEvent,
   type ScreenCaptureDiagnostics,
   type ScreenCaptureState,
+  type VisualSendDiagnostics,
   type SessionPhase,
   type SpeechLifecycle,
   type TextSessionLifecycle,
@@ -61,8 +64,10 @@ type SessionStoreData = {
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   currentVoiceTranscript: CurrentVoiceTranscript;
   voiceToolState: VoiceToolState;
+  realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  visualSendDiagnostics: VisualSendDiagnostics;
   screenCaptureSources: ScreenCaptureSource[];
   selectedScreenCaptureSourceId: string | null;
   localUserSpeechActive: boolean;
@@ -116,6 +121,9 @@ export type SessionStoreState = SessionStoreData & {
     patch: Partial<VoicePlaybackDiagnostics>,
   ) => void;
   setVoiceToolState: (patch: Partial<VoiceToolState>) => void;
+  setRealtimeOutboundDiagnostics: (
+    diagnostics: RealtimeOutboundDiagnostics,
+  ) => void;
   setCurrentVoiceTranscriptEntry: (
     role: keyof CurrentVoiceTranscript,
     patch: Partial<CurrentVoiceTranscript[keyof CurrentVoiceTranscript]>,
@@ -123,6 +131,7 @@ export type SessionStoreState = SessionStoreData & {
   clearCurrentVoiceTranscript: () => void;
   setScreenCaptureState: (screenCaptureState: ScreenCaptureState) => void;
   setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
+  setVisualSendDiagnostics: (diagnostics: VisualSendDiagnostics) => void;
   setScreenCaptureSourceSnapshot: (snapshot: ScreenCaptureSourceSnapshot) => void;
   setLocalUserSpeechActive: (active: boolean) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
@@ -218,6 +227,16 @@ function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
   };
 }
 
+function buildDefaultVisualSendDiagnostics(): VisualSendDiagnostics {
+  return {
+    lastTransitionReason: null,
+    snapshotCount: 0,
+    streamingEnteredAt: null,
+    streamingEndedAt: null,
+    sentByState: { snapshot: 0, streaming: 0 },
+  };
+}
+
 function buildDefaultSessionState(): SessionStoreData {
   return {
     activeChatId: null,
@@ -241,8 +260,10 @@ function buildDefaultSessionState(): SessionStoreData {
     voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
     voiceToolState: createDefaultVoiceToolState(),
+    realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
     screenCaptureState: 'disabled',
     screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+    visualSendDiagnostics: buildDefaultVisualSendDiagnostics(),
     screenCaptureSources: [],
     selectedScreenCaptureSourceId: null,
     localUserSpeechActive: false,
@@ -409,6 +430,8 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setRealtimeOutboundDiagnostics: (realtimeOutboundDiagnostics) =>
+    set({ realtimeOutboundDiagnostics }),
   setCurrentVoiceTranscriptEntry: (role, patch) =>
     set((state) => ({
       currentVoiceTranscript: {
@@ -431,6 +454,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setVisualSendDiagnostics: (visualSendDiagnostics) => set({ visualSendDiagnostics }),
   setScreenCaptureSourceSnapshot: ({ sources, selectedSourceId }) =>
     set({
       screenCaptureSources: sources,
@@ -467,8 +491,10 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
       currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
       voiceToolState: createDefaultVoiceToolState(),
+      realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
       screenCaptureState: 'disabled' as ScreenCaptureState,
       screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+      visualSendDiagnostics: buildDefaultVisualSendDiagnostics(),
       screenCaptureSources: [],
       selectedScreenCaptureSourceId: null,
       localUserSpeechActive: false,

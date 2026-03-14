@@ -56,13 +56,15 @@ export function AssistantPanelConversationEmptyState({
         .filter(Boolean)
         .join(' ')}
     >
-      <MessageCircle
-        size={72}
-        strokeWidth={1.25}
-        className="assistant-panel__conversation-empty-icon"
-        aria-hidden="true"
-      />
-      <p className="assistant-panel__conversation-empty-title">Talk to Livepair</p>
+      <div className="assistant-panel__conversation-empty-identity">
+        <MessageCircle
+          size={72}
+          strokeWidth={1.25}
+          className="assistant-panel__conversation-empty-icon"
+          aria-hidden="true"
+        />
+        <p className="assistant-panel__conversation-empty-title">Talk to Livepair</p>
+      </div>
       {!isLiveSessionActive && (onStartSpeechMode || onStartSpeechModeWithScreen) ? (
         <div className="assistant-panel__inactive-cta-buttons">
           {onStartSpeechMode ? (

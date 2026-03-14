@@ -3,13 +3,7 @@
   flex: 1;
   min-height: 0;
   flex-direction: column;
-  background: var(--color-chat-bg);
   overflow: hidden;
-  
-  /* Bleed to panel edges */
-  margin-left: -20px;
-  margin-right: -20px;
-  margin-bottom: -20px;
 }
 
 .assistant-panel__messages-section {
@@ -20,26 +14,13 @@
   position: relative;
 }
 
-.assistant-panel__messages-header {
+.assistant-panel__messages-meta {
   padding: 12px 20px 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: var(--space-3);
   background: var(--color-chat-bg);
   z-index: 2;
-}
-
-.assistant-panel__history-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-secondary);
-}
-
-.assistant-panel__history-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 .assistant-panel__history-state {
@@ -158,29 +139,17 @@
   color: var(--color-text-primary);
 }
 
-.assistant-panel__chat-title {
-  margin: 0;
-  padding-bottom: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  user-select: none;
-}
-
-
 .assistant-panel__runtime-error {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
+  width: 100%;
   padding: var(--space-2) var(--space-4);
   border: none;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-error) 15%, var(--color-surface-elevated));
   color: var(--color-text-primary);
   font-size: 0.8125rem;
-  margin-bottom: var(--space-2);
 }
 
 .assistant-panel__runtime-error p {
@@ -273,8 +242,14 @@
   background: rgba(255, 255, 255, 0.06);
   border-radius: 20px;
   padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
+}
+
+.assistant-panel__composer-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: var(--space-2);
+  min-height: 34px;
 }
 
 .assistant-panel__composer-textarea {
@@ -306,6 +281,7 @@
 .assistant-panel__composer-input-transition {
   display: grid;
   grid-template-rows: 1fr;
+  width: 100%;
   transition: grid-template-rows 250ms ease-out;
 }
 
@@ -318,23 +294,167 @@
   min-height: 0;
 }
 
-.assistant-panel__composer-toolbar {
+.assistant-panel__composer-left-controls,
+.assistant-panel__composer-right-action {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 4px;
-  transition: margin-top 250ms ease-out;
+  gap: var(--space-1);
+  min-height: 34px;
 }
 
-/* Collapse toolbar gap when input is hidden */
-.assistant-panel__composer-input-transition--collapsed + .assistant-panel__composer-toolbar {
-  margin-top: 0;
-}
-
-.assistant-panel__composer-actions-right {
-  display: flex;
-  align-items: center;
+.assistant-panel__composer-left-controls {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
   gap: var(--space-2);
+}
+
+.assistant-panel__composer-control-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Pill wrapper — replaces the old control-group layout */
+.assistant-panel__composer-pill {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  padding: 0 2px;
+  gap: 0;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+:root[data-theme='light'] .assistant-panel__composer-pill {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+/* Remove individual backgrounds — the pill itself is the container */
+.assistant-panel__composer-pill .assistant-panel__composer-control {
+  background: transparent !important;
+  border-radius: var(--radius-full);
+}
+
+.assistant-panel__composer-pill .assistant-panel__composer-control:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+:root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-control:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Select chevron trigger inside the pill */
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger {
+  background: transparent;
+  border-radius: var(--radius-full);
+}
+
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger:hover:not(:disabled),
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger--open {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger:hover:not(:disabled),
+:root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger--open {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.assistant-panel__composer-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.assistant-panel__composer-control {
+  color: var(--color-text-secondary);
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 50%;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    opacity var(--motion-fast) var(--ease-out);
+}
+
+.assistant-panel__composer-control svg {
+  width: 16px;
+  height: 16px;
+}
+
+.assistant-panel__composer-control--active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.assistant-panel__composer-control--inactive {
+  color: var(--color-text-secondary);
+  opacity: 0.72;
+}
+
+.assistant-panel__composer-control:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.assistant-panel__composer-control:focus-visible {
+  outline-offset: 1px;
+}
+
+:root[data-theme='light'] .assistant-panel__composer-control:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.assistant-panel__composer-select.select {
+  width: auto;
+  max-width: none;
+}
+
+.assistant-panel__composer-select .select-trigger {
+  justify-content: center;
+  gap: 0;
+  min-width: 34px;
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-text-secondary);
+}
+
+.assistant-panel__composer-select .select-trigger:hover:not(:disabled),
+.assistant-panel__composer-select .select-trigger--open {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.assistant-panel__composer-select .select-trigger:focus-visible {
+  outline-offset: 1px;
+}
+
+.assistant-panel__composer-select .select-trigger__value {
+  display: none;
+}
+
+.assistant-panel__composer-select .select-trigger__chevron {
+  color: inherit;
+}
+
+.assistant-panel__composer-select .select-trigger__chevron-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.assistant-panel__composer-select .select-content {
+  min-width: 180px;
+}
+
+:root[data-theme='light'] .assistant-panel__composer-select .select-trigger:hover:not(:disabled),
+:root[data-theme='light'] .assistant-panel__composer-select .select-trigger--open {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .assistant-panel__composer-submit {
@@ -407,10 +527,16 @@
   animation: assistant-panel-spin 600ms linear infinite;
 }
 
+.assistant-panel__conversation-empty-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .assistant-panel__conversation-empty-icon {
   color: var(--color-text-secondary);
   opacity: 0.45;
-  margin-bottom: var(--space-2);
 }
 
 .assistant-panel__conversation-empty-title {
@@ -433,7 +559,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
+  gap: var(--space-6);
   padding: var(--space-6);
   text-align: center;
 }

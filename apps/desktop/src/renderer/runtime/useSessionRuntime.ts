@@ -48,8 +48,12 @@ export function useSessionRuntime() {
   const voicePlaybackState = useSessionStore((state) => state.voicePlaybackState);
   const voicePlaybackDiagnostics = useSessionStore((state) => state.voicePlaybackDiagnostics);
   const voiceToolState = useSessionStore((state) => state.voiceToolState);
+  const realtimeOutboundDiagnostics = useSessionStore(
+    (state) => state.realtimeOutboundDiagnostics,
+  );
   const screenCaptureState = useSessionStore((state) => state.screenCaptureState);
   const screenCaptureDiagnostics = useSessionStore((state) => state.screenCaptureDiagnostics);
+  const visualSendDiagnostics = useSessionStore((state) => state.visualSendDiagnostics);
   const controller = getDesktopSessionController();
 
   const handleCheckBackendHealth = useCallback(async (): Promise<void> => {
@@ -88,6 +92,10 @@ export function useSessionRuntime() {
     await controller.stopScreenCapture();
   }, [controller]);
 
+  const handleAnalyzeScreenNow = useCallback((): void => {
+    controller.analyzeScreenNow();
+  }, [controller]);
+
   const setAssistantState = useCallback(
     (assistantState: Parameters<typeof controller.setAssistantState>[0]): void => {
       controller.setAssistantState(assistantState);
@@ -122,14 +130,17 @@ export function useSessionRuntime() {
     voicePlaybackState,
     voicePlaybackDiagnostics,
     voiceToolState,
+    realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
+    visualSendDiagnostics,
     handleCheckBackendHealth,
     handleStartVoiceSession,
     handleStartVoiceCapture,
     handleStopVoiceCapture,
     handleStartScreenCapture,
     handleStopScreenCapture,
+    handleAnalyzeScreenNow,
     handleSubmitTextTurn,
     handleEndSpeechMode,
     handleEndSession,

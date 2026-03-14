@@ -11,6 +11,27 @@ const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'No speaker detected' },
 ];
 
+// Matches "HDMI Output 1", "HDMI 2", "DisplayPort Output 3", etc.
+// Requires a trailing number so a bare "HDMI" label is never collapsed.
+const REDUNDANT_VARIANT_PATTERN = /^(HDMI|DisplayPort)(?: Output)? \d+$/i;
+
+/**
+ * Returns true and records the base name when the label is a redundant numbered
+ * HDMI / DisplayPort variant that has already been seen (i.e. should be collapsed).
+ * Returns false when the label is the first of its family or does not match.
+ */
+function isRedundantNumberedVariant(label: string, seen: Set<string>): boolean {
+  if (!REDUNDANT_VARIANT_PATTERN.test(label)) {
+    return false;
+  }
+  const baseName = label.replace(/\s*\d+$/, '').trim();
+  if (seen.has(baseName)) {
+    return true;
+  }
+  seen.add(baseName);
+  return false;
+}
+
 function buildDeviceOptions(
   devices: MediaDeviceInfo[],
   kind: MediaDeviceKind,
@@ -24,6 +45,7 @@ function buildDeviceOptions(
   }
 
   let unnamedDeviceCount = 0;
+  const seenRedundantBases = new Set<string>();
 
   return [
     { value: DEFAULT_DEVICE_ID, label: 'System default' },
@@ -33,6 +55,10 @@ function buildDeviceOptions(
       }
 
       const label = device.label || `${unnamedLabelPrefix} ${++unnamedDeviceCount}`;
+
+      if (kind === 'audiooutput' && isRedundantNumberedVariant(label, seenRedundantBases)) {
+        return [];
+      }
 
       return [{ value: device.deviceId, label }];
     }),
@@ -46,6 +72,9 @@ type UiStoreState = {
   isPanelOpen: boolean;
   panelView: PanelView;
   isDebugMode: boolean;
+  isComposerMicrophoneEnabled: boolean;
+  saveScreenFramesEnabled: boolean;
+  screenFrameDumpDirectoryPath: string | null;
   backendUrlDraft: string;
   backendUrlError: string | null;
   inputDeviceOptions: readonly SelectOptionItem[];
@@ -54,6 +83,10 @@ type UiStoreState = {
   closePanel: () => void;
   setPanelView: (view: PanelView) => void;
   toggleDebugMode: () => void;
+  toggleComposerMicrophoneEnabled: () => void;
+  setComposerMicrophoneEnabled: (enabled: boolean) => void;
+  setSaveScreenFramesEnabled: (enabled: boolean) => void;
+  setScreenFrameDumpDirectoryPath: (directoryPath: string | null) => void;
   initializeSettingsUi: (settings: { backendUrl: string }) => void;
   setBackendUrlDraft: (value: string) => void;
   setBackendUrlError: (value: string | null) => void;
@@ -65,6 +98,9 @@ const defaultUiState = {
   isPanelOpen: false,
   panelView: 'chat' as PanelView,
   isDebugMode: false,
+  isComposerMicrophoneEnabled: true,
+  saveScreenFramesEnabled: false,
+  screenFrameDumpDirectoryPath: null,
   backendUrlDraft: '',
   backendUrlError: null,
   inputDeviceOptions: [] as readonly SelectOptionItem[],
@@ -87,8 +123,22 @@ export const useUiStore = create<UiStoreState>((set) => ({
   toggleDebugMode: () =>
     set((state) => ({
       isDebugMode: !state.isDebugMode,
-      panelView: !state.isDebugMode ? state.panelView : state.panelView === 'debug' ? 'chat' : state.panelView,
+      panelView: !state.isDebugMode
+        ? state.panelView
+        : state.panelView === 'debug'
+          ? 'chat'
+          : state.panelView,
+      saveScreenFramesEnabled: state.isDebugMode ? false : state.saveScreenFramesEnabled,
+      screenFrameDumpDirectoryPath: state.isDebugMode ? null : state.screenFrameDumpDirectoryPath,
     })),
+  toggleComposerMicrophoneEnabled: () =>
+    set((state) => ({
+      isComposerMicrophoneEnabled: !state.isComposerMicrophoneEnabled,
+    })),
+  setComposerMicrophoneEnabled: (isComposerMicrophoneEnabled) => set({ isComposerMicrophoneEnabled }),
+  setSaveScreenFramesEnabled: (saveScreenFramesEnabled) => set({ saveScreenFramesEnabled }),
+  setScreenFrameDumpDirectoryPath: (screenFrameDumpDirectoryPath) =>
+    set({ screenFrameDumpDirectoryPath }),
   initializeSettingsUi: ({ backendUrl }) =>
     set((state) => ({
       backendUrlDraft: state.backendUrlDraft || backendUrl,

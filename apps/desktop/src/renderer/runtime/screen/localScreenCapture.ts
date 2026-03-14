@@ -19,7 +19,7 @@ type CanvasLike = {
   width: number;
   height: number;
   getContext: (type: '2d') => CanvasRenderingContext2DLike | null;
-  toDataURL: (type: string, quality: number) => string;
+  toBlob: (callback: BlobCallback, type?: string, quality?: number) => void;
 };
 
 type CanvasRenderingContext2DLike = {
@@ -39,6 +39,7 @@ type TrackLike = {
   stop: () => void;
   addEventListener: (type: 'ended', listener: () => void) => void;
   removeEventListener: (type: 'ended', listener: () => void) => void;
+  getSettings: () => { width?: number; height?: number };
 };
 
 export type LocalScreenCaptureObserver = {
@@ -64,25 +65,46 @@ export type CreateLocalScreenCaptureDependencies = {
   createInterval?: (callback: () => void, intervalMs: number) => () => void;
 };
 
-function base64ToUint8Array(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
+async function blobToUint8Array(blob: Blob): Promise<Uint8Array> {
+  if (typeof blob.arrayBuffer === 'function') {
+    const arrayBuffer = await blob.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
   }
 
-  return bytes;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => {
+      reject(new Error('Screen frame encoding failed'));
+    };
+    reader.onload = () => {
+      if (!(reader.result instanceof ArrayBuffer)) {
+        reject(new Error('Screen frame encoding failed'));
+        return;
+      }
+
+      resolve(new Uint8Array(reader.result));
+    };
+    reader.readAsArrayBuffer(blob);
+  });
 }
 
-function stripDataUrlPrefix(dataUrl: string): string {
-  const commaIndex = dataUrl.indexOf(',');
+function encodeCanvasFrame(cvs: CanvasLike, jpegQuality: number): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    cvs.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Screen frame encoding failed'));
+          return;
+        }
 
-  if (commaIndex === -1) {
-    return dataUrl;
-  }
-
-  return dataUrl.slice(commaIndex + 1);
+        void blobToUint8Array(blob).then(resolve, () => {
+          reject(new Error('Screen frame encoding failed'));
+        });
+      },
+      SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+      jpegQuality,
+    );
+  });
 }
 
 function defaultGetDisplayMedia(): Promise<MediaStream> {
@@ -130,6 +152,7 @@ export function createLocalScreenCapture(
   let activeTrack: TrackLike | null = null;
   let pendingStart: Promise<void> | null = null;
   let stopRequested = false;
+  let captureGeneration = 0;
 
   function releaseResources(): void {
     if (stopInterval) {
@@ -165,31 +188,23 @@ export function createLocalScreenCapture(
     trackEndedListener = null;
   }
 
-  function captureFrame(
-    video: VideoElementLike,
+  async function captureFrame(
     cvs: CanvasLike,
     jpegQuality: number,
-  ): void {
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
-
-    if (videoWidth === 0 || videoHeight === 0) {
-      return;
-    }
-
-    const dataUrl = cvs.toDataURL(SCREEN_CAPTURE_VIDEO_MIME_TYPE, jpegQuality);
-    const base64 = stripDataUrlPrefix(dataUrl);
-
-    if (base64.length === 0) {
-      return;
-    }
-
+    generation: number,
+  ): Promise<void> {
     let data: Uint8Array;
 
     try {
-      data = base64ToUint8Array(base64);
+      data = await encodeCanvasFrame(cvs, jpegQuality);
     } catch {
-      observer.onError('Screen frame encoding failed');
+      if (isCapturing && generation === captureGeneration) {
+        observer.onError('Screen frame encoding failed');
+      }
+      return;
+    }
+
+    if (!isCapturing || generation !== captureGeneration || data.length === 0) {
       return;
     }
 
@@ -260,6 +275,7 @@ export function createLocalScreenCapture(
 
       stream = capturedStream;
       isCapturing = true;
+      const sessionGeneration = ++captureGeneration;
 
       const video = createVideoElement();
       video.srcObject = capturedStream;
@@ -311,13 +327,16 @@ export function createLocalScreenCapture(
         lastError: null,
       });
 
-      stopInterval = createInterval(() => {
-        if (!isCapturing || !videoEl || !canvas) {
+      stopInterval = createInterval(async () => {
+        if (!isCapturing || sessionGeneration !== captureGeneration) {
           return;
         }
 
-        const vw = videoEl.videoWidth;
-        const vh = videoEl.videoHeight;
+        const settings = videoTrack?.getSettings() ?? {};
+        const sourceWidth = (settings.width && settings.width > 0 ? settings.width : video.videoWidth);
+        const sourceHeight = (settings.height && settings.height > 0 ? settings.height : video.videoHeight);
+        const vw = sourceWidth;
+        const vh = sourceHeight;
 
         if (vw === 0 || vh === 0) {
           return;
@@ -326,19 +345,19 @@ export function createLocalScreenCapture(
         const targetWidth = Math.min(vw, maxWidthPx);
         const targetHeight = Math.round((vh / vw) * targetWidth);
 
-        if (targetWidth !== canvas.width || targetHeight !== canvas.height) {
-          canvas.width = targetWidth;
-          canvas.height = targetHeight;
+        if (targetWidth !== cvs.width || targetHeight !== cvs.height) {
+          cvs.width = targetWidth;
+          cvs.height = targetHeight;
         }
 
-        const ctx = canvas.getContext('2d');
+        const ctx = cvs.getContext('2d');
 
         if (!ctx) {
           return;
         }
 
-        ctx.drawImage(videoEl as unknown as HTMLVideoElement, 0, 0, targetWidth, targetHeight);
-        captureFrame(videoEl, canvas, jpegQuality);
+        ctx.drawImage(video as unknown as HTMLVideoElement, 0, 0, targetWidth, targetHeight);
+        await captureFrame(cvs, jpegQuality, sessionGeneration);
       }, intervalMs);
     })();
 

@@ -26,6 +26,7 @@ export type ControlDockProps = {
   onStopVoiceCapture: () => Promise<void>;
   onStartScreenCapture: () => Promise<void>;
   onStopScreenCapture: () => Promise<void>;
+  onAnalyzeScreenNow: () => void;
   onEndSession: () => Promise<void>;
 };
 
@@ -40,6 +41,7 @@ export function ControlDock({
   onStopVoiceCapture,
   onStartScreenCapture,
   onStopScreenCapture,
+  onAnalyzeScreenNow,
   onEndSession,
 }: ControlDockProps): JSX.Element {
   const isPanelOpen = useUiStore((state) => state.isPanelOpen);
@@ -76,6 +78,7 @@ export function ControlDock({
         onStartVoiceCapture={onStartVoiceCapture}
         onStopScreenCapture={onStopScreenCapture}
         onStopVoiceCapture={onStopVoiceCapture}
+        onAnalyzeScreenNow={onAnalyzeScreenNow}
         uiState={uiState}
       />
 

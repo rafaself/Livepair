@@ -2,14 +2,17 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 import type { AssistantRuntimeState } from '../../../state/assistantUiState';
 import {
   canEndSpeechMode,
+  canToggleScreenContext,
   canSubmitComposerText,
   createControlGatingSnapshot,
   getComposerSpeechActionKind,
   useSessionRuntime,
   type ConversationTimelineEntry,
-  type ProductMode,
-  type ScreenCaptureDiagnostics,
+    type ProductMode,
+    type RealtimeOutboundDiagnostics,
+    type ScreenCaptureDiagnostics,
   type ScreenCaptureState,
+  type VisualSendDiagnostics,
   type SpeechLifecycleStatus,
   type TextSessionStatus,
   type TransportKind,
@@ -31,6 +34,7 @@ export type AssistantPanelController = {
   panelView: PanelView;
   conversationTurns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
+  isComposerMicrophoneEnabled: boolean;
   setPanelView: (view: PanelView) => void;
   closePanel: () => void;
   backendState: BackendConnectionState;
@@ -51,8 +55,10 @@ export type AssistantPanelController = {
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   voiceToolState: VoiceToolState;
+  realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  visualSendDiagnostics: VisualSendDiagnostics;
   isVoiceSessionActive: boolean;
   canSubmitText: boolean;
   lastRuntimeError: string | null;
@@ -63,13 +69,17 @@ export type AssistantPanelController = {
   handleCheckBackendHealth: () => Promise<void>;
   handleStartSpeechMode: () => Promise<void>;
   handleStartSpeechModeWithScreen: () => Promise<void>;
+  handleToggleComposerMicrophone: () => Promise<void>;
+  handleToggleComposerScreenShare: () => Promise<void>;
   handleEndSpeechMode: () => Promise<void>;
 };
 
 export function useAssistantPanelController(): AssistantPanelController {
   const isPanelOpen = useUiStore((state) => state.isPanelOpen);
   const panelView = useUiStore((state) => state.panelView);
+  const isComposerMicrophoneEnabled = useUiStore((state) => state.isComposerMicrophoneEnabled);
   const closePanel = useUiStore((state) => state.closePanel);
+  const setComposerMicrophoneEnabled = useUiStore((state) => state.setComposerMicrophoneEnabled);
   const setPanelView = useUiStore((state) => state.setPanelView);
   const {
     assistantState,
@@ -91,8 +101,10 @@ export function useAssistantPanelController(): AssistantPanelController {
     voicePlaybackState,
     voicePlaybackDiagnostics,
     voiceToolState,
+    realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
+    visualSendDiagnostics,
     isVoiceSessionActive,
     canSubmitText,
     conversationTurns,
@@ -100,7 +112,10 @@ export function useAssistantPanelController(): AssistantPanelController {
     isConversationEmpty,
     handleCheckBackendHealth,
     handleStartVoiceSession,
+    handleStartVoiceCapture,
+    handleStopVoiceCapture,
     handleStartScreenCapture,
+    handleStopScreenCapture,
     handleEndSpeechMode,
     handleSubmitTextTurn,
   } = useSessionRuntime();
@@ -207,12 +222,77 @@ export function useAssistantPanelController(): AssistantPanelController {
 
   const composerSpeechActionKind = getComposerSpeechActionKind(controlGatingSnapshot);
 
+  const handleToggleComposerMicrophone = useCallback(async (): Promise<void> => {
+    const nextEnabled = !useUiStore.getState().isComposerMicrophoneEnabled;
+    setComposerMicrophoneEnabled(nextEnabled);
+
+    if (!isVoiceSessionActive) {
+      return;
+    }
+
+    if (nextEnabled) {
+      if (voiceCaptureState === 'capturing') {
+        return;
+      }
+
+      await handleStartVoiceCapture();
+      return;
+    }
+
+    if (voiceCaptureState === 'idle' || voiceCaptureState === 'stopped') {
+      return;
+    }
+
+    await handleStopVoiceCapture();
+  }, [
+    handleStartVoiceCapture,
+    handleStopVoiceCapture,
+    isVoiceSessionActive,
+    setComposerMicrophoneEnabled,
+    voiceCaptureState,
+  ]);
+
+  const handleToggleComposerScreenShare = useCallback(async (): Promise<void> => {
+    if (composerSpeechActionKind === 'start') {
+      await handleStartSpeechModeWithScreen();
+
+      if (!useUiStore.getState().isComposerMicrophoneEnabled) {
+        await handleStopVoiceCapture();
+      }
+       return;
+    }
+
+    if (!canToggleScreenContext(controlGatingSnapshot)) {
+      return;
+    }
+
+    if (
+      screenCaptureState === 'ready' ||
+      screenCaptureState === 'capturing' ||
+      screenCaptureState === 'streaming'
+    ) {
+      await handleStopScreenCapture();
+      return;
+    }
+
+    await handleStartScreenCapture();
+  }, [
+    composerSpeechActionKind,
+    controlGatingSnapshot,
+    handleStartScreenCapture,
+    handleStartSpeechModeWithScreen,
+    handleStopScreenCapture,
+    handleStopVoiceCapture,
+    screenCaptureState,
+  ]);
+
   return {
     assistantState,
     isPanelOpen,
     panelView,
     conversationTurns,
     isConversationEmpty,
+    isComposerMicrophoneEnabled,
     setPanelView,
     closePanel,
     backendState,
@@ -233,8 +313,10 @@ export function useAssistantPanelController(): AssistantPanelController {
     voicePlaybackState,
     voicePlaybackDiagnostics,
     voiceToolState,
+    realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
+    visualSendDiagnostics,
     isVoiceSessionActive,
     canSubmitText,
     lastRuntimeError,
@@ -249,6 +331,10 @@ export function useAssistantPanelController(): AssistantPanelController {
       }
 
       await handleStartSpeechMode();
+
+      if (!useUiStore.getState().isComposerMicrophoneEnabled) {
+        await handleStopVoiceCapture();
+      }
     },
     handleStartSpeechModeWithScreen: async () => {
       if (composerSpeechActionKind !== 'start') {
@@ -256,7 +342,13 @@ export function useAssistantPanelController(): AssistantPanelController {
       }
 
       await handleStartSpeechModeWithScreen();
+
+      if (!useUiStore.getState().isComposerMicrophoneEnabled) {
+        await handleStopVoiceCapture();
+      }
     },
+    handleToggleComposerMicrophone,
+    handleToggleComposerScreenShare,
     handleEndSpeechMode: async () => {
       if (!canEndSpeechMode(controlGatingSnapshot)) {
         return;

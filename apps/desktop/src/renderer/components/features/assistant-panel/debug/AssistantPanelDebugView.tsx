@@ -1,10 +1,12 @@
-import { Eye, Monitor, Wifi } from 'lucide-react';
+import { Eye, Monitor, ShieldAlert, Wifi } from 'lucide-react';
 import {
   type AssistantRuntimeState,
 } from '../../../../state/assistantUiState';
 import type {
+  RealtimeOutboundDiagnostics,
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
+  VisualSendDiagnostics,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
@@ -16,7 +18,7 @@ import type {
 } from '../../../../runtime';
 import { FieldList, StatusIndicator } from '../../../composite';
 import { ViewSection } from '../../../layout';
-import { Button } from '../../../primitives';
+import { Button, Switch } from '../../../primitives';
 import type { BackendConnectionState } from '../../../../store/sessionStore';
 
 export type AssistantPanelDebugViewProps = {
@@ -32,8 +34,13 @@ export type AssistantPanelDebugViewProps = {
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   voiceToolState: VoiceToolState;
+  realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  visualSendDiagnostics: VisualSendDiagnostics;
+  saveScreenFramesEnabled: boolean;
+  screenFrameDumpDirectoryPath: string | null;
+  onToggleSaveScreenFrames: () => void;
   onRetryBackendHealth: () => Promise<void>;
 };
 
@@ -111,6 +118,78 @@ function formatScreenCaptureState(state: ScreenCaptureState): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatVisualTransitionReason(
+  reason: VisualSendDiagnostics['lastTransitionReason'],
+): string {
+  if (reason === null) {
+    return 'None';
+  }
+
+  if (reason === 'screenShareStarted') {
+    return 'Screen share started';
+  }
+
+  if (reason === 'screenShareStopped') {
+    return 'Screen share stopped';
+  }
+
+  if (reason === 'analyzeScreenNow') {
+    return 'Analyze screen now';
+  }
+
+  if (reason === 'snapshotConsumed') {
+    return 'Snapshot consumed';
+  }
+
+  if (reason === 'enableStreaming') {
+    return 'Enable streaming';
+  }
+
+  if (reason === 'stopStreaming') {
+    return 'Stop streaming';
+  }
+
+  return reason;
+}
+
+function formatOutboundBreakerState(
+  state: RealtimeOutboundDiagnostics['breakerState'],
+): string {
+  return state === 'open' ? 'Open' : 'Closed';
+}
+
+function formatOutboundDecisionOutcome(
+  outcome: RealtimeOutboundDiagnostics['lastDecision'],
+): string {
+  if (outcome === null) {
+    return 'None';
+  }
+
+  return outcome.charAt(0).toUpperCase() + outcome.slice(1);
+}
+
+function formatOutboundDecisionReason(
+  reason: RealtimeOutboundDiagnostics['lastReason'],
+): string {
+  if (reason === null) {
+    return 'None';
+  }
+
+  if (reason === 'stale-sequence') {
+    return 'Stale sequence';
+  }
+
+  if (reason === 'superseded-latest') {
+    return 'Superseded latest';
+  }
+
+  if (reason === 'lane-saturated') {
+    return 'Lane saturated';
+  }
+
+  return 'Breaker open';
+}
+
 export function AssistantPanelDebugView({
   backendState,
   backendIndicatorState,
@@ -124,8 +203,13 @@ export function AssistantPanelDebugView({
   voicePlaybackState,
   voicePlaybackDiagnostics,
   voiceToolState,
+  realtimeOutboundDiagnostics,
   screenCaptureState,
   screenCaptureDiagnostics,
+  visualSendDiagnostics,
+  saveScreenFramesEnabled,
+  screenFrameDumpDirectoryPath,
+  onToggleSaveScreenFrames,
   onRetryBackendHealth,
 }: AssistantPanelDebugViewProps): JSX.Element {
   return (
@@ -267,6 +351,77 @@ export function AssistantPanelDebugView({
         />
       </ViewSection>
 
+      <ViewSection icon={ShieldAlert} title="Outbound guardrails">
+        <FieldList
+          items={[
+            {
+              label: 'Breaker',
+              value: formatOutboundBreakerState(realtimeOutboundDiagnostics.breakerState),
+            },
+            {
+              label: 'Breaker reason',
+              value: realtimeOutboundDiagnostics.breakerReason ?? 'None',
+            },
+            {
+              label: 'Submitted',
+              value: String(realtimeOutboundDiagnostics.totalSubmitted),
+            },
+            {
+              label: 'Text submits',
+              value: String(realtimeOutboundDiagnostics.submittedByKind.text),
+            },
+            {
+              label: 'Audio submits',
+              value: String(realtimeOutboundDiagnostics.submittedByKind.audioChunk),
+            },
+            {
+              label: 'Visual submits',
+              value: String(realtimeOutboundDiagnostics.submittedByKind.visualFrame),
+            },
+            {
+              label: 'Sent count',
+              value: String(realtimeOutboundDiagnostics.sentCount),
+            },
+            {
+              label: 'Dropped',
+              value: String(realtimeOutboundDiagnostics.droppedCount),
+            },
+            {
+              label: 'Dropped (stale)',
+              value: String(realtimeOutboundDiagnostics.droppedByReason.staleSequence),
+            },
+            {
+              label: 'Dropped (saturated)',
+              value: String(realtimeOutboundDiagnostics.droppedByReason.laneSaturated),
+            },
+            {
+              label: 'Replaced',
+              value: String(realtimeOutboundDiagnostics.replacedCount),
+            },
+            {
+              label: 'Blocked',
+              value: String(realtimeOutboundDiagnostics.blockedCount),
+            },
+            {
+              label: 'Blocked (breaker)',
+              value: String(realtimeOutboundDiagnostics.blockedByReason.breakerOpen),
+            },
+            {
+              label: 'Last decision',
+              value: formatOutboundDecisionOutcome(realtimeOutboundDiagnostics.lastDecision),
+            },
+            {
+              label: 'Last reason',
+              value: formatOutboundDecisionReason(realtimeOutboundDiagnostics.lastReason),
+            },
+            {
+              label: 'Last error',
+              value: realtimeOutboundDiagnostics.lastError ?? 'None',
+            },
+          ]}
+        />
+      </ViewSection>
+
       <ViewSection icon={Monitor} title="Screen context">
         <FieldList
           items={[
@@ -275,6 +430,25 @@ export function AssistantPanelDebugView({
               label: 'Capture source',
               value: screenCaptureDiagnostics.captureSource ?? 'Unknown',
             },
+            {
+              label: 'Save screen frames',
+              value: (
+                <Switch
+                  aria-label="Save screen frames"
+                  checked={saveScreenFramesEnabled}
+                  className="assistant-panel__settings-switch"
+                  onCheckedChange={() => onToggleSaveScreenFrames()}
+                />
+              ),
+            },
+            ...(screenFrameDumpDirectoryPath
+              ? [
+                  {
+                    label: 'Saved frame dump',
+                    value: screenFrameDumpDirectoryPath,
+                  },
+                ]
+              : []),
             {
               label: 'Frame rate',
               value: screenCaptureDiagnostics.frameRateHz
@@ -303,6 +477,34 @@ export function AssistantPanelDebugView({
             {
               label: 'Screen error',
               value: screenCaptureDiagnostics.lastError ?? 'None',
+            },
+            {
+              label: 'Visual send state',
+              value: formatScreenCaptureState(screenCaptureState),
+            },
+            {
+              label: 'Last transition',
+              value: formatVisualTransitionReason(visualSendDiagnostics.lastTransitionReason),
+            },
+            {
+              label: 'Snapshots triggered',
+              value: String(visualSendDiagnostics.snapshotCount),
+            },
+            {
+              label: 'Streaming entered',
+              value: visualSendDiagnostics.streamingEnteredAt ?? 'None',
+            },
+            {
+              label: 'Streaming ended',
+              value: visualSendDiagnostics.streamingEndedAt ?? 'None',
+            },
+            {
+              label: 'Sent (snapshot)',
+              value: String(visualSendDiagnostics.sentByState.snapshot),
+            },
+            {
+              label: 'Sent (streaming)',
+              value: String(visualSendDiagnostics.sentByState.streaming),
             },
           ]}
         />

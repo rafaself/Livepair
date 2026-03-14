@@ -2,6 +2,7 @@ import {
   BadGatewayException,
   Injectable,
 } from '@nestjs/common';
+import { ObservabilityService } from '../observability/observability.service';
 
 const GEMINI_AUTH_TOKEN_URL =
   'https://generativelanguage.googleapis.com/v1alpha/auth_tokens';
@@ -28,8 +29,15 @@ export type GeminiProvisionedToken = {
   token: string;
 };
 
+type GeminiAuthTokenRequestOutcome =
+  | 'success'
+  | 'network_error'
+  | 'upstream_error'
+  | 'invalid_payload';
+
 type RequestGeminiAuthTokenOptions = GeminiAuthTokenRequest & {
   fetchImpl?: typeof fetch;
+  observabilityService?: ObservabilityService;
 };
 
 async function readUpstreamErrorDetail(response: Response): Promise<string | null> {
@@ -72,57 +80,91 @@ export async function requestGeminiAuthToken({
   fetchImpl = fetch,
   newSessionExpireTime,
   expireTime,
+  observabilityService,
 }: RequestGeminiAuthTokenOptions): Promise<GeminiProvisionedToken> {
-  let response: Response;
+  const startTime = process.hrtime.bigint();
+  let outcome: GeminiAuthTokenRequestOutcome | null = null;
   try {
-    response = await fetchImpl(GEMINI_AUTH_TOKEN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        uses: 1,
-        newSessionExpireTime,
-        expireTime,
-      }),
-    });
-  } catch (error) {
-    console.error('[session:gemini-auth-token] network request failed', error);
-    const detail = error instanceof Error && error.message.length > 0
-      ? error.message
-      : 'network failure';
-    throw new BadGatewayException(`Gemini token request failed: ${detail}`);
-  }
+    let response: Response;
+    try {
+      response = await fetchImpl(GEMINI_AUTH_TOKEN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          uses: 1,
+          newSessionExpireTime,
+          expireTime,
+        }),
+      });
+    } catch (error) {
+      outcome = 'network_error';
+      console.error('[session:gemini-auth-token] network request failed', error);
+      const detail = error instanceof Error && error.message.length > 0
+        ? error.message
+        : 'network failure';
+      throw new BadGatewayException(`Gemini token request failed: ${detail}`);
+    }
 
-  if (!response.ok) {
-    const detail = await readUpstreamErrorDetail(response);
-    console.error('[session:gemini-auth-token] upstream request failed', {
-      status: response.status,
-      detail,
-    });
-    throw new BadGatewayException(
-      detail
-        ? `Gemini token request failed: upstream ${response.status} - ${detail}`
-        : `Gemini token request failed: upstream ${response.status}`,
-    );
-  }
+    if (!response.ok) {
+      outcome = 'upstream_error';
+      const detail = await readUpstreamErrorDetail(response);
+      console.error('[session:gemini-auth-token] upstream request failed', {
+        status: response.status,
+        detail,
+      });
+      throw new BadGatewayException(
+        detail
+          ? `Gemini token request failed: upstream ${response.status} - ${detail}`
+          : `Gemini token request failed: upstream ${response.status}`,
+      );
+    }
 
-  const payload = (await response.json()) as GeminiAuthTokenPayload;
-  if (!isNormalizedAuthTokenPayload(payload)) {
-    throw new BadGatewayException('Gemini token response was invalid');
-  }
+    let payload: GeminiAuthTokenPayload;
+    try {
+      payload = (await response.json()) as GeminiAuthTokenPayload;
+    } catch {
+      outcome = 'invalid_payload';
+      throw new BadGatewayException('Gemini token response was invalid');
+    }
 
-  return {
-    token: payload.name,
-  };
+    if (!isNormalizedAuthTokenPayload(payload)) {
+      outcome = 'invalid_payload';
+      throw new BadGatewayException('Gemini token response was invalid');
+    }
+
+    outcome = 'success';
+
+    return {
+      token: payload.name,
+    };
+  } finally {
+    if (observabilityService && outcome !== null) {
+      const durationSeconds =
+        Number(process.hrtime.bigint() - startTime) / 1_000_000_000;
+
+      observabilityService.recordGeminiAuthTokenRequest(
+        { outcome },
+        durationSeconds,
+      );
+    }
+  }
 }
 
 @Injectable()
 export class GeminiAuthTokenClient {
+  constructor(
+    private readonly observabilityService: ObservabilityService,
+  ) {}
+
   async createToken(
     request: GeminiAuthTokenRequest,
   ): Promise<GeminiProvisionedToken> {
-    return requestGeminiAuthToken(request);
+    return requestGeminiAuthToken({
+      ...request,
+      observabilityService: this.observabilityService,
+    });
   }
 }

@@ -10,6 +10,7 @@ import {
   getLiveConfig,
   type GeminiLiveConnectConfig,
   type LiveConfig,
+  type LiveMediaResolution,
 } from './liveConfig';
 import {
   connectGeminiLiveSdkSession,
@@ -48,6 +49,12 @@ type CreateGeminiLiveTransportOptions = {
     options: ConnectGeminiLiveSdkSessionOptions,
   ) => Promise<GeminiLiveSdkSession>;
   config?: LiveConfig;
+  /**
+   * User-selected visual session quality expressed as a media resolution.
+   * When provided, overrides the env-level `config.mediaResolution` so the
+   * user setting wins without mutating the static LiveConfig.
+   */
+  mediaResolutionOverride?: LiveMediaResolution;
 };
 
 export class GeminiLiveTransport implements DesktopSession {
@@ -58,14 +65,17 @@ export class GeminiLiveTransport implements DesktopSession {
     options: ConnectGeminiLiveSdkSessionOptions,
   ) => Promise<GeminiLiveSdkSession>;
   private readonly config: LiveConfig;
+  private readonly mediaResolutionOverride: LiveMediaResolution | undefined;
   private readonly state = createGeminiLiveTransportState();
 
   constructor({
     connectSession = connectGeminiLiveSdkSession,
     config = getLiveConfig(),
+    mediaResolutionOverride,
   }: CreateGeminiLiveTransportOptions = {}) {
     this.connectSession = connectSession;
     this.config = config;
+    this.mediaResolutionOverride = mediaResolutionOverride;
   }
 
   subscribe(listener: (event: LiveSessionEvent) => void): () => void {
@@ -123,8 +133,13 @@ export class GeminiLiveTransport implements DesktopSession {
 
     let liveConnectConfig: GeminiLiveConnectConfig;
 
+    const effectiveConfig: LiveConfig =
+      this.mediaResolutionOverride !== undefined
+        ? { ...this.config, mediaResolution: this.mediaResolutionOverride }
+        : this.config;
+
     try {
-      liveConnectConfig = buildGeminiLiveConnectConfig(this.config, mode, {
+      liveConnectConfig = buildGeminiLiveConnectConfig(effectiveConfig, mode, {
         resumeHandle,
       });
     } catch (error) {

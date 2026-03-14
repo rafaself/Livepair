@@ -9,6 +9,18 @@ import { AssistantPanel } from './AssistantPanel';
 
 const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();
 
+function createDevice(
+  overrides: Partial<MediaDeviceInfo> & Pick<MediaDeviceInfo, 'deviceId' | 'kind'>,
+): MediaDeviceInfo {
+  return {
+    deviceId: overrides.deviceId,
+    groupId: overrides.groupId ?? `${overrides.deviceId}-group`,
+    kind: overrides.kind,
+    label: overrides.label ?? overrides.deviceId,
+    toJSON: overrides.toJSON ?? (() => ({})),
+  } satisfies MediaDeviceInfo;
+}
+
 function AssistantPanelHarness(): JSX.Element {
   const togglePanel = useUiStore((state) => state.togglePanel);
 
@@ -68,6 +80,7 @@ describe('AssistantPanel', () => {
   });
 
   it('opens settings from the header and shows hydrated values immediately', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -86,6 +99,7 @@ describe('AssistantPanel', () => {
   });
 
   it('preserves config draft state when switching away from settings and back', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -143,10 +157,41 @@ describe('AssistantPanel', () => {
     });
 
     expect(await panelScope.findByRole('heading', { name: 'Developer tools' })).toBeVisible();
+    expect(panelScope.getByRole('switch', { name: 'Save screen frames' })).toBeVisible();
   });
 
   it('hides the debug entry point when debug mode is disabled', async () => {
     useUiStore.setState({ isDebugMode: false });
+    useSessionStore.getState().setRealtimeOutboundDiagnostics({
+      breakerState: 'open',
+      breakerReason: 'transport unavailable',
+      consecutiveFailureCount: 3,
+      totalSubmitted: 4,
+      sentCount: 1,
+      droppedCount: 1,
+      replacedCount: 1,
+      blockedCount: 1,
+      droppedByReason: {
+        staleSequence: 1,
+        laneSaturated: 0,
+      },
+      blockedByReason: {
+        breakerOpen: 1,
+      },
+      submittedByKind: {
+        text: 1,
+        audioChunk: 1,
+        visualFrame: 2,
+      },
+      lastDecision: 'block',
+      lastReason: 'breaker-open',
+      lastEventKind: 'text',
+      lastChannelKey: 'text:speech-mode',
+      lastSequence: 2,
+      lastReplaceKey: null,
+      lastSubmittedAtMs: 1_000,
+      lastError: 'transport unavailable',
+    });
     await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -155,6 +200,7 @@ describe('AssistantPanel', () => {
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
     expect(panelScope.queryByRole('button', { name: 'Developer tools' })).toBeNull();
+    expect(panelScope.queryByText('Outbound guardrails')).toBeNull();
   });
 
   it('keeps speech mode on a single conversation surface before the first spoken turn arrives', async () => {
@@ -223,15 +269,96 @@ describe('AssistantPanel', () => {
 
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
+    const sharedHeader = panel.querySelector('.assistant-panel__inner-header');
 
-    expect(await panelScope.findByText('Past chats')).toBeVisible();
+    expect(sharedHeader).not.toBeNull();
+    expect(await panelScope.findByText('No past chats yet.')).toBeVisible();
+    expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
 
     await act(async () => {
-      fireEvent.click(panelScope.getByRole('button', { name: 'Back to chat' }));
+      fireEvent.click(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'Back to chat' }));
     });
 
     expect(await panelScope.findByText('Talk to Livepair')).toBeVisible();
     expect(useUiStore.getState().panelView).toBe('chat');
+  });
+
+  it('shows history and new chat actions in the shared chat header without a Session History label', async () => {
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+    const contentShell = panel.querySelector('.assistant-panel__inner-shell');
+    const sharedHeader = panel.querySelector('.assistant-panel__inner-header');
+    const sharedBody = panel.querySelector('.assistant-panel__inner-body');
+
+    expect(contentShell).not.toBeNull();
+    expect(panel.querySelectorAll('.assistant-panel__inner-shell')).toHaveLength(1);
+    expect(sharedHeader).not.toBeNull();
+    expect(panel.querySelectorAll('.assistant-panel__inner-header')).toHaveLength(1);
+    expect(sharedBody).not.toBeNull();
+    expect(panel.querySelectorAll('.assistant-panel__inner-body')).toHaveLength(1);
+    expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(2);
+    expect(sharedHeader).toContainElement(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'History' }));
+    expect(sharedHeader).toContainElement(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'New chat' }));
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Back to chat' })).toBeNull();
+    expect(sharedBody).toContainElement(panelScope.getByText('Talk to Livepair'));
+  });
+
+  it('keeps the shared inner header structure fixed while switching between chat and history', async () => {
+    window.bridge.listChats = vi.fn(async () => []);
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+    const sharedShell = panel.querySelector('.assistant-panel__inner-shell');
+    const sharedHeader = panel.querySelector('.assistant-panel__inner-header');
+    const sharedHeaderContent = panel.querySelector('.assistant-panel__inner-header-content');
+    const sharedHeaderActions = panel.querySelector('.assistant-panel__inner-header-actions');
+    const sharedBody = panel.querySelector('.assistant-panel__inner-body');
+
+    expect(sharedShell).not.toBeNull();
+    expect(sharedHeader).not.toBeNull();
+    expect(sharedHeaderContent).not.toBeNull();
+    expect(sharedHeaderActions).not.toBeNull();
+    expect(sharedBody).not.toBeNull();
+    expect(sharedBody).toContainElement(panelScope.getByText('Talk to Livepair'));
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'History' }));
+    });
+
+    expect(await panelScope.findByText('No past chats yet.')).toBeVisible();
+    expect(panel.querySelectorAll('.assistant-panel__inner-shell')).toHaveLength(1);
+    expect(panel.querySelector('.assistant-panel__inner-shell')).toBe(sharedShell);
+    expect(panel.querySelectorAll('.assistant-panel__inner-header')).toHaveLength(1);
+    expect(panel.querySelector('.assistant-panel__inner-header')).toBe(sharedHeader);
+    expect(panel.querySelectorAll('.assistant-panel__inner-header-content')).toHaveLength(1);
+    expect(panel.querySelector('.assistant-panel__inner-header-content')).toBe(sharedHeaderContent);
+    expect(panel.querySelectorAll('.assistant-panel__inner-header-actions')).toHaveLength(1);
+    expect(panel.querySelector('.assistant-panel__inner-header-actions')).toBe(sharedHeaderActions);
+    expect(panel.querySelectorAll('.assistant-panel__inner-body')).toHaveLength(1);
+    expect(panel.querySelector('.assistant-panel__inner-body')).toBe(sharedBody);
+    expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByText('Past chats')).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(1);
+    expect(sharedHeader).toContainElement(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'Back to chat' }));
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
+    expect(sharedBody).toContainElement(panelScope.getByText('No past chats yet.'));
+    expect(within(sharedBody as HTMLDivElement).queryByText('Talk to Livepair')).toBeNull();
   });
 
   it('creates a fresh persisted chat from chat view without leaking prior turns', async () => {
@@ -484,7 +611,7 @@ describe('AssistantPanel', () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'History' }));
     });
 
-    expect(await panelScope.findByText('Past chats')).toBeVisible();
+    expect(await panelScope.findByRole('button', { name: 'Back to chat' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'Back to chat' })).toBeVisible();
     const freshChatRow = panelScope.getByText('Fresh chat').closest('button');
     expect(freshChatRow).not.toBeNull();
@@ -498,6 +625,165 @@ describe('AssistantPanel', () => {
     expect(useUiStore.getState().panelView).toBe('chat');
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
+  });
+
+  it('opens separate in-chat microphone and screen-share dropdowns and applies selections through the existing source paths', async () => {
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'turn-source-1',
+        role: 'assistant',
+        content: 'Resume the session from here.',
+        timestamp: '10:00',
+        state: 'complete',
+      },
+    ]);
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        backendUrl: 'https://persisted.livepair.dev',
+        selectedInputDeviceId: 'usb-mic',
+      },
+      isReady: true,
+    });
+    enumerateDevices.mockResolvedValue([
+      createDevice({
+        deviceId: 'default',
+        kind: 'audioinput',
+        label: 'Default microphone',
+      }),
+      createDevice({
+        deviceId: 'usb-mic',
+        kind: 'audioinput',
+        label: 'USB Microphone',
+      }),
+      createDevice({
+        deviceId: 'headset-mic',
+        kind: 'audioinput',
+        label: 'Headset Mic',
+      }),
+    ]);
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'window:42:0',
+    }));
+    window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: sourceId,
+    }));
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+    await waitFor(() => {
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+    });
+
+    expect(panelScope.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Microphone options' }));
+    });
+
+    const microphoneDropdown = await screen.findByRole('listbox');
+    const microphoneDropdownScope = within(microphoneDropdown);
+    expect(
+      microphoneDropdownScope.getByRole('option', { name: 'USB Microphone' }),
+    ).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await act(async () => {
+      fireEvent.click(microphoneDropdownScope.getByRole('option', { name: 'Headset Mic' }));
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        selectedInputDeviceId: 'headset-mic',
+      });
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Microphone options' }));
+    });
+
+    const reopenedAfterMicChange = await screen.findByRole('listbox');
+    const reopenedAfterMicChangeScope = within(reopenedAfterMicChange);
+    expect(
+      reopenedAfterMicChangeScope.getByRole('option', { name: 'Headset Mic' }),
+    ).toHaveAttribute('aria-selected', 'true');
+    expect(
+      reopenedAfterMicChangeScope.getByRole('option', { name: 'USB Microphone' }),
+    ).toHaveAttribute('aria-selected', 'false');
+
+    await act(async () => {
+      fireEvent.pointerDown(document.body);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Screen share options' }));
+    });
+
+    const screenDropdown = await screen.findByRole('listbox');
+    const screenDropdownScope = within(screenDropdown);
+    expect(
+      screenDropdownScope.getByRole('option', { name: 'VSCode' }),
+    ).toHaveAttribute('aria-selected', 'true');
+
+    await act(async () => {
+      fireEvent.click(screenDropdownScope.getByRole('option', { name: 'Entire Screen' }));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith('screen:1:0');
+      expect(useSettingsStore.getState().settings.selectedInputDeviceId).toBe('headset-mic');
+      expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('screen:1:0');
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Screen share options' }));
+    });
+
+    const reopenedAfterScreenChange = await screen.findByRole('listbox');
+    const reopenedAfterScreenChangeScope = within(reopenedAfterScreenChange);
+    expect(
+      reopenedAfterScreenChangeScope.getByRole('option', { name: 'Entire Screen' }),
+    ).toHaveAttribute('aria-selected', 'true');
+
+    await act(async () => {
+      fireEvent.pointerDown(document.body);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Disable microphone' }));
+    });
+
+    expect(await panelScope.findByRole('button', { name: 'Enable microphone' })).toBeVisible();
+    expect(panelScope.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
   });
 
   it('returns from history without corrupting an opened past chat state', async () => {
@@ -589,7 +875,7 @@ describe('AssistantPanel', () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'History' }));
     });
 
-    expect(await panelScope.findByText('Past chats')).toBeVisible();
+    expect(await panelScope.findByRole('button', { name: 'Back to chat' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'Back to chat' })).toBeVisible();
 
     await act(async () => {

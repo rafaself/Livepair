@@ -1,58 +1,58 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { AssistantPanelHistoryView } from './AssistantPanelHistoryView';
+import {
+  AssistantPanelHistoryView,
+  useAssistantPanelHistoryViewModel,
+} from './AssistantPanelHistoryView';
+import { AssistantPanelSharedHeaderActions } from '../AssistantPanelSharedHeaderActions';
 
-describe('AssistantPanelHistoryView', () => {
-  it('keeps chat navigation in the history view with a Back to chat action', async () => {
-    window.bridge.listChats = vi.fn(async () => []);
+type HistoryViewHarnessProps = {
+  activeChatId: string | null;
+  onSelectChat?: (chatId: string) => void;
+};
 
-    render(<AssistantPanelHistoryView activeChatId={null} onSelectChat={() => {}} />);
-
-    expect(await screen.findByText('No past chats yet.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Back to chat' })).toBeVisible();
+function HistoryViewHarness({
+  activeChatId,
+  onSelectChat = () => {},
+}: HistoryViewHarnessProps): JSX.Element {
+  const viewModel = useAssistantPanelHistoryViewModel({
+    activeChatId,
+    isEnabled: true,
   });
 
-  it('supports safely refreshing the history list when it becomes stale', async () => {
-    const listChats = vi
-      .fn()
-      .mockResolvedValueOnce([
-        {
-          id: 'chat-1',
-          title: 'Older chat',
-          createdAt: '2026-03-10T09:00:00.000Z',
-          updatedAt: '2026-03-10T09:10:00.000Z',
-          isCurrent: false,
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: 'chat-2',
-          title: 'Fresh chat',
-          createdAt: '2026-03-12T09:00:00.000Z',
-          updatedAt: '2026-03-12T09:10:00.000Z',
-          isCurrent: true,
-        },
-        {
-          id: 'chat-1',
-          title: 'Older chat',
-          createdAt: '2026-03-10T09:00:00.000Z',
-          updatedAt: '2026-03-10T09:10:00.000Z',
-          isCurrent: false,
-        },
-      ]);
-    window.bridge.listChats = listChats;
+  return (
+    <div className="assistant-panel__inner-shell">
+      <div className="assistant-panel__inner-header">
+        <AssistantPanelSharedHeaderActions
+          panelView="history"
+          onBackToChat={() => {}}
+        />
+      </div>
+      <div className="assistant-panel__inner-body">
+        <AssistantPanelHistoryView
+          activeChatId={activeChatId}
+          onSelectChat={onSelectChat}
+          viewModel={viewModel}
+        />
+      </div>
+    </div>
+  );
+}
 
-    render(<AssistantPanelHistoryView activeChatId="chat-1" onSelectChat={() => {}} />);
+describe('AssistantPanelHistoryView', () => {
+  it('renders the history body inside the shared header harness with only a Back to chat action', async () => {
+    window.bridge.listChats = vi.fn(async () => []);
 
-    expect(await screen.findByText('Older chat')).toBeVisible();
-    expect(screen.queryByText('Fresh chat')).toBeNull();
+    render(<HistoryViewHarness activeChatId={null} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh history' }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Fresh chat')).toBeVisible();
-    });
-    expect(listChats).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText('No past chats yet.')).toBeVisible();
+    const sharedHeader = document.querySelector('.assistant-panel__inner-header');
+    expect(sharedHeader).not.toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByText('Past chats')).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(1);
+    expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'Back to chat' })).toBeVisible();
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
   });
 
   it('shows lightweight previews and current-chat versus latest-session cues in history rows', async () => {
@@ -129,7 +129,7 @@ describe('AssistantPanelHistoryView', () => {
           ],
     );
 
-    render(<AssistantPanelHistoryView activeChatId="chat-past" onSelectChat={() => {}} />);
+    render(<HistoryViewHarness activeChatId="chat-past" />);
 
     const currentTitle = await screen.findByText('Design review');
     const currentButton = currentTitle.closest('button');

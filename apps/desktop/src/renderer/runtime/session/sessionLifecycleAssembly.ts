@@ -369,6 +369,7 @@ export function createSessionLifecycleAssembly({
         endSpeechModeInternal: (options) => endSpeechModeInternal(options),
         endSessionInternal: (options) => endSessionInternal(options),
         getActiveTransport: () => runtimeRef.current!.getActiveTransport(),
+        getRealtimeOutboundGateway: () => runtimeRef.current!.getRealtimeOutboundGateway(),
         recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
         setVoiceErrorState: (detail) => setVoiceErrorState(detail),
         syncSpeechSilenceTimeout: (status) => runtimeRef.current!.syncSpeechSilenceTimeout(status),

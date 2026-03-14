@@ -1,6 +1,7 @@
+import { Cast, Mic, MicOff } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
 import { useEffect, useRef } from 'react';
-import { Button } from '../../../primitives';
+import { Button, IconButton, Select, type SelectOptionItem } from '../../../primitives';
 import type { AssistantPanelComposerAction } from './assistantPanelComposerAction';
 
 export type AssistantPanelChatComposerProps = {
@@ -8,13 +9,25 @@ export type AssistantPanelChatComposerProps = {
   draftText: string;
   isConversationEmpty: boolean;
   isComposerDisabled: boolean;
+  isComposerMicrophoneEnabled?: boolean;
+  isComposerScreenShareActive?: boolean;
+  isComposerScreenShareDisabled?: boolean;
   isLiveSessionActive: boolean;
   isPanelOpen: boolean;
+  inputDeviceOptions?: readonly SelectOptionItem[];
   liveSessionPhaseLabel?: string | null;
   placeholder: string;
+  screenCaptureSourceOptions?: readonly SelectOptionItem[];
+  selectedInputDeviceId?: string;
+  selectedScreenCaptureSourceId?: string;
+  screenShareButtonLabel?: string;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onEndSpeechMode: () => Promise<void>;
+  onSelectComposerInputDevice?: (deviceId: string) => void;
+  onSelectComposerScreenSource?: (sourceId: string) => void;
   onStartSpeechMode: () => Promise<void>;
+  onToggleComposerMicrophone?: () => Promise<void>;
+  onToggleComposerScreenShare?: () => Promise<void>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
 };
 
@@ -23,13 +36,25 @@ export function AssistantPanelChatComposer({
   draftText,
   isConversationEmpty,
   isComposerDisabled,
+  isComposerMicrophoneEnabled = true,
+  isComposerScreenShareActive = false,
+  isComposerScreenShareDisabled = false,
   isLiveSessionActive,
   isPanelOpen,
+  inputDeviceOptions = [],
   liveSessionPhaseLabel = null,
   placeholder,
+  screenCaptureSourceOptions = [],
+  selectedInputDeviceId = '',
+  selectedScreenCaptureSourceId = '',
+  screenShareButtonLabel = 'Start screen share',
   onDraftTextChange,
   onEndSpeechMode,
+  onSelectComposerInputDevice = () => undefined,
+  onSelectComposerScreenSource = () => undefined,
   onStartSpeechMode,
+  onToggleComposerMicrophone = async () => undefined,
+  onToggleComposerScreenShare = async () => undefined,
   onSubmitTextTurn,
 }: AssistantPanelChatComposerProps): JSX.Element {
   const formRef = useRef<HTMLFormElement>(null);
@@ -109,33 +134,120 @@ export function AssistantPanelChatComposer({
         >
           <div className="assistant-panel__composer-box">
             <div
-              className={[
-                'assistant-panel__composer-input-transition',
-                (!isLiveSessionActive || composerAction.isLoading) &&
-                  'assistant-panel__composer-input-transition--collapsed',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-hidden={!isLiveSessionActive || composerAction.isLoading || undefined}
+              className="assistant-panel__composer-layout"
+              data-testid="assistant-panel-composer-layout"
             >
-              <div>
-                <textarea
-                  ref={textareaRef}
-                  value={draftText}
-                  onChange={onDraftTextChange}
-                  disabled={isComposerDisabled}
-                  placeholder={placeholder}
-                  className="assistant-panel__composer-textarea"
-                  onKeyDown={handleKeyDown}
-                  rows={1}
-                />
+              <div
+                className="assistant-panel__composer-left-controls"
+                data-testid="assistant-panel-composer-left-controls"
+              >
+                <div className="assistant-panel__composer-pill">
+                  <Select
+                    aria-label="Microphone options"
+                    className="assistant-panel__composer-select"
+                    options={inputDeviceOptions}
+                    value={selectedInputDeviceId}
+                    onChange={(event) => {
+                      onSelectComposerInputDevice(event.currentTarget.value);
+                    }}
+                    size="sm"
+                    widthMode="minAnchor"
+                    maxWidthPx={320}
+                    placeholder=""
+                  />
+                  <IconButton
+                    label={isComposerMicrophoneEnabled ? 'Disable microphone' : 'Enable microphone'}
+                    size="sm"
+                    className={[
+                      'assistant-panel__composer-control',
+                      isComposerMicrophoneEnabled
+                        ? 'assistant-panel__composer-control--active'
+                        : 'assistant-panel__composer-control--inactive',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-pressed={isComposerMicrophoneEnabled}
+                    onClick={() => {
+                      void onToggleComposerMicrophone();
+                    }}
+                  >
+                    {isComposerMicrophoneEnabled ? (
+                      <Mic size={16} aria-hidden="true" />
+                    ) : (
+                      <MicOff size={16} aria-hidden="true" />
+                    )}
+                  </IconButton>
+                </div>
+
+                <div className="assistant-panel__composer-pill">
+                  <Select
+                    aria-label="Screen share options"
+                    className="assistant-panel__composer-select"
+                    options={screenCaptureSourceOptions}
+                    value={selectedScreenCaptureSourceId}
+                    onChange={(event) => {
+                      onSelectComposerScreenSource(event.currentTarget.value);
+                    }}
+                    size="sm"
+                    widthMode="minAnchor"
+                    maxWidthPx={320}
+                    placeholder=""
+                  />
+                  <IconButton
+                    label={screenShareButtonLabel}
+                    size="sm"
+                    className={[
+                      'assistant-panel__composer-control',
+                      isComposerScreenShareActive
+                        ? 'assistant-panel__composer-control--active'
+                        : 'assistant-panel__composer-control--inactive',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-pressed={isComposerScreenShareActive}
+                    disabled={isComposerScreenShareDisabled}
+                    onClick={() => {
+                      void onToggleComposerScreenShare();
+                    }}
+                  >
+                    <Cast size={16} aria-hidden="true" />
+                  </IconButton>
+                </div>
               </div>
-            </div>
-            <div className="assistant-panel__composer-toolbar">
-              <div className="assistant-panel__composer-actions-left">
-                {/* Optional actions can go here in the future */}
+
+              <div
+                className="assistant-panel__composer-main"
+                data-testid="assistant-panel-composer-main"
+              >
+                <div
+                  className={[
+                    'assistant-panel__composer-input-transition',
+                    (!isLiveSessionActive || composerAction.isLoading) &&
+                      'assistant-panel__composer-input-transition--collapsed',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-hidden={!isLiveSessionActive || composerAction.isLoading || undefined}
+                >
+                  <div>
+                    <textarea
+                      ref={textareaRef}
+                      value={draftText}
+                      onChange={onDraftTextChange}
+                      disabled={isComposerDisabled}
+                      placeholder={placeholder}
+                      className="assistant-panel__composer-textarea"
+                      onKeyDown={handleKeyDown}
+                      rows={1}
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="assistant-panel__composer-actions-right">
+
+              <div
+                className="assistant-panel__composer-right-action"
+                data-testid="assistant-panel-composer-right-action"
+              >
                 <Button
                   type="submit"
                   variant="ghost"

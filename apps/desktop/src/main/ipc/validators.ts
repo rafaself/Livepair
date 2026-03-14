@@ -11,6 +11,7 @@ import type {
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import type { DesktopSettingsPatch } from '../../shared/settings';
+import type { SaveScreenFrameDumpFrameRequest } from '../../shared';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -154,6 +155,21 @@ export function isScreenCaptureSourceId(
   value: unknown,
 ): value is string | null {
   return value === null || isNonEmptyString(value);
+}
+
+export function isSaveScreenFrameDumpFrameRequest(
+  value: unknown,
+): value is SaveScreenFrameDumpFrameRequest {
+  return (
+    isPlainRecord(value) &&
+    hasOnlyAllowedKeys(value, ['sequence', 'mimeType', 'data']) &&
+    typeof value['sequence'] === 'number' &&
+    Number.isInteger(value['sequence']) &&
+    value['sequence'] > 0 &&
+    value['mimeType'] === 'image/jpeg' &&
+    value['data'] instanceof Uint8Array &&
+    value['data'].byteLength > 0
+  );
 }
 
 export function isCreateChatRequest(value: unknown): value is CreateChatRequest | undefined {

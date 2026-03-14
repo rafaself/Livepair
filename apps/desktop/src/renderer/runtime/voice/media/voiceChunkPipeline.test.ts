@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVoiceChunkPipeline } from './voiceChunkPipeline';
+import { createDefaultRealtimeOutboundDiagnostics } from '../../outbound/realtimeOutboundGateway';
+import type {
+  RealtimeOutboundDecision,
+  RealtimeOutboundEvent,
+  RealtimeOutboundGateway,
+} from '../../outbound/outbound.types';
 
 function createChunk(overrides: Partial<{
   data: Uint8Array;
@@ -20,7 +26,12 @@ function createChunk(overrides: Partial<{
   };
 }
 
-function createMockOps() {
+function createMockOps(options: {
+  submitDecision?: (
+    callIndex: number,
+    event: RealtimeOutboundEvent,
+  ) => RealtimeOutboundDecision;
+} = {}) {
   const storeState = {
     voiceCaptureState: 'idle',
     voiceSessionStatus: 'ready',
@@ -38,6 +49,22 @@ function createMockOps() {
     sendAudioChunk: vi.fn().mockResolvedValue(undefined),
     sendAudioStreamEnd: vi.fn().mockResolvedValue(undefined),
   };
+  let gatewaySubmitCount = 0;
+  const outboundGateway: RealtimeOutboundGateway = {
+    submit: vi.fn((event: RealtimeOutboundEvent): RealtimeOutboundDecision => {
+      gatewaySubmitCount += 1;
+      return options.submitDecision?.(gatewaySubmitCount, event) ?? {
+        outcome: 'send',
+        classification: 'non-replaceable',
+        reason: 'accepted',
+      };
+    }),
+    settle: vi.fn(),
+    recordFailure: vi.fn(),
+    recordSuccess: vi.fn(),
+    reset: vi.fn(),
+    getDiagnostics: vi.fn(createDefaultRealtimeOutboundDiagnostics),
+  };
 
   return {
     store: { getState: vi.fn().mockReturnValue(storeState) } as never,
@@ -54,6 +81,7 @@ function createMockOps() {
     createVoiceCapture: vi.fn().mockReturnValue(capture),
     getActiveTransport: vi.fn().mockReturnValue(transport),
     currentVoiceSessionStatus: vi.fn().mockReturnValue('ready'),
+    getRealtimeOutboundGateway: vi.fn(() => outboundGateway),
     setVoiceSessionStatus: vi.fn(),
     setVoiceErrorState: vi.fn(),
     endSessionInternal: vi.fn(),
@@ -61,6 +89,7 @@ function createMockOps() {
     _storeState: storeState,
     _capture: capture,
     _transport: transport,
+    _outboundGateway: outboundGateway,
   };
 }
 
@@ -158,7 +187,15 @@ describe('createVoiceChunkPipeline', () => {
         chunkDurationMs: 20,
         lastError: null,
       });
+      expect(ops._outboundGateway.submit).toHaveBeenCalledWith({
+        kind: 'audio_chunk',
+        channelKey: expect.stringContaining('audio:microphone:'),
+        sequence: 1,
+        createdAtMs: expect.any(Number),
+        estimatedBytes: 640,
+      });
       expect(ops._transport.sendAudioChunk).toHaveBeenCalledWith(chunk.data);
+      expect(ops._outboundGateway.recordSuccess).toHaveBeenCalledTimes(1);
     });
 
     it('forwards empty and undersized chunks unchanged', async () => {
@@ -305,6 +342,69 @@ describe('createVoiceChunkPipeline', () => {
       expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(1, new Uint8Array([1]));
       expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(2, new Uint8Array([2]));
       expect(order).toEqual(['chunk-1:start', 'chunk-1:end', 'chunk-2', 'stream-end']);
+    });
+
+    it('bounds pending audio work under bursts while keeping dispatch serialized', async () => {
+      const ops = createMockOps({
+        submitDecision: (callIndex) => (callIndex <= 2
+          ? {
+              outcome: 'send',
+              classification: 'non-replaceable',
+              reason: 'accepted',
+            }
+          : {
+              outcome: 'drop',
+              classification: 'non-replaceable',
+              reason: 'lane-saturated',
+            }),
+      });
+      let resolveFirstSend!: () => void;
+      ops._transport.sendAudioChunk
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((resolve) => {
+              resolveFirstSend = resolve;
+            }),
+        )
+        .mockResolvedValueOnce(undefined);
+      const pipeline = createVoiceChunkPipeline(ops as never);
+
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onChunk(createChunk({ data: new Uint8Array([1]), sequence: 1 }));
+      observer.onChunk(createChunk({ data: new Uint8Array([2]), sequence: 2 }));
+      observer.onChunk(createChunk({ data: new Uint8Array([3]), sequence: 3 }));
+
+      await Promise.resolve();
+      expect(ops._transport.sendAudioChunk).toHaveBeenCalledTimes(1);
+
+      resolveFirstSend();
+      await pipeline.flush();
+
+      expect(ops._outboundGateway.submit).toHaveBeenCalledTimes(3);
+      expect(ops._transport.sendAudioChunk).toHaveBeenCalledTimes(2);
+      expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(1, new Uint8Array([1]));
+      expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(2, new Uint8Array([2]));
+    });
+
+    it('does not dispatch audio when the gateway blocks the lane', async () => {
+      const ops = createMockOps({
+        submitDecision: () => ({
+          outcome: 'block',
+          classification: 'non-replaceable',
+          reason: 'breaker-open',
+        }),
+      });
+      const pipeline = createVoiceChunkPipeline(ops as never);
+
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onChunk(createChunk());
+      await pipeline.flush();
+
+      expect(ops._outboundGateway.submit).toHaveBeenCalledTimes(1);
+      expect(ops._transport.sendAudioChunk).not.toHaveBeenCalled();
+      expect(ops._outboundGateway.recordSuccess).not.toHaveBeenCalled();
     });
 
     it('drops microphone chunks while resume temporarily clears the active transport', async () => {

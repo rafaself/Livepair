@@ -11,6 +11,9 @@ import type {
 import type {
   SpeechLifecycleStatus,
 } from '../speech/speech.types';
+import type { RealtimeOutboundGateway } from '../outbound/outbound.types';
+
+const TEXT_SPEECH_MODE_CHANNEL_KEY = 'text:speech-mode';
 
 type SessionControllerPublicApiArgs = {
   store: SessionStoreApi;
@@ -29,6 +32,7 @@ type SessionControllerPublicApiArgs = {
   screenCtrl: {
     start: () => Promise<void>;
     stop: () => Promise<void>;
+    analyzeScreenNow: () => void;
   };
   appendTypedUserTurn: (text: string) => string;
   voiceTranscriptCtrl: {
@@ -48,6 +52,7 @@ type SessionControllerPublicApiArgs = {
     }) => Promise<void>;
     endSpeechModeInternal: (options?: { recordEvents?: boolean }) => Promise<void>;
     getActiveTransport: () => import('../transport/transport.types').DesktopSession | null;
+    getRealtimeOutboundGateway: () => RealtimeOutboundGateway;
     recordSessionEvent: (event: {
       type: 'session.debug.state.set';
       detail: DebugAssistantState;
@@ -73,6 +78,8 @@ export function createSessionControllerPublicApi({
   runtime,
   logRuntimeError,
 }: SessionControllerPublicApiArgs): DesktopSessionController {
+  let textSubmitSequence = 0;
+
   return {
     checkBackendHealth: async () => {
       await performBackendHealthCheck();
@@ -92,6 +99,9 @@ export function createSessionControllerPublicApi({
     },
     startScreenCapture: () => {
       return screenCtrl.start();
+    },
+    analyzeScreenNow: () => {
+      screenCtrl.analyzeScreenNow();
     },
     startSession: async ({ mode }) => {
       await startSessionInternal({ mode });
@@ -143,16 +153,37 @@ export function createSessionControllerPublicApi({
         }
 
         try {
+          const outboundGateway = runtime.getRealtimeOutboundGateway();
+          textSubmitSequence += 1;
+          const decision = outboundGateway.submit({
+            kind: 'text',
+            channelKey: TEXT_SPEECH_MODE_CHANNEL_KEY,
+            sequence: textSubmitSequence,
+            createdAtMs: Date.now(),
+            estimatedBytes: trimmedText.length,
+          });
+
+          if (decision.outcome !== 'send') {
+            logRuntimeError('voice-session', 'submit blocked by outbound guardrails', {
+              textLength: trimmedText.length,
+              outcome: decision.outcome,
+              reason: decision.reason,
+            });
+            return false;
+          }
+
           appendTypedUserTurn(trimmedText);
           voiceTranscriptCtrl.queueMixedModeAssistantReply();
           store.getState().setLastRuntimeError(null);
           await activeTransport.sendText(trimmedText);
+          outboundGateway.recordSuccess();
           runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());
           return true;
         } catch (error) {
           voiceTranscriptCtrl.clearQueuedMixedModeAssistantReply();
           const detail = asErrorDetail(error, 'Failed to send speech-mode text turn');
           store.getState().setLastRuntimeError(detail);
+          runtime.getRealtimeOutboundGateway().recordFailure(detail);
           runtime.setVoiceErrorState(detail);
           return false;
         }

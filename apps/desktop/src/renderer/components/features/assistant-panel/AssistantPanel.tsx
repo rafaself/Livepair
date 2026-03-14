@@ -4,10 +4,14 @@ import { OverlayContainer, Panel } from '../../layout';
 import { AssistantPanelDebugView } from './debug/AssistantPanelDebugView';
 import { AssistantPanelChatView } from './chat/AssistantPanelChatView';
 import { AssistantPanelHeader } from './AssistantPanelHeader';
-import { AssistantPanelHistoryView } from './history/AssistantPanelHistoryView';
+import {
+  AssistantPanelHistoryView,
+  useAssistantPanelHistoryViewModel,
+} from './history/AssistantPanelHistoryView';
 import { AssistantPanelSettingsContent } from './settings/AssistantPanelSettingsView';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
+import { AssistantPanelSharedHeaderActions } from './AssistantPanelSharedHeaderActions';
 import {
   createAndSwitchToNewChat,
   getChatRecord,
@@ -21,6 +25,13 @@ import { useSessionStore } from '../../../store/sessionStore';
 
 export function AssistantPanel(): JSX.Element {
   const isDebugMode = useUiStore((state) => state.isDebugMode);
+  const saveScreenFramesEnabled = useUiStore((state) => state.saveScreenFramesEnabled);
+  const screenFrameDumpDirectoryPath = useUiStore(
+    (state) => state.screenFrameDumpDirectoryPath,
+  );
+  const setSaveScreenFramesEnabled = useUiStore(
+    (state) => state.setSaveScreenFramesEnabled,
+  );
   const activeChatId = useSessionStore((state) => state.activeChatId);
   const localUserSpeechActive = useSessionStore((state) => state.localUserSpeechActive);
   const [activeChat, setActiveChat] = useState<ChatRecord | null>(null);
@@ -48,20 +59,30 @@ export function AssistantPanel(): JSX.Element {
     voicePlaybackState,
     voicePlaybackDiagnostics,
     voiceToolState,
+    realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
+    visualSendDiagnostics,
     canSubmitText,
     lastRuntimeError,
     draftText,
     isSubmittingTextTurn,
+    isComposerMicrophoneEnabled,
     handleDraftTextChange,
     handleSubmitTextTurn,
     handleStartSpeechMode,
     handleStartSpeechModeWithScreen,
+    handleToggleComposerMicrophone,
+    handleToggleComposerScreenShare,
     handleEndSpeechMode,
     handleCheckBackendHealth,
   } = useAssistantPanelController();
   const settingsController = useAssistantPanelSettingsController();
+  const isSharedInnerView = panelView === 'chat' || panelView === 'history';
+  const historyViewModel = useAssistantPanelHistoryViewModel({
+    activeChatId,
+    isEnabled: panelView === 'history',
+  });
 
   useEffect(() => {
     let isCancelled = false;
@@ -139,42 +160,62 @@ export function AssistantPanel(): JSX.Element {
           isDebugMode={isDebugMode}
         />
         <div className="assistant-panel__view">
-          {panelView === 'chat' ? (
-            <AssistantPanelChatView
-              assistantState={assistantState}
-              currentMode={currentMode}
-              isPanelOpen={isPanelOpen}
-              speechLifecycleStatus={speechLifecycleStatus}
-              textSessionStatus={textSessionStatus}
-              canSubmitText={canSubmitText}
-              activeTransport={activeTransport}
-              voiceSessionStatus={voiceSessionStatus}
-              voiceSessionResumption={voiceSessionResumption}
-              activeChat={activeChat}
-              latestLiveSession={latestLiveSession}
-              turns={conversationTurns}
-              isConversationEmpty={isConversationEmpty}
-              lastRuntimeError={lastRuntimeError}
-              draftText={draftText}
-              isSubmittingTextTurn={isSubmittingTextTurn}
-              localUserSpeechActive={localUserSpeechActive}
-              onBackToHistory={handleBackToHistory}
-              onCreateChat={handleCreateChat}
-              onDraftTextChange={handleDraftTextChange}
-              onSubmitTextTurn={handleSubmitTextTurn}
-              onStartSpeechMode={handleStartSpeechMode}
-              onStartSpeechModeWithScreen={handleStartSpeechModeWithScreen}
-              onEndSpeechMode={handleEndSpeechMode}
-            />
-          ) : null}
-
-          {panelView === 'history' ? (
-            <div className="assistant-panel__view-section">
-              <AssistantPanelHistoryView
-                activeChatId={activeChatId}
-                onBackToChat={handleBackToChat}
-                onSelectChat={handleSelectChat}
-              />
+          {isSharedInnerView ? (
+            <div className="assistant-panel__inner-shell">
+              <div className="assistant-panel__inner-header">
+                <AssistantPanelSharedHeaderActions
+                  panelView={panelView}
+                  onCreateChat={handleCreateChat}
+                  onOpenHistory={handleBackToHistory}
+                  onBackToChat={handleBackToChat}
+                />
+              </div>
+              <div className="assistant-panel__inner-body">
+                {panelView === 'chat' ? (
+                  <AssistantPanelChatView
+                    assistantState={assistantState}
+                    currentMode={currentMode}
+                    isPanelOpen={isPanelOpen}
+                    speechLifecycleStatus={speechLifecycleStatus}
+                    textSessionStatus={textSessionStatus}
+                    canSubmitText={canSubmitText}
+                    activeTransport={activeTransport}
+                    voiceSessionStatus={voiceSessionStatus}
+                    voiceSessionResumption={voiceSessionResumption}
+                    activeChat={activeChat}
+                    latestLiveSession={latestLiveSession}
+                    turns={conversationTurns}
+                    isConversationEmpty={isConversationEmpty}
+                     lastRuntimeError={lastRuntimeError}
+                     draftText={draftText}
+                     isSubmittingTextTurn={isSubmittingTextTurn}
+                     isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
+                     screenCaptureState={screenCaptureState}
+                     inputDeviceOptions={settingsController.inputDeviceOptions}
+                     localUserSpeechActive={localUserSpeechActive}
+                     screenCaptureSourceOptions={settingsController.screenCaptureSourceOptions}
+                     selectedInputDeviceId={settingsController.selectedInputDeviceId}
+                     selectedScreenCaptureSourceId={settingsController.selectedScreenCaptureSourceId}
+                     onDraftTextChange={handleDraftTextChange}
+                     onSubmitTextTurn={handleSubmitTextTurn}
+                     onSelectComposerInputDevice={settingsController.setSelectedInputDeviceId}
+                     onSelectComposerScreenSource={
+                       settingsController.setSelectedScreenCaptureSourceId
+                     }
+                     onStartSpeechMode={handleStartSpeechMode}
+                     onStartSpeechModeWithScreen={handleStartSpeechModeWithScreen}
+                     onToggleComposerMicrophone={handleToggleComposerMicrophone}
+                     onToggleComposerScreenShare={handleToggleComposerScreenShare}
+                     onEndSpeechMode={handleEndSpeechMode}
+                    />
+                 ) : (
+                  <AssistantPanelHistoryView
+                    activeChatId={activeChatId}
+                    onSelectChat={handleSelectChat}
+                    viewModel={historyViewModel}
+                  />
+                )}
+              </div>
             </div>
           ) : null}
 
@@ -199,8 +240,15 @@ export function AssistantPanel(): JSX.Element {
                 voicePlaybackState={voicePlaybackState}
                 voicePlaybackDiagnostics={voicePlaybackDiagnostics}
                 voiceToolState={voiceToolState}
+                realtimeOutboundDiagnostics={realtimeOutboundDiagnostics}
                 screenCaptureState={screenCaptureState}
                 screenCaptureDiagnostics={screenCaptureDiagnostics}
+                visualSendDiagnostics={visualSendDiagnostics}
+                saveScreenFramesEnabled={saveScreenFramesEnabled}
+                screenFrameDumpDirectoryPath={screenFrameDumpDirectoryPath}
+                onToggleSaveScreenFrames={() => {
+                  setSaveScreenFramesEnabled(!saveScreenFramesEnabled);
+                }}
                 onRetryBackendHealth={handleCheckBackendHealth}
               />
             </div>

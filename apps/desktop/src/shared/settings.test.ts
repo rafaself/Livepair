@@ -57,6 +57,40 @@ describe('normalizeDesktopSettings', () => {
   });
 });
 
+describe('visualSessionQuality setting', () => {
+  it('defaults to Low', () => {
+    expect(DEFAULT_DESKTOP_SETTINGS.visualSessionQuality).toBe('Low');
+  });
+
+  it('accepts Low, Medium, and High in normalizeDesktopSettings', () => {
+    for (const quality of ['Low', 'Medium', 'High'] as const) {
+      expect(
+        normalizeDesktopSettings({ visualSessionQuality: quality }),
+      ).toMatchObject({ visualSessionQuality: quality });
+    }
+  });
+
+  it('rejects invalid visualSessionQuality in normalizeDesktopSettings', () => {
+    expect(
+      normalizeDesktopSettings({ visualSessionQuality: 'Ultra' as never }),
+    ).toBeNull();
+  });
+
+  it('accepts Low, Medium, and High in normalizeDesktopSettingsPatch', () => {
+    for (const quality of ['Low', 'Medium', 'High'] as const) {
+      expect(
+        normalizeDesktopSettingsPatch({ visualSessionQuality: quality }),
+      ).toEqual({ visualSessionQuality: quality });
+    }
+  });
+
+  it('rejects invalid visualSessionQuality in normalizeDesktopSettingsPatch', () => {
+    expect(
+      normalizeDesktopSettingsPatch({ visualSessionQuality: 'Ultra' as never }),
+    ).toBeNull();
+  });
+});
+
 describe('normalizeDesktopSettingsPatch', () => {
   it('normalizes valid patch values without injecting defaults', () => {
     expect(

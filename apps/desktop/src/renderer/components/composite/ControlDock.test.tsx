@@ -21,6 +21,7 @@ function createDockProps(
     onStopVoiceCapture: vi.fn(async () => undefined),
     onStartScreenCapture: vi.fn(async () => undefined),
     onStopScreenCapture: vi.fn(async () => undefined),
+    onAnalyzeScreenNow: vi.fn(),
     onEndSession: vi.fn(async () => undefined),
     ...overrides,
   };

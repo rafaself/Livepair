@@ -32,6 +32,8 @@ export type DesktopSessionController = {
   stopVoiceCapture: () => Promise<void>;
   startScreenCapture: () => Promise<void>;
   stopScreenCapture: () => Promise<void>;
+  /** Trigger a one-shot visual snapshot: send exactly one frame to the model, then sleep. */
+  analyzeScreenNow: () => void;
   subscribeToVoiceChunks: (listener: (chunk: LocalVoiceChunk) => void) => () => void;
   submitTextTurn: (text: string) => Promise<boolean>;
   endSpeechMode: () => Promise<void>;

@@ -1,13 +1,16 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
+import type { SelectOptionItem } from '../../../primitives';
 import {
+  canToggleScreenContext,
   canSubmitComposerText,
   createControlGatingSnapshot,
   isSpeechLifecycleActive,
   selectLiveSessionPhaseLabel,
   type ConversationTimelineEntry,
   type ProductMode,
+  type ScreenCaptureState,
   type SpeechLifecycleStatus,
   type TextSessionStatus,
   type TransportKind,
@@ -37,13 +40,21 @@ export type AssistantPanelChatViewProps = {
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
+  isComposerMicrophoneEnabled?: boolean;
+  inputDeviceOptions?: readonly SelectOptionItem[];
   localUserSpeechActive?: boolean;
-  onBackToHistory?: () => void;
-  onCreateChat?: () => Promise<void>;
+  screenCaptureState?: ScreenCaptureState;
+  screenCaptureSourceOptions?: readonly SelectOptionItem[];
+  selectedInputDeviceId?: string;
+  selectedScreenCaptureSourceId?: string;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
+  onSelectComposerInputDevice?: (deviceId: string) => void;
+  onSelectComposerScreenSource?: (sourceId: string) => void;
   onStartSpeechMode: () => Promise<void>;
   onStartSpeechModeWithScreen: () => Promise<void>;
+  onToggleComposerMicrophone?: () => Promise<void>;
+  onToggleComposerScreenShare?: () => Promise<void>;
   onEndSpeechMode: () => Promise<void>;
 };
 
@@ -64,13 +75,21 @@ export function AssistantPanelChatView({
   lastRuntimeError,
   draftText,
   isSubmittingTextTurn,
+  isComposerMicrophoneEnabled = true,
+  inputDeviceOptions = [],
   localUserSpeechActive = false,
-  onBackToHistory,
-  onCreateChat,
+  screenCaptureState = 'disabled',
+  screenCaptureSourceOptions = [],
+  selectedInputDeviceId = '',
+  selectedScreenCaptureSourceId = '',
   onDraftTextChange,
   onSubmitTextTurn,
+  onSelectComposerInputDevice = () => undefined,
+  onSelectComposerScreenSource = () => undefined,
   onStartSpeechMode,
   onStartSpeechModeWithScreen,
+  onToggleComposerMicrophone = async () => undefined,
+  onToggleComposerScreenShare = async () => undefined,
   onEndSpeechMode,
 }: AssistantPanelChatViewProps): JSX.Element {
   const controlGatingSnapshot = createControlGatingSnapshot({
@@ -98,50 +117,72 @@ export function AssistantPanelChatView({
     speechLifecycleStatus,
     localUserSpeechActive,
   });
+  const isComposerScreenShareActive =
+    screenCaptureState === 'ready' ||
+    screenCaptureState === 'capturing' ||
+    screenCaptureState === 'streaming';
+  const isComposerScreenShareDisabled =
+    composerAction.kind === 'startSpeech'
+      ? composerAction.disabled || composerAction.isLoading
+      : !canToggleScreenContext(controlGatingSnapshot);
+  const screenShareButtonLabel =
+    composerAction.kind === 'startSpeech'
+      ? 'Start Live session with screen share'
+      : isComposerScreenShareActive
+        ? 'Stop screen share'
+        : 'Start screen share';
   const composerPlaceholder = 'Add a note to the session';
   const isViewingPastChat = !isLiveSessionActive && activeChat?.isCurrent === false;
   const activeChatTitle = activeChat?.title ?? 'Untitled chat';
 
   return (
-    <div className="assistant-panel__view-section">
-      <section
-        className="assistant-panel__chat-container"
-        aria-label="Live session history"
-      >
-        <AssistantPanelConversationSection
-          emptyState={
-            <AssistantPanelConversationEmptyState
-              assistantState={assistantState}
-              isLiveSessionActive={isLiveSessionActive}
-              lastRuntimeError={lastRuntimeError}
-              onStartSpeechMode={onStartSpeechMode}
-              onStartSpeechModeWithScreen={onStartSpeechModeWithScreen}
-            />
-          }
-          isConversationEmpty={isConversationEmpty}
-          isViewingPastChat={isViewingPastChat}
-          lastRuntimeError={lastRuntimeError}
-          activeChatTitle={activeChatTitle}
-          latestLiveSession={latestLiveSession}
-          {...(onBackToHistory ? { onOpenHistory: onBackToHistory } : {})}
-          {...(onCreateChat ? { onCreateChat } : {})}
-          turns={turns}
-        />
-        <AssistantPanelChatComposer
-          composerAction={composerAction}
-          draftText={draftText}
-          isConversationEmpty={isConversationEmpty}
-          isComposerDisabled={isComposerDisabled}
-          isLiveSessionActive={isLiveSessionActive}
-          isPanelOpen={isPanelOpen ?? false}
-          liveSessionPhaseLabel={liveSessionPhaseLabel}
-          placeholder={composerPlaceholder}
-          onDraftTextChange={onDraftTextChange}
-          onEndSpeechMode={onEndSpeechMode}
-          onStartSpeechMode={onStartSpeechMode}
-          onSubmitTextTurn={onSubmitTextTurn}
-        />
-      </section>
-    </div>
+    <section
+      className="assistant-panel__chat-container"
+      aria-label="Live session history"
+    >
+      <AssistantPanelConversationSection
+        emptyState={
+          <AssistantPanelConversationEmptyState
+            assistantState={assistantState}
+            isLiveSessionActive={isLiveSessionActive}
+            lastRuntimeError={lastRuntimeError}
+            onStartSpeechMode={onStartSpeechMode}
+            onStartSpeechModeWithScreen={onStartSpeechModeWithScreen}
+          />
+        }
+        isConversationEmpty={isConversationEmpty}
+        isViewingPastChat={isViewingPastChat}
+        lastRuntimeError={lastRuntimeError}
+        activeChatTitle={activeChatTitle}
+        latestLiveSession={latestLiveSession}
+        turns={turns}
+      />
+      <AssistantPanelChatComposer
+        composerAction={composerAction}
+        draftText={draftText}
+        isConversationEmpty={isConversationEmpty}
+        isComposerDisabled={isComposerDisabled}
+        isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
+        isComposerScreenShareActive={isComposerScreenShareActive}
+        isComposerScreenShareDisabled={isComposerScreenShareDisabled}
+        isLiveSessionActive={isLiveSessionActive}
+        isPanelOpen={isPanelOpen ?? false}
+        inputDeviceOptions={inputDeviceOptions}
+        liveSessionPhaseLabel={liveSessionPhaseLabel}
+        placeholder={composerPlaceholder}
+        screenCaptureSourceOptions={screenCaptureSourceOptions}
+        selectedInputDeviceId={selectedInputDeviceId}
+        selectedScreenCaptureSourceId={selectedScreenCaptureSourceId}
+        screenShareButtonLabel={screenShareButtonLabel}
+        onDraftTextChange={onDraftTextChange}
+        onEndSpeechMode={onEndSpeechMode}
+        onSelectComposerInputDevice={onSelectComposerInputDevice}
+        onSelectComposerScreenSource={onSelectComposerScreenSource}
+        onStartSpeechMode={onStartSpeechMode}
+        onToggleComposerMicrophone={onToggleComposerMicrophone}
+        onToggleComposerScreenShare={onToggleComposerScreenShare}
+        onSubmitTextTurn={onSubmitTextTurn}
+      />
+    </section>
   );
 }

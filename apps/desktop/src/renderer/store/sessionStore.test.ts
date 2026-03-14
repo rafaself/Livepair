@@ -162,6 +162,101 @@ describe('sessionStore', () => {
     expect(useSessionStore.getState().voiceCaptureState).toBe('capturing');
   });
 
+  it('tracks realtime outbound diagnostics separately from other runtime slices', () => {
+    expect(useSessionStore.getState().realtimeOutboundDiagnostics).toEqual({
+      breakerState: 'closed',
+      breakerReason: null,
+      consecutiveFailureCount: 0,
+      totalSubmitted: 0,
+      sentCount: 0,
+      droppedCount: 0,
+      replacedCount: 0,
+      blockedCount: 0,
+      droppedByReason: {
+        staleSequence: 0,
+        laneSaturated: 0,
+      },
+      blockedByReason: {
+        breakerOpen: 0,
+      },
+      submittedByKind: {
+        text: 0,
+        audioChunk: 0,
+        visualFrame: 0,
+      },
+      lastDecision: null,
+      lastReason: null,
+      lastEventKind: null,
+      lastChannelKey: null,
+      lastSequence: null,
+      lastReplaceKey: null,
+      lastSubmittedAtMs: null,
+      lastError: null,
+    });
+
+    useSessionStore.getState().setRealtimeOutboundDiagnostics({
+      breakerState: 'open',
+      breakerReason: 'transport unavailable',
+      consecutiveFailureCount: 3,
+      totalSubmitted: 9,
+      sentCount: 4,
+      droppedCount: 2,
+      replacedCount: 1,
+      blockedCount: 2,
+      droppedByReason: {
+        staleSequence: 1,
+        laneSaturated: 1,
+      },
+      blockedByReason: {
+        breakerOpen: 2,
+      },
+      submittedByKind: {
+        text: 2,
+        audioChunk: 4,
+        visualFrame: 3,
+      },
+      lastDecision: 'block',
+      lastReason: 'breaker-open',
+      lastEventKind: 'text',
+      lastChannelKey: 'text:speech-mode',
+      lastSequence: 2,
+      lastReplaceKey: null,
+      lastSubmittedAtMs: 1_000,
+      lastError: 'transport unavailable',
+    });
+
+    expect(useSessionStore.getState().realtimeOutboundDiagnostics).toEqual({
+      breakerState: 'open',
+      breakerReason: 'transport unavailable',
+      consecutiveFailureCount: 3,
+      totalSubmitted: 9,
+      sentCount: 4,
+      droppedCount: 2,
+      replacedCount: 1,
+      blockedCount: 2,
+      droppedByReason: {
+        staleSequence: 1,
+        laneSaturated: 1,
+      },
+      blockedByReason: {
+        breakerOpen: 2,
+      },
+      submittedByKind: {
+        text: 2,
+        audioChunk: 4,
+        visualFrame: 3,
+      },
+      lastDecision: 'block',
+      lastReason: 'breaker-open',
+      lastEventKind: 'text',
+      lastChannelKey: 'text:speech-mode',
+      lastSequence: 2,
+      lastReplaceKey: null,
+      lastSubmittedAtMs: 1_000,
+      lastError: 'transport unavailable',
+    });
+  });
+
   it('can reset runtime state while preserving conversation turns', () => {
     useSessionStore.getState().setActiveChatId('chat-1');
     useSessionStore.getState().appendConversationTurn({

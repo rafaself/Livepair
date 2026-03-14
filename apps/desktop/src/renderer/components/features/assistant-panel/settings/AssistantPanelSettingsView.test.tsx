@@ -63,6 +63,7 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('renders settings sections with hydrated backend values', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings({
       ...DEFAULT_DESKTOP_SETTINGS,
       backendUrl: 'https://runtime.livepair.dev/api',
@@ -118,6 +119,7 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('applies a valid backend URL override on blur through the settings store', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings();
 
     const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
@@ -136,6 +138,7 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('rejects invalid backend URLs on blur and preserves the applied value', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings();
 
     const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
@@ -150,6 +153,7 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('updates persisted theme and keeps preferred mode locked to fast', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings();
 
     await act(async () => {
@@ -270,10 +274,8 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('persists browser audio cleanup toggles from the audio section', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings();
-    act(() => {
-      useUiStore.getState().toggleDebugMode();
-    });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('switch', { name: 'Echo cancellation' }));
@@ -290,6 +292,85 @@ describe('AssistantPanelSettingsView', () => {
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       voiceAutoGainControlEnabled: false,
     });
+  });
+
+  // --- HDMI / DisplayPort deduplication integration tests ---
+
+  it('renders only the first HDMI and DisplayPort option in the output dropdown', async () => {
+    enumerateDevices.mockResolvedValue([
+      { deviceId: 'default', groupId: 'group-default', kind: 'audioinput', label: 'Default Microphone' },
+      { deviceId: 'default', groupId: 'group-default', kind: 'audiooutput', label: 'Default Output' },
+      { deviceId: 'hdmi-1', groupId: 'group-h1', kind: 'audiooutput', label: 'HDMI Output 1' },
+      { deviceId: 'hdmi-2', groupId: 'group-h2', kind: 'audiooutput', label: 'HDMI Output 2' },
+      { deviceId: 'hdmi-3', groupId: 'group-h3', kind: 'audiooutput', label: 'HDMI Output 3' },
+      { deviceId: 'dp-1', groupId: 'group-d1', kind: 'audiooutput', label: 'DisplayPort Output 1' },
+      { deviceId: 'dp-2', groupId: 'group-d2', kind: 'audiooutput', label: 'DisplayPort Output 2' },
+    ]);
+
+    await renderSettings();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /output device/i }));
+    });
+
+    expect(screen.getByRole('option', { name: 'System default' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'HDMI Output 1' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'HDMI Output 2' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'HDMI Output 3' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'DisplayPort Output 1' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'DisplayPort Output 2' })).not.toBeInTheDocument();
+  });
+
+  it('keeps all distinct audio profiles as separate entries in the output dropdown', async () => {
+    enumerateDevices.mockResolvedValue([
+      { deviceId: 'default', groupId: 'group-default', kind: 'audioinput', label: 'Default Microphone' },
+      { deviceId: 'headset', groupId: 'group-hs', kind: 'audiooutput', label: 'Headset' },
+      { deviceId: 'handsfree', groupId: 'group-hf', kind: 'audiooutput', label: 'Handsfree' },
+      { deviceId: 'analog', groupId: 'group-an', kind: 'audiooutput', label: 'Analog Output' },
+      { deviceId: 'spdif', groupId: 'group-sp', kind: 'audiooutput', label: 'Digital Output (S/PDIF)' },
+      { deviceId: 'hdmi-1', groupId: 'group-h1', kind: 'audiooutput', label: 'HDMI Output 1' },
+      { deviceId: 'hdmi-2', groupId: 'group-h2', kind: 'audiooutput', label: 'HDMI Output 2' },
+    ]);
+
+    await renderSettings();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /output device/i }));
+    });
+
+    expect(screen.getByRole('option', { name: 'System default' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Headset' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Handsfree' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Analog Output' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Digital Output (S/PDIF)' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'HDMI Output 1' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'HDMI Output 2' })).not.toBeInTheDocument();
+  });
+
+  it('persists the representative HDMI output selection after choosing it from the dropdown', async () => {
+    enumerateDevices.mockResolvedValue([
+      { deviceId: 'default', groupId: 'group-default', kind: 'audioinput', label: 'Default Microphone' },
+      { deviceId: 'default', groupId: 'group-default', kind: 'audiooutput', label: 'Default Output' },
+      { deviceId: 'hdmi-1', groupId: 'group-h1', kind: 'audiooutput', label: 'HDMI Output 1' },
+      { deviceId: 'hdmi-2', groupId: 'group-h2', kind: 'audiooutput', label: 'HDMI Output 2' },
+      { deviceId: 'hdmi-3', groupId: 'group-h3', kind: 'audiooutput', label: 'HDMI Output 3' },
+    ]);
+
+    await renderSettings();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /output device/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'HDMI Output 1' }));
+    });
+
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      selectedOutputDeviceId: 'hdmi-1',
+    });
+    expect(screen.getByRole('button', { name: /output device/i })).toHaveTextContent(
+      'HDMI Output 1',
+    );
   });
 
   it('persists the speech silence timeout from the audio section', async () => {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ConversationTurnModel } from '../../conversation/mockConversation';
@@ -21,6 +21,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -64,6 +65,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -116,6 +118,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -125,41 +128,6 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByText('Earlier question')).toBeVisible();
     expect(screen.getByText('Earlier answer')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
-  });
-
-  it('keeps chat navigation inside the chat view with New chat and History actions', () => {
-    render(
-      <AssistantPanelChatView
-        assistantState="ready"
-        currentMode="inactive"
-        speechLifecycleStatus="off"
-        textSessionStatus="ready"
-        canSubmitText={true}
-        turns={[]}
-        isConversationEmpty={true}
-        lastRuntimeError={null}
-        draftText=""
-        isSubmittingTextTurn={false}
-        activeChat={{
-          id: 'chat-history-navigation',
-          title: 'Interview prep',
-          createdAt: '2026-03-11T09:00:00.000Z',
-          updatedAt: '2026-03-11T10:00:00.000Z',
-          isCurrent: false,
-        }}
-        onBackToHistory={() => {}}
-        onDraftTextChange={() => {}}
-        onSubmitTextTurn={() => {}}
-        onStartSpeechMode={() => Promise.resolve()}
-        onEndSpeechMode={() => Promise.resolve()}
-      />,
-    );
-
-    expect(screen.queryByRole('button', { name: 'Back to history' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'History' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'New chat' })).toBeVisible();
-    expect(screen.queryByText(/^History$/)).toBeNull();
-    expect(screen.queryByText(/^New chat$/)).toBeNull();
   });
 
   it('shows safe latest-session metadata for an opened past chat when resume is potentially available', () => {
@@ -198,6 +166,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -245,6 +214,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -271,6 +241,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -308,6 +279,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -333,6 +305,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -365,6 +338,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={handleDraftTextChange}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -390,6 +364,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={handleDraftTextChange}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -416,6 +391,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -439,6 +415,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -478,6 +455,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -505,6 +483,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -542,6 +521,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={handleStartSpeechMode}
+        onStartSpeechModeWithScreen={handleStartSpeechMode}
         onEndSpeechMode={handleEndSpeechMode}
       />,
     );
@@ -575,6 +555,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={handleStartSpeechMode}
+        onStartSpeechModeWithScreen={handleStartSpeechMode}
         onEndSpeechMode={handleEndSpeechMode}
       />,
     );
@@ -608,6 +589,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={handleStartSpeechMode}
+        onStartSpeechModeWithScreen={handleStartSpeechMode}
         onEndSpeechMode={handleEndSpeechMode}
       />,
     );
@@ -639,6 +621,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -663,6 +646,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -688,6 +672,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={noop}
+        onStartSpeechModeWithScreen={noop}
         onEndSpeechMode={noop}
       />,
     );
@@ -709,10 +694,308 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={noop}
+        onStartSpeechModeWithScreen={noop}
         onEndSpeechMode={noop}
       />,
     );
 
     expect(screen.getByRole('button', { name: 'Ending Live session' })).toBeDisabled();
+  });
+
+  it('renders a stable left-controls, main-content, and right-action shell during an active Live session', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Keep this in text"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    const composerLayout = screen.getByTestId('assistant-panel-composer-layout');
+    const leftControls = screen.getByTestId('assistant-panel-composer-left-controls');
+    const mainContent = screen.getByTestId('assistant-panel-composer-main');
+    const rightAction = screen.getByTestId('assistant-panel-composer-right-action');
+
+    expect(Array.from(composerLayout.children)).toEqual([
+      leftControls,
+      mainContent,
+      rightAction,
+    ]);
+    expect(
+      within(leftControls).getByRole('button', { name: 'Disable microphone' }),
+    ).toBeVisible();
+    expect(
+      within(leftControls).getByRole('button', { name: 'Microphone options' }),
+    ).toBeVisible();
+    expect(
+      within(leftControls).getByRole('button', { name: 'Start screen share' }),
+    ).toBeVisible();
+    expect(
+      within(leftControls).getByRole('button', { name: 'Screen share options' }),
+    ).toBeVisible();
+    expect(within(mainContent).getByRole('textbox')).toHaveValue('Keep this in text');
+    expect(
+      within(rightAction).getByRole('button', { name: 'Send note to session' }),
+    ).toBeVisible();
+  });
+
+  it('keeps the shell and right-side primary action when resuming a non-empty inactive session', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="ready"
+        currentMode="inactive"
+        speechLifecycleStatus="off"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        turns={[
+          {
+            id: 'turn-1',
+            role: 'user',
+            content: 'Earlier question',
+            timestamp: '10:15',
+            state: 'complete',
+          },
+        ]}
+        isConversationEmpty={false}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    const composerLayout = screen.getByTestId('assistant-panel-composer-layout');
+    const leftControls = screen.getByTestId('assistant-panel-composer-left-controls');
+    const mainContent = screen.getByTestId('assistant-panel-composer-main');
+    const rightAction = screen.getByTestId('assistant-panel-composer-right-action');
+
+    expect(Array.from(composerLayout.children)).toEqual([
+      leftControls,
+      mainContent,
+      rightAction,
+    ]);
+    expect(
+      within(leftControls).getByRole('button', { name: 'Disable microphone' }),
+    ).toBeVisible();
+    expect(
+      within(leftControls).getByRole('button', { name: 'Microphone options' }),
+    ).toBeVisible();
+    expect(
+      within(leftControls).getByRole('button', {
+        name: 'Start Live session with screen share',
+      }),
+    ).toBeVisible();
+    expect(
+      within(leftControls).getByRole('button', { name: 'Screen share options' }),
+    ).toBeVisible();
+    expect(within(mainContent).queryByRole('textbox')).toBeNull();
+    expect(
+      within(rightAction).getByRole('button', { name: 'Resume Live Session' }),
+    ).toBeVisible();
+  });
+
+  it('toggles the left microphone control visually without changing the active session action or adjacent media controls', () => {
+    const handleToggleMicrophone = vi.fn();
+    const handleEndSpeechMode = vi.fn(async () => undefined);
+    const { rerender } = render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        isComposerMicrophoneEnabled={true}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onEndSpeechMode={handleEndSpeechMode}
+        onToggleComposerMicrophone={handleToggleMicrophone}
+      />,
+    );
+
+    const micButton = screen.getByRole('button', { name: 'Disable microphone' });
+    expect(micButton).toHaveAttribute('aria-pressed', 'true');
+    expect(micButton).toHaveClass('assistant-panel__composer-control--active');
+    expect(screen.getByRole('button', { name: 'Microphone options' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Start screen share' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Screen share options' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
+
+    fireEvent.click(micButton);
+
+    expect(handleToggleMicrophone).toHaveBeenCalledTimes(1);
+    expect(handleEndSpeechMode).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Microphone options' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Start screen share' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Screen share options' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
+
+    rerender(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        isComposerMicrophoneEnabled={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onEndSpeechMode={handleEndSpeechMode}
+        onToggleComposerMicrophone={handleToggleMicrophone}
+      />,
+    );
+
+    const disabledMicButton = screen.getByRole('button', { name: 'Enable microphone' });
+    expect(disabledMicButton).toHaveAttribute('aria-pressed', 'false');
+    expect(disabledMicButton).toHaveClass('assistant-panel__composer-control--inactive');
+    expect(disabledMicButton).not.toHaveClass('assistant-panel__composer-control--active');
+    expect(screen.getByRole('button', { name: 'Microphone options' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Start screen share' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Screen share options' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
+  });
+
+  it('splits microphone and screen share controls into separate dropdowns without regressing the main action buttons', async () => {
+    const handleToggleMicrophone = vi.fn();
+    const handleToggleScreenShare = vi.fn();
+    const handleSelectInputDevice = vi.fn();
+    const handleSelectScreenSource = vi.fn();
+
+    render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        isComposerMicrophoneEnabled={true}
+        inputDeviceOptions={[
+          { value: 'default', label: 'System default' },
+          { value: 'usb-mic', label: 'USB Microphone' },
+          { value: 'desk-mic', label: 'Desk Mic' },
+        ]}
+        selectedInputDeviceId="usb-mic"
+        screenCaptureSourceOptions={[
+          { value: 'auto', label: 'Automatic (first available source)' },
+          { value: 'screen:1:0', label: 'Entire Screen' },
+          { value: 'window:42:0', label: 'VSCode' },
+        ]}
+        selectedScreenCaptureSourceId="screen:1:0"
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onToggleComposerMicrophone={handleToggleMicrophone}
+        onToggleComposerScreenShare={handleToggleScreenShare}
+        onSelectComposerInputDevice={handleSelectInputDevice}
+        onSelectComposerScreenSource={handleSelectScreenSource}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    const microphoneOptionsButton = screen.getByRole('button', {
+      name: 'Microphone options',
+    });
+    expect(microphoneOptionsButton).toHaveAttribute('aria-haspopup', 'listbox');
+    expect(microphoneOptionsButton).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(microphoneOptionsButton);
+
+    const microphoneDropdown = screen.getByRole('listbox');
+    expect(microphoneOptionsButton).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      within(microphoneDropdown).getByRole('option', { name: 'System default' }),
+    ).toBeVisible();
+    expect(
+      within(microphoneDropdown).getByRole('option', { name: 'USB Microphone' }),
+    ).toBeVisible();
+    expect(within(microphoneDropdown).getByRole('option', { name: 'Desk Mic' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disable microphone' }));
+
+    expect(handleToggleMicrophone).toHaveBeenCalledTimes(1);
+    expect(handleToggleScreenShare).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
+
+    fireEvent.pointerDown(document.body);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+    expect(microphoneOptionsButton).toHaveAttribute('aria-expanded', 'false');
+    expect(handleSelectInputDevice).not.toHaveBeenCalled();
+
+    const screenOptionsButton = screen.getByRole('button', {
+      name: 'Screen share options',
+    });
+    expect(screenOptionsButton).toHaveAttribute('aria-haspopup', 'listbox');
+    expect(screenOptionsButton).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(screenOptionsButton);
+
+    const screenDropdown = screen.getByRole('listbox');
+    expect(screenOptionsButton).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      within(screenDropdown).getByRole('option', {
+        name: 'Automatic (first available source)',
+      }),
+    ).toBeVisible();
+    expect(within(screenDropdown).getByRole('option', { name: 'Entire Screen' })).toBeVisible();
+    expect(within(screenDropdown).getByRole('option', { name: 'VSCode' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start screen share' }));
+
+    expect(handleToggleScreenShare).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerDown(document.body);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+    expect(screenOptionsButton).toHaveAttribute('aria-expanded', 'false');
+    expect(handleSelectInputDevice).not.toHaveBeenCalled();
+    expect(handleSelectScreenSource).not.toHaveBeenCalled();
   });
 });

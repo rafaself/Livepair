@@ -16,6 +16,7 @@ type TrackLike = {
   stop: ReturnType<typeof vi.fn>;
   addEventListener: ReturnType<typeof vi.fn>;
   removeEventListener: ReturnType<typeof vi.fn>;
+  getSettings: ReturnType<typeof vi.fn>;
 };
 
 type CanvasMock = {
@@ -23,6 +24,7 @@ type CanvasMock = {
   height: number;
   getContext: ReturnType<typeof vi.fn>;
   toDataURL: ReturnType<typeof vi.fn>;
+  toBlob: ReturnType<typeof vi.fn>;
 };
 
 type VideoMock = {
@@ -51,18 +53,25 @@ function createObserver(): {
   };
 }
 
-function createTrack(): TrackLike {
+function createTrack(trackWidth = 1280, trackHeight = 720): TrackLike {
   return {
     label: 'Entire screen',
     stop: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
+    getSettings: vi.fn(() => ({ width: trackWidth, height: trackHeight })),
   };
 }
 
-function makeBase64Jpeg(): string {
-  // minimal valid base64 (fake JPEG bytes)
+function makeFakeBase64Jpeg(): string {
   return btoa('fake-jpeg-data');
+}
+
+function createValidJpegBytes(): Uint8Array {
+  return new Uint8Array([
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+    0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xff, 0xd9,
+  ]);
 }
 
 function createHarness(opts: {
@@ -70,7 +79,10 @@ function createHarness(opts: {
   accessStatus?: ScreenCaptureAccessStatus;
   videoWidth?: number;
   videoHeight?: number;
+  trackWidth?: number;
+  trackHeight?: number;
   toDataUrlResult?: string;
+  blobBytes?: Uint8Array;
 } = {}): {
   capture: ReturnType<typeof createLocalScreenCapture>;
   obs: ReturnType<typeof createObserver>;
@@ -78,13 +90,13 @@ function createHarness(opts: {
   track: TrackLike;
   canvas: CanvasMock;
   video: VideoMock;
-  tickInterval: () => void;
+  tickInterval: () => Promise<void>;
   getDisplayMedia: ReturnType<typeof vi.fn>;
   getScreenCaptureAccessStatus: ReturnType<typeof vi.fn>;
   createInterval: ReturnType<typeof vi.fn>;
 } {
   const obs = createObserver();
-  const track = createTrack();
+  const track = createTrack(opts.trackWidth ?? opts.videoWidth ?? 1280, opts.trackHeight ?? opts.videoHeight ?? 720);
 
   const fakeStream = {
     getTracks: () => [track as unknown as MediaStreamTrack],
@@ -113,7 +125,17 @@ function createHarness(opts: {
     width: 0,
     height: 0,
     getContext: vi.fn(() => ctx2d),
-    toDataURL: vi.fn(() => `data:image/jpeg;base64,${opts.toDataUrlResult ?? makeBase64Jpeg()}`),
+    toDataURL: vi.fn(
+      () => `data:image/jpeg;base64,${opts.toDataUrlResult ?? makeFakeBase64Jpeg()}`,
+    ),
+    toBlob: vi.fn((callback: (blob: Blob | null) => void) => {
+      const blobBytes = new Uint8Array(Array.from(opts.blobBytes ?? createValidJpegBytes()));
+      callback(
+        new Blob([blobBytes], {
+          type: SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+        }),
+      );
+    }),
   };
 
   const video: VideoMock = {
@@ -147,8 +169,8 @@ function createHarness(opts: {
     track,
     canvas,
     video,
-    tickInterval: () => {
-      intervalCallback?.();
+    tickInterval: async () => {
+      await intervalCallback?.();
     },
     getDisplayMedia,
     getScreenCaptureAccessStatus,
@@ -314,10 +336,36 @@ describe('createLocalScreenCapture', () => {
   });
 
   describe('frame emission', () => {
+    it('emits binary jpeg bytes from canvas blobs instead of reconstructing bytes from data urls', async () => {
+      const jpegBytes = createValidJpegBytes();
+      const { capture, obs, tickInterval, canvas } = createHarness({
+        blobBytes: jpegBytes,
+        toDataUrlResult: btoa('not-a-real-jpeg'),
+      });
+
+      await capture.start({});
+      await tickInterval();
+
+      expect(canvas.toBlob).toHaveBeenCalledWith(
+        expect.any(Function),
+        SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+        SCREEN_CAPTURE_JPEG_QUALITY,
+      );
+      expect(canvas.toDataURL).not.toHaveBeenCalled();
+      expect(obs.onFrame).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mimeType: SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+          data: jpegBytes,
+        }),
+      );
+      expect(obs.onFrame.mock.calls[0]?.[0].data.slice(0, 2)).toEqual(new Uint8Array([0xff, 0xd8]));
+      expect(obs.onFrame.mock.calls[0]?.[0].data.slice(-2)).toEqual(new Uint8Array([0xff, 0xd9]));
+    });
+
     it('emits onFrame on each interval tick', async () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
-      tickInterval();
+      await tickInterval();
       expect(obs.onFrame).toHaveBeenCalledOnce();
       expect(obs.onFrame).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -330,8 +378,8 @@ describe('createLocalScreenCapture', () => {
     it('increments sequence on each frame', async () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
-      tickInterval();
-      tickInterval();
+      await tickInterval();
+      await tickInterval();
       expect(obs.onFrame).toHaveBeenCalledTimes(2);
       expect(obs.onFrame.mock.calls[0]?.[0]).toMatchObject({ sequence: 1 });
       expect(obs.onFrame.mock.calls[1]?.[0]).toMatchObject({ sequence: 2 });
@@ -341,7 +389,7 @@ describe('createLocalScreenCapture', () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
       const initialCallCount = obs.onDiagnostics.mock.calls.length;
-      tickInterval();
+      await tickInterval();
       expect(obs.onDiagnostics).toHaveBeenCalledTimes(initialCallCount + 1);
       expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -354,15 +402,111 @@ describe('createLocalScreenCapture', () => {
     it('skips frame when video dimensions are zero', async () => {
       const { capture, obs, tickInterval } = createHarness({ videoWidth: 0, videoHeight: 0 });
       await capture.start({});
-      tickInterval();
+      await tickInterval();
       expect(obs.onFrame).not.toHaveBeenCalled();
     });
 
     it('caps canvas width to maxWidthPx', async () => {
       const { capture, canvas, tickInterval } = createHarness({ videoWidth: 1920, videoHeight: 1080 });
       await capture.start({ maxWidthPx: 640 });
-      tickInterval();
+      await tickInterval();
       expect(canvas.width).toBeLessThanOrEqual(640);
+    });
+  });
+
+  describe('wave 4: local frame sizing and quality', () => {
+    it('uses track getSettings() width as the basis for sizing, not a fixed monitor assumption', async () => {
+      // Track reports 2560×1440 (e.g. a 2K display)
+      const { capture, canvas, track, tickInterval } = createHarness({
+        trackWidth: 2560,
+        trackHeight: 1440,
+        videoWidth: 2560,
+        videoHeight: 1440,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(track.getSettings).toHaveBeenCalled();
+      // Width must be derived from the track's reported 2560, capped at 1920
+      expect(canvas.width).toBe(1920);
+    });
+
+    it('caps local frame width at 1920px (not the old 640px cap)', async () => {
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 1920,
+        trackHeight: 1080,
+        videoWidth: 1920,
+        videoHeight: 1080,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1920);
+      expect(canvas.width).toBeGreaterThan(640);
+    });
+
+    it('preserves aspect ratio when capping to 1920px', async () => {
+      // 2560×1600 → should cap at 1920, height = round(1600/2560 * 1920) = 1200
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 2560,
+        trackHeight: 1600,
+        videoWidth: 2560,
+        videoHeight: 1600,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1920);
+      expect(canvas.height).toBe(1200);
+    });
+
+    it('preserves aspect ratio for 16:9 source capped at 1920px', async () => {
+      // 3840×2160 (4K) → cap at 1920, height = round(2160/3840 * 1920) = 1080
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 3840,
+        trackHeight: 2160,
+        videoWidth: 3840,
+        videoHeight: 2160,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1920);
+      expect(canvas.height).toBe(1080);
+    });
+
+    it('does not upscale sources narrower than 1920px', async () => {
+      // 1280×720 source — must stay at 1280, not be stretched to 1920
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 1280,
+        trackHeight: 720,
+        videoWidth: 1280,
+        videoHeight: 720,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1280);
+      expect(canvas.height).toBe(720);
+    });
+
+    it('does not upscale a 1366×768 source', async () => {
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 1366,
+        trackHeight: 768,
+        videoWidth: 1366,
+        videoHeight: 768,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1366);
+      expect(canvas.height).toBe(768);
+    });
+
+    it('encodes frames at JPEG quality 0.92', async () => {
+      const { capture, canvas, tickInterval } = createHarness();
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.toBlob).toHaveBeenCalledWith(
+        expect.any(Function),
+        SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+        0.92,
+      );
     });
   });
 
@@ -385,7 +529,7 @@ describe('createLocalScreenCapture', () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
       await capture.stop();
-      tickInterval();
+      await tickInterval();
       expect(obs.onFrame).not.toHaveBeenCalled();
     });
 
@@ -411,10 +555,10 @@ describe('createLocalScreenCapture', () => {
     it('resets sequence counter after stop/restart', async () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
-      tickInterval();
+      await tickInterval();
       await capture.stop();
       await capture.start({});
-      tickInterval();
+      await tickInterval();
       expect(obs.onFrame).toHaveBeenLastCalledWith(
         expect.objectContaining({ sequence: 1 }),
       );
@@ -455,7 +599,7 @@ describe('createLocalScreenCapture', () => {
     });
 
     it('exports expected JPEG quality', () => {
-      expect(SCREEN_CAPTURE_JPEG_QUALITY).toBe(0.7);
+      expect(SCREEN_CAPTURE_JPEG_QUALITY).toBe(0.92);
     });
 
     it('exports expected MIME type', () => {
