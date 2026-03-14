@@ -1,6 +1,6 @@
 import { desktopCapturer, session } from 'electron';
 import type { CaptureSourceRegistry } from './captureSourceRegistry';
-import { toCaptureSources } from './captureSourceRegistry';
+import { CAPTURE_SOURCE_LIST_OPTIONS, toCaptureSources } from './captureSourceRegistry';
 
 /**
  * Registers a display-media request handler on the default Electron session.
@@ -16,9 +16,7 @@ export function registerDisplayMediaHandler(
   session.defaultSession.setDisplayMediaRequestHandler(
     async (_request, callback) => {
       try {
-        const sources = await desktopCapturer.getSources({
-          types: ['screen', 'window'],
-        });
+        const sources = await desktopCapturer.getSources(CAPTURE_SOURCE_LIST_OPTIONS);
         captureSourceRegistry.setSources(toCaptureSources(sources));
         const selectedSourceId =
           captureSourceRegistry.getSelectedSource()?.id

@@ -1,3 +1,4 @@
+import type { SourcesOptions } from 'electron';
 import type {
   ScreenCaptureSource,
   ScreenCaptureSourceSnapshot,
@@ -14,6 +15,14 @@ export type CaptureSourceRegistry = {
   getSnapshot: () => ScreenCaptureSourceSnapshot;
 };
 
+export const CAPTURE_SOURCE_LIST_OPTIONS: SourcesOptions = {
+  types: ['screen', 'window'],
+  thumbnailSize: {
+    width: 0,
+    height: 0,
+  },
+};
+
 export function toCaptureSources<
   TSource extends {
     id: string;
@@ -28,7 +37,7 @@ export function createCaptureSourceRegistry(): CaptureSourceRegistry {
   let selectedSourceId: string | null = null;
 
   return {
-    getSources: () => sources,
+    getSources: () => [...sources],
     setSources: (nextSources) => {
       sources = [...nextSources];
 
@@ -51,7 +60,7 @@ export function createCaptureSourceRegistry(): CaptureSourceRegistry {
       return sources.find((source) => source.id === selectedSourceId) ?? null;
     },
     getSnapshot: () => ({
-      sources,
+      sources: [...sources],
       selectedSourceId,
     }),
   };

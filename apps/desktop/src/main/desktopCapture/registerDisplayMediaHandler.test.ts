@@ -102,6 +102,7 @@ describe('registerDisplayMediaHandler', () => {
 
     expect(mockGetSources).toHaveBeenCalledWith({
       types: ['screen', 'window'],
+      thumbnailSize: { width: 0, height: 0 },
     });
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith({
