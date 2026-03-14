@@ -1,4 +1,8 @@
 import type { LocalVoiceCapture, LocalVoiceCaptureObserver } from '../../audio/localVoiceCapture';
+import type {
+  RealtimeOutboundAudioChunkEvent,
+  RealtimeOutboundGateway,
+} from '../../outbound/outbound.types';
 import type { DesktopSession } from '../../transport/transport.types';
 import type {
   LocalVoiceChunk,
@@ -8,12 +12,20 @@ import { asErrorDetail } from '../../core/runtimeUtils';
 import type { SessionStoreApi, SettingsStoreApi } from '../../core/sessionControllerTypes';
 
 const VOICE_SESSION_NOT_READY_DETAIL = 'Voice session is not ready';
+const AUDIO_MICROPHONE_CHANNEL_KEY = 'audio:microphone';
+
+type PendingAudioChunk = {
+  chunk: LocalVoiceChunk;
+  transport: DesktopSession;
+  outboundEvent: RealtimeOutboundAudioChunkEvent;
+};
 
 type VoiceChunkPipelineOps = {
   store: SessionStoreApi;
   settingsStore: SettingsStoreApi;
   createVoiceCapture: (observer: LocalVoiceCaptureObserver) => LocalVoiceCapture;
   getActiveTransport: () => DesktopSession | null;
+  getRealtimeOutboundGateway: () => RealtimeOutboundGateway;
   currentVoiceSessionStatus: () => VoiceSessionStatus;
   setVoiceSessionStatus: (s: VoiceSessionStatus) => void;
   setVoiceErrorState: (detail: string) => void;
@@ -27,7 +39,14 @@ type VoiceChunkPipelineOps = {
 export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
   let voiceCapture: LocalVoiceCapture | null = null;
   let voiceSendChain = Promise.resolve();
+  let voiceDispatchGeneration = 0;
+  let audioLaneGeneration = 0;
+  let audioDispatchInFlight = false;
+  let pendingChunk: PendingAudioChunk | null = null;
   const voiceChunkListeners = new Set<(chunk: LocalVoiceChunk) => void>();
+
+  const currentAudioChannelKey = (): string =>
+    `${AUDIO_MICROPHONE_CHANNEL_KEY}:${audioLaneGeneration}`;
 
   const getVoiceCapture = (): LocalVoiceCapture => {
     if (!voiceCapture) {
@@ -85,40 +104,100 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
       ops.setVoiceSessionStatus('capturing');
     }
 
-    voiceSendChain = voiceSendChain
-      .then(async () => {
-        if (ops.getActiveTransport() !== transport) {
+    const outboundEvent: RealtimeOutboundAudioChunkEvent = {
+      kind: 'audio_chunk',
+      channelKey: currentAudioChannelKey(),
+      sequence: chunk.sequence,
+      createdAtMs: Date.now(),
+      estimatedBytes: chunk.data.byteLength,
+    };
+    const decision = ops.getRealtimeOutboundGateway().submit(outboundEvent);
+
+    if (decision.outcome === 'drop' || decision.outcome === 'block') {
+      return Promise.resolve();
+    }
+
+    const acceptedChunk: PendingAudioChunk = {
+      chunk,
+      transport,
+      outboundEvent,
+    };
+
+    if (pendingChunk) {
+      ops.getRealtimeOutboundGateway().settle(outboundEvent);
+      return voiceSendChain;
+    }
+
+    pendingChunk = acceptedChunk;
+
+    const dispatchGeneration = voiceDispatchGeneration;
+    const drainPendingChunks = (): Promise<void> => {
+      if (audioDispatchInFlight) {
+        return voiceSendChain;
+      }
+
+      audioDispatchInFlight = true;
+      const drainPromise = (async () => {
+        while (pendingChunk) {
+          const nextChunk = pendingChunk;
+          pendingChunk = null;
+
+          try {
+            if (ops.getActiveTransport() !== nextChunk.transport) {
+              continue;
+            }
+
+            await nextChunk.transport.sendAudioChunk(nextChunk.chunk.data);
+
+            if (ops.getActiveTransport() !== nextChunk.transport) {
+              continue;
+            }
+
+            ops.getRealtimeOutboundGateway().recordSuccess();
+            if (
+              ops.currentVoiceSessionStatus() === 'capturing' ||
+              ops.currentVoiceSessionStatus() === 'ready' ||
+              ops.currentVoiceSessionStatus() === 'interrupted' ||
+              ops.currentVoiceSessionStatus() === 'recovering'
+            ) {
+              ops.setVoiceSessionStatus('streaming');
+            }
+          } catch (error) {
+            const detail = asErrorDetail(error, 'Failed to stream microphone audio');
+            store.setVoiceCaptureDiagnostics({
+              lastError: detail,
+            });
+            ops.getRealtimeOutboundGateway().recordFailure(detail);
+            ops.setVoiceErrorState(detail);
+          } finally {
+            ops.getRealtimeOutboundGateway().settle(nextChunk.outboundEvent);
+          }
+        }
+      })().finally(() => {
+        if (dispatchGeneration !== voiceDispatchGeneration) {
           return;
         }
 
-        await transport.sendAudioChunk(chunk.data);
-
-        if (ops.getActiveTransport() !== transport) {
-          return;
+        audioDispatchInFlight = false;
+        if (pendingChunk) {
+          void drainPendingChunks();
         }
-
-        if (
-          ops.currentVoiceSessionStatus() === 'capturing' ||
-          ops.currentVoiceSessionStatus() === 'ready' ||
-          ops.currentVoiceSessionStatus() === 'interrupted' ||
-          ops.currentVoiceSessionStatus() === 'recovering'
-        ) {
-          ops.setVoiceSessionStatus('streaming');
-        }
-      })
-      .catch((error) => {
-        const detail = asErrorDetail(error, 'Failed to stream microphone audio');
-        store.setVoiceCaptureDiagnostics({
-          lastError: detail,
-        });
-        ops.setVoiceErrorState(detail);
       });
+
+      voiceSendChain = drainPromise;
+      return drainPromise;
+    };
+
+    voiceSendChain = drainPendingChunks();
 
     return voiceSendChain;
   };
 
   const flush = async (): Promise<void> => {
-    await voiceSendChain;
+    while (audioDispatchInFlight || pendingChunk) {
+      await voiceSendChain;
+    }
+
     await ops.getActiveTransport()?.sendAudioStreamEnd();
   };
 
@@ -181,6 +260,7 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
         noiseSuppressionEnabled: voiceNoiseSuppressionEnabled,
         autoGainControlEnabled: voiceAutoGainControlEnabled,
       });
+      audioLaneGeneration += 1;
       ops.store.getState().setVoiceCaptureState('capturing');
       ops.store.getState().setVoiceSessionStatus('ready');
       return true;
@@ -209,7 +289,15 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
     getVoiceCapture,
     startCapture,
     flush,
-    resetSendChain: () => { voiceSendChain = Promise.resolve(); },
+    resetSendChain: () => {
+      voiceDispatchGeneration += 1;
+      if (pendingChunk) {
+        ops.getRealtimeOutboundGateway().settle(pendingChunk.outboundEvent);
+      }
+      pendingChunk = null;
+      audioDispatchInFlight = false;
+      voiceSendChain = Promise.resolve();
+    },
     addChunkListener: (listener: (chunk: LocalVoiceChunk) => void) => {
       voiceChunkListeners.add(listener);
       return () => { voiceChunkListeners.delete(listener); };

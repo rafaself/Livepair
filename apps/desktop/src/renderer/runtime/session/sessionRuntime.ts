@@ -1,5 +1,6 @@
 import { createDebugEvent } from '../core/runtimeUtils';
 import type { AssistantAudioPlayback } from '../audio/audio.types';
+import type { RealtimeOutboundGateway } from '../outbound/outbound.types';
 import type {
   ProductMode,
   SessionControllerEvent,
@@ -33,8 +34,10 @@ type SessionControllerRuntimeArgs = {
     beginSessionOperation: () => number;
     clearTransportSubscription: () => void;
     getActiveTransport: () => DesktopSession | null;
+    getRealtimeOutboundGateway: () => RealtimeOutboundGateway;
     getVoiceResumptionInFlight: () => boolean;
     isCurrentSessionOperation: (operationId: number) => boolean;
+    resetRealtimeOutboundGateway: () => void;
     setActiveTransport: (transport: DesktopSession | null) => void;
     subscribeTransport: (
       transport: DesktopSession,
@@ -148,6 +151,7 @@ export function createSessionControllerRuntime({
   const cleanupTransport = (): void => {
     mutableRuntime.clearTransportSubscription();
     mutableRuntime.setActiveTransport(null);
+    mutableRuntime.resetRealtimeOutboundGateway();
     playbackCtrl.release();
     voiceChunkCtrl.resetSendChain();
     voiceToolCtrl.cancel('voice transport cleaned up');
@@ -172,6 +176,7 @@ export function createSessionControllerRuntime({
       voiceToolCtrl.enqueue(calls);
     },
     getActiveTransport: mutableRuntime.getActiveTransport,
+    getRealtimeOutboundGateway: mutableRuntime.getRealtimeOutboundGateway,
     getVoicePlayback: stateSync.getVoicePlayback,
     getVoiceResumptionInFlight: mutableRuntime.getVoiceResumptionInFlight,
     handleVoiceInterruption: (): void => {

@@ -1,7 +1,27 @@
 import type { DesktopSession } from '../transport/transport.types';
+import { createRealtimeOutboundGateway } from '../outbound/realtimeOutboundGateway';
+import type {
+  RealtimeOutboundDiagnostics,
+  RealtimeOutboundGateway,
+} from '../outbound/outbound.types';
 
-export function createSessionControllerMutableRuntime() {
+type SessionControllerMutableRuntimeOptions = {
+  onRealtimeOutboundDiagnosticsChanged?: (
+    diagnostics: RealtimeOutboundDiagnostics,
+  ) => void;
+};
+
+export function createSessionControllerMutableRuntime(
+  options: SessionControllerMutableRuntimeOptions = {},
+) {
   let activeTransport: DesktopSession | null = null;
+  const realtimeOutboundGateway = createRealtimeOutboundGateway(
+    options.onRealtimeOutboundDiagnosticsChanged
+      ? {
+          onDiagnosticsChanged: options.onRealtimeOutboundDiagnosticsChanged,
+        }
+      : {},
+  );
   let unsubscribeTransport: (() => void) | null = null;
   let sessionOperationId = 0;
   let voiceResumptionInFlight = false;
@@ -18,9 +38,14 @@ export function createSessionControllerMutableRuntime() {
       unsubscribeTransport = null;
     },
     getActiveTransport: (): DesktopSession | null => activeTransport,
+    getRealtimeOutboundGateway: (): RealtimeOutboundGateway =>
+      realtimeOutboundGateway,
     getVoiceResumptionInFlight: (): boolean => voiceResumptionInFlight,
     isCurrentSessionOperation: (operationId: number): boolean =>
       operationId === sessionOperationId,
+    resetRealtimeOutboundGateway: (): void => {
+      realtimeOutboundGateway.reset();
+    },
     setActiveTransport: (transport: DesktopSession | null): void => {
       activeTransport = transport;
     },

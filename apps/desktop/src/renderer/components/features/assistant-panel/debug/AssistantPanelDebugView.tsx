@@ -1,8 +1,9 @@
-import { Eye, Monitor, Wifi } from 'lucide-react';
+import { Eye, Monitor, ShieldAlert, Wifi } from 'lucide-react';
 import {
   type AssistantRuntimeState,
 } from '../../../../state/assistantUiState';
 import type {
+  RealtimeOutboundDiagnostics,
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
   VoiceCaptureDiagnostics,
@@ -32,6 +33,7 @@ export type AssistantPanelDebugViewProps = {
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   voiceToolState: VoiceToolState;
+  realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   saveScreenFramesEnabled: boolean;
@@ -114,6 +116,44 @@ function formatScreenCaptureState(state: ScreenCaptureState): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatOutboundBreakerState(
+  state: RealtimeOutboundDiagnostics['breakerState'],
+): string {
+  return state === 'open' ? 'Open' : 'Closed';
+}
+
+function formatOutboundDecisionOutcome(
+  outcome: RealtimeOutboundDiagnostics['lastDecision'],
+): string {
+  if (outcome === null) {
+    return 'None';
+  }
+
+  return outcome.charAt(0).toUpperCase() + outcome.slice(1);
+}
+
+function formatOutboundDecisionReason(
+  reason: RealtimeOutboundDiagnostics['lastReason'],
+): string {
+  if (reason === null) {
+    return 'None';
+  }
+
+  if (reason === 'stale-sequence') {
+    return 'Stale sequence';
+  }
+
+  if (reason === 'superseded-latest') {
+    return 'Superseded latest';
+  }
+
+  if (reason === 'lane-saturated') {
+    return 'Lane saturated';
+  }
+
+  return 'Breaker open';
+}
+
 export function AssistantPanelDebugView({
   backendState,
   backendIndicatorState,
@@ -127,6 +167,7 @@ export function AssistantPanelDebugView({
   voicePlaybackState,
   voicePlaybackDiagnostics,
   voiceToolState,
+  realtimeOutboundDiagnostics,
   screenCaptureState,
   screenCaptureDiagnostics,
   saveScreenFramesEnabled,
@@ -268,6 +309,77 @@ export function AssistantPanelDebugView({
             {
               label: 'Playback error',
               value: voicePlaybackDiagnostics.lastError ?? 'None',
+            },
+          ]}
+        />
+      </ViewSection>
+
+      <ViewSection icon={ShieldAlert} title="Outbound guardrails">
+        <FieldList
+          items={[
+            {
+              label: 'Breaker',
+              value: formatOutboundBreakerState(realtimeOutboundDiagnostics.breakerState),
+            },
+            {
+              label: 'Breaker reason',
+              value: realtimeOutboundDiagnostics.breakerReason ?? 'None',
+            },
+            {
+              label: 'Submitted',
+              value: String(realtimeOutboundDiagnostics.totalSubmitted),
+            },
+            {
+              label: 'Text submits',
+              value: String(realtimeOutboundDiagnostics.submittedByKind.text),
+            },
+            {
+              label: 'Audio submits',
+              value: String(realtimeOutboundDiagnostics.submittedByKind.audioChunk),
+            },
+            {
+              label: 'Visual submits',
+              value: String(realtimeOutboundDiagnostics.submittedByKind.visualFrame),
+            },
+            {
+              label: 'Sent count',
+              value: String(realtimeOutboundDiagnostics.sentCount),
+            },
+            {
+              label: 'Dropped',
+              value: String(realtimeOutboundDiagnostics.droppedCount),
+            },
+            {
+              label: 'Dropped (stale)',
+              value: String(realtimeOutboundDiagnostics.droppedByReason.staleSequence),
+            },
+            {
+              label: 'Dropped (saturated)',
+              value: String(realtimeOutboundDiagnostics.droppedByReason.laneSaturated),
+            },
+            {
+              label: 'Replaced',
+              value: String(realtimeOutboundDiagnostics.replacedCount),
+            },
+            {
+              label: 'Blocked',
+              value: String(realtimeOutboundDiagnostics.blockedCount),
+            },
+            {
+              label: 'Blocked (breaker)',
+              value: String(realtimeOutboundDiagnostics.blockedByReason.breakerOpen),
+            },
+            {
+              label: 'Last decision',
+              value: formatOutboundDecisionOutcome(realtimeOutboundDiagnostics.lastDecision),
+            },
+            {
+              label: 'Last reason',
+              value: formatOutboundDecisionReason(realtimeOutboundDiagnostics.lastReason),
+            },
+            {
+              label: 'Last error',
+              value: realtimeOutboundDiagnostics.lastError ?? 'None',
             },
           ]}
         />

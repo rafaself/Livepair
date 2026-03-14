@@ -150,6 +150,36 @@ describe('AssistantPanel', () => {
 
   it('hides the debug entry point when debug mode is disabled', async () => {
     useUiStore.setState({ isDebugMode: false });
+    useSessionStore.getState().setRealtimeOutboundDiagnostics({
+      breakerState: 'open',
+      breakerReason: 'transport unavailable',
+      consecutiveFailureCount: 3,
+      totalSubmitted: 4,
+      sentCount: 1,
+      droppedCount: 1,
+      replacedCount: 1,
+      blockedCount: 1,
+      droppedByReason: {
+        staleSequence: 1,
+        laneSaturated: 0,
+      },
+      blockedByReason: {
+        breakerOpen: 1,
+      },
+      submittedByKind: {
+        text: 1,
+        audioChunk: 1,
+        visualFrame: 2,
+      },
+      lastDecision: 'block',
+      lastReason: 'breaker-open',
+      lastEventKind: 'text',
+      lastChannelKey: 'text:speech-mode',
+      lastSequence: 2,
+      lastReplaceKey: null,
+      lastSubmittedAtMs: 1_000,
+      lastError: 'transport unavailable',
+    });
     await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -158,6 +188,7 @@ describe('AssistantPanel', () => {
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
     expect(panelScope.queryByRole('button', { name: 'Developer tools' })).toBeNull();
+    expect(panelScope.queryByText('Outbound guardrails')).toBeNull();
   });
 
   it('keeps speech mode on a single conversation surface before the first spoken turn arrives', async () => {

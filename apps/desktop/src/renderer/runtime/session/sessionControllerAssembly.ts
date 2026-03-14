@@ -33,7 +33,11 @@ import type {
 export function createSessionControllerAssembly(
   dependencies: DesktopSessionControllerDependencies,
 ): DesktopSessionController {
-  const mutableRuntime = createSessionControllerMutableRuntime();
+  const mutableRuntime = createSessionControllerMutableRuntime({
+    onRealtimeOutboundDiagnosticsChanged: (diagnostics) => {
+      dependencies.store.getState().setRealtimeOutboundDiagnostics(diagnostics);
+    },
+  });
   const conversationCtx = createConversationContext(dependencies.store);
   let endSessionInternal = async (
     _options: {
@@ -60,6 +64,7 @@ export function createSessionControllerAssembly(
     dependencies.store,
     dependencies.createScreenCapture,
     () => mutableRuntime.getActiveTransport(),
+    () => mutableRuntime.getRealtimeOutboundGateway(),
     {
       shouldSaveFrames: () => useUiStore.getState().saveScreenFramesEnabled,
       startScreenFrameDumpSession: () => window.bridge.startScreenFrameDumpSession(),
@@ -113,6 +118,7 @@ export function createSessionControllerAssembly(
     settingsStore: dependencies.settingsStore,
     createVoiceCapture: dependencies.createVoiceCapture,
     getActiveTransport: () => mutableRuntime.getActiveTransport(),
+    getRealtimeOutboundGateway: () => mutableRuntime.getRealtimeOutboundGateway(),
     currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
     setVoiceSessionStatus: (s) => runtimeRef.current!.setVoiceSessionStatus(s),
     setVoiceErrorState: (d) => setVoiceErrorState(d),
