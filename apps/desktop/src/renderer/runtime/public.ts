@@ -71,6 +71,11 @@ export type {
   ScreenFrameUploadStatus,
 } from './screen/screen.types';
 export type {
+  VisualSendDiagnostics,
+  VisualSendState,
+  VisualSendTransitionReason,
+} from './screen/visualSendPolicy';
+export type {
   SpeechLifecycle,
   SpeechLifecycleStatus,
 } from './speech/speech.types';

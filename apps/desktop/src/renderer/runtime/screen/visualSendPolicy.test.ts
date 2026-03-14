@@ -204,3 +204,143 @@ describe('createVisualSendPolicy – gating summary', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Wave 3 – Visual Send Diagnostics
+//
+// The policy exposes a getDiagnostics() method returning a read-only snapshot
+// of the last transition reason, snapshot/streaming counters, and per-state
+// sent-frame counts.  No functional send behaviour changes.
+// ---------------------------------------------------------------------------
+
+describe('createVisualSendPolicy – getDiagnostics (Wave 3)', () => {
+  it('returns zero counts and null reasons before any transitions', () => {
+    const policy = createVisualSendPolicy();
+    const d = policy.getDiagnostics();
+    expect(d.lastTransitionReason).toBeNull();
+    expect(d.snapshotCount).toBe(0);
+    expect(d.streamingEnteredAt).toBeNull();
+    expect(d.streamingEndedAt).toBeNull();
+    expect(d.sentByState.snapshot).toBe(0);
+    expect(d.sentByState.streaming).toBe(0);
+  });
+
+  it('records lastTransitionReason as "screenShareStarted" when screen share starts', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('screenShareStarted');
+  });
+
+  it('records lastTransitionReason as "screenShareStopped" when screen share stops', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.onScreenShareStopped();
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('screenShareStopped');
+  });
+
+  it('records lastTransitionReason as "analyzeScreenNow" when snapshot is armed', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.analyzeScreenNow();
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('analyzeScreenNow');
+  });
+
+  it('records lastTransitionReason as "snapshotConsumed" when snapshot frame is sent', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.analyzeScreenNow();
+    policy.allowSend(); // consumes the snapshot → sleep
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('snapshotConsumed');
+  });
+
+  it('records lastTransitionReason as "enableStreaming" when streaming is enabled', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.enableStreaming();
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('enableStreaming');
+  });
+
+  it('records lastTransitionReason as "stopStreaming" when streaming is stopped', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.enableStreaming();
+    policy.stopStreaming();
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('stopStreaming');
+  });
+
+  it('increments snapshotCount each time analyzeScreenNow is called', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.analyzeScreenNow();
+    policy.allowSend();
+    policy.analyzeScreenNow();
+    policy.allowSend();
+    expect(policy.getDiagnostics().snapshotCount).toBe(2);
+  });
+
+  it('sets streamingEnteredAt when enableStreaming transitions to streaming', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    const before = Date.now();
+    policy.enableStreaming();
+    const after = Date.now();
+    const enteredAt = policy.getDiagnostics().streamingEnteredAt;
+    expect(enteredAt).not.toBeNull();
+    expect(new Date(enteredAt!).getTime()).toBeGreaterThanOrEqual(before);
+    expect(new Date(enteredAt!).getTime()).toBeLessThanOrEqual(after);
+  });
+
+  it('sets streamingEndedAt when stopStreaming is called', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.enableStreaming();
+    const before = Date.now();
+    policy.stopStreaming();
+    const after = Date.now();
+    const endedAt = policy.getDiagnostics().streamingEndedAt;
+    expect(endedAt).not.toBeNull();
+    expect(new Date(endedAt!).getTime()).toBeGreaterThanOrEqual(before);
+    expect(new Date(endedAt!).getTime()).toBeLessThanOrEqual(after);
+  });
+
+  it('increments sentByState.snapshot when a snapshot frame is allowed', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.analyzeScreenNow();
+    policy.allowSend();
+    expect(policy.getDiagnostics().sentByState.snapshot).toBe(1);
+  });
+
+  it('increments sentByState.streaming for each frame allowed in streaming', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.enableStreaming();
+    policy.allowSend();
+    policy.allowSend();
+    policy.allowSend();
+    expect(policy.getDiagnostics().sentByState.streaming).toBe(3);
+  });
+
+  it('does not increment sentByState when allowSend is called in sleep or inactive', () => {
+    const policy = createVisualSendPolicy();
+    policy.allowSend(); // inactive
+    policy.onScreenShareStarted();
+    policy.allowSend(); // sleep
+    const d = policy.getDiagnostics();
+    expect(d.sentByState.snapshot).toBe(0);
+    expect(d.sentByState.streaming).toBe(0);
+  });
+
+  it('getDiagnostics returns a consistent snapshot that does not change retroactively', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.analyzeScreenNow();
+    const snap1 = policy.getDiagnostics();
+    policy.allowSend(); // consume snapshot
+    const snap2 = policy.getDiagnostics();
+    // snap1 captured before allowSend
+    expect(snap1.sentByState.snapshot).toBe(0);
+    // snap2 captured after allowSend
+    expect(snap2.sentByState.snapshot).toBe(1);
+  });
+});

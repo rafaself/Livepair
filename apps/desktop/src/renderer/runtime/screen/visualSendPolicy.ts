@@ -26,6 +26,34 @@
 
 export type VisualSendState = 'inactive' | 'sleep' | 'snapshot' | 'streaming';
 
+/**
+ * Wave 3 – read-only diagnostics snapshot returned by getDiagnostics().
+ * Updated on every state transition and on every allowed frame send.
+ */
+export type VisualSendTransitionReason =
+  | 'screenShareStarted'
+  | 'screenShareStopped'
+  | 'analyzeScreenNow'
+  | 'snapshotConsumed'
+  | 'enableStreaming'
+  | 'stopStreaming';
+
+export type VisualSendDiagnostics = {
+  /** The reason for the most recent state transition, or null before any transition. */
+  lastTransitionReason: VisualSendTransitionReason | null;
+  /** How many times analyzeScreenNow() has been called (and transitioned to snapshot). */
+  snapshotCount: number;
+  /** ISO timestamp of the most recent transition into streaming, or null. */
+  streamingEnteredAt: string | null;
+  /** ISO timestamp of the most recent transition out of streaming, or null. */
+  streamingEndedAt: string | null;
+  /** Frames actually forwarded (allowSend returned true) per state. */
+  sentByState: {
+    snapshot: number;
+    streaming: number;
+  };
+};
+
 export type VisualSendPolicy = {
   /** Current state of the visual send state machine. */
   getState: () => VisualSendState;
@@ -60,10 +88,21 @@ export type VisualSendPolicy = {
    * (exactly one frame is allowed per analyzeScreenNow call).
    */
   allowSend: () => boolean;
+  /**
+   * Wave 3 – returns a read-only diagnostics snapshot.
+   * Each call returns a new object; the caller owns the reference.
+   */
+  getDiagnostics: () => VisualSendDiagnostics;
 };
 
 export function createVisualSendPolicy(): VisualSendPolicy {
   let state: VisualSendState = 'inactive';
+  let lastTransitionReason: VisualSendTransitionReason | null = null;
+  let snapshotCount = 0;
+  let streamingEnteredAt: string | null = null;
+  let streamingEndedAt: string | null = null;
+  let sentSnapshot = 0;
+  let sentStreaming = 0;
 
   return {
     getState: () => state,
@@ -71,11 +110,13 @@ export function createVisualSendPolicy(): VisualSendPolicy {
     onScreenShareStarted: () => {
       if (state === 'inactive') {
         state = 'sleep';
+        lastTransitionReason = 'screenShareStarted';
       }
     },
 
     onScreenShareStopped: () => {
       state = 'inactive';
+      lastTransitionReason = 'screenShareStopped';
     },
 
     analyzeScreenNow: () => {
@@ -83,6 +124,8 @@ export function createVisualSendPolicy(): VisualSendPolicy {
         return;
       }
       state = 'snapshot';
+      snapshotCount += 1;
+      lastTransitionReason = 'analyzeScreenNow';
     },
 
     enableStreaming: () => {
@@ -90,20 +133,41 @@ export function createVisualSendPolicy(): VisualSendPolicy {
         return;
       }
       state = 'streaming';
+      streamingEnteredAt = new Date().toISOString();
+      lastTransitionReason = 'enableStreaming';
     },
 
     stopStreaming: () => {
       if (state === 'streaming') {
         state = 'sleep';
+        streamingEndedAt = new Date().toISOString();
+        lastTransitionReason = 'stopStreaming';
       }
     },
 
     allowSend: () => {
       if (state === 'snapshot') {
         state = 'sleep';
+        lastTransitionReason = 'snapshotConsumed';
+        sentSnapshot += 1;
         return true;
       }
-      return state === 'streaming';
+      if (state === 'streaming') {
+        sentStreaming += 1;
+        return true;
+      }
+      return false;
     },
+
+    getDiagnostics: () => ({
+      lastTransitionReason,
+      snapshotCount,
+      streamingEnteredAt,
+      streamingEndedAt,
+      sentByState: {
+        snapshot: sentSnapshot,
+        streaming: sentStreaming,
+      },
+    }),
   };
 }

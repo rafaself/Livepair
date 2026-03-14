@@ -28,6 +28,7 @@ function createHarness(options: {
 
   const setScreenCaptureState = vi.fn((s: ScreenCaptureState) => { currentScreenState = s; });
   const setScreenCaptureDiagnostics = vi.fn();
+  const setVisualSendDiagnostics = vi.fn();
   const setLastRuntimeError = vi.fn();
   const store = {
     getState: () => ({
@@ -35,6 +36,7 @@ function createHarness(options: {
       screenCaptureState: currentScreenState,
       setScreenCaptureState,
       setScreenCaptureDiagnostics,
+      setVisualSendDiagnostics,
       setLastRuntimeError,
     }),
   };
@@ -101,7 +103,7 @@ function createHarness(options: {
 
   return {
     ctrl,
-    store: { setScreenCaptureState, setScreenCaptureDiagnostics, setLastRuntimeError },
+    store: { setScreenCaptureState, setScreenCaptureDiagnostics, setVisualSendDiagnostics, setLastRuntimeError },
     mockCapture,
     createCapture,
     sendVideoFrame,

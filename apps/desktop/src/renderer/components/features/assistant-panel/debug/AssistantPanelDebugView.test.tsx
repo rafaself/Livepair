@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
+import type { VisualSendDiagnostics } from '../../../../runtime';
 
 describe('AssistantPanelDebugView', () => {
   it('renders developer diagnostics without assistant state controls', () => {
@@ -93,6 +94,13 @@ describe('AssistantPanelDebugView', () => {
           lastSubmittedAtMs: 1_000,
           lastError: 'transport unavailable',
         }}
+        visualSendDiagnostics={{
+          lastTransitionReason: 'enableStreaming',
+          snapshotCount: 2,
+          streamingEnteredAt: '2026-03-10T10:14:00.000Z',
+          streamingEndedAt: null,
+          sentByState: { snapshot: 2, streaming: 7 },
+        }}
         saveScreenFramesEnabled={false}
         screenFrameDumpDirectoryPath="/tmp/livepair/screen-frame-dumps/current-debug-session"
         onToggleSaveScreenFrames={onToggleSaveScreenFrames}
@@ -154,5 +162,208 @@ describe('AssistantPanelDebugView', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Save screen frames' }));
     expect(onRetryBackendHealth).toHaveBeenCalledTimes(1);
     expect(onToggleSaveScreenFrames).toHaveBeenCalledTimes(1);
+
+    // Wave 3 – visual send policy diagnostics are rendered in the Screen context section
+    expect(screen.getByText('Visual send state')).toBeVisible();
+    expect(screen.getByText('Last transition')).toBeVisible();
+    expect(screen.getByText('Enable streaming')).toBeVisible();
+    expect(screen.getByText('Snapshots triggered')).toBeVisible();
+    expect(screen.getByText('2')).toBeVisible();
+    expect(screen.getByText('Streaming entered')).toBeVisible();
+    expect(screen.getByText('2026-03-10T10:14:00.000Z')).toBeVisible();
+    expect(screen.getByText('Streaming ended')).toBeVisible();
+    expect(screen.getByText('Sent (snapshot)')).toBeVisible();
+    expect(screen.getByText('Sent (streaming)')).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 3 – visual send diagnostics display
+// ---------------------------------------------------------------------------
+
+function buildBaseProps(visualSendDiagnostics: VisualSendDiagnostics) {
+  return {
+    backendState: 'connected' as const,
+    backendIndicatorState: 'ready' as const,
+    backendLabel: 'Connected',
+    tokenFeedback: null,
+    voiceSessionStatus: 'disconnected' as const,
+    voiceSessionResumption: {
+      status: 'idle' as const,
+      latestHandle: null,
+      resumable: false,
+      lastDetail: null,
+    },
+    voiceSessionDurability: {
+      compressionEnabled: false,
+      tokenValid: false,
+      tokenRefreshing: false,
+      tokenRefreshFailed: false,
+      expireTime: null,
+      newSessionExpireTime: null,
+      lastDetail: null,
+    },
+    voiceCaptureState: 'idle' as const,
+    voiceCaptureDiagnostics: {
+      chunkCount: 0,
+      sampleRateHz: null,
+      bytesPerChunk: null,
+      chunkDurationMs: null,
+      selectedInputDeviceId: null,
+      lastError: null,
+    },
+    voicePlaybackState: 'idle' as const,
+    voicePlaybackDiagnostics: {
+      chunkCount: 0,
+      queueDepth: 0,
+      sampleRateHz: null,
+      selectedOutputDeviceId: null,
+      lastError: null,
+    },
+    voiceToolState: {
+      status: 'idle' as const,
+      toolName: null,
+      callId: null,
+      lastError: null,
+    },
+    screenCaptureState: 'capturing' as const,
+    screenCaptureDiagnostics: {
+      captureSource: null,
+      frameCount: 0,
+      frameRateHz: null,
+      widthPx: null,
+      heightPx: null,
+      lastFrameAt: null,
+      lastUploadStatus: 'idle' as const,
+      lastError: null,
+    },
+    realtimeOutboundDiagnostics: {
+      breakerState: 'closed' as const,
+      breakerReason: null,
+      consecutiveFailureCount: 0,
+      totalSubmitted: 0,
+      sentCount: 0,
+      droppedCount: 0,
+      replacedCount: 0,
+      blockedCount: 0,
+      droppedByReason: { staleSequence: 0, laneSaturated: 0 },
+      blockedByReason: { breakerOpen: 0 },
+      submittedByKind: { text: 0, audioChunk: 0, visualFrame: 0 },
+      lastDecision: null,
+      lastReason: null,
+      lastEventKind: null,
+      lastChannelKey: null,
+      lastSequence: 0,
+      lastReplaceKey: null,
+      lastSubmittedAtMs: null,
+      lastError: null,
+    },
+    visualSendDiagnostics,
+    saveScreenFramesEnabled: false,
+    screenFrameDumpDirectoryPath: null,
+    onToggleSaveScreenFrames: vi.fn(),
+    onRetryBackendHealth: vi.fn(async () => undefined),
+  };
+}
+
+describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
+  it('shows current visual send state', () => {
+    render(
+      <AssistantPanelDebugView
+        {...buildBaseProps({
+          lastTransitionReason: 'screenShareStarted',
+          snapshotCount: 0,
+          streamingEnteredAt: null,
+          streamingEndedAt: null,
+          sentByState: { snapshot: 0, streaming: 0 },
+        })}
+      />,
+    );
+    expect(screen.getByText('Visual send state')).toBeVisible();
+    // screenCaptureState is "capturing" but visualSendState shown is via the diagnostics
+    expect(screen.getByText('Last transition')).toBeVisible();
+    expect(screen.getByText('Screen share started')).toBeVisible();
+  });
+
+  it('shows "None" for last transition when reason is null', () => {
+    render(
+      <AssistantPanelDebugView
+        {...buildBaseProps({
+          lastTransitionReason: null,
+          snapshotCount: 0,
+          streamingEnteredAt: null,
+          streamingEndedAt: null,
+          sentByState: { snapshot: 0, streaming: 0 },
+        })}
+      />,
+    );
+    expect(screen.getByText('Last transition')).toBeVisible();
+    // "None" should appear for the null reason
+    expect(screen.getAllByText('None').length).toBeGreaterThan(0);
+  });
+
+  it('shows snapshot count', () => {
+    render(
+      <AssistantPanelDebugView
+        {...buildBaseProps({
+          lastTransitionReason: 'analyzeScreenNow',
+          snapshotCount: 5,
+          streamingEnteredAt: null,
+          streamingEndedAt: null,
+          sentByState: { snapshot: 4, streaming: 0 },
+        })}
+      />,
+    );
+    expect(screen.getByText('Snapshots triggered')).toBeVisible();
+    expect(screen.getByText('5')).toBeVisible();
+  });
+
+  it('shows streaming entered timestamp when present', () => {
+    render(
+      <AssistantPanelDebugView
+        {...buildBaseProps({
+          lastTransitionReason: 'enableStreaming',
+          snapshotCount: 0,
+          streamingEnteredAt: '2026-03-14T09:00:00.000Z',
+          streamingEndedAt: null,
+          sentByState: { snapshot: 0, streaming: 0 },
+        })}
+      />,
+    );
+    expect(screen.getByText('Streaming entered')).toBeVisible();
+    expect(screen.getByText('2026-03-14T09:00:00.000Z')).toBeVisible();
+  });
+
+  it('shows streaming ended timestamp when present', () => {
+    render(
+      <AssistantPanelDebugView
+        {...buildBaseProps({
+          lastTransitionReason: 'stopStreaming',
+          snapshotCount: 0,
+          streamingEnteredAt: '2026-03-14T09:00:00.000Z',
+          streamingEndedAt: '2026-03-14T09:05:00.000Z',
+          sentByState: { snapshot: 0, streaming: 12 },
+        })}
+      />,
+    );
+    expect(screen.getByText('Streaming ended')).toBeVisible();
+    expect(screen.getByText('2026-03-14T09:05:00.000Z')).toBeVisible();
+  });
+
+  it('shows sent-frame counts by state', () => {
+    render(
+      <AssistantPanelDebugView
+        {...buildBaseProps({
+          lastTransitionReason: 'snapshotConsumed',
+          snapshotCount: 3,
+          streamingEnteredAt: null,
+          streamingEndedAt: null,
+          sentByState: { snapshot: 3, streaming: 0 },
+        })}
+      />,
+    );
+    expect(screen.getByText('Sent (snapshot)')).toBeVisible();
+    expect(screen.getByText('Sent (streaming)')).toBeVisible();
+    expect(screen.getByText('3')).toBeVisible();
   });
 });

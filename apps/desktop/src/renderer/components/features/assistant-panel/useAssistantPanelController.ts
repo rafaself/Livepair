@@ -11,6 +11,7 @@ import {
     type RealtimeOutboundDiagnostics,
     type ScreenCaptureDiagnostics,
   type ScreenCaptureState,
+  type VisualSendDiagnostics,
   type SpeechLifecycleStatus,
   type TextSessionStatus,
   type TransportKind,
@@ -55,6 +56,7 @@ export type AssistantPanelController = {
   realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  visualSendDiagnostics: VisualSendDiagnostics;
   isVoiceSessionActive: boolean;
   canSubmitText: boolean;
   lastRuntimeError: string | null;
@@ -96,6 +98,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
+    visualSendDiagnostics,
     isVoiceSessionActive,
     canSubmitText,
     conversationTurns,
@@ -239,6 +242,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
+    visualSendDiagnostics,
     isVoiceSessionActive,
     canSubmitText,
     lastRuntimeError,

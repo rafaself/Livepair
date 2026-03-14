@@ -53,6 +53,7 @@ export function useSessionRuntime() {
   );
   const screenCaptureState = useSessionStore((state) => state.screenCaptureState);
   const screenCaptureDiagnostics = useSessionStore((state) => state.screenCaptureDiagnostics);
+  const visualSendDiagnostics = useSessionStore((state) => state.visualSendDiagnostics);
   const controller = getDesktopSessionController();
 
   const handleCheckBackendHealth = useCallback(async (): Promise<void> => {
@@ -132,6 +133,7 @@ export function useSessionRuntime() {
     realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
+    visualSendDiagnostics,
     handleCheckBackendHealth,
     handleStartVoiceSession,
     handleStartVoiceCapture,

@@ -17,7 +17,7 @@ import {
   SCREEN_CAPTURE_START_POLICY,
 } from './screenCapturePolicy';
 import { createVisualSendPolicy } from './visualSendPolicy';
-import type { VisualSendState } from './visualSendPolicy';
+import type { VisualSendDiagnostics, VisualSendState } from './visualSendPolicy';
 import type {
   SaveScreenFrameDumpFrameRequest,
   ScreenFrameDumpSessionInfo,
@@ -29,6 +29,7 @@ type ScreenCaptureStoreApi = {
     screenCaptureState: ScreenCaptureState;
     setScreenCaptureState: (state: ScreenCaptureState) => void;
     setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
+    setVisualSendDiagnostics: (diagnostics: VisualSendDiagnostics) => void;
     setLastRuntimeError: (error: string | null) => void;
   };
 };
@@ -73,6 +74,10 @@ export function createScreenCaptureController(
   screenFrameDumpControls?: ScreenFrameDumpControls,
 ): ScreenCaptureController {
   const visualPolicy = createVisualSendPolicy();
+
+  const flushVisualDiagnostics = (): void => {
+    store.getState().setVisualSendDiagnostics(visualPolicy.getDiagnostics());
+  };
 
   let screenCapture: LocalScreenCapture | null = null;
   let screenCaptureGeneration = 0;
@@ -214,6 +219,7 @@ export function createScreenCaptureController(
 
     if (!capture) {
       visualPolicy.onScreenShareStopped();
+      flushVisualDiagnostics();
       store.getState().setScreenCaptureState(nextState);
       if (preserveDiagnostics) {
         store.getState().setScreenCaptureDiagnostics({
@@ -232,6 +238,7 @@ export function createScreenCaptureController(
       pendingFrame = null;
       frameDrainInFlight = null;
       visualPolicy.onScreenShareStopped();
+      flushVisualDiagnostics();
       store.getState().setScreenCaptureState('stopping');
 
     const finalizeStop = async (): Promise<void> => {
@@ -296,6 +303,8 @@ export function createScreenCaptureController(
     if (!visualPolicy.allowSend()) {
       return Promise.resolve();
     }
+    // Wave 3: flush updated diagnostics (sent counts + transition reason) after allowSend.
+    store.getState().setVisualSendDiagnostics(visualPolicy.getDiagnostics());
 
     visualOutboundSequence += 1;
     const decision = getRealtimeOutboundGateway().submit({
@@ -504,6 +513,7 @@ export function createScreenCaptureController(
       store.getState().setScreenCaptureState('ready');
       store.getState().setScreenCaptureState('capturing');
       visualPolicy.onScreenShareStarted();
+      flushVisualDiagnostics();
     } catch (error) {
       if (!isCurrentCapture(capture, captureGeneration)) {
         return;
@@ -549,8 +559,17 @@ export function createScreenCaptureController(
       frameDrainInFlight = null;
     },
     getVisualSendState: () => visualPolicy.getState(),
-    analyzeScreenNow: () => visualPolicy.analyzeScreenNow(),
-    enableStreaming: () => visualPolicy.enableStreaming(),
-    stopStreaming: () => visualPolicy.stopStreaming(),
+    analyzeScreenNow: () => {
+      visualPolicy.analyzeScreenNow();
+      flushVisualDiagnostics();
+    },
+    enableStreaming: () => {
+      visualPolicy.enableStreaming();
+      flushVisualDiagnostics();
+    },
+    stopStreaming: () => {
+      visualPolicy.stopStreaming();
+      flushVisualDiagnostics();
+    },
   };
 }

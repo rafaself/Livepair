@@ -58,6 +58,7 @@ export function AssistantPanel(): JSX.Element {
     realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
+    visualSendDiagnostics,
     canSubmitText,
     lastRuntimeError,
     draftText,
@@ -210,6 +211,7 @@ export function AssistantPanel(): JSX.Element {
                 realtimeOutboundDiagnostics={realtimeOutboundDiagnostics}
                 screenCaptureState={screenCaptureState}
                 screenCaptureDiagnostics={screenCaptureDiagnostics}
+                visualSendDiagnostics={visualSendDiagnostics}
                 saveScreenFramesEnabled={saveScreenFramesEnabled}
                 screenFrameDumpDirectoryPath={screenFrameDumpDirectoryPath}
                 onToggleSaveScreenFrames={() => {

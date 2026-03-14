@@ -20,6 +20,7 @@ import {
   type RuntimeDebugEvent,
   type ScreenCaptureDiagnostics,
   type ScreenCaptureState,
+  type VisualSendDiagnostics,
   type SessionPhase,
   type SpeechLifecycle,
   type TextSessionLifecycle,
@@ -66,6 +67,7 @@ type SessionStoreData = {
   realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  visualSendDiagnostics: VisualSendDiagnostics;
   screenCaptureSources: ScreenCaptureSource[];
   selectedScreenCaptureSourceId: string | null;
   localUserSpeechActive: boolean;
@@ -129,6 +131,7 @@ export type SessionStoreState = SessionStoreData & {
   clearCurrentVoiceTranscript: () => void;
   setScreenCaptureState: (screenCaptureState: ScreenCaptureState) => void;
   setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
+  setVisualSendDiagnostics: (diagnostics: VisualSendDiagnostics) => void;
   setScreenCaptureSourceSnapshot: (snapshot: ScreenCaptureSourceSnapshot) => void;
   setLocalUserSpeechActive: (active: boolean) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
@@ -224,6 +227,16 @@ function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
   };
 }
 
+function buildDefaultVisualSendDiagnostics(): VisualSendDiagnostics {
+  return {
+    lastTransitionReason: null,
+    snapshotCount: 0,
+    streamingEnteredAt: null,
+    streamingEndedAt: null,
+    sentByState: { snapshot: 0, streaming: 0 },
+  };
+}
+
 function buildDefaultSessionState(): SessionStoreData {
   return {
     activeChatId: null,
@@ -250,6 +263,7 @@ function buildDefaultSessionState(): SessionStoreData {
     realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
     screenCaptureState: 'disabled',
     screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+    visualSendDiagnostics: buildDefaultVisualSendDiagnostics(),
     screenCaptureSources: [],
     selectedScreenCaptureSourceId: null,
     localUserSpeechActive: false,
@@ -440,6 +454,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setVisualSendDiagnostics: (visualSendDiagnostics) => set({ visualSendDiagnostics }),
   setScreenCaptureSourceSnapshot: ({ sources, selectedSourceId }) =>
     set({
       screenCaptureSources: sources,
@@ -479,6 +494,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
       screenCaptureState: 'disabled' as ScreenCaptureState,
       screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+      visualSendDiagnostics: buildDefaultVisualSendDiagnostics(),
       screenCaptureSources: [],
       selectedScreenCaptureSourceId: null,
       localUserSpeechActive: false,

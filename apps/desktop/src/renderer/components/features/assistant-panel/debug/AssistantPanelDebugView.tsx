@@ -6,6 +6,7 @@ import type {
   RealtimeOutboundDiagnostics,
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
+  VisualSendDiagnostics,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
@@ -36,6 +37,7 @@ export type AssistantPanelDebugViewProps = {
   realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  visualSendDiagnostics: VisualSendDiagnostics;
   saveScreenFramesEnabled: boolean;
   screenFrameDumpDirectoryPath: string | null;
   onToggleSaveScreenFrames: () => void;
@@ -116,6 +118,40 @@ function formatScreenCaptureState(state: ScreenCaptureState): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
 
+function formatVisualTransitionReason(
+  reason: VisualSendDiagnostics['lastTransitionReason'],
+): string {
+  if (reason === null) {
+    return 'None';
+  }
+
+  if (reason === 'screenShareStarted') {
+    return 'Screen share started';
+  }
+
+  if (reason === 'screenShareStopped') {
+    return 'Screen share stopped';
+  }
+
+  if (reason === 'analyzeScreenNow') {
+    return 'Analyze screen now';
+  }
+
+  if (reason === 'snapshotConsumed') {
+    return 'Snapshot consumed';
+  }
+
+  if (reason === 'enableStreaming') {
+    return 'Enable streaming';
+  }
+
+  if (reason === 'stopStreaming') {
+    return 'Stop streaming';
+  }
+
+  return reason;
+}
+
 function formatOutboundBreakerState(
   state: RealtimeOutboundDiagnostics['breakerState'],
 ): string {
@@ -170,6 +206,7 @@ export function AssistantPanelDebugView({
   realtimeOutboundDiagnostics,
   screenCaptureState,
   screenCaptureDiagnostics,
+  visualSendDiagnostics,
   saveScreenFramesEnabled,
   screenFrameDumpDirectoryPath,
   onToggleSaveScreenFrames,
@@ -440,6 +477,34 @@ export function AssistantPanelDebugView({
             {
               label: 'Screen error',
               value: screenCaptureDiagnostics.lastError ?? 'None',
+            },
+            {
+              label: 'Visual send state',
+              value: formatScreenCaptureState(screenCaptureState),
+            },
+            {
+              label: 'Last transition',
+              value: formatVisualTransitionReason(visualSendDiagnostics.lastTransitionReason),
+            },
+            {
+              label: 'Snapshots triggered',
+              value: String(visualSendDiagnostics.snapshotCount),
+            },
+            {
+              label: 'Streaming entered',
+              value: visualSendDiagnostics.streamingEnteredAt ?? 'None',
+            },
+            {
+              label: 'Streaming ended',
+              value: visualSendDiagnostics.streamingEndedAt ?? 'None',
+            },
+            {
+              label: 'Sent (snapshot)',
+              value: String(visualSendDiagnostics.sentByState.snapshot),
+            },
+            {
+              label: 'Sent (streaming)',
+              value: String(visualSendDiagnostics.sentByState.streaming),
             },
           ]}
         />
