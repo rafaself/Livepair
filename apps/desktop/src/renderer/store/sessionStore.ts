@@ -441,7 +441,9 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       tokenRequestState: 'idle',
       activeTransport: null,
       conversationTurns: options.preserveConversationTurns ? state.conversationTurns : [],
-      transcriptArtifacts: [],
+      transcriptArtifacts: options.preserveConversationTurns
+        ? state.transcriptArtifacts.filter((a) => a.state === 'complete')
+        : [],
       lastRuntimeError: null,
       lastDebugEvent: null,
       speechLifecycle: createSpeechSessionLifecycle(),

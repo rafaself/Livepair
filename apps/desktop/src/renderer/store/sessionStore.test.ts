@@ -200,6 +200,55 @@ describe('sessionStore', () => {
     );
   });
 
+  it('preserves settled transcript artifacts when preserveConversationTurns is true', () => {
+    useSessionStore.getState().appendTranscriptArtifact({
+      kind: 'transcript',
+      id: 'assistant-transcript-1',
+      role: 'assistant',
+      content: 'Settled reply',
+      timestamp: '2026-03-12T00:00:00.000Z',
+      state: 'complete',
+      source: 'voice',
+    });
+    useSessionStore.getState().appendTranscriptArtifact({
+      kind: 'transcript',
+      id: 'assistant-transcript-2',
+      role: 'assistant',
+      content: 'In-flight reply',
+      timestamp: '2026-03-12T00:00:01.000Z',
+      state: 'streaming',
+      source: 'voice',
+    });
+
+    useSessionStore.getState().resetTextSessionRuntime('disconnected', {
+      preserveConversationTurns: true,
+    });
+
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'assistant-transcript-1',
+        content: 'Settled reply',
+        state: 'complete',
+      }),
+    ]);
+  });
+
+  it('clears all transcript artifacts when preserveConversationTurns is false', () => {
+    useSessionStore.getState().appendTranscriptArtifact({
+      kind: 'transcript',
+      id: 'assistant-transcript-1',
+      role: 'assistant',
+      content: 'Settled reply',
+      timestamp: '2026-03-12T00:00:00.000Z',
+      state: 'complete',
+      source: 'voice',
+    });
+
+    useSessionStore.getState().resetTextSessionRuntime('disconnected');
+
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+  });
+
   it('can replace the visible conversation while keeping the active chat identity stable', () => {
     useSessionStore.getState().setActiveChatId('chat-7');
     useSessionStore.getState().appendConversationTurn({
