@@ -9,6 +9,8 @@ export {
   type DesktopBridge,
   type OverlayHitRegion,
   type OverlayMode,
+  type ScreenCaptureAccessStatus,
+  type ScreenCapturePermissionStatus,
   type ScreenCaptureSource,
   type ScreenCaptureSourceSnapshot,
 } from './desktopBridge';

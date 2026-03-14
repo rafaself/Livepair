@@ -9,6 +9,7 @@ import {
   SCREEN_CAPTURE_JPEG_QUALITY,
   SCREEN_CAPTURE_VIDEO_MIME_TYPE,
 } from './localScreenCapture';
+import type { ScreenCaptureAccessStatus } from '../../../shared';
 
 type TrackLike = {
   label: string;
@@ -66,6 +67,7 @@ function makeBase64Jpeg(): string {
 
 function createHarness(opts: {
   getDisplayMediaImpl?: () => Promise<MediaStream>;
+  accessStatus?: ScreenCaptureAccessStatus;
   videoWidth?: number;
   videoHeight?: number;
   toDataUrlResult?: string;
@@ -78,6 +80,7 @@ function createHarness(opts: {
   video: VideoMock;
   tickInterval: () => void;
   getDisplayMedia: ReturnType<typeof vi.fn>;
+  getScreenCaptureAccessStatus: ReturnType<typeof vi.fn>;
   createInterval: ReturnType<typeof vi.fn>;
 } {
   const obs = createObserver();
@@ -90,6 +93,9 @@ function createHarness(opts: {
   const getDisplayMedia = vi.fn(
     opts.getDisplayMediaImpl ?? (() => Promise.resolve(fakeStream)),
   );
+  const getScreenCaptureAccessStatus = vi.fn(async () => (
+    opts.accessStatus ?? { platform: 'linux', permissionStatus: null }
+  ));
 
   let intervalCallback: (() => void) | null = null;
   const createInterval = vi.fn((cb: () => void, _ms: number) => {
@@ -122,6 +128,10 @@ function createHarness(opts: {
     getDisplayMedia: getDisplayMedia as unknown as () => Promise<MediaStream>,
     createCanvas: () => canvas as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createCanvas']>>,
     createVideoElement: () => video as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createVideoElement']>>,
+    getScreenCaptureAccessStatus:
+      getScreenCaptureAccessStatus as unknown as NonNullable<
+        CreateLocalScreenCaptureDependencies['getScreenCaptureAccessStatus']
+      >,
     createInterval:
       createInterval as unknown as NonNullable<
         CreateLocalScreenCaptureDependencies['createInterval']
@@ -141,6 +151,7 @@ function createHarness(opts: {
       intervalCallback?.();
     },
     getDisplayMedia,
+    getScreenCaptureAccessStatus,
     createInterval,
   };
 }
@@ -188,6 +199,25 @@ describe('createLocalScreenCapture', () => {
       expect(obs.onError).toHaveBeenCalledWith('Screen capture permission was denied');
     });
 
+    it('uses main-process access status to explain macOS screen recording denial', async () => {
+      const err = Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
+      const { capture, obs, getScreenCaptureAccessStatus } = createHarness({
+        getDisplayMediaImpl: () => Promise.reject(err),
+        accessStatus: {
+          platform: 'darwin',
+          permissionStatus: 'denied',
+        },
+      });
+
+      await expect(capture.start({})).rejects.toThrow(
+        'macOS screen recording permission is denied. Enable Livepair in System Settings > Privacy & Security > Screen Recording, then restart the app.',
+      );
+      expect(getScreenCaptureAccessStatus).toHaveBeenCalledTimes(1);
+      expect(obs.onError).toHaveBeenCalledWith(
+        'macOS screen recording permission is denied. Enable Livepair in System Settings > Privacy & Security > Screen Recording, then restart the app.',
+      );
+    });
+
     it('throws and calls onError for generic getDisplayMedia error', async () => {
       const { capture, obs } = createHarness({
         getDisplayMediaImpl: () => Promise.reject(new Error('Some other error')),
@@ -203,10 +233,10 @@ describe('createLocalScreenCapture', () => {
       });
 
       await expect(capture.start({})).rejects.toThrow(
-        'Screen capture is not available — the main process display-media handler may not be registered',
+        'Screen capture is unavailable because the Electron display-media handler is not active in this build.',
       );
       expect(obs.onError).toHaveBeenCalledWith(
-        'Screen capture is not available — the main process display-media handler may not be registered',
+        'Screen capture is unavailable because the Electron display-media handler is not active in this build.',
       );
     });
 

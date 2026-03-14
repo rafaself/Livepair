@@ -15,11 +15,13 @@ import type { DesktopSettingsService } from '../settings/settingsService';
 const mockHandle = vi.fn();
 const mockGetSources = vi.fn();
 const mockQuit = vi.fn();
+const mockGetMediaAccessStatus = vi.fn();
 
 vi.mock('electron', () => ({
   app: { quit: mockQuit },
   desktopCapturer: { getSources: mockGetSources },
   ipcMain: { handle: mockHandle },
+  systemPreferences: { getMediaAccessStatus: mockGetMediaAccessStatus },
 }));
 
 const defaultSettings: DesktopSettings = {
@@ -130,6 +132,7 @@ describe('registerIpcHandlers', () => {
     vi.resetModules();
     mockHandle.mockReset();
     mockGetSources.mockReset();
+    mockGetMediaAccessStatus.mockReset();
   });
 
   it('registers the expected IPC channels', async () => {
@@ -141,7 +144,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(20);
+    expect(mockHandle).toHaveBeenCalledTimes(21);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'app:quit', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(2, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
@@ -226,11 +229,16 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       19,
-      'screenCapture:listSources',
+      'screenCapture:getAccessStatus',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       20,
+      'screenCapture:listSources',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      21,
       'screenCapture:selectSource',
       expect.any(Function),
     );
@@ -524,6 +532,28 @@ describe('registerIpcHandlers', () => {
     expect(mockGetSources).toHaveBeenNthCalledWith(2, {
       types: ['screen', 'window'],
       thumbnailSize: { width: 0, height: 0 },
+    });
+  });
+
+  it('reports screen capture access status through IPC', async () => {
+    mockGetMediaAccessStatus.mockReturnValueOnce('granted');
+    const settingsService = createSettingsServiceDouble();
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
+      getMainWindow: () => null,
+      platform: 'darwin',
+      settingsService,
+    });
+
+    const accessStatusHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'screenCapture:getAccessStatus',
+    )?.[1] as () => Promise<unknown>;
+
+    await expect(accessStatusHandler()).resolves.toEqual({
+      platform: 'darwin',
+      permissionStatus: 'granted',
     });
   });
 
