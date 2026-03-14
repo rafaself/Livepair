@@ -14,10 +14,48 @@ Grafana starts with:
 
 ## Run
 
-From the repository root you can use:
+From the repository root you can use these commands:
+
+### Start the API for scraping
 
 ```bash
 make observability-api
+```
+
+Runs the API on `0.0.0.0` so Dockerized Prometheus can scrape `GET /metrics`.
+Run this in its own terminal and leave it running while you use the stack.
+
+### Start Prometheus and Grafana
+
+```bash
+make observability-up
+```
+
+Starts the local Prometheus + Grafana containers in the background.
+
+### Print local URLs and login
+
+```bash
+make observability-urls
+```
+
+Prints the Prometheus URL, Grafana URL, default Grafana login, and the provisioned dashboard name.
+
+### Restart the observability containers
+
+```bash
+make observability-restart
+```
+
+Restarts Prometheus + Grafana after provisioning changes.
+
+Typical root-level flow:
+
+```bash
+# terminal 1
+make observability-api
+
+# terminal 2
 make observability-up
 make observability-urls
 ```
@@ -68,3 +106,6 @@ If the dashboard looks empty at first, send a few requests to the API so Prometh
 ```bash
 make observability-down
 ```
+
+Stops the local Prometheus + Grafana containers.
+It does not stop the API process started by `make observability-api`.
