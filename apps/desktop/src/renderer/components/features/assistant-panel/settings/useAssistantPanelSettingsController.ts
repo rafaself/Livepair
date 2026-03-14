@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import type {
   PreferredMode,
   SpeechSilenceTimeout,
@@ -87,6 +87,21 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     ],
     [screenCaptureSources],
   );
+
+  useEffect(() => {
+    void window.bridge
+      .listScreenCaptureSources()
+      .then((snapshot) => {
+        setScreenCaptureSourceSnapshot(snapshot);
+      })
+      .catch((error: unknown) => {
+        setLastRuntimeError(
+          error instanceof Error && error.message.length > 0
+            ? error.message
+            : 'Failed to load screen capture sources',
+        );
+      });
+  }, [setLastRuntimeError, setScreenCaptureSourceSnapshot]);
 
   const handleBackendUrlBlur = async (): Promise<void> => {
     const normalizedBackendUrl = normalizeBackendBaseUrl(resolvedBackendUrlDraft);

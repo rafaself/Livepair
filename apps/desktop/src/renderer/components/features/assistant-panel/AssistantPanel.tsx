@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import { OverlayContainer, Panel } from '../../layout';
 import { AssistantPanelDebugView } from './debug/AssistantPanelDebugView';
 import { AssistantPanelChatView } from './chat/AssistantPanelChatView';
@@ -12,12 +10,8 @@ import { AssistantPanelSettingsContent } from './settings/AssistantPanelSettings
 import { useAssistantPanelController } from './useAssistantPanelController';
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
 import { AssistantPanelSharedHeaderActions } from './AssistantPanelSharedHeaderActions';
-import {
-  createAndSwitchToNewChat,
-  getChatRecord,
-  switchToChat,
-} from '../../../chatMemory';
-import { getLatestPersistedLiveSession } from '../../../liveSessions';
+import { useAssistantPanelSharedViewNavigation } from './useAssistantPanelSharedViewNavigation';
+import { useAssistantPanelChatSessionData } from './chat/useAssistantPanelChatSessionData';
 import './AssistantPanel.css';
 
 import { useUiStore } from '../../../store/uiStore';
@@ -34,8 +28,6 @@ export function AssistantPanel(): JSX.Element {
   );
   const activeChatId = useSessionStore((state) => state.activeChatId);
   const localUserSpeechActive = useSessionStore((state) => state.localUserSpeechActive);
-  const [activeChat, setActiveChat] = useState<ChatRecord | null>(null);
-  const [latestLiveSession, setLatestLiveSession] = useState<LiveSessionRecord | null>(null);
   const {
     assistantState,
     isPanelOpen,
@@ -83,66 +75,22 @@ export function AssistantPanel(): JSX.Element {
     activeChatId,
     isEnabled: panelView === 'history',
   });
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    if (activeChatId === null) {
-      setActiveChat(null);
-      setLatestLiveSession(null);
-      return () => {
-        isCancelled = true;
-      };
-    }
-
-    void getChatRecord(activeChatId)
-      .then((chat) => {
-        if (!isCancelled) {
-          setActiveChat(chat);
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) {
-          setActiveChat(null);
-        }
-      });
-
-    void getLatestPersistedLiveSession(activeChatId)
-      .then((liveSession) => {
-        if (!isCancelled) {
-          setLatestLiveSession(liveSession);
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) {
-          setLatestLiveSession(null);
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeChatId]);
-
-  const handleSelectChat = useCallback(
-    async (chatId: string): Promise<void> => {
-      await switchToChat(chatId);
-      setPanelView('chat');
-    },
-    [setPanelView],
-  );
-  const handleBackToHistory = useCallback((): void => {
-    setPanelView('history');
-  }, [setPanelView]);
-  const handleBackToChat = useCallback((): void => {
-    setPanelView('chat');
-  }, [setPanelView]);
-  const handleCreateChat = useCallback(async (): Promise<void> => {
-    setLatestLiveSession(null);
-    setPanelView('chat');
-    setActiveChat(null);
-    await createAndSwitchToNewChat();
-  }, [setPanelView]);
+  const {
+    activeChat,
+    latestLiveSession,
+    resetChatSessionData,
+  } = useAssistantPanelChatSessionData({
+    activeChatId,
+  });
+  const {
+    handleSelectChat,
+    handleBackToHistory,
+    handleBackToChat,
+    handleCreateChat,
+  } = useAssistantPanelSharedViewNavigation({
+    setPanelView,
+    resetChatSessionData,
+  });
 
   return (
     <OverlayContainer>

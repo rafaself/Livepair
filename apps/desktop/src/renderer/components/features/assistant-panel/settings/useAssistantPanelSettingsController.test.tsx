@@ -212,10 +212,13 @@ describe('useAssistantPanelSettingsController', () => {
   it('loads screen capture source options and exposes the selected source', async () => {
     render(<HookHarness />);
 
-    expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-      'Automatic (first available source)|Entire Screen|VSCode',
-    );
-    expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('screen:1:0');
+    await waitFor(() => {
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+      expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
+        'Automatic (first available source)|Entire Screen|VSCode',
+      );
+      expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('screen:1:0');
+    });
   });
 
   it('falls back to the automatic option when screen capture sources are unavailable', () => {
