@@ -2,6 +2,7 @@ import { AssistantPanelAdvancedSettingsSection } from './AssistantPanelAdvancedS
 import { AssistantPanelAudioSettingsSection } from './AssistantPanelAudioSettingsSection';
 import { AssistantPanelBackendSettingsSection } from './AssistantPanelBackendSettingsSection';
 import { AssistantPanelGeneralSettingsSection } from './AssistantPanelGeneralSettingsSection';
+import { AssistantPanelScreenSettingsSection } from './AssistantPanelScreenSettingsSection';
 import {
   useAssistantPanelSettingsController,
   type AssistantPanelSettingsController,
@@ -20,6 +21,7 @@ export function AssistantPanelSettingsContent({
 
       <div className="assistant-panel__settings-body">
         <AssistantPanelGeneralSettingsSection controller={controller} />
+        <AssistantPanelScreenSettingsSection controller={controller} />
         <AssistantPanelAudioSettingsSection controller={controller} />
         <AssistantPanelAdvancedSettingsSection controller={controller} />
         {controller.isDebugMode && (

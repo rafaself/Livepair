@@ -13,8 +13,10 @@ import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
 import type { DesktopSettingsService } from '../settings/settingsService';
 
 const mockHandle = vi.fn();
+const mockGetSources = vi.fn();
 
 vi.mock('electron', () => ({
+  desktopCapturer: { getSources: mockGetSources },
   ipcMain: { handle: mockHandle },
 }));
 
@@ -125,6 +127,7 @@ describe('registerIpcHandlers', () => {
   beforeEach(() => {
     vi.resetModules();
     mockHandle.mockReset();
+    mockGetSources.mockReset();
   });
 
   it('registers the expected IPC channels', async () => {
@@ -136,7 +139,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(17);
+    expect(mockHandle).toHaveBeenCalledTimes(19);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       2,
@@ -216,6 +219,16 @@ describe('registerIpcHandlers', () => {
     expect(mockHandle).toHaveBeenNthCalledWith(
       17,
       'overlay:setPointerPassthrough',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      18,
+      'screenCapture:listSources',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      19,
+      'screenCapture:selectSource',
       expect.any(Function),
     );
   });
@@ -456,6 +469,85 @@ describe('registerIpcHandlers', () => {
       'Invalid settings update',
     );
     expect(settingsService.updateSettings).not.toHaveBeenCalled();
+  });
+
+  it('lists capture sources and stores the selected source through screen capture handlers', async () => {
+    mockGetSources.mockResolvedValue([
+      {
+        id: 'screen:1:0',
+        name: 'Entire Screen',
+      },
+      {
+        id: 'window:42:0',
+        name: 'VSCode',
+      },
+    ]);
+    const settingsService = createSettingsServiceDouble();
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
+      getMainWindow: () => null,
+      settingsService,
+    });
+
+    const listSourcesHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'screenCapture:listSources',
+    )?.[1] as () => Promise<unknown>;
+    const selectSourceHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'screenCapture:selectSource',
+    )?.[1] as (_event: unknown, sourceId: unknown) => Promise<unknown>;
+
+    await expect(listSourcesHandler()).resolves.toEqual({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: null,
+    });
+
+    await expect(selectSourceHandler({}, 'window:42:0')).resolves.toEqual({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'window:42:0',
+    });
+
+    expect(mockGetSources).toHaveBeenNthCalledWith(1, {
+      types: ['screen', 'window'],
+    });
+    expect(mockGetSources).toHaveBeenNthCalledWith(2, {
+      types: ['screen', 'window'],
+    });
+  });
+
+  it('rejects invalid screen capture source selections before storing them', async () => {
+    mockGetSources.mockResolvedValue([
+      {
+        id: 'screen:1:0',
+        name: 'Entire Screen',
+      },
+    ]);
+    const settingsService = createSettingsServiceDouble();
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
+      getMainWindow: () => null,
+      settingsService,
+    });
+
+    const selectSourceHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'screenCapture:selectSource',
+    )?.[1] as (_event: unknown, sourceId: unknown) => Promise<unknown>;
+
+    await expect(selectSourceHandler({}, 42)).rejects.toThrow(
+      'screenCapture:selectSource requires a string or null',
+    );
+    await expect(selectSourceHandler({}, 'window:missing:0')).rejects.toThrow(
+      'Unknown screen capture source id',
+    );
   });
 
   it('routes overlay operations through the current window with platform-aware behavior', async () => {

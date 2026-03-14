@@ -21,6 +21,14 @@ function buildBaseMockDesktopBridge() {
     updateSettings: vi.fn(async (patch) => ({ ...DEFAULT_DESKTOP_SETTINGS, ...patch })),
     setOverlayHitRegions: vi.fn(),
     setOverlayPointerPassthrough: vi.fn(),
+    listScreenCaptureSources: vi.fn(async () => ({
+      sources: [],
+      selectedSourceId: null,
+    })),
+    selectScreenCaptureSource: vi.fn(async (sourceId) => ({
+      sources: [],
+      selectedSourceId: sourceId,
+    })),
   } satisfies DesktopBridge;
 }
 

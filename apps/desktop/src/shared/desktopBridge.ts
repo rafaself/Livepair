@@ -25,6 +25,16 @@ export type OverlayHitRegion = {
   height: number;
 };
 
+export type ScreenCaptureSource = {
+  id: string;
+  name: string;
+};
+
+export type ScreenCaptureSourceSnapshot = {
+  sources: ScreenCaptureSource[];
+  selectedSourceId: string | null;
+};
+
 export type OverlayMode = 'linux-shape' | 'forwarded-pointer';
 
 export interface DesktopBridge {
@@ -48,6 +58,10 @@ export interface DesktopBridge {
   updateSettings: (patch: DesktopSettingsPatch) => Promise<DesktopSettings>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
   setOverlayPointerPassthrough: (enabled: boolean) => Promise<void>;
+  listScreenCaptureSources: () => Promise<ScreenCaptureSourceSnapshot>;
+  selectScreenCaptureSource: (
+    sourceId: string | null,
+  ) => Promise<ScreenCaptureSourceSnapshot>;
 }
 
 export const IPC_CHANNELS = {
@@ -68,6 +82,8 @@ export const IPC_CHANNELS = {
   updateSettings: 'settings:update',
   setOverlayHitRegions: 'overlay:setHitRegions',
   setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
+  listScreenCaptureSources: 'screenCapture:listSources',
+  selectScreenCaptureSource: 'screenCapture:selectSource',
 } as const;
 
 export function getOverlayMode(platform: string): OverlayMode {

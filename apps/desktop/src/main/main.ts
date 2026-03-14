@@ -1,5 +1,6 @@
 import { app } from 'electron';
 import { getChatMemoryService } from './chatMemory/chatMemoryService';
+import { createCaptureSourceRegistry } from './desktopCapture/captureSourceRegistry';
 import { registerDisplayMediaHandler } from './desktopCapture/registerDisplayMediaHandler';
 import { getDesktopSettingsService } from './settings/settingsService';
 import { registerIpcHandlers } from './ipc/registerIpcHandlers';
@@ -12,10 +13,16 @@ import {
 
 const chatMemoryService = getChatMemoryService();
 const settingsService = getDesktopSettingsService();
-registerIpcHandlers({ chatMemoryService, getMainWindow, settingsService });
+const captureSourceRegistry = createCaptureSourceRegistry();
+registerIpcHandlers({
+  captureSourceRegistry,
+  chatMemoryService,
+  getMainWindow,
+  settingsService,
+});
 
 app.whenReady().then(() => {
-  registerDisplayMediaHandler();
+  registerDisplayMediaHandler(captureSourceRegistry);
   createWindow();
   app.on('activate', () => {
     handleAppActivate();

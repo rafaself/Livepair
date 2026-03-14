@@ -45,6 +45,20 @@ describe('AssistantPanelSettingsView', () => {
       ...useSettingsStore.getState().settings,
       ...patch,
     }));
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: null,
+    }));
+    window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: sourceId,
+    }));
     installMediaDevicesMock();
   });
 
@@ -54,11 +68,18 @@ describe('AssistantPanelSettingsView', () => {
       backendUrl: 'https://runtime.livepair.dev/api',
     });
 
+    const videoHeading = screen.getByRole('heading', { name: 'Video' });
+    const audioHeading = screen.getByRole('heading', { name: 'Audio' });
+
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'General' })).toBeVisible();
+    expect(videoHeading).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Backend' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
+    expect(
+      videoHeading.compareDocumentPosition(audioHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
     expect(screen.getByRole('textbox', { name: /backend url/i })).toHaveValue(
       'https://runtime.livepair.dev/api',
     );
@@ -77,6 +98,23 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('button', { name: 'Silence timeout' })).toHaveTextContent(
       'Never',
     );
+  });
+
+  it('lists available screen capture sources and persists the selected source from settings', async () => {
+    await renderSettings();
+
+    await waitFor(() => {
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /screen source/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'VSCode' }));
+    });
+
+    expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith('window:42:0');
   });
 
   it('applies a valid backend URL override on blur through the settings store', async () => {

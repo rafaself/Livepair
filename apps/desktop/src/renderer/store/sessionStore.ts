@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ChatId } from '@livepair/shared-types';
+import type { ScreenCaptureSourceSnapshot, ScreenCaptureSource } from '../../shared';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
 import {
   LIVE_ADAPTER_KEY,
@@ -62,6 +63,8 @@ type SessionStoreData = {
   voiceToolState: VoiceToolState;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  screenCaptureSources: ScreenCaptureSource[];
+  selectedScreenCaptureSourceId: string | null;
   localUserSpeechActive: boolean;
 };
 
@@ -120,6 +123,7 @@ export type SessionStoreState = SessionStoreData & {
   clearCurrentVoiceTranscript: () => void;
   setScreenCaptureState: (screenCaptureState: ScreenCaptureState) => void;
   setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
+  setScreenCaptureSourceSnapshot: (snapshot: ScreenCaptureSourceSnapshot) => void;
   setLocalUserSpeechActive: (active: boolean) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
   resetTextSessionRuntime: (
@@ -239,6 +243,8 @@ function buildDefaultSessionState(): SessionStoreData {
     voiceToolState: createDefaultVoiceToolState(),
     screenCaptureState: 'disabled',
     screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+    screenCaptureSources: [],
+    selectedScreenCaptureSourceId: null,
     localUserSpeechActive: false,
   };
 }
@@ -425,6 +431,11 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setScreenCaptureSourceSnapshot: ({ sources, selectedSourceId }) =>
+    set({
+      screenCaptureSources: sources,
+      selectedScreenCaptureSourceId: selectedSourceId,
+    }),
   setLocalUserSpeechActive: (localUserSpeechActive) => set({ localUserSpeechActive }),
   setAssistantState: (assistantState) =>
     set((state) => ({
@@ -458,6 +469,8 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       voiceToolState: createDefaultVoiceToolState(),
       screenCaptureState: 'disabled' as ScreenCaptureState,
       screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+      screenCaptureSources: [],
+      selectedScreenCaptureSourceId: null,
       localUserSpeechActive: false,
     })),
   reset: (overrides) =>

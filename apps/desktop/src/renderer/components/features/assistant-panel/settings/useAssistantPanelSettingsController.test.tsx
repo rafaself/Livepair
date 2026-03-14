@@ -26,6 +26,10 @@ function HookHarness(): JSX.Element {
       <output aria-label="output-options">
         {controller.outputDeviceOptions.map((option) => option.label).join('|')}
       </output>
+      <output aria-label="screen-source-options">
+        {controller.screenCaptureSourceOptions.map((option) => option.label).join('|')}
+      </output>
+      <output aria-label="selected-screen-source">{controller.selectedScreenCaptureSourceId}</output>
       <output aria-label="debug-mode">{String(controller.isDebugMode)}</output>
       <button type="button" onClick={controller.toggleDebugMode}>
         toggle debug
@@ -41,6 +45,18 @@ function HookHarness(): JSX.Element {
       </button>
       <button type="button" onClick={() => controller.setSelectedOutputDeviceId('desk-speakers')}>
         set output
+      </button>
+      <button
+        type="button"
+        onClick={() => controller.setSelectedScreenCaptureSourceId('window:42:0')}
+      >
+        set screen source
+      </button>
+      <button
+        type="button"
+        onClick={() => controller.setSelectedScreenCaptureSourceId('auto')}
+      >
+        reset screen source
       </button>
       <output aria-label="echo-cancellation">{String(controller.voiceEchoCancellationEnabled)}</output>
       <output aria-label="noise-suppression">{String(controller.voiceNoiseSuppressionEnabled)}</output>
@@ -79,6 +95,20 @@ describe('useAssistantPanelSettingsController', () => {
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
       ...patch,
+    }));
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'screen:1:0',
+    }));
+    window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: sourceId,
     }));
   });
 
@@ -165,6 +195,19 @@ describe('useAssistantPanelSettingsController', () => {
     );
   });
 
+  it('loads screen capture source options and exposes the selected source', async () => {
+    render(<HookHarness />);
+
+    await waitFor(() => {
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
+      'Automatic (first available source)|Entire Screen|VSCode',
+    );
+    expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('screen:1:0');
+  });
+
   it('routes settings mutations through the stores and exposes debug mode toggles', async () => {
     render(<HookHarness />);
 
@@ -173,6 +216,8 @@ describe('useAssistantPanelSettingsController', () => {
     fireEvent.click(screen.getByRole('button', { name: 'set fast' }));
     fireEvent.click(screen.getByRole('button', { name: 'set input' }));
     fireEvent.click(screen.getByRole('button', { name: 'set output' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set screen source' }));
+    fireEvent.click(screen.getByRole('button', { name: 'reset screen source' }));
     fireEvent.click(screen.getByRole('button', { name: 'disable echo cancellation' }));
     fireEvent.click(screen.getByRole('button', { name: 'disable noise suppression' }));
     fireEvent.click(screen.getByRole('button', { name: 'disable auto gain control' }));
@@ -188,6 +233,8 @@ describe('useAssistantPanelSettingsController', () => {
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       selectedOutputDeviceId: 'desk-speakers',
     });
+    expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith('window:42:0');
+    expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith(null);
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       voiceEchoCancellationEnabled: false,
     });

@@ -49,6 +49,8 @@ describe('preload bridge', () => {
       'updateSettings',
       'setOverlayHitRegions',
       'setOverlayPointerPassthrough',
+      'listScreenCaptureSources',
+      'selectScreenCaptureSource',
     ]);
     expect(exposedBridge).toEqual({
       overlayMode: expect.any(String),
@@ -69,6 +71,8 @@ describe('preload bridge', () => {
       updateSettings: expect.any(Function),
       setOverlayHitRegions: expect.any(Function),
       setOverlayPointerPassthrough: expect.any(Function),
+      listScreenCaptureSources: expect.any(Function),
+      selectScreenCaptureSource: expect.any(Function),
     });
   });
 
@@ -297,6 +301,23 @@ describe('preload bridge', () => {
     mockInvoke.mockResolvedValueOnce(undefined);
     await bridge.setOverlayPointerPassthrough(false);
     expect(mockInvoke).toHaveBeenCalledWith('overlay:setPointerPassthrough', false);
+
+    mockInvoke.mockResolvedValueOnce({
+      sources: [{ id: 'screen:1:0', name: 'Entire Screen' }],
+      selectedSourceId: null,
+    });
+    await bridge.listScreenCaptureSources();
+    expect(mockInvoke).toHaveBeenCalledWith('screenCapture:listSources');
+
+    mockInvoke.mockResolvedValueOnce({
+      sources: [{ id: 'window:42:0', name: 'VSCode' }],
+      selectedSourceId: 'window:42:0',
+    });
+    await bridge.selectScreenCaptureSource('window:42:0');
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'screenCapture:selectSource',
+      'window:42:0',
+    );
   });
 
   it('passes explicit empty payload when request has no fields', async () => {

@@ -1,22 +1,32 @@
 import { desktopCapturer, session } from 'electron';
+import type { CaptureSourceRegistry } from './captureSourceRegistry';
+import { toCaptureSources } from './captureSourceRegistry';
 
 /**
  * Registers a display-media request handler on the default Electron session.
  *
  * Without this handler, `navigator.mediaDevices.getDisplayMedia()` in the
  * renderer throws "Not supported". The handler uses `desktopCapturer` to
- * enumerate screen sources and auto-selects the first one.
- *
- * Source-selection UI will be added in a later wave.
+ * enumerate screen and window sources, keeps the registry in sync, and
+ * honors any selected source when present.
  */
-export function registerDisplayMediaHandler(): void {
+export function registerDisplayMediaHandler(
+  captureSourceRegistry: CaptureSourceRegistry,
+): void {
   session.defaultSession.setDisplayMediaRequestHandler(
     async (_request, callback) => {
       try {
         const sources = await desktopCapturer.getSources({
-          types: ['screen'],
+          types: ['screen', 'window'],
         });
-        const source = sources[0];
+        captureSourceRegistry.setSources(toCaptureSources(sources));
+        const selectedSourceId =
+          captureSourceRegistry.getSelectedSource()?.id
+          ?? captureSourceRegistry.getSelectedSourceId();
+        const selectedSource = selectedSourceId === null
+          ? null
+          : sources.find((source) => source.id === selectedSourceId) ?? null;
+        const source = selectedSource ?? sources[0];
 
         if (source) {
           callback({ video: source });
