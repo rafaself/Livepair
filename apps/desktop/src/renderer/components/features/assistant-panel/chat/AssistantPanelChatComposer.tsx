@@ -123,6 +123,17 @@ export function AssistantPanelChatComposer({
         ?.label ?? 'No screen source selected'
     );
   }, [screenCaptureSourceOptions, selectedScreenCaptureSourceId]);
+  const isSourceDropdownExpanded = sourceDropdown.isOpen && !sourceDropdown.isClosing;
+
+  const handleSelectInputDevice = (deviceId: string): void => {
+    onSelectComposerInputDevice(deviceId);
+    sourceDropdown.close();
+  };
+
+  const handleSelectScreenSource = (sourceId: string): void => {
+    onSelectComposerScreenSource(sourceId);
+    sourceDropdown.close();
+  };
 
   useEffect(() => {
     if (isComposerCollapsed && sourceDropdown.shouldRender) {
@@ -191,7 +202,7 @@ export function AssistantPanelChatComposer({
                   size="sm"
                   className="assistant-panel__composer-control"
                   aria-controls={sourceDropdownId}
-                  aria-expanded={sourceDropdown.isOpen}
+                  aria-expanded={isSourceDropdownExpanded}
                   aria-haspopup="dialog"
                   onClick={sourceDropdown.toggle}
                 >
@@ -239,7 +250,7 @@ export function AssistantPanelChatComposer({
                               key={option.value}
                               selected={option.value === selectedInputDeviceId}
                               onSelect={() => {
-                                onSelectComposerInputDevice(option.value);
+                                handleSelectInputDevice(option.value);
                               }}
                             >
                               {option.label}
@@ -269,7 +280,7 @@ export function AssistantPanelChatComposer({
                               key={option.value}
                               selected={option.value === selectedScreenCaptureSourceId}
                               onSelect={() => {
-                                onSelectComposerScreenSource(option.value);
+                                handleSelectScreenSource(option.value);
                               }}
                             >
                               {option.label}

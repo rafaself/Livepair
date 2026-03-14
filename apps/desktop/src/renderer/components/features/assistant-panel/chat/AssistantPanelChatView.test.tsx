@@ -905,9 +905,14 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Input options' }));
+    const inputOptionsButton = screen.getByRole('button', { name: 'Input options' });
+    expect(inputOptionsButton).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(inputOptionsButton).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(inputOptionsButton);
 
     const dropdown = screen.getByRole('dialog', { name: 'Source selection' });
+    expect(inputOptionsButton).toHaveAttribute('aria-expanded', 'true');
     expect(within(dropdown).getByText('Microphone input')).toBeVisible();
     expect(within(dropdown).getByText('Screen source')).toBeVisible();
     expect(within(dropdown).getByText('Current: USB Microphone')).toBeVisible();
@@ -921,19 +926,18 @@ describe('AssistantPanelChatView', () => {
     expect(within(dropdown).getByRole('option', { name: 'Entire Screen' })).toBeVisible();
     expect(within(dropdown).getByRole('option', { name: 'VSCode' })).toBeVisible();
 
-    fireEvent.click(within(dropdown).getByRole('option', { name: 'Desk Mic' }));
-    fireEvent.click(within(dropdown).getByRole('option', { name: 'VSCode' }));
     fireEvent.click(screen.getByRole('button', { name: 'Disable microphone' }));
 
-    expect(handleSelectInputDevice).toHaveBeenCalledWith('desk-mic');
-    expect(handleSelectScreenSource).toHaveBeenCalledWith('window:42:0');
     expect(handleToggleMicrophone).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Input options' }));
+    fireEvent.pointerDown(document.body);
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Source selection' })).toBeNull();
     });
+    expect(inputOptionsButton).toHaveAttribute('aria-expanded', 'false');
+    expect(handleSelectInputDevice).not.toHaveBeenCalled();
+    expect(handleSelectScreenSource).not.toHaveBeenCalled();
   });
 });

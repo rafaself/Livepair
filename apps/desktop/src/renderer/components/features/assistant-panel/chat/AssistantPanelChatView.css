@@ -249,6 +249,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: end;
   column-gap: var(--space-2);
+  min-height: 34px;
 }
 
 .assistant-panel__composer-textarea {
@@ -298,10 +299,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  min-height: 34px;
 }
 
 .assistant-panel__composer-left-controls {
   position: relative;
+  flex: 0 0 auto;
+  min-width: 72px;
 }
 
 .assistant-panel__composer-main {
@@ -312,6 +316,19 @@
 
 .assistant-panel__composer-control {
   color: var(--color-text-secondary);
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 50%;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    opacity var(--motion-fast) var(--ease-out);
+}
+
+.assistant-panel__composer-control svg {
+  width: 16px;
+  height: 16px;
 }
 
 .assistant-panel__composer-control--active {
@@ -338,6 +355,7 @@
 
 .assistant-panel__composer-dropdown-layer {
   pointer-events: auto;
+  transform-origin: top left;
 }
 
 .assistant-panel__composer-source-dropdown {
@@ -345,6 +363,11 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-md);
+  min-width: 248px;
 }
 
 .assistant-panel__composer-source-group {
