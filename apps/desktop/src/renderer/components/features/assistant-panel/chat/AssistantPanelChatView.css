@@ -305,6 +305,18 @@
   flex: 0 0 auto;
   min-width: 0;
   gap: var(--space-2);
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.assistant-panel__composer-left-controls--visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .assistant-panel__composer-control-group {

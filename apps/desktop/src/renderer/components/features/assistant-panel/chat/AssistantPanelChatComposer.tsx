@@ -168,7 +168,14 @@ export function AssistantPanelChatComposer({
 
               <div className="assistant-panel__composer-actions">
                 <div
-                  className="assistant-panel__composer-left-controls"
+                  className={[
+                    'assistant-panel__composer-left-controls',
+                    isLiveSessionActive &&
+                      !composerAction.isLoading &&
+                      'assistant-panel__composer-left-controls--visible',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   data-testid="assistant-panel-composer-left-controls"
                 >
                   <div className="assistant-panel__composer-pill">
