@@ -14,6 +14,11 @@ export {
   mapChatMessageRecordsToConversationTurns,
 } from './conversation/chatMessageAdapter';
 export {
+  classifyRealtimeOutboundEvent,
+  createDefaultRealtimeOutboundDiagnostics,
+  createRealtimeOutboundGateway,
+} from './outbound/realtimeOutboundGateway';
+export {
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
   createDefaultVoiceToolState,
@@ -45,6 +50,21 @@ export type {
   RuntimeLogger,
   SessionPhase,
 } from './core/session.types';
+export type {
+  RealtimeOutboundAudioChunkEvent,
+  RealtimeOutboundBreakerState,
+  RealtimeOutboundClassification,
+  RealtimeOutboundDecision,
+  RealtimeOutboundDecisionOutcome,
+  RealtimeOutboundDecisionReason,
+  RealtimeOutboundDiagnostics,
+  RealtimeOutboundEvent,
+  RealtimeOutboundEventKind,
+  RealtimeOutboundGateway,
+  RealtimeOutboundGatewayOptions,
+  RealtimeOutboundTextEvent,
+  RealtimeOutboundVisualFrameEvent,
+} from './outbound/outbound.types';
 export type {
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
