@@ -26,6 +26,7 @@ type AudioSettingsController = Pick<
   | 'setVoiceEchoCancellationEnabled'
   | 'setVoiceNoiseSuppressionEnabled'
   | 'setVoiceAutoGainControlEnabled'
+  | 'isDebugMode'
 >;
 
 export type AssistantPanelAudioSettingsSectionProps = {
@@ -50,6 +51,7 @@ export function AssistantPanelAudioSettingsSection({
     setVoiceEchoCancellationEnabled,
     setVoiceNoiseSuppressionEnabled,
     setVoiceAutoGainControlEnabled,
+    isDebugMode,
   } = controller;
   const isInputUnavailable = inputDeviceOptions[0]?.value === 'unavailable';
   const isOutputUnavailable = outputDeviceOptions[0]?.value === 'unavailable';
@@ -112,39 +114,43 @@ export function AssistantPanelAudioSettingsSection({
               />
             ),
           },
-          {
-            label: 'Echo cancellation',
-            value: (
-              <Switch
-                aria-label="Echo cancellation"
-                checked={voiceEchoCancellationEnabled}
-                className="assistant-panel__settings-switch"
-                onCheckedChange={setVoiceEchoCancellationEnabled}
-              />
-            ),
-          },
-          {
-            label: 'Noise suppression',
-            value: (
-              <Switch
-                aria-label="Noise suppression"
-                checked={voiceNoiseSuppressionEnabled}
-                className="assistant-panel__settings-switch"
-                onCheckedChange={setVoiceNoiseSuppressionEnabled}
-              />
-            ),
-          },
-          {
-            label: 'Auto gain control',
-            value: (
-              <Switch
-                aria-label="Auto gain control"
-                checked={voiceAutoGainControlEnabled}
-                className="assistant-panel__settings-switch"
-                onCheckedChange={setVoiceAutoGainControlEnabled}
-              />
-            ),
-          },
+          ...(isDebugMode
+            ? [
+                {
+                  label: 'Echo cancellation',
+                  value: (
+                    <Switch
+                      aria-label="Echo cancellation"
+                      checked={voiceEchoCancellationEnabled}
+                      className="assistant-panel__settings-switch"
+                      onCheckedChange={setVoiceEchoCancellationEnabled}
+                    />
+                  ),
+                },
+                {
+                  label: 'Noise suppression',
+                  value: (
+                    <Switch
+                      aria-label="Noise suppression"
+                      checked={voiceNoiseSuppressionEnabled}
+                      className="assistant-panel__settings-switch"
+                      onCheckedChange={setVoiceNoiseSuppressionEnabled}
+                    />
+                  ),
+                },
+                {
+                  label: 'Auto gain control',
+                  value: (
+                    <Switch
+                      aria-label="Auto gain control"
+                      checked={voiceAutoGainControlEnabled}
+                      className="assistant-panel__settings-switch"
+                      onCheckedChange={setVoiceAutoGainControlEnabled}
+                    />
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
     </ViewSection>

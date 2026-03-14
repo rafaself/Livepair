@@ -271,6 +271,9 @@ describe('AssistantPanelSettingsView', () => {
 
   it('persists browser audio cleanup toggles from the audio section', async () => {
     await renderSettings();
+    act(() => {
+      useUiStore.getState().toggleDebugMode();
+    });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('switch', { name: 'Echo cancellation' }));
