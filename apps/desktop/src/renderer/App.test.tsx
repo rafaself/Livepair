@@ -220,7 +220,6 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Starting Live session' })).toBeDisabled();
-      expect(screen.getByText('Starting Live session...')).toBeVisible();
       expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
     });
 
@@ -267,6 +266,6 @@ describe('App', () => {
     expect(screen.getByText('Speech request')).toBeVisible();
     expect(screen.getByText('Speech reply')).toBeVisible();
     expect(screen.queryByRole('form', { name: 'Send message to Livepair' })).toBeNull();
-    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getByRole('textbox')).toBeDisabled();
   });
 });

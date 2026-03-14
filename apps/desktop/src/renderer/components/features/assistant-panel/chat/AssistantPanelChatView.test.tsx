@@ -26,9 +26,9 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.queryByRole('status', { name: 'Disconnected' })).toBeNull();
-    expect(screen.getByText('Live session history starts here')).toBeVisible();
+    expect(screen.getByText('Live session')).toBeVisible();
     expect(
-      screen.getByText('When the session is inactive, this container stays available for history and context.'),
+      screen.getByText('Your spoken turns and assistant replies will appear here.'),
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Start Live Session' })).toBeVisible();
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -76,7 +76,7 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByText('The latest exchange is visible in the transcript.')).toBeVisible();
     expect(screen.queryByText('Live session history starts here')).toBeNull();
     expect(screen.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
-    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getByRole('textbox')).toBeDisabled();
   });
 
   it('marks an opened past chat as an inactive history container while keeping preserved turns visible', () => {
@@ -457,7 +457,7 @@ describe('AssistantPanelChatView', () => {
     expect(screen.queryByText('Send a text prompt to start the realtime loop and keep the latest exchange visible.')).toBeNull();
   });
 
-  it('shows voice-specific placeholder copy when voice mode is active before transcript arrives', () => {
+  it('fades the centered empty state and shows the composer when voice mode is active before transcript arrives', () => {
     render(
       <AssistantPanelChatView
         assistantState="listening"
@@ -477,10 +477,11 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByText('Start speaking')).toBeVisible();
-    expect(
-      screen.getByText('Your spoken turns and assistant replies will appear here.'),
-    ).toBeVisible();
+    // CTA button is removed from the empty state once the session is active
+    expect(screen.queryByRole('button', { name: 'Start Live Session' })).toBeNull();
+    // The End button is accessible in the active composer
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
+    // Old inactive copy is not shown
     expect(screen.queryByText('Live session history starts here')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
   });

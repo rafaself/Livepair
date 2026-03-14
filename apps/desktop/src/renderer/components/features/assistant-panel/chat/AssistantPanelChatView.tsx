@@ -110,7 +110,7 @@ export function AssistantPanelChatView({
               assistantState={assistantState}
               isLiveSessionActive={isLiveSessionActive}
               lastRuntimeError={lastRuntimeError}
-              liveSessionPhaseLabel={liveSessionPhaseLabel}
+              onStartSpeechMode={onStartSpeechMode}
             />
           }
           isConversationEmpty={isConversationEmpty}

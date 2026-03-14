@@ -397,6 +397,12 @@
   text-align: center;
 }
 
+.assistant-panel__conversation-card--fading {
+  opacity: 0;
+  transition: opacity 250ms ease-out;
+  pointer-events: none;
+}
+
 :root[data-theme='light'] .assistant-panel__composer-box {
   background: rgba(0, 0, 0, 0.08);
 }

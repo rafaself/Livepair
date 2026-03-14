@@ -1,6 +1,5 @@
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Button } from '../../../primitives';
 import type { AssistantPanelComposerAction } from './assistantPanelComposerAction';
 
@@ -35,7 +34,6 @@ export function AssistantPanelChatComposer({
 }: AssistantPanelChatComposerProps): JSX.Element {
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isCtaLoading, setIsCtaLoading] = useState(false);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -49,19 +47,6 @@ export function AssistantPanelChatComposer({
       textareaRef.current?.focus();
     }
   }, [isLiveSessionActive, isPanelOpen]);
-
-  useEffect(() => {
-    if (isLiveSessionActive) {
-      setIsCtaLoading(false);
-    }
-  }, [isLiveSessionActive]);
-
-  const handleCtaClick = () => {
-    setIsCtaLoading(true);
-    void onStartSpeechMode().catch(() => {
-      setIsCtaLoading(false);
-    });
-  };
 
   const handleComposerSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     if (composerAction.kind === 'send') {
@@ -95,39 +80,12 @@ export function AssistantPanelChatComposer({
     }
   };
 
+  // The composer is visible whenever there is history or a live session is active.
+  // For a fresh/empty session the entry CTA lives in the centered empty state instead.
+  const isComposerCollapsed = isConversationEmpty && !isLiveSessionActive;
+
   return (
     <div className="assistant-panel__composer-section">
-      <div
-        className={[
-          'assistant-panel__composer-transition',
-          isLiveSessionActive && 'assistant-panel__composer-transition--collapsed',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        aria-hidden={isLiveSessionActive || undefined}
-      >
-        <div className="assistant-panel__inactive-cta">
-          <Button
-            variant="primary"
-            size="md"
-            className={[
-              'assistant-panel__inactive-cta-button',
-              isCtaLoading && 'assistant-panel__inactive-cta-button--loading',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            disabled={composerAction.disabled || isCtaLoading}
-            onClick={handleCtaClick}
-          >
-            {isCtaLoading ? (
-              <Loader2 size={18} aria-hidden="true" />
-            ) : (
-              composerAction.label
-            )}
-          </Button>
-        </div>
-      </div>
-
       {liveSessionPhaseLabel && !isConversationEmpty ? (
         <p className="assistant-panel__session-status" role="status" aria-live="polite">
           {liveSessionPhaseLabel}
@@ -137,11 +95,11 @@ export function AssistantPanelChatComposer({
       <div
         className={[
           'assistant-panel__composer-transition',
-          !isLiveSessionActive && 'assistant-panel__composer-transition--collapsed',
+          isComposerCollapsed && 'assistant-panel__composer-transition--collapsed',
         ]
           .filter(Boolean)
           .join(' ')}
-        aria-hidden={!isLiveSessionActive || undefined}
+        aria-hidden={isComposerCollapsed || undefined}
       >
         <form
           ref={formRef}
