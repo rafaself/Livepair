@@ -1,76 +1,52 @@
-import { logRuntimeDiagnostic, logRuntimeError } from '../core/logger';
-import type { RealtimeOutboundGateway } from '../outbound/outbound.types';
+import { logRuntimeError } from '../core/logger';
 import { asErrorDetail } from '../core/runtimeUtils';
-import type { DesktopSession } from '../transport/transport.types';
 import type { VoiceSessionStatus } from '../voice/voice.types';
 import type {
   LocalScreenFrame,
   ScreenCaptureDiagnostics,
-  ScreenCaptureState,
 } from './screen.types';
 import type {
   LocalScreenCapture,
   LocalScreenCaptureObserver,
 } from './localScreenCapture';
-import {
-  SCREEN_CAPTURE_MAX_PENDING_FRAMES,
-  SCREEN_CAPTURE_START_POLICY,
-} from './screenCapturePolicy';
+import { SCREEN_CAPTURE_START_POLICY } from './screenCapturePolicy';
 import { createVisualSendPolicy } from './visualSendPolicy';
-import type { VisualSendDiagnostics, VisualSendPolicyOptions, VisualSendState } from './visualSendPolicy';
+import {
+  createScreenFrameDumpCoordinator,
+} from './controller/screenFrameDumpCoordinator';
+import {
+  createScreenFrameSendCoordinator,
+} from './controller/screenFrameSendCoordinator';
 import type {
-  SaveScreenFrameDumpFrameRequest,
-  ScreenFrameDumpSessionInfo,
-} from '../../../shared';
+  CreateScreenCapture,
+  GetRealtimeOutboundGateway,
+  GetTransport,
+  ScreenCaptureController,
+  ScreenCaptureStoreApi,
+  ScreenFrameDumpControls,
+  StopScreenCaptureOptions,
+} from './controller/screenCaptureControllerTypes';
 
-type ScreenCaptureStoreApi = {
-  getState: () => {
-    voiceSessionStatus: VoiceSessionStatus;
-    screenCaptureState: ScreenCaptureState;
-    setScreenCaptureState: (state: ScreenCaptureState) => void;
-    setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
-    setVisualSendDiagnostics: (diagnostics: VisualSendDiagnostics) => void;
-    setLastRuntimeError: (error: string | null) => void;
-  };
+export type { ScreenCaptureController } from './controller/screenCaptureControllerTypes';
+
+type StopCaptureOptions = StopScreenCaptureOptions & {
+  propagateStopError?: boolean;
 };
 
-export type ScreenCaptureController = {
-  start: () => Promise<void>;
-  stop: () => Promise<void>;
-  stopInternal: (options?: {
-    nextState?: 'disabled' | 'error';
-    detail?: string | null;
-    preserveDiagnostics?: boolean;
-    uploadStatus?: 'idle' | 'error';
-  }) => Promise<void>;
-  resetDiagnostics: () => void;
-  enqueueFrameSend: (frame: LocalScreenFrame) => Promise<void>;
-  isActive: () => boolean;
-  resetSendChain: () => void;
-  /** Current visual send state (Wave 1 state machine). */
-  getVisualSendState: () => VisualSendState;
-  /** Trigger a one-shot snapshot: allows exactly one frame to be sent, then returns to sleep. */
-  analyzeScreenNow: () => void;
-  /** Enable continuous visual sending. */
-  enableStreaming: () => void;
-  /** Stop continuous visual sending and return to sleep. */
-  stopStreaming: () => void;
-};
-
-type ScreenFrameDumpControls = {
-  shouldSaveFrames: () => boolean;
-  startScreenFrameDumpSession: () => Promise<ScreenFrameDumpSessionInfo>;
-  saveScreenFrameDumpFrame: (request: SaveScreenFrameDumpFrameRequest) => Promise<void>;
-  setScreenFrameDumpDirectoryPath: (directoryPath: string | null) => void;
-};
-
-const VISUAL_SCREEN_CHANNEL_KEY = 'visual:screen';
+function isActiveVoiceSessionStatus(status: VoiceSessionStatus): boolean {
+  return (
+    status === 'ready'
+    || status === 'capturing'
+    || status === 'streaming'
+    || status === 'interrupted'
+  );
+}
 
 export function createScreenCaptureController(
   store: ScreenCaptureStoreApi,
-  createCapture: (observer: LocalScreenCaptureObserver) => LocalScreenCapture,
-  getTransport: () => DesktopSession | null,
-  getRealtimeOutboundGateway: () => RealtimeOutboundGateway,
+  createCapture: CreateScreenCapture,
+  getTransport: GetTransport,
+  getRealtimeOutboundGateway: GetRealtimeOutboundGateway,
   screenFrameDumpControls?: ScreenFrameDumpControls,
   visualSendPolicyOptions?: VisualSendPolicyOptions,
 ): ScreenCaptureController {
@@ -83,17 +59,6 @@ export function createScreenCaptureController(
   let screenCapture: LocalScreenCapture | null = null;
   let screenCaptureGeneration = 0;
   let stopInFlight: Promise<void> | null = null;
-  let debugFrameDumpReady = false;
-  let visualOutboundSequence = 0;
-  let pendingFrame:
-    | {
-        capture: LocalScreenCapture;
-        captureGeneration: number;
-        frame: LocalScreenFrame;
-        transport: DesktopSession;
-      }
-    | null = null;
-  let frameDrainInFlight: Promise<void> | null = null;
 
   const resetDiagnostics = (): void => {
     store.getState().setScreenCaptureDiagnostics({
@@ -108,12 +73,69 @@ export function createScreenCaptureController(
     });
   };
 
+  const getActiveCapture = (): {
+    capture: LocalScreenCapture;
+    generation: number;
+  } | null => {
+    if (!screenCapture) {
+      return null;
+    }
+
+    return {
+      capture: screenCapture,
+      generation: screenCaptureGeneration,
+    };
+  };
+
   const isCurrentCapture = (
     capture: LocalScreenCapture,
     generation: number,
   ): boolean => {
     return screenCapture === capture && screenCaptureGeneration === generation;
   };
+
+  let stopInternal: (options?: StopScreenCaptureOptions) => Promise<void> = async () => {
+    throw new Error('stopInternal called before initialization');
+  };
+
+  const frameDumpCoordinator = createScreenFrameDumpCoordinator({
+    screenFrameDumpControls,
+    isCurrentCapture,
+    onError: (detail) => {
+      store.getState().setLastRuntimeError(detail);
+    },
+  });
+
+  const frameSendCoordinator = createScreenFrameSendCoordinator({
+    getActiveCapture,
+    isCurrentCapture,
+    getTransport,
+    getRealtimeOutboundGateway,
+    allowSend: () => visualPolicy.allowSend(),
+    flushVisualDiagnostics,
+    onSendStarted: () => {
+      store.getState().setScreenCaptureDiagnostics({
+        lastUploadStatus: 'sending',
+        lastError: null,
+      });
+    },
+    onSendSucceeded: () => {
+      store.getState().setScreenCaptureState('streaming');
+      store.getState().setScreenCaptureDiagnostics({
+        lastUploadStatus: 'sent',
+        lastError: null,
+      });
+    },
+    onSendFailed: (detail) => {
+      store.getState().setLastRuntimeError(detail);
+      void stopInternal({
+        nextState: 'error',
+        detail,
+        preserveDiagnostics: true,
+        uploadStatus: 'error',
+      });
+    },
+  });
 
   const releaseCurrentCapture = (
     capture: LocalScreenCapture,
@@ -125,84 +147,12 @@ export function createScreenCaptureController(
 
     screenCapture = null;
     screenCaptureGeneration += 1;
-    debugFrameDumpReady = false;
-  };
-
-  const setScreenFrameDumpDirectoryPath = (directoryPath: string | null): void => {
-    screenFrameDumpControls?.setScreenFrameDumpDirectoryPath(directoryPath);
-  };
-
-  const startScreenFrameDumpSession = async (
-    capture: LocalScreenCapture,
-    generation: number,
-  ): Promise<void> => {
-    debugFrameDumpReady = false;
-
-    if (!screenFrameDumpControls?.shouldSaveFrames()) {
-      return;
-    }
-
-    setScreenFrameDumpDirectoryPath(null);
-
-    try {
-      const session = await screenFrameDumpControls.startScreenFrameDumpSession();
-
-      if (!isCurrentCapture(capture, generation)) {
-        return;
-      }
-
-      debugFrameDumpReady = true;
-      setScreenFrameDumpDirectoryPath(session.directoryPath);
-    } catch (error) {
-      if (!isCurrentCapture(capture, generation)) {
-        return;
-      }
-
-      const detail = asErrorDetail(error, 'Failed to start screen frame dump');
-      logRuntimeError('screen-capture', 'frame dump session start failed', { detail });
-      store.getState().setLastRuntimeError(detail);
-    }
-  };
-
-  const persistScreenFrameDump = (
-    capture: LocalScreenCapture,
-    generation: number,
-    frame: LocalScreenFrame,
-  ): void => {
-    if (
-      !screenFrameDumpControls ||
-      !debugFrameDumpReady ||
-      !screenFrameDumpControls.shouldSaveFrames()
-    ) {
-      return;
-    }
-
-    void screenFrameDumpControls.saveScreenFrameDumpFrame({
-      sequence: frame.sequence,
-      mimeType: frame.mimeType,
-      data: frame.data,
-    }).catch((error) => {
-      if (!isCurrentCapture(capture, generation)) {
-        return;
-      }
-
-      const detail = asErrorDetail(error, 'Failed to save screen frame dump');
-      logRuntimeError('screen-capture', 'frame dump save failed', {
-        detail,
-        sequence: frame.sequence,
-      });
-      store.getState().setLastRuntimeError(detail);
-    });
+    frameDumpCoordinator.reset();
+    frameSendCoordinator.reset();
   };
 
   const stopCapture = (
-    options: {
-      nextState?: 'disabled' | 'error';
-      detail?: string | null;
-      preserveDiagnostics?: boolean;
-      uploadStatus?: 'idle' | 'error';
-      propagateStopError?: boolean;
-    } = {},
+    options: StopCaptureOptions = {},
   ): Promise<void> => {
     const {
       nextState = 'disabled',
@@ -233,14 +183,13 @@ export function createScreenCaptureController(
       return Promise.resolve();
     }
 
-      screenCapture = null;
-      screenCaptureGeneration += 1;
-      debugFrameDumpReady = false;
-      pendingFrame = null;
-      frameDrainInFlight = null;
-      visualPolicy.onScreenShareStopped();
-      flushVisualDiagnostics();
-      store.getState().setScreenCaptureState('stopping');
+    screenCapture = null;
+    screenCaptureGeneration += 1;
+    frameDumpCoordinator.reset();
+    frameSendCoordinator.reset();
+    visualPolicy.onScreenShareStopped();
+    flushVisualDiagnostics();
+    store.getState().setScreenCaptureState('stopping');
 
     const finalizeStop = async (): Promise<void> => {
       let stopError: unknown;
@@ -277,149 +226,8 @@ export function createScreenCaptureController(
     return stopPromise;
   };
 
-  const stopInternal = (
-    options: {
-      nextState?: 'disabled' | 'error';
-      detail?: string | null;
-      preserveDiagnostics?: boolean;
-      uploadStatus?: 'idle' | 'error';
-    } = {},
-  ): Promise<void> => {
+  stopInternal = (options = {}) => {
     return stopCapture(options);
-  };
-
-  const enqueueFrameSend = (frame: LocalScreenFrame): Promise<void> => {
-    const transport = getTransport();
-    const capture = screenCapture;
-    const captureGeneration = screenCaptureGeneration;
-
-    // Resume swaps transports without replaying captured frames into the next session.
-    // Frames produced while no active transport is attached are intentionally dropped.
-    if (!transport || !capture) {
-      return Promise.resolve();
-    }
-
-    // Visual policy gate (Wave 1): only forward frames when the state machine
-    // explicitly allows it (snapshot or streaming). Sleep and inactive block all sends.
-    if (!visualPolicy.allowSend()) {
-      return Promise.resolve();
-    }
-    // Wave 3: flush updated diagnostics (sent counts + transition reason) after allowSend.
-    store.getState().setVisualSendDiagnostics(visualPolicy.getDiagnostics());
-
-    visualOutboundSequence += 1;
-    const decision = getRealtimeOutboundGateway().submit({
-      kind: 'visual_frame',
-      channelKey: VISUAL_SCREEN_CHANNEL_KEY,
-      replaceKey: VISUAL_SCREEN_CHANNEL_KEY,
-      sequence: visualOutboundSequence,
-      createdAtMs: Date.now(),
-      estimatedBytes: frame.data.byteLength,
-    });
-
-    if (decision.outcome === 'drop' || decision.outcome === 'block') {
-      return Promise.resolve();
-    }
-
-    pendingFrame = {
-      capture,
-      captureGeneration,
-      frame,
-      transport,
-    };
-    store.getState().setScreenCaptureDiagnostics({
-      lastUploadStatus: 'sending',
-      lastError: null,
-    });
-
-    const drainPendingFrames = (): Promise<void> => {
-      if (frameDrainInFlight) {
-        return frameDrainInFlight;
-      }
-
-      const drainPromise = (async () => {
-        while (pendingFrame) {
-          const nextFrame = pendingFrame;
-          pendingFrame = null;
-
-          if (
-            getTransport() !== nextFrame.transport
-            || !isCurrentCapture(nextFrame.capture, nextFrame.captureGeneration)
-          ) {
-            continue;
-          }
-
-          try {
-            await nextFrame.transport.sendVideoFrame(
-              nextFrame.frame.data,
-              nextFrame.frame.mimeType,
-            );
-          } catch (error) {
-            if (
-              getTransport() !== nextFrame.transport
-              || !isCurrentCapture(nextFrame.capture, nextFrame.captureGeneration)
-            ) {
-              continue;
-            }
-
-            const detail = asErrorDetail(error, 'Failed to send screen frame');
-            getRealtimeOutboundGateway().recordFailure(detail);
-            logRuntimeError('screen-capture', 'video frame send failed', {
-              detail,
-              sequence: nextFrame.frame.sequence,
-              mimeType: nextFrame.frame.mimeType,
-              byteLength: nextFrame.frame.data.byteLength,
-              widthPx: nextFrame.frame.widthPx,
-              heightPx: nextFrame.frame.heightPx,
-            });
-            store.getState().setLastRuntimeError(detail);
-            pendingFrame = null;
-            void stopInternal({
-              nextState: 'error',
-              detail,
-              preserveDiagnostics: true,
-              uploadStatus: 'error',
-            });
-            return;
-          }
-
-          if (
-            getTransport() !== nextFrame.transport
-            || !isCurrentCapture(nextFrame.capture, nextFrame.captureGeneration)
-          ) {
-            continue;
-          }
-
-          getRealtimeOutboundGateway().recordSuccess();
-          logRuntimeDiagnostic('screen-capture', 'video frame sent', {
-            sequence: nextFrame.frame.sequence,
-            mimeType: nextFrame.frame.mimeType,
-            byteLength: nextFrame.frame.data.byteLength,
-            widthPx: nextFrame.frame.widthPx,
-            heightPx: nextFrame.frame.heightPx,
-            maxPendingFrames: SCREEN_CAPTURE_MAX_PENDING_FRAMES,
-          });
-          store.getState().setScreenCaptureState('streaming');
-          store.getState().setScreenCaptureDiagnostics({
-            lastUploadStatus: 'sent',
-            lastError: null,
-          });
-        }
-      })().finally(() => {
-        if (frameDrainInFlight === drainPromise) {
-          frameDrainInFlight = null;
-        }
-
-        if (pendingFrame) {
-          void drainPendingFrames();
-        }
-      });
-
-      frameDrainInFlight = drainPromise;
-      return drainPromise;
-    };
-
-    return drainPendingFrames();
   };
 
   const start = async (): Promise<void> => {
@@ -431,15 +239,7 @@ export function createScreenCaptureController(
     const voiceStatus = state.voiceSessionStatus;
     const transport = getTransport();
 
-    if (
-      transport === null ||
-      (
-        voiceStatus !== 'ready' &&
-        voiceStatus !== 'capturing' &&
-        voiceStatus !== 'streaming' &&
-        voiceStatus !== 'interrupted'
-      )
-    ) {
+    if (transport === null || !isActiveVoiceSessionStatus(voiceStatus)) {
       const detail = 'Screen context requires an active Live session';
       state.setScreenCaptureState('error');
       state.setScreenCaptureDiagnostics({
@@ -451,11 +251,11 @@ export function createScreenCaptureController(
     }
 
     if (
-      state.screenCaptureState === 'ready' ||
-      state.screenCaptureState === 'capturing' ||
-      state.screenCaptureState === 'streaming' ||
-      state.screenCaptureState === 'requestingPermission' ||
-      state.screenCaptureState === 'stopping'
+      state.screenCaptureState === 'ready'
+      || state.screenCaptureState === 'capturing'
+      || state.screenCaptureState === 'streaming'
+      || state.screenCaptureState === 'requestingPermission'
+      || state.screenCaptureState === 'stopping'
     ) {
       return;
     }
@@ -470,8 +270,8 @@ export function createScreenCaptureController(
           return;
         }
 
-        persistScreenFrameDump(capture, captureGeneration, frame);
-        void enqueueFrameSend(frame);
+        frameDumpCoordinator.persistFrame(capture, captureGeneration, frame);
+        void frameSendCoordinator.enqueueFrameSend(frame);
       },
       onDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => {
         if (!isCurrentCapture(capture, captureGeneration)) {
@@ -494,7 +294,7 @@ export function createScreenCaptureController(
           uploadStatus: 'error',
         });
       },
-    });
+    } satisfies LocalScreenCaptureObserver);
     screenCapture = capture;
     screenCaptureGeneration = captureGeneration;
 
@@ -505,7 +305,7 @@ export function createScreenCaptureController(
         return;
       }
 
-      await startScreenFrameDumpSession(capture, captureGeneration);
+      await frameDumpCoordinator.startSession(capture, captureGeneration);
 
       if (!isCurrentCapture(capture, captureGeneration)) {
         return;
@@ -535,8 +335,8 @@ export function createScreenCaptureController(
     const state = store.getState();
 
     if (
-      state.screenCaptureState === 'disabled' ||
-      state.screenCaptureState === 'stopping'
+      state.screenCaptureState === 'disabled'
+      || state.screenCaptureState === 'stopping'
     ) {
       await stopInFlight;
       return;
@@ -553,12 +353,9 @@ export function createScreenCaptureController(
     stop,
     stopInternal,
     resetDiagnostics,
-    enqueueFrameSend,
+    enqueueFrameSend: frameSendCoordinator.enqueueFrameSend,
     isActive: () => screenCapture !== null,
-    resetSendChain: () => {
-      pendingFrame = null;
-      frameDrainInFlight = null;
-    },
+    resetSendChain: frameSendCoordinator.reset,
     getVisualSendState: () => visualPolicy.getState(),
     analyzeScreenNow: () => {
       visualPolicy.analyzeScreenNow();

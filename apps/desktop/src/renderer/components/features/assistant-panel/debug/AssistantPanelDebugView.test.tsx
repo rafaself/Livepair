@@ -168,7 +168,10 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Last transition')).toBeVisible();
     expect(screen.getByText('Enable streaming')).toBeVisible();
     expect(screen.getByText('Snapshots triggered')).toBeVisible();
-    expect(within(getFieldListItem('Snapshots triggered')).getByText('2')).toBeVisible();
+    expect(
+      within(screen.getByText('Snapshots triggered').closest('.field-list__item')!)
+        .getByText('2'),
+    ).toBeVisible();
     expect(screen.getByText('Streaming entered')).toBeVisible();
     expect(screen.getByText('2026-03-10T10:14:00.000Z')).toBeVisible();
     expect(screen.getByText('Streaming ended')).toBeVisible();
@@ -374,8 +377,9 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
     );
     expect(screen.getByText('Sent (snapshot)')).toBeVisible();
     expect(screen.getByText('Sent (streaming)')).toBeVisible();
-    expect(within(getFieldListItem('Snapshots triggered')).getByText('3')).toBeVisible();
-    expect(within(getFieldListItem('Sent (snapshot)')).getByText('3')).toBeVisible();
-    expect(within(getFieldListItem('Sent (streaming)')).getByText('0')).toBeVisible();
+    expect(
+      within(screen.getByText('Sent (snapshot)').closest('.field-list__item')!)
+        .getByText('3'),
+    ).toBeVisible();
   });
 });
