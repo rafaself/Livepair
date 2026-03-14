@@ -1,10 +1,12 @@
 import type { LocalScreenFrame, ScreenCaptureDiagnostics } from './screen.types';
+import type { ScreenCaptureAccessStatus } from '../../../shared';
 import {
   SCREEN_CAPTURE_FRAME_RATE_HZ,
   SCREEN_CAPTURE_JPEG_QUALITY,
   SCREEN_CAPTURE_MAX_WIDTH_PX,
   SCREEN_CAPTURE_VIDEO_MIME_TYPE,
 } from './screenCapturePolicy';
+import { mapScreenCaptureStartError } from './screenCaptureStartError';
 
 export {
   SCREEN_CAPTURE_FRAME_RATE_HZ,
@@ -56,6 +58,7 @@ export type LocalScreenCapture = {
 
 export type CreateLocalScreenCaptureDependencies = {
   getDisplayMedia?: () => Promise<MediaStream>;
+  getScreenCaptureAccessStatus?: () => Promise<ScreenCaptureAccessStatus>;
   createCanvas?: () => CanvasLike;
   createVideoElement?: () => VideoElementLike;
   createInterval?: (callback: () => void, intervalMs: number) => () => void;
@@ -86,6 +89,10 @@ function defaultGetDisplayMedia(): Promise<MediaStream> {
   return navigator.mediaDevices.getDisplayMedia({ video: true });
 }
 
+function defaultGetScreenCaptureAccessStatus(): Promise<ScreenCaptureAccessStatus> {
+  return window.bridge.getScreenCaptureAccessStatus();
+}
+
 function defaultCreateCanvas(): CanvasLike {
   return document.createElement('canvas') as unknown as CanvasLike;
 }
@@ -106,6 +113,7 @@ export function createLocalScreenCapture(
   observer: LocalScreenCaptureObserver,
   {
     getDisplayMedia = defaultGetDisplayMedia,
+    getScreenCaptureAccessStatus = defaultGetScreenCaptureAccessStatus,
     createCanvas = defaultCreateCanvas,
     createVideoElement = defaultCreateVideoElement,
     createInterval = defaultCreateInterval,
@@ -230,19 +238,15 @@ export function createLocalScreenCapture(
       try {
         capturedStream = await getDisplayMedia();
       } catch (error: unknown) {
-        const isPermissionDenied =
-          error instanceof Error &&
-          (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError');
-        const isNotSupported =
-          error instanceof Error &&
-          error.message === 'Not supported';
-        const detail = isPermissionDenied
-          ? 'Screen capture permission was denied'
-          : isNotSupported
-            ? 'Screen capture is not available — the main process display-media handler may not be registered'
-            : error instanceof Error && error.message.length > 0
-              ? error.message
-              : 'Screen capture failed';
+        let accessStatus: ScreenCaptureAccessStatus | null = null;
+
+        try {
+          accessStatus = await getScreenCaptureAccessStatus();
+        } catch {
+          accessStatus = null;
+        }
+
+        const detail = mapScreenCaptureStartError(error, accessStatus);
         observer.onError(detail);
         throw new Error(detail);
       }

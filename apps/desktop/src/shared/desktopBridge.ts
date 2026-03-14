@@ -35,6 +35,19 @@ export type ScreenCaptureSourceSnapshot = {
   selectedSourceId: string | null;
 };
 
+export type ScreenCapturePermissionStatus =
+  | 'not-determined'
+  | 'granted'
+  | 'denied'
+  | 'restricted'
+  | 'unknown'
+  | null;
+
+export type ScreenCaptureAccessStatus = {
+  platform: string;
+  permissionStatus: ScreenCapturePermissionStatus;
+};
+
 export type OverlayMode = 'linux-shape' | 'forwarded-pointer';
 
 export interface DesktopBridge {
@@ -59,6 +72,7 @@ export interface DesktopBridge {
   updateSettings: (patch: DesktopSettingsPatch) => Promise<DesktopSettings>;
   setOverlayHitRegions: (regions: OverlayHitRegion[]) => Promise<void>;
   setOverlayPointerPassthrough: (enabled: boolean) => Promise<void>;
+  getScreenCaptureAccessStatus: () => Promise<ScreenCaptureAccessStatus>;
   listScreenCaptureSources: () => Promise<ScreenCaptureSourceSnapshot>;
   selectScreenCaptureSource: (
     sourceId: string | null,
@@ -84,6 +98,7 @@ export const IPC_CHANNELS = {
   updateSettings: 'settings:update',
   setOverlayHitRegions: 'overlay:setHitRegions',
   setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
+  getScreenCaptureAccessStatus: 'screenCapture:getAccessStatus',
   listScreenCaptureSources: 'screenCapture:listSources',
   selectScreenCaptureSource: 'screenCapture:selectSource',
 } as const;

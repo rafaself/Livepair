@@ -5,9 +5,10 @@ import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
 import {
   CAPTURE_SOURCE_LIST_OPTIONS,
   createCaptureSourceRegistry,
-  toCaptureSources,
   type CaptureSourceRegistry,
+  toCaptureSources,
 } from '../desktopCapture/captureSourceRegistry';
+import { getScreenCaptureAccessStatus } from '../desktopCapture/screenCaptureAccessStatus';
 import type { DesktopSettingsService } from '../settings/settingsService';
 import { createBackendClient } from '../backend/backendClient';
 import {
@@ -230,6 +231,10 @@ export function registerIpcHandlers({
       mainWindow.setIgnoreMouseEvents(false);
     },
   );
+
+  ipcMain.handle(IPC_CHANNELS.getScreenCaptureAccessStatus, async () => {
+    return getScreenCaptureAccessStatus(platform);
+  });
 
   ipcMain.handle(IPC_CHANNELS.listScreenCaptureSources, async () => {
     return loadScreenCaptureSourceSnapshot();

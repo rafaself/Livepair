@@ -50,6 +50,7 @@ describe('preload bridge', () => {
       'updateSettings',
       'setOverlayHitRegions',
       'setOverlayPointerPassthrough',
+      'getScreenCaptureAccessStatus',
       'listScreenCaptureSources',
       'selectScreenCaptureSource',
     ]);
@@ -73,6 +74,7 @@ describe('preload bridge', () => {
       updateSettings: expect.any(Function),
       setOverlayHitRegions: expect.any(Function),
       setOverlayPointerPassthrough: expect.any(Function),
+      getScreenCaptureAccessStatus: expect.any(Function),
       listScreenCaptureSources: expect.any(Function),
       selectScreenCaptureSource: expect.any(Function),
     });
@@ -303,6 +305,13 @@ describe('preload bridge', () => {
     mockInvoke.mockResolvedValueOnce(undefined);
     await bridge.setOverlayPointerPassthrough(false);
     expect(mockInvoke).toHaveBeenCalledWith('overlay:setPointerPassthrough', false);
+
+    mockInvoke.mockResolvedValueOnce({
+      platform: 'darwin',
+      permissionStatus: 'granted',
+    });
+    await bridge.getScreenCaptureAccessStatus();
+    expect(mockInvoke).toHaveBeenCalledWith('screenCapture:getAccessStatus');
 
     mockInvoke.mockResolvedValueOnce({
       sources: [{ id: 'screen:1:0', name: 'Entire Screen' }],
