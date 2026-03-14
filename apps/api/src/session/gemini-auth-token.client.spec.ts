@@ -1,13 +1,26 @@
 import { BadGatewayException } from '@nestjs/common';
+import { ObservabilityService } from '../observability/observability.service';
 import { requestGeminiAuthToken } from './gemini-auth-token.client';
 
 describe('requestGeminiAuthToken', () => {
   let fetchImpl: jest.MockedFunction<typeof fetch>;
   let consoleErrorSpy: jest.SpyInstance;
+  let observabilityService: ObservabilityService;
+
+  function createRequestOptions(): Parameters<typeof requestGeminiAuthToken>[0] {
+    return {
+      apiKey: 'gemini-key',
+      fetchImpl,
+      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      observabilityService,
+    } as Parameters<typeof requestGeminiAuthToken>[0];
+  }
 
   beforeEach(() => {
     fetchImpl = jest.fn() as jest.MockedFunction<typeof fetch>;
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    observabilityService = new ObservabilityService();
   });
 
   afterEach(() => {
@@ -22,14 +35,7 @@ describe('requestGeminiAuthToken', () => {
       }),
     } as Response);
 
-    await expect(
-      requestGeminiAuthToken({
-        apiKey: 'gemini-key',
-        fetchImpl,
-        newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        expireTime: '2099-03-09T12:30:00.000Z',
-      }),
-    ).resolves.toEqual({
+    await expect(requestGeminiAuthToken(createRequestOptions())).resolves.toEqual({
       token: 'auth-tokens/abc123',
     });
 
@@ -48,6 +54,13 @@ describe('requestGeminiAuthToken', () => {
         }),
       },
     );
+
+    await expect(observabilityService.getMetrics()).resolves.toMatch(
+      /gemini_auth_token_requests_total\{outcome="success"\} 1/,
+    );
+    await expect(observabilityService.getMetrics()).resolves.toMatch(
+      /gemini_auth_token_request_duration_seconds_count 1/,
+    );
   });
 
   it('maps upstream non-ok responses to a bad gateway error', async () => {
@@ -62,32 +75,34 @@ describe('requestGeminiAuthToken', () => {
       }),
     } as Response);
 
-    await expect(
-      requestGeminiAuthToken({
-        apiKey: 'gemini-key',
-        fetchImpl,
-        newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        expireTime: '2099-03-09T12:30:00.000Z',
-      }),
-    ).rejects.toEqual(
+    await expect(requestGeminiAuthToken(createRequestOptions())).rejects.toEqual(
       new BadGatewayException('Gemini token request failed: upstream 500 - backend unavailable'),
+    );
+
+    await expect(observabilityService.getMetrics()).resolves.toMatch(
+      /gemini_auth_token_requests_total\{outcome="upstream_error"\} 1/,
+    );
+    await expect(observabilityService.getMetrics()).resolves.toMatch(
+      /gemini_auth_token_request_duration_seconds_count 1/,
     );
   });
 
   it('maps network failures to a bad gateway error', async () => {
     fetchImpl.mockRejectedValue(new Error('network down'));
 
-    await expect(
-      requestGeminiAuthToken({
-        apiKey: 'gemini-key',
-        fetchImpl,
-        newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        expireTime: '2099-03-09T12:30:00.000Z',
-      }),
-    ).rejects.toEqual(new BadGatewayException('Gemini token request failed: network down'));
+    await expect(requestGeminiAuthToken(createRequestOptions())).rejects.toEqual(
+      new BadGatewayException('Gemini token request failed: network down'),
+    );
+
+    await expect(observabilityService.getMetrics()).resolves.toMatch(
+      /gemini_auth_token_requests_total\{outcome="network_error"\} 1/,
+    );
+    await expect(observabilityService.getMetrics()).resolves.toMatch(
+      /gemini_auth_token_request_duration_seconds_count 1/,
+    );
   });
 
-  it('rejects malformed upstream payloads', async () => {
+  it('classifies malformed upstream payloads as invalid payloads', async () => {
     fetchImpl.mockResolvedValue({
       ok: true,
       status: 200,
@@ -96,14 +111,16 @@ describe('requestGeminiAuthToken', () => {
       }),
     } as Response);
 
-    await expect(
-      requestGeminiAuthToken({
-        apiKey: 'gemini-key',
-        fetchImpl,
-        newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        expireTime: '2099-03-09T12:30:00.000Z',
-      }),
-    ).rejects.toEqual(new BadGatewayException('Gemini token response was invalid'));
+    await expect(requestGeminiAuthToken(createRequestOptions())).rejects.toEqual(
+      new BadGatewayException('Gemini token response was invalid'),
+    );
+
+    await expect(observabilityService.getMetrics()).resolves.toMatch(
+      /gemini_auth_token_requests_total\{outcome="invalid_payload"\} 1/,
+    );
+    await expect(observabilityService.getMetrics()).resolves.toMatch(
+      /gemini_auth_token_request_duration_seconds_count 1/,
+    );
   });
 
   it('rejects blank upstream token names', async () => {
@@ -116,14 +133,9 @@ describe('requestGeminiAuthToken', () => {
       }),
     } as Response);
 
-    await expect(
-      requestGeminiAuthToken({
-        apiKey: 'gemini-key',
-        fetchImpl,
-        newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-        expireTime: '2099-03-09T12:30:00.000Z',
-      }),
-    ).rejects.toEqual(new BadGatewayException('Gemini token response was invalid'));
+    await expect(requestGeminiAuthToken(createRequestOptions())).rejects.toEqual(
+      new BadGatewayException('Gemini token response was invalid'),
+    );
   });
 
 });
