@@ -151,21 +151,23 @@ export function handleGeminiLiveSdkMessage({
 
   emitToolCalls(emit, message);
 
-  const inputTranscriptText = message.serverContent?.inputTranscription?.text;
+  const inputTranscription = message.serverContent?.inputTranscription;
 
-  if (inputTranscriptText && inputTranscriptText.length > 0) {
+  if (inputTranscription?.text && inputTranscription.text.length > 0) {
     emit({
       type: 'input-transcript',
-      text: inputTranscriptText,
+      text: inputTranscription.text,
+      ...(inputTranscription.finished != null ? { isFinal: inputTranscription.finished } : {}),
     });
   }
 
-  const outputTranscriptText = message.serverContent?.outputTranscription?.text;
+  const outputTranscription = message.serverContent?.outputTranscription;
 
-  if (outputTranscriptText && outputTranscriptText.length > 0) {
+  if (outputTranscription?.text && outputTranscription.text.length > 0) {
     emit({
       type: 'output-transcript',
-      text: outputTranscriptText,
+      text: outputTranscription.text,
+      ...(outputTranscription.finished != null ? { isFinal: outputTranscription.finished } : {}),
     });
   }
 

@@ -27,7 +27,7 @@ function canAppendTranscriptChunk(previous: string, incoming: string): boolean {
 export function normalizeTranscriptText(
   previous: string,
   incoming: string,
-  { role = 'assistant', isFinal = false }: NormalizeTranscriptTextOptions = {},
+  { role: _role = 'assistant', isFinal = false }: NormalizeTranscriptTextOptions = {},
 ): string {
   if (incoming.length === 0 || incoming === previous) {
     return previous;
@@ -38,14 +38,6 @@ export function normalizeTranscriptText(
   }
 
   if (incoming.startsWith(previous) || incoming.includes(previous)) {
-    return incoming;
-  }
-
-  if (role === 'user') {
-    if (previous.includes(incoming) && !isFinal) {
-      return previous;
-    }
-
     return incoming;
   }
 

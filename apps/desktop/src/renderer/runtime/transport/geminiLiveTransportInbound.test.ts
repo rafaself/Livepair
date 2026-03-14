@@ -290,6 +290,55 @@ describe('handleGeminiLiveSdkMessage', () => {
     ]);
   });
 
+  it('forwards the finished flag from Gemini transcription as isFinal on transcript events', () => {
+    const harness = createHarness('voice');
+
+    harness.dispatch({
+      serverContent: {
+        inputTranscription: {
+          text: 'final user phrase',
+          finished: true,
+        },
+        outputTranscription: {
+          text: 'final assistant phrase',
+          finished: true,
+        },
+      },
+    });
+
+    expect(harness.events).toEqual([
+      {
+        type: 'input-transcript',
+        text: 'final user phrase',
+        isFinal: true,
+      },
+      {
+        type: 'output-transcript',
+        text: 'final assistant phrase',
+        isFinal: true,
+      },
+    ]);
+  });
+
+  it('omits isFinal when finished is absent from Gemini transcription', () => {
+    const harness = createHarness('voice');
+
+    harness.dispatch({
+      serverContent: {
+        inputTranscription: {
+          text: 'partial user phrase',
+        },
+      },
+    });
+
+    expect(harness.events).toEqual([
+      {
+        type: 'input-transcript',
+        text: 'partial user phrase',
+      },
+    ]);
+  });
+
   it('emits only turn-complete when there is no buffered assistant text to flush', () => {
     const harness = createHarness();
 

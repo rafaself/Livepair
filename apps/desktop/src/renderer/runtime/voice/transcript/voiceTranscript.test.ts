@@ -64,4 +64,32 @@ describe('normalizeTranscriptText', () => {
       }),
     ).toBe('Hello there again');
   });
+
+  // --- Regression: progressive user transcript overwrite bug ---
+
+  it('accumulates non-overlapping user partials instead of replacing (progressive speech)', () => {
+    // Gemini sends independent partial chunks for user speech:
+    // "hello" → "good" → "morning"
+    // Each chunk is a new recognition window, not a correction.
+    let text = normalizeTranscriptText('', 'hello', { role: 'user' });
+    expect(text).toBe('hello');
+
+    text = normalizeTranscriptText(text, ' good', { role: 'user' });
+    expect(text).toBe('hello good');
+
+    text = normalizeTranscriptText(text, ' morning', { role: 'user' });
+    expect(text).toBe('hello good morning');
+  });
+
+  it('stitches user transcript at an overlapping boundary', () => {
+    expect(
+      normalizeTranscriptText('hello wo', 'wo there', { role: 'user' }),
+    ).toBe('hello wo there');
+  });
+
+  it('keeps longer user transcript when a shorter stale partial arrives', () => {
+    expect(
+      normalizeTranscriptText('hello there', 'hello', { role: 'user' }),
+    ).toBe('hello there');
+  });
 });
