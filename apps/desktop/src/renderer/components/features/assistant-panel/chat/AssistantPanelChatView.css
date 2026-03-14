@@ -319,45 +319,103 @@
 .assistant-panel__composer-pill {
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.08);
+  background: #1e1f20;
   border-radius: var(--radius-full);
-  padding: 0 2px;
+  padding: 4px; /* Increased padding slightly for the inner circle */
   gap: 0;
   transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 :root[data-theme='light'] .assistant-panel__composer-pill {
-  background: rgba(0, 0, 0, 0.07);
+  background: #e8eaed; /* Slightly darker light grey for better contrast */
 }
 
 /* Remove individual backgrounds — the pill itself is the container */
 .assistant-panel__composer-pill .assistant-panel__composer-control {
-  background: transparent !important;
-  border-radius: var(--radius-full);
+  background: #2b2d30 !important;
+  border-radius: 50%;
+  color: #ffffff;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .assistant-panel__composer-pill .assistant-panel__composer-control:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: #3c3f43 !important;
+}
+
+:root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-control {
+  background: #ffffff !important;
+  color: #444746;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Subtle depth for the circle */
 }
 
 :root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-control:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.08) !important;
+  background: #f8f9fa !important;
+}
+
+.assistant-panel__composer-select.select {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Select chevron trigger inside the pill */
 .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger {
-  background: transparent;
+  background: transparent !important; /* Make it part of the pill background */
+  border: none;
   border-radius: var(--radius-full);
+  padding: 0 12px;
+  min-width: 0;
+  width: 100%;
+  height: 28px;
+  min-height: 28px;
+  justify-content: center;
 }
 
 .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger:hover:not(:disabled),
 .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger--open {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04) !important;
 }
 
 :root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger:hover:not(:disabled),
 :root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger--open {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Replace chevron with dots */
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger__chevron-icon {
+  display: none !important;
+}
+
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger__chevron {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger__value {
+  display: none;
+}
+
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger__chevron::after {
+  content: "";
+  display: block;
+  width: 3px;
+  height: 3px;
+  background: #a8c7fa;
+  border-radius: 50%;
+  box-shadow: -5px 0 0 #a8c7fa, 5px 0 0 #a8c7fa;
+}
+
+:root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger__chevron::after {
+  background: #0b57d0;
+  box-shadow: -5px 0 0 #0b57d0, 5px 0 0 #0b57d0;
 }
 
 .assistant-panel__composer-main {
@@ -368,10 +426,13 @@
 
 .assistant-panel__composer-control {
   color: var(--color-text-secondary);
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition:
     background-color var(--motion-fast) var(--ease-out),
     color var(--motion-fast) var(--ease-out),
@@ -384,12 +445,12 @@
 }
 
 .assistant-panel__composer-control--active {
+  /* In the pill design, we show active state primarily via icon color or keep it white if the image implies so */
+  /* For now keeping the accent color but removing the background mix since the circle is solid */
   color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 
 .assistant-panel__composer-control--inactive {
-  color: var(--color-text-secondary);
   opacity: 0.72;
 }
 
