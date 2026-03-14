@@ -197,6 +197,19 @@ describe('createLocalScreenCapture', () => {
       expect(obs.onError).toHaveBeenCalledWith('Some other error');
     });
 
+    it('maps the Electron "Not supported" error to a diagnosable message', async () => {
+      const { capture, obs } = createHarness({
+        getDisplayMediaImpl: () => Promise.reject(new Error('Not supported')),
+      });
+
+      await expect(capture.start({})).rejects.toThrow(
+        'Screen capture is not available — the main process display-media handler may not be registered',
+      );
+      expect(obs.onError).toHaveBeenCalledWith(
+        'Screen capture is not available — the main process display-media handler may not be registered',
+      );
+    });
+
     it('throws and calls onError when video.play() rejects', async () => {
       const { capture, obs, video } = createHarness();
       video.play.mockRejectedValueOnce(new Error('play failed'));

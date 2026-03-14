@@ -1,5 +1,6 @@
 import { app } from 'electron';
 import { getChatMemoryService } from './chatMemory/chatMemoryService';
+import { registerDisplayMediaHandler } from './desktopCapture/registerDisplayMediaHandler';
 import { getDesktopSettingsService } from './settings/settingsService';
 import { registerIpcHandlers } from './ipc/registerIpcHandlers';
 import {
@@ -14,6 +15,7 @@ const settingsService = getDesktopSettingsService();
 registerIpcHandlers({ chatMemoryService, getMainWindow, settingsService });
 
 app.whenReady().then(() => {
+  registerDisplayMediaHandler();
   createWindow();
   app.on('activate', () => {
     handleAppActivate();

@@ -233,11 +233,16 @@ export function createLocalScreenCapture(
         const isPermissionDenied =
           error instanceof Error &&
           (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError');
+        const isNotSupported =
+          error instanceof Error &&
+          error.message === 'Not supported';
         const detail = isPermissionDenied
           ? 'Screen capture permission was denied'
-          : error instanceof Error && error.message.length > 0
-            ? error.message
-            : 'Screen capture failed';
+          : isNotSupported
+            ? 'Screen capture is not available — the main process display-media handler may not be registered'
+            : error instanceof Error && error.message.length > 0
+              ? error.message
+              : 'Screen capture failed';
         observer.onError(detail);
         throw new Error(detail);
       }

@@ -33,6 +33,8 @@ const mockGetPrimaryDisplay = vi.fn(() => ({
   workArea: { x: 0, y: 0, width: 1920, height: 1080 },
 }));
 
+const mockSetDisplayMediaRequestHandler = vi.fn();
+
 vi.mock('electron', () => ({
   app: {
     whenReady: mockWhenReady,
@@ -41,11 +43,17 @@ vi.mock('electron', () => ({
     getPath: mockGetPath,
     commandLine: { appendSwitch: mockAppendSwitch },
   },
+  desktopCapturer: { getSources: vi.fn(async () => []) },
   ipcMain: { handle: mockHandle },
   BrowserWindow: Object.assign(browserWindowCtor, {
     getAllWindows: mockGetAllWindows,
   }),
   screen: { getPrimaryDisplay: mockGetPrimaryDisplay },
+  session: {
+    defaultSession: {
+      setDisplayMediaRequestHandler: mockSetDisplayMediaRequestHandler,
+    },
+  },
 }));
 
 describe('main process runtime', () => {
@@ -72,6 +80,16 @@ describe('main process runtime', () => {
     expect(mockGetPrimaryDisplay).toHaveBeenCalled();
     expect(browserWindowCtor).toHaveBeenCalledTimes(1);
     expect(mockLoadURL).toHaveBeenCalledWith('http://localhost:5173');
+  });
+
+  it('registers the display media handler before creating the window', async () => {
+    await import('./main');
+    await Promise.resolve();
+
+    expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledOnce();
+    expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledWith(
+      expect.any(Function),
+    );
   });
 
   it('routes activate and window-all-closed callbacks through the overlay helpers', async () => {
