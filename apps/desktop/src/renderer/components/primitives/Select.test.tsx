@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState, type ReactNode } from 'react';
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { Select } from './Select';
+import { Select, type SelectRootProps } from './Select';
 
 type TestSelectProps = {
   value?: string;
@@ -26,17 +26,19 @@ function TestSelect({
   loading,
   items,
 }: TestSelectProps): JSX.Element {
+  const selectRootProps: Omit<SelectRootProps, 'children'> = {
+    ...(value !== undefined ? { value } : {}),
+    ...(defaultValue !== undefined ? { defaultValue } : {}),
+    ...(onValueChange !== undefined ? { onValueChange } : {}),
+    ...(open !== undefined ? { open } : {}),
+    ...(defaultOpen !== undefined ? { defaultOpen } : {}),
+    ...(onOpenChange !== undefined ? { onOpenChange } : {}),
+    ...(disabled !== undefined ? { disabled } : {}),
+    ...(loading !== undefined ? { loading } : {}),
+  };
+
   return (
-    <Select.Root
-      value={value}
-      defaultValue={defaultValue}
-      onValueChange={onValueChange}
-      open={open}
-      defaultOpen={defaultOpen}
-      onOpenChange={onOpenChange}
-      disabled={disabled}
-      loading={loading}
-    >
+    <Select.Root {...selectRootProps}>
       <Select.Trigger aria-label="Preferred mode">
         <Select.Value placeholder="Select mode" />
         <Select.Icon />

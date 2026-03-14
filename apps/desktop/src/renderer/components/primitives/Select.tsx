@@ -360,12 +360,18 @@ export function SelectRoot({
   const [value, setValue] = useControllableState<string | undefined>({
     value: valueProp,
     defaultValue,
-    onChange: onValueChange,
+    onChange: (nextValue) => {
+      if (nextValue !== undefined) {
+        onValueChange?.(nextValue);
+      }
+    },
   });
   const [open, setOpen] = useControllableState<boolean>({
     value: openProp,
     defaultValue: defaultOpen,
-    onChange: onOpenChange,
+    onChange: (nextOpen) => {
+      onOpenChange?.(nextOpen);
+    },
   });
 
   const items = sortItems(Array.from(itemsRef.current.values()));

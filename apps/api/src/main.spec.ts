@@ -1,3 +1,5 @@
+import { tmpdir } from 'os';
+import { join } from 'path';
 import type { INestApplication } from '@nestjs/common';
 
 const useGlobalPipes = jest.fn();
@@ -20,6 +22,7 @@ describe('main bootstrap', () => {
   const originalHost = process.env['HOST'];
   const originalDisableHttpListen = process.env['DISABLE_HTTP_LISTEN'];
   const originalNodeEnv = process.env['NODE_ENV'];
+  const originalDotenvConfigPath = process.env['DOTENV_CONFIG_PATH'];
   const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {
     return undefined;
   });
@@ -33,6 +36,7 @@ describe('main bootstrap', () => {
     useGlobalPipes.mockClear();
     listen.mockClear();
     logSpy.mockClear();
+    process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
   });
 
   afterAll(() => {
@@ -40,6 +44,7 @@ describe('main bootstrap', () => {
     process.env['HOST'] = originalHost;
     process.env['DISABLE_HTTP_LISTEN'] = originalDisableHttpListen;
     process.env['NODE_ENV'] = originalNodeEnv;
+    process.env['DOTENV_CONFIG_PATH'] = originalDotenvConfigPath;
     logSpy.mockRestore();
     warnSpy.mockRestore();
   });
