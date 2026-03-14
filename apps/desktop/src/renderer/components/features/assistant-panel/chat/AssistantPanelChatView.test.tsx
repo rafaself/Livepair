@@ -161,6 +161,8 @@ describe('AssistantPanelChatView', () => {
     expect(screen.queryByRole('button', { name: 'Back to history' })).toBeNull();
     expect(screen.getByRole('button', { name: 'History' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'New chat' })).toBeVisible();
+    expect(screen.queryByText(/^History$/)).toBeNull();
+    expect(screen.queryByText(/^New chat$/)).toBeNull();
   });
 
   it('shows safe latest-session metadata for an opened past chat when resume is potentially available', () => {

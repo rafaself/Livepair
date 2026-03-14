@@ -1,9 +1,9 @@
-import { History, TriangleAlert } from 'lucide-react';
+import { History, MessageCirclePlus, TriangleAlert } from 'lucide-react';
 import type { LiveSessionRecord } from '@livepair/shared-types';
 import type { ReactNode } from 'react';
 import { ConversationList } from '../../conversation/ConversationList';
 import type { ConversationTimelineEntry } from '../../../../runtime';
-import { Button } from '../../../primitives';
+import { IconButton } from '../../../primitives';
 
 export type AssistantPanelConversationSectionProps = {
   emptyState: ReactNode;
@@ -93,24 +93,24 @@ export function AssistantPanelConversationSection({
           <p className="assistant-panel__chat-title">Session history</p>
         </div>
         <div className="assistant-panel__history-actions">
-          <Button
-            variant="ghost"
+          <IconButton
+            label="History"
             size="sm"
             disabled={onOpenHistory === undefined}
             onClick={onOpenHistory}
           >
-            History
-          </Button>
-          <Button
-            variant="ghost"
+            <History size={16} />
+          </IconButton>
+          <IconButton
+            label="New chat"
             size="sm"
             disabled={onCreateChat === undefined}
             onClick={() => {
               void onCreateChat?.();
             }}
           >
-            New chat
-          </Button>
+            <MessageCirclePlus size={16} />
+          </IconButton>
         </div>
       </div>
       {isViewingPastChat ? (
