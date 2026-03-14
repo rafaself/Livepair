@@ -23,6 +23,7 @@ type CanvasMock = {
   height: number;
   getContext: ReturnType<typeof vi.fn>;
   toDataURL: ReturnType<typeof vi.fn>;
+  toBlob: ReturnType<typeof vi.fn>;
 };
 
 type VideoMock = {
@@ -60,9 +61,15 @@ function createTrack(): TrackLike {
   };
 }
 
-function makeBase64Jpeg(): string {
-  // minimal valid base64 (fake JPEG bytes)
+function makeFakeBase64Jpeg(): string {
   return btoa('fake-jpeg-data');
+}
+
+function createValidJpegBytes(): Uint8Array {
+  return new Uint8Array([
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+    0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xff, 0xd9,
+  ]);
 }
 
 function createHarness(opts: {
@@ -71,6 +78,7 @@ function createHarness(opts: {
   videoWidth?: number;
   videoHeight?: number;
   toDataUrlResult?: string;
+  blobBytes?: Uint8Array;
 } = {}): {
   capture: ReturnType<typeof createLocalScreenCapture>;
   obs: ReturnType<typeof createObserver>;
@@ -78,7 +86,7 @@ function createHarness(opts: {
   track: TrackLike;
   canvas: CanvasMock;
   video: VideoMock;
-  tickInterval: () => void;
+  tickInterval: () => Promise<void>;
   getDisplayMedia: ReturnType<typeof vi.fn>;
   getScreenCaptureAccessStatus: ReturnType<typeof vi.fn>;
   createInterval: ReturnType<typeof vi.fn>;
@@ -113,7 +121,17 @@ function createHarness(opts: {
     width: 0,
     height: 0,
     getContext: vi.fn(() => ctx2d),
-    toDataURL: vi.fn(() => `data:image/jpeg;base64,${opts.toDataUrlResult ?? makeBase64Jpeg()}`),
+    toDataURL: vi.fn(
+      () => `data:image/jpeg;base64,${opts.toDataUrlResult ?? makeFakeBase64Jpeg()}`,
+    ),
+    toBlob: vi.fn((callback: (blob: Blob | null) => void) => {
+      const blobBytes = new Uint8Array(Array.from(opts.blobBytes ?? createValidJpegBytes()));
+      callback(
+        new Blob([blobBytes], {
+          type: SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+        }),
+      );
+    }),
   };
 
   const video: VideoMock = {
@@ -147,8 +165,8 @@ function createHarness(opts: {
     track,
     canvas,
     video,
-    tickInterval: () => {
-      intervalCallback?.();
+    tickInterval: async () => {
+      await intervalCallback?.();
     },
     getDisplayMedia,
     getScreenCaptureAccessStatus,
@@ -314,10 +332,36 @@ describe('createLocalScreenCapture', () => {
   });
 
   describe('frame emission', () => {
+    it('emits binary jpeg bytes from canvas blobs instead of reconstructing bytes from data urls', async () => {
+      const jpegBytes = createValidJpegBytes();
+      const { capture, obs, tickInterval, canvas } = createHarness({
+        blobBytes: jpegBytes,
+        toDataUrlResult: btoa('not-a-real-jpeg'),
+      });
+
+      await capture.start({});
+      await tickInterval();
+
+      expect(canvas.toBlob).toHaveBeenCalledWith(
+        expect.any(Function),
+        SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+        SCREEN_CAPTURE_JPEG_QUALITY,
+      );
+      expect(canvas.toDataURL).not.toHaveBeenCalled();
+      expect(obs.onFrame).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mimeType: SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+          data: jpegBytes,
+        }),
+      );
+      expect(obs.onFrame.mock.calls[0]?.[0].data.slice(0, 2)).toEqual(new Uint8Array([0xff, 0xd8]));
+      expect(obs.onFrame.mock.calls[0]?.[0].data.slice(-2)).toEqual(new Uint8Array([0xff, 0xd9]));
+    });
+
     it('emits onFrame on each interval tick', async () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
-      tickInterval();
+      await tickInterval();
       expect(obs.onFrame).toHaveBeenCalledOnce();
       expect(obs.onFrame).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -330,8 +374,8 @@ describe('createLocalScreenCapture', () => {
     it('increments sequence on each frame', async () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
-      tickInterval();
-      tickInterval();
+      await tickInterval();
+      await tickInterval();
       expect(obs.onFrame).toHaveBeenCalledTimes(2);
       expect(obs.onFrame.mock.calls[0]?.[0]).toMatchObject({ sequence: 1 });
       expect(obs.onFrame.mock.calls[1]?.[0]).toMatchObject({ sequence: 2 });
@@ -341,7 +385,7 @@ describe('createLocalScreenCapture', () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
       const initialCallCount = obs.onDiagnostics.mock.calls.length;
-      tickInterval();
+      await tickInterval();
       expect(obs.onDiagnostics).toHaveBeenCalledTimes(initialCallCount + 1);
       expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -354,14 +398,14 @@ describe('createLocalScreenCapture', () => {
     it('skips frame when video dimensions are zero', async () => {
       const { capture, obs, tickInterval } = createHarness({ videoWidth: 0, videoHeight: 0 });
       await capture.start({});
-      tickInterval();
+      await tickInterval();
       expect(obs.onFrame).not.toHaveBeenCalled();
     });
 
     it('caps canvas width to maxWidthPx', async () => {
       const { capture, canvas, tickInterval } = createHarness({ videoWidth: 1920, videoHeight: 1080 });
       await capture.start({ maxWidthPx: 640 });
-      tickInterval();
+      await tickInterval();
       expect(canvas.width).toBeLessThanOrEqual(640);
     });
   });
@@ -385,7 +429,7 @@ describe('createLocalScreenCapture', () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
       await capture.stop();
-      tickInterval();
+      await tickInterval();
       expect(obs.onFrame).not.toHaveBeenCalled();
     });
 
@@ -411,10 +455,10 @@ describe('createLocalScreenCapture', () => {
     it('resets sequence counter after stop/restart', async () => {
       const { capture, obs, tickInterval } = createHarness();
       await capture.start({});
-      tickInterval();
+      await tickInterval();
       await capture.stop();
       await capture.start({});
-      tickInterval();
+      await tickInterval();
       expect(obs.onFrame).toHaveBeenLastCalledWith(
         expect.objectContaining({ sequence: 1 }),
       );
