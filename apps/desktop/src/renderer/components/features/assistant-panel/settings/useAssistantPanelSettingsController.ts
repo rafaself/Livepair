@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import type {
   PreferredMode,
   SpeechSilenceTimeout,
@@ -53,13 +53,7 @@ export type AssistantPanelSettingsController = {
   handleBackendUrlBlur: () => Promise<void>;
 };
 
-type UseAssistantPanelSettingsControllerOptions = {
-  enabled?: boolean;
-};
-
-export function useAssistantPanelSettingsController({
-  enabled: _enabled = true,
-}: UseAssistantPanelSettingsControllerOptions = {}): AssistantPanelSettingsController {
+export function useAssistantPanelSettingsController(): AssistantPanelSettingsController {
   const settings = useSettingsStore((state) => state.settings);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const updateSettings = useSettingsStore((state) => state.updateSettings);
@@ -90,25 +84,6 @@ export function useAssistantPanelSettingsController({
     ],
     [screenCaptureSources],
   );
-
-  useEffect(() => {
-    if (!_enabled) {
-      return;
-    }
-
-    void window.bridge
-      .listScreenCaptureSources()
-      .then((snapshot) => {
-        setScreenCaptureSourceSnapshot(snapshot);
-      })
-      .catch((error: unknown) => {
-        setLastRuntimeError(
-          error instanceof Error && error.message.length > 0
-            ? error.message
-            : 'Failed to load screen capture sources',
-        );
-      });
-  }, [_enabled, setLastRuntimeError, setScreenCaptureSourceSnapshot]);
 
   const handleBackendUrlBlur = async (): Promise<void> => {
     const normalizedBackendUrl = normalizeBackendBaseUrl(resolvedBackendUrlDraft);

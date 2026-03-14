@@ -1,11 +1,24 @@
+import { render, screen } from '@testing-library/react';
+import { createElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
+import { useAssistantPanelSettingsController } from './components/features/assistant-panel/settings/useAssistantPanelSettingsController';
 import { resetCurrentChatMemoryForTests } from './chatMemory/currentChatMemory';
 import { bootstrapDesktopRenderer } from './bootstrap';
 import { resetDesktopStores } from './store/testing';
 import { useSettingsStore } from './store/settingsStore';
 import { useSessionStore } from './store/sessionStore';
 import { useUiStore } from './store/uiStore';
+
+function BootstrappedScreenSourceOptions(): JSX.Element {
+  const controller = useAssistantPanelSettingsController();
+
+  return createElement(
+    'output',
+    { 'aria-label': 'screen-source-options' },
+    controller.screenCaptureSourceOptions.map((option) => option.label).join('|'),
+  );
+}
 
 describe('bootstrapDesktopRenderer', () => {
   beforeEach(() => {
@@ -32,6 +45,13 @@ describe('bootstrapDesktopRenderer', () => {
       isCurrent: true,
     });
     window.bridge.listChatMessages = vi.fn().mockResolvedValue([]);
+    window.bridge.listScreenCaptureSources = vi.fn().mockResolvedValue({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'screen:1:0',
+    });
   });
 
   it('hydrates settings before render, applies the resolved theme, and seeds drafts from persisted settings', async () => {
@@ -44,6 +64,34 @@ describe('bootstrapDesktopRenderer', () => {
     expect(useSessionStore.getState().activeChatId).toBe('chat-1');
     expect(useUiStore.getState().backendUrlDraft).toBe(DEFAULT_DESKTOP_SETTINGS.backendUrl);
     expect(document.documentElement.dataset['theme']).toBe('light');
+  });
+
+  it('hydrates screen capture sources before the first settings consumer render', async () => {
+    await bootstrapDesktopRenderer();
+
+    expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().screenCaptureSources).toEqual([
+      { id: 'screen:1:0', name: 'Entire Screen' },
+      { id: 'window:42:0', name: 'VSCode' },
+    ]);
+    expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('screen:1:0');
+
+    render(createElement(BootstrappedScreenSourceOptions));
+
+    expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
+      'Automatic (first available source)|Entire Screen|VSCode',
+    );
+  });
+
+  it('surfaces screen capture hydration errors without failing bootstrap', async () => {
+    window.bridge.listScreenCaptureSources = vi.fn().mockRejectedValue(
+      new Error('enumeration failed'),
+    );
+
+    await expect(bootstrapDesktopRenderer()).resolves.toBeUndefined();
+
+    expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().lastRuntimeError).toBe('enumeration failed');
   });
 
   it('hydrates persisted messages into the visible conversation model on startup', async () => {
