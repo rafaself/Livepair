@@ -3,6 +3,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { AssistantPanelHistoryView } from './AssistantPanelHistoryView';
 
 describe('AssistantPanelHistoryView', () => {
+  it('keeps chat navigation in the history view with a Back to chat action', async () => {
+    window.bridge.listChats = vi.fn(async () => []);
+
+    render(<AssistantPanelHistoryView activeChatId={null} onSelectChat={() => {}} />);
+
+    expect(await screen.findByText('No past chats yet.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Back to chat' })).toBeVisible();
+  });
+
   it('supports safely refreshing the history list when it becomes stale', async () => {
     const listChats = vi
       .fn()

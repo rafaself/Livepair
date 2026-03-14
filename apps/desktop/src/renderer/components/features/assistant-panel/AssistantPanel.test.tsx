@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
 import { useSettingsStore } from '../../../store/settingsStore';
@@ -105,7 +105,7 @@ describe('AssistantPanel', () => {
     });
 
     await act(async () => {
-      fireEvent.click(panelScope.getByRole('button', { name: 'Chat' }));
+      useUiStore.getState().setPanelView('chat');
     });
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
@@ -215,24 +215,9 @@ describe('AssistantPanel', () => {
     expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-history-4');
   });
 
-  it('lets users navigate back to history from an opened past chat', async () => {
-    useSessionStore.getState().setActiveChatId('chat-history-5');
-    window.bridge.getChat = vi.fn(async (chatId: string) => ({
-      id: chatId,
-      title: 'Retrospective notes',
-      createdAt: '2026-03-12T09:00:00.000Z',
-      updatedAt: '2026-03-12T09:40:00.000Z',
-      isCurrent: false,
-    }));
-    window.bridge.listChats = vi.fn(async () => [
-      {
-        id: 'chat-history-5',
-        title: 'Retrospective notes',
-        createdAt: '2026-03-12T09:00:00.000Z',
-        updatedAt: '2026-03-12T09:40:00.000Z',
-        isCurrent: false,
-      },
-    ]);
+  it('returns from history view to chat through a Back to chat action', async () => {
+    useUiStore.setState({ panelView: 'history' });
+    window.bridge.listChats = vi.fn(async () => []);
 
     await renderAssistantPanel();
     await act(async () => {
@@ -242,12 +227,95 @@ describe('AssistantPanel', () => {
     const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
     const panelScope = within(panel);
 
-    expect(await panelScope.findByRole('button', { name: 'Back to history' })).toBeVisible();
+    expect(await panelScope.findByText('Past chats')).toBeVisible();
 
     await act(async () => {
-      fireEvent.click(panelScope.getByRole('button', { name: 'Back to history' }));
+      fireEvent.click(panelScope.getByRole('button', { name: 'Back to chat' }));
     });
 
-    expect(await panelScope.findByText('Past chats')).toBeVisible();
+    expect(await panelScope.findByText('Live session')).toBeVisible();
+    expect(useUiStore.getState().panelView).toBe('chat');
+  });
+
+  it('creates a fresh persisted chat from chat view without leaking prior turns', async () => {
+    useSessionStore.getState().setActiveChatId('chat-existing');
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'turn-old-1',
+        role: 'assistant',
+        content: 'Leaked reply from the previous chat',
+        timestamp: '09:00',
+        state: 'complete',
+      },
+    ]);
+    window.bridge.getChat = vi.fn(async (chatId: string) => {
+      if (chatId === 'chat-existing') {
+        return {
+          id: 'chat-existing',
+          title: 'Existing chat',
+          createdAt: '2026-03-12T09:00:00.000Z',
+          updatedAt: '2026-03-12T09:05:00.000Z',
+          isCurrent: true,
+        };
+      }
+
+      if (chatId === 'chat-new') {
+        return {
+          id: 'chat-new',
+          title: null,
+          createdAt: '2026-03-12T10:00:00.000Z',
+          updatedAt: '2026-03-12T10:00:00.000Z',
+          isCurrent: true,
+        };
+      }
+
+      return null;
+    });
+    window.bridge.createChat = vi.fn(async () => ({
+      id: 'chat-new',
+      title: null,
+      createdAt: '2026-03-12T10:00:00.000Z',
+      updatedAt: '2026-03-12T10:00:00.000Z',
+      isCurrent: true,
+    }));
+    window.bridge.listChatMessages = vi.fn(async (chatId: string) =>
+      chatId === 'chat-new'
+        ? []
+        : [
+            {
+              id: 'message-old-1',
+              chatId,
+              role: 'assistant' as const,
+              contentText: 'Leaked reply from the previous chat',
+              createdAt: '2026-03-12T09:01:00.000Z',
+              sequence: 1,
+            },
+          ],
+    );
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    expect(panelScope.getByText('Leaked reply from the previous chat')).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'New chat' }));
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.createChat).toHaveBeenCalledTimes(1);
+      expect(useSessionStore.getState().activeChatId).toBe('chat-new');
+      expect(useUiStore.getState().panelView).toBe('chat');
+    });
+
+    expect(panelScope.queryByText('Leaked reply from the previous chat')).toBeNull();
+    expect(
+      panelScope.getByText('Your spoken turns and assistant replies will appear here.'),
+    ).toBeVisible();
   });
 });

@@ -52,6 +52,39 @@ describe('switchToChat', () => {
     expect(bridge.listChatMessages).toHaveBeenCalledWith('chat-2');
   });
 
+  it('clears prior conversation turns when the selected chat has no persisted messages', async () => {
+    const bridge = {
+      appendChatMessage: vi.fn(),
+      getChat: vi.fn().mockResolvedValue({
+        id: 'chat-4',
+        title: null,
+        createdAt: '2026-03-12T10:00:00.000Z',
+        updatedAt: '2026-03-12T10:00:00.000Z',
+        isCurrent: true,
+      }),
+      getOrCreateCurrentChat: vi.fn(),
+      listChatMessages: vi.fn().mockResolvedValue([]),
+      listLiveSessions: vi.fn(),
+    };
+
+    useSessionStore.getState().setActiveChatId('chat-old');
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'turn-old-1',
+        role: 'assistant',
+        content: 'Turn from the previous chat',
+        timestamp: '09:00',
+        state: 'complete',
+      },
+    ]);
+
+    await switchToChat('chat-4', bridge as never);
+
+    const state = useSessionStore.getState();
+    expect(state.activeChatId).toBe('chat-4');
+    expect(state.conversationTurns).toEqual([]);
+  });
+
   it('throws when the target chat does not exist', async () => {
     const bridge = {
       appendChatMessage: vi.fn(),
