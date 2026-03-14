@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ConversationTurnModel } from '../../conversation/mockConversation';
@@ -700,5 +700,93 @@ describe('AssistantPanelChatView', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Ending Live session' })).toBeDisabled();
+  });
+
+  it('renders a stable left-controls, main-content, and right-action shell during an active Live session', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText="Keep this in text"
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    const composerLayout = screen.getByTestId('assistant-panel-composer-layout');
+    const leftControls = screen.getByTestId('assistant-panel-composer-left-controls');
+    const mainContent = screen.getByTestId('assistant-panel-composer-main');
+    const rightAction = screen.getByTestId('assistant-panel-composer-right-action');
+
+    expect(Array.from(composerLayout.children)).toEqual([
+      leftControls,
+      mainContent,
+      rightAction,
+    ]);
+    expect(within(leftControls).getByRole('button', { name: 'Microphone' })).toBeVisible();
+    expect(within(leftControls).getByRole('button', { name: 'Input options' })).toBeVisible();
+    expect(within(mainContent).getByRole('textbox')).toHaveValue('Keep this in text');
+    expect(
+      within(rightAction).getByRole('button', { name: 'Send note to session' }),
+    ).toBeVisible();
+  });
+
+  it('keeps the shell and right-side primary action when resuming a non-empty inactive session', () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="ready"
+        currentMode="inactive"
+        speechLifecycleStatus="off"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        turns={[
+          {
+            id: 'turn-1',
+            role: 'user',
+            content: 'Earlier question',
+            timestamp: '10:15',
+            state: 'complete',
+          },
+        ]}
+        isConversationEmpty={false}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    const composerLayout = screen.getByTestId('assistant-panel-composer-layout');
+    const leftControls = screen.getByTestId('assistant-panel-composer-left-controls');
+    const mainContent = screen.getByTestId('assistant-panel-composer-main');
+    const rightAction = screen.getByTestId('assistant-panel-composer-right-action');
+
+    expect(Array.from(composerLayout.children)).toEqual([
+      leftControls,
+      mainContent,
+      rightAction,
+    ]);
+    expect(within(leftControls).getByRole('button', { name: 'Microphone' })).toBeVisible();
+    expect(within(leftControls).getByRole('button', { name: 'Input options' })).toBeVisible();
+    expect(within(mainContent).queryByRole('textbox')).toBeNull();
+    expect(
+      within(rightAction).getByRole('button', { name: 'Resume Live Session' }),
+    ).toBeVisible();
   });
 });
