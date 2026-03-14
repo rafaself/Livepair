@@ -661,5 +661,37 @@ describe('createVoiceChunkPipeline', () => {
       resolveFirstSend();
       await flushPromise;
     });
+
+    it('settles a queued pending chunk when reset clears burst backlog', async () => {
+      const ops = createMockOps();
+      let resolveFirstSend!: () => void;
+      ops._transport.sendAudioChunk
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((resolve) => {
+              resolveFirstSend = resolve;
+            }),
+        )
+        .mockResolvedValueOnce(undefined);
+      const pipeline = createVoiceChunkPipeline(ops as never);
+
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onChunk(createChunk({ data: new Uint8Array([1]), sequence: 1 }));
+      observer.onChunk(createChunk({ data: new Uint8Array([2]), sequence: 2 }));
+      await Promise.resolve();
+
+      pipeline.resetSendChain();
+
+      expect(ops._outboundGateway.settle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'audio_chunk',
+          sequence: 2,
+        }),
+      );
+
+      resolveFirstSend();
+      await pipeline.flush();
+    });
   });
 });

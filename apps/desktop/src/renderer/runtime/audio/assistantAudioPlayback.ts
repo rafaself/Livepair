@@ -3,6 +3,8 @@ import type {
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
 } from '../voice/voice.types';
+import { decodePcm16Le } from './assistantAudioPlaybackPcm';
+import { createAssistantAudioPlaybackOutputRoute } from './assistantAudioPlaybackOutput';
 
 const ASSISTANT_PLAYBACK_SAMPLE_RATE_HZ = 24_000;
 const DEFAULT_OUTPUT_DEVICE_ID = 'default';
@@ -21,10 +23,6 @@ type AudioBufferSourceNodeLike = {
   onended: (() => void) | null;
 };
 
-type MediaStreamDestinationLike = {
-  stream: MediaStream;
-};
-
 type AudioContextLike = {
   currentTime: number;
   destination: unknown;
@@ -34,7 +32,7 @@ type AudioContextLike = {
     sampleRate: number,
   ) => AudioBufferLike;
   createBufferSource: () => AudioBufferSourceNodeLike;
-  createMediaStreamDestination?: () => MediaStreamDestinationLike;
+  createMediaStreamDestination?: () => { stream: MediaStream };
   close: () => Promise<void>;
 };
 
@@ -80,23 +78,6 @@ function createAudioElement(): AudioElementLike {
   return document.createElement('audio') as unknown as AudioElementLike;
 }
 
-function decodePcm16Le(chunk: Uint8Array): Float32Array {
-  if (chunk.byteLength === 0 || chunk.byteLength % 2 !== 0) {
-    throw new Error('Assistant audio chunk was malformed');
-  }
-
-  const view = new DataView(chunk.buffer, chunk.byteOffset, chunk.byteLength);
-  const sampleCount = chunk.byteLength / 2;
-  const decoded = new Float32Array(sampleCount);
-
-  for (let index = 0; index < sampleCount; index += 1) {
-    const sample = view.getInt16(index * 2, true);
-    decoded[index] = sample < 0 ? sample / 32768 : sample / 32767;
-  }
-
-  return decoded;
-}
-
 export function createAssistantAudioPlayback(
   observer: AssistantAudioPlaybackObserver,
   {
@@ -106,10 +87,6 @@ export function createAssistantAudioPlayback(
   }: CreateAssistantAudioPlaybackDependencies = {},
 ): AssistantAudioPlayback {
   let state: VoicePlaybackState = 'idle';
-  let audioContext: AudioContextLike | null = null;
-  let playbackDestination: unknown = null;
-  let audioElement: AudioElementLike | null = null;
-  let effectiveOutputDeviceId = DEFAULT_OUTPUT_DEVICE_ID;
   let scheduledUntilTime = 0;
   let chunkCount = 0;
   const activeSources = new Set<AudioBufferSourceNodeLike>();
@@ -130,10 +107,17 @@ export function createAssistantAudioPlayback(
       sampleRateHz: ASSISTANT_PLAYBACK_SAMPLE_RATE_HZ,
       chunkCount,
       queueDepth: activeSources.size,
-      selectedOutputDeviceId: effectiveOutputDeviceId,
+      selectedOutputDeviceId: outputRoute.getEffectiveOutputDeviceId(),
       ...patch,
     });
   };
+
+  const outputRoute = createAssistantAudioPlaybackOutputRoute({
+    selectedOutputDeviceId,
+    createAudioContext: createAudioContextImpl,
+    createAudioElement: createAudioElementImpl,
+    emitDiagnostics,
+  });
 
   const resetQueue = (): void => {
     scheduledUntilTime = 0;
@@ -156,65 +140,7 @@ export function createAssistantAudioPlayback(
       source.disconnect();
     }
 
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.srcObject = null;
-      audioElement.removeAttribute('src');
-      audioElement = null;
-    }
-
-    if (audioContext) {
-      const context = audioContext;
-      audioContext = null;
-      playbackDestination = null;
-      await context.close();
-    }
-  };
-
-  const ensureOutputRoute = async (): Promise<void> => {
-    if (audioContext && playbackDestination) {
-      return;
-    }
-
-    const context = createAudioContextImpl();
-    audioContext = context;
-    playbackDestination = context.destination;
-    effectiveOutputDeviceId = DEFAULT_OUTPUT_DEVICE_ID;
-
-    if (
-      selectedOutputDeviceId === DEFAULT_OUTPUT_DEVICE_ID ||
-      typeof context.createMediaStreamDestination !== 'function'
-    ) {
-      emitDiagnostics({});
-      return;
-    }
-
-    const element = createAudioElementImpl();
-
-    if (typeof element.setSinkId !== 'function') {
-      emitDiagnostics({});
-      return;
-    }
-
-    try {
-      const mediaDestination = context.createMediaStreamDestination();
-      element.autoplay = true;
-      element.muted = false;
-      element.srcObject = mediaDestination.stream;
-      await element.setSinkId(selectedOutputDeviceId);
-      await element.play();
-      audioElement = element;
-      playbackDestination = mediaDestination;
-      effectiveOutputDeviceId = selectedOutputDeviceId;
-    } catch {
-      element.pause();
-      element.srcObject = null;
-      element.removeAttribute('src');
-      playbackDestination = context.destination;
-      effectiveOutputDeviceId = DEFAULT_OUTPUT_DEVICE_ID;
-    }
-
-    emitDiagnostics({});
+    await outputRoute.cleanup();
   };
 
   const handleSourceEnded = (source: AudioBufferSourceNodeLike): void => {
@@ -225,7 +151,7 @@ export function createAssistantAudioPlayback(
     });
 
     if (activeSources.size === 0 && state !== 'stopping' && state !== 'error') {
-      scheduledUntilTime = audioContext?.currentTime ?? 0;
+      scheduledUntilTime = outputRoute.getAudioContext()?.currentTime ?? 0;
       emitState('stopped');
     }
   };
@@ -244,9 +170,9 @@ export function createAssistantAudioPlayback(
   return {
     enqueue: async (chunk) => {
       try {
-        await ensureOutputRoute();
-        const context = audioContext;
-        const destination = playbackDestination;
+        await outputRoute.ensureOutputRoute();
+        const context = outputRoute.getAudioContext();
+        const destination = outputRoute.getPlaybackDestination();
 
         if (!context || !destination) {
           throw new Error('Assistant audio playback is unavailable');
@@ -287,7 +213,7 @@ export function createAssistantAudioPlayback(
       }
     },
     stop: async () => {
-      if (state === 'idle' && !audioContext) {
+      if (state === 'idle' && !outputRoute.getAudioContext()) {
         emitState('stopped');
         emitDiagnostics({
           queueDepth: 0,

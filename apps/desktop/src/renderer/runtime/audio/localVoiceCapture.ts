@@ -1,30 +1,11 @@
-import {
-  PCM16_CHUNK_BYTE_SIZE,
-  PCM16_CHUNK_DURATION_MS,
-  Pcm16Chunker,
-  StreamingFloat32Resampler,
-  TARGET_VOICE_SAMPLE_RATE,
-  encodePcm16Le,
-  mixToMono,
-} from './audioProcessing';
 import type { LocalVoiceChunk, VoiceCaptureDiagnostics } from '../voice/voice.types';
+import { createLocalVoiceCaptureRuntime } from './localVoiceCaptureRuntime';
 
 const CAPTURE_WORKLET_PROCESSOR_NAME = 'livepair-local-voice-capture';
 const CAPTURE_WORKLET_MODULE_URL = new URL(
   './localVoiceCaptureProcessor.worklet.js',
   import.meta.url,
 ).toString();
-
-type AudioFrameMessage = {
-  channels?: Float32Array[] | undefined;
-};
-
-type SpeechActivityMessage = {
-  type: 'speech-activity';
-  active: boolean;
-};
-
-type WorkletMessage = AudioFrameMessage | SpeechActivityMessage;
 
 type TrackLike = {
   stop: () => void;
@@ -166,91 +147,7 @@ export function createLocalVoiceCapture(
     loadCaptureWorklet: loadCaptureWorkletImpl = loadCaptureWorklet,
   }: CreateLocalVoiceCaptureDependencies = {},
 ): LocalVoiceCapture {
-  let activeStream: MediaStreamLike | null = null;
-  let activeTracks: TrackLike[] = [];
-  let activeAudioContext: AudioContextLike | null = null;
-  let activeSourceNode: MediaStreamAudioSourceNodeLike | null = null;
-  let activeWorkletNode: AudioWorkletNodeLike | null = null;
-  let endedTrackListener: (() => void) | null = null;
-  let nextChunkSequence = 0;
-  let emittedChunkCount = 0;
-  let resampler: StreamingFloat32Resampler | null = null;
-  let chunker = new Pcm16Chunker();
-  let currentInputDeviceId: string | null = null;
-
-  const emitDiagnostics = (
-    diagnostics: Partial<VoiceCaptureDiagnostics>,
-  ): void => {
-    observer.onDiagnostics({
-      bytesPerChunk: PCM16_CHUNK_BYTE_SIZE,
-      chunkDurationMs: PCM16_CHUNK_DURATION_MS,
-      sampleRateHz: TARGET_VOICE_SAMPLE_RATE,
-      ...diagnostics,
-    });
-  };
-
-  const cleanupResources = async (): Promise<void> => {
-    endedTrackListener?.();
-    endedTrackListener = null;
-    activeSourceNode?.disconnect();
-    activeSourceNode = null;
-    activeWorkletNode?.disconnect();
-
-    if (activeWorkletNode) {
-      activeWorkletNode.port.onmessage = null;
-      activeWorkletNode.port.onmessageerror = null;
-    }
-
-    activeWorkletNode = null;
-    observer.onSpeechActivity?.(false);
-
-    for (const track of activeTracks) {
-      track.stop();
-    }
-
-    activeTracks = [];
-    activeStream = null;
-
-    if (activeAudioContext) {
-      await activeAudioContext.close();
-      activeAudioContext = null;
-    }
-
-    resampler = null;
-    chunker.reset();
-    nextChunkSequence = 0;
-    emittedChunkCount = 0;
-  };
-
-  const handleAudioFrame = (payload: AudioFrameMessage): void => {
-    if (!resampler || !payload.channels || payload.channels.length === 0) {
-      return;
-    }
-
-    const mono = mixToMono(payload.channels);
-    const normalized = resampler.push(mono);
-    const encoded = encodePcm16Le(normalized);
-    const chunks = chunker.push(encoded);
-
-    for (const data of chunks) {
-      emittedChunkCount += 1;
-      const chunk: LocalVoiceChunk = {
-        data,
-        sampleRateHz: TARGET_VOICE_SAMPLE_RATE,
-        channels: 1,
-        encoding: 'pcm_s16le',
-        durationMs: PCM16_CHUNK_DURATION_MS,
-        sequence: ++nextChunkSequence,
-      };
-
-      observer.onChunk(chunk);
-      emitDiagnostics({
-        chunkCount: emittedChunkCount,
-        selectedInputDeviceId: currentInputDeviceId,
-        lastError: null,
-      });
-    }
-  };
+  const runtime = createLocalVoiceCaptureRuntime(observer);
 
   return {
     start: async ({
@@ -261,17 +158,16 @@ export function createLocalVoiceCapture(
     }) => {
       if (!mediaDevices?.getUserMedia) {
         const detail = 'Microphone capture is not available in this environment';
-        emitDiagnostics({ lastError: detail, selectedInputDeviceId });
+        runtime.emitDiagnostics({ lastError: detail, selectedInputDeviceId });
         observer.onError(detail);
         throw new Error(detail);
       }
 
-      if (activeStream) {
+      if (runtime.hasActiveCapture()) {
         return;
       }
 
-      currentInputDeviceId = selectedInputDeviceId;
-      emitDiagnostics({
+      runtime.emitDiagnostics({
         chunkCount: 0,
         selectedInputDeviceId,
         lastError: null,
@@ -293,66 +189,28 @@ export function createLocalVoiceCapture(
           CAPTURE_WORKLET_PROCESSOR_NAME,
         );
         const sourceNode = audioContext.createMediaStreamSource(stream as MediaStream);
-        resampler = new StreamingFloat32Resampler(
-          audioContext.sampleRate,
-          TARGET_VOICE_SAMPLE_RATE,
-        );
-        chunker = new Pcm16Chunker();
-        nextChunkSequence = 0;
-        emittedChunkCount = 0;
-        activeStream = stream;
-        activeAudioContext = audioContext;
-        activeSourceNode = sourceNode;
-        activeWorkletNode = workletNode;
-        activeTracks = stream.getTracks();
-
-        sourceNode.connect(workletNode);
-        workletNode.port.onmessage = (event) => {
-          const msg = event.data as WorkletMessage;
-          if ('type' in msg && msg.type === 'speech-activity') {
-            observer.onSpeechActivity?.(msg.active);
-            return;
-          }
-          handleAudioFrame(msg as AudioFrameMessage);
-        };
-        workletNode.port.onmessageerror = () => {
-          const detail = 'Microphone capture failed while receiving audio frames';
-          emitDiagnostics({ lastError: detail, selectedInputDeviceId: currentInputDeviceId });
-          observer.onError(detail);
-        };
-
-        const handleTrackEnded = (): void => {
-          const detail = 'Microphone capture stopped unexpectedly';
-          emitDiagnostics({ lastError: detail, selectedInputDeviceId: currentInputDeviceId });
-          observer.onError(detail);
-          void cleanupResources();
-        };
-
-        for (const track of activeTracks) {
-          track.addEventListener('ended', handleTrackEnded);
-        }
-
-        endedTrackListener = () => {
-          for (const track of activeTracks) {
-            track.removeEventListener('ended', handleTrackEnded);
-          }
-        };
-
+        runtime.activate({
+          selectedInputDeviceId,
+          stream: stream as MediaStreamLike,
+          audioContext,
+          sourceNode,
+          workletNode,
+        });
         await audioContext.resume();
       } catch (error) {
         const detail = getCaptureErrorDetail(error);
-        await cleanupResources();
-        emitDiagnostics({ lastError: detail, selectedInputDeviceId });
+        await runtime.cleanupResources();
+        runtime.emitDiagnostics({ lastError: detail, selectedInputDeviceId });
         observer.onError(detail);
         throw new Error(detail);
       }
     },
     stop: async () => {
-      if (!activeStream && !activeAudioContext) {
+      if (!runtime.hasActiveCapture()) {
         return;
       }
 
-      await cleanupResources();
+      await runtime.cleanupResources();
     },
   };
 }
