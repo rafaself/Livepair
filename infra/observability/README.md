@@ -7,7 +7,10 @@ This directory starts a local Prometheus + Grafana stack against the existing AP
 - Prometheus: `http://127.0.0.1:9090`
 - Grafana: `http://127.0.0.1:3001`
 
-Grafana starts with a provisioned Prometheus datasource named `Prometheus`.
+Grafana starts with:
+
+- a provisioned Prometheus datasource named `Prometheus`
+- a provisioned dashboard named `Livepair API Overview`
 
 ## Run
 
@@ -34,6 +37,12 @@ Grafana starts with a provisioned Prometheus datasource named `Prometheus`.
    - username: `admin`
    - password: `admin`
 
+5. Open the provisioned dashboard:
+
+   - Dashboards → `Livepair API Overview`
+
+If the dashboard looks empty at first, send a few requests to the API so Prometheus has fresh samples to show.
+
 ## Verify
 
 - Prometheus target `livepair-api` should be `UP`.
@@ -41,6 +50,8 @@ Grafana starts with a provisioned Prometheus datasource named `Prometheus`.
 
   - `livepair_api_http_requests_total`
   - `gemini_auth_token_requests_total`
+
+- Grafana should show panels for API health, request rate by route, p95/p99 latency, error rate, Gemini token outcomes, and process memory on `Livepair API Overview`.
 
 ## Stop
 
