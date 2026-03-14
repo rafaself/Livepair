@@ -245,11 +245,9 @@
 }
 
 .assistant-panel__composer-layout {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: end;
-  column-gap: var(--space-2);
-  min-height: 34px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .assistant-panel__composer-textarea {
@@ -421,7 +419,15 @@
 .assistant-panel__composer-main {
   display: flex;
   min-width: 0;
+  width: 100%;
+}
+
+.assistant-panel__composer-actions {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 34px;
 }
 
 .assistant-panel__composer-control {

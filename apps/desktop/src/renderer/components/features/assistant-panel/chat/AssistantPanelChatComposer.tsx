@@ -138,84 +138,6 @@ export function AssistantPanelChatComposer({
               data-testid="assistant-panel-composer-layout"
             >
               <div
-                className="assistant-panel__composer-left-controls"
-                data-testid="assistant-panel-composer-left-controls"
-              >
-                <div className="assistant-panel__composer-pill">
-                  <Select
-                    aria-label="Microphone options"
-                    className="assistant-panel__composer-select"
-                    options={inputDeviceOptions}
-                    value={selectedInputDeviceId}
-                    onChange={(event) => {
-                      onSelectComposerInputDevice(event.currentTarget.value);
-                    }}
-                    size="sm"
-                    widthMode="minAnchor"
-                    maxWidthPx={320}
-                    placeholder=""
-                  />
-                  <IconButton
-                    label={isComposerMicrophoneEnabled ? 'Disable microphone' : 'Enable microphone'}
-                    size="sm"
-                    className={[
-                      'assistant-panel__composer-control',
-                      isComposerMicrophoneEnabled
-                        ? 'assistant-panel__composer-control--active'
-                        : 'assistant-panel__composer-control--inactive',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    aria-pressed={isComposerMicrophoneEnabled}
-                    onClick={() => {
-                      void onToggleComposerMicrophone();
-                    }}
-                  >
-                    {isComposerMicrophoneEnabled ? (
-                      <Mic size={16} aria-hidden="true" />
-                    ) : (
-                      <MicOff size={16} aria-hidden="true" />
-                    )}
-                  </IconButton>
-                </div>
-
-                <div className="assistant-panel__composer-pill">
-                  <Select
-                    aria-label="Screen share options"
-                    className="assistant-panel__composer-select"
-                    options={screenCaptureSourceOptions}
-                    value={selectedScreenCaptureSourceId}
-                    onChange={(event) => {
-                      onSelectComposerScreenSource(event.currentTarget.value);
-                    }}
-                    size="sm"
-                    widthMode="minAnchor"
-                    maxWidthPx={320}
-                    placeholder=""
-                  />
-                  <IconButton
-                    label={screenShareButtonLabel}
-                    size="sm"
-                    className={[
-                      'assistant-panel__composer-control',
-                      isComposerScreenShareActive
-                        ? 'assistant-panel__composer-control--active'
-                        : 'assistant-panel__composer-control--inactive',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    aria-pressed={isComposerScreenShareActive}
-                    disabled={isComposerScreenShareDisabled}
-                    onClick={() => {
-                      void onToggleComposerScreenShare();
-                    }}
-                  >
-                    <Cast size={16} aria-hidden="true" />
-                  </IconButton>
-                </div>
-              </div>
-
-              <div
                 className="assistant-panel__composer-main"
                 data-testid="assistant-panel-composer-main"
               >
@@ -244,30 +166,110 @@ export function AssistantPanelChatComposer({
                 </div>
               </div>
 
-              <div
-                className="assistant-panel__composer-right-action"
-                data-testid="assistant-panel-composer-right-action"
-              >
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  size="sm"
-                  className={[
-                    'assistant-panel__composer-submit',
-                    composerAction.variant !== 'default' &&
-                      'assistant-panel__composer-submit--speech',
-                    composerAction.variant === 'speechPill' &&
-                      'assistant-panel__composer-submit--speech-active',
-                    composerAction.isLoading &&
-                      'assistant-panel__composer-submit--loading',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  disabled={composerAction.disabled}
-                  aria-label={composerAction.label}
+              <div className="assistant-panel__composer-actions">
+                <div
+                  className="assistant-panel__composer-left-controls"
+                  data-testid="assistant-panel-composer-left-controls"
                 >
-                  {composerAction.icon}
-                </Button>
+                  <div className="assistant-panel__composer-pill">
+                    <Select
+                      aria-label="Microphone options"
+                      className="assistant-panel__composer-select"
+                      options={inputDeviceOptions}
+                      value={selectedInputDeviceId}
+                      onChange={(event) => {
+                        onSelectComposerInputDevice(event.currentTarget.value);
+                      }}
+                      size="sm"
+                      widthMode="minAnchor"
+                      maxWidthPx={320}
+                      placeholder=""
+                    />
+                    <IconButton
+                      label={isComposerMicrophoneEnabled ? 'Disable microphone' : 'Enable microphone'}
+                      size="sm"
+                      className={[
+                        'assistant-panel__composer-control',
+                        isComposerMicrophoneEnabled
+                          ? 'assistant-panel__composer-control--active'
+                          : 'assistant-panel__composer-control--inactive',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      aria-pressed={isComposerMicrophoneEnabled}
+                      onClick={() => {
+                        void onToggleComposerMicrophone();
+                      }}
+                    >
+                      {isComposerMicrophoneEnabled ? (
+                        <Mic size={16} aria-hidden="true" />
+                      ) : (
+                        <MicOff size={16} aria-hidden="true" />
+                      )}
+                    </IconButton>
+                  </div>
+
+                  <div className="assistant-panel__composer-pill">
+                    <Select
+                      aria-label="Screen share options"
+                      className="assistant-panel__composer-select"
+                      options={screenCaptureSourceOptions}
+                      value={selectedScreenCaptureSourceId}
+                      onChange={(event) => {
+                        onSelectComposerScreenSource(event.currentTarget.value);
+                      }}
+                      size="sm"
+                      widthMode="minAnchor"
+                      maxWidthPx={320}
+                      placeholder=""
+                    />
+                    <IconButton
+                      label={screenShareButtonLabel}
+                      size="sm"
+                      className={[
+                        'assistant-panel__composer-control',
+                        isComposerScreenShareActive
+                          ? 'assistant-panel__composer-control--active'
+                          : 'assistant-panel__composer-control--inactive',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      aria-pressed={isComposerScreenShareActive}
+                      disabled={isComposerScreenShareDisabled}
+                      onClick={() => {
+                        void onToggleComposerScreenShare();
+                      }}
+                    >
+                      <Cast size={16} aria-hidden="true" />
+                    </IconButton>
+                  </div>
+                </div>
+
+                <div
+                  className="assistant-panel__composer-right-action"
+                  data-testid="assistant-panel-composer-right-action"
+                >
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    size="sm"
+                    className={[
+                      'assistant-panel__composer-submit',
+                      composerAction.variant !== 'default' &&
+                        'assistant-panel__composer-submit--speech',
+                      composerAction.variant === 'speechPill' &&
+                        'assistant-panel__composer-submit--speech-active',
+                      composerAction.isLoading &&
+                        'assistant-panel__composer-submit--loading',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    disabled={composerAction.disabled}
+                    aria-label={composerAction.label}
+                  >
+                    {composerAction.icon}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
