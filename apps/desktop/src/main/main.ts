@@ -1,7 +1,7 @@
 import { app } from 'electron';
-import { join } from 'node:path';
 import { getChatMemoryService } from './chatMemory/chatMemoryService';
 import { createCaptureSourceRegistry } from './desktopCapture/captureSourceRegistry';
+import { resolveScreenFrameDumpRootDir } from './debug/screenFrameDumpPaths';
 import { createScreenFrameDumpService } from './debug/screenFrameDumpService';
 import { registerDisplayMediaHandler } from './desktopCapture/registerDisplayMediaHandler';
 import { getDesktopSettingsService } from './settings/settingsService';
@@ -17,9 +17,10 @@ const chatMemoryService = getChatMemoryService();
 const settingsService = getDesktopSettingsService();
 const captureSourceRegistry = createCaptureSourceRegistry();
 const screenFrameDumpService = createScreenFrameDumpService({
-  rootDir: app.isPackaged
-    ? join(app.getPath('temp'), 'livepair', 'screen-frame-dumps')
-    : join(app.getAppPath(), 'frames', 'screen-frame-dumps'),
+  rootDir: resolveScreenFrameDumpRootDir({
+    appPath: app.getAppPath(),
+    tempPath: app.getPath('temp'),
+  }),
 });
 registerIpcHandlers({
   captureSourceRegistry,
