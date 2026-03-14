@@ -463,4 +463,78 @@ describe('createDesktopSessionController – transcript', () => {
       }),
     ]);
   });
+
+  it('preserves settled assistant transcript artifacts in the timeline after ending speech mode', async () => {
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'speech' });
+
+    // Simulate a completed voice turn: user speaks, assistant replies, turn settles.
+    voiceTransport.emit({ type: 'input-transcript', text: 'Hello' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hi there' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    // Before ending, verify the assistant transcript artifact is visible.
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Hello',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
+        role: 'assistant',
+        content: 'Hi there',
+        state: 'complete',
+      }),
+    ]);
+
+    // End speech mode — agent transcripts must NOT disappear.
+    await controller.endSpeechMode();
+
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Hello',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
+        role: 'assistant',
+        content: 'Hi there',
+        state: 'complete',
+      }),
+    ]);
+  });
+
+  it('finalizes and preserves an in-flight assistant transcript artifact when speech mode ends mid-stream', async () => {
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'speech' });
+
+    // Assistant is mid-stream when we tear down (no turn-complete yet).
+    voiceTransport.emit({ type: 'input-transcript', text: 'Question' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Partial answer' });
+
+    // End speech mode before turn-complete — the in-flight artifact should be
+    // salvaged (finalized) and remain visible.
+    await controller.endSpeechMode();
+
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Question',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
+        role: 'assistant',
+        content: 'Partial answer',
+        state: 'complete',
+      }),
+    ]);
+  });
 });
