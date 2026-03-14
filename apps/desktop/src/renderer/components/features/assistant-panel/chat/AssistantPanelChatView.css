@@ -3,13 +3,7 @@
   flex: 1;
   min-height: 0;
   flex-direction: column;
-  background: var(--color-chat-bg);
   overflow: hidden;
-  
-  /* Bleed to panel edges */
-  margin-left: -20px;
-  margin-right: -20px;
-  margin-bottom: -20px;
 }
 
 .assistant-panel__messages-section {
@@ -20,26 +14,13 @@
   position: relative;
 }
 
-.assistant-panel__messages-header {
+.assistant-panel__messages-meta {
   padding: 12px 20px 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: var(--space-3);
   background: var(--color-chat-bg);
   z-index: 2;
-}
-
-.assistant-panel__history-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-secondary);
-}
-
-.assistant-panel__history-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 .assistant-panel__history-state {
@@ -158,29 +139,17 @@
   color: var(--color-text-primary);
 }
 
-.assistant-panel__chat-title {
-  margin: 0;
-  padding-bottom: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  user-select: none;
-}
-
-
 .assistant-panel__runtime-error {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
+  width: 100%;
   padding: var(--space-2) var(--space-4);
   border: none;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-error) 15%, var(--color-surface-elevated));
   color: var(--color-text-primary);
   font-size: 0.8125rem;
-  margin-bottom: var(--space-2);
 }
 
 .assistant-panel__runtime-error p {

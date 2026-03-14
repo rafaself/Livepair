@@ -10,8 +10,15 @@ import './AssistantPanelHistoryView.css';
 
 export type AssistantPanelHistoryViewProps = {
   activeChatId: string | null;
-  onBackToChat?: () => void;
   onSelectChat: (chatId: string) => void;
+  viewModel: AssistantPanelHistoryViewModel;
+};
+
+export type AssistantPanelHistoryHeaderProps = {
+  onBackToChat?: () => void;
+  onRefresh: () => void;
+  refreshLabel: string;
+  refreshDisabled: boolean;
 };
 
 type ChatHistoryListItem = {
@@ -19,6 +26,16 @@ type ChatHistoryListItem = {
   preview: string;
   latestSessionLabel: string | null;
   resumeLabel: string | null;
+};
+
+export type AssistantPanelHistoryViewModel = {
+  chatItems: ChatHistoryListItem[];
+  isLoading: boolean;
+  isRefreshing: boolean;
+  loadError: string | null;
+  refreshDisabled: boolean;
+  refreshLabel: string;
+  refreshChats: () => void;
 };
 
 function formatChatDate(isoString: string): string {
@@ -80,9 +97,128 @@ function getResumeLabel(session: LiveSessionRecord | null): string | null {
 
 export function AssistantPanelHistoryView({
   activeChatId,
-  onBackToChat,
   onSelectChat,
+  viewModel,
 }: AssistantPanelHistoryViewProps): JSX.Element {
+  const { chatItems, isLoading, loadError } = viewModel;
+
+  if (isLoading) {
+    return (
+      <div className="chat-history">
+        <p className="chat-history__empty">Loading…</p>
+      </div>
+    );
+  }
+
+  if (loadError !== null && chatItems.length === 0) {
+    return (
+      <div className="chat-history">
+        <p className="chat-history__empty">{loadError}</p>
+      </div>
+    );
+  }
+
+  if (chatItems.length === 0) {
+    return (
+      <div className="chat-history">
+        <p className="chat-history__empty">No past chats yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="chat-history">
+      {loadError ? (
+        <p className="chat-history__status" role="status">
+          {loadError}
+        </p>
+      ) : null}
+      <ul className="chat-history__list" role="list">
+        {chatItems.map(({ chat, preview, latestSessionLabel, resumeLabel }) => (
+          <li key={chat.id} className="chat-history__item">
+            <button
+              type="button"
+              className={
+                chat.id === activeChatId
+                  ? 'chat-history__btn chat-history__btn--active'
+                  : 'chat-history__btn'
+              }
+              onClick={() => onSelectChat(chat.id)}
+              aria-current={chat.id === activeChatId ? 'true' : undefined}
+            >
+              <span className="chat-history__content">
+                <span className="chat-history__row">
+                  <span className="chat-history__title">
+                    {chat.title ?? 'Untitled chat'}
+                  </span>
+                  <span className="chat-history__date">
+                    {formatChatDate(chat.updatedAt)}
+                  </span>
+                </span>
+                <span className="chat-history__preview">{preview}</span>
+                <span className="chat-history__badges" aria-label="Chat relationship and latest session">
+                  {chat.isCurrent ? (
+                    <span className="chat-history__badge">Current chat</span>
+                  ) : null}
+                  {chat.id === activeChatId && !chat.isCurrent ? (
+                    <span className="chat-history__badge">Opened now</span>
+                  ) : null}
+                  {latestSessionLabel ? (
+                    <span className="chat-history__badge">{latestSessionLabel}</span>
+                  ) : null}
+                  {resumeLabel ? (
+                    <span className="chat-history__badge">{resumeLabel}</span>
+                  ) : null}
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function AssistantPanelHistoryHeader({
+  onBackToChat,
+  onRefresh,
+  refreshLabel,
+  refreshDisabled,
+}: AssistantPanelHistoryHeaderProps): JSX.Element {
+  return (
+    <>
+      <div className="assistant-panel__history-label">
+        <p className="assistant-panel__chat-title">Past chats</p>
+      </div>
+      <div className="assistant-panel__history-actions">
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={onBackToChat === undefined}
+          onClick={onBackToChat}
+        >
+          Back to chat
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={refreshDisabled}
+          onClick={onRefresh}
+        >
+          {refreshLabel}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+export function useAssistantPanelHistoryViewModel({
+  activeChatId,
+  isEnabled,
+}: {
+  activeChatId: string | null;
+  isEnabled: boolean;
+}): AssistantPanelHistoryViewModel {
   const [chatItems, setChatItems] = useState<ChatHistoryListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -143,116 +279,26 @@ export function AssistantPanelHistoryView({
   }, []);
 
   useEffect(() => {
+    if (!isEnabled) {
+      return;
+    }
+
     const mode = hasLoadedOnceRef.current ? 'refresh' : 'initial';
     hasLoadedOnceRef.current = true;
     void loadChats(mode);
-  }, [activeChatId, loadChats]);
+  }, [activeChatId, isEnabled, loadChats]);
 
-  function renderToolbar(refreshLabel: string, refreshDisabled: boolean): JSX.Element {
-    return (
-      <div className="chat-history__toolbar">
-        <p className="chat-history__label">Past chats</p>
-        <div className="chat-history__toolbar-actions">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={onBackToChat === undefined}
-            onClick={onBackToChat}
-          >
-            Back to chat
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={refreshDisabled}
-            onClick={() => {
-              void loadChats('refresh');
-            }}
-          >
-            {refreshLabel}
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const refreshChats = useCallback((): void => {
+    void loadChats('refresh');
+  }, [loadChats]);
 
-  if (isLoading) {
-    return (
-      <div className="chat-history">
-        {renderToolbar('Refresh history', true)}
-        <p className="chat-history__empty">Loading…</p>
-      </div>
-    );
-  }
-
-  if (loadError !== null && chatItems.length === 0) {
-    return (
-      <div className="chat-history">
-        {renderToolbar('Refresh history', isRefreshing)}
-        <p className="chat-history__empty">{loadError}</p>
-      </div>
-    );
-  }
-
-  if (chatItems.length === 0) {
-    return (
-      <div className="chat-history">
-        {renderToolbar('Refresh history', isRefreshing)}
-        <p className="chat-history__empty">No past chats yet.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="chat-history">
-      {renderToolbar(isRefreshing ? 'Refreshing…' : 'Refresh history', isRefreshing)}
-      {loadError ? (
-        <p className="chat-history__status" role="status">
-          {loadError}
-        </p>
-      ) : null}
-      <ul className="chat-history__list" role="list">
-        {chatItems.map(({ chat, preview, latestSessionLabel, resumeLabel }) => (
-          <li key={chat.id} className="chat-history__item">
-            <button
-              type="button"
-              className={
-                chat.id === activeChatId
-                  ? 'chat-history__btn chat-history__btn--active'
-                  : 'chat-history__btn'
-              }
-              onClick={() => onSelectChat(chat.id)}
-              aria-current={chat.id === activeChatId ? 'true' : undefined}
-            >
-              <span className="chat-history__content">
-                <span className="chat-history__row">
-                  <span className="chat-history__title">
-                    {chat.title ?? 'Untitled chat'}
-                  </span>
-                  <span className="chat-history__date">
-                    {formatChatDate(chat.updatedAt)}
-                  </span>
-                </span>
-                <span className="chat-history__preview">{preview}</span>
-                <span className="chat-history__badges" aria-label="Chat relationship and latest session">
-                  {chat.isCurrent ? (
-                    <span className="chat-history__badge">Current chat</span>
-                  ) : null}
-                  {chat.id === activeChatId && !chat.isCurrent ? (
-                    <span className="chat-history__badge">Opened now</span>
-                  ) : null}
-                  {latestSessionLabel ? (
-                    <span className="chat-history__badge">{latestSessionLabel}</span>
-                  ) : null}
-                  {resumeLabel ? (
-                    <span className="chat-history__badge">{resumeLabel}</span>
-                  ) : null}
-                </span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+  return {
+    chatItems,
+    isLoading,
+    isRefreshing,
+    loadError,
+    refreshDisabled: isLoading || isRefreshing,
+    refreshLabel: isRefreshing ? 'Refreshing…' : 'Refresh history',
+    refreshChats,
+  };
 }

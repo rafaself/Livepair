@@ -22,6 +22,64 @@
   animation: panel-view-enter 200ms var(--ease-out) both;
 }
 
+.assistant-panel__inner-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  gap: 0;
+  background: var(--color-chat-bg);
+  overflow: hidden;
+
+  /* Bleed shared chat/history content to panel edges. */
+  margin-left: -20px;
+  margin-right: -20px;
+  margin-bottom: -20px;
+  animation: panel-view-enter 200ms var(--ease-out) both;
+}
+
+.assistant-panel__inner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 12px 20px 0;
+  background: var(--color-chat-bg);
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.assistant-panel__inner-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.assistant-panel__history-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+.assistant-panel__history-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.assistant-panel__chat-title {
+  margin: 0;
+  padding-bottom: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  user-select: none;
+}
+
 .assistant-panel__header-btn--active {
   color: var(--color-accent) !important;
   background: var(--color-surface) !important;
