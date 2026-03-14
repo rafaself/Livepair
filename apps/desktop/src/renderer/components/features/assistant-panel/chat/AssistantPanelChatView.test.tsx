@@ -305,7 +305,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.queryByPlaceholderText('Add a note to the session')).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send note to session' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Start Live Session' })).toBeEnabled();
   });
