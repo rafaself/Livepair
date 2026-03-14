@@ -247,6 +247,8 @@ describe('useAssistantPanelSettingsController', () => {
   it('routes settings mutations through the stores and exposes debug mode toggles', async () => {
     render(<HookHarness />);
 
+    expect(screen.getByLabelText('debug-mode')).toHaveTextContent('false');
+
     fireEvent.click(screen.getByRole('button', { name: 'toggle debug' }));
     fireEvent.click(screen.getByRole('button', { name: 'toggle pinned' }));
     fireEvent.click(screen.getByRole('button', { name: 'set fast' }));
@@ -261,7 +263,7 @@ describe('useAssistantPanelSettingsController', () => {
     fireEvent.click(screen.getByRole('button', { name: 'set speech timeout' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('debug-mode')).toHaveTextContent('false');
+      expect(screen.getByLabelText('debug-mode')).toHaveTextContent('true');
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ isPanelPinned: true });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ preferredMode: 'fast' });

@@ -21,6 +21,13 @@ import { useSessionStore } from '../../../store/sessionStore';
 
 export function AssistantPanel(): JSX.Element {
   const isDebugMode = useUiStore((state) => state.isDebugMode);
+  const saveScreenFramesEnabled = useUiStore((state) => state.saveScreenFramesEnabled);
+  const screenFrameDumpDirectoryPath = useUiStore(
+    (state) => state.screenFrameDumpDirectoryPath,
+  );
+  const setSaveScreenFramesEnabled = useUiStore(
+    (state) => state.setSaveScreenFramesEnabled,
+  );
   const activeChatId = useSessionStore((state) => state.activeChatId);
   const localUserSpeechActive = useSessionStore((state) => state.localUserSpeechActive);
   const [activeChat, setActiveChat] = useState<ChatRecord | null>(null);
@@ -201,6 +208,11 @@ export function AssistantPanel(): JSX.Element {
                 voiceToolState={voiceToolState}
                 screenCaptureState={screenCaptureState}
                 screenCaptureDiagnostics={screenCaptureDiagnostics}
+                saveScreenFramesEnabled={saveScreenFramesEnabled}
+                screenFrameDumpDirectoryPath={screenFrameDumpDirectoryPath}
+                onToggleSaveScreenFrames={() => {
+                  setSaveScreenFramesEnabled(!saveScreenFramesEnabled);
+                }}
                 onRetryBackendHealth={handleCheckBackendHealth}
               />
             </div>

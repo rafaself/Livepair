@@ -21,6 +21,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -64,6 +65,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -116,6 +118,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -151,6 +154,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -198,6 +202,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -245,6 +250,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -271,6 +277,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -308,6 +315,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -333,6 +341,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -365,6 +374,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={handleDraftTextChange}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -390,6 +400,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={handleDraftTextChange}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -416,6 +427,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -439,6 +451,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -478,6 +491,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -505,6 +519,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -542,6 +557,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={handleStartSpeechMode}
+        onStartSpeechModeWithScreen={handleStartSpeechMode}
         onEndSpeechMode={handleEndSpeechMode}
       />,
     );
@@ -575,6 +591,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={handleStartSpeechMode}
+        onStartSpeechModeWithScreen={handleStartSpeechMode}
         onEndSpeechMode={handleEndSpeechMode}
       />,
     );
@@ -608,6 +625,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={handleSubmitTextTurn}
         onStartSpeechMode={handleStartSpeechMode}
+        onStartSpeechModeWithScreen={handleStartSpeechMode}
         onEndSpeechMode={handleEndSpeechMode}
       />,
     );
@@ -639,6 +657,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -663,6 +682,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
         onEndSpeechMode={() => Promise.resolve()}
       />,
     );
@@ -688,6 +708,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={noop}
+        onStartSpeechModeWithScreen={noop}
         onEndSpeechMode={noop}
       />,
     );
@@ -709,6 +730,7 @@ describe('AssistantPanelChatView', () => {
         onDraftTextChange={() => {}}
         onSubmitTextTurn={() => {}}
         onStartSpeechMode={noop}
+        onStartSpeechModeWithScreen={noop}
         onEndSpeechMode={noop}
       />,
     );

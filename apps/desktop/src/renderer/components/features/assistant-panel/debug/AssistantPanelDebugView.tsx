@@ -16,7 +16,7 @@ import type {
 } from '../../../../runtime';
 import { FieldList, StatusIndicator } from '../../../composite';
 import { ViewSection } from '../../../layout';
-import { Button } from '../../../primitives';
+import { Button, Switch } from '../../../primitives';
 import type { BackendConnectionState } from '../../../../store/sessionStore';
 
 export type AssistantPanelDebugViewProps = {
@@ -34,6 +34,9 @@ export type AssistantPanelDebugViewProps = {
   voiceToolState: VoiceToolState;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  saveScreenFramesEnabled: boolean;
+  screenFrameDumpDirectoryPath: string | null;
+  onToggleSaveScreenFrames: () => void;
   onRetryBackendHealth: () => Promise<void>;
 };
 
@@ -126,6 +129,9 @@ export function AssistantPanelDebugView({
   voiceToolState,
   screenCaptureState,
   screenCaptureDiagnostics,
+  saveScreenFramesEnabled,
+  screenFrameDumpDirectoryPath,
+  onToggleSaveScreenFrames,
   onRetryBackendHealth,
 }: AssistantPanelDebugViewProps): JSX.Element {
   return (
@@ -275,6 +281,25 @@ export function AssistantPanelDebugView({
               label: 'Capture source',
               value: screenCaptureDiagnostics.captureSource ?? 'Unknown',
             },
+            {
+              label: 'Save screen frames',
+              value: (
+                <Switch
+                  aria-label="Save screen frames"
+                  checked={saveScreenFramesEnabled}
+                  className="assistant-panel__settings-switch"
+                  onCheckedChange={() => onToggleSaveScreenFrames()}
+                />
+              ),
+            },
+            ...(screenFrameDumpDirectoryPath
+              ? [
+                  {
+                    label: 'Saved frame dump',
+                    value: screenFrameDumpDirectoryPath,
+                  },
+                ]
+              : []),
             {
               label: 'Frame rate',
               value: screenCaptureDiagnostics.frameRateHz

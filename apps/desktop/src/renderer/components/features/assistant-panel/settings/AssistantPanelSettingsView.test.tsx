@@ -63,6 +63,7 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('renders settings sections with hydrated backend values', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings({
       ...DEFAULT_DESKTOP_SETTINGS,
       backendUrl: 'https://runtime.livepair.dev/api',
@@ -118,6 +119,7 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('applies a valid backend URL override on blur through the settings store', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings();
 
     const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
@@ -136,6 +138,7 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('rejects invalid backend URLs on blur and preserves the applied value', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings();
 
     const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
@@ -150,6 +153,7 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('updates persisted theme and keeps preferred mode locked to fast', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings();
 
     await act(async () => {
@@ -270,10 +274,8 @@ describe('AssistantPanelSettingsView', () => {
   });
 
   it('persists browser audio cleanup toggles from the audio section', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderSettings();
-    act(() => {
-      useUiStore.getState().toggleDebugMode();
-    });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('switch', { name: 'Echo cancellation' }));

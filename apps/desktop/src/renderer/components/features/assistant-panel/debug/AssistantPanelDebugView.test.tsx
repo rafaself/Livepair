@@ -5,6 +5,7 @@ import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 describe('AssistantPanelDebugView', () => {
   it('renders developer diagnostics without assistant state controls', () => {
     const onRetryBackendHealth = vi.fn(async () => undefined);
+    const onToggleSaveScreenFrames = vi.fn();
 
     render(
       <AssistantPanelDebugView
@@ -62,6 +63,9 @@ describe('AssistantPanelDebugView', () => {
           lastUploadStatus: 'sent',
           lastError: null,
         }}
+        saveScreenFramesEnabled={false}
+        screenFrameDumpDirectoryPath="/tmp/livepair/screen-frame-dumps/current-debug-session"
+        onToggleSaveScreenFrames={onToggleSaveScreenFrames}
         onRetryBackendHealth={onRetryBackendHealth}
       />,
     );
@@ -90,6 +94,13 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Screen context')).toBeVisible();
     expect(screen.getByText('Sent')).toBeVisible();
     expect(screen.getByText('Entire screen')).toBeVisible();
+    expect(screen.getByRole('switch', { name: 'Save screen frames' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(
+      screen.getByText('/tmp/livepair/screen-frame-dumps/current-debug-session'),
+    ).toBeVisible();
     expect(screen.getByText('Chunk count')).toBeVisible();
     expect(screen.getByText('3')).toBeVisible();
     expect(screen.getByText('Audio format')).toBeVisible();
@@ -102,6 +113,8 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.queryByRole('button', { name: 'speaking' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry backend' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Save screen frames' }));
     expect(onRetryBackendHealth).toHaveBeenCalledTimes(1);
+    expect(onToggleSaveScreenFrames).toHaveBeenCalledTimes(1);
   });
 });

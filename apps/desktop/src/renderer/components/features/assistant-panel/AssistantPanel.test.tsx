@@ -68,6 +68,7 @@ describe('AssistantPanel', () => {
   });
 
   it('opens settings from the header and shows hydrated values immediately', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -86,6 +87,7 @@ describe('AssistantPanel', () => {
   });
 
   it('preserves config draft state when switching away from settings and back', async () => {
+    useUiStore.setState({ isDebugMode: true });
     await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -143,6 +145,7 @@ describe('AssistantPanel', () => {
     });
 
     expect(await panelScope.findByRole('heading', { name: 'Developer tools' })).toBeVisible();
+    expect(panelScope.getByRole('switch', { name: 'Save screen frames' })).toBeVisible();
   });
 
   it('hides the debug entry point when debug mode is disabled', async () => {
