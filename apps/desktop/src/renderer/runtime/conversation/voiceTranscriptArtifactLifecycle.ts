@@ -15,6 +15,7 @@ function appendTranscriptArtifact(
   state: TranscriptArtifactModel['state'],
   statusLabel?: string,
   transcriptFinal?: boolean,
+  timelineOrdinal?: number,
 ): string {
   const artifactId = `${role}-transcript-${++ctx.nextTranscriptArtifactId}`;
 
@@ -29,6 +30,7 @@ function appendTranscriptArtifact(
     source: 'voice',
     ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
     ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
+    ...(timelineOrdinal !== undefined ? { timelineOrdinal } : {}),
   });
 
   return artifactId;
@@ -69,6 +71,7 @@ function upsertTranscriptArtifact(
   content: string,
   transcriptFinal?: boolean,
   settledReason?: 'completed' | 'interrupted',
+  timelineOrdinal?: number,
 ): string {
   const currentArtifact = artifactId ? getTranscriptArtifact(ctx, artifactId) : null;
   const shouldCreateSettledArtifact = settledReason !== undefined;
@@ -87,6 +90,7 @@ function upsertTranscriptArtifact(
             : 'Speaking...'
         : undefined,
       transcriptFinal,
+      timelineOrdinal,
     );
   }
 
@@ -122,6 +126,12 @@ export function upsertCurrentVoiceUserTranscriptArtifact(
   transcriptFinal?: boolean,
   settledReason?: 'completed' | 'interrupted',
 ): void {
+  // Use the reserved timeline ordinal so the user artifact sorts before
+  // any assistant artifact created later in the same voice turn.
+  const ordinal = ctx.currentVoiceUserArtifactId
+    ? undefined  // already created — ordinal was set at creation time
+    : ctx.currentVoiceUserTimelineOrdinal ?? undefined;
+
   ctx.currentVoiceUserArtifactId = upsertTranscriptArtifact(
     ctx,
     'user',
@@ -129,6 +139,7 @@ export function upsertCurrentVoiceUserTranscriptArtifact(
     content,
     transcriptFinal,
     settledReason,
+    ordinal,
   );
 }
 

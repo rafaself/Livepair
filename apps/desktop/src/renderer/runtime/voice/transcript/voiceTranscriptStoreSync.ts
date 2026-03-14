@@ -5,6 +5,7 @@ import {
   clearCurrentVoiceTurns,
   hasOpenVoiceTurnFence,
   upsertCurrentVoiceAssistantTranscriptArtifact,
+  upsertCurrentVoiceUserTranscriptArtifact,
 } from '../../conversation/conversationTurnManager';
 import type {
   SessionStoreApi,
@@ -90,6 +91,11 @@ export function createVoiceTranscriptStoreSync({
     });
 
     if (role === 'user') {
+      upsertCurrentVoiceUserTranscriptArtifact(
+        conversationCtx,
+        nextText,
+        isFinal,
+      );
       return;
     }
 

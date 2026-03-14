@@ -13,7 +13,7 @@ describe('createVoiceTranscriptController', () => {
     resetDesktopStores();
   });
 
-  it('stores user transcript updates in the internal buffer without creating a visible artifact', () => {
+  it('shows user transcript updates as a streaming transcript artifact immediately', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
@@ -23,7 +23,15 @@ describe('createVoiceTranscriptController', () => {
       text: 'hello',
     });
     expect(useSessionStore.getState().conversationTurns).toEqual([]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'hello',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
   });
 
   it('stores assistant transcript updates separately from canonical assistant turns', () => {
@@ -64,7 +72,7 @@ describe('createVoiceTranscriptController', () => {
       }),
     ]);
   });
-  it('stores transcript finality in the internal buffer without creating a visible artifact', () => {
+  it('stores transcript finality and shows the user transcript artifact immediately', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
@@ -74,7 +82,15 @@ describe('createVoiceTranscriptController', () => {
       text: 'done',
       isFinal: true,
     });
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'done',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
   });
 
   it('skips internal buffer writes when user text and finality are unchanged', () => {
@@ -87,7 +103,14 @@ describe('createVoiceTranscriptController', () => {
     ctrl.applyTranscriptUpdate('user', 'hello');
 
     expect(useSessionStore.getState().currentVoiceTranscript).toBe(firstTranscript);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    // Artifact created on first update, but no duplicate on second.
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'hello',
+      }),
+    ]);
   });
 
   it('creates a canonical voice user turn only when the turn settles', () => {
@@ -179,7 +202,7 @@ describe('createVoiceTranscriptController', () => {
     ]);
   });
 
-  it('starts a fresh internal buffer when a new user turn begins after completion without creating a visible artifact', () => {
+  it('starts a fresh buffer and shows a new user transcript artifact when a new turn begins after completion', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
@@ -198,7 +221,16 @@ describe('createVoiceTranscriptController', () => {
         state: 'complete',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    // The new user transcript is visible immediately as a streaming artifact.
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-2',
+        role: 'user',
+        content: 'second turn',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
   });
 
   it('routes a mixed-mode typed follow-up reply onto a fresh assistant transcript artifact below the typed user turn', () => {
@@ -228,7 +260,7 @@ describe('createVoiceTranscriptController', () => {
     ]);
     expect(useSessionStore.getState().transcriptArtifacts).toEqual([
       expect.objectContaining({
-        id: 'assistant-transcript-1',
+        id: 'assistant-transcript-2',
         content: 'typed reply',
         state: 'streaming',
       }),
@@ -297,7 +329,7 @@ describe('createVoiceTranscriptController', () => {
     expect(conversationCtx.currentVoiceAssistantArtifactId).toBeNull();
   });
 
-  it('does not create a visible user transcript artifact during progressive speech partials', () => {
+  it('creates and updates a single visible user transcript artifact during progressive speech partials', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
@@ -305,7 +337,15 @@ describe('createVoiceTranscriptController', () => {
     ctrl.applyTranscriptUpdate('user', 'Hello there');
     ctrl.applyTranscriptUpdate('user', 'Hello there, how are you');
 
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'Hello there, how are you',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
     expect(useSessionStore.getState().currentVoiceTranscript.user).toEqual({
       text: 'Hello there, how are you',
     });

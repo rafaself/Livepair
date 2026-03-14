@@ -47,7 +47,79 @@ describe('createDesktopSessionController – transcript', () => {
     resetCurrentChatMemoryForTests();
   });
 
-  it('keeps user transcript internal during speech and only shows assistant transcript artifacts before settlement', async () => {
+  it('shows the user transcript bubble immediately as speech arrives, before the assistant responds', async () => {
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'speech' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Hello' });
+
+    // The user bubble should be visible immediately — not held until settlement.
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'Hello',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Hello there' });
+
+    // Updated transcript should still be visible and reuse the same artifact.
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'Hello there',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+
+    // Once the assistant starts speaking, both bubbles should be visible
+    // with user before assistant in chronological order.
+    voiceTransport.emit({ type: 'output-transcript', text: 'Hi' });
+
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'Hello there',
+        state: 'streaming',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
+        role: 'assistant',
+        content: 'Hi',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+
+    // After settlement the user transcript artifact is replaced by the
+    // canonical user turn, keeping correct chronological order.
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Hello there',
+        state: 'complete',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
+        role: 'assistant',
+        content: 'Hi',
+        state: 'complete',
+      }),
+    ]);
+  });
+
+  it('shows both user and assistant transcript artifacts in the timeline during streaming', async () => {
     const { controller, voiceTransport, voicePlayback } = buildVoiceController();
 
     await controller.startSession({ mode: 'speech' });
@@ -60,7 +132,14 @@ describe('createDesktopSessionController – transcript', () => {
     expect(useSessionStore.getState().conversationTurns).toEqual([]);
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'assistant-transcript-1',
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'Hello there',
+        state: 'streaming',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
         role: 'assistant',
         content: 'Hi',
         state: 'streaming',
@@ -74,7 +153,7 @@ describe('createDesktopSessionController – transcript', () => {
     expect(voicePlayback.enqueue).toHaveBeenCalledWith(new Uint8Array([1, 2, 3, 4]));
   });
 
-  it('creates the canonical voice user turn only at the settle fence and keeps the next user turn internal', async () => {
+  it('creates the canonical voice user turn only at the settle fence and shows the next user transcript immediately', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
     await controller.startSession({ mode: 'speech' });
@@ -94,7 +173,7 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
     expect(useSessionStore.getState().transcriptArtifacts).toEqual([
       expect.objectContaining({
-        id: 'assistant-transcript-1',
+        id: 'assistant-transcript-2',
         content: 'Hi',
         state: 'complete',
       }),
@@ -105,7 +184,7 @@ describe('createDesktopSessionController – transcript', () => {
         content: 'Hello there',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-1',
+        id: 'assistant-transcript-2',
         content: 'Hi',
         state: 'complete',
       }),
@@ -117,15 +196,23 @@ describe('createDesktopSessionController – transcript', () => {
       user: { text: 'Next turn' },
       assistant: { text: '' },
     });
+    // The next user transcript should be visible immediately as a streaming artifact.
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
         id: 'user-turn-1',
         content: 'Hello there',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-1',
+        id: 'assistant-transcript-2',
         content: 'Hi',
         state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'user-transcript-3',
+        role: 'user',
+        content: 'Next turn',
+        state: 'streaming',
+        source: 'voice',
       }),
     ]);
   });
