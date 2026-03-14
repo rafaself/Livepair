@@ -412,18 +412,17 @@
 
 .speech-activity-indicator__bar {
   display: block;
-  width: 3px;
+  width: 3.5px;
   height: 6px;
   border-radius: 1.5px;
   background: currentColor;
-  transition: height 200ms ease;
 }
 
 /*
- * Each bar has a long, unique keyframe sequence with many irregular steps.
- * Long durations (3.7s / 4.3s / 3.9s) + coprime lengths make the combined
- * pattern take ~60s+ before visually repeating. Varied easing per bar gives
- * different grow/shrink speeds so it feels like real speech energy.
+ * Active speaking — full energy. Each bar has a long, unique keyframe
+ * sequence. Coprime durations (3.7s / 4.3s / 3.9s) make the combined
+ * pattern take ~60s+ before visually repeating. Varied cubic-bezier
+ * easing gives different grow/shrink speeds per bar.
  */
 .speech-activity-indicator--active .speech-activity-indicator__bar:nth-child(1) {
   animation: speech-bar-a 3.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
