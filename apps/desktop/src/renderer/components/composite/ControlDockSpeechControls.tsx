@@ -1,4 +1,4 @@
-import { Mic, MicOff, Monitor, MonitorOff, PhoneOff } from 'lucide-react';
+import { Mic, MicOff, Monitor, MonitorOff, PhoneOff, ScanEye } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import type { ControlDockUiState } from './controlDockUiState';
 
@@ -8,6 +8,7 @@ export type ControlDockSpeechControlsProps = {
   onStartVoiceCapture: () => Promise<void>;
   onStopScreenCapture: () => Promise<void>;
   onStopVoiceCapture: () => Promise<void>;
+  onAnalyzeScreenNow: () => void;
   uiState: ControlDockUiState;
 };
 
@@ -17,6 +18,7 @@ export function ControlDockSpeechControls({
   onStartVoiceCapture,
   onStopScreenCapture,
   onStopVoiceCapture,
+  onAnalyzeScreenNow,
   uiState,
 }: ControlDockSpeechControlsProps): JSX.Element | null {
   if (!uiState.showSpeechControls) {
@@ -64,6 +66,15 @@ export function ControlDockSpeechControls({
       >
         {uiState.isScreenContextActive ? <Monitor size={18} /> : <MonitorOff size={18} />}
       </IconButton>
+
+      {uiState.canAnalyzeScreen ? (
+        <IconButton
+          label="Analyze screen now"
+          onClick={onAnalyzeScreenNow}
+        >
+          <ScanEye size={18} />
+        </IconButton>
+      ) : null}
 
       {uiState.showEndSpeechModeControl ? (
         <IconButton

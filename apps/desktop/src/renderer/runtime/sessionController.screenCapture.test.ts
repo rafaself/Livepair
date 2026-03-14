@@ -37,6 +37,7 @@ describe('createDesktopSessionController – screen capture', () => {
     expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
     expect(useSessionStore.getState().screenCaptureDiagnostics.lastUploadStatus).toBe('idle');
 
+    controller.analyzeScreenNow();
     screenCapture.emitFrame({ data: new Uint8Array([1, 2, 3]), mimeType: 'image/jpeg', sequence: 1, widthPx: 640, heightPx: 360 });
 
     await vi.waitFor(() => {
@@ -138,6 +139,7 @@ describe('createDesktopSessionController – screen capture', () => {
     await controller.stopScreenCapture();
     await controller.startScreenCapture();
 
+    controller.analyzeScreenNow();
     screenCapture.emitFrame({ sequence: 2 });
 
     await vi.waitFor(() => {
@@ -226,6 +228,7 @@ describe('createDesktopSessionController – screen capture', () => {
       captureSource: 'Entire screen',
       lastFrameAt: '2026-03-10T00:00:00.000Z',
     });
+    controller.analyzeScreenNow();
     screenCapture.emitFrame();
 
     await vi.waitFor(() => {
@@ -262,6 +265,7 @@ describe('createDesktopSessionController – screen capture', () => {
 
     await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
+    controller.analyzeScreenNow();
     screenCapture.emitFrame();
 
     await vi.waitFor(() => {
@@ -294,6 +298,7 @@ describe('createDesktopSessionController – screen capture', () => {
 
     await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
+    controller.analyzeScreenNow();
     screenCapture.emitFrame();
 
     await vi.waitFor(() => {
@@ -402,6 +407,7 @@ describe('createDesktopSessionController – screen capture', () => {
     });
 
     await controller.startScreenCapture();
+    controller.analyzeScreenNow();
     screenCapture.emitFrame({ sequence: 2 });
 
     await vi.waitFor(() => {
@@ -432,6 +438,7 @@ describe('createDesktopSessionController – screen capture', () => {
 
     await controller.startSession({ mode: 'speech' });
     await controller.startScreenCapture();
+    controller.analyzeScreenNow();
     screenCapture.emitFrame();
 
     await vi.waitFor(() => {

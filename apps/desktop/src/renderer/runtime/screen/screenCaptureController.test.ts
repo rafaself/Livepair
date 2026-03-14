@@ -369,6 +369,7 @@ describe('createScreenCaptureController', () => {
     const { ctrl, sendVideoFrame, store, outboundGateway } = createHarness();
 
     await ctrl.start();
+    ctrl.enableStreaming();
     const frame = { data: new Uint8Array([1, 2]), mimeType: 'image/jpeg' as const, sequence: 1, widthPx: 640, heightPx: 480 };
     await ctrl.enqueueFrameSend(frame);
 
@@ -398,6 +399,7 @@ describe('createScreenCaptureController', () => {
     });
 
     await ctrl.start();
+    ctrl.enableStreaming();
     await ctrl.enqueueFrameSend({
       data: new Uint8Array([9]),
       mimeType: 'image/jpeg',
@@ -443,6 +445,7 @@ describe('createScreenCaptureController', () => {
     );
 
     await ctrl.start();
+    ctrl.enableStreaming();
     const firstSend = ctrl.enqueueFrameSend({
       data: new Uint8Array([1]),
       mimeType: 'image/jpeg',
@@ -492,6 +495,7 @@ describe('createScreenCaptureController', () => {
       .mockResolvedValueOnce(undefined);
 
     await ctrl.start();
+    ctrl.enableStreaming();
     const firstSend = ctrl.enqueueFrameSend({
       data: new Uint8Array([1]),
       mimeType: 'image/jpeg',
@@ -539,6 +543,7 @@ describe('createScreenCaptureController', () => {
     );
 
     await ctrl.start();
+    ctrl.enableStreaming();
     const sendPromise = ctrl.enqueueFrameSend({
       data: new Uint8Array([1]),
       mimeType: 'image/jpeg',
@@ -575,6 +580,7 @@ describe('createScreenCaptureController', () => {
       .mockResolvedValueOnce(undefined);
 
     await ctrl.start();
+    ctrl.enableStreaming();
     void ctrl.enqueueFrameSend({
       data: new Uint8Array([1]),
       mimeType: 'image/jpeg',
@@ -588,6 +594,7 @@ describe('createScreenCaptureController', () => {
 
     await ctrl.stop();
     await ctrl.start();
+    ctrl.enableStreaming();
     await ctrl.enqueueFrameSend({
       data: new Uint8Array([2]),
       mimeType: 'image/jpeg',
@@ -637,5 +644,145 @@ describe('createScreenCaptureController', () => {
       await ctrl.start();
       expect(createCapture).toHaveBeenCalledTimes(1);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Visual send policy integration – Wave 1
+//
+// After start(), the visual state is 'sleep': capture is running but frames
+// are NOT automatically forwarded.  Frames are only sent after an explicit
+// request (analyzeScreenNow → snapshot) or an explicit streaming trigger.
+// ---------------------------------------------------------------------------
+describe('createScreenCaptureController – visual send policy', () => {
+  it('does NOT send frames automatically after start (visual state is sleep)', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+    await ctrl.start();
+
+    getObserver()!.onFrame({
+      data: new Uint8Array([1, 2, 3]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 640,
+      heightPx: 360,
+    });
+    await Promise.resolve();
+
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+  });
+
+  it('sends exactly one frame after analyzeScreenNow (snapshot)', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+    await ctrl.start();
+    ctrl.analyzeScreenNow();
+
+    const frame = { data: new Uint8Array([1]), mimeType: 'image/jpeg' as const, sequence: 1, widthPx: 640, heightPx: 360 };
+    getObserver()!.onFrame(frame);
+    await Promise.resolve();
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(sendVideoFrame).toHaveBeenCalledWith(frame.data, frame.mimeType);
+  });
+
+  it('returns to sleep after the snapshot frame is sent (next frame is blocked)', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+    await ctrl.start();
+    ctrl.analyzeScreenNow();
+
+    const mkFrame = (seq: number) => ({
+      data: new Uint8Array([seq]),
+      mimeType: 'image/jpeg' as const,
+      sequence: seq,
+      widthPx: 640,
+      heightPx: 360,
+    });
+
+    // First frame – snapshot consumed
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    // Second frame – back in sleep, should be blocked
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends every frame when enableStreaming is called', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i === 1 ? 'send' : 'replace',
+        classification: 'replaceable',
+        reason: i === 1 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+    await ctrl.start();
+    ctrl.enableStreaming();
+
+    const mkFrame = (seq: number) => ({
+      data: new Uint8Array([seq]),
+      mimeType: 'image/jpeg' as const,
+      sequence: seq,
+      widthPx: 640,
+      heightPx: 360,
+    });
+
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops sending frames after stopStreaming (back in sleep)', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+    await ctrl.start();
+    ctrl.enableStreaming();
+    ctrl.stopStreaming();
+
+    getObserver()!.onFrame({
+      data: new Uint8Array([1]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 640,
+      heightPx: 360,
+    });
+    await Promise.resolve();
+
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+  });
+
+  it('resets visual state to inactive when stop is called', async () => {
+    const { ctrl } = createHarness();
+    await ctrl.start();
+    ctrl.analyzeScreenNow();
+    await ctrl.stop();
+
+    expect(ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  it('visual state is inactive before start is called', () => {
+    const { ctrl } = createHarness();
+    expect(ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  it('visual state becomes sleep after start succeeds', async () => {
+    const { ctrl } = createHarness();
+    await ctrl.start();
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('visual state becomes snapshot after analyzeScreenNow', async () => {
+    const { ctrl } = createHarness();
+    await ctrl.start();
+    ctrl.analyzeScreenNow();
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  it('visual state becomes streaming after enableStreaming', async () => {
+    const { ctrl } = createHarness();
+    await ctrl.start();
+    ctrl.enableStreaming();
+    expect(ctrl.getVisualSendState()).toBe('streaming');
   });
 });

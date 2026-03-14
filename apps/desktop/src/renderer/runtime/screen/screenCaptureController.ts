@@ -16,6 +16,8 @@ import {
   SCREEN_CAPTURE_MAX_PENDING_FRAMES,
   SCREEN_CAPTURE_START_POLICY,
 } from './screenCapturePolicy';
+import { createVisualSendPolicy } from './visualSendPolicy';
+import type { VisualSendState } from './visualSendPolicy';
 import type {
   SaveScreenFrameDumpFrameRequest,
   ScreenFrameDumpSessionInfo,
@@ -44,6 +46,14 @@ export type ScreenCaptureController = {
   enqueueFrameSend: (frame: LocalScreenFrame) => Promise<void>;
   isActive: () => boolean;
   resetSendChain: () => void;
+  /** Current visual send state (Wave 1 state machine). */
+  getVisualSendState: () => VisualSendState;
+  /** Trigger a one-shot snapshot: allows exactly one frame to be sent, then returns to sleep. */
+  analyzeScreenNow: () => void;
+  /** Enable continuous visual sending. */
+  enableStreaming: () => void;
+  /** Stop continuous visual sending and return to sleep. */
+  stopStreaming: () => void;
 };
 
 type ScreenFrameDumpControls = {
@@ -62,6 +72,8 @@ export function createScreenCaptureController(
   getRealtimeOutboundGateway: () => RealtimeOutboundGateway,
   screenFrameDumpControls?: ScreenFrameDumpControls,
 ): ScreenCaptureController {
+  const visualPolicy = createVisualSendPolicy();
+
   let screenCapture: LocalScreenCapture | null = null;
   let screenCaptureGeneration = 0;
   let stopInFlight: Promise<void> | null = null;
@@ -201,6 +213,7 @@ export function createScreenCaptureController(
     const capture = screenCapture;
 
     if (!capture) {
+      visualPolicy.onScreenShareStopped();
       store.getState().setScreenCaptureState(nextState);
       if (preserveDiagnostics) {
         store.getState().setScreenCaptureDiagnostics({
@@ -218,6 +231,7 @@ export function createScreenCaptureController(
       debugFrameDumpReady = false;
       pendingFrame = null;
       frameDrainInFlight = null;
+      visualPolicy.onScreenShareStopped();
       store.getState().setScreenCaptureState('stopping');
 
     const finalizeStop = async (): Promise<void> => {
@@ -274,6 +288,12 @@ export function createScreenCaptureController(
     // Resume swaps transports without replaying captured frames into the next session.
     // Frames produced while no active transport is attached are intentionally dropped.
     if (!transport || !capture) {
+      return Promise.resolve();
+    }
+
+    // Visual policy gate (Wave 1): only forward frames when the state machine
+    // explicitly allows it (snapshot or streaming). Sleep and inactive block all sends.
+    if (!visualPolicy.allowSend()) {
       return Promise.resolve();
     }
 
@@ -483,6 +503,7 @@ export function createScreenCaptureController(
 
       store.getState().setScreenCaptureState('ready');
       store.getState().setScreenCaptureState('capturing');
+      visualPolicy.onScreenShareStarted();
     } catch (error) {
       if (!isCurrentCapture(capture, captureGeneration)) {
         return;
@@ -527,5 +548,9 @@ export function createScreenCaptureController(
       pendingFrame = null;
       frameDrainInFlight = null;
     },
+    getVisualSendState: () => visualPolicy.getState(),
+    analyzeScreenNow: () => visualPolicy.analyzeScreenNow(),
+    enableStreaming: () => visualPolicy.enableStreaming(),
+    stopStreaming: () => visualPolicy.stopStreaming(),
   };
 }

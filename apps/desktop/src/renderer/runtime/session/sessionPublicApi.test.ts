@@ -60,6 +60,7 @@ function createHarness(options: {
     screenCtrl: {
       start: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
+      analyzeScreenNow: vi.fn(),
     },
     appendTypedUserTurn,
     voiceTranscriptCtrl: {

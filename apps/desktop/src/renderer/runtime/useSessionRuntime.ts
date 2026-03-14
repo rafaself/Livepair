@@ -91,6 +91,10 @@ export function useSessionRuntime() {
     await controller.stopScreenCapture();
   }, [controller]);
 
+  const handleAnalyzeScreenNow = useCallback((): void => {
+    controller.analyzeScreenNow();
+  }, [controller]);
+
   const setAssistantState = useCallback(
     (assistantState: Parameters<typeof controller.setAssistantState>[0]): void => {
       controller.setAssistantState(assistantState);
@@ -134,6 +138,7 @@ export function useSessionRuntime() {
     handleStopVoiceCapture,
     handleStartScreenCapture,
     handleStopScreenCapture,
+    handleAnalyzeScreenNow,
     handleSubmitTextTurn,
     handleEndSpeechMode,
     handleEndSession,

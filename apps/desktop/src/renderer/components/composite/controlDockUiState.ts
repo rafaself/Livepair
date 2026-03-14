@@ -38,6 +38,8 @@ export type ControlDockUiState = {
   screenContextLabel: string;
   showEndSpeechModeControl: boolean;
   showSpeechControls: boolean;
+  /** True when screen capture is running and an explicit snapshot can be requested. */
+  canAnalyzeScreen: boolean;
 };
 
 function getMicrophoneLabel(
@@ -199,5 +201,6 @@ export function createControlDockUiState({
     ),
     showEndSpeechModeControl: shouldShowDockEndControl(controlGatingSnapshot, isPanelOpen),
     showSpeechControls,
+    canAnalyzeScreen: isScreenContextActive && !isScreenContextBusy,
   };
 }

@@ -32,6 +32,7 @@ type SessionControllerPublicApiArgs = {
   screenCtrl: {
     start: () => Promise<void>;
     stop: () => Promise<void>;
+    analyzeScreenNow: () => void;
   };
   appendTypedUserTurn: (text: string) => string;
   voiceTranscriptCtrl: {
@@ -98,6 +99,9 @@ export function createSessionControllerPublicApi({
     },
     startScreenCapture: () => {
       return screenCtrl.start();
+    },
+    analyzeScreenNow: () => {
+      screenCtrl.analyzeScreenNow();
     },
     startSession: async ({ mode }) => {
       await startSessionInternal({ mode });
