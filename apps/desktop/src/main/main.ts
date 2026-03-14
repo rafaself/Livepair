@@ -17,7 +17,9 @@ const chatMemoryService = getChatMemoryService();
 const settingsService = getDesktopSettingsService();
 const captureSourceRegistry = createCaptureSourceRegistry();
 const screenFrameDumpService = createScreenFrameDumpService({
-  rootDir: join(app.getPath('temp'), 'livepair', 'screen-frame-dumps'),
+  rootDir: app.isPackaged
+    ? join(app.getPath('temp'), 'livepair', 'screen-frame-dumps')
+    : join(app.getAppPath(), 'frames', 'screen-frame-dumps'),
 });
 registerIpcHandlers({
   captureSourceRegistry,

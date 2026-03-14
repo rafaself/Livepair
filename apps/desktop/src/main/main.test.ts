@@ -15,6 +15,7 @@ const mockGetAllWindows = vi.fn((): unknown[] => []);
 const mockAppendSwitch = vi.fn();
 const mockWebContentsOn = vi.fn();
 const mockGetPath = vi.fn(() => join(tmpdir(), 'livepair-main-tests'));
+const mockGetAppPath = vi.fn(() => join(tmpdir(), 'livepair-main-tests'));
 
 const browserWindowCtor = vi.fn(() => ({
   loadURL: mockLoadURL,
@@ -41,6 +42,8 @@ vi.mock('electron', () => ({
     on: mockAppOn,
     quit: mockQuit,
     getPath: mockGetPath,
+    getAppPath: mockGetAppPath,
+    isPackaged: false,
     commandLine: { appendSwitch: mockAppendSwitch },
   },
   desktopCapturer: { getSources: vi.fn(async () => []) },
@@ -69,7 +72,7 @@ describe('main process runtime', () => {
     expect(mockWhenReady).toHaveBeenCalledTimes(1);
     expect(mockHandle).toHaveBeenCalledTimes(23);
     expect(mockGetPath).toHaveBeenCalledWith('userData');
-    expect(mockGetPath).toHaveBeenCalledWith('temp');
+    expect(mockGetAppPath).toHaveBeenCalled();
     expect(mockAppOn).toHaveBeenCalledWith('window-all-closed', expect.any(Function));
   });
 
