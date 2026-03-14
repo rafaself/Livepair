@@ -24,7 +24,6 @@ export function AssistantPanelHeader({
         <Button
           variant="ghost"
           size="sm"
-          raised
           onClick={() => setPanelView('debug')}
           aria-label="Developer tools"
           aria-pressed={panelView === 'debug'}
@@ -36,7 +35,6 @@ export function AssistantPanelHeader({
       <Button
         variant="ghost"
         size="sm"
-        raised
         onClick={() => setPanelView('settings')}
         aria-label="Settings"
         aria-pressed={panelView === 'settings'}
@@ -47,7 +45,6 @@ export function AssistantPanelHeader({
       <Button
         variant="ghost"
         size="sm"
-        raised
         onClick={() => setPanelView('chat')}
         aria-label="Chat"
         aria-pressed={panelView === 'chat'}
@@ -59,7 +56,6 @@ export function AssistantPanelHeader({
       <Button
         variant="ghost"
         size="sm"
-        raised
         onClick={() => void window.bridge.quitApp()}
         aria-label="Quit application"
       >
