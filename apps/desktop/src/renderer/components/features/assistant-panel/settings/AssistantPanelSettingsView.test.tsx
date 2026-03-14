@@ -123,7 +123,7 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('button', { name: /preferred mode/i })).toBeDisabled();
   });
 
-  it('renders enumerated devices and resets invalid stored selections to default', async () => {
+  it('renders enumerated devices, resets invalid stored selections, and persists chosen devices', async () => {
     enumerateDevices.mockResolvedValue([
       {
         deviceId: 'default',
@@ -165,14 +165,35 @@ describe('AssistantPanelSettingsView', () => {
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       selectedOutputDeviceId: 'default',
     });
-    expect(screen.getByRole('button', { name: /input device/i })).toHaveTextContent(
-      'Voice input unavailable in text-only release',
-    );
-    expect(screen.getByRole('button', { name: /output device/i })).toHaveTextContent(
-      'Voice output unavailable in text-only release',
-    );
-    expect(screen.getByRole('button', { name: /input device/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /output device/i })).toBeDisabled();
+
+    const inputDeviceButton = screen.getByRole('button', { name: /input device/i });
+    const outputDeviceButton = screen.getByRole('button', { name: /output device/i });
+
+    expect(inputDeviceButton).toHaveTextContent('System default');
+    expect(outputDeviceButton).toHaveTextContent('System default');
+    expect(inputDeviceButton).toBeEnabled();
+    expect(outputDeviceButton).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(inputDeviceButton);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'USB Microphone' }));
+    });
+
+    await act(async () => {
+      fireEvent.click(outputDeviceButton);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'Desk Speakers' }));
+    });
+
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      selectedInputDeviceId: 'usb-mic',
+    });
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+      selectedOutputDeviceId: 'desk-speakers',
+    });
   });
 
   it('refreshes device options after a devicechange event', async () => {

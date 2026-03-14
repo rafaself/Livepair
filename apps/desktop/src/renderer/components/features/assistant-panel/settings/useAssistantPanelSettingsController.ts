@@ -55,6 +55,8 @@ export function useAssistantPanelSettingsController({
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const updateSettings = useSettingsStore((state) => state.updateSettings);
   const isDebugMode = useUiStore((state) => state.isDebugMode);
+  const inputDeviceOptions = useUiStore((state) => state.inputDeviceOptions);
+  const outputDeviceOptions = useUiStore((state) => state.outputDeviceOptions);
   const toggleDebugMode = useUiStore((state) => state.toggleDebugMode);
   const backendUrlDraft = useUiStore((state) => state.backendUrlDraft);
   const backendUrlError = useUiStore((state) => state.backendUrlError);
@@ -101,8 +103,10 @@ export function useAssistantPanelSettingsController({
     voiceNoiseSuppressionEnabled: settings.voiceNoiseSuppressionEnabled,
     voiceAutoGainControlEnabled: settings.voiceAutoGainControlEnabled,
     themePreference: settings.themePreference,
-    inputDeviceOptions: UNAVAILABLE_INPUT_OPTION,
-    outputDeviceOptions: UNAVAILABLE_OUTPUT_OPTION,
+    inputDeviceOptions:
+      inputDeviceOptions.length > 0 ? inputDeviceOptions : UNAVAILABLE_INPUT_OPTION,
+    outputDeviceOptions:
+      outputDeviceOptions.length > 0 ? outputDeviceOptions : UNAVAILABLE_OUTPUT_OPTION,
     backendUrlDraft: resolvedBackendUrlDraft,
     backendUrlError,
     toggleDebugMode,

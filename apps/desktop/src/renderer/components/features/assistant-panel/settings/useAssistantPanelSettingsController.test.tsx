@@ -143,14 +143,25 @@ describe('useAssistantPanelSettingsController', () => {
     expect(backendUrlInput).toHaveValue('https://persisted.livepair.dev');
   });
 
-  it('falls back to unavailable device options when the ui store has not hydrated devices', () => {
+  it('surfaces hydrated device options from the ui store', () => {
+    useUiStore.setState({
+      inputDeviceOptions: [
+        { value: 'default', label: 'System default' },
+        { value: 'usb-mic', label: 'USB Microphone' },
+      ],
+      outputDeviceOptions: [
+        { value: 'default', label: 'System default' },
+        { value: 'desk-speakers', label: 'Desk Speakers' },
+      ],
+    });
+
     render(<HookHarness />);
 
     expect(screen.getByLabelText('input-options')).toHaveTextContent(
-      'Voice input unavailable in text-only release',
+      'System default|USB Microphone',
     );
     expect(screen.getByLabelText('output-options')).toHaveTextContent(
-      'Voice output unavailable in text-only release',
+      'System default|Desk Speakers',
     );
   });
 
