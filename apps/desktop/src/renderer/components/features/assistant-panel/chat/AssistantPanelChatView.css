@@ -406,15 +406,15 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  height: 14px;
+  height: 16px;
   margin-right: 2px;
 }
 
 .speech-activity-indicator__bar {
   display: block;
-  width: 3.5px;
+  width: 4px;
   height: 6px;
-  border-radius: 1.5px;
+  border-radius: 2px;
   background: currentColor;
 }
 
