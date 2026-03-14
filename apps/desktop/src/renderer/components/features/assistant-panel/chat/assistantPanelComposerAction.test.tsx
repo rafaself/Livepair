@@ -37,9 +37,10 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       });
       expect(action.kind).toBe('startSpeech');
       expect(action.label).toBe('Start Live Session');
+      expect(action.variant).toBe('speechCircle');
     });
 
-    it('labels Resume Live Session for non-empty conversation', () => {
+    it('renders Resume Session pill for non-empty conversation', () => {
       const action = createAssistantPanelComposerAction({
         controlGatingSnapshot: inactiveSnapshot,
         draftText: '',
@@ -50,6 +51,9 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       });
       expect(action.kind).toBe('startSpeech');
       expect(action.label).toBe('Resume Live Session');
+      expect(action.variant).toBe('speechPill');
+      const iconStr = JSON.stringify(action.icon);
+      expect(iconStr).toContain('Resume Session');
     });
   });
 
@@ -65,6 +69,7 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       });
       expect(action.kind).toBe('send');
       expect(action.label).toBe('Send note to session');
+      expect(action.variant).toBe('default');
     });
   });
 
@@ -80,6 +85,7 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       });
       expect(action.kind).toBe('endSpeech');
       expect(action.label).toBe('End Live session');
+      expect(action.variant).toBe('speechPill');
     });
 
     it('labels Starting Live session during starting transition', () => {
@@ -94,6 +100,7 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       expect(action.kind).toBe('endSpeech');
       expect(action.label).toBe('Starting Live session');
       expect(action.isLoading).toBe(true);
+      expect(action.variant).toBe('speechCircle');
     });
 
     it('labels Ending Live session during ending transition', () => {
@@ -108,6 +115,7 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       expect(action.kind).toBe('endSpeech');
       expect(action.label).toBe('Ending Live session');
       expect(action.isLoading).toBe(true);
+      expect(action.variant).toBe('speechCircle');
     });
   });
 

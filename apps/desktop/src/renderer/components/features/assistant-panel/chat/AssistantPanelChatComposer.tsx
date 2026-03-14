@@ -129,10 +129,9 @@ export function AssistantPanelChatComposer({
                   size="sm"
                   className={[
                     'assistant-panel__composer-submit',
-                    composerAction.kind !== 'send' &&
+                    composerAction.variant !== 'default' &&
                       'assistant-panel__composer-submit--speech',
-                    composerAction.kind === 'endSpeech' &&
-                      !composerAction.isLoading &&
+                    composerAction.variant === 'speechPill' &&
                       'assistant-panel__composer-submit--speech-active',
                     composerAction.isLoading &&
                       'assistant-panel__composer-submit--loading',

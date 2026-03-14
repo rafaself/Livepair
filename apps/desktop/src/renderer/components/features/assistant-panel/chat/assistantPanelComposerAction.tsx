@@ -1,4 +1,4 @@
-import { AudioLines, Loader2, SendHorizonal } from 'lucide-react';
+import { AudioLines, Loader2, SendHorizonal, Undo2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
   canEndSpeechMode,
@@ -8,12 +8,15 @@ import {
   type SpeechLifecycleStatus,
 } from '../../../../runtime';
 
+export type ComposerActionVariant = 'default' | 'speechCircle' | 'speechPill';
+
 export type AssistantPanelComposerAction = {
   disabled: boolean;
   icon: ReactNode;
   isLoading: boolean;
   kind: 'endSpeech' | 'send' | 'startSpeech';
   label: string;
+  variant: ComposerActionVariant;
 };
 
 export type CreateAssistantPanelComposerActionOptions = {
@@ -55,6 +58,7 @@ export function createAssistantPanelComposerAction({
       isLoading: false,
       kind: 'send',
       label: 'Send note to session',
+      variant: 'default',
     };
   }
 
@@ -87,6 +91,23 @@ export function createAssistantPanelComposerAction({
       isLoading: isTransitioning,
       kind: 'endSpeech',
       label: getEndSpeechModeLabel(speechLifecycleStatus),
+      variant: isTransitioning ? 'speechCircle' : 'speechPill',
+    };
+  }
+
+  if (!isConversationEmpty) {
+    return {
+      disabled: false,
+      icon: (
+        <>
+          <Undo2 size={14} aria-hidden="true" />
+          <span aria-hidden="true">Resume Session</span>
+        </>
+      ),
+      isLoading: false,
+      kind: 'startSpeech',
+      label: 'Resume Live Session',
+      variant: 'speechPill',
     };
   }
 
@@ -95,6 +116,7 @@ export function createAssistantPanelComposerAction({
     icon: <AudioLines size={18} aria-hidden="true" />,
     isLoading: false,
     kind: 'startSpeech',
-    label: isConversationEmpty ? 'Start Live Session' : 'Resume Live Session',
+    label: 'Start Live Session',
+    variant: 'speechCircle',
   };
 }
