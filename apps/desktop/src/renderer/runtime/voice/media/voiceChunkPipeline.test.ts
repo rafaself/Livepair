@@ -28,6 +28,7 @@ function createMockOps() {
     setVoiceCaptureDiagnostics: vi.fn(),
     setVoiceSessionStatus: vi.fn(),
     setLastRuntimeError: vi.fn(),
+    setLocalUserSpeechActive: vi.fn(),
   };
   const capture = {
     start: vi.fn().mockResolvedValue(undefined),
@@ -227,6 +228,28 @@ describe('createVoiceChunkPipeline', () => {
         'local capture failed',
         { detail: 'Permission denied' },
       );
+    });
+
+    it('onSpeechActivity forwards active=true to store', () => {
+      const ops = createMockOps();
+      const pipeline = createVoiceChunkPipeline(ops as never);
+
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onSpeechActivity(true);
+
+      expect(ops._storeState.setLocalUserSpeechActive).toHaveBeenCalledWith(true);
+    });
+
+    it('onSpeechActivity forwards active=false to store', () => {
+      const ops = createMockOps();
+      const pipeline = createVoiceChunkPipeline(ops as never);
+
+      pipeline.getVoiceCapture();
+      const observer = ops.createVoiceCapture.mock.calls[0]![0];
+      observer.onSpeechActivity(false);
+
+      expect(ops._storeState.setLocalUserSpeechActive).toHaveBeenCalledWith(false);
     });
   });
 

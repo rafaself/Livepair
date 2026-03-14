@@ -324,4 +324,30 @@ describe('sessionStore', () => {
       expect(useSessionStore.getState().screenCaptureDiagnostics.frameCount).toBe(0);
     });
   });
+
+  describe('localUserSpeechActive', () => {
+    it('defaults to false', () => {
+      expect(useSessionStore.getState().localUserSpeechActive).toBe(false);
+    });
+
+    it('setLocalUserSpeechActive updates the value', () => {
+      useSessionStore.getState().setLocalUserSpeechActive(true);
+      expect(useSessionStore.getState().localUserSpeechActive).toBe(true);
+
+      useSessionStore.getState().setLocalUserSpeechActive(false);
+      expect(useSessionStore.getState().localUserSpeechActive).toBe(false);
+    });
+
+    it('resets to false on reset()', () => {
+      useSessionStore.getState().setLocalUserSpeechActive(true);
+      useSessionStore.getState().reset();
+      expect(useSessionStore.getState().localUserSpeechActive).toBe(false);
+    });
+
+    it('resets to false on resetTextSessionRuntime()', () => {
+      useSessionStore.getState().setLocalUserSpeechActive(true);
+      useSessionStore.getState().resetTextSessionRuntime();
+      expect(useSessionStore.getState().localUserSpeechActive).toBe(false);
+    });
+  });
 });
