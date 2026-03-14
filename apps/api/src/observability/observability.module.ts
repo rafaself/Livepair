@@ -11,6 +11,7 @@ import { ObservabilityService } from './observability.service';
 @Module({
   controllers: [ObservabilityController],
   providers: [ObservabilityService, HttpMetricsMiddleware],
+  exports: [ObservabilityService],
 })
 export class ObservabilityModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

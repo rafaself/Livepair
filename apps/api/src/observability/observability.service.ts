@@ -12,6 +12,10 @@ type HttpMetricLabels = {
   status_code: string;
 };
 
+type GeminiAuthTokenMetricLabels = {
+  outcome: 'success' | 'network_error' | 'upstream_error' | 'invalid_payload';
+};
+
 @Injectable()
 export class ObservabilityService {
   private readonly registry = new Registry();
@@ -37,6 +41,19 @@ export class ObservabilityService {
     registers: [this.registry],
   });
 
+  private readonly geminiAuthTokenRequestsTotal = new Counter({
+    name: 'gemini_auth_token_requests_total',
+    help: 'Total number of Gemini auth token upstream requests by outcome.',
+    labelNames: ['outcome'] as const,
+    registers: [this.registry],
+  });
+
+  private readonly geminiAuthTokenRequestDurationSeconds = new Histogram({
+    name: 'gemini_auth_token_request_duration_seconds',
+    help: 'Gemini auth token upstream request duration in seconds.',
+    registers: [this.registry],
+  });
+
   constructor() {
     collectDefaultMetrics({ register: this.registry });
   }
@@ -56,5 +73,13 @@ export class ObservabilityService {
     if (Number.parseInt(labels.status_code, 10) >= 400) {
       this.httpRequestErrorsTotal.inc(labels);
     }
+  }
+
+  recordGeminiAuthTokenRequest(
+    labels: GeminiAuthTokenMetricLabels,
+    durationSeconds: number,
+  ): void {
+    this.geminiAuthTokenRequestsTotal.inc(labels);
+    this.geminiAuthTokenRequestDurationSeconds.observe(durationSeconds);
   }
 }
