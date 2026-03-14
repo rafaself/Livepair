@@ -381,7 +381,99 @@ describe('SqliteChatMemoryRepository', () => {
           },
         },
       },
-    ]);
+     ]);
+   });
+
+  it('preserves resumption metadata when updating only live-session snapshots', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+    const contextStateSnapshot = {
+      task: {
+        entries: [{ key: 'taskStatus', value: 'active' }],
+      },
+      context: {
+        entries: [{ key: 'repo', value: 'Livepair' }],
+      },
+    };
+
+    repository.updateLiveSession({
+      kind: 'resumption',
+      id: liveSession.id,
+      resumptionHandle: 'handles/live-session-1',
+      restorable: true,
+      lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
+    });
+
+    const updatedLiveSession = repository.updateLiveSession({
+      kind: 'snapshot',
+      id: liveSession.id,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot,
+    });
+
+    expect(updatedLiveSession).toEqual({
+      ...liveSession,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot,
+    });
+
+    const reopenedRepository = openRepository();
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([updatedLiveSession]);
+  });
+
+  it('preserves persisted snapshots when updating live-session resumption metadata', () => {
+    const repository = openRepository();
+    const chat = repository.getOrCreateCurrentChat();
+    const liveSession = repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+    const contextStateSnapshot = {
+      task: {
+        entries: [{ key: 'taskStatus', value: 'active' }],
+      },
+      context: {
+        entries: [{ key: 'repo', value: 'Livepair' }],
+      },
+    };
+
+    repository.updateLiveSession({
+      kind: 'snapshot',
+      id: liveSession.id,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot,
+    });
+
+    const updatedLiveSession = repository.updateLiveSession({
+      kind: 'resumption',
+      id: liveSession.id,
+      resumptionHandle: 'handles/live-session-1',
+      restorable: true,
+      lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
+    });
+
+    expect(updatedLiveSession).toEqual({
+      ...liveSession,
+      resumptionHandle: 'handles/live-session-1',
+      lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
+      restorable: true,
+      invalidatedAt: null,
+      invalidationReason: null,
+      summarySnapshot: 'Persisted summary snapshot',
+      contextStateSnapshot,
+    });
+
+    const reopenedRepository = openRepository();
+    expect(reopenedRepository.listLiveSessions(chat.id)).toEqual([updatedLiveSession]);
   });
 
   it('ignores malformed persisted context snapshots instead of throwing on reload', () => {
