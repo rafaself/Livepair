@@ -32,32 +32,26 @@ export function AssistantPanelChatHeader({
   onOpenHistory,
 }: AssistantPanelChatHeaderProps): JSX.Element {
   return (
-    <>
-      <div className="assistant-panel__history-label" aria-label="Session history">
+    <div className="assistant-panel__history-actions">
+      <IconButton
+        label="History"
+        size="sm"
+        disabled={onOpenHistory === undefined}
+        onClick={onOpenHistory}
+      >
         <History size={16} />
-        <p className="assistant-panel__chat-title">Session history</p>
-      </div>
-      <div className="assistant-panel__history-actions">
-        <IconButton
-          label="History"
-          size="sm"
-          disabled={onOpenHistory === undefined}
-          onClick={onOpenHistory}
-        >
-          <History size={16} />
-        </IconButton>
-        <IconButton
-          label="New chat"
-          size="sm"
-          disabled={onCreateChat === undefined}
-          onClick={() => {
-            void onCreateChat?.();
-          }}
-        >
-          <MessageCirclePlus size={16} />
-        </IconButton>
-      </div>
-    </>
+      </IconButton>
+      <IconButton
+        label="New chat"
+        size="sm"
+        disabled={onCreateChat === undefined}
+        onClick={() => {
+          void onCreateChat?.();
+        }}
+      >
+        <MessageCirclePlus size={16} />
+      </IconButton>
+    </div>
   );
 }
 
