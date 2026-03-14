@@ -1,4 +1,7 @@
-import { createVisualSendPolicy } from './visualSendPolicy';
+import {
+  createVisualSendPolicy,
+} from './visualSendPolicy';
+import type { VisualSendPolicyOptions } from './visualSendPolicy';
 import {
   createScreenCaptureLifecycle,
 } from './controller/screenCaptureLifecycle';
@@ -32,7 +35,7 @@ export function createScreenCaptureController(
   screenFrameDumpControls?: ScreenFrameDumpControls,
   visualSendPolicyOptions?: VisualSendPolicyOptions,
 ): ScreenCaptureController {
-  const visualPolicy = createVisualSendPolicy();
+  const visualPolicy = createVisualSendPolicy(visualSendPolicyOptions);
   const controllerState = createScreenCaptureControllerState();
 
   const flushVisualDiagnostics = (): void => {
