@@ -150,6 +150,12 @@ export function isChatId(value: unknown): value is string {
   return isNonEmptyString(value);
 }
 
+export function isScreenCaptureSourceId(
+  value: unknown,
+): value is string | null {
+  return value === null || isNonEmptyString(value);
+}
+
 export function isCreateChatRequest(value: unknown): value is CreateChatRequest | undefined {
   if (typeof value === 'undefined') {
     return true;

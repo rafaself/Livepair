@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react';
 import type {
   PreferredMode,
   SpeechSilenceTimeout,
@@ -5,6 +6,7 @@ import type {
 } from '../../../../../shared';
 import { normalizeBackendBaseUrl } from '../../../../../shared';
 import { useSettingsStore } from '../../../../store/settingsStore';
+import { useSessionStore } from '../../../../store/sessionStore';
 import { useUiStore } from '../../../../store/uiStore';
 import type { SelectOptionItem } from '../../../primitives';
 
@@ -13,6 +15,10 @@ const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
 ];
 const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'Voice output unavailable in text-only release' },
+];
+const AUTO_SCREEN_CAPTURE_SOURCE_VALUE = 'auto';
+const AUTO_SCREEN_CAPTURE_SOURCE_OPTION: readonly SelectOptionItem[] = [
+  { value: AUTO_SCREEN_CAPTURE_SOURCE_VALUE, label: 'Automatic (first available source)' },
 ];
 
 export type AssistantPanelSettingsController = {
@@ -28,13 +34,16 @@ export type AssistantPanelSettingsController = {
   themePreference: ThemePreference;
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
+  screenCaptureSourceOptions: readonly SelectOptionItem[];
   backendUrlDraft: string;
   backendUrlError: string | null;
+  selectedScreenCaptureSourceId: string;
   toggleDebugMode: () => void;
   togglePanelPinned: () => void;
   setPreferredMode: (mode: PreferredMode) => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
   setSelectedOutputDeviceId: (deviceId: string) => void;
+  setSelectedScreenCaptureSourceId: (sourceId: string) => void;
   setSpeechSilenceTimeout: (timeout: SpeechSilenceTimeout) => void;
   setVoiceEchoCancellationEnabled: (enabled: boolean) => void;
   setVoiceNoiseSuppressionEnabled: (enabled: boolean) => void;
@@ -62,7 +71,44 @@ export function useAssistantPanelSettingsController({
   const backendUrlError = useUiStore((state) => state.backendUrlError);
   const setBackendUrlDraft = useUiStore((state) => state.setBackendUrlDraft);
   const setBackendUrlError = useUiStore((state) => state.setBackendUrlError);
+  const screenCaptureSources = useSessionStore((state) => state.screenCaptureSources);
+  const selectedScreenCaptureSourceId = useSessionStore(
+    (state) => state.selectedScreenCaptureSourceId,
+  );
+  const setScreenCaptureSourceSnapshot = useSessionStore(
+    (state) => state.setScreenCaptureSourceSnapshot,
+  );
+  const setLastRuntimeError = useSessionStore((state) => state.setLastRuntimeError);
   const resolvedBackendUrlDraft = backendUrlDraft || settings.backendUrl;
+  const screenCaptureSourceOptions = useMemo(
+    () => [
+      ...AUTO_SCREEN_CAPTURE_SOURCE_OPTION,
+      ...screenCaptureSources.map((source) => ({
+        value: source.id,
+        label: source.name,
+      })),
+    ],
+    [screenCaptureSources],
+  );
+
+  useEffect(() => {
+    if (!_enabled) {
+      return;
+    }
+
+    void window.bridge
+      .listScreenCaptureSources()
+      .then((snapshot) => {
+        setScreenCaptureSourceSnapshot(snapshot);
+      })
+      .catch((error: unknown) => {
+        setLastRuntimeError(
+          error instanceof Error && error.message.length > 0
+            ? error.message
+            : 'Failed to load screen capture sources',
+        );
+      });
+  }, [_enabled, setLastRuntimeError, setScreenCaptureSourceSnapshot]);
 
   const handleBackendUrlBlur = async (): Promise<void> => {
     const normalizedBackendUrl = normalizeBackendBaseUrl(resolvedBackendUrlDraft);
@@ -107,8 +153,11 @@ export function useAssistantPanelSettingsController({
       inputDeviceOptions.length > 0 ? inputDeviceOptions : UNAVAILABLE_INPUT_OPTION,
     outputDeviceOptions:
       outputDeviceOptions.length > 0 ? outputDeviceOptions : UNAVAILABLE_OUTPUT_OPTION,
+    screenCaptureSourceOptions,
     backendUrlDraft: resolvedBackendUrlDraft,
     backendUrlError,
+    selectedScreenCaptureSourceId:
+      selectedScreenCaptureSourceId ?? AUTO_SCREEN_CAPTURE_SOURCE_VALUE,
     toggleDebugMode,
     togglePanelPinned: () => {
       void updateSetting('isPanelPinned', !settings.isPanelPinned);
@@ -121,6 +170,23 @@ export function useAssistantPanelSettingsController({
     },
     setSelectedOutputDeviceId: (selectedOutputDeviceId) => {
       void updateSetting('selectedOutputDeviceId', selectedOutputDeviceId);
+    },
+    setSelectedScreenCaptureSourceId: (sourceId) => {
+      const nextSourceId =
+        sourceId === AUTO_SCREEN_CAPTURE_SOURCE_VALUE ? null : sourceId;
+
+      void window.bridge
+        .selectScreenCaptureSource(nextSourceId)
+        .then((snapshot) => {
+          setScreenCaptureSourceSnapshot(snapshot);
+        })
+        .catch((error: unknown) => {
+          setLastRuntimeError(
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : 'Failed to select screen capture source',
+          );
+        });
     },
     setSpeechSilenceTimeout: (speechSilenceTimeout) => {
       void updateSetting('speechSilenceTimeout', speechSilenceTimeout);

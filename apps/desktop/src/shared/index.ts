@@ -9,6 +9,8 @@ export {
   type DesktopBridge,
   type OverlayHitRegion,
   type OverlayMode,
+  type ScreenCaptureSource,
+  type ScreenCaptureSourceSnapshot,
 } from './desktopBridge';
 export {
   DEFAULT_DESKTOP_SETTINGS,

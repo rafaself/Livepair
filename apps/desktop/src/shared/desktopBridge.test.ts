@@ -21,6 +21,8 @@ describe('IPC_CHANNELS', () => {
       updateSettings: 'settings:update',
       setOverlayHitRegions: 'overlay:setHitRegions',
       setOverlayPointerPassthrough: 'overlay:setPointerPassthrough',
+      listScreenCaptureSources: 'screenCapture:listSources',
+      selectScreenCaptureSource: 'screenCapture:selectSource',
     });
   });
 });

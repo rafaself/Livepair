@@ -25,6 +25,9 @@ export const bridge: DesktopBridge = {
   setOverlayHitRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayHitRegions, regions),
   setOverlayPointerPassthrough: (enabled) =>
     ipcRenderer.invoke(IPC_CHANNELS.setOverlayPointerPassthrough, enabled),
+  listScreenCaptureSources: () => ipcRenderer.invoke(IPC_CHANNELS.listScreenCaptureSources),
+  selectScreenCaptureSource: (sourceId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.selectScreenCaptureSource, sourceId),
 };
 
 contextBridge.exposeInMainWorld('bridge', bridge);

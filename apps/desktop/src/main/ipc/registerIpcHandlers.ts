@@ -1,7 +1,12 @@
-import { ipcMain } from 'electron';
+import { desktopCapturer, ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared';
 import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
+import {
+  createCaptureSourceRegistry,
+  toCaptureSources,
+  type CaptureSourceRegistry,
+} from '../desktopCapture/captureSourceRegistry';
 import type { DesktopSettingsService } from '../settings/settingsService';
 import { createBackendClient } from '../backend/backendClient';
 import {
@@ -12,11 +17,13 @@ import {
   isCreateLiveSessionRequest,
   isDesktopSettingsPatch,
   isEndLiveSessionRequest,
+  isScreenCaptureSourceId,
   isUpdateLiveSessionRequest,
   toOverlayRectangles,
 } from './validators';
 
 type RegisterIpcHandlersOptions = {
+  captureSourceRegistry?: CaptureSourceRegistry;
   chatMemoryService: ChatMemoryService;
   fetchImpl?: typeof fetch;
   getMainWindow: () => BrowserWindow | null;
@@ -25,6 +32,7 @@ type RegisterIpcHandlersOptions = {
 };
 
 export function registerIpcHandlers({
+  captureSourceRegistry = createCaptureSourceRegistry(),
   chatMemoryService,
   fetchImpl = fetch,
   getMainWindow,
@@ -35,6 +43,13 @@ export function registerIpcHandlers({
     fetchImpl,
     getBackendUrl: async () => (await settingsService.getSettings()).backendUrl,
   });
+  const loadScreenCaptureSourceSnapshot = async () => {
+    const sources = toCaptureSources(
+      await desktopCapturer.getSources({ types: ['screen', 'window'] }),
+    );
+    captureSourceRegistry.setSources(sources);
+    return captureSourceRegistry.getSnapshot();
+  };
 
   ipcMain.handle(IPC_CHANNELS.checkHealth, async () => {
     return backendClient.checkHealth();
@@ -210,6 +225,31 @@ export function registerIpcHandlers({
       }
 
       mainWindow.setIgnoreMouseEvents(false);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.listScreenCaptureSources, async () => {
+    return loadScreenCaptureSourceSnapshot();
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.selectScreenCaptureSource,
+    async (_event, sourceId: unknown) => {
+      if (!isScreenCaptureSourceId(sourceId)) {
+        throw new Error('screenCapture:selectSource requires a string or null');
+      }
+
+      const snapshot = await loadScreenCaptureSourceSnapshot();
+
+      if (
+        sourceId !== null &&
+        !snapshot.sources.some((source) => source.id === sourceId)
+      ) {
+        throw new Error('Unknown screen capture source id');
+      }
+
+      captureSourceRegistry.setSelectedSourceId(sourceId);
+      return captureSourceRegistry.getSnapshot();
     },
   );
 }
