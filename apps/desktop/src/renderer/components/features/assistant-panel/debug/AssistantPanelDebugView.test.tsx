@@ -1,5 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import {
+  AssistantPanelDebugConnectionSection,
+  AssistantPanelDebugScreenContextSection,
+} from './AssistantPanelDebugSections';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 import type { VisualSendDiagnostics } from '../../../../runtime';
 
@@ -268,6 +272,56 @@ function buildBaseProps(visualSendDiagnostics: VisualSendDiagnostics) {
     onRetryBackendHealth: vi.fn(async () => undefined),
   };
 }
+
+describe('AssistantPanelDebugSections', () => {
+  it('hides retry action and falls back token request to Idle when backend is not failed', () => {
+    const onRetryBackendHealth = vi.fn(async () => undefined);
+
+    render(
+      <AssistantPanelDebugConnectionSection
+        backendState="connected"
+        backendIndicatorState="ready"
+        backendLabel="Connected"
+        tokenFeedback={null}
+        onRetryBackendHealth={onRetryBackendHealth}
+      />,
+    );
+
+    expect(screen.getByText('Backend status')).toBeVisible();
+    expect(screen.getByText('Token request')).toBeVisible();
+    expect(
+      within(screen.getByText('Token request').closest('.field-list__item')!).getByText('Idle'),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Retry backend' })).toBeNull();
+    expect(onRetryBackendHealth).not.toHaveBeenCalled();
+  });
+
+  it('omits the saved frame dump row when no dump directory is available', () => {
+    const onToggleSaveScreenFrames = vi.fn();
+    const props = buildBaseProps({
+      lastTransitionReason: null,
+      snapshotCount: 0,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: { snapshot: 0, streaming: 0 },
+    });
+
+    render(
+      <AssistantPanelDebugScreenContextSection
+        screenCaptureState={props.screenCaptureState}
+        screenCaptureDiagnostics={props.screenCaptureDiagnostics}
+        visualSendDiagnostics={props.visualSendDiagnostics}
+        saveScreenFramesEnabled={true}
+        screenFrameDumpDirectoryPath={null}
+        onToggleSaveScreenFrames={onToggleSaveScreenFrames}
+      />,
+    );
+
+    expect(screen.queryByText('Saved frame dump')).toBeNull();
+    fireEvent.click(screen.getByRole('switch', { name: 'Save screen frames' }));
+    expect(onToggleSaveScreenFrames).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
   it('shows current visual send state', () => {
