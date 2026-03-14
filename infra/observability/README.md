@@ -14,6 +14,16 @@ Grafana starts with:
 
 ## Run
 
+From the repository root you can use:
+
+```bash
+make observability-api
+make observability-up
+make observability-urls
+```
+
+Or run the equivalent commands manually:
+
 1. Start the API with a host binding Docker can reach:
 
    ```bash
@@ -56,6 +66,5 @@ If the dashboard looks empty at first, send a few requests to the API so Prometh
 ## Stop
 
 ```bash
-cd infra/observability
-docker compose down
+make observability-down
 ```
