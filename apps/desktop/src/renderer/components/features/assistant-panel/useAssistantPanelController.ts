@@ -7,8 +7,9 @@ import {
   getComposerSpeechActionKind,
   useSessionRuntime,
   type ConversationTimelineEntry,
-  type ProductMode,
-  type ScreenCaptureDiagnostics,
+    type ProductMode,
+    type RealtimeOutboundDiagnostics,
+    type ScreenCaptureDiagnostics,
   type ScreenCaptureState,
   type SpeechLifecycleStatus,
   type TextSessionStatus,
@@ -51,6 +52,7 @@ export type AssistantPanelController = {
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   voiceToolState: VoiceToolState;
+  realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   isVoiceSessionActive: boolean;
@@ -91,6 +93,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     voicePlaybackState,
     voicePlaybackDiagnostics,
     voiceToolState,
+    realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
     isVoiceSessionActive,
@@ -233,6 +236,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     voicePlaybackState,
     voicePlaybackDiagnostics,
     voiceToolState,
+    realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
     isVoiceSessionActive,

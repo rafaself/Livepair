@@ -33,7 +33,11 @@ import type {
 export function createSessionControllerAssembly(
   dependencies: DesktopSessionControllerDependencies,
 ): DesktopSessionController {
-  const mutableRuntime = createSessionControllerMutableRuntime();
+  const mutableRuntime = createSessionControllerMutableRuntime({
+    onRealtimeOutboundDiagnosticsChanged: (diagnostics) => {
+      dependencies.store.getState().setRealtimeOutboundDiagnostics(diagnostics);
+    },
+  });
   const conversationCtx = createConversationContext(dependencies.store);
   let endSessionInternal = async (
     _options: {

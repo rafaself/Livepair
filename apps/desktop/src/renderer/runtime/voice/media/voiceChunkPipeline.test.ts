@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVoiceChunkPipeline } from './voiceChunkPipeline';
+import { createDefaultRealtimeOutboundDiagnostics } from '../../outbound/realtimeOutboundGateway';
 import type {
   RealtimeOutboundDecision,
-  RealtimeOutboundDiagnostics,
   RealtimeOutboundEvent,
   RealtimeOutboundGateway,
 } from '../../outbound/outbound.types';
@@ -63,23 +63,7 @@ function createMockOps(options: {
     recordFailure: vi.fn(),
     recordSuccess: vi.fn(),
     reset: vi.fn(),
-    getDiagnostics: vi.fn((): RealtimeOutboundDiagnostics => ({
-      breakerState: 'closed',
-      consecutiveFailureCount: 0,
-      totalSubmitted: 0,
-      sentCount: 0,
-      droppedCount: 0,
-      replacedCount: 0,
-      blockedCount: 0,
-      lastDecision: null,
-      lastReason: null,
-      lastEventKind: null,
-      lastChannelKey: null,
-      lastSequence: null,
-      lastReplaceKey: null,
-      lastSubmittedAtMs: null,
-      lastError: null,
-    })),
+    getDiagnostics: vi.fn(createDefaultRealtimeOutboundDiagnostics),
   };
 
   return {

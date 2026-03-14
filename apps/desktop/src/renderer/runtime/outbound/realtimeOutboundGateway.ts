@@ -10,15 +10,39 @@ import type {
 const DEFAULT_MAX_CONSECUTIVE_FAILURES = 3;
 const AUDIO_MAX_OUTSTANDING_EVENTS = 2;
 
+function cloneDiagnostics(
+  diagnostics: RealtimeOutboundDiagnostics,
+): RealtimeOutboundDiagnostics {
+  return {
+    ...diagnostics,
+    droppedByReason: { ...diagnostics.droppedByReason },
+    blockedByReason: { ...diagnostics.blockedByReason },
+    submittedByKind: { ...diagnostics.submittedByKind },
+  };
+}
+
 export function createDefaultRealtimeOutboundDiagnostics(): RealtimeOutboundDiagnostics {
   return {
     breakerState: 'closed',
+    breakerReason: null,
     consecutiveFailureCount: 0,
     totalSubmitted: 0,
     sentCount: 0,
     droppedCount: 0,
     replacedCount: 0,
     blockedCount: 0,
+    droppedByReason: {
+      staleSequence: 0,
+      laneSaturated: 0,
+    },
+    blockedByReason: {
+      breakerOpen: 0,
+    },
+    submittedByKind: {
+      text: 0,
+      audioChunk: 0,
+      visualFrame: 0,
+    },
     lastDecision: null,
     lastReason: null,
     lastEventKind: null,
@@ -48,11 +72,30 @@ export function createRealtimeOutboundGateway(
   const latestReplaceableByKey = new Map<string, number>();
   const outstandingAudioEventsByChannel = new Map<string, number>();
 
+  const publishDiagnostics = (): void => {
+    options.onDiagnosticsChanged?.(cloneDiagnostics(diagnostics));
+  };
+
+  const setDiagnostics = (
+    nextDiagnostics: RealtimeOutboundDiagnostics,
+  ): RealtimeOutboundDiagnostics => {
+    diagnostics = nextDiagnostics;
+    publishDiagnostics();
+    return diagnostics;
+  };
+
   const finalizeDecision = (
     event: RealtimeOutboundEvent,
     decision: RealtimeOutboundDecision,
   ): RealtimeOutboundDecision => {
-    diagnostics = {
+    const submittedByKindKey =
+      event.kind === 'audio_chunk'
+        ? 'audioChunk'
+        : event.kind === 'visual_frame'
+          ? 'visualFrame'
+          : 'text';
+
+    setDiagnostics({
       ...diagnostics,
       totalSubmitted: diagnostics.totalSubmitted + 1,
       sentCount:
@@ -63,6 +106,24 @@ export function createRealtimeOutboundGateway(
         diagnostics.replacedCount + (decision.outcome === 'replace' ? 1 : 0),
       blockedCount:
         diagnostics.blockedCount + (decision.outcome === 'block' ? 1 : 0),
+      droppedByReason: {
+        staleSequence:
+          diagnostics.droppedByReason.staleSequence
+          + (decision.reason === 'stale-sequence' ? 1 : 0),
+        laneSaturated:
+          diagnostics.droppedByReason.laneSaturated
+          + (decision.reason === 'lane-saturated' ? 1 : 0),
+      },
+      blockedByReason: {
+        breakerOpen:
+          diagnostics.blockedByReason.breakerOpen
+          + (decision.reason === 'breaker-open' ? 1 : 0),
+      },
+      submittedByKind: {
+        ...diagnostics.submittedByKind,
+        [submittedByKindKey]:
+          diagnostics.submittedByKind[submittedByKindKey] + 1,
+      },
       lastDecision: decision.outcome,
       lastReason: decision.reason,
       lastEventKind: event.kind,
@@ -70,7 +131,7 @@ export function createRealtimeOutboundGateway(
       lastSequence: event.sequence,
       lastReplaceKey: event.kind === 'visual_frame' ? event.replaceKey : null,
       lastSubmittedAtMs: event.createdAtMs,
-    };
+    });
 
     return decision;
   };
@@ -139,7 +200,7 @@ export function createRealtimeOutboundGateway(
   };
 
   const reset = (): void => {
-    diagnostics = createDefaultRealtimeOutboundDiagnostics();
+    setDiagnostics(createDefaultRealtimeOutboundDiagnostics());
     latestSequenceByChannel.clear();
     latestReplaceableByKey.clear();
     outstandingAudioEventsByChannel.clear();
@@ -167,23 +228,26 @@ export function createRealtimeOutboundGateway(
     },
     recordFailure: (detail: string): void => {
       const consecutiveFailureCount = diagnostics.consecutiveFailureCount + 1;
-      diagnostics = {
+      setDiagnostics({
         ...diagnostics,
         consecutiveFailureCount,
         breakerState:
           consecutiveFailureCount >= maxConsecutiveFailures ? 'open' : 'closed',
+        breakerReason:
+          consecutiveFailureCount >= maxConsecutiveFailures ? detail : null,
         lastError: detail,
-      };
+      });
     },
     recordSuccess: (): void => {
-      diagnostics = {
+      setDiagnostics({
         ...diagnostics,
         breakerState: 'closed',
+        breakerReason: null,
         consecutiveFailureCount: 0,
         lastError: null,
-      };
+      });
     },
     reset,
-    getDiagnostics: (): RealtimeOutboundDiagnostics => ({ ...diagnostics }),
+    getDiagnostics: (): RealtimeOutboundDiagnostics => cloneDiagnostics(diagnostics),
   };
 }

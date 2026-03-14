@@ -50,12 +50,25 @@ export type RealtimeOutboundDecision = {
 
 export type RealtimeOutboundDiagnostics = {
   breakerState: RealtimeOutboundBreakerState;
+  breakerReason: string | null;
   consecutiveFailureCount: number;
   totalSubmitted: number;
   sentCount: number;
   droppedCount: number;
   replacedCount: number;
   blockedCount: number;
+  droppedByReason: {
+    staleSequence: number;
+    laneSaturated: number;
+  };
+  blockedByReason: {
+    breakerOpen: number;
+  };
+  submittedByKind: {
+    text: number;
+    audioChunk: number;
+    visualFrame: number;
+  };
   lastDecision: RealtimeOutboundDecisionOutcome | null;
   lastReason: RealtimeOutboundDecisionReason | null;
   lastEventKind: RealtimeOutboundEventKind | null;
@@ -68,6 +81,7 @@ export type RealtimeOutboundDiagnostics = {
 
 export type RealtimeOutboundGatewayOptions = {
   maxConsecutiveFailures?: number;
+  onDiagnosticsChanged?: (diagnostics: RealtimeOutboundDiagnostics) => void;
 };
 
 export type RealtimeOutboundGateway = {

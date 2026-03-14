@@ -55,6 +55,7 @@ export function AssistantPanel(): JSX.Element {
     voicePlaybackState,
     voicePlaybackDiagnostics,
     voiceToolState,
+    realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
     canSubmitText,
@@ -206,6 +207,7 @@ export function AssistantPanel(): JSX.Element {
                 voicePlaybackState={voicePlaybackState}
                 voicePlaybackDiagnostics={voicePlaybackDiagnostics}
                 voiceToolState={voiceToolState}
+                realtimeOutboundDiagnostics={realtimeOutboundDiagnostics}
                 screenCaptureState={screenCaptureState}
                 screenCaptureDiagnostics={screenCaptureDiagnostics}
                 saveScreenFramesEnabled={saveScreenFramesEnabled}

@@ -92,6 +92,22 @@ describe('realtimeOutboundGateway', () => {
     expect(gateway.submit(createAudioChunkEvent({ sequence: 4 })).outcome).toBe('send');
   });
 
+  it('keeps text non-replaceable and separate from audio saturation rules', () => {
+    const gateway = createRealtimeOutboundGateway();
+
+    expect(gateway.submit(createAudioChunkEvent({ sequence: 1 })).outcome).toBe('send');
+    expect(gateway.submit(createAudioChunkEvent({ sequence: 2 })).outcome).toBe('send');
+    expect(gateway.submit(createAudioChunkEvent({ sequence: 3 })).outcome).toBe('drop');
+
+    expect(gateway.submit(createTextEvent({ sequence: 1 })).outcome).toBe('send');
+    expect(gateway.submit(createTextEvent({ sequence: 2 })).outcome).toBe('send');
+    expect(gateway.submit(createTextEvent({ sequence: 3 }))).toEqual({
+      outcome: 'send',
+      classification: 'non-replaceable',
+      reason: 'accepted',
+    });
+  });
+
   it('updates diagnostics for send, drop, replace, and block outcomes', () => {
     const gateway = createRealtimeOutboundGateway({ maxConsecutiveFailures: 2 });
 
@@ -110,11 +126,24 @@ describe('realtimeOutboundGateway', () => {
     );
     expect(gateway.getDiagnostics()).toMatchObject({
       breakerState: 'open',
+      breakerReason: 'transport unavailable',
       totalSubmitted: 5,
       sentCount: 2,
       droppedCount: 1,
       replacedCount: 1,
       blockedCount: 1,
+      droppedByReason: {
+        staleSequence: 1,
+        laneSaturated: 0,
+      },
+      blockedByReason: {
+        breakerOpen: 1,
+      },
+      submittedByKind: {
+        text: 3,
+        audioChunk: 0,
+        visualFrame: 2,
+      },
       consecutiveFailureCount: 2,
       lastDecision: 'block',
       lastError: 'transport unavailable',
@@ -135,12 +164,25 @@ describe('realtimeOutboundGateway', () => {
 
     expect(gateway.getDiagnostics()).toMatchObject({
       breakerState: 'closed',
+      breakerReason: null,
       consecutiveFailureCount: 0,
       totalSubmitted: 0,
       sentCount: 0,
       droppedCount: 0,
       replacedCount: 0,
       blockedCount: 0,
+      droppedByReason: {
+        staleSequence: 0,
+        laneSaturated: 0,
+      },
+      blockedByReason: {
+        breakerOpen: 0,
+      },
+      submittedByKind: {
+        text: 0,
+        audioChunk: 0,
+        visualFrame: 0,
+      },
       lastDecision: null,
       lastError: null,
     });

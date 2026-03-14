@@ -63,6 +63,36 @@ describe('AssistantPanelDebugView', () => {
           lastUploadStatus: 'sent',
           lastError: null,
         }}
+        realtimeOutboundDiagnostics={{
+          breakerState: 'open',
+          breakerReason: 'transport unavailable',
+          consecutiveFailureCount: 3,
+          totalSubmitted: 11,
+          sentCount: 6,
+          droppedCount: 2,
+          replacedCount: 1,
+          blockedCount: 2,
+          droppedByReason: {
+            staleSequence: 1,
+            laneSaturated: 1,
+          },
+          blockedByReason: {
+            breakerOpen: 2,
+          },
+          submittedByKind: {
+            text: 3,
+            audioChunk: 5,
+            visualFrame: 3,
+          },
+          lastDecision: 'block',
+          lastReason: 'breaker-open',
+          lastEventKind: 'text',
+          lastChannelKey: 'text:speech-mode',
+          lastSequence: 3,
+          lastReplaceKey: null,
+          lastSubmittedAtMs: 1_000,
+          lastError: 'transport unavailable',
+        }}
         saveScreenFramesEnabled={false}
         screenFrameDumpDirectoryPath="/tmp/livepair/screen-frame-dumps/current-debug-session"
         onToggleSaveScreenFrames={onToggleSaveScreenFrames}
@@ -92,7 +122,16 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Voice playback')).toBeVisible();
     expect(screen.getByText('Playing')).toBeVisible();
     expect(screen.getByText('Screen context')).toBeVisible();
-    expect(screen.getByText('Sent')).toBeVisible();
+    expect(screen.getByText('Outbound guardrails')).toBeVisible();
+    expect(screen.getByText('Breaker')).toBeVisible();
+    expect(screen.getByText('Open')).toBeVisible();
+    expect(screen.getByText('Breaker reason')).toBeVisible();
+    expect(screen.getAllByText('transport unavailable').length).toBeGreaterThan(0);
+    expect(screen.getByText('Dropped (saturated)')).toBeVisible();
+    expect(screen.getByText('Blocked (breaker)')).toBeVisible();
+    expect(screen.getByText('Audio submits')).toBeVisible();
+    expect(screen.getByText('Visual submits')).toBeVisible();
+    expect(screen.getByText('Sent count')).toBeVisible();
     expect(screen.getByText('Entire screen')).toBeVisible();
     expect(screen.getByRole('switch', { name: 'Save screen frames' })).toHaveAttribute(
       'aria-checked',
@@ -102,7 +141,6 @@ describe('AssistantPanelDebugView', () => {
       screen.getByText('/tmp/livepair/screen-frame-dumps/current-debug-session'),
     ).toBeVisible();
     expect(screen.getByText('Chunk count')).toBeVisible();
-    expect(screen.getByText('3')).toBeVisible();
     expect(screen.getByText('Audio format')).toBeVisible();
     expect(screen.getByText('16 kHz / mono / pcm_s16le')).toBeVisible();
     expect(screen.getByText('Playback output')).toBeVisible();

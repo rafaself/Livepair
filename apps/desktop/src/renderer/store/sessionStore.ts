@@ -7,6 +7,7 @@ import {
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
   createDefaultVoiceToolState,
+  createDefaultRealtimeOutboundDiagnostics,
   createSpeechSessionLifecycle,
   createTextSessionLifecycle,
   deriveSessionPhaseFromLifecycle,
@@ -15,6 +16,7 @@ import {
   type ConversationTurnModel,
   type CurrentVoiceTranscript,
   type ProductMode,
+  type RealtimeOutboundDiagnostics,
   type RuntimeDebugEvent,
   type ScreenCaptureDiagnostics,
   type ScreenCaptureState,
@@ -61,6 +63,7 @@ type SessionStoreData = {
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   currentVoiceTranscript: CurrentVoiceTranscript;
   voiceToolState: VoiceToolState;
+  realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   screenCaptureSources: ScreenCaptureSource[];
@@ -116,6 +119,9 @@ export type SessionStoreState = SessionStoreData & {
     patch: Partial<VoicePlaybackDiagnostics>,
   ) => void;
   setVoiceToolState: (patch: Partial<VoiceToolState>) => void;
+  setRealtimeOutboundDiagnostics: (
+    diagnostics: RealtimeOutboundDiagnostics,
+  ) => void;
   setCurrentVoiceTranscriptEntry: (
     role: keyof CurrentVoiceTranscript,
     patch: Partial<CurrentVoiceTranscript[keyof CurrentVoiceTranscript]>,
@@ -241,6 +247,7 @@ function buildDefaultSessionState(): SessionStoreData {
     voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
     voiceToolState: createDefaultVoiceToolState(),
+    realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
     screenCaptureState: 'disabled',
     screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
     screenCaptureSources: [],
@@ -409,6 +416,8 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setRealtimeOutboundDiagnostics: (realtimeOutboundDiagnostics) =>
+    set({ realtimeOutboundDiagnostics }),
   setCurrentVoiceTranscriptEntry: (role, patch) =>
     set((state) => ({
       currentVoiceTranscript: {
@@ -467,6 +476,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
       currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
       voiceToolState: createDefaultVoiceToolState(),
+      realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
       screenCaptureState: 'disabled' as ScreenCaptureState,
       screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
       screenCaptureSources: [],
