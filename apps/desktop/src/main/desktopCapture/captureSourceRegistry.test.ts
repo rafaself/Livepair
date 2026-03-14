@@ -62,4 +62,27 @@ describe('createCaptureSourceRegistry', () => {
     expect(registry.getSources()).toEqual([]);
     expect(registry.getSelectedSource()).toBeNull();
   });
+
+  it('clears a stale selected source id when refreshed sources no longer include it', () => {
+    registry.setSources([sourceA, sourceB]);
+    registry.setSelectedSourceId('window:42:0');
+
+    registry.setSources([sourceA]);
+
+    expect(registry.getSelectedSourceId()).toBeNull();
+    expect(registry.getSnapshot()).toEqual({
+      sources: [sourceA],
+      selectedSourceId: null,
+    });
+  });
+
+  it('returns a snapshot of the current sources and selected id', () => {
+    registry.setSources([sourceA, sourceB]);
+    registry.setSelectedSourceId('screen:1:0');
+
+    expect(registry.getSnapshot()).toEqual({
+      sources: [sourceA, sourceB],
+      selectedSourceId: 'screen:1:0',
+    });
+  });
 });

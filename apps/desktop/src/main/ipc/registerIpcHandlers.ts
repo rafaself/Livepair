@@ -3,6 +3,7 @@ import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared';
 import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
 import {
+  CAPTURE_SOURCE_LIST_OPTIONS,
   createCaptureSourceRegistry,
   toCaptureSources,
   type CaptureSourceRegistry,
@@ -44,9 +45,7 @@ export function registerIpcHandlers({
     getBackendUrl: async () => (await settingsService.getSettings()).backendUrl,
   });
   const loadScreenCaptureSourceSnapshot = async () => {
-    const sources = toCaptureSources(
-      await desktopCapturer.getSources({ types: ['screen', 'window'] }),
-    );
+    const sources = toCaptureSources(await desktopCapturer.getSources(CAPTURE_SOURCE_LIST_OPTIONS));
     captureSourceRegistry.setSources(sources);
     return captureSourceRegistry.getSnapshot();
   };

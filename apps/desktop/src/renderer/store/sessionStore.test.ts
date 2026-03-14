@@ -341,6 +341,35 @@ describe('sessionStore', () => {
       });
     });
 
+    it('stores source snapshots and clears them during runtime resets', () => {
+      useSessionStore.getState().setScreenCaptureSourceSnapshot({
+        sources: [
+          { id: 'screen:1:0', name: 'Entire Screen' },
+          { id: 'window:42:0', name: 'VSCode' },
+        ],
+        selectedSourceId: 'window:42:0',
+      });
+
+      expect(useSessionStore.getState().screenCaptureSources).toEqual([
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ]);
+      expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('window:42:0');
+
+      useSessionStore.getState().resetTextSessionRuntime();
+      expect(useSessionStore.getState().screenCaptureSources).toEqual([]);
+      expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBeNull();
+
+      useSessionStore.getState().setScreenCaptureSourceSnapshot({
+        sources: [{ id: 'screen:1:0', name: 'Entire Screen' }],
+        selectedSourceId: 'screen:1:0',
+      });
+      useSessionStore.getState().reset();
+
+      expect(useSessionStore.getState().screenCaptureSources).toEqual([]);
+      expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBeNull();
+    });
+
     it('resets screen capture to disabled on reset()', () => {
       useSessionStore.getState().setScreenCaptureState('capturing');
       useSessionStore.getState().setScreenCaptureDiagnostics({

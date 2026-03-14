@@ -2,12 +2,14 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../../shared/settings';
 import { useSettingsStore } from '../../../../store/settingsStore';
+import { useSessionStore } from '../../../../store/sessionStore';
 import { resetDesktopStores } from '../../../../store/testing';
 import { useUiStore } from '../../../../store/uiStore';
 import { useAssistantPanelSettingsController } from './useAssistantPanelSettingsController';
 
 function HookHarness(): JSX.Element {
   const controller = useAssistantPanelSettingsController();
+  const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
 
   return (
     <div>
@@ -30,6 +32,7 @@ function HookHarness(): JSX.Element {
         {controller.screenCaptureSourceOptions.map((option) => option.label).join('|')}
       </output>
       <output aria-label="selected-screen-source">{controller.selectedScreenCaptureSourceId}</output>
+      <output aria-label="last-runtime-error">{lastRuntimeError ?? 'none'}</output>
       <output aria-label="debug-mode">{String(controller.isDebugMode)}</output>
       <button type="button" onClick={controller.toggleDebugMode}>
         toggle debug
@@ -173,7 +176,7 @@ describe('useAssistantPanelSettingsController', () => {
     expect(backendUrlInput).toHaveValue('https://persisted.livepair.dev');
   });
 
-  it('surfaces hydrated device options from the ui store', () => {
+  it('surfaces hydrated device options from the ui store', async () => {
     useUiStore.setState({
       inputDeviceOptions: [
         { value: 'default', label: 'System default' },
@@ -186,6 +189,10 @@ describe('useAssistantPanelSettingsController', () => {
     });
 
     render(<HookHarness />);
+
+    await waitFor(() => {
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+    });
 
     expect(screen.getByLabelText('input-options')).toHaveTextContent(
       'System default|USB Microphone',
@@ -206,6 +213,35 @@ describe('useAssistantPanelSettingsController', () => {
       'Automatic (first available source)|Entire Screen|VSCode',
     );
     expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('screen:1:0');
+  });
+
+  it('surfaces a runtime error when loading screen capture sources fails', async () => {
+    window.bridge.listScreenCaptureSources = vi.fn(async () => {
+      throw new Error('enumeration failed');
+    });
+
+    render(<HookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('last-runtime-error')).toHaveTextContent('enumeration failed');
+    });
+    expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
+      'Automatic (first available source)',
+    );
+  });
+
+  it('surfaces a runtime error when selecting a screen capture source fails', async () => {
+    window.bridge.selectScreenCaptureSource = vi.fn(async () => {
+      throw new Error('selection failed');
+    });
+
+    render(<HookHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'set screen source' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('last-runtime-error')).toHaveTextContent('selection failed');
+    });
   });
 
   it('routes settings mutations through the stores and exposes debug mode toggles', async () => {

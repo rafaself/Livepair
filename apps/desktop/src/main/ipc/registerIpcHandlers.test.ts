@@ -519,9 +519,11 @@ describe('registerIpcHandlers', () => {
 
     expect(mockGetSources).toHaveBeenNthCalledWith(1, {
       types: ['screen', 'window'],
+      thumbnailSize: { width: 0, height: 0 },
     });
     expect(mockGetSources).toHaveBeenNthCalledWith(2, {
       types: ['screen', 'window'],
+      thumbnailSize: { width: 0, height: 0 },
     });
   });
 
