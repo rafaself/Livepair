@@ -349,11 +349,14 @@
   border-radius: var(--radius-full);
 }
 
-/* Loading state — circle, spinner animation */
+/* Loading state — spinner animation; compact circle only when not pill-shaped */
 .assistant-panel__composer-submit--loading {
+  cursor: default;
+}
+
+.assistant-panel__composer-submit--loading:not(.assistant-panel__composer-submit--speech-active) {
   width: 32px;
   padding: 0;
-  cursor: default;
   border-radius: 50%;
 }
 
