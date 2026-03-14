@@ -16,6 +16,7 @@ type TrackLike = {
   stop: ReturnType<typeof vi.fn>;
   addEventListener: ReturnType<typeof vi.fn>;
   removeEventListener: ReturnType<typeof vi.fn>;
+  getSettings: ReturnType<typeof vi.fn>;
 };
 
 type CanvasMock = {
@@ -52,12 +53,13 @@ function createObserver(): {
   };
 }
 
-function createTrack(): TrackLike {
+function createTrack(trackWidth = 1280, trackHeight = 720): TrackLike {
   return {
     label: 'Entire screen',
     stop: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
+    getSettings: vi.fn(() => ({ width: trackWidth, height: trackHeight })),
   };
 }
 
@@ -77,6 +79,8 @@ function createHarness(opts: {
   accessStatus?: ScreenCaptureAccessStatus;
   videoWidth?: number;
   videoHeight?: number;
+  trackWidth?: number;
+  trackHeight?: number;
   toDataUrlResult?: string;
   blobBytes?: Uint8Array;
 } = {}): {
@@ -92,7 +96,7 @@ function createHarness(opts: {
   createInterval: ReturnType<typeof vi.fn>;
 } {
   const obs = createObserver();
-  const track = createTrack();
+  const track = createTrack(opts.trackWidth ?? opts.videoWidth ?? 1280, opts.trackHeight ?? opts.videoHeight ?? 720);
 
   const fakeStream = {
     getTracks: () => [track as unknown as MediaStreamTrack],
@@ -410,6 +414,102 @@ describe('createLocalScreenCapture', () => {
     });
   });
 
+  describe('wave 4: local frame sizing and quality', () => {
+    it('uses track getSettings() width as the basis for sizing, not a fixed monitor assumption', async () => {
+      // Track reports 2560×1440 (e.g. a 2K display)
+      const { capture, canvas, track, tickInterval } = createHarness({
+        trackWidth: 2560,
+        trackHeight: 1440,
+        videoWidth: 2560,
+        videoHeight: 1440,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(track.getSettings).toHaveBeenCalled();
+      // Width must be derived from the track's reported 2560, capped at 1920
+      expect(canvas.width).toBe(1920);
+    });
+
+    it('caps local frame width at 1920px (not the old 640px cap)', async () => {
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 1920,
+        trackHeight: 1080,
+        videoWidth: 1920,
+        videoHeight: 1080,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1920);
+      expect(canvas.width).toBeGreaterThan(640);
+    });
+
+    it('preserves aspect ratio when capping to 1920px', async () => {
+      // 2560×1600 → should cap at 1920, height = round(1600/2560 * 1920) = 1200
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 2560,
+        trackHeight: 1600,
+        videoWidth: 2560,
+        videoHeight: 1600,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1920);
+      expect(canvas.height).toBe(1200);
+    });
+
+    it('preserves aspect ratio for 16:9 source capped at 1920px', async () => {
+      // 3840×2160 (4K) → cap at 1920, height = round(2160/3840 * 1920) = 1080
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 3840,
+        trackHeight: 2160,
+        videoWidth: 3840,
+        videoHeight: 2160,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1920);
+      expect(canvas.height).toBe(1080);
+    });
+
+    it('does not upscale sources narrower than 1920px', async () => {
+      // 1280×720 source — must stay at 1280, not be stretched to 1920
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 1280,
+        trackHeight: 720,
+        videoWidth: 1280,
+        videoHeight: 720,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1280);
+      expect(canvas.height).toBe(720);
+    });
+
+    it('does not upscale a 1366×768 source', async () => {
+      const { capture, canvas, tickInterval } = createHarness({
+        trackWidth: 1366,
+        trackHeight: 768,
+        videoWidth: 1366,
+        videoHeight: 768,
+      });
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.width).toBe(1366);
+      expect(canvas.height).toBe(768);
+    });
+
+    it('encodes frames at JPEG quality 0.92', async () => {
+      const { capture, canvas, tickInterval } = createHarness();
+      await capture.start({});
+      await tickInterval();
+      expect(canvas.toBlob).toHaveBeenCalledWith(
+        expect.any(Function),
+        SCREEN_CAPTURE_VIDEO_MIME_TYPE,
+        0.92,
+      );
+    });
+  });
+
   describe('stop()', () => {
     it('stops the video track on stop()', async () => {
       const { capture, track } = createHarness();
@@ -499,7 +599,7 @@ describe('createLocalScreenCapture', () => {
     });
 
     it('exports expected JPEG quality', () => {
-      expect(SCREEN_CAPTURE_JPEG_QUALITY).toBe(0.7);
+      expect(SCREEN_CAPTURE_JPEG_QUALITY).toBe(0.92);
     });
 
     it('exports expected MIME type', () => {

@@ -39,6 +39,7 @@ type TrackLike = {
   stop: () => void;
   addEventListener: (type: 'ended', listener: () => void) => void;
   removeEventListener: (type: 'ended', listener: () => void) => void;
+  getSettings: () => { width?: number; height?: number };
 };
 
 export type LocalScreenCaptureObserver = {
@@ -331,8 +332,11 @@ export function createLocalScreenCapture(
           return;
         }
 
-        const vw = video.videoWidth;
-        const vh = video.videoHeight;
+        const settings = videoTrack?.getSettings() ?? {};
+        const sourceWidth = (settings.width && settings.width > 0 ? settings.width : video.videoWidth);
+        const sourceHeight = (settings.height && settings.height > 0 ? settings.height : video.videoHeight);
+        const vw = sourceWidth;
+        const vh = sourceHeight;
 
         if (vw === 0 || vh === 0) {
           return;

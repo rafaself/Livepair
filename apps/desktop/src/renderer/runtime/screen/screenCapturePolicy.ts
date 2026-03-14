@@ -1,6 +1,6 @@
 export const SCREEN_CAPTURE_FRAME_RATE_HZ = 1;
-export const SCREEN_CAPTURE_MAX_WIDTH_PX = 640;
-export const SCREEN_CAPTURE_JPEG_QUALITY = 0.7;
+export const SCREEN_CAPTURE_MAX_WIDTH_PX = 1920;
+export const SCREEN_CAPTURE_JPEG_QUALITY = 0.92;
 export const SCREEN_CAPTURE_VIDEO_MIME_TYPE = 'image/jpeg' as const;
 
 // Keep at most one unsent frame queued behind the current upload.
