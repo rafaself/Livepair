@@ -715,13 +715,28 @@ describe('createScreenCaptureController', () => {
     expect(sendVideoFrame).not.toHaveBeenCalled();
   });
 
-  it('observer onError triggers stopInternal with error state', async () => {
-    const { ctrl, store, getObserver } = createHarness();
+  it('observer onError stops capture, preserves diagnostics, and resets visual state', async () => {
+    const { ctrl, store, getObserver, mockCapture } = createHarness();
 
     await ctrl.start();
+    ctrl.enableStreaming();
     getObserver()!.onError('device lost');
 
-    expect(store.setLastRuntimeError).toHaveBeenCalledWith('device lost');
+    await vi.waitFor(() => {
+      expect(mockCapture.stop).toHaveBeenCalledTimes(1);
+      expect(store.setLastRuntimeError).toHaveBeenCalledWith('device lost');
+      expect(store.setScreenCaptureState.mock.calls.slice(-2)).toEqual([
+        ['stopping'],
+        ['error'],
+      ]);
+      expect(store.setScreenCaptureDiagnostics).toHaveBeenLastCalledWith({
+        lastUploadStatus: 'error',
+        lastError: 'device lost',
+      });
+    });
+
+    expect(ctrl.getVisualSendState()).toBe('inactive');
+    expect(ctrl.isActive()).toBe(false);
   });
 
   it('observer onDiagnostics patches store', async () => {
