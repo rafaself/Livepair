@@ -16,6 +16,16 @@
  *   should call endFocusedAnalysis() immediately after the analysis completes.
  * - The fixed Live model (Wave 4) and local frame encoding constants (Wave 4)
  *   are completely unrelated to this module.
+ *
+ * Wave 7 – Promotion Oscillation Guard
+ * ──────────────────────────────────────
+ * Under noisy trigger conditions a caller may call beginFocusedAnalysis /
+ * endFocusedAnalysis many times in rapid succession, causing the effective
+ * quality to oscillate on every tick.  A minimum hold-down period
+ * (VISUAL_PROMOTION_HOLD_MS, default 2 000 ms) is enforced between successive
+ * *begin* calls after a prior promotion was ended.  endFocusedAnalysis() still
+ * clears immediately; only re-activation is gated.
+ * The clock is injectable via options for deterministic tests.
  */
 
 import type { VisualSessionQuality } from '../../../shared/settings';
@@ -54,6 +64,12 @@ export type VisualAnalysisIntent = (typeof TEXT_HEAVY_VISUAL_INTENTS)[number] | 
  */
 export const PROMOTED_VISUAL_QUALITY: VisualSessionQuality = 'High';
 
+/**
+ * Wave 7 – Minimum hold-down period between successive beginFocusedAnalysis()
+ * calls that would re-activate promotion after it was previously ended.
+ */
+export const VISUAL_PROMOTION_HOLD_MS = 2000;
+
 // ---------------------------------------------------------------------------
 // Pure helpers
 // ---------------------------------------------------------------------------
@@ -81,17 +97,28 @@ export function resolvePromotedQuality(
 // Stateful promoter
 // ---------------------------------------------------------------------------
 
+export type VisualQualityPromoterOptions = {
+  /**
+   * Wave 7 – injectable clock for deterministic tests.
+   * Defaults to () => Date.now().
+   */
+  nowMs?: () => number;
+};
+
 export type VisualQualityPromoter = {
   /**
    * Begin a focused analysis with the given intent.
    * If the intent is text-heavy, activates the quality promotion overlay.
    * If the intent is not text-heavy, clears any prior promotion.
    * Calling this while a promotion is already active replaces it.
+   * Wave 7: if the intent is text-heavy but the hold-down period has not
+   * elapsed since the last endFocusedAnalysis(), this call is a no-op.
    */
   beginFocusedAnalysis: (intent: VisualAnalysisIntent) => void;
   /**
    * End the focused analysis and clear the promotion overlay.
    * Safe to call even when no promotion is active.
+   * Wave 7: records the end timestamp for hold-down tracking.
    */
   endFocusedAnalysis: () => void;
   /**
@@ -118,15 +145,41 @@ export type VisualQualityPromoter = {
  * The promoter is intentionally separate from the VisualSendPolicy (Wave 1)
  * so each concern evolves independently.
  */
-export function createVisualQualityPromoter(): VisualQualityPromoter {
+export function createVisualQualityPromoter(
+  options?: VisualQualityPromoterOptions,
+): VisualQualityPromoter {
+  const nowMs = options?.nowMs ?? (() => Date.now());
+
   let activeIntent: VisualAnalysisIntent | null = null;
+
+  // Wave 7 – hold-down tracking: timestamp of the last endFocusedAnalysis
+  // that cleared a text-heavy promotion.  null = no prior promotion ended.
+  let lastPromotionEndedAt: number | null = null;
+
+  function isHoldActive(): boolean {
+    if (lastPromotionEndedAt === null) return false;
+    return nowMs() - lastPromotionEndedAt < VISUAL_PROMOTION_HOLD_MS;
+  }
 
   return {
     beginFocusedAnalysis(intent: VisualAnalysisIntent): void {
-      activeIntent = isTextHeavyVisualIntent(intent) ? intent : null;
+      if (!isTextHeavyVisualIntent(intent)) {
+        // Non-text-heavy: clear any prior promotion (Wave 6 behaviour preserved)
+        activeIntent = null;
+        return;
+      }
+      // Wave 7: suppress re-activation during hold-down period
+      if (isHoldActive()) {
+        return;
+      }
+      activeIntent = intent;
     },
 
     endFocusedAnalysis(): void {
+      if (activeIntent !== null) {
+        // Record end time only when a text-heavy promotion was actually active
+        lastPromotionEndedAt = nowMs();
+      }
       activeIntent = null;
     },
 

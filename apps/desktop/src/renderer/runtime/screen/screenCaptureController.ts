@@ -17,7 +17,7 @@ import {
   SCREEN_CAPTURE_START_POLICY,
 } from './screenCapturePolicy';
 import { createVisualSendPolicy } from './visualSendPolicy';
-import type { VisualSendDiagnostics, VisualSendState } from './visualSendPolicy';
+import type { VisualSendDiagnostics, VisualSendPolicyOptions, VisualSendState } from './visualSendPolicy';
 import type {
   SaveScreenFrameDumpFrameRequest,
   ScreenFrameDumpSessionInfo,
@@ -72,8 +72,9 @@ export function createScreenCaptureController(
   getTransport: () => DesktopSession | null,
   getRealtimeOutboundGateway: () => RealtimeOutboundGateway,
   screenFrameDumpControls?: ScreenFrameDumpControls,
+  visualSendPolicyOptions?: VisualSendPolicyOptions,
 ): ScreenCaptureController {
-  const visualPolicy = createVisualSendPolicy();
+  const visualPolicy = createVisualSendPolicy(visualSendPolicyOptions);
 
   const flushVisualDiagnostics = (): void => {
     store.getState().setVisualSendDiagnostics(visualPolicy.getDiagnostics());

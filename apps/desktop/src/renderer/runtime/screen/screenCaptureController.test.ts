@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createScreenCaptureController } from './screenCaptureController';
+import type { VisualSendPolicyOptions } from './visualSendPolicy';
 import { createDefaultRealtimeOutboundDiagnostics } from '../outbound/realtimeOutboundGateway';
 import type { DesktopSession } from '../transport/transport.types';
 import type {
@@ -21,6 +22,7 @@ function createHarness(options: {
   screenCaptureState?: ScreenCaptureState;
   saveScreenFramesEnabled?: boolean;
   submitDecision?: (callIndex: number) => RealtimeOutboundDecision;
+  visualSendPolicyOptions?: VisualSendPolicyOptions;
 } = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
   let currentScreenState: ScreenCaptureState = screenCaptureState;
@@ -99,6 +101,7 @@ function createHarness(options: {
       saveScreenFrameDumpFrame,
       setScreenFrameDumpDirectoryPath,
     },
+    options.visualSendPolicyOptions,
   );
 
   return {
@@ -932,12 +935,14 @@ describe('createScreenCaptureController – visual send pipeline (Wave 2)', () =
   });
 
   it('re-armed snapshot after sleep sends exactly one more frame', async () => {
+    let now = 0;
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: (i) => ({
         outcome: i <= 2 ? 'send' : 'replace',
         classification: 'replaceable' as const,
         reason: i <= 2 ? 'accepted' : 'superseded-latest',
       }),
+      visualSendPolicyOptions: { nowMs: () => now },
     });
     await ctrl.start();
 
@@ -951,7 +956,8 @@ describe('createScreenCaptureController – visual send pipeline (Wave 2)', () =
     await Promise.resolve();
     expect(sendVideoFrame).toHaveBeenCalledTimes(1);
 
-    // Second snapshot
+    // Second snapshot – advance past cooldown first
+    now += 3000;
     ctrl.analyzeScreenNow();
     getObserver()!.onFrame(mkFrame(3));
     await Promise.resolve();

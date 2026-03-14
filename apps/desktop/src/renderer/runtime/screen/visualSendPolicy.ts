@@ -22,9 +22,23 @@
  *   enableStreaming()        → streaming    (from sleep, no-op if inactive)
  *   stopStreaming()          → sleep        (from streaming)
  *   allowSend() in snapshot → consumes one frame → sleep
+ *
+ * Wave 7 – Snapshot Cooldown
+ * ──────────────────────────
+ *   A minimum interval (VISUAL_SNAPSHOT_COOLDOWN_MS) is enforced between
+ *   successive analyzeScreenNow() calls that arm the snapshot state.
+ *   Calls within the cooldown window are silently ignored (same as the
+ *   inactive no-op).  Stopping screen share resets the cooldown.
+ *   The clock is injectable via the options parameter for deterministic tests.
  */
 
 export type VisualSendState = 'inactive' | 'sleep' | 'snapshot' | 'streaming';
+
+/**
+ * Wave 7 – Minimum interval between successive analyzeScreenNow() calls
+ * that successfully arm the snapshot state.
+ */
+export const VISUAL_SNAPSHOT_COOLDOWN_MS = 3000;
 
 /**
  * Wave 3 – read-only diagnostics snapshot returned by getDiagnostics().
@@ -54,6 +68,14 @@ export type VisualSendDiagnostics = {
   };
 };
 
+export type VisualSendPolicyOptions = {
+  /**
+   * Wave 7 – injectable clock for deterministic tests.
+   * Defaults to () => Date.now().
+   */
+  nowMs?: () => number;
+};
+
 export type VisualSendPolicy = {
   /** Current state of the visual send state machine. */
   getState: () => VisualSendState;
@@ -64,11 +86,13 @@ export type VisualSendPolicy = {
   onScreenShareStarted: () => void;
   /**
    * Called when screen share hardware stops. Always transitions to inactive.
+   * Wave 7: also resets the snapshot cooldown.
    */
   onScreenShareStopped: () => void;
   /**
    * Explicit "analyze screen now" request. Transitions sleep/streaming → snapshot.
    * No-op if inactive.
+   * Wave 7: no-op if the snapshot cooldown is still active.
    */
   analyzeScreenNow: () => void;
   /**
@@ -95,7 +119,9 @@ export type VisualSendPolicy = {
   getDiagnostics: () => VisualSendDiagnostics;
 };
 
-export function createVisualSendPolicy(): VisualSendPolicy {
+export function createVisualSendPolicy(options?: VisualSendPolicyOptions): VisualSendPolicy {
+  const nowMs = options?.nowMs ?? (() => Date.now());
+
   let state: VisualSendState = 'inactive';
   let lastTransitionReason: VisualSendTransitionReason | null = null;
   let snapshotCount = 0;
@@ -103,6 +129,14 @@ export function createVisualSendPolicy(): VisualSendPolicy {
   let streamingEndedAt: string | null = null;
   let sentSnapshot = 0;
   let sentStreaming = 0;
+
+  // Wave 7 – cooldown tracking
+  let lastSnapshotArmedAt: number | null = null;
+
+  function isCooldownActive(): boolean {
+    if (lastSnapshotArmedAt === null) return false;
+    return nowMs() - lastSnapshotArmedAt < VISUAL_SNAPSHOT_COOLDOWN_MS;
+  }
 
   return {
     getState: () => state,
@@ -117,15 +151,22 @@ export function createVisualSendPolicy(): VisualSendPolicy {
     onScreenShareStopped: () => {
       state = 'inactive';
       lastTransitionReason = 'screenShareStopped';
+      // Wave 7: reset cooldown so the next session starts clean
+      lastSnapshotArmedAt = null;
     },
 
     analyzeScreenNow: () => {
       if (state === 'inactive') {
         return;
       }
+      // Wave 7: suppress if cooldown is still active
+      if (isCooldownActive()) {
+        return;
+      }
       state = 'snapshot';
       snapshotCount += 1;
       lastTransitionReason = 'analyzeScreenNow';
+      lastSnapshotArmedAt = nowMs();
     },
 
     enableStreaming: () => {

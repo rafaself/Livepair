@@ -193,13 +193,15 @@ describe('createVisualQualityPromoter – reversion after endFocusedAnalysis', (
   });
 
   it('supports multiple promotion cycles', () => {
-    const promoter = createVisualQualityPromoter();
+    let now = 0;
+    const promoter = createVisualQualityPromoter({ nowMs: () => now });
 
     promoter.beginFocusedAnalysis('ide_code_analysis');
     expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
     promoter.endFocusedAnalysis();
     expect(promoter.getEffectiveQuality('Low')).toBe('Low');
 
+    now += 2000; // advance past Wave 7 hold-down period
     promoter.beginFocusedAnalysis('terminal_log_reading');
     expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
     promoter.endFocusedAnalysis();

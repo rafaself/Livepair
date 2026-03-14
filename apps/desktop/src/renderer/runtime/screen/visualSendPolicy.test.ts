@@ -114,10 +114,12 @@ describe('createVisualSendPolicy – snapshot (analyzeScreenNow)', () => {
   });
 
   it('re-arms snapshot if analyzeScreenNow is called again after sleep', () => {
-    const policy = createVisualSendPolicy();
+    let now = 0;
+    const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow();
     policy.allowSend(); // consume → sleep
+    now += 3000; // advance past cooldown
     policy.analyzeScreenNow();
     expect(policy.getState()).toBe('snapshot');
     expect(policy.allowSend()).toBe(true);
@@ -269,10 +271,12 @@ describe('createVisualSendPolicy – getDiagnostics (Wave 3)', () => {
   });
 
   it('increments snapshotCount each time analyzeScreenNow is called', () => {
-    const policy = createVisualSendPolicy();
+    let now = 0;
+    const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow();
     policy.allowSend();
+    now += 3000; // advance past cooldown
     policy.analyzeScreenNow();
     policy.allowSend();
     expect(policy.getDiagnostics().snapshotCount).toBe(2);
