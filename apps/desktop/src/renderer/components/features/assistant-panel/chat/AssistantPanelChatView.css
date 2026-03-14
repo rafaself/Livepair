@@ -407,10 +407,16 @@
   animation: assistant-panel-spin 600ms linear infinite;
 }
 
+.assistant-panel__conversation-empty-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .assistant-panel__conversation-empty-icon {
   color: var(--color-text-secondary);
   opacity: 0.45;
-  margin-bottom: var(--space-2);
 }
 
 .assistant-panel__conversation-empty-title {
@@ -433,7 +439,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
+  gap: var(--space-6);
   padding: var(--space-6);
   text-align: center;
 }
