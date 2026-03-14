@@ -28,5 +28,10 @@ Livepair is an Electron + React desktop assistant with a small NestJS backend.
   - repo-wide: `pnpm lint`, `pnpm typecheck`, `pnpm test`
   - focused: `pnpm verify:<pkg>` (see root `package.json` scripts)
 
+## Notes
+- Prefer small, composable files. If a file is already large or orchestration-heavy, avoid growing it when a clean local extraction is reasonable.
+- Treat ~650+ LOC composition-heavy files as decomposition candidates; ~300 LOC cohesive files are acceptable for now.
+- Do not force opportunistic refactors, but when a task already touches a hotspot, make the smallest safe structural improvement that leaves the area easier to extend next time.
+
 ## Agent Skills
 Reusable workflows live in `.agents/skills/<name>/SKILL.md`.
