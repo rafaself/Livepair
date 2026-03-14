@@ -25,7 +25,7 @@ export function AssistantPanelScreenSettingsSection({
   } = controller;
 
   return (
-    <ViewSection icon={Monitor} title="Screen context">
+    <ViewSection icon={Monitor} title="Video">
       <FieldList
         className="assistant-panel__settings-field-list field-list--aligned-controls"
         items={[

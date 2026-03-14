@@ -68,12 +68,18 @@ describe('AssistantPanelSettingsView', () => {
       backendUrl: 'https://runtime.livepair.dev/api',
     });
 
+    const videoHeading = screen.getByRole('heading', { name: 'Video' });
+    const audioHeading = screen.getByRole('heading', { name: 'Audio' });
+
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'General' })).toBeVisible();
+    expect(videoHeading).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Screen context' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Backend' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
+    expect(
+      videoHeading.compareDocumentPosition(audioHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
     expect(screen.getByRole('textbox', { name: /backend url/i })).toHaveValue(
       'https://runtime.livepair.dev/api',
     );
