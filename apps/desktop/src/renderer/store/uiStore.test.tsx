@@ -135,6 +135,124 @@ describe('uiStore', () => {
     );
   });
 
+  // --- HDMI / DisplayPort deduplication policy ---
+
+  it('collapses redundant HDMI output numbered variants keeping only the first', async () => {
+    enumerateDevices.mockResolvedValue([
+      createDevice({ deviceId: 'hdmi-1', kind: 'audiooutput', label: 'HDMI Output 1' }),
+      createDevice({ deviceId: 'hdmi-2', kind: 'audiooutput', label: 'HDMI Output 2' }),
+      createDevice({ deviceId: 'hdmi-3', kind: 'audiooutput', label: 'HDMI Output 3' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    expect(useUiStore.getState().outputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'hdmi-1', label: 'HDMI Output 1' },
+    ]);
+  });
+
+  it('collapses redundant DisplayPort output numbered variants keeping only the first', async () => {
+    enumerateDevices.mockResolvedValue([
+      createDevice({ deviceId: 'dp-1', kind: 'audiooutput', label: 'DisplayPort Output 1' }),
+      createDevice({ deviceId: 'dp-2', kind: 'audiooutput', label: 'DisplayPort Output 2' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    expect(useUiStore.getState().outputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'dp-1', label: 'DisplayPort Output 1' },
+    ]);
+  });
+
+  it('collapses short-form HDMI numbered variants (label without "Output")', async () => {
+    enumerateDevices.mockResolvedValue([
+      createDevice({ deviceId: 'hdmi-1', kind: 'audiooutput', label: 'HDMI 1' }),
+      createDevice({ deviceId: 'hdmi-2', kind: 'audiooutput', label: 'HDMI 2' }),
+      createDevice({ deviceId: 'hdmi-3', kind: 'audiooutput', label: 'HDMI 3' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    expect(useUiStore.getState().outputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'hdmi-1', label: 'HDMI 1' },
+    ]);
+  });
+
+  it('keeps a single HDMI device that has no number suffix', async () => {
+    enumerateDevices.mockResolvedValue([
+      createDevice({ deviceId: 'hdmi', kind: 'audiooutput', label: 'HDMI' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    expect(useUiStore.getState().outputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'hdmi', label: 'HDMI' },
+    ]);
+  });
+
+  it('preserves all distinct profiles alongside collapsed HDMI variants', async () => {
+    enumerateDevices.mockResolvedValue([
+      createDevice({ deviceId: 'headset', kind: 'audiooutput', label: 'Headset' }),
+      createDevice({ deviceId: 'handsfree', kind: 'audiooutput', label: 'Handsfree' }),
+      createDevice({ deviceId: 'analog', kind: 'audiooutput', label: 'Analog Output' }),
+      createDevice({ deviceId: 'spdif', kind: 'audiooutput', label: 'Digital Output (S/PDIF)' }),
+      createDevice({ deviceId: 'hdmi-1', kind: 'audiooutput', label: 'HDMI Output 1' }),
+      createDevice({ deviceId: 'hdmi-2', kind: 'audiooutput', label: 'HDMI Output 2' }),
+      createDevice({ deviceId: 'dp-1', kind: 'audiooutput', label: 'DisplayPort Output 1' }),
+      createDevice({ deviceId: 'dp-2', kind: 'audiooutput', label: 'DisplayPort Output 2' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    expect(useUiStore.getState().outputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'headset', label: 'Headset' },
+      { value: 'handsfree', label: 'Handsfree' },
+      { value: 'analog', label: 'Analog Output' },
+      { value: 'spdif', label: 'Digital Output (S/PDIF)' },
+      { value: 'hdmi-1', label: 'HDMI Output 1' },
+      { value: 'dp-1', label: 'DisplayPort Output 1' },
+    ]);
+  });
+
+  it('resets stored output selection to default when the selected device has been collapsed', async () => {
+    useSettingsStore.setState({
+      settings: { ...DEFAULT_DESKTOP_SETTINGS, selectedOutputDeviceId: 'hdmi-2' },
+      isReady: true,
+    });
+    enumerateDevices.mockResolvedValue([
+      createDevice({ deviceId: 'hdmi-1', kind: 'audiooutput', label: 'HDMI Output 1' }),
+      createDevice({ deviceId: 'hdmi-2', kind: 'audiooutput', label: 'HDMI Output 2' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedOutputDeviceId: 'default' }),
+    );
+  });
+
+  it('does not collapse HDMI and DisplayPort separately when both are present', async () => {
+    enumerateDevices.mockResolvedValue([
+      createDevice({ deviceId: 'hdmi-1', kind: 'audiooutput', label: 'HDMI Output 1' }),
+      createDevice({ deviceId: 'hdmi-2', kind: 'audiooutput', label: 'HDMI Output 2' }),
+      createDevice({ deviceId: 'dp-1', kind: 'audiooutput', label: 'DisplayPort Output 1' }),
+      createDevice({ deviceId: 'dp-2', kind: 'audiooutput', label: 'DisplayPort Output 2' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    expect(useUiStore.getState().outputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'hdmi-1', label: 'HDMI Output 1' },
+      { value: 'dp-1', label: 'DisplayPort Output 1' },
+    ]);
+  });
+
   it('keeps the latest device refresh when devicechange events resolve out of order', async () => {
     enumerateDevices.mockResolvedValueOnce([
       createDevice({
