@@ -3,12 +3,14 @@ import type {
   ChatId,
   ChatMessageRecord,
   ChatRecord,
+  CreateChatRequest,
   DurableChatSummaryRecord,
 } from '@livepair/shared-types';
 
 export type ChatMemoryQueriesBridge = Pick<
   typeof window.bridge,
   | 'appendChatMessage'
+  | 'createChat'
   | 'getChat'
   | 'getOrCreateCurrentChat'
   | 'getChatSummary'
@@ -26,6 +28,13 @@ export function appendPersistedChatMessage(
   bridge: Pick<ChatMemoryQueriesBridge, 'appendChatMessage'> = window.bridge,
 ): Promise<ChatMessageRecord> {
   return bridge.appendChatMessage(request);
+}
+
+export function createChatRecord(
+  request?: CreateChatRequest,
+  bridge: Pick<ChatMemoryQueriesBridge, 'createChat'> = window.bridge,
+): Promise<ChatRecord> {
+  return bridge.createChat(request);
 }
 
 export function getChatRecord(

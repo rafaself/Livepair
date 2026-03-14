@@ -11,6 +11,7 @@ import { mapChatMessageRecordsToConversationTurns } from '../runtime/public';
 import { buildRehydrationPacket } from './rehydrationPacket';
 import {
   appendPersistedChatMessage,
+  createChatRecord,
   getChatRecord,
   getOrCreateCurrentChatRecord,
   getPersistedChatSummary,
@@ -36,6 +37,19 @@ type HydratedCurrentChat = {
 let activeChat: ChatRecord | null = null;
 let pendingHydration: Promise<HydratedCurrentChat> | null = null;
 let pendingAppend: Promise<void> = Promise.resolve();
+
+function setActiveChatState(
+  chat: ChatRecord,
+  messages: readonly ChatMessageRecord[],
+): void {
+  activeChat = chat;
+  pendingHydration = null;
+  pendingAppend = Promise.resolve();
+
+  const store = useSessionStore.getState();
+  store.reset({ activeChatId: chat.id });
+  store.replaceConversationTurns(mapChatMessageRecordsToConversationTurns([...messages]));
+}
 
 async function ensureActiveChat(
   bridge: ActiveChatQueryBridge = window.bridge,
@@ -177,16 +191,16 @@ export async function switchToChat(
     throw new Error(`Chat not found: ${chatId}`);
   }
 
-  activeChat = chat;
-  pendingHydration = null;
-  pendingAppend = Promise.resolve();
-
   const messages = await listPersistedChatMessages(chat.id, bridge);
-  const turns = mapChatMessageRecordsToConversationTurns(messages);
+  setActiveChatState(chat, messages);
+}
 
-  const store = useSessionStore.getState();
-  store.reset({ activeChatId: chat.id });
-  store.replaceConversationTurns(turns);
+export async function createAndSwitchToNewChat(
+  bridge: CurrentChatMemoryBridge = window.bridge,
+): Promise<ChatRecord> {
+  const chat = await createChatRecord(undefined, bridge);
+  setActiveChatState(chat, []);
+  return chat;
 }
 
 export function resetCurrentChatMemoryForTests(): void {

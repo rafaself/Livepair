@@ -10,6 +10,7 @@ import './AssistantPanelHistoryView.css';
 
 export type AssistantPanelHistoryViewProps = {
   activeChatId: string | null;
+  onBackToChat?: () => void;
   onSelectChat: (chatId: string) => void;
 };
 
@@ -79,6 +80,7 @@ function getResumeLabel(session: LiveSessionRecord | null): string | null {
 
 export function AssistantPanelHistoryView({
   activeChatId,
+  onBackToChat,
   onSelectChat,
 }: AssistantPanelHistoryViewProps): JSX.Element {
   const [chatItems, setChatItems] = useState<ChatHistoryListItem[]>([]);
@@ -146,15 +148,38 @@ export function AssistantPanelHistoryView({
     void loadChats(mode);
   }, [activeChatId, loadChats]);
 
+  function renderToolbar(refreshLabel: string, refreshDisabled: boolean): JSX.Element {
+    return (
+      <div className="chat-history__toolbar">
+        <p className="chat-history__label">Past chats</p>
+        <div className="chat-history__toolbar-actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={onBackToChat === undefined}
+            onClick={onBackToChat}
+          >
+            Back to chat
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={refreshDisabled}
+            onClick={() => {
+              void loadChats('refresh');
+            }}
+          >
+            {refreshLabel}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="chat-history">
-        <div className="chat-history__toolbar">
-          <p className="chat-history__label">Past chats</p>
-          <Button variant="ghost" size="sm" disabled>
-            Refresh history
-          </Button>
-        </div>
+        {renderToolbar('Refresh history', true)}
         <p className="chat-history__empty">Loading…</p>
       </div>
     );
@@ -163,19 +188,7 @@ export function AssistantPanelHistoryView({
   if (loadError !== null && chatItems.length === 0) {
     return (
       <div className="chat-history">
-        <div className="chat-history__toolbar">
-          <p className="chat-history__label">Past chats</p>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isRefreshing}
-            onClick={() => {
-              void loadChats('refresh');
-            }}
-          >
-            Refresh history
-          </Button>
-        </div>
+        {renderToolbar('Refresh history', isRefreshing)}
         <p className="chat-history__empty">{loadError}</p>
       </div>
     );
@@ -184,19 +197,7 @@ export function AssistantPanelHistoryView({
   if (chatItems.length === 0) {
     return (
       <div className="chat-history">
-        <div className="chat-history__toolbar">
-          <p className="chat-history__label">Past chats</p>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isRefreshing}
-            onClick={() => {
-              void loadChats('refresh');
-            }}
-          >
-            Refresh history
-          </Button>
-        </div>
+        {renderToolbar('Refresh history', isRefreshing)}
         <p className="chat-history__empty">No past chats yet.</p>
       </div>
     );
@@ -204,19 +205,7 @@ export function AssistantPanelHistoryView({
 
   return (
     <div className="chat-history">
-      <div className="chat-history__toolbar">
-        <p className="chat-history__label">Past chats</p>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={isRefreshing}
-          onClick={() => {
-            void loadChats('refresh');
-          }}
-        >
-          {isRefreshing ? 'Refreshing…' : 'Refresh history'}
-        </Button>
-      </div>
+      {renderToolbar(isRefreshing ? 'Refreshing…' : 'Refresh history', isRefreshing)}
       {loadError ? (
         <p className="chat-history__status" role="status">
           {loadError}

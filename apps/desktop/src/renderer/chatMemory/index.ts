@@ -10,6 +10,7 @@ export {
 } from './queries';
 export {
   buildRehydrationPacketFromCurrentChat,
+  createAndSwitchToNewChat,
   getCurrentChat,
   hydrateCurrentChat,
   listCurrentChatMessages,

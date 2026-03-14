@@ -8,7 +8,11 @@ import { AssistantPanelHistoryView } from './history/AssistantPanelHistoryView';
 import { AssistantPanelSettingsContent } from './settings/AssistantPanelSettingsView';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
-import { getChatRecord, switchToChat } from '../../../chatMemory';
+import {
+  createAndSwitchToNewChat,
+  getChatRecord,
+  switchToChat,
+} from '../../../chatMemory';
 import { getLatestPersistedLiveSession } from '../../../liveSessions';
 import './AssistantPanel.css';
 
@@ -108,6 +112,15 @@ export function AssistantPanel(): JSX.Element {
   const handleBackToHistory = useCallback((): void => {
     setPanelView('history');
   }, [setPanelView]);
+  const handleBackToChat = useCallback((): void => {
+    setPanelView('chat');
+  }, [setPanelView]);
+  const handleCreateChat = useCallback(async (): Promise<void> => {
+    setLatestLiveSession(null);
+    setPanelView('chat');
+    setActiveChat(null);
+    await createAndSwitchToNewChat();
+  }, [setPanelView]);
 
   return (
     <OverlayContainer>
@@ -145,6 +158,7 @@ export function AssistantPanel(): JSX.Element {
               isSubmittingTextTurn={isSubmittingTextTurn}
               localUserSpeechActive={localUserSpeechActive}
               onBackToHistory={handleBackToHistory}
+              onCreateChat={handleCreateChat}
               onDraftTextChange={handleDraftTextChange}
               onSubmitTextTurn={handleSubmitTextTurn}
               onStartSpeechMode={handleStartSpeechMode}
@@ -156,6 +170,7 @@ export function AssistantPanel(): JSX.Element {
             <div className="assistant-panel__view-section">
               <AssistantPanelHistoryView
                 activeChatId={activeChatId}
+                onBackToChat={handleBackToChat}
                 onSelectChat={handleSelectChat}
               />
             </div>

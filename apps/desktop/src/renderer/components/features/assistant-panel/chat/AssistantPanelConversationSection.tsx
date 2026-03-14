@@ -12,7 +12,8 @@ export type AssistantPanelConversationSectionProps = {
   lastRuntimeError: string | null;
   activeChatTitle?: string | null;
   latestLiveSession?: LiveSessionRecord | null;
-  onBackToHistory?: () => void;
+  onCreateChat?: () => Promise<void>;
+  onOpenHistory?: () => void;
   turns: ConversationTimelineEntry[];
 };
 
@@ -77,7 +78,8 @@ export function AssistantPanelConversationSection({
   lastRuntimeError,
   activeChatTitle = null,
   latestLiveSession = null,
-  onBackToHistory,
+  onCreateChat,
+  onOpenHistory,
   turns,
 }: AssistantPanelConversationSectionProps): JSX.Element {
   const shouldShowLatestSessionMetadata = isViewingPastChat && latestLiveSession !== null;
@@ -89,6 +91,26 @@ export function AssistantPanelConversationSection({
         <div className="assistant-panel__history-label" aria-label="Session history">
           <History size={16} />
           <p className="assistant-panel__chat-title">Session history</p>
+        </div>
+        <div className="assistant-panel__history-actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={onOpenHistory === undefined}
+            onClick={onOpenHistory}
+          >
+            History
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={onCreateChat === undefined}
+            onClick={() => {
+              void onCreateChat?.();
+            }}
+          >
+            New chat
+          </Button>
         </div>
       </div>
       {isViewingPastChat ? (
@@ -104,11 +126,6 @@ export function AssistantPanelConversationSection({
                   Durable chat container with preserved context. Latest Live session details stay separate below.
                 </p>
               </div>
-              {onBackToHistory ? (
-                <Button variant="ghost" size="sm" onClick={onBackToHistory}>
-                  Back to history
-                </Button>
-              ) : null}
             </div>
           </div>
         </div>
