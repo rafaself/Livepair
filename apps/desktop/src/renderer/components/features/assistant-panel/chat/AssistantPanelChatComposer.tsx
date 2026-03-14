@@ -190,6 +190,7 @@ export function AssistantPanelChatComposer({
                       size="sm"
                       widthMode="minAnchor"
                       maxWidthPx={320}
+                      placement="up"
                       placeholder=""
                     />
                     <IconButton
@@ -228,6 +229,7 @@ export function AssistantPanelChatComposer({
                       size="sm"
                       widthMode="minAnchor"
                       maxWidthPx={320}
+                      placement="up"
                       placeholder=""
                     />
                     <IconButton

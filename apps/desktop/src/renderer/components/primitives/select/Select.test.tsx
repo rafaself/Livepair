@@ -23,6 +23,34 @@ describe('Select', () => {
     expect(layer.style.getPropertyValue('--floating-content-max-height')).toMatch(/^\d+px$/);
   });
 
+  it('supports forcing the dropdown to open upward', () => {
+    render(
+      <Select
+        options={options}
+        value="fast"
+        placement="up"
+        aria-label="Mode"
+      />,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Mode' });
+    trigger.getBoundingClientRect = () => ({
+      top: 120,
+      left: 80,
+      right: 200,
+      bottom: 152,
+      width: 120,
+      height: 32,
+      x: 80,
+      y: 120,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    fireEvent.click(trigger);
+
+    expect(document.querySelector('.floating-layer')).toHaveClass('floating-layer--up');
+  });
+
   it('opens options and selects an option', () => {
     const onChange = vi.fn((event: { target: { value: string } }) => event.target.value);
 

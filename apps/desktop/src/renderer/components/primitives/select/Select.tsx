@@ -1,5 +1,6 @@
 import { forwardRef, useMemo, useRef, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { FloatingLayer } from '../../layout/FloatingLayer';
+import type { FloatingPlacementStrategy } from '../../../hooks/floatingPositioning';
 import { useFloatingLayer } from '../../../hooks/useFloatingLayer';
 import { SelectContent } from './SelectContent';
 import { SelectOption } from './SelectOption';
@@ -21,6 +22,7 @@ export type SelectProps = {
   widthMode?: 'anchor' | 'minAnchor';
   maxWidthPx?: number;
   portalTarget?: HTMLElement | null;
+  placement?: FloatingPlacementStrategy;
 } & Omit<SelectHTMLAttributes<HTMLSelectElement>, 'children' | 'size' | 'multiple'>;
 
 const CLOSE_ANIMATION_MS = 120;
@@ -47,6 +49,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(function Select
     widthMode = 'anchor',
     maxWidthPx,
     portalTarget,
+    placement = 'auto',
     name,
     form,
     required,
@@ -159,6 +162,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(function Select
         portalTarget={portalTarget}
         positionOptions={{
           ...POSITION_OPTIONS,
+          placement,
           widthMode,
           ...(maxWidthPx === undefined ? {} : { maxWidthPx }),
         }}

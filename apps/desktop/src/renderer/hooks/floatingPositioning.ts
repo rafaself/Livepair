@@ -6,6 +6,7 @@ const DEFAULT_WIDTH_MODE = 'anchor';
 const DEFAULT_FLIP_IN_LOWER_HALF_ONLY = true;
 
 export type FloatingPlacement = 'up' | 'down';
+export type FloatingPlacementStrategy = 'auto' | FloatingPlacement;
 
 export type FloatingPosition = {
   left: number;
@@ -30,6 +31,7 @@ export type FloatingPositionOptions = {
   minWidthPx?: number;
   maxWidthPx?: number;
   flipInLowerHalfOnly?: boolean;
+  placement?: FloatingPlacementStrategy;
 };
 
 const clamp = (value: number, min: number, max: number): number => {
@@ -54,6 +56,7 @@ export const resolveFloatingPosition = (
   const widthMode = options.widthMode ?? DEFAULT_WIDTH_MODE;
   const minWidthPx = options.minWidthPx ?? DEFAULT_MIN_WIDTH_PX;
   const flipInLowerHalfOnly = options.flipInLowerHalfOnly ?? DEFAULT_FLIP_IN_LOWER_HALF_ONLY;
+  const placement = options.placement ?? 'auto';
 
   const anchorWidth = Math.max(0, Math.ceil(measurement.triggerRect.width));
   const rawWidth = widthMode === 'anchor' ? anchorWidth : Math.max(minWidthPx, anchorWidth);
@@ -71,13 +74,8 @@ export const resolveFloatingPosition = (
     measurement.viewportHeight - measurement.triggerRect.bottom - gapPx - marginPx,
   );
   const availableAbove = Math.max(0, measurement.triggerRect.top - gapPx - marginPx);
-  const cannotFitFullBelow = measurement.contentHeight > availableBelow;
-  const upwardProvidesMoreSpace = availableAbove > availableBelow;
-  const triggerIsInLowerHalf = measurement.triggerRect.top >= measurement.viewportHeight / 2;
-  const openUpward =
-    cannotFitFullBelow && upwardProvidesMoreSpace && (!flipInLowerHalfOnly || triggerIsInLowerHalf);
 
-  if (openUpward) {
+  const createUpPosition = (): FloatingPosition => {
     const bottom = clamp(
       measurement.viewportHeight - measurement.triggerRect.top + gapPx,
       marginPx,
@@ -90,18 +88,40 @@ export const resolveFloatingPosition = (
       maxHeight: Math.max(0, availableAbove),
       placement: 'up',
     };
+  };
+
+  const createDownPosition = (): FloatingPosition => {
+    const top = clamp(
+      measurement.triggerRect.bottom + gapPx,
+      marginPx,
+      measurement.viewportHeight - marginPx,
+    );
+    return {
+      left,
+      offset: top,
+      width,
+      maxHeight: Math.max(0, availableBelow),
+      placement: 'down',
+    };
+  };
+
+  if (placement === 'up') {
+    return createUpPosition();
   }
 
-  const top = clamp(
-    measurement.triggerRect.bottom + gapPx,
-    marginPx,
-    measurement.viewportHeight - marginPx,
-  );
-  return {
-    left,
-    offset: top,
-    width,
-    maxHeight: Math.max(0, availableBelow),
-    placement: 'down',
-  };
+  if (placement === 'down') {
+    return createDownPosition();
+  }
+
+  const cannotFitFullBelow = measurement.contentHeight > availableBelow;
+  const upwardProvidesMoreSpace = availableAbove > availableBelow;
+  const triggerIsInLowerHalf = measurement.triggerRect.top >= measurement.viewportHeight / 2;
+  const openUpward =
+    cannotFitFullBelow && upwardProvidesMoreSpace && (!flipInLowerHalfOnly || triggerIsInLowerHalf);
+
+  if (openUpward) {
+    return createUpPosition();
+  }
+
+  return createDownPosition();
 };

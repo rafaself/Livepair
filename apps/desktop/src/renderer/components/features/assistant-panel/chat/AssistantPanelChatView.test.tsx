@@ -998,4 +998,52 @@ describe('AssistantPanelChatView', () => {
     expect(handleSelectInputDevice).not.toHaveBeenCalled();
     expect(handleSelectScreenSource).not.toHaveBeenCalled();
   });
+
+  it('opens the composer microphone and screen dropdowns upward', async () => {
+    render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        inputDeviceOptions={[
+          { value: 'default', label: 'System default' },
+          { value: 'usb-mic', label: 'USB Microphone' },
+        ]}
+        selectedInputDeviceId="default"
+        screenCaptureSourceOptions={[
+          { value: 'screen:1:0', label: 'Entire Screen' },
+          { value: 'window:42:0', label: 'VSCode' },
+        ]}
+        selectedScreenCaptureSourceId="screen:1:0"
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onEndSpeechMode={() => Promise.resolve()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Microphone options' }));
+
+    expect(document.querySelector('.floating-layer')).toHaveClass('floating-layer--up');
+
+    fireEvent.pointerDown(document.body);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Screen share options' }));
+
+    expect(document.querySelector('.floating-layer')).toHaveClass('floating-layer--up');
+  });
 });

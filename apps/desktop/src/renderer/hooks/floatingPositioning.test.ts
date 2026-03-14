@@ -64,4 +64,31 @@ describe('floatingPositioning', () => {
     expect(position.placement).toBe('up');
     expect(position.maxHeight).toBeGreaterThan(0);
   });
+
+  it('respects explicit upward placement even when there is room below', () => {
+    const triggerRect = {
+      top: 100,
+      left: 120,
+      right: 240,
+      bottom: 132,
+      width: 120,
+      height: 32,
+      x: 120,
+      y: 100,
+      toJSON: () => ({}),
+    } as DOMRect;
+
+    const position = resolveFloatingPosition(
+      {
+        triggerRect,
+        viewportWidth: 1024,
+        viewportHeight: 768,
+        contentHeight: 180,
+      },
+      { placement: 'up' },
+    );
+
+    expect(position.placement).toBe('up');
+    expect(position.maxHeight).toBeGreaterThan(0);
+  });
 });
