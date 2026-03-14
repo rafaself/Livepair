@@ -1,20 +1,22 @@
 # apps/desktop/src/renderer/runtime AGENTS.md
 
 ## Purpose
-Renderer runtime: session controller, transports, capture/playback controllers, and state synchronization.
+Renderer session runtime for transport, capture/playback, session lifecycle, and runtime state sync on the realtime hot path.
 
-This code is performance-sensitive and event-driven.
+## What belongs here
+- Live transport orchestration, capture/playback controllers, session lifecycle, and runtime-facing state sync.
 
-## Boundaries
-- No Electron/Node APIs here. Anything privileged must go through `window.bridge` (via small adapter modules like `src/renderer/api/backend.ts`).
-- Keep the realtime hot path direct: transports talk to Gemini Live from the renderer; do not route media through the backend.
+## What must not go here
+- Raw Electron or Node access, or preload-only logic.
+- Durable chat persistence or database logic; that belongs in chat-memory layers outside this subtree.
+- General UI component architecture rules.
 
-## Testability Rules
-- Keep external interactions injectable:
-  - `createDesktopSessionController(overrides)` is the DI seam for controller dependencies.
-  - `setGeminiLiveSdkSessionConnectorForTests(...)` is the seam for transport connection in tests.
-- Prefer small pure helpers; keep I/O at the edges so it’s easy to unit test.
+## Local conventions
+- Keep the Gemini Live media path direct from the renderer; do not proxy audio or video through the backend.
+- Access desktop capabilities through `window.bridge` adapters at the edges only.
+- Preserve DI/test seams such as `createDesktopSessionController(overrides)` and `setGeminiLiveSdkSessionConnectorForTests(...)` when adding I/O.
+- Treat lifecycle, resumption, and transport changes as behavior changes: update focused runtime tests with the code.
+- Avoid adding extra work inside tight event handlers unless it is necessary and measured.
 
-## Change Discipline
-- Treat session lifecycle + resumption as first-class: if you change transport/lifecycle logic, update/add tests (see `sessionController*.test.ts` and `runtime/transport/*test.ts`).
-- Avoid adding work in tight event handlers without measuring impact (screen/audio capture, transport message handling).
+## Verification
+- Start with the relevant `sessionController*.test.ts` or `transport/*test.ts` coverage, then use `pnpm verify:desktop` when the change affects broader desktop behavior.

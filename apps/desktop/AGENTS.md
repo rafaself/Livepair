@@ -1,35 +1,23 @@
 # apps/desktop AGENTS.md
 
 ## Purpose
-Electron main + preload + React renderer. Speech mode connects directly to Gemini Live; text mode currently streams through the backend via `POST /session/chat`.
+Electron desktop app boundary for `src/main/`, `src/preload/`, `src/renderer/`, and desktop-local shared code.
 
-## Security — Non-Negotiable
-- `contextIsolation: true` and `nodeIntegration: false` must never be changed (see `src/main/window/overlayWindow.ts`).
-- All privileged access goes through `src/preload/preload.ts` and a typed `window.bridge`.
-- The renderer (`src/renderer/`) must never import Electron or Node built-ins.
-- Keep the renderer CSP in `src/renderer/index.html`.
+## What belongs here
+- Windowing, IPC, preload bridge, renderer UI/runtime, desktop settings, and desktop-only shared contracts.
+- Desktop-local bridge types in `src/shared/`; true cross-package payloads still belong in `packages/shared-types`.
 
-## IPC Discipline
-- Single source of truth for IPC contracts: `src/shared/desktopBridge.ts` (`DesktopBridge` + `IPC_CHANNELS`).
-- IPC handlers are registered in `src/main/ipc/registerIpcHandlers.ts` (called from `src/main/main.ts`).
-- Validate IPC payloads in `src/main/ipc/validators.ts` before doing work.
-- Channel names follow `domain:action` (see `IPC_CHANNELS`).
-- Do not expose generic pass-through IPC or eval-style channels.
+## What must not go here
+- Duplicated request, response, or event shapes that already belong in `@livepair/shared-types`.
+- Raw Electron or Node imports anywhere under `src/renderer/`.
+- Generic pass-through IPC or privileged APIs exposed outside `window.bridge`.
 
-## Renderer Rules
-- Only `window.bridge` — never `window.electron`, `window.ipcRenderer`, or raw Electron APIs.
-- Keep UI lightweight. Do not add heavy dependencies to the renderer.
-- State stays local to the component unless a shared store is clearly justified.
-
-## Design System
-- Prefer CSS custom properties from `src/renderer/styles/tokens.css` and `src/renderer/styles/motion.css` (especially for colors, spacing, radius, shadows, motion).
-- The style entry point is `src/renderer/styles/index.css` — imported once in `main.tsx`. Do not add additional global CSS imports.
-- Component CSS lives under `src/renderer/components/` and is imported by the relevant component(s). Avoid new global `components.css`.
-- See `src/renderer/components/AGENTS.md` for component architecture rules.
-
-## Testing
-- TDD for IPC handler logic when practical.
-- Renderer component tests are optional for the MVP; add them when testing UI state machines.
+## Local conventions
+- `src/main/` owns privileged work, `src/preload/` exposes the minimal typed bridge, and `src/renderer/` stays browser-only.
+- Keep `contextIsolation: true`, `nodeIntegration: false`, and the renderer CSP intact.
+- IPC source of truth is `src/shared/desktopBridge.ts`; register handlers in `src/main/ipc/registerIpcHandlers.ts`; validate payloads in `src/main/ipc/validators.ts`.
+- Renderer code uses `window.bridge` or small adapter modules only; never import Electron directly.
+- Keep global renderer styles in `src/renderer/styles/index.css`; co-locate component CSS under `src/renderer/components/`.
 
 ## Verification
-- Prefer `pnpm verify:desktop` after changes (lint + typecheck + test).
+- Prefer `pnpm verify:desktop` after code changes in this package.
