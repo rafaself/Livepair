@@ -99,6 +99,13 @@ describe('useAssistantPanelSettingsController', () => {
       isReady: true,
     });
     useUiStore.getState().initializeSettingsUi(useSettingsStore.getState().settings);
+    useSessionStore.getState().setScreenCaptureSourceSnapshot({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'screen:1:0',
+    });
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
       ...patch,
@@ -194,10 +201,6 @@ describe('useAssistantPanelSettingsController', () => {
 
     render(<HookHarness />);
 
-    await waitFor(() => {
-      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
-    });
-
     expect(screen.getByLabelText('input-options')).toHaveTextContent(
       'System default|USB Microphone',
     );
@@ -209,29 +212,34 @@ describe('useAssistantPanelSettingsController', () => {
   it('loads screen capture source options and exposes the selected source', async () => {
     render(<HookHarness />);
 
-    await waitFor(() => {
-      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
-    });
-
     expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
       'Automatic (first available source)|Entire Screen|VSCode',
     );
     expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('screen:1:0');
   });
 
-  it('surfaces a runtime error when loading screen capture sources fails', async () => {
-    window.bridge.listScreenCaptureSources = vi.fn(async () => {
-      throw new Error('enumeration failed');
+  it('falls back to the automatic option when screen capture sources are unavailable', () => {
+    useSessionStore.getState().setScreenCaptureSourceSnapshot({
+      sources: [],
+      selectedSourceId: null,
     });
 
     render(<HookHarness />);
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('last-runtime-error')).toHaveTextContent('enumeration failed');
-    });
     expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
       'Automatic (first available source)',
     );
+    expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('auto');
+  });
+
+  it('updates the selected screen capture source from the returned snapshot', async () => {
+    render(<HookHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'set screen source' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('window:42:0');
+    });
   });
 
   it('surfaces a runtime error when selecting a screen capture source fails', async () => {

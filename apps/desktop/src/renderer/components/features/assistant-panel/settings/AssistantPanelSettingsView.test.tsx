@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../../shared/settings';
 import { useSettingsStore } from '../../../../store/settingsStore';
+import { useSessionStore } from '../../../../store/sessionStore';
 import { resetDesktopStores } from '../../../../store/testing';
 import { useUiStore } from '../../../../store/uiStore';
 import { AssistantPanelSettingsView } from './AssistantPanelSettingsView';
@@ -28,6 +29,13 @@ async function renderSettings(settings = DEFAULT_DESKTOP_SETTINGS): Promise<Retu
     isReady: true,
   });
   useUiStore.getState().initializeSettingsUi(settings);
+  useSessionStore.getState().setScreenCaptureSourceSnapshot({
+    sources: [
+      { id: 'screen:1:0', name: 'Entire Screen' },
+      { id: 'window:42:0', name: 'VSCode' },
+    ],
+    selectedSourceId: null,
+  });
 
   await act(async () => {
     await useUiStore.getState().initializeDevicePreferences();
@@ -103,10 +111,6 @@ describe('AssistantPanelSettingsView', () => {
 
   it('lists available screen capture sources and persists the selected source from settings', async () => {
     await renderSettings();
-
-    await waitFor(() => {
-      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
-    });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /screen source/i }));
