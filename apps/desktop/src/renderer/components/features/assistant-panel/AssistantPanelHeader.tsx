@@ -55,6 +55,7 @@ export function AssistantPanelHeader({
       >
         <MessageCircle size={16} />
       </Button>
+      <span className="panel-header__actions-divider" aria-hidden="true" />
       <Button
         variant="ghost"
         size="sm"

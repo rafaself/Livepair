@@ -32,6 +32,14 @@
   gap: 6px;
 }
 
+.panel-header__actions-divider {
+  width: 1px;
+  height: 16px;
+  background-color: var(--color-border);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
 .panel-header__actions .btn--sm {
   padding: 0 6px;
 }
