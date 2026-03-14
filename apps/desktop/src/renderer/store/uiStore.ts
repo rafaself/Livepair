@@ -46,6 +46,8 @@ type UiStoreState = {
   isPanelOpen: boolean;
   panelView: PanelView;
   isDebugMode: boolean;
+  saveScreenFramesEnabled: boolean;
+  screenFrameDumpDirectoryPath: string | null;
   backendUrlDraft: string;
   backendUrlError: string | null;
   inputDeviceOptions: readonly SelectOptionItem[];
@@ -54,6 +56,8 @@ type UiStoreState = {
   closePanel: () => void;
   setPanelView: (view: PanelView) => void;
   toggleDebugMode: () => void;
+  setSaveScreenFramesEnabled: (enabled: boolean) => void;
+  setScreenFrameDumpDirectoryPath: (directoryPath: string | null) => void;
   initializeSettingsUi: (settings: { backendUrl: string }) => void;
   setBackendUrlDraft: (value: string) => void;
   setBackendUrlError: (value: string | null) => void;
@@ -65,6 +69,8 @@ const defaultUiState = {
   isPanelOpen: false,
   panelView: 'chat' as PanelView,
   isDebugMode: false,
+  saveScreenFramesEnabled: false,
+  screenFrameDumpDirectoryPath: null,
   backendUrlDraft: '',
   backendUrlError: null,
   inputDeviceOptions: [] as readonly SelectOptionItem[],
@@ -87,8 +93,17 @@ export const useUiStore = create<UiStoreState>((set) => ({
   toggleDebugMode: () =>
     set((state) => ({
       isDebugMode: !state.isDebugMode,
-      panelView: !state.isDebugMode ? state.panelView : state.panelView === 'debug' ? 'chat' : state.panelView,
+      panelView: !state.isDebugMode
+        ? state.panelView
+        : state.panelView === 'debug'
+          ? 'chat'
+          : state.panelView,
+      saveScreenFramesEnabled: state.isDebugMode ? false : state.saveScreenFramesEnabled,
+      screenFrameDumpDirectoryPath: state.isDebugMode ? null : state.screenFrameDumpDirectoryPath,
     })),
+  setSaveScreenFramesEnabled: (saveScreenFramesEnabled) => set({ saveScreenFramesEnabled }),
+  setScreenFrameDumpDirectoryPath: (screenFrameDumpDirectoryPath) =>
+    set({ screenFrameDumpDirectoryPath }),
   initializeSettingsUi: ({ backendUrl }) =>
     set((state) => ({
       backendUrlDraft: state.backendUrlDraft || backendUrl,

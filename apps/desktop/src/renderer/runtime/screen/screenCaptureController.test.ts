@@ -10,7 +10,11 @@ import {
   SCREEN_CAPTURE_MAX_WIDTH_PX,
 } from './localScreenCapture';
 
-function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; screenCaptureState?: ScreenCaptureState } = {}) {
+function createHarness(options: {
+  voiceSessionStatus?: VoiceSessionStatus;
+  screenCaptureState?: ScreenCaptureState;
+  saveScreenFramesEnabled?: boolean;
+} = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
   let currentScreenState: ScreenCaptureState = screenCaptureState;
   let currentVoiceStatus: VoiceSessionStatus = voiceSessionStatus;
@@ -52,7 +56,24 @@ function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; scree
   const transport = { sendVideoFrame } as unknown as DesktopSession;
   let currentTransport: DesktopSession | null = transport;
 
-  const ctrl = createScreenCaptureController(store, createCapture, () => currentTransport);
+  const shouldSaveScreenFrames = vi.fn(() => options.saveScreenFramesEnabled ?? false);
+  const startScreenFrameDumpSession = vi.fn(async () => ({
+    directoryPath: '/tmp/livepair/screen-frame-dumps/current-debug-session',
+  }));
+  const saveScreenFrameDumpFrame = vi.fn(async () => undefined);
+  const setScreenFrameDumpDirectoryPath = vi.fn();
+
+  const ctrl = createScreenCaptureController(
+    store,
+    createCapture,
+    () => currentTransport,
+    {
+      shouldSaveFrames: shouldSaveScreenFrames,
+      startScreenFrameDumpSession,
+      saveScreenFrameDumpFrame,
+      setScreenFrameDumpDirectoryPath,
+    },
+  );
 
   return {
     ctrl,
@@ -64,6 +85,10 @@ function createHarness(options: { voiceSessionStatus?: VoiceSessionStatus; scree
     setTransport: (t: DesktopSession | null) => { currentTransport = t; },
     setVoiceStatus: (s: VoiceSessionStatus) => { currentVoiceStatus = s; },
     setScreenState: (s: ScreenCaptureState) => { currentScreenState = s; },
+    shouldSaveScreenFrames,
+    startScreenFrameDumpSession,
+    saveScreenFrameDumpFrame,
+    setScreenFrameDumpDirectoryPath,
     enableDeferredStop: () => { deferStop = true; },
     resolveStop: () => {
       resolveStop?.();
@@ -99,6 +124,62 @@ describe('createScreenCaptureController', () => {
       frameRateHz: SCREEN_CAPTURE_FRAME_RATE_HZ,
       jpegQuality: SCREEN_CAPTURE_JPEG_QUALITY,
       maxWidthPx: SCREEN_CAPTURE_MAX_WIDTH_PX,
+    });
+  });
+
+  it('does not start or write a debug frame dump when saving is disabled', async () => {
+    const {
+      ctrl,
+      getObserver,
+      startScreenFrameDumpSession,
+      saveScreenFrameDumpFrame,
+    } = createHarness({ saveScreenFramesEnabled: false });
+
+    await ctrl.start();
+    getObserver()!.onFrame({
+      data: new Uint8Array([1, 2, 3]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 640,
+      heightPx: 360,
+    });
+    await Promise.resolve();
+
+    expect(startScreenFrameDumpSession).not.toHaveBeenCalled();
+    expect(saveScreenFrameDumpFrame).not.toHaveBeenCalled();
+  });
+
+  it('starts a fresh debug frame dump session and saves sampled frames when enabled', async () => {
+    const {
+      ctrl,
+      getObserver,
+      startScreenFrameDumpSession,
+      saveScreenFrameDumpFrame,
+      setScreenFrameDumpDirectoryPath,
+    } = createHarness({ saveScreenFramesEnabled: true });
+
+    await ctrl.start();
+
+    expect(setScreenFrameDumpDirectoryPath).toHaveBeenCalledWith(null);
+    expect(startScreenFrameDumpSession).toHaveBeenCalledTimes(1);
+    expect(setScreenFrameDumpDirectoryPath).toHaveBeenCalledWith(
+      '/tmp/livepair/screen-frame-dumps/current-debug-session',
+    );
+
+    getObserver()!.onFrame({
+      data: new Uint8Array([7, 8, 9]),
+      mimeType: 'image/jpeg',
+      sequence: 3,
+      widthPx: 320,
+      heightPx: 180,
+    });
+
+    await vi.waitFor(() => {
+      expect(saveScreenFrameDumpFrame).toHaveBeenCalledWith({
+        data: new Uint8Array([7, 8, 9]),
+        mimeType: 'image/jpeg',
+        sequence: 3,
+      });
     });
   });
 
@@ -168,6 +249,20 @@ describe('createScreenCaptureController', () => {
 
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('stopping');
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('disabled');
+  });
+
+  it('keeps the current debug frame dump path available after screen capture stops', async () => {
+    const {
+      ctrl,
+      setScreenFrameDumpDirectoryPath,
+    } = createHarness({ saveScreenFramesEnabled: true });
+
+    await ctrl.start();
+    setScreenFrameDumpDirectoryPath.mockClear();
+
+    await ctrl.stop();
+
+    expect(setScreenFrameDumpDirectoryPath).not.toHaveBeenCalledWith(null);
   });
 
   it('start waits for an in-flight stop before creating a new capture', async () => {

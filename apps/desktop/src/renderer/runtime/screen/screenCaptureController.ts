@@ -15,6 +15,10 @@ import {
   SCREEN_CAPTURE_MAX_PENDING_FRAMES,
   SCREEN_CAPTURE_START_POLICY,
 } from './screenCapturePolicy';
+import type {
+  SaveScreenFrameDumpFrameRequest,
+  ScreenFrameDumpSessionInfo,
+} from '../../../shared';
 
 type ScreenCaptureStoreApi = {
   getState: () => {
@@ -41,14 +45,23 @@ export type ScreenCaptureController = {
   resetSendChain: () => void;
 };
 
+type ScreenFrameDumpControls = {
+  shouldSaveFrames: () => boolean;
+  startScreenFrameDumpSession: () => Promise<ScreenFrameDumpSessionInfo>;
+  saveScreenFrameDumpFrame: (request: SaveScreenFrameDumpFrameRequest) => Promise<void>;
+  setScreenFrameDumpDirectoryPath: (directoryPath: string | null) => void;
+};
+
 export function createScreenCaptureController(
   store: ScreenCaptureStoreApi,
   createCapture: (observer: LocalScreenCaptureObserver) => LocalScreenCapture,
   getTransport: () => DesktopSession | null,
+  screenFrameDumpControls?: ScreenFrameDumpControls,
 ): ScreenCaptureController {
   let screenCapture: LocalScreenCapture | null = null;
   let screenCaptureGeneration = 0;
   let stopInFlight: Promise<void> | null = null;
+  let debugFrameDumpReady = false;
   let pendingFrame:
     | {
         capture: LocalScreenCapture;
@@ -89,6 +102,74 @@ export function createScreenCaptureController(
 
     screenCapture = null;
     screenCaptureGeneration += 1;
+    debugFrameDumpReady = false;
+  };
+
+  const setScreenFrameDumpDirectoryPath = (directoryPath: string | null): void => {
+    screenFrameDumpControls?.setScreenFrameDumpDirectoryPath(directoryPath);
+  };
+
+  const startScreenFrameDumpSession = async (
+    capture: LocalScreenCapture,
+    generation: number,
+  ): Promise<void> => {
+    debugFrameDumpReady = false;
+
+    if (!screenFrameDumpControls?.shouldSaveFrames()) {
+      return;
+    }
+
+    setScreenFrameDumpDirectoryPath(null);
+
+    try {
+      const session = await screenFrameDumpControls.startScreenFrameDumpSession();
+
+      if (!isCurrentCapture(capture, generation)) {
+        return;
+      }
+
+      debugFrameDumpReady = true;
+      setScreenFrameDumpDirectoryPath(session.directoryPath);
+    } catch (error) {
+      if (!isCurrentCapture(capture, generation)) {
+        return;
+      }
+
+      const detail = asErrorDetail(error, 'Failed to start screen frame dump');
+      logRuntimeError('screen-capture', 'frame dump session start failed', { detail });
+      store.getState().setLastRuntimeError(detail);
+    }
+  };
+
+  const persistScreenFrameDump = (
+    capture: LocalScreenCapture,
+    generation: number,
+    frame: LocalScreenFrame,
+  ): void => {
+    if (
+      !screenFrameDumpControls ||
+      !debugFrameDumpReady ||
+      !screenFrameDumpControls.shouldSaveFrames()
+    ) {
+      return;
+    }
+
+    void screenFrameDumpControls.saveScreenFrameDumpFrame({
+      sequence: frame.sequence,
+      mimeType: frame.mimeType,
+      data: frame.data,
+    }).catch((error) => {
+      if (!isCurrentCapture(capture, generation)) {
+        return;
+      }
+
+      const detail = asErrorDetail(error, 'Failed to save screen frame dump');
+      logRuntimeError('screen-capture', 'frame dump save failed', {
+        detail,
+        sequence: frame.sequence,
+      });
+      store.getState().setLastRuntimeError(detail);
+    });
   };
 
   const stopCapture = (
@@ -127,11 +208,12 @@ export function createScreenCaptureController(
       return Promise.resolve();
     }
 
-     screenCapture = null;
-     screenCaptureGeneration += 1;
-     pendingFrame = null;
-     frameDrainInFlight = null;
-     store.getState().setScreenCaptureState('stopping');
+      screenCapture = null;
+      screenCaptureGeneration += 1;
+      debugFrameDumpReady = false;
+      pendingFrame = null;
+      frameDrainInFlight = null;
+      store.getState().setScreenCaptureState('stopping');
 
     const finalizeStop = async (): Promise<void> => {
       let stopError: unknown;
@@ -337,6 +419,7 @@ export function createScreenCaptureController(
           return;
         }
 
+        persistScreenFrameDump(capture, captureGeneration, frame);
         void enqueueFrameSend(frame);
       },
       onDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => {
@@ -366,6 +449,12 @@ export function createScreenCaptureController(
 
     try {
       await capture.start(SCREEN_CAPTURE_START_POLICY);
+
+      if (!isCurrentCapture(capture, captureGeneration)) {
+        return;
+      }
+
+      await startScreenFrameDumpSession(capture, captureGeneration);
 
       if (!isCurrentCapture(capture, captureGeneration)) {
         return;

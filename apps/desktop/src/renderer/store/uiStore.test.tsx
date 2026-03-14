@@ -59,6 +59,10 @@ describe('uiStore', () => {
     enumerateDevices.mockReset();
   });
 
+  it('defaults debug mode to off', () => {
+    expect(useUiStore.getState().isDebugMode).toBe(false);
+  });
+
   it('toggles the panel and resets the current view when closing', () => {
     useUiStore.getState().togglePanel();
     expect(useUiStore.getState().isPanelOpen).toBe(true);
@@ -89,6 +93,8 @@ describe('uiStore', () => {
   });
 
   it('keeps runtime assistant state in the session store', () => {
+    useUiStore.setState({ isDebugMode: true });
+
     useSessionStore.getState().setAssistantState('speaking');
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('speaking');
     expect(useUiStore.getState().isDebugMode).toBe(true);
@@ -96,6 +102,24 @@ describe('uiStore', () => {
     useUiStore.getState().toggleDebugMode();
     expect(useUiStore.getState().isDebugMode).toBe(false);
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('speaking');
+  });
+
+  it('clears screen frame dump debug state when debug mode is turned off', () => {
+    useUiStore.setState({
+      isDebugMode: true,
+      saveScreenFramesEnabled: true,
+      screenFrameDumpDirectoryPath: '/tmp/livepair/screen-frame-dumps/current-debug-session',
+    });
+
+    useUiStore.getState().toggleDebugMode();
+
+    expect(useUiStore.getState()).toEqual(
+      expect.objectContaining({
+        isDebugMode: false,
+        saveScreenFramesEnabled: false,
+        screenFrameDumpDirectoryPath: null,
+      }),
+    );
   });
 
   it('resets transient drafts and device options back to defaults', async () => {
@@ -118,6 +142,10 @@ describe('uiStore', () => {
     useUiStore.getState().setBackendUrlDraft('https://draft.livepair.dev');
     useUiStore.getState().setBackendUrlError('bad url');
     useUiStore.getState().toggleDebugMode();
+    useUiStore.getState().setSaveScreenFramesEnabled(true);
+    useUiStore.getState().setScreenFrameDumpDirectoryPath(
+      '/tmp/livepair/screen-frame-dumps/current-debug-session',
+    );
     await useUiStore.getState().initializeDevicePreferences();
 
     useUiStore.getState().reset();
@@ -126,7 +154,9 @@ describe('uiStore', () => {
       expect.objectContaining({
         isPanelOpen: false,
         panelView: 'chat',
-        isDebugMode: true,
+        isDebugMode: false,
+        saveScreenFramesEnabled: false,
+        screenFrameDumpDirectoryPath: null,
         backendUrlDraft: '',
         backendUrlError: null,
         inputDeviceOptions: [],

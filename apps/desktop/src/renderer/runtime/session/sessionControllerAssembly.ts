@@ -24,6 +24,7 @@ import { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionTransportAssembly } from './sessionTransportAssembly';
 import { createSessionLifecycleAssembly } from './sessionLifecycleAssembly';
+import { useUiStore } from '../../store/uiStore';
 import type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
@@ -59,6 +60,14 @@ export function createSessionControllerAssembly(
     dependencies.store,
     dependencies.createScreenCapture,
     () => mutableRuntime.getActiveTransport(),
+    {
+      shouldSaveFrames: () => useUiStore.getState().saveScreenFramesEnabled,
+      startScreenFrameDumpSession: () => window.bridge.startScreenFrameDumpSession(),
+      saveScreenFrameDumpFrame: (request) => window.bridge.saveScreenFrameDumpFrame(request),
+      setScreenFrameDumpDirectoryPath: (directoryPath) => {
+        useUiStore.getState().setScreenFrameDumpDirectoryPath(directoryPath);
+      },
+    },
   );
   let setVoiceErrorState = (_detail: string): void => {
     throw new Error('setVoiceErrorState called before initialization');
