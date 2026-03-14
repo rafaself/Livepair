@@ -76,7 +76,7 @@ describe('AssistantPanelChatView', () => {
     expect(screen.getByText('The latest exchange is visible in the transcript.')).toBeVisible();
     expect(screen.queryByText('Live session history starts here')).toBeNull();
     expect(screen.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
-    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 
   it('marks an opened past chat as an inactive history container while keeping preserved turns visible', () => {

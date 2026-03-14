@@ -266,6 +266,6 @@ describe('App', () => {
     expect(screen.getByText('Speech request')).toBeVisible();
     expect(screen.getByText('Speech reply')).toBeVisible();
     expect(screen.queryByRole('form', { name: 'Send message to Livepair' })).toBeNull();
-    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 });

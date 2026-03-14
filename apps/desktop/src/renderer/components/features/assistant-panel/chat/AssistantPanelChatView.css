@@ -291,11 +291,33 @@
   cursor: not-allowed;
 }
 
+/* Composer input area collapse/expand */
+.assistant-panel__composer-input-transition {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 250ms ease-out;
+}
+
+.assistant-panel__composer-input-transition--collapsed {
+  grid-template-rows: 0fr;
+}
+
+.assistant-panel__composer-input-transition > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
 .assistant-panel__composer-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 4px;
+  transition: margin-top 250ms ease-out;
+}
+
+/* Collapse toolbar gap when input is hidden */
+.assistant-panel__composer-input-transition--collapsed + .assistant-panel__composer-toolbar {
+  margin-top: 0;
 }
 
 .assistant-panel__composer-actions-right {

@@ -108,16 +108,29 @@ export function AssistantPanelChatComposer({
           onSubmit={handleComposerSubmit}
         >
           <div className="assistant-panel__composer-box">
-            <textarea
-              ref={textareaRef}
-              value={draftText}
-              onChange={onDraftTextChange}
-              disabled={isComposerDisabled}
-              placeholder={placeholder}
-              className="assistant-panel__composer-textarea"
-              onKeyDown={handleKeyDown}
-              rows={1}
-            />
+            <div
+              className={[
+                'assistant-panel__composer-input-transition',
+                (!isLiveSessionActive || composerAction.isLoading) &&
+                  'assistant-panel__composer-input-transition--collapsed',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-hidden={!isLiveSessionActive || composerAction.isLoading || undefined}
+            >
+              <div>
+                <textarea
+                  ref={textareaRef}
+                  value={draftText}
+                  onChange={onDraftTextChange}
+                  disabled={isComposerDisabled}
+                  placeholder={placeholder}
+                  className="assistant-panel__composer-textarea"
+                  onKeyDown={handleKeyDown}
+                  rows={1}
+                />
+              </div>
+            </div>
             <div className="assistant-panel__composer-toolbar">
               <div className="assistant-panel__composer-actions-left">
                 {/* Optional actions can go here in the future */}
