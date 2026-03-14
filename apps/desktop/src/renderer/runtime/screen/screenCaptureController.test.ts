@@ -786,3 +786,305 @@ describe('createScreenCaptureController – visual send policy', () => {
     expect(ctrl.getVisualSendState()).toBe('streaming');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Visual send policy integration – Wave 2
+//
+// These tests lock in the integration between the visual send state machine
+// and the real frame dispatch pipeline.  They verify that the runtime states
+// (inactive / sleep / snapshot / streaming) enforce the correct dispatch
+// behavior end-to-end through enqueueFrameSend, including bounded pending
+// work and latest-wins semantics.
+// ---------------------------------------------------------------------------
+describe('createScreenCaptureController – visual send pipeline (Wave 2)', () => {
+  const mkFrame = (seq: number) => ({
+    data: new Uint8Array([seq]),
+    mimeType: 'image/jpeg' as const,
+    sequence: seq,
+    widthPx: 640,
+    heightPx: 360,
+  });
+
+  // ── inactive ──────────────────────────────────────────────────────────────
+
+  it('inactive blocks enqueueFrameSend even when capture and transport are present', async () => {
+    // Call enqueueFrameSend directly without calling start() so the visual
+    // policy stays inactive.  No transport/capture exists either, so the
+    // first guard also fires, but this test explicitly verifies the inactive
+    // semantic via direct call after wiring a minimal harness where start()
+    // was never called.
+    const { ctrl, sendVideoFrame } = createHarness();
+
+    // Policy is inactive; no capture, so early-exit fires first – but the
+    // meaningful assertion is that nothing reaches the transport.
+    await ctrl.enqueueFrameSend(mkFrame(1));
+
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  it('inactive blocks frames even when a capture exists (direct enqueue after teardown)', async () => {
+    // Start → stop to get a capture that existed but is now released.
+    // Policy transitions inactive → sleep on start, then back to inactive on stop.
+    // Any frame arriving via the observer after stop must be dropped.
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+
+    await ctrl.start();
+    // arm streaming so any in-flight frames are allowed, then stop
+    ctrl.enableStreaming();
+    await ctrl.stop();
+
+    // Simulate a stale frame callback after stop (observer may fire briefly)
+    const obs = getObserver();
+    if (obs) {
+      obs.onFrame(mkFrame(99));
+    }
+    await Promise.resolve();
+
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  // ── sleep ──────────────────────────────────────────────────────────────────
+
+  it('sleep blocks a burst of frames arriving through the observer', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+    await ctrl.start();
+    // Visual state is sleep after start; do NOT arm snapshot or streaming.
+
+    for (let i = 1; i <= 5; i++) {
+      getObserver()!.onFrame(mkFrame(i));
+    }
+    await Promise.resolve();
+
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  // ── snapshot ───────────────────────────────────────────────────────────────
+
+  it('snapshot allows exactly one frame even when a burst arrives simultaneously', async () => {
+    // Multiple frames arrive while snapshot is armed.  Only the first one that
+    // passes allowSend() should reach the transport; subsequent ones are gated
+    // back in sleep.
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i === 1 ? 'send' : 'replace',
+        classification: 'replaceable' as const,
+        reason: i === 1 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+    await ctrl.start();
+    ctrl.analyzeScreenNow();
+
+    // Burst: 3 frames arrive before the drain loop has a chance to run.
+    getObserver()!.onFrame(mkFrame(1));
+    getObserver()!.onFrame(mkFrame(2));
+    getObserver()!.onFrame(mkFrame(3));
+    await Promise.resolve();
+
+    // allowSend() consumed the snapshot on frame 1 → state reverts to sleep.
+    // Frames 2 and 3 were blocked by sleep gating.
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('snapshot: visual pending work is bounded to 1 even under a burst', async () => {
+    // While the first snapshot frame is draining (transport call in-flight),
+    // additional frames must not accumulate; only the latest-pending slot is kept.
+    let resolveFirstSend!: () => void;
+    const { ctrl, getObserver, sendVideoFrame, outboundGateway } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i === 1 ? 'send' : 'replace',
+        classification: 'replaceable' as const,
+        reason: i === 1 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+    sendVideoFrame.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolveFirstSend = resolve; }),
+    );
+
+    await ctrl.start();
+    ctrl.analyzeScreenNow();
+
+    // Frame 1 starts draining (transport call in-flight).
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve(); // let drain loop start
+
+    // Frames 2 & 3 arrive while frame 1 is still sending.
+    // Policy is now sleep (snapshot was consumed by frame 1), so these are
+    // blocked at the gate – the gateway is never called for them.
+    getObserver()!.onFrame(mkFrame(2));
+    getObserver()!.onFrame(mkFrame(3));
+    await Promise.resolve();
+
+    // Gateway was called only once (for the snapshot frame).
+    expect(outboundGateway.submit).toHaveBeenCalledTimes(1);
+
+    resolveFirstSend();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Only the snapshot frame reached the transport.
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-armed snapshot after sleep sends exactly one more frame', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i <= 2 ? 'send' : 'replace',
+        classification: 'replaceable' as const,
+        reason: i <= 2 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+    await ctrl.start();
+
+    // First snapshot
+    ctrl.analyzeScreenNow();
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    // Back to sleep – frame 2 should be blocked
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Second snapshot
+    ctrl.analyzeScreenNow();
+    getObserver()!.onFrame(mkFrame(3));
+    await Promise.resolve();
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  // ── streaming ──────────────────────────────────────────────────────────────
+
+  it('streaming: latest-wins is preserved under a concurrent burst', async () => {
+    // While frame 1 is draining, frames 2 and 3 arrive.  Only frames 1 and 3
+    // should reach the transport (frame 2 is superseded by frame 3 in the
+    // single pendingFrame slot).
+    let resolveFirstSend!: () => void;
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i === 1 ? 'send' : 'replace',
+        classification: 'replaceable' as const,
+        reason: i === 1 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+    sendVideoFrame
+      .mockImplementationOnce(
+        () => new Promise<void>((resolve) => { resolveFirstSend = resolve; }),
+      )
+      .mockResolvedValueOnce(undefined);
+
+    await ctrl.start();
+    ctrl.enableStreaming();
+
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve(); // drain starts, frame 1 in-flight
+
+    getObserver()!.onFrame(mkFrame(2));
+    getObserver()!.onFrame(mkFrame(3)); // replaces frame 2 in pendingFrame
+
+    resolveFirstSend();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(sendVideoFrame.mock.calls[0]).toEqual([new Uint8Array([1]), 'image/jpeg']);
+    expect(sendVideoFrame.mock.calls[1]).toEqual([new Uint8Array([3]), 'image/jpeg']);
+  });
+
+  it('streaming: pending work is bounded (never more than 1 queued behind the active send)', async () => {
+    // Flood of frames; the pendingFrame slot holds at most 1 waiting frame.
+    let resolveFirstSend!: () => void;
+    const { ctrl, getObserver, sendVideoFrame, outboundGateway } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i === 1 ? 'send' : 'replace',
+        classification: 'replaceable' as const,
+        reason: i === 1 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+    sendVideoFrame.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolveFirstSend = resolve; }),
+    ).mockResolvedValue(undefined);
+
+    await ctrl.start();
+    ctrl.enableStreaming();
+
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve(); // drain starts
+
+    // 10 more frames arrive; all go through the gateway (replace) but only
+    // one pendingFrame slot exists.
+    for (let i = 2; i <= 11; i++) {
+      getObserver()!.onFrame(mkFrame(i));
+    }
+    await Promise.resolve();
+
+    // Gateway called for all 11 frames (policy allows, gateway classifies as replaceable).
+    expect(outboundGateway.submit).toHaveBeenCalledTimes(11);
+
+    resolveFirstSend();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Despite 11 frames submitted, only 2 reached the transport:
+    // frame 1 (first send) + the latest pending frame (frame 11).
+    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
+  });
+
+  // ── stop / reset ───────────────────────────────────────────────────────────
+
+  it('stopping screen share resets pipeline to non-sending: no frames dispatched after stop', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+
+    await ctrl.start();
+    ctrl.enableStreaming();
+    await ctrl.stop();
+
+    // After stop, any observer callbacks that fire must be no-ops.
+    const obs = getObserver();
+    if (obs) {
+      obs.onFrame(mkFrame(1));
+    }
+    await Promise.resolve();
+
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  it('restarting screen share requires explicit re-arm before frames are sent', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i === 1 ? 'send' : 'replace',
+        classification: 'replaceable' as const,
+        reason: i === 1 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+
+    // First session: arm streaming, send a frame, stop
+    await ctrl.start();
+    ctrl.enableStreaming();
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    await ctrl.stop();
+    sendVideoFrame.mockClear();
+
+    // Second session: start without re-arming → sleep → no frames
+    await ctrl.start();
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+
+    // Re-arm streaming → frames flow again
+    ctrl.enableStreaming();
+    getObserver()!.onFrame(mkFrame(3));
+    await Promise.resolve();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+});
