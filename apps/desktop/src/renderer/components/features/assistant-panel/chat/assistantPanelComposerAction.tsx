@@ -68,12 +68,7 @@ export function createAssistantPanelComposerAction({
     return {
       disabled: !canEndSpeechMode(controlGatingSnapshot),
       icon: isTransitioning ? (
-        <>
-          <Loader2 size={14} aria-hidden="true" />
-          <span aria-hidden="true">
-            {speechLifecycleStatus === 'starting' ? 'Starting…' : 'Ending…'}
-          </span>
-        </>
+        <Loader2 size={18} aria-hidden="true" />
       ) : (
         <>
           <span
@@ -96,7 +91,7 @@ export function createAssistantPanelComposerAction({
       isLoading: isTransitioning,
       kind: 'endSpeech',
       label: getEndSpeechModeLabel(speechLifecycleStatus),
-      variant: 'speechPill',
+      variant: isTransitioning ? 'speechCircle' : 'speechPill',
     };
   }
 

@@ -88,7 +88,7 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       expect(action.variant).toBe('speechPill');
     });
 
-    it('renders Starting pill during starting transition', () => {
+    it('labels Starting Live session during starting transition', () => {
       const action = createAssistantPanelComposerAction({
         controlGatingSnapshot: startingSnapshot,
         draftText: '',
@@ -100,12 +100,10 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       expect(action.kind).toBe('endSpeech');
       expect(action.label).toBe('Starting Live session');
       expect(action.isLoading).toBe(true);
-      expect(action.variant).toBe('speechPill');
-      const iconStr = JSON.stringify(action.icon);
-      expect(iconStr).toContain('Starting…');
+      expect(action.variant).toBe('speechCircle');
     });
 
-    it('renders Ending pill during ending transition', () => {
+    it('labels Ending Live session during ending transition', () => {
       const action = createAssistantPanelComposerAction({
         controlGatingSnapshot: endingSnapshot,
         draftText: '',
@@ -117,9 +115,7 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       expect(action.kind).toBe('endSpeech');
       expect(action.label).toBe('Ending Live session');
       expect(action.isLoading).toBe(true);
-      expect(action.variant).toBe('speechPill');
-      const iconStr = JSON.stringify(action.icon);
-      expect(iconStr).toContain('Ending…');
+      expect(action.variant).toBe('speechCircle');
     });
   });
 

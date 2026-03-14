@@ -323,14 +323,24 @@
   color: var(--color-accent);
 }
 
-/* All mic states (inactive, loading, active) — blue background */
+/* All speech states — blue background, smooth morphing between variants */
 .assistant-panel__composer-submit--speech,
 .assistant-panel__composer-submit--speech:disabled,
 .assistant-panel__composer-submit--speech:not(:disabled) {
   background: var(--color-accent);
   color: var(--color-text-inverse);
   opacity: 1;
+  width: auto;
+  min-width: 34px;
+  max-width: 34px;
   border-radius: 50%;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    max-width 200ms ease-out,
+    min-width 200ms ease-out,
+    padding 200ms ease-out,
+    border-radius 200ms ease-out;
 }
 
 .assistant-panel__composer-submit--speech:hover:not(:disabled),
@@ -339,25 +349,20 @@
   color: var(--color-text-inverse);
 }
 
-/* Active speech (AudioLines + "End") — pill shape */
+/* Speech pill shape */
 .assistant-panel__composer-submit--speech-active,
 .assistant-panel__composer-submit--speech-active:not(:disabled) {
-  width: auto;
+  min-width: 56px;
+  max-width: 200px;
   padding: 0 var(--space-2);
   font-size: 0.75rem;
   font-weight: 500;
   border-radius: var(--radius-full);
 }
 
-/* Loading state — spinner animation; compact circle only when not pill-shaped */
+/* Loading state — spinner animation */
 .assistant-panel__composer-submit--loading {
   cursor: default;
-}
-
-.assistant-panel__composer-submit--loading:not(.assistant-panel__composer-submit--speech-active) {
-  width: 32px;
-  padding: 0;
-  border-radius: 50%;
 }
 
 @keyframes assistant-panel-spin {
