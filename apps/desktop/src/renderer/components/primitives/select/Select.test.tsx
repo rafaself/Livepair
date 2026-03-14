@@ -1,12 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { Select } from './index';
+import { Select, type SelectOptionItem } from '../index';
 
 describe('Select', () => {
   const options = [
     { value: 'fast', label: 'Fast' },
     { value: 'thinking', label: 'Thinking' },
-  ] as const;
+  ] satisfies readonly SelectOptionItem[];
 
   it('exposes --floating-content-max-height on the floating layer when opened', () => {
     render(
