@@ -1,4 +1,3 @@
-import { History, MessageCirclePlus } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
@@ -15,45 +14,11 @@ import {
   type VoiceSessionResumptionState,
   type VoiceSessionStatus,
 } from '../../../../runtime';
-import { IconButton } from '../../../primitives';
 import { AssistantPanelChatComposer } from './AssistantPanelChatComposer';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
 import { AssistantPanelConversationEmptyState } from './AssistantPanelConversationEmptyState';
 import { AssistantPanelConversationSection } from './AssistantPanelConversationSection';
 import './AssistantPanelChatView.css';
-
-export type AssistantPanelChatHeaderProps = {
-  onCreateChat?: () => Promise<void>;
-  onOpenHistory?: () => void;
-};
-
-export function AssistantPanelChatHeader({
-  onCreateChat,
-  onOpenHistory,
-}: AssistantPanelChatHeaderProps): JSX.Element {
-  return (
-    <div className="assistant-panel__history-actions">
-      <IconButton
-        label="History"
-        size="sm"
-        disabled={onOpenHistory === undefined}
-        onClick={onOpenHistory}
-      >
-        <History size={16} />
-      </IconButton>
-      <IconButton
-        label="New chat"
-        size="sm"
-        disabled={onCreateChat === undefined}
-        onClick={() => {
-          void onCreateChat?.();
-        }}
-      >
-        <MessageCirclePlus size={16} />
-      </IconButton>
-    </div>
-  );
-}
 
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;

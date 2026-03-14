@@ -1,20 +1,18 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  AssistantPanelHistoryHeader,
   AssistantPanelHistoryView,
   useAssistantPanelHistoryViewModel,
 } from './AssistantPanelHistoryView';
+import { AssistantPanelSharedHeaderActions } from '../AssistantPanelSharedHeaderActions';
 
 type HistoryViewHarnessProps = {
   activeChatId: string | null;
-  onBackToChat: () => void;
   onSelectChat?: (chatId: string) => void;
 };
 
 function HistoryViewHarness({
   activeChatId,
-  onBackToChat,
   onSelectChat = () => {},
 }: HistoryViewHarnessProps): JSX.Element {
   const viewModel = useAssistantPanelHistoryViewModel({
@@ -25,7 +23,10 @@ function HistoryViewHarness({
   return (
     <div className="assistant-panel__inner-shell">
       <div className="assistant-panel__inner-header">
-        <AssistantPanelHistoryHeader onBackToChat={onBackToChat} />
+        <AssistantPanelSharedHeaderActions
+          panelView="history"
+          onBackToChat={() => {}}
+        />
       </div>
       <div className="assistant-panel__inner-body">
         <AssistantPanelHistoryView
@@ -42,7 +43,7 @@ describe('AssistantPanelHistoryView', () => {
   it('renders the history body inside the shared header harness with only a Back to chat action', async () => {
     window.bridge.listChats = vi.fn(async () => []);
 
-    render(<HistoryViewHarness activeChatId={null} onBackToChat={() => {}} />);
+    render(<HistoryViewHarness activeChatId={null} />);
 
     expect(await screen.findByText('No past chats yet.')).toBeVisible();
     const sharedHeader = document.querySelector('.assistant-panel__inner-header');
@@ -128,7 +129,7 @@ describe('AssistantPanelHistoryView', () => {
           ],
     );
 
-    render(<HistoryViewHarness activeChatId="chat-past" onBackToChat={() => {}} />);
+    render(<HistoryViewHarness activeChatId="chat-past" />);
 
     const currentTitle = await screen.findByText('Design review');
     const currentButton = currentTitle.closest('button');

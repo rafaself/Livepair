@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessageRecord, ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
-import { Button } from '../../../primitives';
 import {
   listPersistedChatMessages,
   listPersistedChats,
@@ -12,10 +11,6 @@ export type AssistantPanelHistoryViewProps = {
   activeChatId: string | null;
   onSelectChat: (chatId: string) => void;
   viewModel: AssistantPanelHistoryViewModel;
-};
-
-export type AssistantPanelHistoryHeaderProps = {
-  onBackToChat: () => void;
 };
 
 type ChatHistoryListItem = {
@@ -168,18 +163,6 @@ export function AssistantPanelHistoryView({
           </li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-export function AssistantPanelHistoryHeader({
-  onBackToChat,
-}: AssistantPanelHistoryHeaderProps): JSX.Element {
-  return (
-    <div className="assistant-panel__history-actions">
-      <Button variant="ghost" size="sm" onClick={onBackToChat}>
-        Back to chat
-      </Button>
     </div>
   );
 }

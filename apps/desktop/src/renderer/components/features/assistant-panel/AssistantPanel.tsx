@@ -2,16 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import { OverlayContainer, Panel } from '../../layout';
 import { AssistantPanelDebugView } from './debug/AssistantPanelDebugView';
-import { AssistantPanelChatHeader, AssistantPanelChatView } from './chat/AssistantPanelChatView';
+import { AssistantPanelChatView } from './chat/AssistantPanelChatView';
 import { AssistantPanelHeader } from './AssistantPanelHeader';
 import {
-  AssistantPanelHistoryHeader,
   AssistantPanelHistoryView,
   useAssistantPanelHistoryViewModel,
 } from './history/AssistantPanelHistoryView';
 import { AssistantPanelSettingsContent } from './settings/AssistantPanelSettingsView';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
+import { AssistantPanelSharedHeaderActions } from './AssistantPanelSharedHeaderActions';
 import {
   createAndSwitchToNewChat,
   getChatRecord,
@@ -160,14 +160,12 @@ export function AssistantPanel(): JSX.Element {
           {isSharedInnerView ? (
             <div className="assistant-panel__inner-shell">
               <div className="assistant-panel__inner-header">
-                {panelView === 'chat' ? (
-                  <AssistantPanelChatHeader
-                    onCreateChat={handleCreateChat}
-                    onOpenHistory={handleBackToHistory}
-                  />
-                ) : (
-                  <AssistantPanelHistoryHeader onBackToChat={handleBackToChat} />
-                )}
+                <AssistantPanelSharedHeaderActions
+                  panelView={panelView}
+                  onCreateChat={handleCreateChat}
+                  onOpenHistory={handleBackToHistory}
+                  onBackToChat={handleBackToChat}
+                />
               </div>
               <div className="assistant-panel__inner-body">
                 {panelView === 'chat' ? (
