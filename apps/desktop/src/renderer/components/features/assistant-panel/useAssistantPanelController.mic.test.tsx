@@ -1,4 +1,5 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
 import { useSessionRuntime } from '../../../runtime';
@@ -199,5 +200,89 @@ describe('useAssistantPanelController – composer media controls', () => {
 
     expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
     expect(handleStopVoiceCapture).not.toHaveBeenCalled();
+  });
+
+  it('submits trimmed text and only clears the draft after a successful send', async () => {
+    const handleSubmitTextTurn = vi
+      .fn<(draftText: string) => Promise<boolean>>()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    mockUseSessionRuntime.mockReturnValue(
+      createRuntime({
+        currentMode: 'speech',
+        activeTransport: 'gemini-live',
+        isSpeechMode: true,
+        isSessionActive: true,
+        isVoiceSessionActive: true,
+        speechLifecycleStatus: 'listening',
+        voiceSessionStatus: 'ready',
+        voiceCaptureState: 'capturing',
+        handleSubmitTextTurn,
+      }),
+    );
+
+    const { result } = renderHook(() => useAssistantPanelController());
+
+    act(() => {
+      result.current.handleDraftTextChange({
+        currentTarget: { value: '  successful send  ' },
+      } as ChangeEvent<HTMLTextAreaElement>);
+    });
+
+    await act(async () => {
+      await result.current.handleSubmitTextTurn({
+        preventDefault: vi.fn(),
+      } as unknown as FormEvent<HTMLFormElement>);
+    });
+
+    expect(handleSubmitTextTurn).toHaveBeenCalledWith('successful send');
+    expect(result.current.draftText).toBe('');
+
+    act(() => {
+      result.current.handleDraftTextChange({
+        currentTarget: { value: '  keep draft  ' },
+      } as ChangeEvent<HTMLTextAreaElement>);
+    });
+
+    await act(async () => {
+      await result.current.handleSubmitTextTurn({
+        preventDefault: vi.fn(),
+      } as unknown as FormEvent<HTMLFormElement>);
+    });
+
+    expect(handleSubmitTextTurn).toHaveBeenLastCalledWith('keep draft');
+    expect(result.current.draftText).toBe('  keep draft  ');
+  });
+
+  it('waits for the voice session to become ready before starting queued screen capture', async () => {
+    const handleStartVoiceSession = vi.fn(async () => undefined);
+    const handleStartScreenCapture = vi.fn(async () => undefined);
+    let runtime = createRuntime({
+      handleStartVoiceSession,
+      handleStartScreenCapture,
+      voiceSessionStatus: 'connecting',
+    });
+    mockUseSessionRuntime.mockImplementation(() => runtime);
+
+    const { result, rerender } = renderHook(() => useAssistantPanelController());
+
+    await act(async () => {
+      await result.current.handleToggleComposerScreenShare();
+    });
+
+    expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
+    expect(handleStartScreenCapture).not.toHaveBeenCalled();
+
+    runtime = createRuntime({
+      ...runtime,
+      handleStartVoiceSession,
+      handleStartScreenCapture,
+      voiceSessionStatus: 'ready',
+    });
+    rerender();
+
+    await waitFor(() => {
+      expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
+    });
   });
 });
