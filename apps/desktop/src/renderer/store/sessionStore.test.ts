@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { selectAssistantRuntimeState } from '../runtime';
+import { LIVE_ADAPTER_KEY, selectAssistantRuntimeState } from '../runtime';
 import { useSessionStore } from './sessionStore';
 
 describe('sessionStore', () => {
@@ -50,6 +50,46 @@ describe('sessionStore', () => {
       }),
     );
     expect(selectAssistantRuntimeState(useSessionStore.getState())).toBe('listening');
+  });
+
+  it('keeps sessionPhase and transportState derived from text lifecycle updates and reset overrides', () => {
+    useSessionStore.getState().setTextSessionLifecycle({ status: 'connecting' });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'connecting',
+        }),
+        sessionPhase: 'starting',
+        transportState: 'connecting',
+      }),
+    );
+
+    useSessionStore.getState().setTextSessionLifecycle({ status: 'receiving' });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'receiving',
+        }),
+        sessionPhase: 'active',
+        transportState: 'connected',
+      }),
+    );
+
+    useSessionStore.getState().reset({
+      textSessionLifecycle: { status: 'disconnecting' },
+    });
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        textSessionLifecycle: expect.objectContaining({
+          status: 'disconnecting',
+        }),
+        sessionPhase: 'ending',
+        transportState: 'disconnecting',
+      }),
+    );
   });
 
   it('resets all runtime state back to its defaults', () => {
@@ -257,6 +297,42 @@ describe('sessionStore', () => {
     });
   });
 
+  it('maps assistant runtime states with the live transport fallback and preserves currentMode', () => {
+    useSessionStore.getState().setCurrentMode('speech');
+
+    useSessionStore.getState().setAssistantState('thinking');
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        currentMode: 'speech',
+        assistantActivity: 'thinking',
+        activeTransport: LIVE_ADAPTER_KEY,
+        textSessionLifecycle: expect.objectContaining({
+          status: 'connecting',
+        }),
+        sessionPhase: 'starting',
+        transportState: 'connecting',
+        lastRuntimeError: null,
+      }),
+    );
+
+    useSessionStore.getState().setAssistantState('disconnected');
+
+    expect(useSessionStore.getState()).toEqual(
+      expect.objectContaining({
+        currentMode: 'speech',
+        assistantActivity: 'idle',
+        activeTransport: null,
+        textSessionLifecycle: expect.objectContaining({
+          status: 'idle',
+        }),
+        sessionPhase: 'idle',
+        transportState: 'idle',
+        lastRuntimeError: null,
+      }),
+    );
+  });
+
   it('can reset runtime state while preserving conversation turns', () => {
     useSessionStore.getState().setActiveChatId('chat-1');
     useSessionStore.getState().appendConversationTurn({
@@ -377,6 +453,68 @@ describe('sessionStore', () => {
         ],
       }),
     );
+  });
+
+  it('assigns and normalizes timeline ordinals across conversation turns and transcript artifacts', () => {
+    useSessionStore.getState().appendConversationTurn({
+      id: 'user-turn-1',
+      role: 'user',
+      content: 'First turn',
+      timestamp: '2026-03-12T00:00:00.000Z',
+      state: 'complete',
+    });
+    useSessionStore.getState().appendTranscriptArtifact({
+      kind: 'transcript',
+      id: 'assistant-transcript-1',
+      role: 'assistant',
+      content: 'Artifact reply',
+      timestamp: '2026-03-12T00:00:01.000Z',
+      state: 'complete',
+      source: 'voice',
+    });
+    useSessionStore.getState().appendConversationTurn({
+      id: 'assistant-turn-1',
+      role: 'assistant',
+      content: 'Second turn',
+      timestamp: '2026-03-12T00:00:02.000Z',
+      state: 'complete',
+    });
+
+    expect(
+      useSessionStore.getState().conversationTurns.map((turn) => turn.timelineOrdinal),
+    ).toEqual([1, 3]);
+    expect(
+      useSessionStore.getState().transcriptArtifacts.map((artifact) => artifact.timelineOrdinal),
+    ).toEqual([2]);
+
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'persisted-message-1',
+        role: 'assistant',
+        content: 'Restored first',
+        timestamp: '10:15',
+        state: 'complete',
+        timelineOrdinal: 5,
+      },
+      {
+        id: 'persisted-message-2',
+        role: 'user',
+        content: 'Restored second',
+        timestamp: '10:16',
+        state: 'complete',
+      },
+    ]);
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'persisted-message-1',
+        timelineOrdinal: 5,
+      }),
+      expect.objectContaining({
+        id: 'persisted-message-2',
+        timelineOrdinal: 6,
+      }),
+    ]);
   });
 
   describe('screen capture slice', () => {
