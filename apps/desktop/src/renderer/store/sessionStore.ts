@@ -62,6 +62,7 @@ type SessionStoreData = {
   voiceToolState: VoiceToolState;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
+  localUserSpeechActive: boolean;
 };
 
 export type SessionStoreState = SessionStoreData & {
@@ -119,6 +120,7 @@ export type SessionStoreState = SessionStoreData & {
   clearCurrentVoiceTranscript: () => void;
   setScreenCaptureState: (screenCaptureState: ScreenCaptureState) => void;
   setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
+  setLocalUserSpeechActive: (active: boolean) => void;
   setAssistantState: (assistantState: AssistantRuntimeState) => void;
   resetTextSessionRuntime: (
     textSessionStatus?: TextSessionStatus,
@@ -237,6 +239,7 @@ function buildDefaultSessionState(): SessionStoreData {
     voiceToolState: createDefaultVoiceToolState(),
     screenCaptureState: 'disabled',
     screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+    localUserSpeechActive: false,
   };
 }
 
@@ -422,6 +425,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
         ...patch,
       },
     })),
+  setLocalUserSpeechActive: (localUserSpeechActive) => set({ localUserSpeechActive }),
   setAssistantState: (assistantState) =>
     set((state) => ({
       ...getDebugRuntimeState(assistantState, state.activeTransport),
@@ -452,6 +456,7 @@ export const useSessionStore = create<SessionStoreState>((set) => ({
       voiceToolState: createDefaultVoiceToolState(),
       screenCaptureState: 'disabled' as ScreenCaptureState,
       screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
+      localUserSpeechActive: false,
     })),
   reset: (overrides) =>
     set(() => {

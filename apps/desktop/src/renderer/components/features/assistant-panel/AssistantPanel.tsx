@@ -18,6 +18,7 @@ import { useSessionStore } from '../../../store/sessionStore';
 export function AssistantPanel(): JSX.Element {
   const isDebugMode = useUiStore((state) => state.isDebugMode);
   const activeChatId = useSessionStore((state) => state.activeChatId);
+  const localUserSpeechActive = useSessionStore((state) => state.localUserSpeechActive);
   const [activeChat, setActiveChat] = useState<ChatRecord | null>(null);
   const [latestLiveSession, setLatestLiveSession] = useState<LiveSessionRecord | null>(null);
   const {
@@ -142,6 +143,7 @@ export function AssistantPanel(): JSX.Element {
               lastRuntimeError={lastRuntimeError}
               draftText={draftText}
               isSubmittingTextTurn={isSubmittingTextTurn}
+              localUserSpeechActive={localUserSpeechActive}
               onBackToHistory={handleBackToHistory}
               onDraftTextChange={handleDraftTextChange}
               onSubmitTextTurn={handleSubmitTextTurn}

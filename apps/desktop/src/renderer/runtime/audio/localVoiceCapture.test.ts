@@ -26,20 +26,24 @@ function createObserver(): {
   onChunk: ReturnType<typeof vi.fn>;
   onDiagnostics: ReturnType<typeof vi.fn>;
   onError: ReturnType<typeof vi.fn>;
+  onSpeechActivity: ReturnType<typeof vi.fn>;
 } {
   const onChunk = vi.fn();
   const onDiagnostics = vi.fn();
   const onError = vi.fn();
+  const onSpeechActivity = vi.fn();
 
   return {
     observer: {
       onChunk,
       onDiagnostics,
       onError,
+      onSpeechActivity,
     },
     onChunk,
     onDiagnostics,
     onError,
+    onSpeechActivity,
   };
 }
 
@@ -260,5 +264,81 @@ describe('createLocalVoiceCapture', () => {
         noiseSuppression: true,
       },
     });
+  });
+
+  it('forwards speech-activity:true from worklet to onSpeechActivity observer', async () => {
+    const harness = createHarness();
+
+    await harness.capture.start({
+      selectedInputDeviceId: 'default',
+      echoCancellationEnabled: true,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: true,
+    });
+    harness.workletNode.port.onmessage?.({
+      data: { type: 'speech-activity', active: true },
+    } as MessageEvent);
+
+    expect(harness.observer.onSpeechActivity).toHaveBeenCalledWith(true);
+    expect(harness.observer.onSpeechActivity).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards speech-activity:false from worklet to onSpeechActivity observer', async () => {
+    const harness = createHarness();
+
+    await harness.capture.start({
+      selectedInputDeviceId: 'default',
+      echoCancellationEnabled: true,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: true,
+    });
+    harness.workletNode.port.onmessage?.({
+      data: { type: 'speech-activity', active: true },
+    } as MessageEvent);
+    harness.workletNode.port.onmessage?.({
+      data: { type: 'speech-activity', active: false },
+    } as MessageEvent);
+
+    expect(harness.observer.onSpeechActivity).toHaveBeenLastCalledWith(false);
+    expect(harness.observer.onSpeechActivity).toHaveBeenCalledTimes(2);
+  });
+
+  it('calls onSpeechActivity(false) when capture stops', async () => {
+    const harness = createHarness();
+
+    await harness.capture.start({
+      selectedInputDeviceId: 'default',
+      echoCancellationEnabled: true,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: true,
+    });
+    // Simulate worklet signalling speech active
+    harness.workletNode.port.onmessage?.({
+      data: { type: 'speech-activity', active: true },
+    } as MessageEvent);
+    expect(harness.observer.onSpeechActivity).toHaveBeenCalledWith(true);
+
+    await harness.capture.stop();
+
+    expect(harness.observer.onSpeechActivity).toHaveBeenLastCalledWith(false);
+  });
+
+  it('does not call onSpeechActivity for regular audio frame messages', async () => {
+    const harness = createHarness();
+
+    await harness.capture.start({
+      selectedInputDeviceId: 'default',
+      echoCancellationEnabled: true,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: true,
+    });
+    harness.workletNode.port.onmessage?.({
+      data: {
+        channels: [Float32Array.from({ length: 128 }, () => 0)],
+      },
+    } as MessageEvent);
+
+    expect(harness.observer.onSpeechActivity).not.toHaveBeenCalled();
+    expect(harness.observer.onChunk).not.toHaveBeenCalled();
   });
 });

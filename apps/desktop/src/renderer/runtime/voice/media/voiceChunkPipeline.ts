@@ -58,6 +58,9 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
           });
           ops.logRuntimeError('voice-capture', 'local capture failed', { detail });
         },
+        onSpeechActivity: (active) => {
+          ops.store.getState().setLocalUserSpeechActive(active);
+        },
       });
     }
 

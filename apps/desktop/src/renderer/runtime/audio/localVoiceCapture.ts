@@ -15,9 +15,16 @@ const CAPTURE_WORKLET_MODULE_URL = new URL(
   import.meta.url,
 ).toString();
 
-type CaptureFramePayload = {
+type AudioFrameMessage = {
   channels?: Float32Array[] | undefined;
 };
+
+type SpeechActivityMessage = {
+  type: 'speech-activity';
+  active: boolean;
+};
+
+type WorkletMessage = AudioFrameMessage | SpeechActivityMessage;
 
 type TrackLike = {
   stop: () => void;
@@ -57,6 +64,7 @@ export type LocalVoiceCaptureObserver = {
   onChunk: (chunk: LocalVoiceChunk) => void;
   onDiagnostics: (diagnostics: Partial<VoiceCaptureDiagnostics>) => void;
   onError: (detail: string) => void;
+  onSpeechActivity?: (active: boolean) => void;
 };
 
 export type LocalVoiceCapture = {
@@ -194,6 +202,7 @@ export function createLocalVoiceCapture(
     }
 
     activeWorkletNode = null;
+    observer.onSpeechActivity?.(false);
 
     for (const track of activeTracks) {
       track.stop();
@@ -213,7 +222,7 @@ export function createLocalVoiceCapture(
     emittedChunkCount = 0;
   };
 
-  const handleAudioFrame = (payload: CaptureFramePayload): void => {
+  const handleAudioFrame = (payload: AudioFrameMessage): void => {
     if (!resampler || !payload.channels || payload.channels.length === 0) {
       return;
     }
@@ -299,7 +308,12 @@ export function createLocalVoiceCapture(
 
         sourceNode.connect(workletNode);
         workletNode.port.onmessage = (event) => {
-          handleAudioFrame(event.data as CaptureFramePayload);
+          const msg = event.data as WorkletMessage;
+          if ('type' in msg && msg.type === 'speech-activity') {
+            observer.onSpeechActivity?.(msg.active);
+            return;
+          }
+          handleAudioFrame(msg as AudioFrameMessage);
         };
         workletNode.port.onmessageerror = () => {
           const detail = 'Microphone capture failed while receiving audio frames';

@@ -37,6 +37,7 @@ export type AssistantPanelChatViewProps = {
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
+  localUserSpeechActive?: boolean;
   onBackToHistory?: () => void;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
@@ -61,6 +62,7 @@ export function AssistantPanelChatView({
   lastRuntimeError,
   draftText,
   isSubmittingTextTurn,
+  localUserSpeechActive = false,
   onBackToHistory,
   onDraftTextChange,
   onSubmitTextTurn,
@@ -90,6 +92,7 @@ export function AssistantPanelChatView({
     isConversationEmpty,
     isComposerDisabled,
     speechLifecycleStatus,
+    localUserSpeechActive,
   });
   const composerPlaceholder = 'Add a note to the session';
   const isViewingPastChat = !isLiveSessionActive && activeChat?.isCurrent === false;

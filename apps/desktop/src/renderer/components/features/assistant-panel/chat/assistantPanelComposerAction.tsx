@@ -22,6 +22,7 @@ export type CreateAssistantPanelComposerActionOptions = {
   isConversationEmpty: boolean;
   isComposerDisabled: boolean;
   speechLifecycleStatus: SpeechLifecycleStatus;
+  localUserSpeechActive: boolean;
 };
 
 function getEndSpeechModeLabel(speechLifecycleStatus: SpeechLifecycleStatus): string {
@@ -42,6 +43,7 @@ export function createAssistantPanelComposerAction({
   isConversationEmpty,
   isComposerDisabled,
   speechLifecycleStatus,
+  localUserSpeechActive,
 }: CreateAssistantPanelComposerActionOptions): AssistantPanelComposerAction {
   if (
     draftText.trim().length > 0 &&
@@ -68,7 +70,7 @@ export function createAssistantPanelComposerAction({
           <span
             className={[
               'speech-activity-indicator',
-              speechLifecycleStatus === 'userSpeaking' &&
+              localUserSpeechActive &&
                 'speech-activity-indicator--active',
             ]
               .filter(Boolean)
