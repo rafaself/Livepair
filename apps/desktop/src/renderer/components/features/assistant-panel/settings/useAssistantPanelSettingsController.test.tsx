@@ -65,6 +65,7 @@ function HookHarness(): JSX.Element {
       <output aria-label="noise-suppression">{String(controller.voiceNoiseSuppressionEnabled)}</output>
       <output aria-label="auto-gain-control">{String(controller.voiceAutoGainControlEnabled)}</output>
       <output aria-label="speech-silence-timeout">{controller.speechSilenceTimeout}</output>
+      <output aria-label="visual-session-quality">{controller.visualSessionQuality}</output>
       <button type="button" onClick={() => controller.setVoiceEchoCancellationEnabled(false)}>
         disable echo cancellation
       </button>
@@ -79,6 +80,9 @@ function HookHarness(): JSX.Element {
       </button>
       <button type="button" onClick={() => controller.setSpeechSilenceTimeout('3m')}>
         set speech timeout
+      </button>
+      <button type="button" onClick={() => controller.setVisualSessionQuality('High')}>
+        set high quality
       </button>
     </div>
   );
@@ -285,5 +289,24 @@ describe('useAssistantPanelSettingsController', () => {
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ speechSilenceTimeout: '3m' });
     expect(screen.getByLabelText('speech-silence-timeout')).toHaveTextContent('3m');
+  });
+
+  it('wave 5: exposes Low as the default visual session quality', () => {
+    render(<HookHarness />);
+
+    expect(screen.getByLabelText('visual-session-quality')).toHaveTextContent('Low');
+  });
+
+  it('wave 5: persists visual session quality changes through the settings store', async () => {
+    render(<HookHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'set high quality' }));
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        visualSessionQuality: 'High',
+      });
+    });
+    expect(screen.getByLabelText('visual-session-quality')).toHaveTextContent('High');
   });
 });

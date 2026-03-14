@@ -6,6 +6,7 @@ import {
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type PreferredMode = 'fast';
 export type SpeechSilenceTimeout = 'never' | '30s' | '3m';
+export type VisualSessionQuality = 'Low' | 'Medium' | 'High';
 
 export type DesktopSettings = {
   themePreference: ThemePreference;
@@ -18,6 +19,7 @@ export type DesktopSettings = {
   voiceNoiseSuppressionEnabled: boolean;
   voiceAutoGainControlEnabled: boolean;
   isPanelPinned: boolean;
+  visualSessionQuality: VisualSessionQuality;
 };
 
 export type DesktopSettingsPatch = Partial<DesktopSettings>;
@@ -33,6 +35,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   voiceNoiseSuppressionEnabled: true,
   voiceAutoGainControlEnabled: true,
   isPanelPinned: false,
+  visualSessionQuality: 'Low',
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -55,6 +58,10 @@ function normalizeStoredPreferredMode(
 
 function normalizeSpeechSilenceTimeout(value: unknown): SpeechSilenceTimeout | null {
   return value === 'never' || value === '30s' || value === '3m' ? value : null;
+}
+
+function normalizeVisualSessionQuality(value: unknown): VisualSessionQuality | null {
+  return value === 'Low' || value === 'Medium' || value === 'High' ? value : null;
 }
 
 export function normalizeDesktopSettings(
@@ -86,6 +93,9 @@ export function normalizeDesktopSettings(
     settings.voiceAutoGainControlEnabled
     ?? DEFAULT_DESKTOP_SETTINGS.voiceAutoGainControlEnabled;
   const isPanelPinned = settings.isPanelPinned ?? DEFAULT_DESKTOP_SETTINGS.isPanelPinned;
+  const visualSessionQuality = normalizeVisualSessionQuality(
+    settings.visualSessionQuality ?? DEFAULT_DESKTOP_SETTINGS.visualSessionQuality,
+  );
 
   if (
     themePreference === null ||
@@ -97,7 +107,8 @@ export function normalizeDesktopSettings(
     typeof voiceEchoCancellationEnabled !== 'boolean' ||
     typeof voiceNoiseSuppressionEnabled !== 'boolean' ||
     typeof voiceAutoGainControlEnabled !== 'boolean' ||
-    typeof isPanelPinned !== 'boolean'
+    typeof isPanelPinned !== 'boolean' ||
+    visualSessionQuality === null
   ) {
     return null;
   }
@@ -113,6 +124,7 @@ export function normalizeDesktopSettings(
     voiceNoiseSuppressionEnabled,
     voiceAutoGainControlEnabled,
     isPanelPinned,
+    visualSessionQuality,
   };
 }
 
@@ -193,6 +205,14 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.isPanelPinned = patch.isPanelPinned;
+  }
+
+  if ('visualSessionQuality' in patch) {
+    const visualSessionQuality = normalizeVisualSessionQuality(patch.visualSessionQuality);
+    if (visualSessionQuality === null) {
+      return null;
+    }
+    normalizedPatch.visualSessionQuality = visualSessionQuality;
   }
 
   return normalizedPatch;

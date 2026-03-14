@@ -7,6 +7,7 @@ import {
   parseLiveConfig,
   resolveLiveConfigEnv,
 } from './liveConfig';
+import { visualSessionQualityToMediaResolution } from './visualSessionQuality';
 
 function createRawLiveConfig(overrides: Partial<Parameters<typeof parseLiveConfig>[0]> = {}) {
   return {
@@ -233,6 +234,47 @@ describe('liveConfig', () => {
         },
       ],
     });
+  });
+
+  it('wave 5: visual session quality maps correctly to media resolution values', () => {
+    expect(visualSessionQualityToMediaResolution('Low')).toBe('MEDIA_RESOLUTION_LOW');
+    expect(visualSessionQualityToMediaResolution('Medium')).toBe('MEDIA_RESOLUTION_MEDIUM');
+    expect(visualSessionQualityToMediaResolution('High')).toBe('MEDIA_RESOLUTION_HIGH');
+  });
+
+  it('wave 5: buildGeminiLiveConnectConfig uses quality-derived media resolution for voice mode', () => {
+    const config = parseLiveConfig(
+      createRawLiveConfig({
+        mediaResolution: visualSessionQualityToMediaResolution('Medium'),
+      }),
+    );
+
+    const connectConfig = buildGeminiLiveConnectConfig(config, 'voice');
+
+    expect(connectConfig.mediaResolution).toBe('MEDIA_RESOLUTION_MEDIUM');
+  });
+
+  it('wave 5: buildGeminiLiveConnectConfig uses quality-derived media resolution for text mode (non-default)', () => {
+    const config = parseLiveConfig(
+      createRawLiveConfig({
+        mediaResolution: visualSessionQualityToMediaResolution('High'),
+      }),
+    );
+
+    const connectConfig = buildGeminiLiveConnectConfig(config, 'text');
+
+    expect(connectConfig.mediaResolution).toBe('MEDIA_RESOLUTION_HIGH');
+  });
+
+  it('wave 5: the Live model is not changed by visual session quality', () => {
+    const config = parseLiveConfig(
+      createRawLiveConfig({
+        mediaResolution: visualSessionQualityToMediaResolution('High'),
+      }),
+    );
+
+    // model is unchanged regardless of quality setting
+    expect(config.model).toBe('models/gemini-2.0-flash-exp');
   });
 
   it('rejects non-v1alpha speech config before transport bootstrap', () => {

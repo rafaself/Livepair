@@ -35,6 +35,7 @@ const defaultSettings: DesktopSettings = {
   voiceAutoGainControlEnabled: true,
   speechSilenceTimeout: 'never',
   isPanelPinned: false,
+  visualSessionQuality: 'Low',
 };
 
 function createSettingsServiceDouble(): DesktopSettingsService {

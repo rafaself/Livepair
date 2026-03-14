@@ -25,4 +25,5 @@ export {
   type PreferredMode,
   type SpeechSilenceTimeout,
   type ThemePreference,
+  type VisualSessionQuality,
 } from './settings';

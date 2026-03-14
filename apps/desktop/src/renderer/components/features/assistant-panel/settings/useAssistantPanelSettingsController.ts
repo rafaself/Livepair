@@ -3,6 +3,7 @@ import type {
   PreferredMode,
   SpeechSilenceTimeout,
   ThemePreference,
+  VisualSessionQuality,
 } from '../../../../../shared';
 import { normalizeBackendBaseUrl } from '../../../../../shared';
 import { useSettingsStore } from '../../../../store/settingsStore';
@@ -32,6 +33,7 @@ export type AssistantPanelSettingsController = {
   voiceNoiseSuppressionEnabled: boolean;
   voiceAutoGainControlEnabled: boolean;
   themePreference: ThemePreference;
+  visualSessionQuality: VisualSessionQuality;
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
   screenCaptureSourceOptions: readonly SelectOptionItem[];
@@ -49,6 +51,7 @@ export type AssistantPanelSettingsController = {
   setVoiceNoiseSuppressionEnabled: (enabled: boolean) => void;
   setVoiceAutoGainControlEnabled: (enabled: boolean) => void;
   setThemePreference: (themePreference: ThemePreference) => void;
+  setVisualSessionQuality: (quality: VisualSessionQuality) => void;
   handleBackendUrlChange: (value: string) => void;
   handleBackendUrlBlur: () => Promise<void>;
 };
@@ -149,6 +152,7 @@ export function useAssistantPanelSettingsController({
     voiceNoiseSuppressionEnabled: settings.voiceNoiseSuppressionEnabled,
     voiceAutoGainControlEnabled: settings.voiceAutoGainControlEnabled,
     themePreference: settings.themePreference,
+    visualSessionQuality: settings.visualSessionQuality,
     inputDeviceOptions:
       inputDeviceOptions.length > 0 ? inputDeviceOptions : UNAVAILABLE_INPUT_OPTION,
     outputDeviceOptions:
@@ -202,6 +206,9 @@ export function useAssistantPanelSettingsController({
     },
     setThemePreference: (themePreference) => {
       void updateSetting('themePreference', themePreference);
+    },
+    setVisualSessionQuality: (visualSessionQuality) => {
+      void updateSetting('visualSessionQuality', visualSessionQuality);
     },
     handleBackendUrlChange,
     handleBackendUrlBlur,

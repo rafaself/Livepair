@@ -164,6 +164,19 @@
   width: 100%;
 }
 
+.assistant-panel__settings-field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.assistant-panel__settings-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, currentColor);
+  opacity: 0.65;
+}
+
 .assistant-panel__settings-section-reveal {
   animation: settings-section-reveal 250ms var(--ease-out) both;
 }

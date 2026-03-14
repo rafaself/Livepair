@@ -1,14 +1,23 @@
 import { Monitor } from 'lucide-react';
+import type { VisualSessionQuality } from '../../../../../shared';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
 import { FieldList } from '../../../composite';
 import { ViewSection } from '../../../layout';
-import { Select } from '../../../primitives';
+import { Select, type SelectOptionItem } from '../../../primitives';
+
+const VISUAL_QUALITY_OPTIONS: readonly SelectOptionItem[] = [
+  { value: 'Low', label: 'Low' },
+  { value: 'Medium', label: 'Medium' },
+  { value: 'High', label: 'High' },
+];
 
 type ScreenSettingsController = Pick<
   AssistantPanelSettingsController,
   | 'screenCaptureSourceOptions'
   | 'selectedScreenCaptureSourceId'
   | 'setSelectedScreenCaptureSourceId'
+  | 'visualSessionQuality'
+  | 'setVisualSessionQuality'
 >;
 
 export type AssistantPanelScreenSettingsSectionProps = {
@@ -22,6 +31,8 @@ export function AssistantPanelScreenSettingsSection({
     screenCaptureSourceOptions,
     selectedScreenCaptureSourceId,
     setSelectedScreenCaptureSourceId,
+    visualSessionQuality,
+    setVisualSessionQuality,
   } = controller;
 
   return (
@@ -42,6 +53,29 @@ export function AssistantPanelScreenSettingsSection({
                 }}
                 size="sm"
               />
+            ),
+          },
+          {
+            label: 'Visual quality',
+            value: (
+              <div className="assistant-panel__settings-field-stack">
+                <Select
+                  aria-label="Visual quality"
+                  className="assistant-panel__settings-select"
+                  options={VISUAL_QUALITY_OPTIONS}
+                  value={visualSessionQuality}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value === 'Low' || value === 'Medium' || value === 'High') {
+                      setVisualSessionQuality(value as VisualSessionQuality);
+                    }
+                  }}
+                  size="sm"
+                />
+                <span className="assistant-panel__settings-hint">
+                  Higher quality may increase latency and cost.
+                </span>
+              </div>
             ),
           },
         ]}
