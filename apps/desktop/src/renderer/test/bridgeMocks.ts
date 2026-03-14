@@ -34,6 +34,10 @@ function buildBaseMockDesktopBridge() {
       sources: [],
       selectedSourceId: sourceId,
     })),
+    startScreenFrameDumpSession: vi.fn(async () => ({
+      directoryPath: '/tmp/livepair/screen-frame-dumps/current-debug-session',
+    })),
+    saveScreenFrameDumpFrame: vi.fn(async () => undefined),
   } satisfies DesktopBridge;
 }
 

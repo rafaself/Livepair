@@ -25,6 +25,8 @@ describe('IPC_CHANNELS', () => {
       getScreenCaptureAccessStatus: 'screenCapture:getAccessStatus',
       listScreenCaptureSources: 'screenCapture:listSources',
       selectScreenCaptureSource: 'screenCapture:selectSource',
+      startScreenFrameDumpSession: 'screenFrameDump:startSession',
+      saveScreenFrameDumpFrame: 'screenFrameDump:saveFrame',
     });
   });
 });

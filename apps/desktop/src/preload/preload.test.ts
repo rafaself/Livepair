@@ -53,6 +53,8 @@ describe('preload bridge', () => {
       'getScreenCaptureAccessStatus',
       'listScreenCaptureSources',
       'selectScreenCaptureSource',
+      'startScreenFrameDumpSession',
+      'saveScreenFrameDumpFrame',
     ]);
     expect(exposedBridge).toEqual({
       overlayMode: expect.any(String),
@@ -77,6 +79,8 @@ describe('preload bridge', () => {
       getScreenCaptureAccessStatus: expect.any(Function),
       listScreenCaptureSources: expect.any(Function),
       selectScreenCaptureSource: expect.any(Function),
+      startScreenFrameDumpSession: expect.any(Function),
+      saveScreenFrameDumpFrame: expect.any(Function),
     });
   });
 
@@ -329,6 +333,24 @@ describe('preload bridge', () => {
       'screenCapture:selectSource',
       'window:42:0',
     );
+
+    mockInvoke.mockResolvedValueOnce({
+      directoryPath: '/tmp/livepair/screen-frame-dumps/current-debug-session',
+    });
+    await bridge.startScreenFrameDumpSession();
+    expect(mockInvoke).toHaveBeenCalledWith('screenFrameDump:startSession');
+
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await bridge.saveScreenFrameDumpFrame({
+      sequence: 3,
+      mimeType: 'image/jpeg',
+      data: new Uint8Array([7, 8, 9]),
+    });
+    expect(mockInvoke).toHaveBeenCalledWith('screenFrameDump:saveFrame', {
+      sequence: 3,
+      mimeType: 'image/jpeg',
+      data: new Uint8Array([7, 8, 9]),
+    });
   });
 
   it('passes explicit empty payload when request has no fields', async () => {

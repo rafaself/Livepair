@@ -30,6 +30,9 @@ export const bridge: DesktopBridge = {
   listScreenCaptureSources: () => ipcRenderer.invoke(IPC_CHANNELS.listScreenCaptureSources),
   selectScreenCaptureSource: (sourceId) =>
     ipcRenderer.invoke(IPC_CHANNELS.selectScreenCaptureSource, sourceId),
+  startScreenFrameDumpSession: () => ipcRenderer.invoke(IPC_CHANNELS.startScreenFrameDumpSession),
+  saveScreenFrameDumpFrame: (request) =>
+    ipcRenderer.invoke(IPC_CHANNELS.saveScreenFrameDumpFrame, request),
 };
 
 contextBridge.exposeInMainWorld('bridge', bridge);

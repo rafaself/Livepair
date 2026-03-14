@@ -35,6 +35,16 @@ export type ScreenCaptureSourceSnapshot = {
   selectedSourceId: string | null;
 };
 
+export type ScreenFrameDumpSessionInfo = {
+  directoryPath: string;
+};
+
+export type SaveScreenFrameDumpFrameRequest = {
+  sequence: number;
+  mimeType: 'image/jpeg';
+  data: Uint8Array;
+};
+
 export type ScreenCapturePermissionStatus =
   | 'not-determined'
   | 'granted'
@@ -77,6 +87,10 @@ export interface DesktopBridge {
   selectScreenCaptureSource: (
     sourceId: string | null,
   ) => Promise<ScreenCaptureSourceSnapshot>;
+  startScreenFrameDumpSession: () => Promise<ScreenFrameDumpSessionInfo>;
+  saveScreenFrameDumpFrame: (
+    request: SaveScreenFrameDumpFrameRequest,
+  ) => Promise<void>;
 }
 
 export const IPC_CHANNELS = {
@@ -101,6 +115,8 @@ export const IPC_CHANNELS = {
   getScreenCaptureAccessStatus: 'screenCapture:getAccessStatus',
   listScreenCaptureSources: 'screenCapture:listSources',
   selectScreenCaptureSource: 'screenCapture:selectSource',
+  startScreenFrameDumpSession: 'screenFrameDump:startSession',
+  saveScreenFrameDumpFrame: 'screenFrameDump:saveFrame',
 } as const;
 
 export function getOverlayMode(platform: string): OverlayMode {
