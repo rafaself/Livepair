@@ -360,46 +360,55 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
-.assistant-panel__composer-select-trigger.select__trigger {
+.assistant-panel__composer-select.select {
+  width: auto;
+  max-width: none;
+}
+
+.assistant-panel__composer-select .select-trigger {
   justify-content: center;
   gap: 0;
+  min-width: 34px;
+  width: 34px;
   min-height: 34px;
   padding: 0;
   border: none;
+  border-radius: 50%;
   background: transparent;
   box-shadow: none;
+  color: var(--color-text-secondary);
 }
 
-.assistant-panel__composer-select-trigger.select__trigger:hover:not(:disabled),
-.assistant-panel__composer-select-trigger.select__trigger[data-state='open'] {
+.assistant-panel__composer-select .select-trigger:hover:not(:disabled),
+.assistant-panel__composer-select .select-trigger--open {
   border-color: transparent;
   background: rgba(255, 255, 255, 0.08);
   box-shadow: none;
 }
 
-.assistant-panel__composer-select-trigger.select__trigger:focus-visible {
+.assistant-panel__composer-select .select-trigger:focus-visible {
   outline-offset: 1px;
 }
 
-.assistant-panel__composer-select-icon.select__icon {
+.assistant-panel__composer-select .select-trigger__value {
+  display: none;
+}
+
+.assistant-panel__composer-select .select-trigger__chevron {
   color: inherit;
 }
 
-.assistant-panel__composer-select-icon.select__icon svg {
+.assistant-panel__composer-select .select-trigger__chevron-icon {
   width: 16px;
   height: 16px;
 }
 
-.assistant-panel__composer-select-content.select__content {
-  z-index: var(--z-overlay);
-}
-
-.assistant-panel__composer-select-viewport.select__viewport {
+.assistant-panel__composer-select .select-content {
   min-width: 180px;
 }
 
-:root[data-theme='light'] .assistant-panel__composer-select-trigger.select__trigger:hover:not(:disabled),
-:root[data-theme='light'] .assistant-panel__composer-select-trigger.select__trigger[data-state='open'] {
+:root[data-theme='light'] .assistant-panel__composer-select .select-trigger:hover:not(:disabled),
+:root[data-theme='light'] .assistant-panel__composer-select .select-trigger--open {
   background: rgba(0, 0, 0, 0.08);
 }
 

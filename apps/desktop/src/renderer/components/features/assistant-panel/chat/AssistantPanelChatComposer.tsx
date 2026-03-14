@@ -1,8 +1,7 @@
-import { Cast, ChevronDown, Mic, MicOff } from 'lucide-react';
+import { Cast, Mic, MicOff } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { Button, IconButton, type SelectOptionItem } from '../../../primitives';
-import { Select } from '../../../primitives/Select';
+import { useEffect, useRef } from 'react';
+import { Button, IconButton, Select, type SelectOptionItem } from '../../../primitives';
 import type { AssistantPanelComposerAction } from './assistantPanelComposerAction';
 
 export type AssistantPanelChatComposerProps = {
@@ -60,8 +59,6 @@ export function AssistantPanelChatComposer({
 }: AssistantPanelChatComposerProps): JSX.Element {
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isMicrophoneOptionsOpen, setIsMicrophoneOptionsOpen] = useState(false);
-  const [isScreenShareOptionsOpen, setIsScreenShareOptionsOpen] = useState(false);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -111,13 +108,6 @@ export function AssistantPanelChatComposer({
   // The composer is visible whenever there is history or a live session is active.
   // For a fresh/empty session the entry CTA lives in the centered empty state instead.
   const isComposerCollapsed = isConversationEmpty && !isLiveSessionActive;
-
-  useEffect(() => {
-    if (isComposerCollapsed) {
-      setIsMicrophoneOptionsOpen(false);
-      setIsScreenShareOptionsOpen(false);
-    }
-  }, [isComposerCollapsed]);
 
   return (
     <div className="assistant-panel__composer-section">
@@ -175,41 +165,19 @@ export function AssistantPanelChatComposer({
                     )}
                   </IconButton>
 
-                  <Select.Root
+                  <Select
+                    aria-label="Microphone options"
+                    className="assistant-panel__composer-select"
+                    options={inputDeviceOptions}
                     value={selectedInputDeviceId}
-                    open={isMicrophoneOptionsOpen}
-                    onOpenChange={(open) => {
-                      setIsMicrophoneOptionsOpen(open);
-                      if (open) {
-                        setIsScreenShareOptionsOpen(false);
-                      }
+                    onChange={(event) => {
+                      onSelectComposerInputDevice(event.currentTarget.value);
                     }}
-                    onValueChange={onSelectComposerInputDevice}
-                  >
-                    <Select.Trigger
-                      aria-label="Microphone options"
-                      className="assistant-panel__composer-select-trigger assistant-panel__composer-control"
-                    >
-                      <Select.Icon className="assistant-panel__composer-select-icon">
-                        <ChevronDown size={16} aria-hidden="true" />
-                      </Select.Icon>
-                    </Select.Trigger>
-
-                    <Select.Content className="assistant-panel__composer-select-content">
-                      <Select.Viewport
-                        aria-label="Microphone input options"
-                        className="assistant-panel__composer-select-viewport"
-                      >
-                        {inputDeviceOptions.map((option) => {
-                          return (
-                            <Select.Item key={option.value} value={option.value}>
-                              <Select.ItemText>{option.label}</Select.ItemText>
-                            </Select.Item>
-                          );
-                        })}
-                      </Select.Viewport>
-                    </Select.Content>
-                  </Select.Root>
+                    size="sm"
+                    widthMode="minAnchor"
+                    maxWidthPx={320}
+                    placeholder=""
+                  />
                 </div>
 
                 <div className="assistant-panel__composer-control-group">
@@ -233,41 +201,19 @@ export function AssistantPanelChatComposer({
                     <Cast size={16} aria-hidden="true" />
                   </IconButton>
 
-                  <Select.Root
+                  <Select
+                    aria-label="Screen share options"
+                    className="assistant-panel__composer-select"
+                    options={screenCaptureSourceOptions}
                     value={selectedScreenCaptureSourceId}
-                    open={isScreenShareOptionsOpen}
-                    onOpenChange={(open) => {
-                      setIsScreenShareOptionsOpen(open);
-                      if (open) {
-                        setIsMicrophoneOptionsOpen(false);
-                      }
+                    onChange={(event) => {
+                      onSelectComposerScreenSource(event.currentTarget.value);
                     }}
-                    onValueChange={onSelectComposerScreenSource}
-                  >
-                    <Select.Trigger
-                      aria-label="Screen share options"
-                      className="assistant-panel__composer-select-trigger assistant-panel__composer-control"
-                    >
-                      <Select.Icon className="assistant-panel__composer-select-icon">
-                        <ChevronDown size={16} aria-hidden="true" />
-                      </Select.Icon>
-                    </Select.Trigger>
-
-                    <Select.Content className="assistant-panel__composer-select-content">
-                      <Select.Viewport
-                        aria-label="Screen source options"
-                        className="assistant-panel__composer-select-viewport"
-                      >
-                        {screenCaptureSourceOptions.map((option) => {
-                          return (
-                            <Select.Item key={option.value} value={option.value}>
-                              <Select.ItemText>{option.label}</Select.ItemText>
-                            </Select.Item>
-                          );
-                        })}
-                      </Select.Viewport>
-                    </Select.Content>
-                  </Select.Root>
+                    size="sm"
+                    widthMode="minAnchor"
+                    maxWidthPx={320}
+                    placeholder=""
+                  />
                 </div>
               </div>
 

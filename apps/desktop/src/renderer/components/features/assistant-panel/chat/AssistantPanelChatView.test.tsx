@@ -943,9 +943,7 @@ describe('AssistantPanelChatView', () => {
 
     fireEvent.click(microphoneOptionsButton);
 
-    const microphoneDropdown = screen.getByRole('listbox', {
-      name: 'Microphone input options',
-    });
+    const microphoneDropdown = screen.getByRole('listbox');
     expect(microphoneOptionsButton).toHaveAttribute('aria-expanded', 'true');
     expect(
       within(microphoneDropdown).getByRole('option', { name: 'System default' }),
@@ -961,10 +959,10 @@ describe('AssistantPanelChatView', () => {
     expect(handleToggleScreenShare).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
 
-    fireEvent.mouseDown(document.body);
+    fireEvent.pointerDown(document.body);
 
     await waitFor(() => {
-      expect(screen.queryByRole('listbox', { name: 'Microphone input options' })).toBeNull();
+      expect(screen.queryByRole('listbox')).toBeNull();
     });
     expect(microphoneOptionsButton).toHaveAttribute('aria-expanded', 'false');
     expect(handleSelectInputDevice).not.toHaveBeenCalled();
@@ -977,7 +975,7 @@ describe('AssistantPanelChatView', () => {
 
     fireEvent.click(screenOptionsButton);
 
-    const screenDropdown = screen.getByRole('listbox', { name: 'Screen source options' });
+    const screenDropdown = screen.getByRole('listbox');
     expect(screenOptionsButton).toHaveAttribute('aria-expanded', 'true');
     expect(
       within(screenDropdown).getByRole('option', {
@@ -991,10 +989,10 @@ describe('AssistantPanelChatView', () => {
 
     expect(handleToggleScreenShare).toHaveBeenCalledTimes(1);
 
-    fireEvent.mouseDown(document.body);
+    fireEvent.pointerDown(document.body);
 
     await waitFor(() => {
-      expect(screen.queryByRole('listbox', { name: 'Screen source options' })).toBeNull();
+      expect(screen.queryByRole('listbox')).toBeNull();
     });
     expect(screenOptionsButton).toHaveAttribute('aria-expanded', 'false');
     expect(handleSelectInputDevice).not.toHaveBeenCalled();

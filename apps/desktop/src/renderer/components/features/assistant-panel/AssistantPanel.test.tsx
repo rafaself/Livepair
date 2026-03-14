@@ -694,9 +694,7 @@ describe('AssistantPanel', () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Microphone options' }));
     });
 
-    const microphoneDropdown = await screen.findByRole('listbox', {
-      name: 'Microphone input options',
-    });
+    const microphoneDropdown = await screen.findByRole('listbox');
     const microphoneDropdownScope = within(microphoneDropdown);
     expect(
       microphoneDropdownScope.getByRole('option', { name: 'USB Microphone' }),
@@ -713,16 +711,14 @@ describe('AssistantPanel', () => {
       expect(window.bridge.updateSettings).toHaveBeenCalledWith({
         selectedInputDeviceId: 'headset-mic',
       });
-      expect(screen.queryByRole('listbox', { name: 'Microphone input options' })).toBeNull();
+      expect(screen.queryByRole('listbox')).toBeNull();
     });
 
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Microphone options' }));
     });
 
-    const reopenedAfterMicChange = await screen.findByRole('listbox', {
-      name: 'Microphone input options',
-    });
+    const reopenedAfterMicChange = await screen.findByRole('listbox');
     const reopenedAfterMicChangeScope = within(reopenedAfterMicChange);
     expect(
       reopenedAfterMicChangeScope.getByRole('option', { name: 'Headset Mic' }),
@@ -732,20 +728,18 @@ describe('AssistantPanel', () => {
     ).toHaveAttribute('aria-selected', 'false');
 
     await act(async () => {
-      fireEvent.mouseDown(document.body);
+      fireEvent.pointerDown(document.body);
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole('listbox', { name: 'Microphone input options' })).toBeNull();
+      expect(screen.queryByRole('listbox')).toBeNull();
     });
 
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Screen share options' }));
     });
 
-    const screenDropdown = await screen.findByRole('listbox', {
-      name: 'Screen source options',
-    });
+    const screenDropdown = await screen.findByRole('listbox');
     const screenDropdownScope = within(screenDropdown);
     expect(
       screenDropdownScope.getByRole('option', { name: 'VSCode' }),
@@ -763,27 +757,25 @@ describe('AssistantPanel', () => {
       expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith('screen:1:0');
       expect(useSettingsStore.getState().settings.selectedInputDeviceId).toBe('headset-mic');
       expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('screen:1:0');
-      expect(screen.queryByRole('listbox', { name: 'Screen source options' })).toBeNull();
+      expect(screen.queryByRole('listbox')).toBeNull();
     });
 
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Screen share options' }));
     });
 
-    const reopenedAfterScreenChange = await screen.findByRole('listbox', {
-      name: 'Screen source options',
-    });
+    const reopenedAfterScreenChange = await screen.findByRole('listbox');
     const reopenedAfterScreenChangeScope = within(reopenedAfterScreenChange);
     expect(
       reopenedAfterScreenChangeScope.getByRole('option', { name: 'Entire Screen' }),
     ).toHaveAttribute('aria-selected', 'true');
 
     await act(async () => {
-      fireEvent.mouseDown(document.body);
+      fireEvent.pointerDown(document.body);
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole('listbox', { name: 'Screen source options' })).toBeNull();
+      expect(screen.queryByRole('listbox')).toBeNull();
     });
 
     await act(async () => {
