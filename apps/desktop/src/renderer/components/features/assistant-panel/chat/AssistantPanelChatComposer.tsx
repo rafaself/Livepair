@@ -1,6 +1,7 @@
+import { ChevronDown, Mic } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
 import { useEffect, useRef } from 'react';
-import { Button } from '../../../primitives';
+import { Button, IconButton } from '../../../primitives';
 import type { AssistantPanelComposerAction } from './assistantPanelComposerAction';
 
 export type AssistantPanelChatComposerProps = {
@@ -109,33 +110,63 @@ export function AssistantPanelChatComposer({
         >
           <div className="assistant-panel__composer-box">
             <div
-              className={[
-                'assistant-panel__composer-input-transition',
-                (!isLiveSessionActive || composerAction.isLoading) &&
-                  'assistant-panel__composer-input-transition--collapsed',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-hidden={!isLiveSessionActive || composerAction.isLoading || undefined}
+              className="assistant-panel__composer-layout"
+              data-testid="assistant-panel-composer-layout"
             >
-              <div>
-                <textarea
-                  ref={textareaRef}
-                  value={draftText}
-                  onChange={onDraftTextChange}
-                  disabled={isComposerDisabled}
-                  placeholder={placeholder}
-                  className="assistant-panel__composer-textarea"
-                  onKeyDown={handleKeyDown}
-                  rows={1}
-                />
+              <div
+                className="assistant-panel__composer-left-controls"
+                data-testid="assistant-panel-composer-left-controls"
+              >
+                <IconButton
+                  label="Microphone"
+                  size="sm"
+                  className="assistant-panel__composer-control"
+                >
+                  <Mic size={16} aria-hidden="true" />
+                </IconButton>
+
+                <IconButton
+                  label="Input options"
+                  size="sm"
+                  className="assistant-panel__composer-control"
+                >
+                  <ChevronDown size={16} aria-hidden="true" />
+                </IconButton>
               </div>
-            </div>
-            <div className="assistant-panel__composer-toolbar">
-              <div className="assistant-panel__composer-actions-left">
-                {/* Optional actions can go here in the future */}
+
+              <div
+                className="assistant-panel__composer-main"
+                data-testid="assistant-panel-composer-main"
+              >
+                <div
+                  className={[
+                    'assistant-panel__composer-input-transition',
+                    (!isLiveSessionActive || composerAction.isLoading) &&
+                      'assistant-panel__composer-input-transition--collapsed',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-hidden={!isLiveSessionActive || composerAction.isLoading || undefined}
+                >
+                  <div>
+                    <textarea
+                      ref={textareaRef}
+                      value={draftText}
+                      onChange={onDraftTextChange}
+                      disabled={isComposerDisabled}
+                      placeholder={placeholder}
+                      className="assistant-panel__composer-textarea"
+                      onKeyDown={handleKeyDown}
+                      rows={1}
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="assistant-panel__composer-actions-right">
+
+              <div
+                className="assistant-panel__composer-right-action"
+                data-testid="assistant-panel-composer-right-action"
+              >
                 <Button
                   type="submit"
                   variant="ghost"
