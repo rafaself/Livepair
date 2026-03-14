@@ -1,4 +1,5 @@
 import { logRuntimeDiagnostic, logRuntimeError } from '../core/logger';
+import type { RealtimeOutboundGateway } from '../outbound/outbound.types';
 import { asErrorDetail } from '../core/runtimeUtils';
 import type { DesktopSession } from '../transport/transport.types';
 import type { VoiceSessionStatus } from '../voice/voice.types';
@@ -52,16 +53,20 @@ type ScreenFrameDumpControls = {
   setScreenFrameDumpDirectoryPath: (directoryPath: string | null) => void;
 };
 
+const VISUAL_SCREEN_CHANNEL_KEY = 'visual:screen';
+
 export function createScreenCaptureController(
   store: ScreenCaptureStoreApi,
   createCapture: (observer: LocalScreenCaptureObserver) => LocalScreenCapture,
   getTransport: () => DesktopSession | null,
+  getRealtimeOutboundGateway: () => RealtimeOutboundGateway,
   screenFrameDumpControls?: ScreenFrameDumpControls,
 ): ScreenCaptureController {
   let screenCapture: LocalScreenCapture | null = null;
   let screenCaptureGeneration = 0;
   let stopInFlight: Promise<void> | null = null;
   let debugFrameDumpReady = false;
+  let visualOutboundSequence = 0;
   let pendingFrame:
     | {
         capture: LocalScreenCapture;
@@ -272,6 +277,20 @@ export function createScreenCaptureController(
       return Promise.resolve();
     }
 
+    visualOutboundSequence += 1;
+    const decision = getRealtimeOutboundGateway().submit({
+      kind: 'visual_frame',
+      channelKey: VISUAL_SCREEN_CHANNEL_KEY,
+      replaceKey: VISUAL_SCREEN_CHANNEL_KEY,
+      sequence: visualOutboundSequence,
+      createdAtMs: Date.now(),
+      estimatedBytes: frame.data.byteLength,
+    });
+
+    if (decision.outcome === 'drop' || decision.outcome === 'block') {
+      return Promise.resolve();
+    }
+
     pendingFrame = {
       capture,
       captureGeneration,
@@ -314,6 +333,7 @@ export function createScreenCaptureController(
             }
 
             const detail = asErrorDetail(error, 'Failed to send screen frame');
+            getRealtimeOutboundGateway().recordFailure(detail);
             logRuntimeError('screen-capture', 'video frame send failed', {
               detail,
               sequence: nextFrame.frame.sequence,
@@ -340,6 +360,7 @@ export function createScreenCaptureController(
             continue;
           }
 
+          getRealtimeOutboundGateway().recordSuccess();
           logRuntimeDiagnostic('screen-capture', 'video frame sent', {
             sequence: nextFrame.frame.sequence,
             mimeType: nextFrame.frame.mimeType,

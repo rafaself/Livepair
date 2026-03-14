@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createScreenCaptureController } from './screenCaptureController';
 import type { DesktopSession } from '../transport/transport.types';
+import type {
+  RealtimeOutboundDecision,
+  RealtimeOutboundDiagnostics,
+  RealtimeOutboundEvent,
+  RealtimeOutboundGateway,
+} from '../outbound/outbound.types';
 import type { VoiceSessionStatus } from '../voice/voice.types';
 import type { ScreenCaptureState } from './screen.types';
 import type { LocalScreenCaptureObserver } from './localScreenCapture';
@@ -14,6 +20,7 @@ function createHarness(options: {
   voiceSessionStatus?: VoiceSessionStatus;
   screenCaptureState?: ScreenCaptureState;
   saveScreenFramesEnabled?: boolean;
+  submitDecision?: (callIndex: number) => RealtimeOutboundDecision;
 } = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
   let currentScreenState: ScreenCaptureState = screenCaptureState;
@@ -62,11 +69,43 @@ function createHarness(options: {
   }));
   const saveScreenFrameDumpFrame = vi.fn(async () => undefined);
   const setScreenFrameDumpDirectoryPath = vi.fn();
+  let gatewaySubmitCount = 0;
+  const outboundGateway: RealtimeOutboundGateway = {
+    submit: vi.fn((_event: RealtimeOutboundEvent): RealtimeOutboundDecision => {
+      gatewaySubmitCount += 1;
+      return options.submitDecision?.(gatewaySubmitCount) ?? {
+        outcome: gatewaySubmitCount === 1 ? 'send' : 'replace',
+        classification: 'replaceable',
+        reason: gatewaySubmitCount === 1 ? 'accepted' : 'superseded-latest',
+      };
+    }),
+    recordFailure: vi.fn(),
+    recordSuccess: vi.fn(),
+    reset: vi.fn(),
+    getDiagnostics: vi.fn((): RealtimeOutboundDiagnostics => ({
+      breakerState: 'closed',
+      consecutiveFailureCount: 0,
+      totalSubmitted: 0,
+      sentCount: 0,
+      droppedCount: 0,
+      replacedCount: 0,
+      blockedCount: 0,
+      lastDecision: null,
+      lastReason: null,
+      lastEventKind: null,
+      lastChannelKey: null,
+      lastSequence: null,
+      lastReplaceKey: null,
+      lastSubmittedAtMs: null,
+      lastError: null,
+    })),
+  };
 
   const ctrl = createScreenCaptureController(
     store,
     createCapture,
     () => currentTransport,
+    () => outboundGateway,
     {
       shouldSaveFrames: shouldSaveScreenFrames,
       startScreenFrameDumpSession,
@@ -89,6 +128,7 @@ function createHarness(options: {
     startScreenFrameDumpSession,
     saveScreenFrameDumpFrame,
     setScreenFrameDumpDirectoryPath,
+    outboundGateway,
     enableDeferredStop: () => { deferStop = true; },
     resolveStop: () => {
       resolveStop?.();
@@ -341,17 +381,55 @@ describe('createScreenCaptureController', () => {
   });
 
   it('enqueueFrameSend sends frame via transport', async () => {
-    const { ctrl, sendVideoFrame, store } = createHarness();
+    const { ctrl, sendVideoFrame, store, outboundGateway } = createHarness();
 
     await ctrl.start();
     const frame = { data: new Uint8Array([1, 2]), mimeType: 'image/jpeg' as const, sequence: 1, widthPx: 640, heightPx: 480 };
     await ctrl.enqueueFrameSend(frame);
 
+    expect(outboundGateway.submit).toHaveBeenCalledWith({
+      kind: 'visual_frame',
+      channelKey: 'visual:screen',
+      replaceKey: 'visual:screen',
+      sequence: 1,
+      createdAtMs: expect.any(Number),
+      estimatedBytes: 2,
+    });
     expect(sendVideoFrame).toHaveBeenCalledWith(frame.data, frame.mimeType);
+    expect(outboundGateway.recordSuccess).toHaveBeenCalledTimes(1);
     expect(store.setScreenCaptureDiagnostics).toHaveBeenCalledWith({
       lastUploadStatus: 'sending',
       lastError: null,
     });
+  });
+
+  it('does not dispatch visual frames when the gateway blocks them', async () => {
+    const { ctrl, sendVideoFrame, outboundGateway, store } = createHarness({
+      submitDecision: () => ({
+        outcome: 'block',
+        classification: 'replaceable',
+        reason: 'breaker-open',
+      }),
+    });
+
+    await ctrl.start();
+    await ctrl.enqueueFrameSend({
+      data: new Uint8Array([9]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 320,
+      heightPx: 240,
+    });
+
+    expect(outboundGateway.submit).toHaveBeenCalledTimes(1);
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(outboundGateway.recordSuccess).not.toHaveBeenCalled();
+    expect(outboundGateway.recordFailure).not.toHaveBeenCalled();
+    expect(
+      store.setScreenCaptureDiagnostics.mock.calls.some(
+        ([patch]) => patch.lastUploadStatus === 'sending',
+      ),
+    ).toBe(false);
   });
 
   it('drops screen frames while resume temporarily leaves no active transport', async () => {
@@ -409,8 +487,14 @@ describe('createScreenCaptureController', () => {
     ).toHaveLength(0);
   });
 
-  it('keeps only the latest pending frame while a previous send is still in flight', async () => {
-    const { ctrl, sendVideoFrame } = createHarness();
+  it('routes replaceable visual frames through the gateway and keeps only bounded latest pending work', async () => {
+    const { ctrl, sendVideoFrame, outboundGateway } = createHarness({
+      submitDecision: (callIndex) => ({
+        outcome: callIndex === 1 ? 'send' : 'replace',
+        classification: 'replaceable',
+        reason: callIndex === 1 ? 'accepted' : 'superseded-latest',
+      }),
+    });
     let resolveFirstSend!: () => void;
 
     sendVideoFrame
@@ -449,6 +533,7 @@ describe('createScreenCaptureController', () => {
     resolveFirstSend();
     await Promise.all([firstSend, secondSend, thirdSend]);
 
+    expect(outboundGateway.submit).toHaveBeenCalledTimes(3);
     expect(sendVideoFrame).toHaveBeenCalledTimes(2);
     expect(sendVideoFrame.mock.calls).toEqual([
       [new Uint8Array([1]), 'image/jpeg'],

@@ -60,6 +60,7 @@ export function createSessionControllerAssembly(
     dependencies.store,
     dependencies.createScreenCapture,
     () => mutableRuntime.getActiveTransport(),
+    () => mutableRuntime.getRealtimeOutboundGateway(),
     {
       shouldSaveFrames: () => useUiStore.getState().saveScreenFramesEnabled,
       startScreenFrameDumpSession: () => window.bridge.startScreenFrameDumpSession(),
