@@ -1,173 +1,3 @@
-.assistant-panel__chat-container {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.assistant-panel__messages-section {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  position: relative;
-}
-
-.assistant-panel__messages-meta {
-  padding: 12px 20px 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  background: var(--color-chat-bg);
-  z-index: 2;
-}
-
-.assistant-panel__history-state {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-surface-elevated) 82%, transparent);
-}
-
-.assistant-panel__history-state-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.assistant-panel__history-state-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.assistant-panel__history-state-label {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.assistant-panel__history-state-title {
-  margin: 0;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.assistant-panel__history-state-body {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 0.8125rem;
-  line-height: 1.4;
-}
-
-.assistant-panel__session-history {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: 100%;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
-}
-
-.assistant-panel__session-history-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.assistant-panel__session-history-title {
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.assistant-panel__session-history-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.assistant-panel__session-history-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-surface-elevated) 88%, transparent);
-  color: var(--color-text-secondary);
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.assistant-panel__session-history-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-2) var(--space-3);
-  margin: 0;
-}
-
-.assistant-panel__session-history-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.assistant-panel__session-history-item dt {
-  margin: 0;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-}
-
-.assistant-panel__session-history-item dd {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--color-text-primary);
-}
-
-.assistant-panel__runtime-error {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-error) 15%, var(--color-surface-elevated));
-  color: var(--color-text-primary);
-  font-size: 0.8125rem;
-}
-
-.assistant-panel__runtime-error p {
-  margin: 0;
-  line-height: 1.4;
-}
-
-/* Override ConversationList internal styles for unified look */
-.assistant-panel__messages-section > .conversation-list {
-  background: transparent;
-  min-height: 0;
-}
-
-.assistant-panel__messages-section .conversation-list__viewport {
-  padding-left: 20px;
-  padding-right: 20px;
-}
-
 .assistant-panel__composer-section {
   flex-shrink: 0;
   padding: 0 20px 24px;
@@ -202,40 +32,6 @@
 .assistant-panel__composer-transition > * {
   overflow: hidden;
   min-height: 0;
-}
-
-.assistant-panel__inactive-cta {
-  display: flex;
-  justify-content: center;
-  padding: 16px;
-}
-
-.assistant-panel__inactive-cta-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.assistant-panel__inactive-cta-button {
-  min-width: 180px;
-}
-
-.assistant-panel__inactive-cta-button--loading,
-.assistant-panel__inactive-cta-button--loading:disabled {
-  min-width: 0;
-  width: 34px;
-  height: 34px;
-  min-height: 0;
-  padding: 0;
-  border-radius: 50%;
-  background: var(--color-accent);
-  color: var(--color-text-inverse);
-  opacity: 1;
-  cursor: default;
-  transition: all 200ms ease-out;
-}
-
-.assistant-panel__inactive-cta-button--loading svg {
-  animation: assistant-panel-spin 600ms linear infinite;
 }
 
 .assistant-panel__composer-box {
@@ -463,56 +259,8 @@
   cursor: default;
 }
 
-@keyframes assistant-panel-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 .assistant-panel__composer-submit--loading svg {
   animation: assistant-panel-spin 600ms linear infinite;
-}
-
-.assistant-panel__conversation-empty-identity {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.assistant-panel__conversation-empty-icon {
-  color: var(--color-text-secondary);
-  opacity: 0.45;
-}
-
-.assistant-panel__conversation-empty-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.assistant-panel__conversation-empty-body {
-  margin: 0;
-  max-width: 260px;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-
-.assistant-panel__conversation-card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-6);
-  padding: var(--space-6);
-  text-align: center;
-}
-
-.assistant-panel__conversation-card--fading {
-  opacity: 0;
-  transition: opacity 250ms ease-out;
-  pointer-events: none;
 }
 
 :root[data-theme='light'] .assistant-panel__composer-box {
@@ -552,6 +300,11 @@
 
 .speech-activity-indicator--active .speech-activity-indicator__bar:nth-child(3) {
   animation: speech-bar-c 3.9s cubic-bezier(0.33, 0, 0.2, 1) infinite 0.3s;
+}
+
+@keyframes assistant-panel-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes speech-bar-a {
@@ -612,11 +365,4 @@
   91%  { height: 9px; }
   96%  { height: 7px; }
   100% { height: 6px; }
-}
-
-@media (max-width: 520px) {
-  .assistant-panel__inactive-cta-button {
-    width: 100%;
-    min-width: 0;
-  }
 }
