@@ -18,6 +18,8 @@ export type SessionStoreApi = {
       entry: Partial<VoiceTranscriptEntry>,
     ) => void;
     clearCurrentVoiceTranscript: () => void;
+    conversationTurns: ReadonlyArray<{ timelineOrdinal?: number | undefined }>;
+    transcriptArtifacts: ReadonlyArray<{ timelineOrdinal?: number | undefined }>;
   };
 };
 

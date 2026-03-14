@@ -31,6 +31,7 @@ export interface ConversationContext {
   lastSettledAssistantArtifactId: string | null;
   currentVoiceAssistantArtifactId: string | null;
   currentVoiceUserArtifactId: string | null;
+  currentVoiceUserTimelineOrdinal: number | null;
   nextVoiceTurnId: number;
   nextAssistantTurnId: number;
   nextUserTurnId: number;
@@ -48,6 +49,7 @@ export function createConversationContext(store: SessionStoreApi): ConversationC
     lastSettledAssistantArtifactId: null,
     currentVoiceAssistantArtifactId: null,
     currentVoiceUserArtifactId: null,
+    currentVoiceUserTimelineOrdinal: null,
     nextVoiceTurnId: 0,
     nextAssistantTurnId: 0,
     nextUserTurnId: 0,
@@ -81,6 +83,7 @@ export function clearCurrentVoiceTurns(ctx: ConversationContext): void {
   ctx.lastSettledAssistantArtifactId = null;
   ctx.currentVoiceAssistantArtifactId = null;
   ctx.currentVoiceUserArtifactId = null;
+  ctx.currentVoiceUserTimelineOrdinal = null;
 }
 
 export function hasOpenVoiceTurnFence(ctx: ConversationContext): boolean {

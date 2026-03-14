@@ -30,19 +30,31 @@ function appendFinalizedUserTurn(
 ): string | null {
   const userTranscriptText = currentTranscript.user.text.trim();
 
-  if (
-    !activeUserArtifact
-    || activeUserArtifact.attachedTurnId !== undefined
-    || userTranscriptText.length === 0
-  ) {
+  if (userTranscriptText.length === 0) {
     return null;
   }
 
+  if (activeUserArtifact?.attachedTurnId !== undefined) {
+    return null;
+  }
+
+  // When no artifact exists, require a reserved ordinal to prove this is
+  // un-consumed user speech. This prevents stale buffer text from being
+  // re-materialized after a mixed-mode turn opens a new voice fence.
+  if (!activeUserArtifact && conversationCtx.currentVoiceUserTimelineOrdinal === null) {
+    return null;
+  }
+
+  const timelineOrdinal = activeUserArtifact?.timelineOrdinal
+    ?? conversationCtx.currentVoiceUserTimelineOrdinal
+    ?? undefined;
+
+  // Consume the reserved ordinal so the same text cannot be materialized twice.
+  conversationCtx.currentVoiceUserTimelineOrdinal = null;
+
   return appendUserTurn(conversationCtx, userTranscriptText, {
     source: 'voice',
-    ...(activeUserArtifact.timelineOrdinal !== undefined
-      ? { timelineOrdinal: activeUserArtifact.timelineOrdinal }
-      : {}),
+    ...(timelineOrdinal !== undefined ? { timelineOrdinal } : {}),
     ...(currentTranscript.user.isFinal !== undefined
       ? { transcriptFinal: currentTranscript.user.isFinal }
       : {}),
@@ -95,11 +107,14 @@ export function createVoiceTranscriptLifecycle({
     const activeUserArtifact = currentUserArtifact();
     const activeAssistantArtifact = currentAssistantArtifact();
 
-    if (
-      activeUserArtifact?.state === 'streaming'
-      && activeUserArtifact.attachedTurnId === undefined
-      && currentTranscript.user.text.trim().length > 0
-    ) {
+    const hasUnfinalizedUserText =
+      currentTranscript.user.text.trim().length > 0
+      && (
+        !activeUserArtifact
+        || (activeUserArtifact.state === 'streaming' && activeUserArtifact.attachedTurnId === undefined)
+      );
+
+    if (hasUnfinalizedUserText) {
       const finalizedUserTurnId = appendFinalizedUserTurn(
         conversationCtx,
         currentTranscript,

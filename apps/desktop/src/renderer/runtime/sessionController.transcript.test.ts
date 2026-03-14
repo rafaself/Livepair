@@ -47,7 +47,7 @@ describe('createDesktopSessionController – transcript', () => {
     resetCurrentChatMemoryForTests();
   });
 
-  it('keeps live transcript artifacts visible without making them canonical before settlement', async () => {
+  it('keeps user transcript internal during speech and only shows assistant transcript artifacts before settlement', async () => {
     const { controller, voiceTransport, voicePlayback } = buildVoiceController();
 
     await controller.startSession({ mode: 'speech' });
@@ -60,14 +60,7 @@ describe('createDesktopSessionController – transcript', () => {
     expect(useSessionStore.getState().conversationTurns).toEqual([]);
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'user-transcript-1',
-        role: 'user',
-        content: 'Hello there',
-        state: 'streaming',
-        source: 'voice',
-      }),
-      expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-transcript-1',
         role: 'assistant',
         content: 'Hi',
         state: 'streaming',
@@ -81,7 +74,7 @@ describe('createDesktopSessionController – transcript', () => {
     expect(voicePlayback.enqueue).toHaveBeenCalledWith(new Uint8Array([1, 2, 3, 4]));
   });
 
-  it('creates the canonical voice user turn only at the settle fence and rolls transcript state on the next user turn', async () => {
+  it('creates the canonical voice user turn only at the settle fence and keeps the next user turn internal', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
     await controller.startSession({ mode: 'speech' });
@@ -101,7 +94,7 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
     expect(useSessionStore.getState().transcriptArtifacts).toEqual([
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-transcript-1',
         content: 'Hi',
         state: 'complete',
       }),
@@ -112,7 +105,7 @@ describe('createDesktopSessionController – transcript', () => {
         content: 'Hello there',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-transcript-1',
         content: 'Hi',
         state: 'complete',
       }),
@@ -130,14 +123,9 @@ describe('createDesktopSessionController – transcript', () => {
         content: 'Hello there',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-transcript-1',
         content: 'Hi',
         state: 'complete',
-      }),
-      expect.objectContaining({
-        id: 'user-transcript-3',
-        content: 'Next turn',
-        state: 'streaming',
       }),
     ]);
   });

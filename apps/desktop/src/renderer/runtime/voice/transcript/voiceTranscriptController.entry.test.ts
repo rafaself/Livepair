@@ -63,6 +63,8 @@ describe('createVoiceTranscriptController facade', () => {
         },
         setCurrentVoiceTranscriptEntry: vi.fn(),
         clearCurrentVoiceTranscript,
+        conversationTurns: [],
+        transcriptArtifacts: [],
       }),
     };
     const conversationCtx = {} as never;

@@ -5,7 +5,6 @@ import {
   clearCurrentVoiceTurns,
   hasOpenVoiceTurnFence,
   upsertCurrentVoiceAssistantTranscriptArtifact,
-  upsertCurrentVoiceUserTranscriptArtifact,
 } from '../../conversation/conversationTurnManager';
 import type {
   SessionStoreApi,
@@ -65,6 +64,13 @@ export function createVoiceTranscriptStoreSync({
       }
     } else if (!hasOpenVoiceTurnFence(conversationCtx)) {
       beginVoiceTurnFence(conversationCtx);
+
+      // Reserve a timeline ordinal for the user turn so that it appears
+      // before any assistant artifact created later in this voice turn.
+      const currentState = store.getState();
+      const maxOrdinal = [...currentState.conversationTurns, ...currentState.transcriptArtifacts]
+        .reduce((max, entry) => Math.max(max, entry.timelineOrdinal ?? 0), 0);
+      conversationCtx.currentVoiceUserTimelineOrdinal = maxOrdinal + 1;
     }
 
     const refreshedState = store.getState();
@@ -84,11 +90,6 @@ export function createVoiceTranscriptStoreSync({
     });
 
     if (role === 'user') {
-      upsertCurrentVoiceUserTranscriptArtifact(
-        conversationCtx,
-        nextText,
-        isFinal,
-      );
       return;
     }
 
