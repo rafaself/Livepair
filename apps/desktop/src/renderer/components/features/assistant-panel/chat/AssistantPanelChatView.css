@@ -300,6 +300,10 @@
   gap: var(--space-1);
 }
 
+.assistant-panel__composer-left-controls {
+  position: relative;
+}
+
 .assistant-panel__composer-main {
   display: flex;
   min-width: 0;
@@ -330,6 +334,49 @@
 
 :root[data-theme='light'] .assistant-panel__composer-control:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.08);
+}
+
+.assistant-panel__composer-dropdown-layer {
+  pointer-events: auto;
+}
+
+.assistant-panel__composer-source-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.assistant-panel__composer-source-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.assistant-panel__composer-source-group-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.assistant-panel__composer-source-group-title,
+.assistant-panel__composer-source-group-current {
+  margin: 0;
+}
+
+.assistant-panel__composer-source-group-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.assistant-panel__composer-source-group-current {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.assistant-panel__composer-source-list {
+  width: 100%;
 }
 
 .assistant-panel__composer-submit {

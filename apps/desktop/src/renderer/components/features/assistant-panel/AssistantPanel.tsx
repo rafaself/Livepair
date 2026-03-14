@@ -189,9 +189,17 @@ export function AssistantPanel(): JSX.Element {
                      draftText={draftText}
                      isSubmittingTextTurn={isSubmittingTextTurn}
                      isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
+                     inputDeviceOptions={settingsController.inputDeviceOptions}
                      localUserSpeechActive={localUserSpeechActive}
+                     screenCaptureSourceOptions={settingsController.screenCaptureSourceOptions}
+                     selectedInputDeviceId={settingsController.selectedInputDeviceId}
+                     selectedScreenCaptureSourceId={settingsController.selectedScreenCaptureSourceId}
                      onDraftTextChange={handleDraftTextChange}
                      onSubmitTextTurn={handleSubmitTextTurn}
+                     onSelectComposerInputDevice={settingsController.setSelectedInputDeviceId}
+                     onSelectComposerScreenSource={
+                       settingsController.setSelectedScreenCaptureSourceId
+                     }
                      onStartSpeechMode={handleStartSpeechMode}
                      onStartSpeechModeWithScreen={handleStartSpeechModeWithScreen}
                      onToggleComposerMicrophone={handleToggleComposerMicrophone}
