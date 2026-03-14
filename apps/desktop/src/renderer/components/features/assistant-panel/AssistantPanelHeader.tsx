@@ -1,4 +1,4 @@
-import { Bug, MessageCircle, Settings } from 'lucide-react';
+import { Bug, MessageCircle, Settings, X } from 'lucide-react';
 import { type PanelView } from '../../../store/uiStore';
 import { PanelHeader } from '../../layout';
 import { Button, LivepairIcon } from '../../primitives';
@@ -54,6 +54,15 @@ export function AssistantPanelHeader({
         className={getButtonClassName(panelView, 'chat')}
       >
         <MessageCircle size={16} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        raised
+        onClick={() => void window.bridge.quitApp()}
+        aria-label="Quit application"
+      >
+        <X size={16} />
       </Button>
     </PanelHeader>
   );

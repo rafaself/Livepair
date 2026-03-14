@@ -39,6 +39,7 @@ export type OverlayMode = 'linux-shape' | 'forwarded-pointer';
 
 export interface DesktopBridge {
   overlayMode: OverlayMode;
+  quitApp: () => Promise<void>;
   checkHealth: () => Promise<HealthResponse>;
   requestSessionToken: (
     req: CreateEphemeralTokenRequest,
@@ -65,6 +66,7 @@ export interface DesktopBridge {
 }
 
 export const IPC_CHANNELS = {
+  quitApp: 'app:quit',
   checkHealth: 'health:check',
   requestSessionToken: 'session:requestToken',
   createChat: 'chatMemory:createChat',

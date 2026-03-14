@@ -7,6 +7,7 @@ import {
 
 export const bridge: DesktopBridge = {
   overlayMode: getOverlayMode(process.platform),
+  quitApp: () => ipcRenderer.invoke(IPC_CHANNELS.quitApp),
   checkHealth: () => ipcRenderer.invoke(IPC_CHANNELS.checkHealth),
   requestSessionToken: (req) => ipcRenderer.invoke(IPC_CHANNELS.requestSessionToken, req),
   createChat: (req) => ipcRenderer.invoke(IPC_CHANNELS.createChat, req),

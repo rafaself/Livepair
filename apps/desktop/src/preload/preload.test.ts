@@ -32,6 +32,7 @@ describe('preload bridge', () => {
     expect(mockExposeInMainWorld).toHaveBeenCalledWith('bridge', exposedBridge);
     expect(Object.keys(exposedBridge)).toEqual([
       'overlayMode',
+      'quitApp',
       'checkHealth',
       'requestSessionToken',
       'createChat',
@@ -54,6 +55,7 @@ describe('preload bridge', () => {
     ]);
     expect(exposedBridge).toEqual({
       overlayMode: expect.any(String),
+      quitApp: expect.any(Function),
       checkHealth: expect.any(Function),
       requestSessionToken: expect.any(Function),
       createChat: expect.any(Function),

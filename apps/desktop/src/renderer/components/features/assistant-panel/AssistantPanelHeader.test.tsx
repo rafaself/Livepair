@@ -28,6 +28,7 @@ describe('AssistantPanelHeader', () => {
       'Developer tools',
       'Settings',
       'Chat',
+      'Quit application',
     ]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
@@ -55,6 +56,7 @@ describe('AssistantPanelHeader', () => {
     expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
       'Settings',
       'Chat',
+      'Quit application',
     ]);
   });
 

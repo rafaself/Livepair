@@ -4,6 +4,7 @@ import { DEFAULT_DESKTOP_SETTINGS, type DesktopBridge } from '../../shared';
 function buildBaseMockDesktopBridge() {
   return {
     overlayMode: 'linux-shape' as DesktopBridge['overlayMode'],
+    quitApp: vi.fn(),
     checkHealth: vi.fn(),
     requestSessionToken: vi.fn(),
     createChat: vi.fn(),

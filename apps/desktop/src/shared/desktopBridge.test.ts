@@ -4,6 +4,7 @@ import { getOverlayMode, IPC_CHANNELS } from './desktopBridge';
 describe('IPC_CHANNELS', () => {
   it('keeps the desktop bridge channel map stable', () => {
     expect(IPC_CHANNELS).toEqual({
+      quitApp: 'app:quit',
       checkHealth: 'health:check',
       requestSessionToken: 'session:requestToken',
       createChat: 'chatMemory:createChat',

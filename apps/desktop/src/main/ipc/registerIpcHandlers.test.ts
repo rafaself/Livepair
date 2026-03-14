@@ -14,8 +14,10 @@ import type { DesktopSettingsService } from '../settings/settingsService';
 
 const mockHandle = vi.fn();
 const mockGetSources = vi.fn();
+const mockQuit = vi.fn();
 
 vi.mock('electron', () => ({
+  app: { quit: mockQuit },
   desktopCapturer: { getSources: mockGetSources },
   ipcMain: { handle: mockHandle },
 }));
@@ -139,95 +141,96 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(19);
-    expect(mockHandle).toHaveBeenNthCalledWith(1, 'health:check', expect.any(Function));
+    expect(mockHandle).toHaveBeenCalledTimes(20);
+    expect(mockHandle).toHaveBeenNthCalledWith(1, 'app:quit', expect.any(Function));
+    expect(mockHandle).toHaveBeenNthCalledWith(2, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
-      2,
+      3,
       'session:requestToken',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      3,
+      4,
       'chatMemory:createChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      4,
+      5,
       'chatMemory:getChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      5,
+      6,
       'chatMemory:getOrCreateCurrentChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      6,
+      7,
       'chatMemory:listChats',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      7,
+      8,
       'chatMemory:listMessages',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      8,
+      9,
       'chatMemory:getSummary',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      9,
+      10,
       'chatMemory:appendMessage',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      10,
+      11,
       'liveSession:create',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      11,
+      12,
       'liveSession:listByChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      12,
+      13,
       'liveSession:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      13,
+      14,
       'liveSession:end',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      14,
+      15,
       'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      15,
+      16,
       'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      16,
+      17,
       'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      17,
+      18,
       'overlay:setPointerPassthrough',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      18,
+      19,
       'screenCapture:listSources',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      19,
+      20,
       'screenCapture:selectSource',
       expect.any(Function),
     );

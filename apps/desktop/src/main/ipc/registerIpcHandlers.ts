@@ -1,4 +1,4 @@
-import { desktopCapturer, ipcMain } from 'electron';
+import { app, desktopCapturer, ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared';
 import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
@@ -50,6 +50,10 @@ export function registerIpcHandlers({
     captureSourceRegistry.setSources(sources);
     return captureSourceRegistry.getSnapshot();
   };
+
+  ipcMain.handle(IPC_CHANNELS.quitApp, () => {
+    app.quit();
+  });
 
   ipcMain.handle(IPC_CHANNELS.checkHealth, async () => {
     return backendClient.checkHealth();
