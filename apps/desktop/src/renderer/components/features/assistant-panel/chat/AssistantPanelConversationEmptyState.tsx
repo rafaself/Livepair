@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, MessageCircle } from 'lucide-react';
+import { Loader2, MessageCircle, Mic } from 'lucide-react';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 import { Button } from '../../../primitives';
 
@@ -55,7 +55,7 @@ export function AssistantPanelConversationEmptyState({
         .join(' ')}
     >
       <MessageCircle
-        size={56}
+        size={72}
         strokeWidth={1.25}
         className="assistant-panel__conversation-empty-icon"
         aria-hidden="true"
@@ -77,7 +77,10 @@ export function AssistantPanelConversationEmptyState({
           {isStarting ? (
             <Loader2 size={18} aria-hidden="true" />
           ) : (
-            'Start Live Session'
+            <>
+              <Mic size={16} aria-hidden="true" />
+              Talk
+            </>
           )}
         </Button>
       ) : null}
