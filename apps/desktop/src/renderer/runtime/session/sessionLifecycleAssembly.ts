@@ -27,28 +27,21 @@ import type { createVoiceTokenManager } from '../voice/session/voiceTokenManager
 import type { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
 import type { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionControllerErrorHandling } from './sessionErrorHandling';
+import {
+  createSessionControllerEndings,
+  type EndSessionInternal,
+} from './sessionEndings';
 import { createSessionControllerLifecycle } from './sessionLifecycle';
 import { createSessionControllerModeSwitching } from './sessionModeSwitching';
 import { createSessionControllerPublicApi } from './sessionPublicApi';
 import { createSessionControllerTeardown } from './sessionTeardown';
+import { createSessionTransportActivation } from './sessionTransportActivation';
 
 type RuntimeRef = {
   current: ReturnType<typeof createSessionControllerRuntime> | null;
 };
 
 type TransportEvent = Parameters<Parameters<DesktopSession['subscribe']>[0]>[0];
-
-type EndSessionInternalOptions = {
-  preserveLastRuntimeError?: string | null;
-  recordEvents?: boolean;
-  preserveVoiceRuntimeDiagnostics?: boolean;
-  liveSessionEnd?: {
-    status: 'ended' | 'failed';
-    endedReason?: string | null;
-  };
-};
-
-type EndSessionInternal = (options?: EndSessionInternalOptions) => Promise<void>;
 
 type SessionLifecycleAssemblyArgs = {
   dependencies: DesktopSessionControllerDependencies;
@@ -162,6 +155,12 @@ export function createSessionLifecycleAssembly({
       preserveConversationTurns,
     });
   };
+  const transportActivation = createSessionTransportActivation({
+    cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
+    setActiveTransport: (transport) => runtimeRef.current!.setActiveTransport(transport),
+    subscribeTransport: (transport, listener) =>
+      runtimeRef.current!.subscribeTransport(transport, listener),
+  });
 
   let ensureExclusiveMode = async (
     _targetMode: ProductMode,
@@ -223,9 +222,7 @@ export function createSessionLifecycleAssembly({
     },
     createTransport: () => dependencies.createTransport(LIVE_ADAPTER_KEY),
     activateVoiceTransport: (transport) => {
-      runtimeRef.current!.cleanupTransport();
-      runtimeRef.current!.setActiveTransport(transport);
-      runtimeRef.current!.subscribeTransport(transport, handleTransportEvent);
+      transportActivation.activateTransport(transport, handleTransportEvent);
     },
     startVoiceCapture: () => voiceChunkCtrl.startCapture({ shutdownOnFailure: true }),
     setVoiceErrorState: (detail) => settleVoiceErrorState(detail),
@@ -233,62 +230,15 @@ export function createSessionLifecycleAssembly({
     textRuntimeFailed: () => undefined,
     logRuntimeDiagnostic,
   });
-
-  const endSessionInternal: EndSessionInternal = async (options = {}): Promise<void> => {
-    const {
-      preserveLastRuntimeError = null,
-      recordEvents = false,
-      preserveVoiceRuntimeDiagnostics = false,
-      liveSessionEnd = {
-        status: 'ended' as const,
-        endedReason: null,
-      },
-    } = options;
-
-    runtimeRef.current!.beginSessionOperation();
-
-    if (recordEvents) {
-      runtimeRef.current!.recordSessionEvent({ type: 'session.end.requested' });
-    }
-
-    await teardownActiveRuntime({
-      textSessionStatus: 'disconnected',
-      preserveLastRuntimeError,
-      preserveVoiceRuntimeDiagnostics,
-    });
-    await endCurrentLiveSession(liveSessionEnd);
-    runtimeRef.current!.setCurrentMode('inactive');
-
-    if (recordEvents) {
-      runtimeRef.current!.recordSessionEvent({ type: 'session.ended' });
-    }
-  };
-
-  const endSpeechModeInternal = async (
-    options: { recordEvents?: boolean } = {},
-  ): Promise<void> => {
-    const { recordEvents = false } = options;
-
-    runtimeRef.current!.beginSessionOperation();
-
-    if (recordEvents) {
-      runtimeRef.current!.recordSessionEvent({ type: 'session.end.requested' });
-    }
-
-    await teardownActiveRuntime({
-      textSessionStatus: 'disconnected',
-      preserveConversationTurns: true,
-    });
-    await endCurrentLiveSession({
-      status: 'ended',
-      endedReason: null,
-    });
-    runtimeRef.current!.setCurrentMode('inactive');
-
-    if (recordEvents) {
-      runtimeRef.current!.recordSessionEvent({ type: 'session.ended' });
-    }
-  };
+  const { endSessionInternal, endSpeechModeInternal } = createSessionControllerEndings({
+    beginSessionOperation: () => runtimeRef.current!.beginSessionOperation(),
+    recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
+    teardownActiveRuntime,
+    endLiveSession: async (liveSessionEnd) => {
+      await endCurrentLiveSession(liveSessionEnd);
+    },
+    setCurrentMode: (mode) => runtimeRef.current!.setCurrentMode(mode),
+  });
 
   const voiceErrorHandlers = createSessionControllerErrorHandling({
     clearToken: () => {

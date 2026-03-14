@@ -37,6 +37,7 @@ import type { createVoiceToolController } from '../voice/tools/voiceToolControll
 import type { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
 import type { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import type { createSessionControllerRuntime } from './sessionRuntime';
+import { createSessionTransportActivation } from './sessionTransportActivation';
 
 type RuntimeRef = {
   current: ReturnType<typeof createSessionControllerRuntime> | null;
@@ -78,6 +79,12 @@ export function createSessionTransportAssembly({
     operationId: number,
   ) => Promise<CreateEphemeralTokenResponse | null>;
 } {
+  const transportActivation = createSessionTransportActivation({
+    cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
+    setActiveTransport: (transport) => runtimeRef.current!.setActiveTransport(transport),
+    subscribeTransport: (transport, listener) =>
+      runtimeRef.current!.subscribeTransport(transport, listener),
+  });
   const transportRouter = createTransportEventRouter({
     store: dependencies.store,
     settingsStore: dependencies.settingsStore,
@@ -243,9 +250,7 @@ export function createSessionTransportAssembly({
           await startCurrentLiveSession();
         },
         activateVoiceTransport: (transport) => {
-          runtimeRef.current!.cleanupTransport();
-          runtimeRef.current!.setActiveTransport(transport);
-          runtimeRef.current!.subscribeTransport(transport, handleTransportEvent);
+          transportActivation.activateTransport(transport, handleTransportEvent);
         },
         setVoiceResumptionInFlight: (value) => {
           runtimeRef.current!.setVoiceResumptionInFlight(value);

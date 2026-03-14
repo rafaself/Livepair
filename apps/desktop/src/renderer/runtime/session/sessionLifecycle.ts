@@ -1,6 +1,6 @@
 import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import { asErrorDetail } from '../core/runtimeUtils';
-import { connectFallbackVoiceSession } from '../voice/session/connectFallbackVoiceSession';
+import { createSessionVoiceConnection } from './sessionVoiceConnection';
 import type {
   SessionControllerEvent,
 } from '../core/session.types';
@@ -71,14 +71,6 @@ type SessionControllerLifecycleArgs = {
   ) => void;
 };
 
-type RestoreAttemptResult =
-  | { status: 'resumed' }
-  | { status: 'failed'; detail: string };
-
-type FallbackAttemptResult =
-  | { status: 'connected' }
-  | { status: 'failed'; detail: string };
-
 export function createSessionControllerLifecycle({
   store,
   beginSessionOperation,
@@ -113,6 +105,20 @@ export function createSessionControllerLifecycle({
   textRuntimeFailed,
   logRuntimeDiagnostic,
 }: SessionControllerLifecycleArgs) {
+  const voiceConnection = createSessionVoiceConnection({
+    store,
+    isCurrentSessionOperation,
+    applySpeechLifecycleEvent,
+    setVoiceResumptionInFlight,
+    createTransport,
+    activateVoiceTransport,
+    startVoiceCapture,
+    buildRehydrationPacketFromCurrentChat,
+    invalidatePersistedLiveSession,
+    createPersistedLiveSession,
+    endPersistedLiveSession,
+    logRuntimeDiagnostic,
+  });
   const performBackendHealthCheck = async (operationId?: number): Promise<boolean> => {
     const sessionStore = store.getState();
 
@@ -150,126 +156,6 @@ export function createSessionControllerLifecycle({
       recordSessionEvent({ type: 'session.backend.health.failed', detail });
       return false;
     }
-  };
-
-  const connectRestoredSession = async (
-    operationId: number,
-    token: CreateEphemeralTokenResponse,
-    liveSession: LiveSessionRecord,
-  ): Promise<RestoreAttemptResult> => {
-    if (!liveSession.restorable || !liveSession.resumptionHandle) {
-      const detail = liveSession.restorable
-        ? 'Persisted Live session is missing a resume handle'
-        : liveSession.invalidationReason ?? 'Persisted Live session is no longer restorable';
-      await invalidatePersistedLiveSession({
-        restorable: false,
-        invalidatedAt: new Date().toISOString(),
-        invalidationReason: detail,
-      });
-      await endPersistedLiveSession({
-        status: 'failed',
-        endedReason: detail,
-      });
-      return { status: 'failed', detail };
-    }
-
-    store.getState().setLastRuntimeError(null);
-    store.getState().setVoiceSessionResumption({
-      status: 'reconnecting',
-      latestHandle: liveSession.resumptionHandle,
-      resumable: true,
-      lastDetail: 'Restoring persisted Live session',
-    });
-    setVoiceResumptionInFlight(true);
-
-    let transport: DesktopSession;
-    try {
-      transport = createTransport();
-    } catch (error) {
-      const detail = asErrorDetail(error, 'Failed to prepare voice session');
-      await invalidatePersistedLiveSession({
-        restorable: false,
-        invalidatedAt: new Date().toISOString(),
-        invalidationReason: detail,
-      });
-      await endPersistedLiveSession({
-        status: 'failed',
-        endedReason: detail,
-      });
-      setVoiceResumptionInFlight(false);
-      return { status: 'failed', detail };
-    }
-
-    activateVoiceTransport(transport);
-
-    try {
-      await transport.connect({
-        token,
-        mode: 'voice',
-        resumeHandle: liveSession.resumptionHandle,
-      });
-
-      if (!isCurrentSessionOperation(operationId)) {
-        return { status: 'failed', detail: 'Voice session resumption was superseded' };
-      }
-
-      const didStartVoiceCapture = await startVoiceCapture();
-
-      if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
-        return { status: 'failed', detail: 'Failed to start voice capture after session resumption' };
-      }
-
-      applySpeechLifecycleEvent({ type: 'session.ready' });
-      return { status: 'resumed' };
-    } catch (error) {
-      const detail = asErrorDetail(error, 'Failed to resume voice session');
-      await invalidatePersistedLiveSession({
-        restorable: false,
-        invalidatedAt: new Date().toISOString(),
-        invalidationReason: detail,
-      });
-      await endPersistedLiveSession({
-        status: 'failed',
-        endedReason: detail,
-      });
-      setVoiceResumptionInFlight(false);
-      store.getState().setVoiceSessionResumption({
-        status: 'resumeFailed',
-        latestHandle: liveSession.resumptionHandle,
-        resumable: false,
-        lastDetail: detail,
-      });
-      logRuntimeDiagnostic('voice-session', 'restore attempt failed', {
-        liveSessionId: liveSession.id,
-        detail,
-      });
-      return { status: 'failed', detail };
-    }
-  };
-
-  const connectFallbackSession = async (
-    operationId: number,
-    token: CreateEphemeralTokenResponse,
-    reason: 'no-restore-candidate' | 'resume-failed',
-    previousDetail: string | null = null,
-  ): Promise<FallbackAttemptResult> => {
-    return connectFallbackVoiceSession({
-      operationId,
-      token,
-      reason,
-      previousDetail,
-      logRuntimeDiagnostic,
-      buildRehydrationPacketFromCurrentChat,
-      isCurrentSessionOperation,
-      createTransport,
-      createPersistedLiveSession,
-      activateVoiceTransport,
-      setVoiceResumptionInFlight,
-      startVoiceCapture,
-      applySpeechLifecycleEvent: (event) => {
-        applySpeechLifecycleEvent(event);
-      },
-    });
   };
 
   const startSessionInternal = async (_options: { mode: 'speech' }): Promise<void> => {
@@ -325,13 +211,17 @@ export function createSessionControllerLifecycle({
       }
 
       if (persistedLiveSession) {
-        const restoreAttempt = await connectRestoredSession(operationId, token, persistedLiveSession);
+        const restoreAttempt = await voiceConnection.connectRestoredSession(
+          operationId,
+          token,
+          persistedLiveSession,
+        );
 
         if (restoreAttempt.status === 'resumed' || !isCurrentSessionOperation(operationId)) {
           return;
         }
 
-        const fallbackAttempt = await connectFallbackSession(
+        const fallbackAttempt = await voiceConnection.connectFallbackSession(
           operationId,
           token,
           'resume-failed',
@@ -350,7 +240,7 @@ export function createSessionControllerLifecycle({
       return;
     }
 
-    const fallbackAttempt = await connectFallbackSession(
+    const fallbackAttempt = await voiceConnection.connectFallbackSession(
       operationId,
       token,
       'no-restore-candidate',
