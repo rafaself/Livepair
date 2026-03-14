@@ -315,6 +315,51 @@
   gap: var(--space-1);
 }
 
+/* Pill wrapper — replaces the old control-group layout */
+.assistant-panel__composer-pill {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  padding: 0 2px;
+  gap: 0;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+:root[data-theme='light'] .assistant-panel__composer-pill {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+/* Remove individual backgrounds — the pill itself is the container */
+.assistant-panel__composer-pill .assistant-panel__composer-control {
+  background: transparent !important;
+  border-radius: var(--radius-full);
+}
+
+.assistant-panel__composer-pill .assistant-panel__composer-control:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+:root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-control:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Select chevron trigger inside the pill */
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger {
+  background: transparent;
+  border-radius: var(--radius-full);
+}
+
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger:hover:not(:disabled),
+.assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger--open {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger:hover:not(:disabled),
+:root[data-theme='light'] .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger--open {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 .assistant-panel__composer-main {
   display: flex;
   min-width: 0;

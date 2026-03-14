@@ -141,7 +141,20 @@ export function AssistantPanelChatComposer({
                 className="assistant-panel__composer-left-controls"
                 data-testid="assistant-panel-composer-left-controls"
               >
-                <div className="assistant-panel__composer-control-group">
+                <div className="assistant-panel__composer-pill">
+                  <Select
+                    aria-label="Microphone options"
+                    className="assistant-panel__composer-select"
+                    options={inputDeviceOptions}
+                    value={selectedInputDeviceId}
+                    onChange={(event) => {
+                      onSelectComposerInputDevice(event.currentTarget.value);
+                    }}
+                    size="sm"
+                    widthMode="minAnchor"
+                    maxWidthPx={320}
+                    placeholder=""
+                  />
                   <IconButton
                     label={isComposerMicrophoneEnabled ? 'Disable microphone' : 'Enable microphone'}
                     size="sm"
@@ -164,23 +177,22 @@ export function AssistantPanelChatComposer({
                       <MicOff size={16} aria-hidden="true" />
                     )}
                   </IconButton>
+                </div>
 
+                <div className="assistant-panel__composer-pill">
                   <Select
-                    aria-label="Microphone options"
+                    aria-label="Screen share options"
                     className="assistant-panel__composer-select"
-                    options={inputDeviceOptions}
-                    value={selectedInputDeviceId}
+                    options={screenCaptureSourceOptions}
+                    value={selectedScreenCaptureSourceId}
                     onChange={(event) => {
-                      onSelectComposerInputDevice(event.currentTarget.value);
+                      onSelectComposerScreenSource(event.currentTarget.value);
                     }}
                     size="sm"
                     widthMode="minAnchor"
                     maxWidthPx={320}
                     placeholder=""
                   />
-                </div>
-
-                <div className="assistant-panel__composer-control-group">
                   <IconButton
                     label={screenShareButtonLabel}
                     size="sm"
@@ -200,20 +212,6 @@ export function AssistantPanelChatComposer({
                   >
                     <Cast size={16} aria-hidden="true" />
                   </IconButton>
-
-                  <Select
-                    aria-label="Screen share options"
-                    className="assistant-panel__composer-select"
-                    options={screenCaptureSourceOptions}
-                    value={selectedScreenCaptureSourceId}
-                    onChange={(event) => {
-                      onSelectComposerScreenSource(event.currentTarget.value);
-                    }}
-                    size="sm"
-                    widthMode="minAnchor"
-                    maxWidthPx={320}
-                    placeholder=""
-                  />
                 </div>
               </div>
 
