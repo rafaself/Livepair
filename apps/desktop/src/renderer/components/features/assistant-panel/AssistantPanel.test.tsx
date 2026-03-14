@@ -312,10 +312,14 @@ describe('AssistantPanel', () => {
     const panelScope = within(panel);
     const sharedShell = panel.querySelector('.assistant-panel__inner-shell');
     const sharedHeader = panel.querySelector('.assistant-panel__inner-header');
+    const sharedHeaderContent = panel.querySelector('.assistant-panel__inner-header-content');
+    const sharedHeaderActions = panel.querySelector('.assistant-panel__inner-header-actions');
     const sharedBody = panel.querySelector('.assistant-panel__inner-body');
 
     expect(sharedShell).not.toBeNull();
     expect(sharedHeader).not.toBeNull();
+    expect(sharedHeaderContent).not.toBeNull();
+    expect(sharedHeaderActions).not.toBeNull();
     expect(sharedBody).not.toBeNull();
     expect(sharedBody).toContainElement(panelScope.getByText('Talk to Livepair'));
 
@@ -328,6 +332,10 @@ describe('AssistantPanel', () => {
     expect(panel.querySelector('.assistant-panel__inner-shell')).toBe(sharedShell);
     expect(panel.querySelectorAll('.assistant-panel__inner-header')).toHaveLength(1);
     expect(panel.querySelector('.assistant-panel__inner-header')).toBe(sharedHeader);
+    expect(panel.querySelectorAll('.assistant-panel__inner-header-content')).toHaveLength(1);
+    expect(panel.querySelector('.assistant-panel__inner-header-content')).toBe(sharedHeaderContent);
+    expect(panel.querySelectorAll('.assistant-panel__inner-header-actions')).toHaveLength(1);
+    expect(panel.querySelector('.assistant-panel__inner-header-actions')).toBe(sharedHeaderActions);
     expect(panel.querySelectorAll('.assistant-panel__inner-body')).toHaveLength(1);
     expect(panel.querySelector('.assistant-panel__inner-body')).toBe(sharedBody);
     expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
