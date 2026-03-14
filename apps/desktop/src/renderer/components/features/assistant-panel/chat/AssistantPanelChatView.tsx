@@ -21,7 +21,10 @@ import { AssistantPanelChatComposer } from './AssistantPanelChatComposer';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
 import { AssistantPanelConversationEmptyState } from './AssistantPanelConversationEmptyState';
 import { AssistantPanelConversationSection } from './AssistantPanelConversationSection';
-import './AssistantPanelChatView.css';
+import './AssistantPanelChatLayout.css';
+import './AssistantPanelChatHistory.css';
+import './AssistantPanelChatComposer.css';
+import './AssistantPanelChatEmptyState.css';
 
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;

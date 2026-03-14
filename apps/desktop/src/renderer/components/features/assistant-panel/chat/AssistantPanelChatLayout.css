@@ -1,0 +1,26 @@
+.assistant-panel__chat-container {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.assistant-panel__messages-section {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Override ConversationList internal styles for unified look */
+.assistant-panel__messages-section > .conversation-list {
+  background: transparent;
+  min-height: 0;
+}
+
+.assistant-panel__messages-section .conversation-list__viewport {
+  padding-left: 20px;
+  padding-right: 20px;
+}
