@@ -123,7 +123,7 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getAllByText('Viewing past chat')).toHaveLength(2);
+    expect(screen.getByRole('status')).toHaveTextContent('Viewing past chat');
     expect(screen.getByText('Interview prep')).toBeVisible();
     expect(screen.getByText('Earlier question')).toBeVisible();
     expect(screen.getByText('Earlier answer')).toBeVisible();
