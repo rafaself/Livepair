@@ -15,10 +15,7 @@ export type AssistantPanelHistoryViewProps = {
 };
 
 export type AssistantPanelHistoryHeaderProps = {
-  onBackToChat?: () => void;
-  onRefresh: () => void;
-  refreshLabel: string;
-  refreshDisabled: boolean;
+  onBackToChat: () => void;
 };
 
 type ChatHistoryListItem = {
@@ -31,11 +28,7 @@ type ChatHistoryListItem = {
 export type AssistantPanelHistoryViewModel = {
   chatItems: ChatHistoryListItem[];
   isLoading: boolean;
-  isRefreshing: boolean;
   loadError: string | null;
-  refreshDisabled: boolean;
-  refreshLabel: string;
-  refreshChats: () => void;
 };
 
 function formatChatDate(isoString: string): string {
@@ -181,34 +174,13 @@ export function AssistantPanelHistoryView({
 
 export function AssistantPanelHistoryHeader({
   onBackToChat,
-  onRefresh,
-  refreshLabel,
-  refreshDisabled,
 }: AssistantPanelHistoryHeaderProps): JSX.Element {
   return (
-    <>
-      <div className="assistant-panel__history-label">
-        <p className="assistant-panel__chat-title">Past chats</p>
-      </div>
-      <div className="assistant-panel__history-actions">
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={onBackToChat === undefined}
-          onClick={onBackToChat}
-        >
-          Back to chat
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={refreshDisabled}
-          onClick={onRefresh}
-        >
-          {refreshLabel}
-        </Button>
-      </div>
-    </>
+    <div className="assistant-panel__history-actions">
+      <Button variant="ghost" size="sm" onClick={onBackToChat}>
+        Back to chat
+      </Button>
+    </div>
   );
 }
 
@@ -221,7 +193,7 @@ export function useAssistantPanelHistoryViewModel({
 }): AssistantPanelHistoryViewModel {
   const [chatItems, setChatItems] = useState<ChatHistoryListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const latestRequestIdRef = useRef(0);
   const hasLoadedOnceRef = useRef(false);
@@ -288,17 +260,9 @@ export function useAssistantPanelHistoryViewModel({
     void loadChats(mode);
   }, [activeChatId, isEnabled, loadChats]);
 
-  const refreshChats = useCallback((): void => {
-    void loadChats('refresh');
-  }, [loadChats]);
-
   return {
     chatItems,
     isLoading,
-    isRefreshing,
     loadError,
-    refreshDisabled: isLoading || isRefreshing,
-    refreshLabel: isRefreshing ? 'Refreshing…' : 'Refresh history',
-    refreshChats,
   };
 }

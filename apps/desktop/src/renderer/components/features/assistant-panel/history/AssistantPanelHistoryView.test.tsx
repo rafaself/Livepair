@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AssistantPanelHistoryHeader,
@@ -8,7 +8,7 @@ import {
 
 type HistoryViewHarnessProps = {
   activeChatId: string | null;
-  onBackToChat?: () => void;
+  onBackToChat: () => void;
   onSelectChat?: (chatId: string) => void;
 };
 
@@ -25,12 +25,7 @@ function HistoryViewHarness({
   return (
     <div className="assistant-panel__inner-shell">
       <div className="assistant-panel__inner-header">
-        <AssistantPanelHistoryHeader
-          onRefresh={viewModel.refreshChats}
-          refreshLabel={viewModel.refreshLabel}
-          refreshDisabled={viewModel.refreshDisabled}
-          {...(onBackToChat ? { onBackToChat } : {})}
-        />
+        <AssistantPanelHistoryHeader onBackToChat={onBackToChat} />
       </div>
       <div className="assistant-panel__inner-body">
         <AssistantPanelHistoryView
@@ -44,56 +39,19 @@ function HistoryViewHarness({
 }
 
 describe('AssistantPanelHistoryView', () => {
-  it('renders the history body inside the shared header harness with a Back to chat action', async () => {
+  it('renders the history body inside the shared header harness with only a Back to chat action', async () => {
     window.bridge.listChats = vi.fn(async () => []);
 
     render(<HistoryViewHarness activeChatId={null} onBackToChat={() => {}} />);
 
     expect(await screen.findByText('No past chats yet.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Back to chat' })).toBeVisible();
-  });
-
-  it('supports safely refreshing the shared history body when it becomes stale', async () => {
-    const listChats = vi
-      .fn()
-      .mockResolvedValueOnce([
-        {
-          id: 'chat-1',
-          title: 'Older chat',
-          createdAt: '2026-03-10T09:00:00.000Z',
-          updatedAt: '2026-03-10T09:10:00.000Z',
-          isCurrent: false,
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: 'chat-2',
-          title: 'Fresh chat',
-          createdAt: '2026-03-12T09:00:00.000Z',
-          updatedAt: '2026-03-12T09:10:00.000Z',
-          isCurrent: true,
-        },
-        {
-          id: 'chat-1',
-          title: 'Older chat',
-          createdAt: '2026-03-10T09:00:00.000Z',
-          updatedAt: '2026-03-10T09:10:00.000Z',
-          isCurrent: false,
-        },
-      ]);
-    window.bridge.listChats = listChats;
-
-    render(<HistoryViewHarness activeChatId="chat-1" />);
-
-    expect(await screen.findByText('Older chat')).toBeVisible();
-    expect(screen.queryByText('Fresh chat')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh history' }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Fresh chat')).toBeVisible();
-    });
-    expect(listChats).toHaveBeenCalledTimes(2);
+    const sharedHeader = document.querySelector('.assistant-panel__inner-header');
+    expect(sharedHeader).not.toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByText('Past chats')).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(1);
+    expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'Back to chat' })).toBeVisible();
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
   });
 
   it('shows lightweight previews and current-chat versus latest-session cues in history rows', async () => {
@@ -170,7 +128,7 @@ describe('AssistantPanelHistoryView', () => {
           ],
     );
 
-    render(<HistoryViewHarness activeChatId="chat-past" />);
+    render(<HistoryViewHarness activeChatId="chat-past" onBackToChat={() => {}} />);
 
     const currentTitle = await screen.findByText('Design review');
     const currentButton = currentTitle.closest('button');

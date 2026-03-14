@@ -56,28 +56,11 @@
   flex-direction: column;
 }
 
-.assistant-panel__history-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-secondary);
-}
-
 .assistant-panel__history-actions {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-}
-
-.assistant-panel__chat-title {
-  margin: 0;
-  padding-bottom: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  user-select: none;
+  margin-left: auto;
 }
 
 .assistant-panel__header-btn--active {

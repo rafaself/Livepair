@@ -166,12 +166,7 @@ export function AssistantPanel(): JSX.Element {
                     onOpenHistory={handleBackToHistory}
                   />
                 ) : (
-                  <AssistantPanelHistoryHeader
-                    onBackToChat={handleBackToChat}
-                    onRefresh={historyViewModel.refreshChats}
-                    refreshLabel={historyViewModel.refreshLabel}
-                    refreshDisabled={historyViewModel.refreshDisabled}
-                  />
+                  <AssistantPanelHistoryHeader onBackToChat={handleBackToChat} />
                 )}
               </div>
               <div className="assistant-panel__inner-body">
