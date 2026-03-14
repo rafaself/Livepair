@@ -698,6 +698,10 @@ describe('AssistantPanel', () => {
     const dropdownScope = within(dropdown);
     expect(dropdownScope.getByText('Current: USB Microphone')).toBeVisible();
     expect(dropdownScope.getByText('Current: VSCode')).toBeVisible();
+    expect(dropdownScope.getByRole('option', { name: 'USB Microphone' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
 
     await act(async () => {
       fireEvent.click(dropdownScope.getByRole('option', { name: 'Headset Mic' }));
@@ -707,16 +711,59 @@ describe('AssistantPanel', () => {
       expect(window.bridge.updateSettings).toHaveBeenCalledWith({
         selectedInputDeviceId: 'headset-mic',
       });
+      expect(screen.queryByRole('dialog', { name: 'Source selection' })).toBeNull();
     });
 
     await act(async () => {
-      fireEvent.click(dropdownScope.getByRole('option', { name: 'Entire Screen' }));
+      fireEvent.click(panelScope.getByRole('button', { name: 'Input options' }));
+    });
+
+    const reopenedAfterMicChange = await screen.findByRole('dialog', { name: 'Source selection' });
+    const reopenedAfterMicChangeScope = within(reopenedAfterMicChange);
+    expect(reopenedAfterMicChangeScope.getByText('Current: Headset Mic')).toBeVisible();
+    expect(reopenedAfterMicChangeScope.getByRole('option', { name: 'Headset Mic' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(reopenedAfterMicChangeScope.getByRole('option', { name: 'USB Microphone' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+
+    await act(async () => {
+      fireEvent.click(reopenedAfterMicChangeScope.getByRole('option', { name: 'Entire Screen' }));
     });
 
     await waitFor(() => {
       expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith('screen:1:0');
       expect(useSettingsStore.getState().settings.selectedInputDeviceId).toBe('headset-mic');
       expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('screen:1:0');
+      expect(screen.queryByRole('dialog', { name: 'Source selection' })).toBeNull();
+    });
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Input options' }));
+    });
+
+    const reopenedAfterScreenChange = await screen.findByRole('dialog', { name: 'Source selection' });
+    const reopenedAfterScreenChangeScope = within(reopenedAfterScreenChange);
+    expect(reopenedAfterScreenChangeScope.getByText('Current: Headset Mic')).toBeVisible();
+    expect(reopenedAfterScreenChangeScope.getByText('Current: Entire Screen')).toBeVisible();
+    expect(reopenedAfterScreenChangeScope.getByRole('option', { name: 'Headset Mic' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(reopenedAfterScreenChangeScope.getByRole('option', { name: 'Entire Screen' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await act(async () => {
+      fireEvent.pointerDown(document.body);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Source selection' })).toBeNull();
     });
 
     await act(async () => {
@@ -725,14 +772,6 @@ describe('AssistantPanel', () => {
 
     expect(await panelScope.findByRole('button', { name: 'Enable microphone' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
-
-    await act(async () => {
-      fireEvent.click(panelScope.getByRole('button', { name: 'Input options' }));
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Source selection' })).toBeNull();
-    });
   });
 
   it('returns from history without corrupting an opened past chat state', async () => {
