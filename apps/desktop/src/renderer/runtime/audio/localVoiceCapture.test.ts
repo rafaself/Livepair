@@ -221,6 +221,45 @@ describe('createLocalVoiceCapture', () => {
     expect(harness.audioContext.close).toHaveBeenCalledTimes(1);
   });
 
+  it('cleans up and reports an error when the microphone track ends unexpectedly', async () => {
+    const harness = createHarness();
+
+    await harness.capture.start({
+      selectedInputDeviceId: 'default',
+      echoCancellationEnabled: true,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: true,
+    });
+
+    const endedListener = harness.track.addEventListener.mock.calls.find(
+      ([type]) => type === 'ended',
+    )?.[1] as (() => void) | undefined;
+
+    expect(endedListener).toBeTypeOf('function');
+
+    endedListener?.();
+    await Promise.resolve();
+
+    expect(harness.observer.onError).toHaveBeenCalledWith(
+      'Microphone capture stopped unexpectedly',
+    );
+    expect(harness.observer.onDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastError: 'Microphone capture stopped unexpectedly',
+        selectedInputDeviceId: 'default',
+      }),
+    );
+    expect(harness.track.removeEventListener).toHaveBeenCalledWith(
+      'ended',
+      endedListener,
+    );
+    expect(harness.sourceNode.disconnect).toHaveBeenCalledTimes(1);
+    expect(harness.workletNode.disconnect).toHaveBeenCalledTimes(1);
+    expect(harness.track.stop).toHaveBeenCalledTimes(1);
+    expect(harness.audioContext.close).toHaveBeenCalledTimes(1);
+    expect(harness.observer.onSpeechActivity).toHaveBeenLastCalledWith(false);
+  });
+
   it('surfaces permission errors as readable diagnostics', async () => {
     const harness = createHarness({
       getUserMediaImpl: vi.fn(async () => {

@@ -46,6 +46,9 @@ type PlaybackHarness = {
     removeAttribute: ReturnType<typeof vi.fn>;
     setSinkId?: ReturnType<typeof vi.fn>;
   };
+  mediaDestination: {
+    stream: MediaStream;
+  };
   completeSource: (index: number) => void;
 };
 
@@ -139,6 +142,7 @@ function createPlaybackHarness({
     context,
     sources,
     audioElement,
+    mediaDestination,
     completeSource: (index) => {
       sources[index]?.onended?.();
     },
@@ -234,6 +238,24 @@ describe('createAssistantAudioPlayback', () => {
     expect(rejectedHarness.diagnostics.at(-1)).toEqual(
       expect.objectContaining({
         selectedOutputDeviceId: 'default',
+      }),
+    );
+  });
+
+  it('routes playback through the selected output device when sink routing succeeds', async () => {
+    const harness = createPlaybackHarness({
+      selectedOutputDeviceId: 'desk-speakers',
+    });
+
+    await harness.playback.enqueue(new Uint8Array([0, 0, 1, 0]));
+
+    expect(harness.context.createMediaStreamDestination).toHaveBeenCalledTimes(1);
+    expect(harness.audioElement.setSinkId).toHaveBeenCalledWith('desk-speakers');
+    expect(harness.audioElement.play).toHaveBeenCalledTimes(1);
+    expect(harness.sources[0]?.connect).toHaveBeenCalledWith(harness.mediaDestination);
+    expect(harness.diagnostics.at(-1)).toEqual(
+      expect.objectContaining({
+        selectedOutputDeviceId: 'desk-speakers',
       }),
     );
   });

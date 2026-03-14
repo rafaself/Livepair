@@ -70,6 +70,27 @@ describe('createVoiceResumeController', () => {
     expect(ops.createTransport).not.toHaveBeenCalled();
   });
 
+  it('tears down transport and media before fallback when resume is unavailable', async () => {
+    const oldTransport = { disconnect: vi.fn().mockResolvedValue(undefined) };
+    const ops = createMockOps();
+    ops.getActiveTransport.mockReturnValue(oldTransport);
+    ops._storeState.voiceSessionResumption.latestHandle = null;
+    const { resume } = createVoiceResumeController(ops as never);
+
+    await resume('server draining');
+
+    expect(ops.unsubscribePreviousTransport).toHaveBeenCalledTimes(1);
+    expect(ops.resetTransportDeps).toHaveBeenCalledTimes(1);
+    expect(ops.stopScreenCapture).toHaveBeenCalledTimes(1);
+    expect(ops.stopVoicePlayback).toHaveBeenCalledTimes(1);
+    expect(oldTransport.disconnect).toHaveBeenCalledTimes(1);
+    expect(ops.fallbackToNewSession).toHaveBeenCalledWith(
+      1,
+      VALID_TOKEN,
+      'server draining (resume handle unavailable)',
+    );
+  });
+
   it('falls back to a new session when the current session is not resumable', async () => {
     const ops = createMockOps();
     ops._storeState.voiceSessionResumption.resumable = false;

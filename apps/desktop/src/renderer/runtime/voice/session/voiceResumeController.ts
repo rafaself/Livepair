@@ -14,8 +14,10 @@ import { asErrorDetail } from '../../core/runtimeUtils';
 import { isTokenValidForReconnect } from './voiceSessionToken';
 import { LIVE_ADAPTER_KEY } from '../../transport/liveConfig';
 import type { SessionStoreApi } from '../../core/sessionControllerTypes';
+import { createVoiceResumeFallbackController } from './voiceResumeFallback';
+import { teardownVoiceSessionForResume } from './voiceResumeTeardown';
 
-type VoiceResumeControllerOps = {
+export type VoiceResumeControllerOps = {
   store: SessionStoreApi;
   createTransport: (kind: TransportKind) => DesktopSession;
   getToken: () => CreateEphemeralTokenResponse | null;
@@ -50,14 +52,14 @@ type VoiceResumeControllerOps = {
   resetTransportDeps: () => void;
 };
 
-export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
-  const describeUnavailableResume = (
-    detail: string,
-    reason: 'missing-handle' | 'non-resumable',
-  ): string => {
-    return `${detail} (${reason === 'missing-handle' ? 'resume handle unavailable' : 'session marked non-resumable'})`;
-  };
+function describeUnavailableResume(
+  detail: string,
+  reason: 'missing-handle' | 'non-resumable',
+): string {
+  return `${detail} (${reason === 'missing-handle' ? 'resume handle unavailable' : 'session marked non-resumable'})`;
+}
 
+export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
   const resume = async (detail: string): Promise<void> => {
     const store = ops.store.getState();
     const resumeHandle = store.voiceSessionResumption.latestHandle;
@@ -72,57 +74,12 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
 
     const operationId = ops.beginSessionOperation();
     const previousTransport = ops.getActiveTransport();
-    const finalizeFailedFallback = (failureDetail: string): void => {
-      ops.setVoiceSessionResumption({
-        status: 'resumeFailed',
-        latestHandle: resumeHandle,
-        resumable: false,
-        lastDetail: failureDetail,
-      });
-      ops.setVoiceSessionDurability({
-        tokenValid: isTokenValidForReconnect(tokenToUse),
-        tokenRefreshing: false,
-        tokenRefreshFailed: false,
-        lastDetail: failureDetail,
-      });
-      ops.setVoiceResumptionInFlight(false);
-      ops.setVoiceErrorState(failureDetail);
-    };
-    const attemptFallback = async (failureDetail: string): Promise<void> => {
-      if (!tokenToUse) {
-        finalizeFailedFallback('Voice session token was unavailable for fallback');
-        return;
-      }
-
-      ops.setVoiceSessionResumption({
-        latestHandle: resumeHandle,
-        resumable: false,
-        lastDetail: failureDetail,
-      });
-      ops.setVoiceSessionDurability({
-        tokenValid: isTokenValidForReconnect(tokenToUse),
-        tokenRefreshing: false,
-        tokenRefreshFailed: false,
-        lastDetail: failureDetail,
-      });
-
-      const fallbackResult = await ops.fallbackToNewSession(operationId, tokenToUse, failureDetail);
-
-      if (!ops.isCurrentSessionOperation(operationId)) {
-        return;
-      }
-
-      if (fallbackResult.status === 'connected') {
-        return;
-      }
-
-      ops.logRuntimeDiagnostic('voice-session', 'fallback connect failed', {
-        operationId,
-        latestHandle: resumeHandle,
-        detail: fallbackResult.detail,
-      });
-      finalizeFailedFallback(fallbackResult.detail);
-    };
+    const fallbackController = createVoiceResumeFallbackController({
+      ops,
+      operationId,
+      resumeHandle,
+      getTokenToUse: () => tokenToUse,
+    });
 
     if (resumeUnavailableDetail) {
       ops.logRuntimeDiagnostic('voice-session', 'resume skipped', {
@@ -154,22 +111,8 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       tokenRefreshFailed: false,
       lastDetail: detail,
     });
-    store.setLastRuntimeError(null);
-    store.setActiveTransport(null);
 
-    ops.unsubscribePreviousTransport();
-    ops.setActiveTransport(null);
-    ops.resetTransportDeps();
-
-    await ops.stopScreenCapture();
-
-    try {
-      await ops.stopVoicePlayback();
-    } catch {
-      // Ignore playback teardown errors while replacing the transport.
-    }
-
-    void previousTransport?.disconnect().catch(() => undefined);
+    await teardownVoiceSessionForResume(ops, previousTransport);
 
     if (!isTokenValidForReconnect(tokenToUse)) {
       ops.logRuntimeDiagnostic('voice-session', 'resume requires token refresh', {
@@ -201,13 +144,15 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
     }
 
     if (resumeUnavailableDetail) {
-      await attemptFallback(resumeUnavailableDetail);
+      await fallbackController.attemptFallback(resumeUnavailableDetail);
       return;
     }
 
     const activeResumeHandle = resumeHandle;
     if (activeResumeHandle === null) {
-      finalizeFailedFallback('Resume handle became unavailable before reconnect');
+      fallbackController.finalizeFailedFallback(
+        'Resume handle became unavailable before reconnect',
+      );
       return;
     }
 
@@ -254,7 +199,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
         tokenRefreshFailed: false,
         lastDetail: resumeDetail,
       });
-      await attemptFallback(resumeDetail);
+      await fallbackController.attemptFallback(resumeDetail);
     }
   };
 
