@@ -735,7 +735,7 @@ describe('AssistantPanelChatView', () => {
       mainContent,
       rightAction,
     ]);
-    expect(within(leftControls).getByRole('button', { name: 'Microphone' })).toBeVisible();
+    expect(within(leftControls).getByRole('button', { name: /microphone/i })).toBeVisible();
     expect(within(leftControls).getByRole('button', { name: 'Input options' })).toBeVisible();
     expect(within(mainContent).getByRole('textbox')).toHaveValue('Keep this in text');
     expect(
@@ -782,11 +782,83 @@ describe('AssistantPanelChatView', () => {
       mainContent,
       rightAction,
     ]);
-    expect(within(leftControls).getByRole('button', { name: 'Microphone' })).toBeVisible();
+    expect(within(leftControls).getByRole('button', { name: /microphone/i })).toBeVisible();
     expect(within(leftControls).getByRole('button', { name: 'Input options' })).toBeVisible();
     expect(within(mainContent).queryByRole('textbox')).toBeNull();
     expect(
       within(rightAction).getByRole('button', { name: 'Resume Live Session' }),
     ).toBeVisible();
+  });
+
+  it('toggles the left microphone control visually without changing the active session action or chevron shell', () => {
+    const handleToggleMicrophone = vi.fn();
+    const handleEndSpeechMode = vi.fn(async () => undefined);
+    const { rerender } = render(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        isComposerMicrophoneEnabled={true}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onEndSpeechMode={handleEndSpeechMode}
+        onToggleComposerMicrophone={handleToggleMicrophone}
+      />,
+    );
+
+    const micButton = screen.getByRole('button', { name: 'Disable microphone' });
+    expect(micButton).toHaveAttribute('aria-pressed', 'true');
+    expect(micButton).toHaveClass('assistant-panel__composer-control--active');
+    expect(screen.getByRole('button', { name: 'Input options' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
+
+    fireEvent.click(micButton);
+
+    expect(handleToggleMicrophone).toHaveBeenCalledTimes(1);
+    expect(handleEndSpeechMode).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Input options' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
+
+    rerender(
+      <AssistantPanelChatView
+        assistantState="listening"
+        currentMode="speech"
+        speechLifecycleStatus="listening"
+        textSessionStatus="ready"
+        canSubmitText={true}
+        activeTransport="gemini-live"
+        voiceSessionStatus="ready"
+        turns={[]}
+        isConversationEmpty={true}
+        lastRuntimeError={null}
+        draftText=""
+        isSubmittingTextTurn={false}
+        isComposerMicrophoneEnabled={false}
+        onDraftTextChange={() => {}}
+        onSubmitTextTurn={() => {}}
+        onStartSpeechMode={() => Promise.resolve()}
+        onStartSpeechModeWithScreen={() => Promise.resolve()}
+        onEndSpeechMode={handleEndSpeechMode}
+        onToggleComposerMicrophone={handleToggleMicrophone}
+      />,
+    );
+
+    const disabledMicButton = screen.getByRole('button', { name: 'Enable microphone' });
+    expect(disabledMicButton).toHaveAttribute('aria-pressed', 'false');
+    expect(disabledMicButton).toHaveClass('assistant-panel__composer-control--inactive');
+    expect(disabledMicButton).not.toHaveClass('assistant-panel__composer-control--active');
+    expect(screen.getByRole('button', { name: 'Input options' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'End Live session' })).toBeVisible();
   });
 });

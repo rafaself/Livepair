@@ -37,11 +37,13 @@ export type AssistantPanelChatViewProps = {
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
+  isComposerMicrophoneEnabled?: boolean;
   localUserSpeechActive?: boolean;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
   onStartSpeechMode: () => Promise<void>;
   onStartSpeechModeWithScreen: () => Promise<void>;
+  onToggleComposerMicrophone?: () => Promise<void>;
   onEndSpeechMode: () => Promise<void>;
 };
 
@@ -62,11 +64,13 @@ export function AssistantPanelChatView({
   lastRuntimeError,
   draftText,
   isSubmittingTextTurn,
+  isComposerMicrophoneEnabled = true,
   localUserSpeechActive = false,
   onDraftTextChange,
   onSubmitTextTurn,
   onStartSpeechMode,
   onStartSpeechModeWithScreen,
+  onToggleComposerMicrophone = async () => undefined,
   onEndSpeechMode,
 }: AssistantPanelChatViewProps): JSX.Element {
   const controlGatingSnapshot = createControlGatingSnapshot({
@@ -125,6 +129,7 @@ export function AssistantPanelChatView({
         draftText={draftText}
         isConversationEmpty={isConversationEmpty}
         isComposerDisabled={isComposerDisabled}
+        isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
         isLiveSessionActive={isLiveSessionActive}
         isPanelOpen={isPanelOpen ?? false}
         liveSessionPhaseLabel={liveSessionPhaseLabel}
@@ -132,6 +137,7 @@ export function AssistantPanelChatView({
         onDraftTextChange={onDraftTextChange}
         onEndSpeechMode={onEndSpeechMode}
         onStartSpeechMode={onStartSpeechMode}
+        onToggleComposerMicrophone={onToggleComposerMicrophone}
         onSubmitTextTurn={onSubmitTextTurn}
       />
     </section>

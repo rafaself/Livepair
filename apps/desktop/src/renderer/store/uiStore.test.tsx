@@ -63,6 +63,22 @@ describe('uiStore', () => {
     expect(useUiStore.getState().isDebugMode).toBe(false);
   });
 
+  it('stores the composer microphone preference independently and resets it to enabled by default', () => {
+    expect(useUiStore.getState().isComposerMicrophoneEnabled).toBe(true);
+
+    useUiStore.getState().toggleComposerMicrophoneEnabled();
+    expect(useUiStore.getState().isComposerMicrophoneEnabled).toBe(false);
+
+    useUiStore.getState().setComposerMicrophoneEnabled(true);
+    expect(useUiStore.getState().isComposerMicrophoneEnabled).toBe(true);
+
+    useUiStore.getState().toggleComposerMicrophoneEnabled();
+    expect(useUiStore.getState().isComposerMicrophoneEnabled).toBe(false);
+
+    useUiStore.getState().reset();
+    expect(useUiStore.getState().isComposerMicrophoneEnabled).toBe(true);
+  });
+
   it('toggles the panel and resets the current view when closing', () => {
     useUiStore.getState().togglePanel();
     expect(useUiStore.getState().isPanelOpen).toBe(true);

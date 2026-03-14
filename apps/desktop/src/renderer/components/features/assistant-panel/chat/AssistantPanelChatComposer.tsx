@@ -1,4 +1,4 @@
-import { ChevronDown, Mic } from 'lucide-react';
+import { ChevronDown, Mic, MicOff } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
 import { useEffect, useRef } from 'react';
 import { Button, IconButton } from '../../../primitives';
@@ -9,6 +9,7 @@ export type AssistantPanelChatComposerProps = {
   draftText: string;
   isConversationEmpty: boolean;
   isComposerDisabled: boolean;
+  isComposerMicrophoneEnabled?: boolean;
   isLiveSessionActive: boolean;
   isPanelOpen: boolean;
   liveSessionPhaseLabel?: string | null;
@@ -16,6 +17,7 @@ export type AssistantPanelChatComposerProps = {
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onEndSpeechMode: () => Promise<void>;
   onStartSpeechMode: () => Promise<void>;
+  onToggleComposerMicrophone?: () => Promise<void>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
 };
 
@@ -24,6 +26,7 @@ export function AssistantPanelChatComposer({
   draftText,
   isConversationEmpty,
   isComposerDisabled,
+  isComposerMicrophoneEnabled = true,
   isLiveSessionActive,
   isPanelOpen,
   liveSessionPhaseLabel = null,
@@ -31,6 +34,7 @@ export function AssistantPanelChatComposer({
   onDraftTextChange,
   onEndSpeechMode,
   onStartSpeechMode,
+  onToggleComposerMicrophone = async () => undefined,
   onSubmitTextTurn,
 }: AssistantPanelChatComposerProps): JSX.Element {
   const formRef = useRef<HTMLFormElement>(null);
@@ -118,11 +122,26 @@ export function AssistantPanelChatComposer({
                 data-testid="assistant-panel-composer-left-controls"
               >
                 <IconButton
-                  label="Microphone"
+                  label={isComposerMicrophoneEnabled ? 'Disable microphone' : 'Enable microphone'}
                   size="sm"
-                  className="assistant-panel__composer-control"
+                  className={[
+                    'assistant-panel__composer-control',
+                    isComposerMicrophoneEnabled
+                      ? 'assistant-panel__composer-control--active'
+                      : 'assistant-panel__composer-control--inactive',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-pressed={isComposerMicrophoneEnabled}
+                  onClick={() => {
+                    void onToggleComposerMicrophone();
+                  }}
                 >
-                  <Mic size={16} aria-hidden="true" />
+                  {isComposerMicrophoneEnabled ? (
+                    <Mic size={16} aria-hidden="true" />
+                  ) : (
+                    <MicOff size={16} aria-hidden="true" />
+                  )}
                 </IconButton>
 
                 <IconButton
