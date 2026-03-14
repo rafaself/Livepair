@@ -80,7 +80,7 @@ function createRuntime(overrides: Partial<SessionRuntime> = {}): SessionRuntime 
   };
 }
 
-describe('useAssistantPanelController – composer microphone toggle', () => {
+describe('useAssistantPanelController – composer media controls', () => {
   const mockUseSessionRuntime = vi.mocked(useSessionRuntime);
 
   beforeEach(() => {
@@ -148,5 +148,56 @@ describe('useAssistantPanelController – composer microphone toggle', () => {
     expect(handleStopVoiceCapture).toHaveBeenCalledTimes(1);
     expect(handleEndSpeechMode).not.toHaveBeenCalled();
     expect(handleStartVoiceSession).not.toHaveBeenCalled();
+  });
+
+  it('starts screen capture during an active Live session without restarting the session', async () => {
+    const handleStartVoiceSession = vi.fn(async () => undefined);
+    const handleStartScreenCapture = vi.fn(async () => undefined);
+    const handleEndSpeechMode = vi.fn(async () => undefined);
+    mockUseSessionRuntime.mockReturnValue(
+      createRuntime({
+        currentMode: 'speech',
+        activeTransport: 'gemini-live',
+        isSpeechMode: true,
+        isSessionActive: true,
+        isVoiceSessionActive: true,
+        speechLifecycleStatus: 'listening',
+        voiceSessionStatus: 'ready',
+        screenCaptureState: 'disabled',
+        handleStartVoiceSession,
+        handleStartScreenCapture,
+        handleEndSpeechMode,
+      }),
+    );
+
+    const { result } = renderHook(() => useAssistantPanelController());
+
+    await act(async () => {
+      await result.current.handleToggleComposerScreenShare();
+    });
+
+    expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
+    expect(handleEndSpeechMode).not.toHaveBeenCalled();
+    expect(handleStartVoiceSession).not.toHaveBeenCalled();
+  });
+
+  it('starts a Live session with screen sharing when toggled from an inactive composer', async () => {
+    const handleStartVoiceSession = vi.fn(async () => undefined);
+    const handleStopVoiceCapture = vi.fn(async () => undefined);
+    mockUseSessionRuntime.mockReturnValue(
+      createRuntime({
+        handleStartVoiceSession,
+        handleStopVoiceCapture,
+      }),
+    );
+
+    const { result } = renderHook(() => useAssistantPanelController());
+
+    await act(async () => {
+      await result.current.handleToggleComposerScreenShare();
+    });
+
+    expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
+    expect(handleStopVoiceCapture).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { ChevronDown, Mic, MicOff } from 'lucide-react';
+import { Cast, ChevronDown, Mic, MicOff } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
 import { useEffect, useId, useMemo, useRef } from 'react';
 import { FloatingLayer } from '../../../layout/FloatingLayer';
@@ -18,6 +18,8 @@ export type AssistantPanelChatComposerProps = {
   isConversationEmpty: boolean;
   isComposerDisabled: boolean;
   isComposerMicrophoneEnabled?: boolean;
+  isComposerScreenShareActive?: boolean;
+  isComposerScreenShareDisabled?: boolean;
   isLiveSessionActive: boolean;
   isPanelOpen: boolean;
   inputDeviceOptions?: readonly SelectOptionItem[];
@@ -26,12 +28,14 @@ export type AssistantPanelChatComposerProps = {
   screenCaptureSourceOptions?: readonly SelectOptionItem[];
   selectedInputDeviceId?: string;
   selectedScreenCaptureSourceId?: string;
+  screenShareButtonLabel?: string;
   onDraftTextChange: ChangeEventHandler<HTMLTextAreaElement>;
   onEndSpeechMode: () => Promise<void>;
   onSelectComposerInputDevice?: (deviceId: string) => void;
   onSelectComposerScreenSource?: (sourceId: string) => void;
   onStartSpeechMode: () => Promise<void>;
   onToggleComposerMicrophone?: () => Promise<void>;
+  onToggleComposerScreenShare?: () => Promise<void>;
   onSubmitTextTurn: FormEventHandler<HTMLFormElement>;
 };
 
@@ -41,6 +45,8 @@ export function AssistantPanelChatComposer({
   isConversationEmpty,
   isComposerDisabled,
   isComposerMicrophoneEnabled = true,
+  isComposerScreenShareActive = false,
+  isComposerScreenShareDisabled = false,
   isLiveSessionActive,
   isPanelOpen,
   inputDeviceOptions = [],
@@ -49,19 +55,24 @@ export function AssistantPanelChatComposer({
   screenCaptureSourceOptions = [],
   selectedInputDeviceId = '',
   selectedScreenCaptureSourceId = '',
+  screenShareButtonLabel = 'Start screen share',
   onDraftTextChange,
   onEndSpeechMode,
   onSelectComposerInputDevice = () => undefined,
   onSelectComposerScreenSource = () => undefined,
   onStartSpeechMode,
   onToggleComposerMicrophone = async () => undefined,
+  onToggleComposerScreenShare = async () => undefined,
   onSubmitTextTurn,
 }: AssistantPanelChatComposerProps): JSX.Element {
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const leftControlsRef = useRef<HTMLDivElement>(null);
-  const sourceDropdownId = useId();
-  const sourceDropdown = useFloatingLayer();
+  const microphoneControlsRef = useRef<HTMLDivElement>(null);
+  const screenShareControlsRef = useRef<HTMLDivElement>(null);
+  const microphoneDropdownId = useId();
+  const screenShareDropdownId = useId();
+  const microphoneDropdown = useFloatingLayer();
+  const screenShareDropdown = useFloatingLayer();
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -123,23 +134,27 @@ export function AssistantPanelChatComposer({
         ?.label ?? 'No screen source selected'
     );
   }, [screenCaptureSourceOptions, selectedScreenCaptureSourceId]);
-  const isSourceDropdownExpanded = sourceDropdown.isOpen && !sourceDropdown.isClosing;
+  const isMicrophoneDropdownExpanded =
+    microphoneDropdown.isOpen && !microphoneDropdown.isClosing;
+  const isScreenShareDropdownExpanded =
+    screenShareDropdown.isOpen && !screenShareDropdown.isClosing;
 
   const handleSelectInputDevice = (deviceId: string): void => {
     onSelectComposerInputDevice(deviceId);
-    sourceDropdown.close();
+    microphoneDropdown.close();
   };
 
   const handleSelectScreenSource = (sourceId: string): void => {
     onSelectComposerScreenSource(sourceId);
-    sourceDropdown.close();
+    screenShareDropdown.close();
   };
 
   useEffect(() => {
-    if (isComposerCollapsed && sourceDropdown.shouldRender) {
-      sourceDropdown.close();
+    if (isComposerCollapsed) {
+      microphoneDropdown.close();
+      screenShareDropdown.close();
     }
-  }, [isComposerCollapsed, sourceDropdown]);
+  }, [isComposerCollapsed, microphoneDropdown, screenShareDropdown]);
 
   return (
     <div className="assistant-panel__composer-section">
@@ -172,125 +187,195 @@ export function AssistantPanelChatComposer({
               <div
                 className="assistant-panel__composer-left-controls"
                 data-testid="assistant-panel-composer-left-controls"
-                ref={leftControlsRef}
               >
-                <IconButton
-                  label={isComposerMicrophoneEnabled ? 'Disable microphone' : 'Enable microphone'}
-                  size="sm"
-                  className={[
-                    'assistant-panel__composer-control',
-                    isComposerMicrophoneEnabled
-                      ? 'assistant-panel__composer-control--active'
-                      : 'assistant-panel__composer-control--inactive',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-pressed={isComposerMicrophoneEnabled}
-                  onClick={() => {
-                    void onToggleComposerMicrophone();
-                  }}
+                <div
+                  className="assistant-panel__composer-control-group"
+                  ref={microphoneControlsRef}
                 >
-                  {isComposerMicrophoneEnabled ? (
-                    <Mic size={16} aria-hidden="true" />
-                  ) : (
-                    <MicOff size={16} aria-hidden="true" />
-                  )}
-                </IconButton>
-
-                <IconButton
-                  label="Input options"
-                  size="sm"
-                  className="assistant-panel__composer-control"
-                  aria-controls={sourceDropdownId}
-                  aria-expanded={isSourceDropdownExpanded}
-                  aria-haspopup="dialog"
-                  onClick={sourceDropdown.toggle}
-                >
-                  <ChevronDown size={16} aria-hidden="true" />
-                </IconButton>
-
-                <FloatingLayer
-                  triggerRef={leftControlsRef}
-                  isOpen={sourceDropdown.isOpen}
-                  isClosing={sourceDropdown.isClosing}
-                  estimatedItemCount={inputDeviceOptions.length + screenCaptureSourceOptions.length + 6}
-                  onDismiss={sourceDropdown.close}
-                  className="assistant-panel__composer-dropdown-layer"
-                  positionOptions={{
-                    horizontalAlign: 'start',
-                    widthMode: 'minAnchor',
-                    minWidthPx: 248,
-                    maxWidthPx: 320,
-                    flipInLowerHalfOnly: true,
-                  }}
-                >
-                  <div
-                    id={sourceDropdownId}
-                    role="dialog"
-                    aria-label="Source selection"
-                    className="assistant-panel__composer-source-dropdown"
+                  <IconButton
+                    label={isComposerMicrophoneEnabled ? 'Disable microphone' : 'Enable microphone'}
+                    size="sm"
+                    className={[
+                      'assistant-panel__composer-control',
+                      isComposerMicrophoneEnabled
+                        ? 'assistant-panel__composer-control--active'
+                        : 'assistant-panel__composer-control--inactive',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-pressed={isComposerMicrophoneEnabled}
+                    onClick={() => {
+                      void onToggleComposerMicrophone();
+                    }}
                   >
-                    <section className="assistant-panel__composer-source-group">
-                      <div className="assistant-panel__composer-source-group-header">
-                        <p className="assistant-panel__composer-source-group-title">
-                          Microphone input
-                        </p>
-                        <p className="assistant-panel__composer-source-group-current">
-                          Current: {selectedInputDeviceLabel}
-                        </p>
-                      </div>
-                      <SelectContent
-                        isClosing={sourceDropdown.isClosing}
-                        aria-label="Microphone input options"
-                        className="assistant-panel__composer-source-list"
-                      >
-                        {inputDeviceOptions.map((option) => {
-                          return (
-                            <SelectOption
-                              key={option.value}
-                              selected={option.value === selectedInputDeviceId}
-                              onSelect={() => {
-                                handleSelectInputDevice(option.value);
-                              }}
-                            >
-                              {option.label}
-                            </SelectOption>
-                          );
-                        })}
-                      </SelectContent>
-                    </section>
+                    {isComposerMicrophoneEnabled ? (
+                      <Mic size={16} aria-hidden="true" />
+                    ) : (
+                      <MicOff size={16} aria-hidden="true" />
+                    )}
+                  </IconButton>
 
-                    <section className="assistant-panel__composer-source-group">
-                      <div className="assistant-panel__composer-source-group-header">
-                        <p className="assistant-panel__composer-source-group-title">
-                          Screen source
-                        </p>
-                        <p className="assistant-panel__composer-source-group-current">
-                          Current: {selectedScreenCaptureSourceLabel}
-                        </p>
-                      </div>
-                      <SelectContent
-                        isClosing={sourceDropdown.isClosing}
-                        aria-label="Screen source options"
-                        className="assistant-panel__composer-source-list"
-                      >
-                        {screenCaptureSourceOptions.map((option) => {
-                          return (
-                            <SelectOption
-                              key={option.value}
-                              selected={option.value === selectedScreenCaptureSourceId}
-                              onSelect={() => {
-                                handleSelectScreenSource(option.value);
-                              }}
-                            >
-                              {option.label}
-                            </SelectOption>
-                          );
-                        })}
-                      </SelectContent>
-                    </section>
-                  </div>
-                </FloatingLayer>
+                  <IconButton
+                    label="Microphone options"
+                    size="sm"
+                    className="assistant-panel__composer-control"
+                    aria-controls={microphoneDropdownId}
+                    aria-expanded={isMicrophoneDropdownExpanded}
+                    aria-haspopup="dialog"
+                    onClick={() => {
+                      screenShareDropdown.close();
+                      microphoneDropdown.toggle();
+                    }}
+                  >
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </IconButton>
+
+                  <FloatingLayer
+                    triggerRef={microphoneControlsRef}
+                    isOpen={microphoneDropdown.isOpen}
+                    isClosing={microphoneDropdown.isClosing}
+                    estimatedItemCount={inputDeviceOptions.length + 3}
+                    onDismiss={microphoneDropdown.close}
+                    className="assistant-panel__composer-dropdown-layer"
+                    positionOptions={{
+                      horizontalAlign: 'start',
+                      widthMode: 'minAnchor',
+                      minWidthPx: 248,
+                      maxWidthPx: 320,
+                      flipInLowerHalfOnly: true,
+                    }}
+                  >
+                    <div
+                      id={microphoneDropdownId}
+                      role="dialog"
+                      aria-label="Microphone selection"
+                      className="assistant-panel__composer-source-dropdown"
+                    >
+                      <section className="assistant-panel__composer-source-group">
+                        <div className="assistant-panel__composer-source-group-header">
+                          <p className="assistant-panel__composer-source-group-title">
+                            Microphone input
+                          </p>
+                          <p className="assistant-panel__composer-source-group-current">
+                            Current: {selectedInputDeviceLabel}
+                          </p>
+                        </div>
+                        <SelectContent
+                          isClosing={microphoneDropdown.isClosing}
+                          aria-label="Microphone input options"
+                          className="assistant-panel__composer-source-list"
+                        >
+                          {inputDeviceOptions.map((option) => {
+                            return (
+                              <SelectOption
+                                key={option.value}
+                                selected={option.value === selectedInputDeviceId}
+                                onSelect={() => {
+                                  handleSelectInputDevice(option.value);
+                                }}
+                              >
+                                {option.label}
+                              </SelectOption>
+                            );
+                          })}
+                        </SelectContent>
+                      </section>
+                    </div>
+                  </FloatingLayer>
+                </div>
+
+                <div
+                  className="assistant-panel__composer-control-group"
+                  ref={screenShareControlsRef}
+                >
+                  <IconButton
+                    label={screenShareButtonLabel}
+                    size="sm"
+                    className={[
+                      'assistant-panel__composer-control',
+                      isComposerScreenShareActive
+                        ? 'assistant-panel__composer-control--active'
+                        : 'assistant-panel__composer-control--inactive',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-pressed={isComposerScreenShareActive}
+                    disabled={isComposerScreenShareDisabled}
+                    onClick={() => {
+                      void onToggleComposerScreenShare();
+                    }}
+                  >
+                    <Cast size={16} aria-hidden="true" />
+                  </IconButton>
+
+                  <IconButton
+                    label="Screen share options"
+                    size="sm"
+                    className="assistant-panel__composer-control"
+                    aria-controls={screenShareDropdownId}
+                    aria-expanded={isScreenShareDropdownExpanded}
+                    aria-haspopup="dialog"
+                    onClick={() => {
+                      microphoneDropdown.close();
+                      screenShareDropdown.toggle();
+                    }}
+                  >
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </IconButton>
+
+                  <FloatingLayer
+                    triggerRef={screenShareControlsRef}
+                    isOpen={screenShareDropdown.isOpen}
+                    isClosing={screenShareDropdown.isClosing}
+                    estimatedItemCount={screenCaptureSourceOptions.length + 3}
+                    onDismiss={screenShareDropdown.close}
+                    className="assistant-panel__composer-dropdown-layer"
+                    positionOptions={{
+                      horizontalAlign: 'start',
+                      widthMode: 'minAnchor',
+                      minWidthPx: 248,
+                      maxWidthPx: 320,
+                      flipInLowerHalfOnly: true,
+                    }}
+                  >
+                    <div
+                      id={screenShareDropdownId}
+                      role="dialog"
+                      aria-label="Screen share selection"
+                      className="assistant-panel__composer-source-dropdown"
+                    >
+                      <section className="assistant-panel__composer-source-group">
+                        <div className="assistant-panel__composer-source-group-header">
+                          <p className="assistant-panel__composer-source-group-title">
+                            Screen source
+                          </p>
+                          <p className="assistant-panel__composer-source-group-current">
+                            Current: {selectedScreenCaptureSourceLabel}
+                          </p>
+                        </div>
+                        <SelectContent
+                          isClosing={screenShareDropdown.isClosing}
+                          aria-label="Screen source options"
+                          className="assistant-panel__composer-source-list"
+                        >
+                          {screenCaptureSourceOptions.map((option) => {
+                            return (
+                              <SelectOption
+                                key={option.value}
+                                selected={option.value === selectedScreenCaptureSourceId}
+                                onSelect={() => {
+                                  handleSelectScreenSource(option.value);
+                                }}
+                              >
+                                {option.label}
+                              </SelectOption>
+                            );
+                          })}
+                        </SelectContent>
+                      </section>
+                    </div>
+                  </FloatingLayer>
+                </div>
               </div>
 
               <div

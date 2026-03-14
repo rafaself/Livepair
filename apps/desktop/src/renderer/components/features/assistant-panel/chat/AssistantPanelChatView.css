@@ -305,7 +305,15 @@
 .assistant-panel__composer-left-controls {
   position: relative;
   flex: 0 0 auto;
-  min-width: 72px;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.assistant-panel__composer-control-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .assistant-panel__composer-main {

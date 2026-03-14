@@ -73,6 +73,7 @@ export function AssistantPanel(): JSX.Element {
     handleStartSpeechMode,
     handleStartSpeechModeWithScreen,
     handleToggleComposerMicrophone,
+    handleToggleComposerScreenShare,
     handleEndSpeechMode,
     handleCheckBackendHealth,
   } = useAssistantPanelController();
@@ -189,6 +190,7 @@ export function AssistantPanel(): JSX.Element {
                      draftText={draftText}
                      isSubmittingTextTurn={isSubmittingTextTurn}
                      isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
+                     screenCaptureState={screenCaptureState}
                      inputDeviceOptions={settingsController.inputDeviceOptions}
                      localUserSpeechActive={localUserSpeechActive}
                      screenCaptureSourceOptions={settingsController.screenCaptureSourceOptions}
@@ -203,8 +205,9 @@ export function AssistantPanel(): JSX.Element {
                      onStartSpeechMode={handleStartSpeechMode}
                      onStartSpeechModeWithScreen={handleStartSpeechModeWithScreen}
                      onToggleComposerMicrophone={handleToggleComposerMicrophone}
+                     onToggleComposerScreenShare={handleToggleComposerScreenShare}
                      onEndSpeechMode={handleEndSpeechMode}
-                   />
+                    />
                  ) : (
                   <AssistantPanelHistoryView
                     activeChatId={activeChatId}

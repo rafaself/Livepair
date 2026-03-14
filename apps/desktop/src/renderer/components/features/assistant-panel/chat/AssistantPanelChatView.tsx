@@ -3,12 +3,14 @@ import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 import type { SelectOptionItem } from '../../../primitives';
 import {
+  canToggleScreenContext,
   canSubmitComposerText,
   createControlGatingSnapshot,
   isSpeechLifecycleActive,
   selectLiveSessionPhaseLabel,
   type ConversationTimelineEntry,
   type ProductMode,
+  type ScreenCaptureState,
   type SpeechLifecycleStatus,
   type TextSessionStatus,
   type TransportKind,
@@ -41,6 +43,7 @@ export type AssistantPanelChatViewProps = {
   isComposerMicrophoneEnabled?: boolean;
   inputDeviceOptions?: readonly SelectOptionItem[];
   localUserSpeechActive?: boolean;
+  screenCaptureState?: ScreenCaptureState;
   screenCaptureSourceOptions?: readonly SelectOptionItem[];
   selectedInputDeviceId?: string;
   selectedScreenCaptureSourceId?: string;
@@ -51,6 +54,7 @@ export type AssistantPanelChatViewProps = {
   onStartSpeechMode: () => Promise<void>;
   onStartSpeechModeWithScreen: () => Promise<void>;
   onToggleComposerMicrophone?: () => Promise<void>;
+  onToggleComposerScreenShare?: () => Promise<void>;
   onEndSpeechMode: () => Promise<void>;
 };
 
@@ -74,6 +78,7 @@ export function AssistantPanelChatView({
   isComposerMicrophoneEnabled = true,
   inputDeviceOptions = [],
   localUserSpeechActive = false,
+  screenCaptureState = 'disabled',
   screenCaptureSourceOptions = [],
   selectedInputDeviceId = '',
   selectedScreenCaptureSourceId = '',
@@ -84,6 +89,7 @@ export function AssistantPanelChatView({
   onStartSpeechMode,
   onStartSpeechModeWithScreen,
   onToggleComposerMicrophone = async () => undefined,
+  onToggleComposerScreenShare = async () => undefined,
   onEndSpeechMode,
 }: AssistantPanelChatViewProps): JSX.Element {
   const controlGatingSnapshot = createControlGatingSnapshot({
@@ -111,6 +117,20 @@ export function AssistantPanelChatView({
     speechLifecycleStatus,
     localUserSpeechActive,
   });
+  const isComposerScreenShareActive =
+    screenCaptureState === 'ready' ||
+    screenCaptureState === 'capturing' ||
+    screenCaptureState === 'streaming';
+  const isComposerScreenShareDisabled =
+    composerAction.kind === 'startSpeech'
+      ? composerAction.disabled || composerAction.isLoading
+      : !canToggleScreenContext(controlGatingSnapshot);
+  const screenShareButtonLabel =
+    composerAction.kind === 'startSpeech'
+      ? 'Start Live session with screen share'
+      : isComposerScreenShareActive
+        ? 'Stop screen share'
+        : 'Start screen share';
   const composerPlaceholder = 'Add a note to the session';
   const isViewingPastChat = !isLiveSessionActive && activeChat?.isCurrent === false;
   const activeChatTitle = activeChat?.title ?? 'Untitled chat';
@@ -143,6 +163,8 @@ export function AssistantPanelChatView({
         isConversationEmpty={isConversationEmpty}
         isComposerDisabled={isComposerDisabled}
         isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
+        isComposerScreenShareActive={isComposerScreenShareActive}
+        isComposerScreenShareDisabled={isComposerScreenShareDisabled}
         isLiveSessionActive={isLiveSessionActive}
         isPanelOpen={isPanelOpen ?? false}
         inputDeviceOptions={inputDeviceOptions}
@@ -151,12 +173,14 @@ export function AssistantPanelChatView({
         screenCaptureSourceOptions={screenCaptureSourceOptions}
         selectedInputDeviceId={selectedInputDeviceId}
         selectedScreenCaptureSourceId={selectedScreenCaptureSourceId}
+        screenShareButtonLabel={screenShareButtonLabel}
         onDraftTextChange={onDraftTextChange}
         onEndSpeechMode={onEndSpeechMode}
         onSelectComposerInputDevice={onSelectComposerInputDevice}
         onSelectComposerScreenSource={onSelectComposerScreenSource}
         onStartSpeechMode={onStartSpeechMode}
         onToggleComposerMicrophone={onToggleComposerMicrophone}
+        onToggleComposerScreenShare={onToggleComposerScreenShare}
         onSubmitTextTurn={onSubmitTextTurn}
       />
     </section>
