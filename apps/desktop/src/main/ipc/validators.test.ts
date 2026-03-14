@@ -12,6 +12,7 @@ import {
   isChatId,
   isCreateChatRequest,
   isCreateEphemeralTokenRequest,
+  isSaveScreenFrameDumpFrameRequest,
   isUpdateLiveSessionRequest,
   isDesktopSettingsPatch,
   toOverlayRectangles,
@@ -214,6 +215,37 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ voiceEchoCancellationEnabled: 'yes' })).toBe(false);
     expect(isDesktopSettingsPatch({ isPanelPinned: 'yes' })).toBe(false);
     expect(isDesktopSettingsPatch({ speechSilenceTimeout: '5m' })).toBe(false);
+  });
+
+  it('validates screen frame dump payloads', () => {
+    expect(
+      isSaveScreenFrameDumpFrameRequest({
+        sequence: 1,
+        mimeType: 'image/jpeg',
+        data: new Uint8Array([1, 2, 3]),
+      }),
+    ).toBe(true);
+    expect(
+      isSaveScreenFrameDumpFrameRequest({
+        sequence: 0,
+        mimeType: 'image/jpeg',
+        data: new Uint8Array([1, 2, 3]),
+      }),
+    ).toBe(false);
+    expect(
+      isSaveScreenFrameDumpFrameRequest({
+        sequence: 1,
+        mimeType: 'image/png',
+        data: new Uint8Array([1, 2, 3]),
+      }),
+    ).toBe(false);
+    expect(
+      isSaveScreenFrameDumpFrameRequest({
+        sequence: 1,
+        mimeType: 'image/jpeg',
+        data: [],
+      }),
+    ).toBe(false);
   });
 
 });

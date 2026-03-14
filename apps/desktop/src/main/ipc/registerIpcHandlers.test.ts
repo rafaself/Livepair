@@ -127,6 +127,18 @@ function createChatMemoryServiceDouble(): ChatMemoryService {
   } as unknown as ChatMemoryService;
 }
 
+function createScreenFrameDumpServiceDouble(): {
+  startSession: ReturnType<typeof vi.fn>;
+  saveFrame: ReturnType<typeof vi.fn>;
+} {
+  return {
+    startSession: vi.fn(async () => ({
+      directoryPath: '/tmp/livepair/screen-frame-dumps/current-debug-session',
+    })),
+    saveFrame: vi.fn(async () => undefined),
+  };
+}
+
 describe('registerIpcHandlers', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -141,10 +153,11 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers({
       chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow: () => null,
+      screenFrameDumpService: createScreenFrameDumpServiceDouble(),
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(21);
+    expect(mockHandle).toHaveBeenCalledTimes(23);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'app:quit', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(2, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
@@ -242,6 +255,16 @@ describe('registerIpcHandlers', () => {
       'screenCapture:selectSource',
       expect.any(Function),
     );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      22,
+      'screenFrameDump:startSession',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      23,
+      'screenFrameDump:saveFrame',
+      expect.any(Function),
+    );
   });
 
   it('validates token request payloads before delegating to the backend client', async () => {
@@ -253,6 +276,7 @@ describe('registerIpcHandlers', () => {
       chatMemoryService: createChatMemoryServiceDouble(),
       fetchImpl: fetchImpl as unknown as typeof fetch,
       getMainWindow: () => null,
+      screenFrameDumpService: createScreenFrameDumpServiceDouble(),
       settingsService,
     });
 
@@ -343,6 +367,7 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers({
       chatMemoryService,
       getMainWindow: () => null,
+      screenFrameDumpService: createScreenFrameDumpServiceDouble(),
       settingsService,
     });
 
@@ -459,6 +484,51 @@ describe('registerIpcHandlers', () => {
     expect(chatMemoryService.endLiveSession).toHaveBeenCalledWith({
       id: 'live-session-1',
       status: 'ended',
+    });
+  });
+
+  it('validates and delegates screen frame dump handlers', async () => {
+    const settingsService = createSettingsServiceDouble();
+    const screenFrameDumpService = createScreenFrameDumpServiceDouble();
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      chatMemoryService: createChatMemoryServiceDouble(),
+      getMainWindow: () => null,
+      screenFrameDumpService,
+      settingsService,
+    });
+
+    const startSessionHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'screenFrameDump:startSession',
+    )?.[1] as () => Promise<{ directoryPath: string }>;
+    const saveFrameHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'screenFrameDump:saveFrame',
+    )?.[1] as (_event: unknown, payload: unknown) => Promise<void>;
+
+    await expect(startSessionHandler()).resolves.toEqual({
+      directoryPath: '/tmp/livepair/screen-frame-dumps/current-debug-session',
+    });
+    await expect(
+      saveFrameHandler({}, {
+        sequence: 0,
+        mimeType: 'image/jpeg',
+        data: new Uint8Array([1, 2, 3]),
+      }),
+    ).rejects.toThrow('Invalid screen frame dump payload');
+    await expect(
+      saveFrameHandler({}, {
+        sequence: 2,
+        mimeType: 'image/jpeg',
+        data: new Uint8Array([4, 5, 6]),
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(screenFrameDumpService.startSession).toHaveBeenCalledTimes(1);
+    expect(screenFrameDumpService.saveFrame).toHaveBeenCalledWith({
+      sequence: 2,
+      mimeType: 'image/jpeg',
+      data: new Uint8Array([4, 5, 6]),
     });
   });
 

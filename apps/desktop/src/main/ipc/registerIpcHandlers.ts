@@ -8,6 +8,7 @@ import {
   type CaptureSourceRegistry,
   toCaptureSources,
 } from '../desktopCapture/captureSourceRegistry';
+import type { ScreenFrameDumpService } from '../debug/screenFrameDumpService';
 import { getScreenCaptureAccessStatus } from '../desktopCapture/screenCaptureAccessStatus';
 import type { DesktopSettingsService } from '../settings/settingsService';
 import { createBackendClient } from '../backend/backendClient';
@@ -19,6 +20,7 @@ import {
   isCreateLiveSessionRequest,
   isDesktopSettingsPatch,
   isEndLiveSessionRequest,
+  isSaveScreenFrameDumpFrameRequest,
   isScreenCaptureSourceId,
   isUpdateLiveSessionRequest,
   toOverlayRectangles,
@@ -30,6 +32,7 @@ type RegisterIpcHandlersOptions = {
   fetchImpl?: typeof fetch;
   getMainWindow: () => BrowserWindow | null;
   platform?: NodeJS.Platform;
+  screenFrameDumpService?: ScreenFrameDumpService;
   settingsService: DesktopSettingsService;
 };
 
@@ -39,6 +42,10 @@ export function registerIpcHandlers({
   fetchImpl = fetch,
   getMainWindow,
   platform = process.platform,
+  screenFrameDumpService = {
+    startSession: async () => ({ directoryPath: '' }),
+    saveFrame: async () => undefined,
+  },
   settingsService,
 }: RegisterIpcHandlersOptions): void {
   const backendClient = createBackendClient({
@@ -258,6 +265,21 @@ export function registerIpcHandlers({
 
       captureSourceRegistry.setSelectedSourceId(sourceId);
       return captureSourceRegistry.getSnapshot();
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.startScreenFrameDumpSession, async () => {
+    return screenFrameDumpService.startSession();
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.saveScreenFrameDumpFrame,
+    async (_event, request: unknown) => {
+      if (!isSaveScreenFrameDumpFrameRequest(request)) {
+        throw new Error('Invalid screen frame dump payload');
+      }
+
+      await screenFrameDumpService.saveFrame(request);
     },
   );
 }
