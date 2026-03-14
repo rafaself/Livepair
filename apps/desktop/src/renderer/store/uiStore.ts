@@ -64,7 +64,7 @@ type UiStoreState = {
 const defaultUiState = {
   isPanelOpen: false,
   panelView: 'chat' as PanelView,
-  isDebugMode: import.meta.env.DEV as boolean,
+  isDebugMode: false,
   backendUrlDraft: '',
   backendUrlError: null,
   inputDeviceOptions: [] as readonly SelectOptionItem[],
