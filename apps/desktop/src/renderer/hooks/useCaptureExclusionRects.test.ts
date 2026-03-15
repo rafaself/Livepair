@@ -98,6 +98,41 @@ describe('useCaptureExclusionRects', () => {
     });
   });
 
+  it('continues masking the panel during its CSS closing transition', async () => {
+    createOverlayElement('control-dock', { x: 1500, y: 300, width: 80, height: 220 });
+    const panel = createOverlayElement('panel panel--open', { x: 1580, y: 0, width: 340, height: 1080 });
+
+    renderHook(() => useCaptureExclusionRects());
+
+    await waitFor(() => {
+      expect(useCaptureExclusionRectsStore.getState().overlayVisibility).toBe('panel-open');
+    });
+
+    // Simulate the browser removing panel--open and immediately starting the CSS transition.
+    // In a real browser, transitionrun fires on .panel (without panel--open) as the
+    // translateX animation begins.
+    panel.className = 'panel';
+    panel.dispatchEvent(new Event('transitionrun', { bubbles: true }));
+
+    await waitFor(() => {
+      const rects = useCaptureExclusionRectsStore.getState().rects;
+      // Panel rects must still be present so masking covers the sliding panel.
+      expect(rects.some((rect) => rect.x === 1580 && rect.width === 340)).toBe(true);
+      expect(useCaptureExclusionRectsStore.getState().overlayVisibility).not.toBe('hidden');
+    });
+
+    // Simulate the transition completing (panel fully off-screen).
+    panel.dispatchEvent(new Event('transitionend', { bubbles: true }));
+
+    await waitFor(() => {
+      const rects = useCaptureExclusionRectsStore.getState().rects;
+      expect(rects.some((rect) => rect.x === 1580 && rect.width === 340)).toBe(false);
+      expect(useCaptureExclusionRectsStore.getState().overlayVisibility).toBe(
+        'panel-closed-dock-only',
+      );
+    });
+  });
+
   it('clears exclusion rects on unmount', async () => {
     createOverlayElement('control-dock', { x: 1500, y: 300, width: 80, height: 220 });
 

@@ -3,9 +3,15 @@ import type { OverlayHitRegion } from '../../shared/desktopBridge';
 import {
   collectVisibleOverlaySnapshot,
   shouldCollectVisibleOverlayRectsForMutation,
+  toVisibleOverlayRects,
   VISIBLE_OVERLAY_SELECTOR,
 } from './visibleOverlayRects';
 import type { CaptureExclusionOverlayVisibility } from '../runtime/public';
+
+// Track .panel elements during their closing transition (after panel--open is removed).
+// The CSS transform transition plays for ~200ms after the class change, so the panel
+// remains visually on-screen even though it no longer matches VISIBLE_OVERLAY_SELECTOR.
+const PANEL_CLOSING_SELECTOR = '.panel';
 
 const EMPTY_VISIBLE_OVERLAY_SNAPSHOT_KEY = JSON.stringify({
   rects: [],
@@ -32,18 +38,33 @@ export function useVisibleOverlayRects({
     let rafId: number | null = null;
     let transitionLoopId: number | null = null;
     const transitioningElements = new Set<Element>();
+    const closingPanelTransitions = new Set<Element>();
     let lastPublishedKey: string | null = null;
 
     const publishVisibleOverlayRects = (): void => {
       const snapshot = collectVisibleOverlaySnapshot();
-      const nextKey = JSON.stringify(snapshot);
+
+      // Include rects from panels that are in their closing CSS transition.
+      // These no longer match VISIBLE_OVERLAY_SELECTOR (panel--open was removed)
+      // but are still visually on-screen while the transform animates.
+      const closingRects = Array.from(closingPanelTransitions)
+        .filter((panel) => !panel.matches(VISIBLE_OVERLAY_SELECTOR))
+        .flatMap((panel) => toVisibleOverlayRects(panel));
+
+      const finalRects = closingRects.length > 0 ? [...snapshot.rects, ...closingRects] : snapshot.rects;
+      const finalVisibility: CaptureExclusionOverlayVisibility =
+        closingRects.length > 0 && snapshot.overlayVisibility === 'hidden'
+          ? 'panel-closed-dock-only'
+          : snapshot.overlayVisibility;
+
+      const nextKey = JSON.stringify({ rects: finalRects, overlayVisibility: finalVisibility });
 
       if (nextKey === lastPublishedKey) {
         return;
       }
 
       lastPublishedKey = nextKey;
-      onChange(snapshot.rects, snapshot.overlayVisibility);
+      onChange(finalRects, finalVisibility);
     };
 
     const schedulePublish = (): void => {
@@ -86,24 +107,34 @@ export function useVisibleOverlayRects({
       if (!(event.target instanceof Element)) {
         return;
       }
-      if (!event.target.matches(VISIBLE_OVERLAY_SELECTOR)) {
-        return;
-      }
 
-      transitioningElements.add(event.target);
-      ensureTransitionLoop();
-      schedulePublish();
+      const target = event.target;
+
+      if (target.matches(VISIBLE_OVERLAY_SELECTOR)) {
+        transitioningElements.add(target);
+        ensureTransitionLoop();
+        schedulePublish();
+      } else if (target.matches(PANEL_CLOSING_SELECTOR)) {
+        // Panel is closing: panel--open was removed but the CSS transform is still animating.
+        // Track it so its rects remain in the masking snapshot until transitionend.
+        closingPanelTransitions.add(target);
+        schedulePublish();
+      }
     };
 
     const handleTransitionEnd = (event: Event): void => {
       if (!(event.target instanceof Element)) {
         return;
       }
-      if (!event.target.matches(VISIBLE_OVERLAY_SELECTOR)) {
+
+      const target = event.target;
+
+      if (!target.matches(VISIBLE_OVERLAY_SELECTOR) && !target.matches(PANEL_CLOSING_SELECTOR)) {
         return;
       }
 
-      transitioningElements.delete(event.target);
+      transitioningElements.delete(target);
+      closingPanelTransitions.delete(target);
       schedulePublish();
     };
 
