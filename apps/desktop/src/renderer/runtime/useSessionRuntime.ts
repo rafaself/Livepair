@@ -41,19 +41,8 @@ export function useSessionRuntime() {
   const isSessionActive = useSessionStore(selectIsSessionActive);
   const speechLifecycleStatus = useSessionStore((state) => state.speechLifecycle.status);
   const voiceSessionStatus = useSessionStore((state) => state.voiceSessionStatus);
-  const voiceSessionResumption = useSessionStore((state) => state.voiceSessionResumption);
-  const voiceSessionDurability = useSessionStore((state) => state.voiceSessionDurability);
   const voiceCaptureState = useSessionStore((state) => state.voiceCaptureState);
-  const voiceCaptureDiagnostics = useSessionStore((state) => state.voiceCaptureDiagnostics);
-  const voicePlaybackState = useSessionStore((state) => state.voicePlaybackState);
-  const voicePlaybackDiagnostics = useSessionStore((state) => state.voicePlaybackDiagnostics);
-  const voiceToolState = useSessionStore((state) => state.voiceToolState);
-  const realtimeOutboundDiagnostics = useSessionStore(
-    (state) => state.realtimeOutboundDiagnostics,
-  );
   const screenCaptureState = useSessionStore((state) => state.screenCaptureState);
-  const screenCaptureDiagnostics = useSessionStore((state) => state.screenCaptureDiagnostics);
-  const visualSendDiagnostics = useSessionStore((state) => state.visualSendDiagnostics);
   const controller = getDesktopSessionController();
 
   const handleCheckBackendHealth = useCallback(async (): Promise<void> => {
@@ -123,17 +112,8 @@ export function useSessionRuntime() {
     isVoiceSessionActive: isSpeechLifecycleActive(speechLifecycleStatus),
     speechLifecycleStatus,
     voiceSessionStatus,
-    voiceSessionResumption,
-    voiceSessionDurability,
     voiceCaptureState,
-    voiceCaptureDiagnostics,
-    voicePlaybackState,
-    voicePlaybackDiagnostics,
-    voiceToolState,
-    realtimeOutboundDiagnostics,
     screenCaptureState,
-    screenCaptureDiagnostics,
-    visualSendDiagnostics,
     handleCheckBackendHealth,
     handleStartVoiceSession,
     handleStartVoiceCapture,

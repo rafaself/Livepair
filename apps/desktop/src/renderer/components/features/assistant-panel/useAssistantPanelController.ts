@@ -4,21 +4,12 @@ import {
   useSessionRuntime,
   type ConversationTimelineEntry,
   type ProductMode,
-  type RealtimeOutboundDiagnostics,
-  type ScreenCaptureDiagnostics,
   type ScreenCaptureState,
-  type VisualSendDiagnostics,
   type SpeechLifecycleStatus,
   type TextSessionStatus,
   type TransportKind,
-  type VoiceCaptureDiagnostics,
   type VoiceCaptureState,
-  type VoicePlaybackDiagnostics,
-  type VoicePlaybackState,
-  type VoiceSessionDurabilityState,
-  type VoiceSessionResumptionState,
   type VoiceSessionStatus,
-  type VoiceToolState,
 } from '../../../runtime';
 import { useUiStore, type PanelView } from '../../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../../store/sessionStore';
@@ -47,17 +38,8 @@ export type AssistantPanelController = {
   textSessionStatus: TextSessionStatus;
   textSessionStatusLabel: string;
   voiceSessionStatus: VoiceSessionStatus;
-  voiceSessionResumption: VoiceSessionResumptionState;
-  voiceSessionDurability: VoiceSessionDurabilityState;
   voiceCaptureState: VoiceCaptureState;
-  voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
-  voicePlaybackState: VoicePlaybackState;
-  voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
-  voiceToolState: VoiceToolState;
-  realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenCaptureState: ScreenCaptureState;
-  screenCaptureDiagnostics: ScreenCaptureDiagnostics;
-  visualSendDiagnostics: VisualSendDiagnostics;
   isVoiceSessionActive: boolean;
   canSubmitText: boolean;
   lastRuntimeError: string | null;
@@ -93,17 +75,8 @@ export function useAssistantPanelController(): AssistantPanelController {
     textSessionStatus,
     textSessionStatusLabel,
     voiceSessionStatus,
-    voiceSessionResumption,
-    voiceSessionDurability,
     voiceCaptureState,
-    voiceCaptureDiagnostics,
-    voicePlaybackState,
-    voicePlaybackDiagnostics,
-    voiceToolState,
-    realtimeOutboundDiagnostics,
     screenCaptureState,
-    screenCaptureDiagnostics,
-    visualSendDiagnostics,
     isVoiceSessionActive,
     canSubmitText,
     conversationTurns,
@@ -182,17 +155,8 @@ export function useAssistantPanelController(): AssistantPanelController {
     textSessionStatus,
     textSessionStatusLabel,
     voiceSessionStatus,
-    voiceSessionResumption,
-    voiceSessionDurability,
     voiceCaptureState,
-    voiceCaptureDiagnostics,
-    voicePlaybackState,
-    voicePlaybackDiagnostics,
-    voiceToolState,
-    realtimeOutboundDiagnostics,
     screenCaptureState,
-    screenCaptureDiagnostics,
-    visualSendDiagnostics,
     isVoiceSessionActive,
     canSubmitText,
     lastRuntimeError,

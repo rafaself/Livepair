@@ -1,41 +1,66 @@
+import { useShallow } from 'zustand/shallow';
 import {
   AssistantPanelDebugAudioSection,
-  type AssistantPanelDebugAudioSectionProps,
   AssistantPanelDebugConnectionSection,
-  type AssistantPanelDebugConnectionSectionProps,
   AssistantPanelDebugOutboundGuardrailsSection,
-  type AssistantPanelDebugOutboundGuardrailsSectionProps,
   AssistantPanelDebugScreenContextSection,
-  type AssistantPanelDebugScreenContextSectionProps,
 } from './AssistantPanelDebugSections';
+import { useSessionStore } from '../../../../store/sessionStore';
+import {
+  selectAssistantRuntimeState,
+  selectBackendIndicatorState,
+  selectBackendLabel,
+  selectTokenFeedback,
+} from '../../../../runtime/selectors';
 
-export type AssistantPanelDebugViewProps = AssistantPanelDebugConnectionSectionProps
-  & AssistantPanelDebugAudioSectionProps
-  & AssistantPanelDebugOutboundGuardrailsSectionProps
-  & AssistantPanelDebugScreenContextSectionProps;
+export type AssistantPanelDebugViewProps = {
+  saveScreenFramesEnabled: boolean;
+  screenFrameDumpDirectoryPath: string | null;
+  onToggleSaveScreenFrames: () => void;
+  onRetryBackendHealth: () => Promise<void>;
+};
 
 export function AssistantPanelDebugView({
-  backendState,
-  backendIndicatorState,
-  backendLabel,
-  tokenFeedback,
-  voiceSessionStatus,
-  voiceSessionResumption,
-  voiceSessionDurability,
-  voiceCaptureState,
-  voiceCaptureDiagnostics,
-  voicePlaybackState,
-  voicePlaybackDiagnostics,
-  voiceToolState,
-  realtimeOutboundDiagnostics,
-  screenCaptureState,
-  screenCaptureDiagnostics,
-  visualSendDiagnostics,
   saveScreenFramesEnabled,
   screenFrameDumpDirectoryPath,
   onToggleSaveScreenFrames,
   onRetryBackendHealth,
 }: AssistantPanelDebugViewProps): JSX.Element {
+  const {
+    backendState,
+    voiceSessionStatus,
+    voiceSessionResumption,
+    voiceSessionDurability,
+    voiceCaptureState,
+    voiceCaptureDiagnostics,
+    voicePlaybackState,
+    voicePlaybackDiagnostics,
+    voiceToolState,
+    realtimeOutboundDiagnostics,
+    screenCaptureState,
+    screenCaptureDiagnostics,
+    visualSendDiagnostics,
+  } = useSessionStore(
+    useShallow((state) => ({
+      backendState: state.backendState,
+      voiceSessionStatus: state.voiceSessionStatus,
+      voiceSessionResumption: state.voiceSessionResumption,
+      voiceSessionDurability: state.voiceSessionDurability,
+      voiceCaptureState: state.voiceCaptureState,
+      voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
+      voicePlaybackState: state.voicePlaybackState,
+      voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
+      voiceToolState: state.voiceToolState,
+      realtimeOutboundDiagnostics: state.realtimeOutboundDiagnostics,
+      screenCaptureState: state.screenCaptureState,
+      screenCaptureDiagnostics: state.screenCaptureDiagnostics,
+      visualSendDiagnostics: state.visualSendDiagnostics,
+    })),
+  );
+  const backendIndicatorState = useSessionStore(selectBackendIndicatorState);
+  const backendLabel = useSessionStore(selectBackendLabel);
+  const tokenFeedback = useSessionStore(selectTokenFeedback);
+
   return (
     <div className="assistant-panel__debug-modal">
       <h2 className="assistant-panel__debug-title">Developer tools</h2>

@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
 import { useSessionRuntime } from '../../../runtime';
 import { useSettingsStore } from '../../../store/settingsStore';
-import { useSessionStore } from '../../../store/sessionStore';
 import { resetDesktopStores } from '../../../test/store';
 import { useUiStore } from '../../../store/uiStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
@@ -20,8 +19,6 @@ vi.mock('../../../runtime', async () => {
 type SessionRuntime = ReturnType<typeof useSessionRuntime>;
 
 function createRuntime(overrides: Partial<SessionRuntime> = {}): SessionRuntime {
-  const sessionState = useSessionStore.getState();
-
   return {
     assistantState: 'ready',
     currentMode: 'inactive',
@@ -42,30 +39,8 @@ function createRuntime(overrides: Partial<SessionRuntime> = {}): SessionRuntime 
     isVoiceSessionActive: false,
     speechLifecycleStatus: 'off',
     voiceSessionStatus: 'disconnected',
-    voiceSessionResumption: {
-      status: 'idle',
-      latestHandle: null,
-      resumable: false,
-      lastDetail: null,
-    },
-    voiceSessionDurability: {
-      compressionEnabled: true,
-      tokenValid: false,
-      tokenRefreshing: false,
-      tokenRefreshFailed: false,
-      expireTime: null,
-      newSessionExpireTime: null,
-      lastDetail: null,
-    },
     voiceCaptureState: 'idle',
-    voiceCaptureDiagnostics: sessionState.voiceCaptureDiagnostics,
-    voicePlaybackState: 'idle',
-    voicePlaybackDiagnostics: sessionState.voicePlaybackDiagnostics,
-    voiceToolState: sessionState.voiceToolState,
-    realtimeOutboundDiagnostics: sessionState.realtimeOutboundDiagnostics,
     screenCaptureState: 'disabled',
-    screenCaptureDiagnostics: sessionState.screenCaptureDiagnostics,
-    visualSendDiagnostics: sessionState.visualSendDiagnostics,
     handleCheckBackendHealth: vi.fn(async () => undefined),
     handleStartVoiceSession: vi.fn(async () => undefined),
     handleStartVoiceCapture: vi.fn(async () => undefined),

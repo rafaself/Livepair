@@ -46,17 +46,8 @@ export function AssistantPanel(): JSX.Element {
     tokenFeedback,
     textSessionStatus,
     voiceSessionStatus,
-    voiceSessionResumption,
-    voiceSessionDurability,
     voiceCaptureState,
-    voiceCaptureDiagnostics,
-    voicePlaybackState,
-    voicePlaybackDiagnostics,
-    voiceToolState,
-    realtimeOutboundDiagnostics,
     screenCaptureState,
-    screenCaptureDiagnostics,
-    visualSendDiagnostics,
     canSubmitText,
     lastRuntimeError,
     draftText,
@@ -197,22 +188,6 @@ export function AssistantPanel(): JSX.Element {
           {(panelView === 'debug' && isDebugMode) ? (
             <div className="assistant-panel__view-section">
               <AssistantPanelDebugView
-                backendState={backendState}
-                backendIndicatorState={backendIndicatorState}
-                backendLabel={backendLabel}
-                tokenFeedback={tokenFeedback}
-                voiceSessionStatus={voiceSessionStatus}
-                voiceSessionResumption={voiceSessionResumption}
-                voiceSessionDurability={voiceSessionDurability}
-                voiceCaptureState={voiceCaptureState}
-                voiceCaptureDiagnostics={voiceCaptureDiagnostics}
-                voicePlaybackState={voicePlaybackState}
-                voicePlaybackDiagnostics={voicePlaybackDiagnostics}
-                voiceToolState={voiceToolState}
-                realtimeOutboundDiagnostics={realtimeOutboundDiagnostics}
-                screenCaptureState={screenCaptureState}
-                screenCaptureDiagnostics={screenCaptureDiagnostics}
-                visualSendDiagnostics={visualSendDiagnostics}
                 saveScreenFramesEnabled={saveScreenFramesEnabled}
                 screenFrameDumpDirectoryPath={screenFrameDumpDirectoryPath}
                 onToggleSaveScreenFrames={() => {

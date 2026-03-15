@@ -1,118 +1,124 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AssistantPanelDebugConnectionSection,
   AssistantPanelDebugScreenContextSection,
 } from './AssistantPanelDebugSections';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 import type { VisualSendDiagnostics } from '../../../../runtime';
+import { useSessionStore } from '../../../../store/sessionStore';
+import { resetDesktopStores } from '../../../../test/store';
+
+beforeEach(() => {
+  resetDesktopStores();
+});
 
 describe('AssistantPanelDebugView', () => {
   it('renders developer diagnostics without assistant state controls', () => {
     const onRetryBackendHealth = vi.fn(async () => undefined);
     const onToggleSaveScreenFrames = vi.fn();
 
+    useSessionStore.setState({
+      backendState: 'failed',
+      voiceSessionStatus: 'streaming',
+      voiceSessionResumption: {
+        status: 'reconnecting',
+        latestHandle: 'handles/voice-session-2',
+        resumable: true,
+        lastDetail: 'server draining',
+      },
+      voiceSessionDurability: {
+        compressionEnabled: true,
+        tokenValid: false,
+        tokenRefreshing: true,
+        tokenRefreshFailed: false,
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        lastDetail: 'Refreshing token before resume',
+      },
+      voiceCaptureState: 'capturing',
+      voiceCaptureDiagnostics: {
+        chunkCount: 3,
+        sampleRateHz: 16_000,
+        bytesPerChunk: 640,
+        chunkDurationMs: 20,
+        selectedInputDeviceId: 'default',
+        lastError: null,
+      },
+      voicePlaybackState: 'playing',
+      voicePlaybackDiagnostics: {
+        chunkCount: 2,
+        queueDepth: 1,
+        sampleRateHz: 24_000,
+        selectedOutputDeviceId: 'desk-speakers',
+        lastError: null,
+      },
+      voiceToolState: {
+        status: 'toolResponding',
+        toolName: 'get_current_mode',
+        callId: 'call-1',
+        lastError: null,
+      },
+      screenCaptureState: 'streaming',
+      screenCaptureDiagnostics: {
+        captureSource: 'Entire screen',
+        frameCount: 4,
+        frameRateHz: 1,
+        widthPx: 640,
+        heightPx: 360,
+        lastFrameAt: '2026-03-10T10:15:00.000Z',
+        overlayMaskActive: true,
+        maskedRectCount: 2,
+        lastMaskedFrameAt: '2026-03-10T10:15:00.000Z',
+        maskReason: 'panel-open',
+        lastUploadStatus: 'sent',
+        lastError: null,
+      },
+      realtimeOutboundDiagnostics: {
+        breakerState: 'open',
+        breakerReason: 'transport unavailable',
+        consecutiveFailureCount: 3,
+        totalSubmitted: 11,
+        sentCount: 6,
+        droppedCount: 2,
+        replacedCount: 1,
+        blockedCount: 2,
+        droppedByReason: {
+          staleSequence: 1,
+          laneSaturated: 1,
+        },
+        blockedByReason: {
+          breakerOpen: 2,
+        },
+        submittedByKind: {
+          text: 3,
+          audioChunk: 5,
+          visualFrame: 3,
+        },
+        lastDecision: 'block',
+        lastReason: 'breaker-open',
+        lastEventKind: 'text',
+        lastChannelKey: 'text:speech-mode',
+        lastSequence: 3,
+        lastReplaceKey: null,
+        lastSubmittedAtMs: 1_000,
+        lastError: 'transport unavailable',
+      },
+      visualSendDiagnostics: {
+        lastTransitionReason: 'enableStreaming',
+        snapshotCount: 2,
+        streamingEnteredAt: '2026-03-10T10:14:00.000Z',
+        streamingEndedAt: null,
+        sentByState: { snapshot: 2, streaming: 7 },
+        droppedByPolicy: 0,
+        blockedByGateway: 0,
+        triggerSnapshotCount: 0,
+        burstCount: 0,
+      },
+    });
+
     render(
       <AssistantPanelDebugView
-        backendState="failed"
-        backendIndicatorState="error"
-        backendLabel="Not connected"
-        tokenFeedback="Connection failed"
-        voiceSessionStatus="streaming"
-        voiceSessionResumption={{
-          status: 'reconnecting',
-          latestHandle: 'handles/voice-session-2',
-          resumable: true,
-          lastDetail: 'server draining',
-        }}
-        voiceSessionDurability={{
-          compressionEnabled: true,
-          tokenValid: false,
-          tokenRefreshing: true,
-          tokenRefreshFailed: false,
-          expireTime: '2099-03-09T12:30:00.000Z',
-          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
-          lastDetail: 'Refreshing token before resume',
-        }}
-        voiceCaptureState="capturing"
-        voiceCaptureDiagnostics={{
-          chunkCount: 3,
-          sampleRateHz: 16_000,
-          bytesPerChunk: 640,
-          chunkDurationMs: 20,
-          selectedInputDeviceId: 'default',
-          lastError: null,
-        }}
-        voicePlaybackState="playing"
-        voicePlaybackDiagnostics={{
-          chunkCount: 2,
-          queueDepth: 1,
-          sampleRateHz: 24_000,
-          selectedOutputDeviceId: 'desk-speakers',
-          lastError: null,
-        }}
-        voiceToolState={{
-          status: 'toolResponding',
-          toolName: 'get_current_mode',
-          callId: 'call-1',
-          lastError: null,
-        }}
-        screenCaptureState="streaming"
-        screenCaptureDiagnostics={{
-          captureSource: 'Entire screen',
-          frameCount: 4,
-          frameRateHz: 1,
-          widthPx: 640,
-          heightPx: 360,
-          lastFrameAt: '2026-03-10T10:15:00.000Z',
-          overlayMaskActive: true,
-          maskedRectCount: 2,
-          lastMaskedFrameAt: '2026-03-10T10:15:00.000Z',
-          maskReason: 'panel-open',
-          lastUploadStatus: 'sent',
-          lastError: null,
-        }}
-        realtimeOutboundDiagnostics={{
-          breakerState: 'open',
-          breakerReason: 'transport unavailable',
-          consecutiveFailureCount: 3,
-          totalSubmitted: 11,
-          sentCount: 6,
-          droppedCount: 2,
-          replacedCount: 1,
-          blockedCount: 2,
-          droppedByReason: {
-            staleSequence: 1,
-            laneSaturated: 1,
-          },
-          blockedByReason: {
-            breakerOpen: 2,
-          },
-          submittedByKind: {
-            text: 3,
-            audioChunk: 5,
-            visualFrame: 3,
-          },
-          lastDecision: 'block',
-          lastReason: 'breaker-open',
-          lastEventKind: 'text',
-          lastChannelKey: 'text:speech-mode',
-          lastSequence: 3,
-          lastReplaceKey: null,
-          lastSubmittedAtMs: 1_000,
-          lastError: 'transport unavailable',
-        }}
-        visualSendDiagnostics={{
-          lastTransitionReason: 'enableStreaming',
-          snapshotCount: 2,
-          streamingEnteredAt: '2026-03-10T10:14:00.000Z',
-          streamingEndedAt: null,
-          sentByState: { snapshot: 2, streaming: 7 },
-          droppedByPolicy: 0,
-          blockedByGateway: 0,
-          triggerSnapshotCount: 0,
-          burstCount: 0,
-        }}
         saveScreenFramesEnabled={false}
         screenFrameDumpDirectoryPath="/tmp/livepair/screen-frame-dumps/current-debug-session"
         onToggleSaveScreenFrames={onToggleSaveScreenFrames}
@@ -201,12 +207,9 @@ describe('AssistantPanelDebugView', () => {
 // Wave 3 – visual send diagnostics display
 // ---------------------------------------------------------------------------
 
-function buildBaseProps(visualSendDiagnostics: Partial<VisualSendDiagnostics>) {
+function buildBaseStoreState(visualSendDiagnostics: Partial<VisualSendDiagnostics>) {
   return {
     backendState: 'connected' as const,
-    backendIndicatorState: 'ready' as const,
-    backendLabel: 'Connected',
-    tokenFeedback: null,
     voiceSessionStatus: 'disconnected' as const,
     voiceSessionResumption: {
       status: 'idle' as const,
@@ -294,11 +297,19 @@ function buildBaseProps(visualSendDiagnostics: Partial<VisualSendDiagnostics>) {
       burstCount: 0,
       ...visualSendDiagnostics,
     },
-    saveScreenFramesEnabled: false,
-    screenFrameDumpDirectoryPath: null,
-    onToggleSaveScreenFrames: vi.fn(),
-    onRetryBackendHealth: vi.fn(async () => undefined),
   };
+}
+
+function renderDebugView(visualSendDiagnostics: Partial<VisualSendDiagnostics>) {
+  useSessionStore.setState(buildBaseStoreState(visualSendDiagnostics));
+  render(
+    <AssistantPanelDebugView
+      saveScreenFramesEnabled={false}
+      screenFrameDumpDirectoryPath={null}
+      onToggleSaveScreenFrames={vi.fn()}
+      onRetryBackendHealth={vi.fn(async () => undefined)}
+    />,
+  );
 }
 
 describe('AssistantPanelDebugSections', () => {
@@ -326,21 +337,13 @@ describe('AssistantPanelDebugSections', () => {
 
   it('omits the saved frame dump row when no dump directory is available', () => {
     const onToggleSaveScreenFrames = vi.fn();
-    const props = buildBaseProps({
-      lastTransitionReason: null,
-      snapshotCount: 0,
-      streamingEnteredAt: null,
-      streamingEndedAt: null,
-      sentByState: { snapshot: 0, streaming: 0 },
-      droppedByPolicy: 0,
-      blockedByGateway: 0,
-    });
+    const state = buildBaseStoreState({});
 
     render(
       <AssistantPanelDebugScreenContextSection
-        screenCaptureState={props.screenCaptureState}
-        screenCaptureDiagnostics={props.screenCaptureDiagnostics}
-        visualSendDiagnostics={props.visualSendDiagnostics}
+        screenCaptureState={state.screenCaptureState}
+        screenCaptureDiagnostics={state.screenCaptureDiagnostics}
+        visualSendDiagnostics={state.visualSendDiagnostics}
         saveScreenFramesEnabled={true}
         screenFrameDumpDirectoryPath={null}
         onToggleSaveScreenFrames={onToggleSaveScreenFrames}
@@ -355,112 +358,86 @@ describe('AssistantPanelDebugSections', () => {
 
 describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
   it('shows current visual send state', () => {
-    render(
-      <AssistantPanelDebugView
-        {...buildBaseProps({
-          lastTransitionReason: 'screenShareStarted',
-          snapshotCount: 0,
-          streamingEnteredAt: null,
-          streamingEndedAt: null,
-          sentByState: { snapshot: 0, streaming: 0 },
-          droppedByPolicy: 0,
-          blockedByGateway: 0,
-        })}
-      />,
-    );
+    renderDebugView({
+      lastTransitionReason: 'screenShareStarted',
+      snapshotCount: 0,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: { snapshot: 0, streaming: 0 },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
+    });
     expect(screen.getByText('Visual send state')).toBeVisible();
-    // screenCaptureState is "capturing" but visualSendState shown is via the diagnostics
     expect(screen.getByText('Last transition')).toBeVisible();
     expect(screen.getByText('Screen share started')).toBeVisible();
   });
 
   it('shows "None" for last transition when reason is null', () => {
-    render(
-      <AssistantPanelDebugView
-        {...buildBaseProps({
-          lastTransitionReason: null,
-          snapshotCount: 0,
-          streamingEnteredAt: null,
-          streamingEndedAt: null,
-          sentByState: { snapshot: 0, streaming: 0 },
-          droppedByPolicy: 0,
-          blockedByGateway: 0,
-        })}
-      />,
-    );
+    renderDebugView({
+      lastTransitionReason: null,
+      snapshotCount: 0,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: { snapshot: 0, streaming: 0 },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
+    });
     expect(screen.getByText('Last transition')).toBeVisible();
-    // "None" should appear for the null reason
     expect(screen.getAllByText('None').length).toBeGreaterThan(0);
   });
 
   it('shows snapshot count', () => {
-    render(
-      <AssistantPanelDebugView
-        {...buildBaseProps({
-          lastTransitionReason: 'analyzeScreenNow',
-          snapshotCount: 5,
-          streamingEnteredAt: null,
-          streamingEndedAt: null,
-          sentByState: { snapshot: 4, streaming: 0 },
-          droppedByPolicy: 0,
-          blockedByGateway: 0,
-        })}
-      />,
-    );
+    renderDebugView({
+      lastTransitionReason: 'analyzeScreenNow',
+      snapshotCount: 5,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: { snapshot: 4, streaming: 0 },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
+    });
     expect(screen.getByText('Snapshots triggered')).toBeVisible();
     expect(screen.getByText('5')).toBeVisible();
   });
 
   it('shows streaming entered timestamp when present', () => {
-    render(
-      <AssistantPanelDebugView
-        {...buildBaseProps({
-          lastTransitionReason: 'enableStreaming',
-          snapshotCount: 0,
-          streamingEnteredAt: '2026-03-14T09:00:00.000Z',
-          streamingEndedAt: null,
-          sentByState: { snapshot: 0, streaming: 0 },
-          droppedByPolicy: 0,
-          blockedByGateway: 0,
-        })}
-      />,
-    );
+    renderDebugView({
+      lastTransitionReason: 'enableStreaming',
+      snapshotCount: 0,
+      streamingEnteredAt: '2026-03-14T09:00:00.000Z',
+      streamingEndedAt: null,
+      sentByState: { snapshot: 0, streaming: 0 },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
+    });
     expect(screen.getByText('Streaming entered')).toBeVisible();
     expect(screen.getByText('2026-03-14T09:00:00.000Z')).toBeVisible();
   });
 
   it('shows streaming ended timestamp when present', () => {
-    render(
-      <AssistantPanelDebugView
-        {...buildBaseProps({
-          lastTransitionReason: 'stopStreaming',
-          snapshotCount: 0,
-          streamingEnteredAt: '2026-03-14T09:00:00.000Z',
-          streamingEndedAt: '2026-03-14T09:05:00.000Z',
-          sentByState: { snapshot: 0, streaming: 12 },
-          droppedByPolicy: 0,
-          blockedByGateway: 0,
-        })}
-      />,
-    );
+    renderDebugView({
+      lastTransitionReason: 'stopStreaming',
+      snapshotCount: 0,
+      streamingEnteredAt: '2026-03-14T09:00:00.000Z',
+      streamingEndedAt: '2026-03-14T09:05:00.000Z',
+      sentByState: { snapshot: 0, streaming: 12 },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
+    });
     expect(screen.getByText('Streaming ended')).toBeVisible();
     expect(screen.getByText('2026-03-14T09:05:00.000Z')).toBeVisible();
   });
 
   it('shows sent-frame counts by state', () => {
-    render(
-      <AssistantPanelDebugView
-        {...buildBaseProps({
-          lastTransitionReason: 'snapshotConsumed',
-          snapshotCount: 3,
-          streamingEnteredAt: null,
-          streamingEndedAt: null,
-          sentByState: { snapshot: 3, streaming: 0 },
-          droppedByPolicy: 0,
-          blockedByGateway: 0,
-        })}
-      />,
-    );
+    renderDebugView({
+      lastTransitionReason: 'snapshotConsumed',
+      snapshotCount: 3,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: { snapshot: 3, streaming: 0 },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
+    });
     expect(screen.getByText('Sent (snapshot)')).toBeVisible();
     expect(screen.getByText('Sent (streaming)')).toBeVisible();
     expect(
@@ -476,19 +453,15 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
 
 describe('AssistantPanelDebugView – Wave 4 capture/send diagnostics display', () => {
   it('shows dropped-by-policy count', () => {
-    render(
-      <AssistantPanelDebugView
-        {...buildBaseProps({
-          lastTransitionReason: null,
-          snapshotCount: 0,
-          streamingEnteredAt: null,
-          streamingEndedAt: null,
-          sentByState: { snapshot: 0, streaming: 0 },
-          droppedByPolicy: 5,
-          blockedByGateway: 0,
-        })}
-      />,
-    );
+    renderDebugView({
+      lastTransitionReason: null,
+      snapshotCount: 0,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: { snapshot: 0, streaming: 0 },
+      droppedByPolicy: 5,
+      blockedByGateway: 0,
+    });
     expect(screen.getByText('Dropped (policy)')).toBeVisible();
     expect(
       within(screen.getByText('Dropped (policy)').closest('.field-list__item')!)
@@ -497,19 +470,15 @@ describe('AssistantPanelDebugView – Wave 4 capture/send diagnostics display', 
   });
 
   it('shows blocked-by-gateway count', () => {
-    render(
-      <AssistantPanelDebugView
-        {...buildBaseProps({
-          lastTransitionReason: null,
-          snapshotCount: 0,
-          streamingEnteredAt: null,
-          streamingEndedAt: null,
-          sentByState: { snapshot: 0, streaming: 0 },
-          droppedByPolicy: 0,
-          blockedByGateway: 3,
-        })}
-      />,
-    );
+    renderDebugView({
+      lastTransitionReason: null,
+      snapshotCount: 0,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: { snapshot: 0, streaming: 0 },
+      droppedByPolicy: 0,
+      blockedByGateway: 3,
+    });
     expect(screen.getByText('Blocked (gateway)')).toBeVisible();
     expect(
       within(screen.getByText('Blocked (gateway)').closest('.field-list__item')!)
@@ -518,19 +487,15 @@ describe('AssistantPanelDebugView – Wave 4 capture/send diagnostics display', 
   });
 
   it('shows both dropped-by-policy and blocked-by-gateway when both are non-zero', () => {
-    render(
-      <AssistantPanelDebugView
-        {...buildBaseProps({
-          lastTransitionReason: 'enableStreaming',
-          snapshotCount: 1,
-          streamingEnteredAt: '2026-03-14T09:00:00.000Z',
-          streamingEndedAt: null,
-          sentByState: { snapshot: 1, streaming: 4 },
-          droppedByPolicy: 10,
-          blockedByGateway: 2,
-        })}
-      />,
-    );
+    renderDebugView({
+      lastTransitionReason: 'enableStreaming',
+      snapshotCount: 1,
+      streamingEnteredAt: '2026-03-14T09:00:00.000Z',
+      streamingEndedAt: null,
+      sentByState: { snapshot: 1, streaming: 4 },
+      droppedByPolicy: 10,
+      blockedByGateway: 2,
+    });
     expect(screen.getByText('Dropped (policy)')).toBeVisible();
     expect(screen.getByText('Blocked (gateway)')).toBeVisible();
     expect(
