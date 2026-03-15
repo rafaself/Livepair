@@ -40,9 +40,10 @@
 
 .assistant-panel__conversation-empty-title {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  letter-spacing: -0.01em;
 }
 
 .assistant-panel__conversation-empty-body {

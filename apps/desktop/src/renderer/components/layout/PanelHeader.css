@@ -20,10 +20,11 @@
 }
 
 .panel-header__title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
+  font-size: 1.35rem;
+  font-weight: 750;
+  color: var(--color-accent);
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 .panel-header__actions {
