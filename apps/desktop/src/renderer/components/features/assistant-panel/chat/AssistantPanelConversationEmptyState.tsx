@@ -58,7 +58,7 @@ export function AssistantPanelConversationEmptyState({
     >
       <div className="assistant-panel__conversation-empty-identity">
         <LivepairIcon
-          size={72}
+          size={96}
           className="assistant-panel__conversation-empty-icon"
           aria-hidden="true"
         />
