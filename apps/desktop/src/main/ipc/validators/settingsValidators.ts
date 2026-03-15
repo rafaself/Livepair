@@ -12,6 +12,8 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
   'voiceNoiseSuppressionEnabled',
   'voiceAutoGainControlEnabled',
   'isPanelPinned',
+  'visualSessionQuality',
+  'chatTimestampVisibility',
 ] as const;
 
 function isThemePreference(value: unknown): boolean {
@@ -83,6 +85,14 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
   }
 
   if ('isPanelPinned' in value && typeof value['isPanelPinned'] !== 'boolean') {
+    return false;
+  }
+
+  if (
+    'chatTimestampVisibility' in value
+    && value['chatTimestampVisibility'] !== 'hidden'
+    && value['chatTimestampVisibility'] !== 'visible'
+  ) {
     return false;
   }
 

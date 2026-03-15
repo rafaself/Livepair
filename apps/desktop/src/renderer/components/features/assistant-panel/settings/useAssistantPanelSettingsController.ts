@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import type {
+  ChatTimestampVisibility,
   PreferredMode,
   SpeechSilenceTimeout,
   ThemePreference,
@@ -34,6 +35,7 @@ export type AssistantPanelSettingsController = {
   voiceAutoGainControlEnabled: boolean;
   themePreference: ThemePreference;
   visualSessionQuality: VisualSessionQuality;
+  chatTimestampVisibility: ChatTimestampVisibility;
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
   screenCaptureSourceOptions: readonly SelectOptionItem[];
@@ -52,6 +54,7 @@ export type AssistantPanelSettingsController = {
   setVoiceAutoGainControlEnabled: (enabled: boolean) => void;
   setThemePreference: (themePreference: ThemePreference) => void;
   setVisualSessionQuality: (quality: VisualSessionQuality) => void;
+  setChatTimestampVisibility: (visibility: ChatTimestampVisibility) => void;
   handleBackendUrlChange: (value: string) => void;
   handleBackendUrlBlur: () => Promise<void>;
 };
@@ -144,6 +147,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     voiceAutoGainControlEnabled: settings.voiceAutoGainControlEnabled,
     themePreference: settings.themePreference,
     visualSessionQuality: settings.visualSessionQuality,
+    chatTimestampVisibility: settings.chatTimestampVisibility,
     inputDeviceOptions:
       inputDeviceOptions.length > 0 ? inputDeviceOptions : UNAVAILABLE_INPUT_OPTION,
     outputDeviceOptions:
@@ -200,6 +204,9 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     },
     setVisualSessionQuality: (visualSessionQuality) => {
       void updateSetting('visualSessionQuality', visualSessionQuality);
+    },
+    setChatTimestampVisibility: (chatTimestampVisibility) => {
+      void updateSetting('chatTimestampVisibility', chatTimestampVisibility);
     },
     handleBackendUrlChange,
     handleBackendUrlBlur,

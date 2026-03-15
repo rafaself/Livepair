@@ -12,14 +12,17 @@ const SILENCE_TIMEOUT_OPTIONS: readonly SelectOptionItem[] = [
   { value: '3m', label: '3 minutes' },
 ];
 
+
 type PreferencesController = Pick<
   AssistantPanelSettingsController,
   | 'isPanelPinned'
   | 'themePreference'
   | 'speechSilenceTimeout'
+  | 'chatTimestampVisibility'
   | 'togglePanelPinned'
   | 'setThemePreference'
   | 'setSpeechSilenceTimeout'
+  | 'setChatTimestampVisibility'
 >;
 
 export type AssistantPanelPreferencesViewProps = {
@@ -33,9 +36,11 @@ export function AssistantPanelPreferencesView({
     isPanelPinned,
     themePreference,
     speechSilenceTimeout,
+    chatTimestampVisibility,
     togglePanelPinned,
     setThemePreference,
     setSpeechSilenceTimeout,
+    setChatTimestampVisibility,
   } = controller;
 
   return (
@@ -55,6 +60,19 @@ export function AssistantPanelPreferencesView({
                     size="sm"
                     value={themePreference}
                     onChange={setThemePreference}
+                  />
+                ),
+              },
+              {
+                label: 'Message timestamps',
+                value: (
+                  <Switch
+                    aria-label="Message timestamps"
+                    checked={chatTimestampVisibility === 'visible'}
+                    className="assistant-panel__settings-switch"
+                    onCheckedChange={(checked) =>
+                      setChatTimestampVisibility(checked ? 'visible' : 'hidden')
+                    }
                   />
                 ),
               },
