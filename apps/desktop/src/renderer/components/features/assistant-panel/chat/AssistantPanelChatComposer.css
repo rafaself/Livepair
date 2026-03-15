@@ -1,7 +1,7 @@
 .assistant-panel__composer-section {
   flex-shrink: 0;
   padding: 0 20px;
-  background: var(--color-chat-bg);
+  background: transparent;
 }
 
 .assistant-panel__composer {
@@ -28,7 +28,7 @@
 }
 
 .assistant-panel__composer-box {
-  background: rgba(255, 255, 255, 0.06);
+  background: #303030;
   border-radius: 20px;
   padding: 8px 14px;
 }
