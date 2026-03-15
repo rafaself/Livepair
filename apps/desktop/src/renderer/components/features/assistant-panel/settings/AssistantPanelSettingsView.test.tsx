@@ -10,6 +10,7 @@ import { AssistantPanelSettingsView } from './AssistantPanelSettingsView';
 type MockMediaDeviceInfo = Pick<MediaDeviceInfo, 'deviceId' | 'groupId' | 'kind' | 'label'>;
 
 const enumerateDevices = vi.fn<() => Promise<MockMediaDeviceInfo[]>>();
+const getUserMedia = vi.fn<() => Promise<MediaStream>>();
 const mediaDevicesEvents = new EventTarget();
 
 function installMediaDevicesMock(): void {
@@ -17,6 +18,7 @@ function installMediaDevicesMock(): void {
     configurable: true,
     value: {
       enumerateDevices,
+      getUserMedia,
       addEventListener: mediaDevicesEvents.addEventListener.bind(mediaDevicesEvents),
       removeEventListener: mediaDevicesEvents.removeEventListener.bind(mediaDevicesEvents),
     },
@@ -49,6 +51,9 @@ describe('AssistantPanelSettingsView', () => {
     resetDesktopStores();
     enumerateDevices.mockReset();
     enumerateDevices.mockResolvedValue([]);
+    getUserMedia.mockResolvedValue({
+      getTracks: () => [{ stop: vi.fn() }],
+    } as unknown as MediaStream);
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
       ...patch,
@@ -290,9 +295,9 @@ describe('AssistantPanelSettingsView', () => {
     });
   });
 
-  // --- HDMI / DisplayPort deduplication integration tests ---
+  // --- HDMI / DisplayPort output devices integration tests ---
 
-  it('renders only the first HDMI and DisplayPort option in the output dropdown', async () => {
+  it('renders all HDMI and DisplayPort options in the output dropdown', async () => {
     enumerateDevices.mockResolvedValue([
       { deviceId: 'default', groupId: 'group-default', kind: 'audioinput', label: 'Default Microphone' },
       { deviceId: 'default', groupId: 'group-default', kind: 'audiooutput', label: 'Default Output' },
@@ -311,10 +316,10 @@ describe('AssistantPanelSettingsView', () => {
 
     expect(screen.getByRole('option', { name: 'System default' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'HDMI Output 1' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'HDMI Output 2' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'HDMI Output 3' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'HDMI Output 2' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'HDMI Output 3' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'DisplayPort Output 1' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'DisplayPort Output 2' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'DisplayPort Output 2' })).toBeInTheDocument();
   });
 
   it('keeps all distinct audio profiles as separate entries in the output dropdown', async () => {
@@ -340,7 +345,7 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('option', { name: 'Analog Output' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Digital Output (S/PDIF)' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'HDMI Output 1' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'HDMI Output 2' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'HDMI Output 2' })).toBeInTheDocument();
   });
 
   it('persists the representative HDMI output selection after choosing it from the dropdown', async () => {

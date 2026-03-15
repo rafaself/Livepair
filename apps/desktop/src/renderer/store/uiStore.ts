@@ -11,27 +11,6 @@ const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'No speaker detected' },
 ];
 
-// Matches "HDMI Output 1", "HDMI 2", "DisplayPort Output 3", etc.
-// Requires a trailing number so a bare "HDMI" label is never collapsed.
-const REDUNDANT_VARIANT_PATTERN = /^(HDMI|DisplayPort)(?: Output)? \d+$/i;
-
-/**
- * Returns true and records the base name when the label is a redundant numbered
- * HDMI / DisplayPort variant that has already been seen (i.e. should be collapsed).
- * Returns false when the label is the first of its family or does not match.
- */
-function isRedundantNumberedVariant(label: string, seen: Set<string>): boolean {
-  if (!REDUNDANT_VARIANT_PATTERN.test(label)) {
-    return false;
-  }
-  const baseName = label.replace(/\s*\d+$/, '').trim();
-  if (seen.has(baseName)) {
-    return true;
-  }
-  seen.add(baseName);
-  return false;
-}
-
 function buildDeviceOptions(
   devices: MediaDeviceInfo[],
   kind: MediaDeviceKind,
@@ -45,7 +24,6 @@ function buildDeviceOptions(
   }
 
   let unnamedDeviceCount = 0;
-  const seenRedundantBases = new Set<string>();
 
   return [
     { value: DEFAULT_DEVICE_ID, label: 'System default' },
@@ -55,10 +33,6 @@ function buildDeviceOptions(
       }
 
       const label = device.label || `${unnamedLabelPrefix} ${++unnamedDeviceCount}`;
-
-      if (kind === 'audiooutput' && isRedundantNumberedVariant(label, seenRedundantBases)) {
-        return [];
-      }
 
       return [{ value: device.deviceId, label }];
     }),
@@ -146,6 +120,17 @@ export const useUiStore = create<UiStoreState>((set) => ({
   setBackendUrlDraft: (backendUrlDraft) => set({ backendUrlDraft }),
   setBackendUrlError: (backendUrlError) => set({ backendUrlError }),
   initializeDevicePreferences: async () => {
+    // Chromium only includes audiooutput entries in enumerateDevices after
+    // microphone permission has been granted. Probe once and release immediately
+    // so that output devices (e.g. HDMI) are visible before any session starts.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+    } catch {
+      // Permission denied or unavailable – enumerate anyway; output devices
+      // may still be partially visible via the system default.
+    }
+
     const applyDevices = async (): Promise<void> => {
       const requestId = ++deviceRefreshRequestId;
       const mediaDevices = navigator.mediaDevices;
