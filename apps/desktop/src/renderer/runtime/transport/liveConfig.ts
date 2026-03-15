@@ -1,5 +1,10 @@
 import type { LiveConnectMode } from '../core/session.types';
 import { VOICE_TOOL_DECLARATIONS } from '../voice/tools/voiceTools';
+import {
+  DEFAULT_DESKTOP_SETTINGS,
+  DEFAULT_SYSTEM_INSTRUCTION,
+  type DesktopVoice,
+} from '../../../shared';
 
 export const LIVE_PROVIDER = 'gemini' as const;
 export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
@@ -63,6 +68,16 @@ export type GeminiLiveConnectConfig = {
   inputAudioTranscription?: Record<string, never> | undefined;
   outputAudioTranscription?: Record<string, never> | undefined;
   mediaResolution?: LiveMediaResolution | undefined;
+  speechConfig?:
+    | {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: DesktopVoice;
+          };
+        };
+      }
+    | undefined;
+  systemInstruction?: string | undefined;
   sessionResumption?:
     | {
         handle?: string;
@@ -154,6 +169,18 @@ function parseMediaResolution(value: string): LiveMediaResolution {
   }
 
   throw createConfigError(`Live media resolution "${value}" is not supported`);
+}
+
+function resolveLiveVoice(voice: DesktopVoice | undefined): DesktopVoice {
+  return voice ?? DEFAULT_DESKTOP_SETTINGS.voice;
+}
+
+function resolveLiveSystemInstruction(systemInstruction: string | undefined): string {
+  if (typeof systemInstruction === 'string' && systemInstruction.trim().length > 0) {
+    return systemInstruction;
+  }
+
+  return DEFAULT_SYSTEM_INSTRUCTION;
 }
 
 function parseSessionModeConfig(
@@ -301,6 +328,8 @@ export function buildGeminiLiveConnectConfig(
   mode: LiveConnectMode,
   options: {
     resumeHandle?: string | undefined;
+    voice?: DesktopVoice | undefined;
+    systemInstruction?: string | undefined;
   } = {},
 ): GeminiLiveConnectConfig {
   if (config.apiVersion !== 'v1alpha') {
@@ -338,6 +367,19 @@ export function buildGeminiLiveConnectConfig(
     liveConnectConfig.contextWindowCompression = {
       slidingWindow: {},
     };
+  }
+
+  if (mode === 'voice' && !options.resumeHandle) {
+    liveConnectConfig.speechConfig = {
+      voiceConfig: {
+        prebuiltVoiceConfig: {
+          voiceName: resolveLiveVoice(options.voice),
+        },
+      },
+    };
+    liveConnectConfig.systemInstruction = resolveLiveSystemInstruction(
+      options.systemInstruction,
+    );
   }
 
   if (mode === 'voice') {

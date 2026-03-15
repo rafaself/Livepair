@@ -106,6 +106,14 @@ export async function connectGeminiLiveSdkSession({
       config.mediaResolution as NonNullable<LiveConnectConfig['mediaResolution']>;
   }
 
+  if (config.speechConfig) {
+    liveConnectConfig.speechConfig = config.speechConfig;
+  }
+
+  if (config.systemInstruction) {
+    liveConnectConfig.systemInstruction = config.systemInstruction;
+  }
+
   if (config.sessionResumption) {
     liveConnectConfig.sessionResumption = config.sessionResumption.handle
       ? { handle: config.sessionResumption.handle }

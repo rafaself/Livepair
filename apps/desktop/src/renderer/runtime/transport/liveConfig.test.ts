@@ -228,6 +228,14 @@ describe('liveConfig', () => {
     expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
       responseModalities: ['AUDIO'],
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: 'Puck',
+          },
+        },
+      },
+      systemInstruction: 'You are Livepair, a realtime multimodal desktop assistant.',
       tools: [
         {
           functionDeclarations: expect.any(Array),
