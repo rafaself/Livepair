@@ -35,6 +35,11 @@ const mockGetPrimaryDisplay = vi.fn(() => ({
 }));
 
 const mockSetDisplayMediaRequestHandler = vi.fn();
+const mockDotenvConfig = vi.fn();
+
+vi.mock('dotenv', () => ({
+  config: mockDotenvConfig,
+}));
 
 vi.mock('electron', () => ({
   app: {

@@ -1,9 +1,9 @@
 import 'reflect-metadata';
 import { ServiceUnavailableException } from '@nestjs/common';
 
-// Prevent dotenv from re-reading the .env file on each jest.resetModules()
+// Prevent the root env loader from re-reading .env on each jest.resetModules()
 // re-import of env.ts, which would restore deleted process.env vars from disk.
-jest.mock('dotenv/config', () => ({}));
+jest.mock('../config/loadRootEnv', () => ({}));
 
 describe('SessionService', () => {
   const originalEnv = process.env;

@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import '../../config/loadRootEnv';
 import { Pool } from 'pg';
 import { buildDatabasePoolConfig } from '../database.config';
 

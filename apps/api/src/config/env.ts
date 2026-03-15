@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './loadRootEnv';
 
 function parsePositiveInteger(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? '', 10);

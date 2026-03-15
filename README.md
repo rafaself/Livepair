@@ -329,12 +329,10 @@ docs(docs): update README with commit conventions
 pnpm install
 ```
 
-2. Create the main local config file and point both apps at it:
+2. Create the main local config file:
 
 ```bash
 cp .env.example .env
-ln -sf ../../.env apps/api/.env
-ln -sf ../../.env apps/desktop/.env
 ```
 
 The root `.env` is the primary local config file for the normal evaluation flow. The app-local `.env.example` files are still the detailed field-by-field references, but they are not required for the standard quick-start path.
@@ -424,7 +422,11 @@ pnpm verify:shared-types
 
 ## 🌍 Environment Variables
 
-The main setup template for local evaluation is [`.env.example`](./.env.example). Copy it to `.env`, then symlink `apps/api/.env` and `apps/desktop/.env` to the root file for the normal quick-start flow.
+The primary local setup file is the repository root example:
+
+* main setup: [`.env.example`](./.env.example)
+
+App-local env examples remain reference-oriented for each app and should stay aligned with the root defaults:
 
 Detailed per-app references:
 
@@ -435,12 +437,12 @@ Key local values:
 
 * `GEMINI_API_KEY` (**required**): backend-only Gemini credential used for `/session/token`
 * `SESSION_TOKEN_AUTH_SECRET`: shared secret that must match between the API and desktop main process
-* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL`: keep them on the same Gemini Live model resource
+* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL`: keep them on the same Gemini Live model resource (`models/gemini-2.0-flash-live-001` in the root example)
 * `DATABASE_URL`: local Docker default is `postgres://livepair:livepair@127.0.0.1:5432/livepair`
 * `VITE_LIVE_API_VERSION`: keep `v1alpha` for the current speech flow
 * `VITE_LIVE_VOICE_RESPONSE_MODALITY`: keep `AUDIO` for speech mode
 
-Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed because they come from Node, Electron, or Vite rather than repository configuration.
+For complete field-by-field documentation, use the app-local `.env.example` files as references. Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed because they come from Node, Electron, or Vite rather than repository configuration.
 
 ## ✅ Testing
 
