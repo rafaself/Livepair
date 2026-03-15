@@ -8,6 +8,21 @@ import { resetDesktopStores } from '../../../../test/store';
 import { useUiStore } from '../../../../store/uiStore';
 import { useAssistantPanelSettingsController } from './useAssistantPanelSettingsController';
 
+const OVERLAY_DISPLAY = {
+  displayId: '1',
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+} as const;
+
+function createScreenSource(id: string, name: string, displayId: string) {
+  return { id, name, kind: 'screen' as const, displayId };
+}
+
+function createWindowSource(id: string, name: string) {
+  return { id, name, kind: 'window' as const };
+}
+
 function HookHarness(): JSX.Element {
   const controller = useAssistantPanelSettingsController();
   const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
@@ -102,10 +117,11 @@ describe('useAssistantPanelSettingsController', () => {
     useUiStore.getState().initializeSettingsUi(useSettingsStore.getState().settings);
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     });
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
@@ -113,17 +129,19 @@ describe('useAssistantPanelSettingsController', () => {
     }));
     window.bridge.listScreenCaptureSources = vi.fn(async () => ({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
     window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: sourceId,
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
   });
 
@@ -226,6 +244,7 @@ describe('useAssistantPanelSettingsController', () => {
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
       sources: [],
       selectedSourceId: null,
+      overlayDisplay: OVERLAY_DISPLAY,
     });
 
     render(<HookHarness />);
@@ -334,10 +353,11 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
     useUiStore.getState().initializeSettingsUi(useSettingsStore.getState().settings);
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     });
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
@@ -345,17 +365,19 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
     }));
     window.bridge.listScreenCaptureSources = vi.fn(async () => ({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
     window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: sourceId,
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
   });
 
@@ -385,10 +407,11 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
   it('preserves the source selection when the bridge reports the same selection after a chat switch', async () => {
     window.bridge.listScreenCaptureSources = vi.fn(async () => ({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: 'window:42:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
 
     render(<HookHarness />);
@@ -414,8 +437,9 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
     });
 
     window.bridge.listScreenCaptureSources = vi.fn(async () => ({
-      sources: [{ id: 'screen:1:0', name: 'Entire Screen' }],
+      sources: [createScreenSource('screen:1:0', 'Entire Screen', '1')],
       selectedSourceId: null,
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
 
     act(() => {

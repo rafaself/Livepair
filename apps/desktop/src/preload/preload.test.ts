@@ -318,17 +318,51 @@ describe('preload bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith('screenCapture:getAccessStatus');
 
     mockInvoke.mockResolvedValueOnce({
-      sources: [{ id: 'screen:1:0', name: 'Entire Screen' }],
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+      ],
       selectedSourceId: null,
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
     });
-    await bridge.listScreenCaptureSources();
+    await expect(bridge.listScreenCaptureSources()).resolves.toEqual({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+      ],
+      selectedSourceId: null,
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
+    });
     expect(mockInvoke).toHaveBeenCalledWith('screenCapture:listSources');
 
     mockInvoke.mockResolvedValueOnce({
-      sources: [{ id: 'window:42:0', name: 'VSCode' }],
+      sources: [{ id: 'window:42:0', name: 'VSCode', kind: 'window' }],
       selectedSourceId: 'window:42:0',
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
     });
-    await bridge.selectScreenCaptureSource('window:42:0');
+    await expect(bridge.selectScreenCaptureSource('window:42:0')).resolves.toEqual({
+      sources: [{ id: 'window:42:0', name: 'VSCode', kind: 'window' }],
+      selectedSourceId: 'window:42:0',
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
+    });
     expect(mockInvoke).toHaveBeenCalledWith(
       'screenCapture:selectSource',
       'window:42:0',

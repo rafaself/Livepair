@@ -65,6 +65,10 @@ describe('AssistantPanelDebugView', () => {
           widthPx: 640,
           heightPx: 360,
           lastFrameAt: '2026-03-10T10:15:00.000Z',
+          overlayMaskActive: true,
+          maskedRectCount: 2,
+          lastMaskedFrameAt: '2026-03-10T10:15:00.000Z',
+          maskReason: 'panel-open',
           lastUploadStatus: 'sent',
           lastError: null,
         }}
@@ -185,6 +189,11 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Streaming ended')).toBeVisible();
     expect(screen.getByText('Sent (snapshot)')).toBeVisible();
     expect(screen.getByText('Sent (streaming)')).toBeVisible();
+    expect(screen.getByText('Overlay mask active')).toBeVisible();
+    expect(screen.getByText('Mask reason')).toBeVisible();
+    expect(screen.getByText('Panel open')).toBeVisible();
+    expect(screen.getByText('Masked rects')).toBeVisible();
+    expect(screen.getByText('Last masked frame')).toBeVisible();
   });
 });
 
@@ -245,6 +254,10 @@ function buildBaseProps(visualSendDiagnostics: Partial<VisualSendDiagnostics>) {
       widthPx: null,
       heightPx: null,
       lastFrameAt: null,
+      overlayMaskActive: false,
+      maskedRectCount: 0,
+      lastMaskedFrameAt: null,
+      maskReason: 'hidden' as const,
       lastUploadStatus: 'idle' as const,
       lastError: null,
     },

@@ -1,5 +1,7 @@
-import type { SourcesOptions } from 'electron';
+import type { Rectangle, SourcesOptions } from 'electron';
 import type {
+  ScreenCaptureOverlayDisplay,
+  ScreenCaptureRect,
   ScreenCaptureSource,
   ScreenCaptureSourceSnapshot,
 } from '../../shared';
@@ -12,7 +14,7 @@ export type CaptureSourceRegistry = {
   getSelectedSourceId: () => string | null;
   setSelectedSourceId: (sourceId: string | null) => void;
   getSelectedSource: () => CaptureSource | null;
-  getSnapshot: () => ScreenCaptureSourceSnapshot;
+  getSnapshot: (overlayDisplay: ScreenCaptureOverlayDisplay) => ScreenCaptureSourceSnapshot;
 };
 
 export const CAPTURE_SOURCE_LIST_OPTIONS: SourcesOptions = {
@@ -38,9 +40,40 @@ export function toCaptureSources<
   TSource extends {
     id: string;
     name: string;
+    display_id?: string;
   },
 >(sources: readonly TSource[]): CaptureSource[] {
-  return sources.map(({ id, name }) => ({ id, name }));
+  return sources.map(({ id, name, display_id }) => ({
+    id,
+    name,
+    kind: id.startsWith('screen:') ? 'screen' : 'window',
+    ...(display_id ? { displayId: display_id } : {}),
+  }));
+}
+
+function toScreenCaptureRect({
+  x,
+  y,
+  width,
+  height,
+}: Pick<Rectangle, 'x' | 'y' | 'width' | 'height'>): ScreenCaptureRect {
+  return { x, y, width, height };
+}
+
+export function toScreenCaptureOverlayDisplay<
+  TDisplay extends {
+    id: number;
+    bounds: Pick<Rectangle, 'x' | 'y' | 'width' | 'height'>;
+    workArea: Pick<Rectangle, 'x' | 'y' | 'width' | 'height'>;
+    scaleFactor: number;
+  },
+>(display: TDisplay): ScreenCaptureOverlayDisplay {
+  return {
+    displayId: String(display.id),
+    bounds: toScreenCaptureRect(display.bounds),
+    workArea: toScreenCaptureRect(display.workArea),
+    scaleFactor: display.scaleFactor,
+  };
 }
 
 export function createCaptureSourceRegistry(): CaptureSourceRegistry {
@@ -70,9 +103,10 @@ export function createCaptureSourceRegistry(): CaptureSourceRegistry {
 
       return sources.find((source) => source.id === selectedSourceId) ?? null;
     },
-    getSnapshot: () => ({
+    getSnapshot: (overlayDisplay) => ({
       sources: [...sources],
       selectedSourceId,
+      overlayDisplay,
     }),
   };
 }

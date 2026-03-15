@@ -8,6 +8,12 @@ import { useUiStore } from '../../../store/uiStore';
 import { AssistantPanel } from './AssistantPanel';
 
 const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();
+const OVERLAY_DISPLAY = {
+  displayId: '1',
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+} as const;
 
 function createDevice(
   overrides: Partial<MediaDeviceInfo> & Pick<MediaDeviceInfo, 'deviceId' | 'kind'>,
@@ -19,6 +25,14 @@ function createDevice(
     label: overrides.label ?? overrides.deviceId,
     toJSON: overrides.toJSON ?? (() => ({})),
   } satisfies MediaDeviceInfo;
+}
+
+function createScreenSource(id: string, name: string, displayId: string) {
+  return { id, name, kind: 'screen' as const, displayId };
+}
+
+function createWindowSource(id: string, name: string) {
+  return { id, name, kind: 'window' as const };
 }
 
 function AssistantPanelHarness(): JSX.Element {
@@ -747,17 +761,19 @@ describe('AssistantPanel', () => {
     ]);
     window.bridge.listScreenCaptureSources = vi.fn(async () => ({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: 'window:42:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
     window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: sourceId,
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
 
     await renderAssistantPanel();

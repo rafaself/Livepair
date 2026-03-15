@@ -69,6 +69,10 @@ export function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics
     widthPx: null,
     heightPx: null,
     lastFrameAt: null,
+    overlayMaskActive: false,
+    maskedRectCount: 0,
+    lastMaskedFrameAt: null,
+    maskReason: 'hidden',
     lastUploadStatus: 'idle',
     lastError: null,
   };
@@ -118,6 +122,7 @@ export function buildDefaultSessionState(): SessionStoreData {
     visualSendDiagnostics: buildDefaultVisualSendDiagnostics(),
     screenCaptureSources: [],
     selectedScreenCaptureSourceId: null,
+    overlayDisplay: null,
     localUserSpeechActive: false,
   };
 }

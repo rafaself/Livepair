@@ -20,6 +20,17 @@ const mockWindowSource = {
   appIcon: null,
 };
 
+const overlayDisplay = {
+  displayId: '1',
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+} as const;
+
+function createWindowCaptureSource(id: string, name: string) {
+  return { id, name, kind: 'window' as const };
+}
+
 const mockGetSources = vi.fn(async () => [mockSource]);
 
 let registeredHandler:
@@ -62,7 +73,7 @@ function makeRegistry(overrides: Partial<CaptureSourceRegistry> = {}): CaptureSo
     getSelectedSourceId: vi.fn(() => null),
     setSelectedSourceId: vi.fn(),
     getSelectedSource: vi.fn(() => null),
-    getSnapshot: vi.fn(() => ({ sources: [], selectedSourceId: null })),
+    getSnapshot: vi.fn(() => ({ sources: [], selectedSourceId: null, overlayDisplay })),
     ...overrides,
   };
 }
@@ -159,7 +170,7 @@ describe('registerDisplayMediaHandler', () => {
       import('./registerDisplayMediaHandler'),
     ]);
     const registry = createCaptureSourceRegistry();
-    registry.setSources([{ id: 'window:42:0', name: 'VSCode' }]);
+    registry.setSources([createWindowCaptureSource('window:42:0', 'VSCode')]);
     registry.setSelectedSourceId('window:42:0');
 
     registerDisplayMediaHandler(registry);
@@ -184,7 +195,7 @@ describe('registerDisplayMediaHandler', () => {
       import('./registerDisplayMediaHandler'),
     ]);
     const registry = createCaptureSourceRegistry();
-    registry.setSources([{ id: 'window:50:0', name: 'Browser' }]);
+    registry.setSources([createWindowCaptureSource('window:50:0', 'Browser')]);
     registry.setSelectedSourceId('window:50:0');
 
     registerDisplayMediaHandler(registry);
@@ -209,7 +220,7 @@ describe('registerDisplayMediaHandler', () => {
       import('./registerDisplayMediaHandler'),
     ]);
     const registry = createCaptureSourceRegistry();
-    registry.setSources([{ id: 'window:50:0', name: 'Browser' }]);
+    registry.setSources([createWindowCaptureSource('window:50:0', 'Browser')]);
     registry.setSelectedSourceId('window:50:0');
 
     registerDisplayMediaHandler(registry);
@@ -295,8 +306,8 @@ describe('registerDisplayMediaHandler', () => {
     );
 
     expect(setSources).toHaveBeenCalledWith([
-      { id: mockSource.id, name: mockSource.name },
-      { id: mockWindowSource.id, name: mockWindowSource.name },
+      { id: mockSource.id, name: mockSource.name, kind: 'screen', displayId: '1' },
+      { id: mockWindowSource.id, name: mockWindowSource.name, kind: 'window' },
     ]);
   });
 

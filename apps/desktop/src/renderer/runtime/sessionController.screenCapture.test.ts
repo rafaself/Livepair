@@ -9,6 +9,21 @@ import {
   createScreenCaptureHarness,
 } from './sessionController.testUtils';
 
+const OVERLAY_DISPLAY = {
+  displayId: '1',
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+} as const;
+
+function createScreenSource(id: string, name: string, displayId: string) {
+  return { id, name, kind: 'screen' as const, displayId };
+}
+
+function createWindowSource(id: string, name: string) {
+  return { id, name, kind: 'window' as const };
+}
+
 describe('createDesktopSessionController – screen capture', () => {
   beforeEach(() => {
     resetDesktopStoresWithDefaults();
@@ -66,14 +81,16 @@ describe('createDesktopSessionController – screen capture', () => {
       settingsStore: useSettingsStore,
     });
     window.bridge.listScreenCaptureSources = vi.fn(async () => ({
-      sources: [{ id: 'screen:2:0', name: 'Desk Display' }],
+      sources: [createScreenSource('screen:2:0', 'Desk Display', '2')],
       selectedSourceId: null,
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
 
     await controller.startSession({ mode: 'speech' });
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
-      sources: [{ id: 'window:42:0', name: 'Stale Window' }],
+      sources: [createWindowSource('window:42:0', 'Stale Window')],
       selectedSourceId: 'window:42:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     });
 
     await controller.startScreenCapture();
@@ -81,7 +98,7 @@ describe('createDesktopSessionController – screen capture', () => {
     expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
     expect(screenCapture.start).toHaveBeenCalledOnce();
     expect(useSessionStore.getState().screenCaptureSources).toEqual([
-      { id: 'screen:2:0', name: 'Desk Display' },
+      createScreenSource('screen:2:0', 'Desk Display', '2'),
     ]);
     expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBeNull();
   });
@@ -396,17 +413,20 @@ describe('createDesktopSessionController – screen capture', () => {
 
     await controller.startSession({ mode: 'speech' });
     window.bridge.listScreenCaptureSources = vi.fn(async () => ({
-      sources: [{ id: 'screen:1:0', name: 'Desk Display' }],
+      sources: [createScreenSource('screen:1:0', 'Desk Display', '1')],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
     await controller.startScreenCapture();
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
-      sources: [{ id: 'window:42:0', name: 'Stale Window' }],
+      sources: [createWindowSource('window:42:0', 'Stale Window')],
       selectedSourceId: 'window:42:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     });
     window.bridge.listScreenCaptureSources = vi.fn(async () => ({
-      sources: [{ id: 'screen:2:0', name: 'Projector' }],
+      sources: [createScreenSource('screen:2:0', 'Projector', '2')],
       selectedSourceId: null,
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
 
     firstTransport.emit({
@@ -434,7 +454,7 @@ describe('createDesktopSessionController – screen capture', () => {
       expect(screenCapture.start).toHaveBeenCalledTimes(2);
       expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
       expect(useSessionStore.getState().screenCaptureSources).toEqual([
-        { id: 'screen:2:0', name: 'Projector' },
+        createScreenSource('screen:2:0', 'Projector', '2'),
       ]);
       expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBeNull();
     });

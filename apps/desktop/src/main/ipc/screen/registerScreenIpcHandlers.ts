@@ -1,9 +1,10 @@
-import { desktopCapturer, ipcMain } from 'electron';
+import { desktopCapturer, ipcMain, screen } from 'electron';
 import type { ScreenFrameDumpService } from '../../debug/screenFrameDumpService';
 import {
   CAPTURE_SOURCE_LIST_OPTIONS,
   type CaptureSourceRegistry,
   filterEligibleCaptureSources,
+  toScreenCaptureOverlayDisplay,
   toCaptureSources,
 } from '../../desktopCapture/captureSourceRegistry';
 import { getScreenCaptureAccessStatus } from '../../desktopCapture/screenCaptureAccessStatus';
@@ -25,12 +26,13 @@ export function registerScreenIpcHandlers({
   getExcludedSourceIds = () => new Set(),
   platform,
   screenFrameDumpService,
-}: RegisterScreenIpcHandlersOptions): void {
+  }: RegisterScreenIpcHandlersOptions): void {
   const loadScreenCaptureSourceSnapshot = async () => {
     const sources = toCaptureSources(filterEligibleCaptureSources(
       await desktopCapturer.getSources(CAPTURE_SOURCE_LIST_OPTIONS),
       getExcludedSourceIds(),
     ));
+    const overlayDisplay = toScreenCaptureOverlayDisplay(screen.getPrimaryDisplay());
     captureSourceRegistry.setSources(sources);
 
     if (captureSourceRegistry.getSelectedSourceId() === null) {
@@ -40,7 +42,7 @@ export function registerScreenIpcHandlers({
       }
     }
 
-    return captureSourceRegistry.getSnapshot();
+    return captureSourceRegistry.getSnapshot(overlayDisplay);
   };
 
   ipcMain.handle(IPC_CHANNELS.getScreenCaptureAccessStatus, async () => {
@@ -66,7 +68,10 @@ export function registerScreenIpcHandlers({
     }
 
     captureSourceRegistry.setSelectedSourceId(sourceId);
-    return captureSourceRegistry.getSnapshot();
+    return {
+      ...snapshot,
+      selectedSourceId: sourceId,
+    };
   });
 
   ipcMain.handle(IPC_CHANNELS.startScreenFrameDumpSession, async () => {

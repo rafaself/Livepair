@@ -12,6 +12,20 @@ type MockMediaDeviceInfo = Pick<MediaDeviceInfo, 'deviceId' | 'groupId' | 'kind'
 const enumerateDevices = vi.fn<() => Promise<MockMediaDeviceInfo[]>>();
 const getUserMedia = vi.fn<() => Promise<MediaStream>>();
 const mediaDevicesEvents = new EventTarget();
+const OVERLAY_DISPLAY = {
+  displayId: '1',
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+} as const;
+
+function createScreenSource(id: string, name: string, displayId: string) {
+  return { id, name, kind: 'screen' as const, displayId };
+}
+
+function createWindowSource(id: string, name: string) {
+  return { id, name, kind: 'window' as const };
+}
 
 function installMediaDevicesMock(): void {
   Object.defineProperty(window.navigator, 'mediaDevices', {
@@ -33,10 +47,11 @@ async function renderSettings(settings = DEFAULT_DESKTOP_SETTINGS): Promise<Retu
   useUiStore.getState().initializeSettingsUi(settings);
   useSessionStore.getState().setScreenCaptureSourceSnapshot({
     sources: [
-      { id: 'screen:1:0', name: 'Entire Screen' },
-      { id: 'window:42:0', name: 'VSCode' },
+      createScreenSource('screen:1:0', 'Entire Screen', '1'),
+      createWindowSource('window:42:0', 'VSCode'),
     ],
     selectedSourceId: null,
+    overlayDisplay: OVERLAY_DISPLAY,
   });
 
   await act(async () => {
@@ -60,17 +75,19 @@ describe('AssistantPanelSettingsView', () => {
     }));
     window.bridge.listScreenCaptureSources = vi.fn(async () => ({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: null,
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
     window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: sourceId,
+      overlayDisplay: OVERLAY_DISPLAY,
     }));
     installMediaDevicesMock();
   });

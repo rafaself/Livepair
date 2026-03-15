@@ -23,6 +23,7 @@ import {
   formatOutboundBreakerState,
   formatOutboundDecisionOutcome,
   formatOutboundDecisionReason,
+  formatOverlayMaskReason,
   formatScreenCaptureState,
   formatVisualTransitionReason,
   formatVoiceCaptureState,
@@ -355,6 +356,22 @@ export function AssistantPanelDebugScreenContextSection({
           {
             label: 'Last frame',
             value: screenCaptureDiagnostics.lastFrameAt ?? 'None',
+          },
+          {
+            label: 'Overlay mask active',
+            value: screenCaptureDiagnostics.overlayMaskActive ? 'Yes' : 'No',
+          },
+          {
+            label: 'Mask reason',
+            value: formatOverlayMaskReason(screenCaptureDiagnostics.maskReason),
+          },
+          {
+            label: 'Masked rects',
+            value: String(screenCaptureDiagnostics.maskedRectCount),
+          },
+          {
+            label: 'Last masked frame',
+            value: screenCaptureDiagnostics.lastMaskedFrameAt ?? 'None',
           },
           {
             label: 'Last upload',

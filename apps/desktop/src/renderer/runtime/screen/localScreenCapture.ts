@@ -7,6 +7,11 @@ import {
   SCREEN_CAPTURE_VIDEO_MIME_TYPE,
 } from './screenCapturePolicy';
 import { mapScreenCaptureStartError } from './screenCaptureStartError';
+import {
+  applyCaptureExclusionMask,
+} from './screenFrameMasking';
+import type { CaptureExclusionMaskingContext } from './screenFrameMasking';
+import type { CaptureExclusionMaskAnalysis } from './screenFrameMasking';
 
 export {
   SCREEN_CAPTURE_FRAME_RATE_HZ,
@@ -24,6 +29,8 @@ type CanvasLike = {
 
 type CanvasRenderingContext2DLike = {
   drawImage: (image: HTMLVideoElement, sx: number, sy: number, sw: number, sh: number) => void;
+  fillStyle: string;
+  fillRect: (x: number, y: number, width: number, height: number) => void;
 };
 
 type VideoElementLike = {
@@ -65,7 +72,17 @@ export type CreateLocalScreenCaptureDependencies = {
   createCanvas?: () => CanvasLike;
   createVideoElement?: () => VideoElementLike;
   createInterval?: (callback: () => void, intervalMs: number) => () => void;
+  getCaptureExclusionMaskingContext?: () => CaptureExclusionMaskingContext;
 };
+
+function defaultGetCaptureExclusionMaskingContext(): CaptureExclusionMaskingContext {
+  return {
+    exclusionRects: [],
+    overlayVisibility: 'hidden',
+    overlayDisplay: null,
+    selectedSource: null,
+  };
+}
 
 async function blobToUint8Array(blob: Blob): Promise<Uint8Array> {
   if (typeof blob.arrayBuffer === 'function') {
@@ -133,6 +150,12 @@ function defaultCreateInterval(callback: () => void, intervalMs: number): () => 
   };
 }
 
+function shouldClearLastMaskedFrameAt(maskAnalysis: CaptureExclusionMaskAnalysis): boolean {
+  return maskAnalysis.maskReason === 'window-source'
+    || maskAnalysis.maskReason === 'other-display'
+    || maskAnalysis.maskReason === 'missing-overlay-display';
+}
+
 export function createLocalScreenCapture(
   observer: LocalScreenCaptureObserver,
   {
@@ -141,6 +164,7 @@ export function createLocalScreenCapture(
     createCanvas = defaultCreateCanvas,
     createVideoElement = defaultCreateVideoElement,
     createInterval = defaultCreateInterval,
+    getCaptureExclusionMaskingContext = defaultGetCaptureExclusionMaskingContext,
   }: CreateLocalScreenCaptureDependencies = {},
 ): LocalScreenCapture {
   let isCapturing = false;
@@ -198,6 +222,7 @@ export function createLocalScreenCapture(
     cvs: CanvasLike,
     jpegQuality: number,
     generation: number,
+    maskAnalysis: CaptureExclusionMaskAnalysis,
   ): Promise<void> {
     let data: Uint8Array;
 
@@ -223,12 +248,21 @@ export function createLocalScreenCapture(
       heightPx: cvs.height,
     };
 
+    const frameTimestamp = new Date().toISOString();
     observer.onFrame(frame);
     observer.onDiagnostics({
       frameCount: sequence,
       widthPx: cvs.width,
       heightPx: cvs.height,
-      lastFrameAt: new Date().toISOString(),
+      lastFrameAt: frameTimestamp,
+      overlayMaskActive: maskAnalysis.overlayMaskActive,
+      maskedRectCount: maskAnalysis.maskedRectCount,
+      maskReason: maskAnalysis.maskReason,
+      ...(maskAnalysis.overlayMaskActive
+        ? { lastMaskedFrameAt: frameTimestamp }
+        : shouldClearLastMaskedFrameAt(maskAnalysis)
+          ? { lastMaskedFrameAt: null }
+        : {}),
     });
   }
 
@@ -329,6 +363,10 @@ export function createLocalScreenCapture(
         widthPx: null,
         heightPx: null,
         lastFrameAt: null,
+        overlayMaskActive: false,
+        maskedRectCount: 0,
+        lastMaskedFrameAt: null,
+        maskReason: 'hidden',
         lastUploadStatus: 'idle',
         lastError: null,
       });
@@ -363,7 +401,12 @@ export function createLocalScreenCapture(
         }
 
         ctx.drawImage(video as unknown as HTMLVideoElement, 0, 0, targetWidth, targetHeight);
-        await captureFrame(cvs, currentJpegQuality, sessionGeneration);
+        const maskAnalysis = applyCaptureExclusionMask(ctx, {
+          canvasWidth: cvs.width,
+          canvasHeight: cvs.height,
+          ...getCaptureExclusionMaskingContext(),
+        });
+        await captureFrame(cvs, currentJpegQuality, sessionGeneration, maskAnalysis);
       }, intervalMs);
     })();
 

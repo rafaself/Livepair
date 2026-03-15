@@ -5,8 +5,19 @@ import {
   type CaptureSource,
 } from './captureSourceRegistry';
 
-const sourceA: CaptureSource = { id: 'screen:1:0', name: 'Entire Screen' };
-const sourceB: CaptureSource = { id: 'window:42:0', name: 'VSCode' };
+const overlayDisplay = {
+  displayId: '1',
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+} as const;
+const sourceA: CaptureSource = {
+  id: 'screen:1:0',
+  name: 'Entire Screen',
+  kind: 'screen',
+  displayId: '1',
+};
+const sourceB: CaptureSource = { id: 'window:42:0', name: 'VSCode', kind: 'window' };
 
 describe('createCaptureSourceRegistry', () => {
   let registry: ReturnType<typeof createCaptureSourceRegistry>;
@@ -70,9 +81,10 @@ describe('createCaptureSourceRegistry', () => {
     registry.setSources([sourceA]);
 
     expect(registry.getSelectedSourceId()).toBeNull();
-    expect(registry.getSnapshot()).toEqual({
+    expect(registry.getSnapshot(overlayDisplay)).toEqual({
       sources: [sourceA],
       selectedSourceId: null,
+      overlayDisplay,
     });
   });
 
@@ -80,9 +92,10 @@ describe('createCaptureSourceRegistry', () => {
     registry.setSources([sourceA, sourceB]);
     registry.setSelectedSourceId('screen:1:0');
 
-    expect(registry.getSnapshot()).toEqual({
+    expect(registry.getSnapshot(overlayDisplay)).toEqual({
       sources: [sourceA, sourceB],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay,
     });
   });
 });

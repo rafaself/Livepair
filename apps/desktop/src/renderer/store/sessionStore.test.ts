@@ -2,6 +2,21 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { LIVE_ADAPTER_KEY, selectAssistantRuntimeState } from '../runtime';
 import { useSessionStore } from './sessionStore';
 
+const OVERLAY_DISPLAY = {
+  displayId: '1',
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+} as const;
+
+function createScreenSource(id: string, name: string, displayId: string) {
+  return { id, name, kind: 'screen' as const, displayId };
+}
+
+function createWindowSource(id: string, name: string) {
+  return { id, name, kind: 'window' as const };
+}
+
 describe('sessionStore', () => {
   beforeEach(() => {
     useSessionStore.getState().reset();
@@ -133,6 +148,10 @@ describe('sessionStore', () => {
           widthPx: null,
           heightPx: null,
           lastFrameAt: null,
+          overlayMaskActive: false,
+          maskedRectCount: 0,
+          lastMaskedFrameAt: null,
+          maskReason: 'hidden',
           lastUploadStatus: 'idle',
           lastError: null,
         },
@@ -528,6 +547,10 @@ describe('sessionStore', () => {
         widthPx: null,
         heightPx: null,
         lastFrameAt: null,
+        overlayMaskActive: false,
+        maskedRectCount: 0,
+        lastMaskedFrameAt: null,
+        maskReason: 'hidden',
         lastUploadStatus: 'idle',
         lastError: null,
       });
@@ -580,6 +603,10 @@ describe('sessionStore', () => {
         widthPx: 640,
         heightPx: 360,
         lastFrameAt: '2026-03-10T00:00:00.000Z',
+        overlayMaskActive: false,
+        maskedRectCount: 0,
+        lastMaskedFrameAt: null,
+        maskReason: 'hidden',
         lastUploadStatus: 'sending',
         lastError: null,
       });
@@ -588,30 +615,35 @@ describe('sessionStore', () => {
     it('stores source snapshots and clears them during runtime resets', () => {
       useSessionStore.getState().setScreenCaptureSourceSnapshot({
         sources: [
-          { id: 'screen:1:0', name: 'Entire Screen' },
-          { id: 'window:42:0', name: 'VSCode' },
+          createScreenSource('screen:1:0', 'Entire Screen', '1'),
+          createWindowSource('window:42:0', 'VSCode'),
         ],
         selectedSourceId: 'window:42:0',
+        overlayDisplay: OVERLAY_DISPLAY,
       });
 
       expect(useSessionStore.getState().screenCaptureSources).toEqual([
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ]);
       expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('window:42:0');
+      expect(useSessionStore.getState().overlayDisplay).toEqual(OVERLAY_DISPLAY);
 
       useSessionStore.getState().resetTextSessionRuntime();
       expect(useSessionStore.getState().screenCaptureSources).toEqual([]);
       expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBeNull();
+      expect(useSessionStore.getState().overlayDisplay).toBeNull();
 
       useSessionStore.getState().setScreenCaptureSourceSnapshot({
-        sources: [{ id: 'screen:1:0', name: 'Entire Screen' }],
+        sources: [createScreenSource('screen:1:0', 'Entire Screen', '1')],
         selectedSourceId: 'screen:1:0',
+        overlayDisplay: OVERLAY_DISPLAY,
       });
       useSessionStore.getState().reset();
 
       expect(useSessionStore.getState().screenCaptureSources).toEqual([]);
       expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBeNull();
+      expect(useSessionStore.getState().overlayDisplay).toBeNull();
     });
 
     it('resets screen capture to disabled on reset()', () => {
@@ -631,6 +663,10 @@ describe('sessionStore', () => {
         widthPx: null,
         heightPx: null,
         lastFrameAt: null,
+        overlayMaskActive: false,
+        maskedRectCount: 0,
+        lastMaskedFrameAt: null,
+        maskReason: 'hidden',
         lastUploadStatus: 'idle',
         lastError: null,
       });

@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
 import { App } from './App';
 import { useSettingsStore } from './store/settingsStore';
+import { useCaptureExclusionRectsStore } from './store/captureExclusionRectsStore';
 import { resetDesktopStores } from './test/store';
 import { useUiStore } from './store/uiStore';
 import { __emitGeminiLiveSdkMessage } from './test/geminiLiveSdkMock';
@@ -182,6 +183,68 @@ describe('App', () => {
     matchMedia.change(false);
     expect(document.documentElement.dataset['theme']).toBe('light');
     expect(window.bridge.setOverlayPointerPassthrough).toHaveBeenCalled();
+  });
+
+  it('tracks capture exclusion rects even when the overlay uses forwarded-pointer mode', async () => {
+    installMatchMedia(true);
+    window.bridge.overlayMode = 'forwarded-pointer';
+
+    render(<App />);
+
+    const dock = screen.getByRole('toolbar', { name: 'Assistant controls' });
+    const panel = screen.getByRole('complementary', { hidden: true });
+
+    Object.defineProperty(dock, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        x: 1500,
+        y: 300,
+        width: 80,
+        height: 220,
+        top: 300,
+        left: 1500,
+        right: 1580,
+        bottom: 520,
+        toJSON: () => ({}),
+      }),
+    });
+    Object.defineProperty(panel, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        x: 1580,
+        y: 0,
+        width: 340,
+        height: 1080,
+        top: 0,
+        left: 1580,
+        right: 1920,
+        bottom: 1080,
+        toJSON: () => ({}),
+      }),
+    });
+
+    fireEvent(window, new Event('resize'));
+
+    await waitFor(() => {
+      expect(
+        useCaptureExclusionRectsStore
+          .getState()
+          .rects.some((rect) => rect.x === 1500 && rect.width === 80),
+      ).toBe(true);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
+    });
+
+    await waitFor(() => {
+      expect(useCaptureExclusionRectsStore.getState().rects).toContainEqual({
+        x: 1580,
+        y: 0,
+        width: 340,
+        height: 1080,
+      });
+    });
   });
 
   it('shows the inactive history container CTA instead of a text form when no Live session is active', async () => {

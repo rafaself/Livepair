@@ -11,9 +11,12 @@ export {
   type OverlayMode,
   type SaveScreenFrameDumpFrameRequest,
   type ScreenCaptureAccessStatus,
+  type ScreenCaptureOverlayDisplay,
   type ScreenCapturePermissionStatus,
+  type ScreenCaptureRect,
   type ScreenFrameDumpSessionInfo,
   type ScreenCaptureSource,
+  type ScreenCaptureSourceKind,
   type ScreenCaptureSourceSnapshot,
 } from './desktopBridge';
 export {

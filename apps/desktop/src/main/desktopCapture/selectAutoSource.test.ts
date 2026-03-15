@@ -3,10 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { selectAutoSource } from './selectAutoSource';
 import type { CaptureSource } from './captureSourceRegistry';
 
-const screenSource: CaptureSource = { id: 'screen:1:0', name: 'Entire Screen' };
-const screenSource2: CaptureSource = { id: 'screen:2:0', name: 'Built-in Display' };
-const windowSource: CaptureSource = { id: 'window:42:0', name: 'VSCode' };
-const livepairWindowSource: CaptureSource = { id: 'window:99:0', name: 'Livepair' };
+const screenSource: CaptureSource = {
+  id: 'screen:1:0',
+  name: 'Entire Screen',
+  kind: 'screen',
+  displayId: '1',
+};
+const screenSource2: CaptureSource = {
+  id: 'screen:2:0',
+  name: 'Built-in Display',
+  kind: 'screen',
+  displayId: '2',
+};
+const windowSource: CaptureSource = { id: 'window:42:0', name: 'VSCode', kind: 'window' };
+const livepairWindowSource: CaptureSource = { id: 'window:99:0', name: 'Livepair', kind: 'window' };
 
 describe('selectAutoSource', () => {
   it('returns the only eligible source when exactly one source exists', () => {
@@ -30,7 +40,7 @@ describe('selectAutoSource', () => {
   });
 
   it('returns null when only window sources remain (no screen source to auto-pick)', () => {
-    const sources = [windowSource, { id: 'window:43:0', name: 'Terminal' }];
+    const sources = [windowSource, { id: 'window:43:0', name: 'Terminal', kind: 'window' as const }];
     expect(selectAutoSource(sources)).toBeNull();
   });
 

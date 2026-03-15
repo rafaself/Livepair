@@ -86,6 +86,7 @@ function buildResetTextSessionRuntimeState(
     visualSendDiagnostics: buildDefaultVisualSendDiagnostics(),
     screenCaptureSources: [],
     selectedScreenCaptureSourceId: null,
+    overlayDisplay: null,
     localUserSpeechActive: false,
   };
 }
@@ -219,10 +220,11 @@ export function createSessionStoreActions(
         },
       })),
     setVisualSendDiagnostics: (visualSendDiagnostics) => set({ visualSendDiagnostics }),
-    setScreenCaptureSourceSnapshot: ({ sources, selectedSourceId }) =>
+    setScreenCaptureSourceSnapshot: ({ sources, selectedSourceId, overlayDisplay }) =>
       set({
         screenCaptureSources: sources,
         selectedScreenCaptureSourceId: selectedSourceId,
+        overlayDisplay,
       }),
     setLocalUserSpeechActive: (localUserSpeechActive) => set({ localUserSpeechActive }),
     setAssistantState: (assistantState) =>
