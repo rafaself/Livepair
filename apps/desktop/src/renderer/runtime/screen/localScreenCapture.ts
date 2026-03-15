@@ -7,6 +7,10 @@ import {
   SCREEN_CAPTURE_VIDEO_MIME_TYPE,
 } from './screenCapturePolicy';
 import { mapScreenCaptureStartError } from './screenCaptureStartError';
+import {
+  applyCaptureExclusionMask,
+} from './screenFrameMasking';
+import type { CaptureExclusionMaskingContext } from './screenFrameMasking';
 
 export {
   SCREEN_CAPTURE_FRAME_RATE_HZ,
@@ -24,6 +28,8 @@ type CanvasLike = {
 
 type CanvasRenderingContext2DLike = {
   drawImage: (image: HTMLVideoElement, sx: number, sy: number, sw: number, sh: number) => void;
+  fillStyle: string;
+  fillRect: (x: number, y: number, width: number, height: number) => void;
 };
 
 type VideoElementLike = {
@@ -65,7 +71,16 @@ export type CreateLocalScreenCaptureDependencies = {
   createCanvas?: () => CanvasLike;
   createVideoElement?: () => VideoElementLike;
   createInterval?: (callback: () => void, intervalMs: number) => () => void;
+  getCaptureExclusionMaskingContext?: () => CaptureExclusionMaskingContext;
 };
+
+function defaultGetCaptureExclusionMaskingContext(): CaptureExclusionMaskingContext {
+  return {
+    exclusionRects: [],
+    overlayDisplay: null,
+    selectedSource: null,
+  };
+}
 
 async function blobToUint8Array(blob: Blob): Promise<Uint8Array> {
   if (typeof blob.arrayBuffer === 'function') {
@@ -141,6 +156,7 @@ export function createLocalScreenCapture(
     createCanvas = defaultCreateCanvas,
     createVideoElement = defaultCreateVideoElement,
     createInterval = defaultCreateInterval,
+    getCaptureExclusionMaskingContext = defaultGetCaptureExclusionMaskingContext,
   }: CreateLocalScreenCaptureDependencies = {},
 ): LocalScreenCapture {
   let isCapturing = false;
@@ -363,6 +379,11 @@ export function createLocalScreenCapture(
         }
 
         ctx.drawImage(video as unknown as HTMLVideoElement, 0, 0, targetWidth, targetHeight);
+        applyCaptureExclusionMask(ctx, {
+          canvasWidth: cvs.width,
+          canvasHeight: cvs.height,
+          ...getCaptureExclusionMaskingContext(),
+        });
         await captureFrame(cvs, currentJpegQuality, sessionGeneration);
       }, intervalMs);
     })();

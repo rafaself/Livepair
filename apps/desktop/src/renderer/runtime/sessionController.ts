@@ -1,4 +1,5 @@
 import { checkBackendHealth, requestSessionToken } from '../api/backend';
+import { useCaptureExclusionRectsStore } from '../store/captureExclusionRectsStore';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { defaultRuntimeLogger } from './core/logger';
@@ -33,7 +34,22 @@ function resolveDesktopSessionControllerDependencies(
     createVoiceCapture: (observer) => createLocalVoiceCapture(observer),
     createVoicePlayback: (observer, options) =>
       createAssistantAudioPlayback(observer, options),
-    createScreenCapture: (observer) => createLocalScreenCapture(observer),
+    createScreenCapture: (observer) => createLocalScreenCapture(observer, {
+      getCaptureExclusionMaskingContext: () => {
+        const sessionState = useSessionStore.getState();
+        const selectedSource = sessionState.selectedScreenCaptureSourceId === null
+          ? null
+          : sessionState.screenCaptureSources.find(
+              (source) => source.id === sessionState.selectedScreenCaptureSourceId,
+            ) ?? null;
+
+        return {
+          exclusionRects: useCaptureExclusionRectsStore.getState().rects,
+          overlayDisplay: sessionState.overlayDisplay,
+          selectedSource,
+        };
+      },
+    }),
     store: useSessionStore,
     settingsStore: useSettingsStore,
     ...overrides,
