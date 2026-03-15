@@ -1,4 +1,4 @@
-import { Bug, MessageCircle, Settings, SlidersHorizontal, X } from 'lucide-react';
+import { Bug, MessageCircle, Settings, Settings2, X } from 'lucide-react';
 import { type PanelView } from '../../../store/uiStore';
 import { PanelHeader } from '../../layout';
 import { Button, LivepairIcon } from '../../primitives';
@@ -54,7 +54,7 @@ export function AssistantPanelHeader({
         aria-pressed={panelView === 'preferences'}
         className={getButtonClassName(panelView, 'preferences')}
       >
-        <SlidersHorizontal size={16} />
+        <Settings2 size={16} />
       </Button>
       <Button
         variant="ghost"
