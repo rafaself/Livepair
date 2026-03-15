@@ -1,14 +1,21 @@
-import { ValidationPipe } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
+import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 import type { AddressInfo } from 'net';
-import { AppModule } from '../app.module';
 
 describe('Observability HTTP integration', () => {
+  const originalEnv = process.env;
   let app: INestApplication;
   let baseUrl: string;
 
   beforeEach(async () => {
+    jest.resetModules();
+    process.env = {
+      ...originalEnv,
+      SESSION_TOKEN_AUTH_SECRET: 'observability-secret',
+    };
+    const { ValidationPipe } = await import('@nestjs/common');
+    const { Test } = await import('@nestjs/testing');
+    const { AppModule } = await import('../app.module');
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -23,6 +30,7 @@ describe('Observability HTTP integration', () => {
   });
 
   afterEach(async () => {
+    process.env = originalEnv;
     await app.close();
   });
 
@@ -47,6 +55,7 @@ describe('Observability HTTP integration', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'observability-secret',
       },
       body: JSON.stringify({ sessionId: 123 }),
     });

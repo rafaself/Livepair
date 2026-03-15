@@ -16,6 +16,7 @@ import type {
   RehydrationPacket,
   UpdateLiveSessionRequest,
 } from './index';
+import { SESSION_TOKEN_AUTH_HEADER_NAME } from './index';
 
 type Assert<T extends true> = T;
 type IsExact<T, U> =
@@ -36,6 +37,9 @@ type _ResponseExpireTime = Assert<
 >;
 type _ResponseNewSessionExpireTime = Assert<
   IsExact<CreateEphemeralTokenResponse['newSessionExpireTime'], string>
+>;
+type _SessionTokenAuthHeaderName = Assert<
+  IsExact<typeof SESSION_TOKEN_AUTH_HEADER_NAME, 'x-livepair-session-token-secret'>
 >;
 type _ChatIdShape = Assert<
   IsExact<ChatId, string>

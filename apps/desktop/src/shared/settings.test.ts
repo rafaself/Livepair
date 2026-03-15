@@ -57,6 +57,35 @@ describe('normalizeDesktopSettings', () => {
   });
 });
 
+describe('voice and system instruction settings', () => {
+  it('defaults to the documented voice and product instruction', () => {
+    expect(DEFAULT_DESKTOP_SETTINGS.voice).toBe('Puck');
+    expect(DEFAULT_DESKTOP_SETTINGS.systemInstruction).toBe(
+      'You are Livepair, a realtime multimodal desktop assistant.',
+    );
+  });
+
+  it('falls back to Puck when persisted voice is invalid', () => {
+    expect(
+      normalizeDesktopSettings({
+        voice: 'InvalidVoice' as never,
+      }),
+    ).toMatchObject({
+      voice: 'Puck',
+    });
+  });
+
+  it('accepts an empty persisted system instruction', () => {
+    expect(
+      normalizeDesktopSettings({
+        systemInstruction: '',
+      }),
+    ).toMatchObject({
+      systemInstruction: '',
+    });
+  });
+});
+
 describe('visualSessionQuality setting', () => {
   it('defaults to Low', () => {
     expect(DEFAULT_DESKTOP_SETTINGS.visualSessionQuality).toBe('Low');
@@ -100,6 +129,8 @@ describe('normalizeDesktopSettingsPatch', () => {
         speechSilenceTimeout: '3m',
         voiceEchoCancellationEnabled: false,
         isPanelPinned: true,
+        voice: 'Aoede',
+        systemInstruction: '',
       }),
     ).toEqual({
       backendUrl: 'https://api.livepair.dev/base',
@@ -107,6 +138,8 @@ describe('normalizeDesktopSettingsPatch', () => {
       speechSilenceTimeout: '3m',
       voiceEchoCancellationEnabled: false,
       isPanelPinned: true,
+      voice: 'Aoede',
+      systemInstruction: '',
     });
   });
 
@@ -149,6 +182,11 @@ describe('normalizeDesktopSettingsPatch', () => {
     expect(
       normalizeDesktopSettingsPatch({
         speechSilenceTimeout: '5m' as never,
+      }),
+    ).toBeNull();
+    expect(
+      normalizeDesktopSettingsPatch({
+        voice: 'InvalidVoice' as never,
       }),
     ).toBeNull();
   });

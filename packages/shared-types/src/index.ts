@@ -134,3 +134,5 @@ export interface CreateEphemeralTokenResponse {
   expireTime: string;
   newSessionExpireTime: string;
 }
+
+export const SESSION_TOKEN_AUTH_HEADER_NAME = 'x-livepair-session-token-secret' as const;

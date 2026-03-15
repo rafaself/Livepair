@@ -14,13 +14,13 @@ import type {
   LiveSessionRecord,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
+import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 import { createBackendClient } from './backendClient';
 
 const CHAT_ID = '11111111-1111-1111-1111-111111111111';
 const MISSING_CHAT_ID = '22222222-2222-2222-2222-222222222222';
 const MESSAGE_ID = '33333333-3333-3333-3333-333333333333';
 const LIVE_SESSION_ID = '44444444-4444-4444-4444-444444444444';
-
 function createChatRecord(overrides: Partial<ChatRecord> = {}): ChatRecord {
   return {
     id: CHAT_ID,
@@ -163,6 +163,41 @@ describe('backendClient', () => {
         tokenLength: 'ephemeral-token'.length,
       },
     );
+  });
+
+  it('sends the configured token credential header when requesting a session token', async () => {
+    const response: CreateEphemeralTokenResponse = {
+      token: 'ephemeral-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    };
+    const originalSecret = process.env['SESSION_TOKEN_AUTH_SECRET'];
+    process.env['SESSION_TOKEN_AUTH_SECRET'] = 'desktop-secret';
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => response),
+    });
+
+    try {
+      const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+      await expect(client.requestSessionToken({})).resolves.toEqual(response);
+      expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/session/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'desktop-secret',
+        },
+        body: JSON.stringify({}),
+      });
+    } finally {
+      if (typeof originalSecret === 'undefined') {
+        delete process.env['SESSION_TOKEN_AUTH_SECRET'];
+      } else {
+        process.env['SESSION_TOKEN_AUTH_SECRET'] = originalSecret;
+      }
+    }
   });
 
   it('rejects malformed token responses before bootstrap uses them', async () => {

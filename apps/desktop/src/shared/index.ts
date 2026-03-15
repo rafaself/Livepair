@@ -21,11 +21,13 @@ export {
 } from './desktopBridge';
 export {
   DEFAULT_DESKTOP_SETTINGS,
+  DEFAULT_SYSTEM_INSTRUCTION,
   normalizeDesktopSettings,
   normalizeDesktopSettingsPatch,
   type DesktopSettings,
   type DesktopSettingsPatch,
   type ChatTimestampVisibility,
+  type DesktopVoice,
   type PreferredMode,
   type SpeechSilenceTimeout,
   type ThemePreference,
