@@ -63,7 +63,7 @@ Use a dev build for this runbook. The `Developer tools` panel is only available 
 
 1. Copy the root env example if it does not already exist: `cp .env.example .env`.
 2. In the repository root `.env`, provide a valid `GEMINI_API_KEY`.
-3. In the same root `.env`, keep the required speech-mode values populated, especially `SESSION_TOKEN_LIVE_MODEL`, `VITE_LIVE_MODEL`, and `VITE_LIVE_API_VERSION=v1alpha`, and set these manual-QA flags:
+3. The root `.env` defaults already cover the normal speech-mode values. For manual QA, keep those defaults or override them deliberately, and set these flags:
 
 ```bash
 OPEN_DEVTOOLS=true

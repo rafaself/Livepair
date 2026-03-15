@@ -191,9 +191,17 @@ describe('desktop client protected token flow', () => {
     }
   });
 
-  it('surfaces missing desktop auth configuration as a safe 401', async () => {
-    const harness = await createTokenApp();
+  it('uses the local default desktop auth configuration when no env override is set', async () => {
     delete process.env['SESSION_TOKEN_AUTH_SECRET'];
+    const harness = await createTokenApp({
+      sessionServiceOverride: {
+        createEphemeralToken: jest.fn().mockResolvedValue({
+          token: 'ephemeral-token',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        }),
+      },
+    });
 
     try {
       const client = await createDesktopBackendClient(
@@ -201,9 +209,11 @@ describe('desktop client protected token flow', () => {
         createDesktopFetch(originalFetch),
       );
 
-      await expect(client.requestSessionToken({})).rejects.toThrow(
-        'Token request failed: 401 - Session token credential is required',
-      );
+      await expect(client.requestSessionToken({})).resolves.toEqual({
+        token: 'ephemeral-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      });
     } finally {
       await harness.app.close();
     }

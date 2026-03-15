@@ -144,7 +144,10 @@ describe('backendClient', () => {
     await expect(client.requestSessionToken(req)).resolves.toEqual(response);
     expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/session/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
       body: JSON.stringify(req),
     });
     expect(consoleInfoSpy).toHaveBeenCalledWith(
@@ -188,6 +191,41 @@ describe('backendClient', () => {
         headers: {
           'Content-Type': 'application/json',
           [SESSION_TOKEN_AUTH_HEADER_NAME]: 'desktop-secret',
+        },
+        body: JSON.stringify({}),
+      });
+    } finally {
+      if (typeof originalSecret === 'undefined') {
+        delete process.env['SESSION_TOKEN_AUTH_SECRET'];
+      } else {
+        process.env['SESSION_TOKEN_AUTH_SECRET'] = originalSecret;
+      }
+    }
+  });
+
+  it('uses the local default token credential header when no env override is set', async () => {
+    const response: CreateEphemeralTokenResponse = {
+      token: 'ephemeral-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    };
+    const originalSecret = process.env['SESSION_TOKEN_AUTH_SECRET'];
+    delete process.env['SESSION_TOKEN_AUTH_SECRET'];
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => response),
+    });
+
+    try {
+      const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+      await expect(client.requestSessionToken({})).resolves.toEqual(response);
+      expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/session/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
         },
         body: JSON.stringify({}),
       });

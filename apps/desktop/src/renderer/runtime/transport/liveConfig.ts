@@ -98,6 +98,9 @@ export type GeminiLiveConnectConfig = {
 };
 
 // Conservative default for speech-mode screen sharing: optimize for latency/cost first.
+const DEFAULT_LIVE_MODEL = 'models/gemini-2.0-flash-live-001';
+const DEFAULT_LIVE_API_VERSION = 'v1alpha';
+const DEFAULT_VOICE_RESPONSE_MODALITY: LiveResponseModality = 'AUDIO';
 const DEFAULT_MEDIA_RESOLUTION: LiveMediaResolution = 'MEDIA_RESOLUTION_LOW';
 const AUDIO_TRANSCRIPTION_DISABLED = false;
 
@@ -215,9 +218,9 @@ export function resolveLiveConfigEnv(
   return {
     provider: LIVE_PROVIDER,
     adapterKey: LIVE_ADAPTER_KEY,
-    model: requireEnvValue(env.VITE_LIVE_MODEL, 'VITE_LIVE_MODEL', 'speech mode'),
+    model: requireEnvValue(env.VITE_LIVE_MODEL ?? DEFAULT_LIVE_MODEL, 'VITE_LIVE_MODEL', 'speech mode'),
     apiVersion: requireEnvValue(
-      env.VITE_LIVE_API_VERSION,
+      env.VITE_LIVE_API_VERSION ?? DEFAULT_LIVE_API_VERSION,
       'VITE_LIVE_API_VERSION',
       'speech mode',
     ),
@@ -229,7 +232,7 @@ export function resolveLiveConfigEnv(
       },
       voice: {
         responseModality: requireEnvValue(
-          env.VITE_LIVE_VOICE_RESPONSE_MODALITY,
+          env.VITE_LIVE_VOICE_RESPONSE_MODALITY ?? DEFAULT_VOICE_RESPONSE_MODALITY,
           'VITE_LIVE_VOICE_RESPONSE_MODALITY',
           'speech mode',
         ),

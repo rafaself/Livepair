@@ -21,6 +21,8 @@ type BackendClientOptions = {
   getBackendUrl: () => Promise<string>;
 };
 
+const DEFAULT_SESSION_TOKEN_AUTH_SECRET = 'livepair-local-session-token-secret';
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -51,7 +53,7 @@ function isExpiredTimestamp(value: string, now = Date.now()): boolean {
 }
 
 function readSessionTokenAuthSecret(): string | null {
-  const value = process.env['SESSION_TOKEN_AUTH_SECRET'];
+  const value = process.env['SESSION_TOKEN_AUTH_SECRET'] ?? DEFAULT_SESSION_TOKEN_AUTH_SECRET;
 
   if (typeof value !== 'string' || value.trim().length === 0) {
     return null;

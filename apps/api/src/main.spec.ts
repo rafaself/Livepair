@@ -21,6 +21,7 @@ describe('main bootstrap', () => {
   const originalPort = process.env['PORT'];
   const originalHost = process.env['HOST'];
   const originalDisableHttpListen = process.env['DISABLE_HTTP_LISTEN'];
+  const originalGeminiApiKey = process.env['GEMINI_API_KEY'];
   const originalNodeEnv = process.env['NODE_ENV'];
   const originalDotenvConfigPath = process.env['DOTENV_CONFIG_PATH'];
   const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {
@@ -37,12 +38,14 @@ describe('main bootstrap', () => {
     listen.mockClear();
     logSpy.mockClear();
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
+    process.env['GEMINI_API_KEY'] = 'gemini-key';
   });
 
   afterAll(() => {
     process.env['PORT'] = originalPort;
     process.env['HOST'] = originalHost;
     process.env['DISABLE_HTTP_LISTEN'] = originalDisableHttpListen;
+    process.env['GEMINI_API_KEY'] = originalGeminiApiKey;
     process.env['NODE_ENV'] = originalNodeEnv;
     process.env['DOTENV_CONFIG_PATH'] = originalDotenvConfigPath;
     logSpy.mockRestore();
@@ -83,5 +86,14 @@ describe('main bootstrap', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       'HTTP listen disabled (DISABLE_HTTP_LISTEN=true).',
     );
+  });
+
+  it('fails fast when GEMINI_API_KEY is missing', async () => {
+    delete process.env['GEMINI_API_KEY'];
+
+    await expect(import('./main')).rejects.toThrow(
+      'Missing required environment variable GEMINI_API_KEY',
+    );
+    expect(create).not.toHaveBeenCalled();
   });
 });

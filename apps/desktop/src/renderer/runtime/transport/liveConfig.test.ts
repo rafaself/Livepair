@@ -144,25 +144,18 @@ describe('liveConfig', () => {
     ).toThrow('Live config voice mode must use AUDIO response modality');
   });
 
-  it('requires explicit speech-mode env config', () => {
-    expect(() => resolveLiveConfigEnv({})).toThrow(
-      'Invalid Live config: VITE_LIVE_MODEL is required for speech mode',
-    );
+  it('uses local speech-mode defaults when env overrides are omitted', () => {
+    const config = parseLiveConfig(resolveLiveConfigEnv({}));
 
-    expect(() =>
-      resolveLiveConfigEnv({
-        VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
-      }),
-    ).toThrow('Invalid Live config: VITE_LIVE_API_VERSION is required for speech mode');
-
-    expect(() =>
-      resolveLiveConfigEnv({
-        VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
-        VITE_LIVE_API_VERSION: 'v1alpha',
-      }),
-    ).toThrow(
-      'Invalid Live config: VITE_LIVE_VOICE_RESPONSE_MODALITY is required for speech mode',
-    );
+    expect(config).toMatchObject({
+      model: 'models/gemini-2.0-flash-live-001',
+      apiVersion: 'v1alpha',
+    });
+    expect(config.sessionModes.voice).toEqual({
+      responseModality: 'AUDIO',
+      inputAudioTranscription: false,
+      outputAudioTranscription: false,
+    });
   });
 
   it('keeps text-path defaults separate from speech env requirements', () => {

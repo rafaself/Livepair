@@ -1,6 +1,4 @@
 import 'reflect-metadata';
-import { ServiceUnavailableException } from '@nestjs/common';
-
 // Prevent the root env loader from re-reading .env on each jest.resetModules()
 // re-import of env.ts, which would restore deleted process.env vars from disk.
 jest.mock('../config/loadRootEnv', () => ({}));
@@ -74,13 +72,22 @@ describe('SessionService', () => {
     });
   });
 
-  it('fails fast when the constrained Live model is not configured', async () => {
+  it('uses the default constrained Live model when the env override is absent', async () => {
     delete process.env['SESSION_TOKEN_LIVE_MODEL'];
 
-    const { service } = await createSessionService();
+    const { service, createToken } = await createSessionService();
 
-    await expect(service.createEphemeralToken({})).rejects.toEqual(
-      new ServiceUnavailableException('Session token Live model is not configured'),
+    await expect(service.createEphemeralToken({})).resolves.toEqual({
+      token: 'auth-tokens/constrained-token',
+      expireTime: '2026-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2026-03-09T12:01:00.000Z',
+    });
+    expect(createToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        liveConnectConstraints: expect.objectContaining({
+          model: 'models/gemini-2.0-flash-live-001',
+        }),
+      }),
     );
   });
 });

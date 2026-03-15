@@ -337,13 +337,13 @@ cp .env.example .env
 
 The root `.env` is the primary local config file for the normal evaluation flow. The app-local `.env.example` files are still the detailed field-by-field references, but they are not required for the standard quick-start path.
 
-3. Open `.env` and fill in the required value:
+3. Open `.env` and fill in the only required value:
 
 ```bash
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
-> **Required:** `GEMINI_API_KEY` must be set before the API can issue Gemini Live session tokens.
+> **Required:** `GEMINI_API_KEY` must be set before the API starts. The other local values have defaults and only need to be added when you want to override them.
 
 Also keep these paired values aligned:
 

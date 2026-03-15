@@ -61,14 +61,18 @@ describe('DatabaseService', () => {
     expect(release).toHaveBeenCalledTimes(1);
   });
 
-  it('throws when DATABASE_URL is missing and a pool is requested', async () => {
+  it('uses the local default DATABASE_URL when a pool is requested without an override', async () => {
     delete process.env['DATABASE_URL'];
 
     const { DatabaseService } = await import('./database.service');
     const service = new DatabaseService();
 
-    expect(() => service.getPool()).toThrow('DATABASE_URL is not configured');
-    expect(Pool).not.toHaveBeenCalled();
+    service.getPool();
+
+    expect(Pool).toHaveBeenCalledWith({
+      connectionString: 'postgres://livepair:livepair@127.0.0.1:5432/livepair',
+      application_name: 'livepair-api',
+    });
   });
 
   it('closes the pool on module destroy', async () => {

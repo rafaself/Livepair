@@ -34,9 +34,9 @@ describe('env config', () => {
           port: 3000,
           host: '127.0.0.1',
           geminiApiKey: '',
-          sessionTokenAuthSecret: '',
-          sessionTokenLiveModel: '',
-          databaseUrl: '',
+          sessionTokenAuthSecret: 'livepair-local-session-token-secret',
+          sessionTokenLiveModel: 'models/gemini-2.0-flash-live-001',
+          databaseUrl: 'postgres://livepair:livepair@127.0.0.1:5432/livepair',
           ephemeralTokenTtlSeconds: 60,
           sessionTokenRateLimitMaxRequests: 5,
           sessionTokenRateLimitWindowMs: 60_000,
@@ -143,6 +143,34 @@ describe('env config', () => {
 
         expect(env.sessionTokenRateLimitMaxRequests).toBe(5);
         expect(env.sessionTokenRateLimitWindowMs).toBe(60_000);
+    } finally {
+      delete process.env['DOTENV_CONFIG_PATH'];
+    }
+  });
+
+  it('fails validation when GEMINI_API_KEY is missing', async () => {
+    delete process.env['GEMINI_API_KEY'];
+    process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
+
+    try {
+      const { validateApiRuntimeEnv } = await import('./env');
+
+      expect(() => validateApiRuntimeEnv()).toThrow(
+        'Missing required environment variable GEMINI_API_KEY',
+      );
+    } finally {
+      delete process.env['DOTENV_CONFIG_PATH'];
+    }
+  });
+
+  it('passes validation when GEMINI_API_KEY is present', async () => {
+    process.env['GEMINI_API_KEY'] = 'gemini-key';
+    process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
+
+    try {
+      const { validateApiRuntimeEnv } = await import('./env');
+
+      expect(() => validateApiRuntimeEnv()).not.toThrow();
     } finally {
       delete process.env['DOTENV_CONFIG_PATH'];
     }

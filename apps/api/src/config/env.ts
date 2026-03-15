@@ -1,5 +1,14 @@
 import './loadRootEnv';
 
+const DEFAULT_PORT = 3000;
+const DEFAULT_HOST = '127.0.0.1';
+const DEFAULT_SESSION_TOKEN_AUTH_SECRET = 'livepair-local-session-token-secret';
+const DEFAULT_SESSION_TOKEN_LIVE_MODEL = 'models/gemini-2.0-flash-live-001';
+const DEFAULT_DATABASE_URL = 'postgres://livepair:livepair@127.0.0.1:5432/livepair';
+const DEFAULT_EPHEMERAL_TOKEN_TTL_SECONDS = 60;
+const DEFAULT_SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS = 5;
+const DEFAULT_SESSION_TOKEN_RATE_LIMIT_WINDOW_MS = 60_000;
+
 function parsePositiveInteger(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? '', 10);
 
@@ -10,24 +19,36 @@ function parsePositiveInteger(value: string | undefined, fallback: number): numb
   return parsed;
 }
 
+function hasNonEmptyValue(value: string | undefined): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 export const env = {
-  port: parseInt(process.env['PORT'] ?? '3000', 10),
-  host: process.env['HOST'] ?? '127.0.0.1',
+  port: parseInt(process.env['PORT'] ?? String(DEFAULT_PORT), 10),
+  host: process.env['HOST'] ?? DEFAULT_HOST,
   geminiApiKey: process.env['GEMINI_API_KEY'] ?? '',
-  sessionTokenAuthSecret: process.env['SESSION_TOKEN_AUTH_SECRET'] ?? '',
-  sessionTokenLiveModel: process.env['SESSION_TOKEN_LIVE_MODEL'] ?? '',
-  databaseUrl: process.env['DATABASE_URL'] ?? '',
+  sessionTokenAuthSecret:
+    process.env['SESSION_TOKEN_AUTH_SECRET'] ?? DEFAULT_SESSION_TOKEN_AUTH_SECRET,
+  sessionTokenLiveModel:
+    process.env['SESSION_TOKEN_LIVE_MODEL'] ?? DEFAULT_SESSION_TOKEN_LIVE_MODEL,
+  databaseUrl: process.env['DATABASE_URL'] ?? DEFAULT_DATABASE_URL,
   ephemeralTokenTtlSeconds: parseInt(
-    process.env['EPHEMERAL_TOKEN_TTL_SECONDS'] ?? '60',
+    process.env['EPHEMERAL_TOKEN_TTL_SECONDS'] ?? String(DEFAULT_EPHEMERAL_TOKEN_TTL_SECONDS),
     10,
   ),
   sessionTokenRateLimitMaxRequests: parsePositiveInteger(
     process.env['SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS'],
-    5,
+    DEFAULT_SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS,
   ),
   sessionTokenRateLimitWindowMs: parsePositiveInteger(
     process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'],
-    60_000,
+    DEFAULT_SESSION_TOKEN_RATE_LIMIT_WINDOW_MS,
   ),
   redisUrl: process.env['REDIS_URL'] ?? '',
 };
+
+export function validateApiRuntimeEnv(requiredEnv: NodeJS.ProcessEnv = process.env): void {
+  if (!hasNonEmptyValue(requiredEnv['GEMINI_API_KEY'])) {
+    throw new Error('Missing required environment variable GEMINI_API_KEY');
+  }
+}
