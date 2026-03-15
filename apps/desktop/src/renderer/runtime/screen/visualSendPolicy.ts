@@ -61,11 +61,23 @@ export type VisualSendDiagnostics = {
   streamingEnteredAt: string | null;
   /** ISO timestamp of the most recent transition out of streaming, or null. */
   streamingEndedAt: string | null;
-  /** Frames actually forwarded (allowSend returned true) per state. */
+  /** Frames actually forwarded to the transport per send-policy state. */
   sentByState: {
     snapshot: number;
     streaming: number;
   };
+  /**
+   * Wave 4 – frames that arrived at the send gate but were dropped because
+   * the visual send policy was not in an allowed state (inactive or sleep).
+   * These frames were captured by the hardware but never reached the model.
+   */
+  droppedByPolicy: number;
+  /**
+   * Wave 4 – frames that passed the policy gate (allowSend returned true) but
+   * were blocked or dropped by the outbound gateway before reaching the
+   * transport.  These frames were not seen by the model.
+   */
+  blockedByGateway: number;
 };
 
 export type VisualSendPolicyOptions = {
@@ -123,6 +135,19 @@ export type VisualSendPolicy = {
    */
   onFrameDispatched: () => void;
   /**
+   * Wave 4 – called when a frame is dropped because the policy did not allow
+   * sending (allowSend() returned false, i.e. state is inactive or sleep).
+   * Increments droppedByPolicy for diagnostic clarity.
+   */
+  onFrameDroppedByPolicy: () => void;
+  /**
+   * Wave 4 – called when a frame passed the policy gate (allowSend returned
+   * true) but was subsequently blocked or dropped by the outbound gateway.
+   * Increments blockedByGateway so the distinction between "sent" and
+   * "gateway-blocked" is observable in diagnostics.
+   */
+  onFrameBlockedByGateway: () => void;
+  /**
    * Wave 3 – returns a read-only diagnostics snapshot.
    * Each call returns a new object; the caller owns the reference.
    */
@@ -139,6 +164,9 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
   let streamingEndedAt: string | null = null;
   let sentSnapshot = 0;
   let sentStreaming = 0;
+  // Wave 4 – capture vs send distinction
+  let droppedByPolicy = 0;
+  let blockedByGateway = 0;
 
   // Wave 7 – cooldown tracking
   let lastSnapshotArmedAt: number | null = null;
@@ -210,6 +238,14 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
       }
     },
 
+    onFrameDroppedByPolicy: () => {
+      droppedByPolicy += 1;
+    },
+
+    onFrameBlockedByGateway: () => {
+      blockedByGateway += 1;
+    },
+
     getDiagnostics: () => ({
       lastTransitionReason,
       snapshotCount,
@@ -219,6 +255,8 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
         snapshot: sentSnapshot,
         streaming: sentStreaming,
       },
+      droppedByPolicy,
+      blockedByGateway,
     }),
   };
 }

@@ -160,6 +160,8 @@ describe('createScreenCaptureController', () => {
         snapshot: 0,
         streaming: 0,
       },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
     });
 
     await ctrl.enqueueFrameSend({
@@ -178,6 +180,8 @@ describe('createScreenCaptureController', () => {
         snapshot: 1,
         streaming: 0,
       },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
     });
 
     await ctrl.stop();
@@ -190,6 +194,8 @@ describe('createScreenCaptureController', () => {
         snapshot: 1,
         streaming: 0,
       },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
     });
   });
 
@@ -1502,5 +1508,220 @@ describe('createScreenCaptureController – Wave 3 screen-capture stabilization'
 
     expect(sendVideoFrame).toHaveBeenCalledTimes(1);
     expect(sendVideoFrame).toHaveBeenCalledWith(mkFrame(2).data, mkFrame(2).mimeType);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 4 – Capture vs Send Diagnostics Separation
+//
+// Requirements tested:
+//   1. A captured frame increments capture diagnostics even if it is never sent.
+//   2. A successfully sent frame increments send diagnostics separately.
+//   3. A blocked/dropped frame is recorded distinctly and does not appear as sent.
+//   4. Frame dump/debug output clearly reflects whether a frame was captured-only or sent.
+//   5. No regression in existing screen-capture diagnostics behavior.
+// ---------------------------------------------------------------------------
+describe('createScreenCaptureController – Wave 4 capture/send diagnostics separation', () => {
+  const mkFrame = (seq: number) => ({
+    data: new Uint8Array([seq]),
+    mimeType: 'image/jpeg' as const,
+    sequence: seq,
+    widthPx: 640,
+    heightPx: 360,
+  });
+
+  // ── Requirement 1: captured frame increments capture diagnostics even if not sent ──
+
+  it('capture diagnostics (frameCount) increment for every frame arriving from hardware, regardless of send policy', async () => {
+    // In sleep state frames are NOT sent, but capture diagnostics should still
+    // update to reflect that the hardware delivered a frame.
+    const { ctrl, getObserver, store } = createHarness();
+
+    await ctrl.start();
+    // Drain the auto-snapshot (frame 1 IS sent)
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    store.setScreenCaptureDiagnostics.mockClear();
+
+    // Now in sleep – frame 2 is captured but should not be sent
+    getObserver()!.onDiagnostics({ frameCount: 2 });
+    expect(store.setScreenCaptureDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({ frameCount: 2 }),
+    );
+  });
+
+  // ── Requirement 2: sent frame increments send diagnostics separately ──────
+
+  it('sent frame increments sentByState counters in visual send diagnostics', async () => {
+    const { ctrl, store, getObserver } = createHarness();
+
+    await ctrl.start();
+    getObserver()!.onFrame(mkFrame(1)); // auto-snapshot consumed
+    await Promise.resolve();
+
+    const lastCall = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastCall).toMatchObject({
+      sentByState: { snapshot: 1, streaming: 0 },
+    });
+  });
+
+  it('streaming frames increment sentByState.streaming separately from capture count', async () => {
+    const { ctrl, store, getObserver } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i <= 2 ? 'send' as const : 'replace' as const,
+        classification: 'replaceable' as const,
+        reason: i <= 2 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+
+    await ctrl.start();
+    // Drain auto-snapshot
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    ctrl.enableStreaming();
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+
+    const lastCall = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastCall).toMatchObject({
+      sentByState: { snapshot: 1, streaming: 1 },
+    });
+  });
+
+  // ── Requirement 3: blocked/dropped frame is recorded and does not appear as sent ──
+
+  it('a frame blocked by the outbound gateway increments blockedByGateway, not sentByState', async () => {
+    const { ctrl, getObserver, store } = createHarness({
+      submitDecision: () => ({
+        outcome: 'block' as const,
+        classification: 'replaceable' as const,
+        reason: 'breaker-open',
+      }),
+    });
+
+    await ctrl.start();
+    // auto-snapshot is armed; frame 1 passes allowSend() but gateway blocks it
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    const lastDiagnostics = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastDiagnostics).toMatchObject({
+      blockedByGateway: expect.any(Number),
+      sentByState: { snapshot: 0, streaming: 0 },
+    });
+    expect(lastDiagnostics.blockedByGateway).toBeGreaterThan(0);
+  });
+
+  it('a frame blocked by the policy (sleep/inactive) increments droppedByPolicy, not sentByState', async () => {
+    const { ctrl, getObserver, store } = createHarness();
+
+    await ctrl.start();
+    // Drain auto-snapshot so policy is back in sleep (snapshot:1 was sent)
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    store.setVisualSendDiagnostics.mockClear();
+
+    // Sleep state – next frame is policy-blocked
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+
+    const lastDiagnostics = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastDiagnostics).toMatchObject({
+      droppedByPolicy: expect.any(Number),
+      // sentByState.snapshot reflects the earlier auto-snapshot send, not the dropped frame
+      sentByState: { snapshot: 1, streaming: 0 },
+    });
+    expect(lastDiagnostics.droppedByPolicy).toBeGreaterThan(0);
+  });
+
+  it('blockedByGateway count does not appear in sentByState after multiple gateway blocks', async () => {
+    const { ctrl, getObserver, store } = createHarness({
+      submitDecision: () => ({
+        outcome: 'block' as const,
+        classification: 'replaceable' as const,
+        reason: 'breaker-open',
+      }),
+    });
+
+    await ctrl.start();
+    // Each frame hits the gateway and is blocked
+    for (let i = 1; i <= 3; i++) {
+      getObserver()!.onFrame(mkFrame(i));
+      await Promise.resolve();
+    }
+
+    const lastDiagnostics = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastDiagnostics.sentByState.snapshot).toBe(0);
+    expect(lastDiagnostics.sentByState.streaming).toBe(0);
+    expect(lastDiagnostics.blockedByGateway).toBeGreaterThanOrEqual(1);
+  });
+
+  // ── Requirement 4: frame dump is capture-level, does not imply model visibility ──
+
+  it('frame dump persists frames that were NOT sent (policy-gated out)', async () => {
+    // The frame dump records captured frames for debugging purposes.
+    // It must run even when the policy blocks the send.
+    const { ctrl, getObserver, saveScreenFrameDumpFrame } = createHarness({
+      saveScreenFramesEnabled: true,
+    });
+
+    await ctrl.start();
+    // Drain auto-snapshot
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    // Now in sleep – next frame is captured but not sent
+    const blockedFrame = mkFrame(2);
+    getObserver()!.onFrame(blockedFrame);
+    await Promise.resolve();
+
+    // Frame dump should have been called for the blocked frame too
+    await vi.waitFor(() => {
+      const allSeqs = saveScreenFrameDumpFrame.mock.calls.map(([f]) => f.sequence);
+      expect(allSeqs).toContain(2);
+    });
+  });
+
+  // ── Requirement 5: no regression in existing diagnostics behavior ─────────
+
+  it('no regression: capture diagnostics (frameCount) still update from observer', async () => {
+    const { ctrl, store, getObserver } = createHarness();
+
+    await ctrl.start();
+    getObserver()!.onDiagnostics({ frameCount: 5 });
+
+    expect(store.setScreenCaptureDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({ frameCount: 5 }),
+    );
+  });
+
+  it('no regression: sentByState.snapshot still increments on snapshot frame send', async () => {
+    const { ctrl, store, getObserver } = createHarness();
+
+    await ctrl.start();
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    const lastCall = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastCall.sentByState.snapshot).toBe(1);
+  });
+
+  it('no regression: gateway-blocked frame does not change screenCaptureDiagnostics lastUploadStatus to sent', async () => {
+    const { ctrl, getObserver, store } = createHarness({
+      submitDecision: () => ({
+        outcome: 'block' as const,
+        classification: 'replaceable' as const,
+        reason: 'breaker-open',
+      }),
+    });
+
+    await ctrl.start();
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    const calls = store.setScreenCaptureDiagnostics.mock.calls;
+    const sentCalls = calls.filter(([p]) => p.lastUploadStatus === 'sent');
+    expect(sentCalls).toHaveLength(0);
   });
 });

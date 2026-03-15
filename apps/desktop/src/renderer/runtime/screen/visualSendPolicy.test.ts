@@ -360,3 +360,121 @@ describe('createVisualSendPolicy – getDiagnostics (Wave 3)', () => {
     expect(snap2.sentByState.snapshot).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Wave 4 – Capture vs Send Diagnostics Separation
+//
+// Adds distinct accounting for:
+//   - frames captured (existing frameCount in ScreenCaptureDiagnostics)
+//   - frames sent (existing sentByState in VisualSendDiagnostics)
+//   - frames dropped because the policy blocked them (new droppedByPolicy)
+//   - frames blocked/dropped by the outbound gateway (new blockedByGateway)
+// ---------------------------------------------------------------------------
+
+describe('createVisualSendPolicy – Wave 4 drop/block diagnostics', () => {
+  it('starts with zero droppedByPolicy and blockedByGateway', () => {
+    const policy = createVisualSendPolicy();
+    const d = policy.getDiagnostics();
+    expect(d.droppedByPolicy).toBe(0);
+    expect(d.blockedByGateway).toBe(0);
+  });
+
+  it('increments droppedByPolicy when onFrameDroppedByPolicy is called in sleep state', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted(); // → sleep (allowSend = false)
+    policy.onFrameDroppedByPolicy();
+    expect(policy.getDiagnostics().droppedByPolicy).toBe(1);
+  });
+
+  it('increments droppedByPolicy when onFrameDroppedByPolicy is called in inactive state', () => {
+    const policy = createVisualSendPolicy();
+    // still inactive; allowSend would return false
+    policy.onFrameDroppedByPolicy();
+    expect(policy.getDiagnostics().droppedByPolicy).toBe(1);
+  });
+
+  it('accumulates droppedByPolicy across multiple policy-blocked frames', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.onFrameDroppedByPolicy();
+    policy.onFrameDroppedByPolicy();
+    policy.onFrameDroppedByPolicy();
+    expect(policy.getDiagnostics().droppedByPolicy).toBe(3);
+  });
+
+  it('increments blockedByGateway when onFrameBlockedByGateway is called', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.analyzeScreenNow(); // → snapshot (allowSend = true)
+    policy.onFrameBlockedByGateway();
+    expect(policy.getDiagnostics().blockedByGateway).toBe(1);
+  });
+
+  it('accumulates blockedByGateway across multiple gateway-blocked frames', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.enableStreaming();
+    policy.onFrameBlockedByGateway();
+    policy.onFrameBlockedByGateway();
+    expect(policy.getDiagnostics().blockedByGateway).toBe(2);
+  });
+
+  it('does not affect sentByState when a frame is dropped by policy', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.onFrameDroppedByPolicy();
+    const d = policy.getDiagnostics();
+    expect(d.sentByState.snapshot).toBe(0);
+    expect(d.sentByState.streaming).toBe(0);
+  });
+
+  it('does not affect sentByState when a frame is blocked by gateway', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.analyzeScreenNow();
+    policy.onFrameBlockedByGateway();
+    const d = policy.getDiagnostics();
+    expect(d.sentByState.snapshot).toBe(0);
+    expect(d.sentByState.streaming).toBe(0);
+  });
+
+  it('does not consume snapshot state when a frame is blocked by gateway', () => {
+    // A gateway-blocked frame must NOT transition snapshot → sleep.
+    // The snapshot must still be armed for the next incoming frame.
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.analyzeScreenNow(); // → snapshot
+    policy.onFrameBlockedByGateway(); // blocked – snapshot should survive
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.allowSend()).toBe(true);
+  });
+
+  it('droppedByPolicy and blockedByGateway are independent of each other', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.onFrameDroppedByPolicy();
+    policy.analyzeScreenNow();
+    policy.onFrameBlockedByGateway();
+    const d = policy.getDiagnostics();
+    expect(d.droppedByPolicy).toBe(1);
+    expect(d.blockedByGateway).toBe(1);
+  });
+
+  it('all four counters remain independent: captured(external), sent, droppedByPolicy, blockedByGateway', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    // 2 frames arrive but policy blocks them (sleep)
+    policy.onFrameDroppedByPolicy();
+    policy.onFrameDroppedByPolicy();
+    // arm snapshot; 1 frame allowed but gateway blocks it
+    policy.analyzeScreenNow();
+    policy.onFrameBlockedByGateway();
+    // arm snapshot again (after cooldown); 1 frame dispatched
+    // (we don't advance time here – just testing counter isolation)
+    const d = policy.getDiagnostics();
+    expect(d.droppedByPolicy).toBe(2);
+    expect(d.blockedByGateway).toBe(1);
+    expect(d.sentByState.snapshot).toBe(0);
+    expect(d.sentByState.streaming).toBe(0);
+  });
+});

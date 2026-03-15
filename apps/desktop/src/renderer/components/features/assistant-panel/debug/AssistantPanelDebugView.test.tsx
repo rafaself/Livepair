@@ -104,6 +104,8 @@ describe('AssistantPanelDebugView', () => {
           streamingEnteredAt: '2026-03-10T10:14:00.000Z',
           streamingEndedAt: null,
           sentByState: { snapshot: 2, streaming: 7 },
+          droppedByPolicy: 0,
+          blockedByGateway: 0,
         }}
         saveScreenFramesEnabled={false}
         screenFrameDumpDirectoryPath="/tmp/livepair/screen-frame-dumps/current-debug-session"
@@ -304,6 +306,8 @@ describe('AssistantPanelDebugSections', () => {
       streamingEnteredAt: null,
       streamingEndedAt: null,
       sentByState: { snapshot: 0, streaming: 0 },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
     });
 
     render(
@@ -333,6 +337,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
           streamingEnteredAt: null,
           streamingEndedAt: null,
           sentByState: { snapshot: 0, streaming: 0 },
+          droppedByPolicy: 0,
+          blockedByGateway: 0,
         })}
       />,
     );
@@ -351,6 +357,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
           streamingEnteredAt: null,
           streamingEndedAt: null,
           sentByState: { snapshot: 0, streaming: 0 },
+          droppedByPolicy: 0,
+          blockedByGateway: 0,
         })}
       />,
     );
@@ -368,6 +376,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
           streamingEnteredAt: null,
           streamingEndedAt: null,
           sentByState: { snapshot: 4, streaming: 0 },
+          droppedByPolicy: 0,
+          blockedByGateway: 0,
         })}
       />,
     );
@@ -384,6 +394,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
           streamingEnteredAt: '2026-03-14T09:00:00.000Z',
           streamingEndedAt: null,
           sentByState: { snapshot: 0, streaming: 0 },
+          droppedByPolicy: 0,
+          blockedByGateway: 0,
         })}
       />,
     );
@@ -400,6 +412,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
           streamingEnteredAt: '2026-03-14T09:00:00.000Z',
           streamingEndedAt: '2026-03-14T09:05:00.000Z',
           sentByState: { snapshot: 0, streaming: 12 },
+          droppedByPolicy: 0,
+          blockedByGateway: 0,
         })}
       />,
     );
@@ -416,6 +430,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
           streamingEnteredAt: null,
           streamingEndedAt: null,
           sentByState: { snapshot: 3, streaming: 0 },
+          droppedByPolicy: 0,
+          blockedByGateway: 0,
         })}
       />,
     );
@@ -424,6 +440,80 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
     expect(
       within(screen.getByText('Sent (snapshot)').closest('.field-list__item')!)
         .getByText('3'),
+    ).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 4 – Capture vs Send Diagnostics display
+// ---------------------------------------------------------------------------
+
+describe('AssistantPanelDebugView – Wave 4 capture/send diagnostics display', () => {
+  it('shows dropped-by-policy count', () => {
+    render(
+      <AssistantPanelDebugView
+        {...buildBaseProps({
+          lastTransitionReason: null,
+          snapshotCount: 0,
+          streamingEnteredAt: null,
+          streamingEndedAt: null,
+          sentByState: { snapshot: 0, streaming: 0 },
+          droppedByPolicy: 5,
+          blockedByGateway: 0,
+        })}
+      />,
+    );
+    expect(screen.getByText('Dropped (policy)')).toBeVisible();
+    expect(
+      within(screen.getByText('Dropped (policy)').closest('.field-list__item')!)
+        .getByText('5'),
+    ).toBeVisible();
+  });
+
+  it('shows blocked-by-gateway count', () => {
+    render(
+      <AssistantPanelDebugView
+        {...buildBaseProps({
+          lastTransitionReason: null,
+          snapshotCount: 0,
+          streamingEnteredAt: null,
+          streamingEndedAt: null,
+          sentByState: { snapshot: 0, streaming: 0 },
+          droppedByPolicy: 0,
+          blockedByGateway: 3,
+        })}
+      />,
+    );
+    expect(screen.getByText('Blocked (gateway)')).toBeVisible();
+    expect(
+      within(screen.getByText('Blocked (gateway)').closest('.field-list__item')!)
+        .getByText('3'),
+    ).toBeVisible();
+  });
+
+  it('shows both dropped-by-policy and blocked-by-gateway when both are non-zero', () => {
+    render(
+      <AssistantPanelDebugView
+        {...buildBaseProps({
+          lastTransitionReason: 'enableStreaming',
+          snapshotCount: 1,
+          streamingEnteredAt: '2026-03-14T09:00:00.000Z',
+          streamingEndedAt: null,
+          sentByState: { snapshot: 1, streaming: 4 },
+          droppedByPolicy: 10,
+          blockedByGateway: 2,
+        })}
+      />,
+    );
+    expect(screen.getByText('Dropped (policy)')).toBeVisible();
+    expect(screen.getByText('Blocked (gateway)')).toBeVisible();
+    expect(
+      within(screen.getByText('Dropped (policy)').closest('.field-list__item')!)
+        .getByText('10'),
+    ).toBeVisible();
+    expect(
+      within(screen.getByText('Blocked (gateway)').closest('.field-list__item')!)
+        .getByText('2'),
     ).toBeVisible();
   });
 });

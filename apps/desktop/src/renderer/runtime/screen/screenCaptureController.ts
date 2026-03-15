@@ -68,6 +68,12 @@ export function createScreenCaptureController(
       visualPolicy.onFrameDispatched();
       flushVisualDiagnostics();
     },
+    onFrameDroppedByPolicy: () => {
+      visualPolicy.onFrameDroppedByPolicy();
+    },
+    onFrameBlockedByGateway: () => {
+      visualPolicy.onFrameBlockedByGateway();
+    },
     flushVisualDiagnostics,
     onSendStarted: () => {
       store.getState().setScreenCaptureDiagnostics({

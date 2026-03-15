@@ -392,6 +392,14 @@ export function AssistantPanelDebugScreenContextSection({
             label: 'Sent (streaming)',
             value: String(visualSendDiagnostics.sentByState.streaming),
           },
+          {
+            label: 'Dropped (policy)',
+            value: String(visualSendDiagnostics.droppedByPolicy),
+          },
+          {
+            label: 'Blocked (gateway)',
+            value: String(visualSendDiagnostics.blockedByGateway),
+          },
         ]}
       />
     </ViewSection>
