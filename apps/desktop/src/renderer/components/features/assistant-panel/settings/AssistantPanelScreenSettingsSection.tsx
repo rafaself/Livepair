@@ -65,7 +65,7 @@ export function AssistantPanelScreenSettingsSection({
             value: (
               <Select
                 aria-label="Frame quality"
-                className="assistant-panel__settings-select"
+                className="assistant-panel__settings-select assistant-panel__settings-audio-select"
                 options={VISUAL_QUALITY_OPTIONS}
                 value={visualSessionQuality}
                 onChange={(event) => {
