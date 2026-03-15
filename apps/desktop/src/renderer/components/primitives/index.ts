@@ -23,3 +23,5 @@ export type {
 } from './forms';
 export { Select } from './select';
 export type { SelectProps, SelectOptionItem } from './select';
+export { Tooltip } from './display';
+export type { TooltipProps } from './display';

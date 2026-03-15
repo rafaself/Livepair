@@ -3,7 +3,7 @@ import type { VisualSessionQuality } from '../../../../../shared';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
 import { FieldList } from '../../../composite';
 import { ViewSection } from '../../../layout';
-import { Select, type SelectOptionItem } from '../../../primitives';
+import { Select, Tooltip, type SelectOptionItem } from '../../../primitives';
 
 const VISUAL_QUALITY_OPTIONS: readonly SelectOptionItem[] = [
   { value: 'Low', label: 'Low' },
@@ -56,26 +56,26 @@ export function AssistantPanelScreenSettingsSection({
             ),
           },
           {
-            label: 'Frame quality',
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                Frame quality
+                <Tooltip content="Higher quality may increase latency and cost." />
+              </span>
+            ),
             value: (
-              <div className="assistant-panel__settings-field-stack">
-                <Select
-                  aria-label="Frame quality"
-                  className="assistant-panel__settings-select"
-                  options={VISUAL_QUALITY_OPTIONS}
-                  value={visualSessionQuality}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    if (value === 'Low' || value === 'Medium' || value === 'High') {
-                      setVisualSessionQuality(value as VisualSessionQuality);
-                    }
-                  }}
-                  size="sm"
-                />
-                <span className="assistant-panel__settings-hint">
-                  Higher quality may increase latency and cost.
-                </span>
-              </div>
+              <Select
+                aria-label="Frame quality"
+                className="assistant-panel__settings-select"
+                options={VISUAL_QUALITY_OPTIONS}
+                value={visualSessionQuality}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === 'Low' || value === 'Medium' || value === 'High') {
+                    setVisualSessionQuality(value as VisualSessionQuality);
+                  }
+                }}
+                size="sm"
+              />
             ),
           },
         ]}
