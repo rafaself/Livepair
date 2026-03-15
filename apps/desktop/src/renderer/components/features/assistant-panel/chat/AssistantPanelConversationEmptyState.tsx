@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Loader2, MessageCircle, Mic, Cast } from 'lucide-react';
+import { Loader2, Mic, Cast } from 'lucide-react';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
-import { Button } from '../../../primitives';
+import { Button, LivepairIcon } from '../../../primitives';
 
 export type AssistantPanelConversationEmptyStateProps = {
   assistantState: AssistantRuntimeState;
@@ -57,9 +57,8 @@ export function AssistantPanelConversationEmptyState({
         .join(' ')}
     >
       <div className="assistant-panel__conversation-empty-identity">
-        <MessageCircle
+        <LivepairIcon
           size={72}
-          strokeWidth={1.25}
           className="assistant-panel__conversation-empty-icon"
           aria-hidden="true"
         />
