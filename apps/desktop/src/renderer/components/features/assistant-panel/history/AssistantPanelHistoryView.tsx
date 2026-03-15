@@ -122,7 +122,7 @@ export function AssistantPanelHistoryView({
         </p>
       ) : null}
       <ul className="chat-history__list" role="list">
-        {chatItems.map(({ chat, preview, latestSessionLabel, resumeLabel }) => (
+        {chatItems.map(({ chat, preview, latestSessionLabel: _latestSessionLabel, resumeLabel: _resumeLabel }) => (
           <li key={chat.id} className="chat-history__item">
             <button
               type="button"

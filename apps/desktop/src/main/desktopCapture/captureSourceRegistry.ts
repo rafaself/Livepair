@@ -23,6 +23,17 @@ export const CAPTURE_SOURCE_LIST_OPTIONS: SourcesOptions = {
   },
 };
 
+export function filterEligibleCaptureSources<
+  TSource extends {
+    id: string;
+  },
+>(
+  sources: readonly TSource[],
+  excludedIds: ReadonlySet<string> = new Set(),
+): TSource[] {
+  return sources.filter((source) => !excludedIds.has(source.id));
+}
+
 export function toCaptureSources<
   TSource extends {
     id: string;

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ScreenFrameDumpControls } from './screenCaptureControllerTypes';
+import type {
+  IsCurrentCapture,
+  ScreenFrameDumpControls,
+} from './screenCaptureControllerTypes';
 import { createScreenFrameDumpCoordinator } from './screenFrameDumpCoordinator';
 import {
   createMockScreenCapture,
@@ -8,10 +11,7 @@ import {
 
 function createHarness(options: {
   saveFramesEnabled?: boolean;
-  isCurrentCapture?: (
-    capture: ReturnType<typeof createMockScreenCapture>,
-    generation: number,
-  ) => boolean;
+  isCurrentCapture?: IsCurrentCapture;
 } = {}) {
   const capture = createMockScreenCapture();
   const generation = 1;
@@ -28,7 +28,7 @@ function createHarness(options: {
     saveScreenFrameDumpFrame,
     setScreenFrameDumpDirectoryPath,
   };
-  const isCurrentCapture = vi.fn(
+  const isCurrentCapture = vi.fn<IsCurrentCapture>(
     options.isCurrentCapture ?? ((_capture, _generation) => true),
   );
   const coordinator = createScreenFrameDumpCoordinator({

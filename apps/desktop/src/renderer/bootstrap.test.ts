@@ -79,7 +79,7 @@ describe('bootstrapDesktopRenderer', () => {
     render(createElement(BootstrappedScreenSourceOptions));
 
     expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-      'Automatic (first available source)|Entire Screen|VSCode',
+      'Choose when sharing|Entire Screen|VSCode',
     );
   });
 

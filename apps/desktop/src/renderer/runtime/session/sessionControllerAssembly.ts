@@ -74,6 +74,20 @@ export function createSessionControllerAssembly(
     undefined,
     () => dependencies.settingsStore.getState().settings.visualSessionQuality,
   );
+  const refreshScreenCaptureSourceSnapshot = async (): Promise<boolean> => {
+    try {
+      const snapshot = await window.bridge.listScreenCaptureSources();
+      dependencies.store.getState().setScreenCaptureSourceSnapshot(snapshot);
+      return true;
+    } catch (error: unknown) {
+      dependencies.store.getState().setLastRuntimeError(
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : 'Failed to refresh screen capture sources',
+      );
+      return false;
+    }
+  };
   let setVoiceErrorState = (_detail: string): void => {
     throw new Error('setVoiceErrorState called before initialization');
   };
@@ -180,6 +194,7 @@ export function createSessionControllerAssembly(
     dependencies,
     conversationCtx,
     mutableRuntime,
+    refreshScreenCaptureSourceSnapshot,
     runtimeRef,
     voiceToolCtrl,
     voiceTranscript,
@@ -207,6 +222,7 @@ export function createSessionControllerAssembly(
     handleTransportEvent,
     requestVoiceSessionToken,
     selectedOutputDeviceId: () => stateSync.selectedOutputDeviceId(),
+    refreshScreenCaptureSourceSnapshot,
     setVoiceErrorState: (detail) => setVoiceErrorState(detail),
     settleVoiceErrorState: (detail) => settleVoiceErrorState(detail),
   });

@@ -93,6 +93,7 @@ describe('main process runtime', () => {
     expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledOnce();
     expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledWith(
       expect.any(Function),
+      { useSystemPicker: true },
     );
   });
 

@@ -49,6 +49,7 @@ type SessionTransportAssemblyArgs = {
   dependencies: DesktopSessionControllerDependencies;
   conversationCtx: ConversationContext;
   mutableRuntime: ReturnType<typeof createSessionControllerMutableRuntime>;
+  refreshScreenCaptureSourceSnapshot: () => Promise<boolean>;
   runtimeRef: RuntimeRef;
   voiceToolCtrl: ReturnType<typeof createVoiceToolController>;
   voiceTranscript: ReturnType<typeof createVoiceTranscriptController>;
@@ -64,6 +65,7 @@ export function createSessionTransportAssembly({
   dependencies,
   conversationCtx,
   mutableRuntime,
+  refreshScreenCaptureSourceSnapshot,
   runtimeRef,
   voiceToolCtrl,
   voiceTranscript,
@@ -192,7 +194,13 @@ export function createSessionTransportAssembly({
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     resumeVoiceSession: (detail) => voiceResumeCtrl.resume(detail),
     restoreScreenCapture: () => {
-      void screenCtrl.start();
+      void refreshScreenCaptureSourceSnapshot().then((didRefresh) => {
+        if (!didRefresh) {
+          return;
+        }
+
+        return screenCtrl.start();
+      });
     },
   });
   const { handleTransportEvent } = transportRouter;

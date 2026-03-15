@@ -31,7 +31,7 @@ function sampleFingerprint(
 
   const step = Math.max(1, Math.floor(data.length / sampleSize));
   for (let i = 0; i < sampleSize; i++) {
-    sample[i] = data[Math.min(i * step, data.length - 1)];
+    sample[i] = data[Math.min(i * step, data.length - 1)] ?? 0;
   }
   return sample;
 }
@@ -44,7 +44,7 @@ function computeDiffRatio(
   if (a.length === 0) return 0;
   let diffCount = 0;
   for (let i = 0; i < a.length; i++) {
-    if (Math.abs(a[i] - b[i]) > byteTolerance) {
+    if (Math.abs((a[i] ?? 0) - (b[i] ?? 0)) > byteTolerance) {
       diffCount++;
     }
   }

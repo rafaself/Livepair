@@ -1,20 +1,21 @@
-import type { CaptureSource } from './captureSourceRegistry';
+import {
+  filterEligibleCaptureSources,
+  type CaptureSource,
+} from './captureSourceRegistry';
 
 /**
- * Selects the best source for automatic (no-user-selection) capture.
+ * Selects a fallback source only when automatic resolution is safe.
  *
  * Priority:
- * 1. First non-excluded `screen:*` source — always prefer a real display.
- * 2. First non-excluded `window:*` source — deterministic fallback.
- * 3. null — nothing usable remains.
+ * 1. The only non-excluded source when exactly one eligible source exists.
+ * 2. null — otherwise require an explicit user choice or system picker.
  *
- * Manual source selection bypasses this function entirely; the registry's
- * `getSelectedSource()` result is used directly in that case.
+ * Manual source selection bypasses this function entirely.
  */
 export function selectAutoSource(
   sources: readonly CaptureSource[],
   excludedIds: ReadonlySet<string> = new Set(),
 ): CaptureSource | null {
-  const eligible = sources.filter((s) => !excludedIds.has(s.id));
-  return eligible.find((s) => s.id.startsWith('screen:')) ?? eligible[0] ?? null;
+  const eligible = filterEligibleCaptureSources(sources, excludedIds);
+  return eligible.length === 1 ? eligible[0] ?? null : null;
 }

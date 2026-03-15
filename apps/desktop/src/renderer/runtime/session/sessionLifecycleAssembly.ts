@@ -58,6 +58,7 @@ type SessionLifecycleAssemblyArgs = {
     operationId: number,
   ) => Promise<CreateEphemeralTokenResponse | null>;
   selectedOutputDeviceId: () => string;
+  refreshScreenCaptureSourceSnapshot: () => Promise<boolean>;
   setVoiceErrorState: (detail: string) => void;
   settleVoiceErrorState: (detail: string) => Promise<void>;
 };
@@ -75,6 +76,7 @@ export function createSessionLifecycleAssembly({
   handleTransportEvent,
   requestVoiceSessionToken,
   selectedOutputDeviceId,
+  refreshScreenCaptureSourceSnapshot,
   setVoiceErrorState,
   settleVoiceErrorState,
 }: SessionLifecycleAssemblyArgs): {
@@ -304,6 +306,7 @@ export function createSessionLifecycleAssembly({
       startSessionInternal: lifecycle.startSessionInternal,
       voiceChunkCtrl,
       screenCtrl,
+      refreshScreenCaptureSourceSnapshot,
       appendTypedUserTurn,
       voiceTranscriptCtrl: {
         queueMixedModeAssistantReply: () => {

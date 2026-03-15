@@ -9,6 +9,7 @@ import type {
 
 function createHarness(options: {
   gatewayDecision?: RealtimeOutboundDecision;
+  refreshScreenCaptureSourceSnapshotResult?: boolean;
 } = {}) {
   const setLastRuntimeError = vi.fn();
   const setScreenShareIntended = vi.fn();
@@ -58,6 +59,9 @@ function createHarness(options: {
   const syncSpeechSilenceTimeout = vi.fn();
   const setVoiceErrorState = vi.fn();
   const logRuntimeError = vi.fn();
+  const refreshScreenCaptureSourceSnapshot = vi.fn(
+    async () => options.refreshScreenCaptureSourceSnapshotResult ?? true,
+  );
 
   const publicApi = createSessionControllerPublicApi({
     store,
@@ -70,6 +74,7 @@ function createHarness(options: {
       startCapture: vi.fn(async () => true),
     },
     screenCtrl,
+    refreshScreenCaptureSourceSnapshot,
     appendTypedUserTurn,
     voiceTranscriptCtrl: {
       queueMixedModeAssistantReply,
@@ -98,6 +103,7 @@ function createHarness(options: {
     clearQueuedMixedModeAssistantReply,
     setLastRuntimeError,
     setScreenShareIntended,
+    refreshScreenCaptureSourceSnapshot,
     syncSpeechSilenceTimeout,
     setVoiceErrorState,
     logRuntimeError,
@@ -193,8 +199,12 @@ describe('createSessionControllerPublicApi – Wave 3 screen streaming controls'
   it('sets screenShareIntended to true when starting screen capture', async () => {
     const harness = createHarness();
     await harness.publicApi.startScreenCapture();
+    expect(harness.refreshScreenCaptureSourceSnapshot).toHaveBeenCalledTimes(1);
     expect(harness.setScreenShareIntended).toHaveBeenCalledWith(true);
     expect(harness.screenCtrl.start).toHaveBeenCalledTimes(1);
+    expect(harness.refreshScreenCaptureSourceSnapshot.mock.invocationCallOrder[0]!).toBeLessThan(
+      harness.screenCtrl.start.mock.invocationCallOrder[0]!,
+    );
   });
 
   it('sets screenShareIntended to false when stopping screen capture', async () => {
@@ -202,5 +212,17 @@ describe('createSessionControllerPublicApi – Wave 3 screen streaming controls'
     await harness.publicApi.stopScreenCapture();
     expect(harness.setScreenShareIntended).toHaveBeenCalledWith(false);
     expect(harness.screenCtrl.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start screen capture when the source snapshot refresh fails', async () => {
+    const harness = createHarness({
+      refreshScreenCaptureSourceSnapshotResult: false,
+    });
+
+    await harness.publicApi.startScreenCapture();
+
+    expect(harness.refreshScreenCaptureSourceSnapshot).toHaveBeenCalledTimes(1);
+    expect(harness.setScreenShareIntended).not.toHaveBeenCalled();
+    expect(harness.screenCtrl.start).not.toHaveBeenCalled();
   });
 });

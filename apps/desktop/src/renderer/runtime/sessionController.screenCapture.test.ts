@@ -50,6 +50,42 @@ describe('createDesktopSessionController – screen capture', () => {
     });
   });
 
+  it('refreshes the source snapshot before starting screen capture', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [{ id: 'screen:2:0', name: 'Desk Display' }],
+      selectedSourceId: null,
+    }));
+
+    await controller.startSession({ mode: 'speech' });
+    useSessionStore.getState().setScreenCaptureSourceSnapshot({
+      sources: [{ id: 'window:42:0', name: 'Stale Window' }],
+      selectedSourceId: 'window:42:0',
+    });
+
+    await controller.startScreenCapture();
+
+    expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+    expect(screenCapture.start).toHaveBeenCalledOnce();
+    expect(useSessionStore.getState().screenCaptureSources).toEqual([
+      { id: 'screen:2:0', name: 'Desk Display' },
+    ]);
+    expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBeNull();
+  });
+
   it('keeps screen capture manual-only when speech mode starts', async () => {
     const voiceTransport = createVoiceTransportHarness();
     const screenCapture = createScreenCaptureHarness();
@@ -90,6 +126,34 @@ describe('createDesktopSessionController – screen capture', () => {
     expect(useSessionStore.getState().lastRuntimeError).toBe(
       'Screen context requires an active Live session',
     );
+  });
+
+  it('keeps screen capture idle when refreshing sources fails before start', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+    window.bridge.listScreenCaptureSources = vi.fn(async () => {
+      throw new Error('enumeration failed');
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+
+    expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+    expect(screenCapture.start).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().screenShareIntended).toBe(false);
+    expect(useSessionStore.getState().lastRuntimeError).toBe('enumeration failed');
   });
 
   it('stops screen capture cleanly and resets state to disabled', async () => {
@@ -331,7 +395,19 @@ describe('createDesktopSessionController – screen capture', () => {
     });
 
     await controller.startSession({ mode: 'speech' });
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [{ id: 'screen:1:0', name: 'Desk Display' }],
+      selectedSourceId: 'screen:1:0',
+    }));
     await controller.startScreenCapture();
+    useSessionStore.getState().setScreenCaptureSourceSnapshot({
+      sources: [{ id: 'window:42:0', name: 'Stale Window' }],
+      selectedSourceId: 'window:42:0',
+    });
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [{ id: 'screen:2:0', name: 'Projector' }],
+      selectedSourceId: null,
+    }));
 
     firstTransport.emit({
       type: 'session-resumption-update',
@@ -354,8 +430,13 @@ describe('createDesktopSessionController – screen capture', () => {
         mode: 'voice',
         resumeHandle: 'handles/voice-session-2',
       });
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
       expect(screenCapture.start).toHaveBeenCalledTimes(2);
       expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
+      expect(useSessionStore.getState().screenCaptureSources).toEqual([
+        { id: 'screen:2:0', name: 'Projector' },
+      ]);
+      expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBeNull();
     });
   });
 
