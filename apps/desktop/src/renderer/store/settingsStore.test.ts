@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import {
+  DEFAULT_DESKTOP_SETTINGS,
+  DEFAULT_SYSTEM_INSTRUCTION,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
+} from '../../shared/settings';
 import { resetDesktopStores } from '../test/store';
 import { useSettingsStore } from './settingsStore';
 
@@ -60,28 +64,62 @@ describe('settingsStore', () => {
     window.bridge.getSettings = vi.fn().mockResolvedValue({
       ...DEFAULT_DESKTOP_SETTINGS,
       voice: 'Kore',
-      systemInstruction: '',
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
     });
     window.bridge.updateSettings = vi.fn().mockImplementation(async (patch) => ({
       ...DEFAULT_DESKTOP_SETTINGS,
       voice: 'Kore',
-      systemInstruction: '',
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
       ...patch,
     }));
 
     await expect(useSettingsStore.getState().hydrate()).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
       voice: 'Kore',
-      systemInstruction: '',
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
     });
     await expect(useSettingsStore.getState().updateSetting('voice', 'Aoede')).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
       voice: 'Aoede',
-      systemInstruction: '',
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
     });
 
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ voice: 'Aoede' });
     expect(useSettingsStore.getState().settings.voice).toBe('Aoede');
-    expect(useSettingsStore.getState().settings.systemInstruction).toBe('');
+    expect(useSettingsStore.getState().settings.systemInstruction).toBe(
+      DEFAULT_SYSTEM_INSTRUCTION,
+    );
+  });
+
+  it('normalizes malformed Gemini preferences returned by the bridge before exposing them', async () => {
+    window.bridge.getSettings = vi.fn().mockResolvedValue({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'InvalidVoice',
+      systemInstruction: '   ',
+    });
+
+    await expect(useSettingsStore.getState().hydrate()).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'Puck',
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+    });
+  });
+
+  it('normalizes overlong instruction updates returned by the bridge', async () => {
+    window.bridge.updateSettings = vi.fn().mockResolvedValue({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'Kore',
+      systemInstruction: `  ${'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 20)}  `,
+    });
+
+    await expect(
+      useSettingsStore.getState().updateSettings({
+        systemInstruction: '  draft instruction  ',
+      }),
+    ).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'Kore',
+      systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
+    });
   });
 });

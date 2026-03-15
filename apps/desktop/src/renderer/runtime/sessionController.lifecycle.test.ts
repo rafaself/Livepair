@@ -7,11 +7,70 @@ import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { resetDesktopStoresWithDefaults } from '../test/store';
 import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
+import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
+import {
+  parseLiveConfig,
+  type GeminiLiveConnectConfig,
+} from './transport/liveConfig';
+import type {
+  ConnectGeminiLiveSdkSessionOptions,
+  GeminiLiveSdkSession,
+} from './transport/geminiLiveSdkClient';
 import {
   createUnusedTransport,
   createVoiceTransportHarness,
   createVoiceCaptureHarness,
 } from './sessionController.testUtils';
+import {
+  DEFAULT_DESKTOP_SETTINGS,
+  DEFAULT_SYSTEM_INSTRUCTION,
+} from '../../shared';
+
+const TEST_LIVE_CONFIG = parseLiveConfig({
+  provider: 'gemini',
+  adapterKey: 'gemini-live',
+  model: 'models/gemini-2.0-flash-exp',
+  apiVersion: 'v1alpha',
+  sessionModes: {
+    text: {
+      responseModality: 'TEXT',
+      inputAudioTranscription: false,
+      outputAudioTranscription: false,
+    },
+    voice: {
+      responseModality: 'AUDIO',
+      inputAudioTranscription: false,
+      outputAudioTranscription: false,
+    },
+  },
+  mediaResolution: 'MEDIA_RESOLUTION_LOW',
+  sessionResumptionEnabled: false,
+  contextCompressionEnabled: false,
+});
+
+function createSdkHarness(): {
+  connectSession: ReturnType<typeof vi.fn>;
+  getConnectOptions: () => ConnectGeminiLiveSdkSessionOptions | undefined;
+} {
+  let connectOptions: ConnectGeminiLiveSdkSessionOptions | undefined;
+  const session: GeminiLiveSdkSession = {
+    sendClientContent: vi.fn(),
+    sendRealtimeInput: vi.fn(),
+    sendToolResponse: vi.fn(),
+    close: vi.fn(),
+  };
+
+  return {
+    connectSession: vi.fn(async (options: ConnectGeminiLiveSdkSessionOptions) => {
+      connectOptions = options;
+      queueMicrotask(() => {
+        options.callbacks.onMessage({ setupComplete: {} });
+      });
+      return session;
+    }),
+    getConnectOptions: () => connectOptions,
+  };
+}
 
 describe('createDesktopSessionController – lifecycle', () => {
   let persistedMessages: Array<{
@@ -199,6 +258,133 @@ describe('createDesktopSessionController – lifecycle', () => {
       startedAt: expect.any(String),
     });
     expect(voiceCapture.start).not.toHaveBeenCalled();
+  });
+
+  it.each(['Puck', 'Kore', 'Aoede'] as const)(
+    'uses the persisted %s voice and normalized instruction in the real session startup path',
+    async (voice) => {
+      const sdkHarness = createSdkHarness();
+      const voiceCapture = createVoiceCaptureHarness();
+
+      useSettingsStore.setState({
+        settings: {
+          ...DEFAULT_DESKTOP_SETTINGS,
+          voice,
+          systemInstruction: '  Pair on the active code only.  ',
+        },
+        isReady: true,
+      });
+
+      const controller = createDesktopSessionController({
+        logger: {
+          onSessionEvent: vi.fn(),
+          onTransportEvent: vi.fn(),
+        },
+        checkBackendHealth: vi.fn(),
+        requestSessionToken: vi.fn().mockResolvedValue({
+          token: 'auth_tokens/test-token',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        }),
+        createTransport: vi.fn(() => {
+          const settings = useSettingsStore.getState().settings;
+          return createGeminiLiveTransport({
+            connectSession: sdkHarness.connectSession,
+            config: TEST_LIVE_CONFIG,
+            voice: settings.voice,
+            systemInstruction: settings.systemInstruction,
+          });
+        }),
+        createVoiceCapture: voiceCapture.createVoiceCapture,
+        settingsStore: useSettingsStore,
+      });
+
+      await controller.startSession({ mode: 'speech' });
+
+      expect(sdkHarness.getConnectOptions()).toEqual({
+        apiKey: 'auth_tokens/test-token',
+        apiVersion: 'v1alpha',
+        model: 'models/gemini-2.0-flash-exp',
+        config: {
+          responseModalities: ['AUDIO'],
+          mediaResolution: 'MEDIA_RESOLUTION_LOW',
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: voice,
+              },
+            },
+          },
+          systemInstruction: 'Pair on the active code only.',
+          tools: expect.any(Array),
+        } satisfies GeminiLiveConnectConfig,
+        callbacks: expect.any(Object),
+      });
+    },
+  );
+
+  it('normalizes malformed persisted Gemini preferences before a new session starts', async () => {
+    const sdkHarness = createSdkHarness();
+    const voiceCapture = createVoiceCaptureHarness();
+
+    window.bridge.getSettings = vi.fn().mockResolvedValue({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'BadVoice',
+      systemInstruction: '   ',
+    });
+
+    await useSettingsStore.getState().hydrate();
+
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => {
+        const settings = useSettingsStore.getState().settings;
+        return createGeminiLiveTransport({
+          connectSession: sdkHarness.connectSession,
+          config: TEST_LIVE_CONFIG,
+          voice: settings.voice,
+          systemInstruction: settings.systemInstruction,
+        });
+      }),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    expect(useSettingsStore.getState().settings).toMatchObject({
+      voice: 'Puck',
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+
+    expect(sdkHarness.getConnectOptions()).toEqual({
+      apiKey: 'auth_tokens/test-token',
+      apiVersion: 'v1alpha',
+      model: 'models/gemini-2.0-flash-exp',
+      config: {
+        responseModalities: ['AUDIO'],
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: 'Puck',
+            },
+          },
+        },
+        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+        tools: expect.any(Array),
+      } satisfies GeminiLiveConnectConfig,
+      callbacks: expect.any(Object),
+    });
   });
 
   it('attempts persisted live-session resumption before opening a fresh session', async () => {
