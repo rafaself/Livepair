@@ -37,11 +37,10 @@ body {
   cursor: default;
 }
 
-/* Opt-in text selection for content that should be selectable */
+/* Text entry surfaces should remain selectable */
 input,
 textarea,
-[contenteditable="true"],
-.selectable {
+[contenteditable="true"] {
   user-select: text;
   -webkit-user-select: text;
   cursor: text;

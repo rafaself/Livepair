@@ -44,15 +44,6 @@
   opacity: 0.72;
 }
 
-.control-dock__btn--start {
-  color: var(--color-success) !important;
-}
-
-.control-dock__btn--start:hover:not(:disabled) {
-  background: rgba(52, 199, 89, 0.15) !important;
-  color: var(--color-success) !important;
-}
-
 .control-dock__btn--danger {
   color: var(--color-error) !important;
 }
