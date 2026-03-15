@@ -23,6 +23,13 @@ export type GeminiAuthTokenRequest = {
   apiKey: string;
   newSessionExpireTime: string;
   expireTime: string;
+  liveConnectConstraints: {
+    model: string;
+    config: {
+      responseModalities: ['AUDIO'];
+      sessionResumption: Record<string, never>;
+    };
+  };
 };
 
 export type GeminiProvisionedToken = {
@@ -80,6 +87,7 @@ export async function requestGeminiAuthToken({
   fetchImpl = fetch,
   newSessionExpireTime,
   expireTime,
+  liveConnectConstraints,
   observabilityService,
 }: RequestGeminiAuthTokenOptions): Promise<GeminiProvisionedToken> {
   const startTime = process.hrtime.bigint();
@@ -97,6 +105,7 @@ export async function requestGeminiAuthToken({
           uses: 1,
           newSessionExpireTime,
           expireTime,
+          liveConnectConstraints,
         }),
       });
     } catch (error) {
