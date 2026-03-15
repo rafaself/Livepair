@@ -39,6 +39,7 @@ export function createScreenCaptureLifecycle({
   resetDiagnostics,
   frameDumpCoordinator,
   frameSendCoordinator,
+  onFrameCaptured,
   onScreenShareStarted,
   onScreenShareStopped,
 }: {
@@ -49,6 +50,7 @@ export function createScreenCaptureLifecycle({
   resetDiagnostics: () => void;
   frameDumpCoordinator: ScreenFrameDumpCoordinator;
   frameSendCoordinator: ScreenFrameSendCoordinator;
+  onFrameCaptured?: (frame: LocalScreenFrame) => void;
   onScreenShareStarted: () => void;
   onScreenShareStopped: () => void;
 }): Pick<
@@ -173,6 +175,7 @@ export function createScreenCaptureLifecycle({
           return;
         }
 
+        onFrameCaptured?.(frame);
         frameDumpCoordinator.persistFrame(capture, captureGeneration, frame);
         void frameSendCoordinator.enqueueFrameSend(frame);
       },

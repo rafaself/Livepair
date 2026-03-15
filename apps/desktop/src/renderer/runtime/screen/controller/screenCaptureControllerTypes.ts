@@ -39,6 +39,10 @@ export type ScreenCaptureController = {
   analyzeScreenNow: () => void;
   enableStreaming: () => void;
   stopStreaming: () => void;
+  /** Called when the user starts speaking while screen share is active. */
+  onSpeechStart: () => void;
+  /** Called when the user sends a text message while screen share is active. */
+  onTextSent: () => void;
 };
 
 export type ScreenFrameDumpControls = {

@@ -27,6 +27,8 @@ function createHarness(options: {
     analyzeScreenNow: vi.fn(),
     enableStreaming: vi.fn(),
     stopStreaming: vi.fn(),
+    onTextSent: vi.fn(),
+    isActive: vi.fn(() => false),
   };
 
   const sendText = vi.fn(async () => undefined);

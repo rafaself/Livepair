@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createScreenCaptureController } from './screenCaptureController';
+import { createScreenCaptureController, VISUAL_BURST_DURATION_MS, VISUAL_BURST_STABLE_FRAMES } from './screenCaptureController';
 import type { VisualSendPolicyOptions } from './visualSendPolicy';
 import { createDefaultRealtimeOutboundDiagnostics } from '../outbound/realtimeOutboundGateway';
 import type { DesktopSession } from '../transport/transport.types';
@@ -23,6 +23,8 @@ function createHarness(options: {
   saveScreenFramesEnabled?: boolean;
   submitDecision?: (callIndex: number) => RealtimeOutboundDecision;
   visualSendPolicyOptions?: VisualSendPolicyOptions;
+  burstDurationMs?: number;
+  burstStableFrames?: number;
 } = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
   let currentScreenState: ScreenCaptureState = screenCaptureState;
@@ -101,7 +103,13 @@ function createHarness(options: {
       saveScreenFrameDumpFrame,
       setScreenFrameDumpDirectoryPath,
     },
-    options.visualSendPolicyOptions,
+    (options.visualSendPolicyOptions || options.burstDurationMs != null || options.burstStableFrames != null)
+      ? {
+          visualSendPolicyOptions: options.visualSendPolicyOptions,
+          burstDurationMs: options.burstDurationMs,
+          burstStableFrames: options.burstStableFrames,
+        }
+      : undefined,
   );
 
   return {
@@ -147,12 +155,12 @@ describe('createScreenCaptureController', () => {
 
   it('flushes visual diagnostics through start, bootstrap frame send, and stop', async () => {
     // start() arms a bootstrap snapshot so the last diagnostics flush after
-    // start reflects the analyzeScreenNow transition.
+    // start reflects the bootstrap transition.
     const { ctrl, store } = createHarness();
 
     await ctrl.start();
     expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
-      lastTransitionReason: 'analyzeScreenNow',
+      lastTransitionReason: 'bootstrap',
       snapshotCount: 1,
       streamingEnteredAt: null,
       streamingEndedAt: null,
@@ -162,6 +170,8 @@ describe('createScreenCaptureController', () => {
       },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      triggerSnapshotCount: 0,
+      burstCount: 0,
     });
 
     await ctrl.enqueueFrameSend({
@@ -182,6 +192,8 @@ describe('createScreenCaptureController', () => {
       },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      triggerSnapshotCount: 0,
+      burstCount: 0,
     });
 
     await ctrl.stop();
@@ -196,6 +208,8 @@ describe('createScreenCaptureController', () => {
       },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      triggerSnapshotCount: 0,
+      burstCount: 0,
     });
   });
 
@@ -1443,13 +1457,13 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     expect(sendVideoFrame).not.toHaveBeenCalled();
   });
 
-  it('visual send diagnostics reflect analyzeScreenNow transition reason after start', async () => {
+  it('visual send diagnostics reflect bootstrap transition reason after start', async () => {
     const { ctrl, store, getObserver } = createHarness();
 
     await ctrl.start();
-    // Diagnostics after start: transition reason reflects bootstrap snapshot
+    // Diagnostics after start: transition reason reflects bootstrap
     expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith(
-      expect.objectContaining({ lastTransitionReason: 'analyzeScreenNow', snapshotCount: 1 }),
+      expect.objectContaining({ lastTransitionReason: 'bootstrap', snapshotCount: 1 }),
     );
 
     getObserver()!.onFrame(mkFrame(1));
@@ -1769,5 +1783,457 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
     const calls = store.setScreenCaptureDiagnostics.mock.calls;
     const sentCalls = calls.filter(([p]) => p.lastUploadStatus === 'sent');
     expect(sentCalls).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 2 – Intelligent local triggers for visual delivery
+//
+// Tests for:
+//   1. Speech trigger (onSpeechStart) fires a snapshot
+//   2. Text trigger (onTextSent) fires a snapshot
+//   3. Visual change detection triggers burst streaming
+//   4. Burst auto-expires after timer
+//   5. Burst ends early on stabilization (consecutive non-change frames)
+//   6. Burst timer resets on continued visual change
+//   7. Explicit analyzeScreenNow/enableStreaming/stopStreaming clear burst state
+//   8. Bootstrap snapshot does NOT block subsequent triggers
+//   9. Diagnostics reflect triggers and bursts
+// ---------------------------------------------------------------------------
+describe('createScreenCaptureController – Wave 2 triggers and burst', () => {
+  const mkFrame = (seq: number, fill = seq) => ({
+    data: new Uint8Array(128).fill(fill),
+    mimeType: 'image/jpeg' as const,
+    sequence: seq,
+    widthPx: 640,
+    heightPx: 360,
+  });
+
+  // Helper: start controller, consume bootstrap snapshot, and return to sleep
+  async function startAndConsumeBootstrap(harness: ReturnType<typeof createHarness>) {
+    await harness.ctrl.start();
+    harness.getObserver()!.onFrame(mkFrame(0, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+  }
+
+  // ── 1. Speech trigger ───────────────────────────────────────────────────
+
+  it('onSpeechStart arms a snapshot when screen share is active and in sleep', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Advance past any cooldown
+    now += 5000;
+    harness.ctrl.onSpeechStart();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+
+    // Next frame should be sent
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+    // Back to sleep after snapshot consumed
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('onSpeechStart is no-op when screen share is not active', () => {
+    const harness = createHarness();
+    // Not started
+    harness.ctrl.onSpeechStart();
+    expect(harness.ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  // ── 2. Text trigger ────────────────────────────────────────────────────
+
+  it('onTextSent arms a snapshot when screen share is active and in sleep', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+    });
+    await startAndConsumeBootstrap(harness);
+
+    now += 5000;
+    harness.ctrl.onTextSent();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('onTextSent is no-op when screen share is not active', () => {
+    const harness = createHarness();
+    harness.ctrl.onTextSent();
+    expect(harness.ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  // ── Trigger cooldown ──────────────────────────────────────────────────
+
+  it('triggers respect their own cooldown: second trigger within 2s is ignored', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+    });
+    await startAndConsumeBootstrap(harness);
+
+    now += 5000;
+    harness.ctrl.onSpeechStart();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+
+    // Consume the snapshot
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+
+    // Within cooldown (2s), another trigger should be ignored
+    now += 1000;
+    harness.ctrl.onTextSent();
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+
+    // After cooldown passes, trigger works
+    now += 2000;
+    harness.ctrl.onTextSent();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  // ── 3. Visual change detection → burst ────────────────────────────────
+
+  it('visual change in a frame triggers burst streaming from sleep', async () => {
+    const harness = createHarness({
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Send a frame with drastically different content to trigger visual change
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    // The frame that triggered the burst should be sent
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+
+  // ── 4. Burst auto-expires after timer ─────────────────────────────────
+
+  it('burst auto-expires after burstDurationMs', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        burstDurationMs: 100,
+        submitDecision: () => ({
+          outcome: 'send' as const,
+          classification: 'replaceable' as const,
+          reason: 'accepted',
+        }),
+      });
+      await startAndConsumeBootstrap(harness);
+
+      // Trigger burst via visual change
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Advance past burst duration
+      vi.advanceTimersByTime(101);
+      expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── 5. Burst ends early on stabilization ──────────────────────────────
+
+  it('burst ends early when consecutive non-change frames reach the stabilization threshold', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000, // long timer so only stabilization ends it
+      burstStableFrames: 2,
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Trigger burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // Two consecutive non-change frames (same fill=250 as the last)
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+    // 1 non-change frame, not enough yet
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    harness.getObserver()!.onFrame(mkFrame(3, 250));
+    await Promise.resolve();
+    // 2 consecutive non-change frames → stabilization → back to sleep
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  // ── 6. Burst timer resets on continued visual change ──────────────────
+
+  it('burst timer resets when visual changes continue during an active burst', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        burstDurationMs: 100,
+        submitDecision: () => ({
+          outcome: 'send' as const,
+          classification: 'replaceable' as const,
+          reason: 'accepted',
+        }),
+      });
+      await startAndConsumeBootstrap(harness);
+
+      // Start burst
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Advance 80ms (within burst window)
+      vi.advanceTimersByTime(80);
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Another visual change resets the timer
+      harness.getObserver()!.onFrame(mkFrame(2, 50));
+      await Promise.resolve();
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Advance another 80ms — would have expired under original timer, but not after reset
+      vi.advanceTimersByTime(80);
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Now advance past full burst duration from last reset
+      vi.advanceTimersByTime(50);
+      expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── 7. Explicit controls clear burst state ────────────────────────────
+
+  it('analyzeScreenNow clears an active burst', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // analyzeScreenNow clears burst and arms snapshot
+    harness.ctrl.analyzeScreenNow();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  it('enableStreaming clears an active burst and enters explicit streaming', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // enableStreaming overrides burst — still streaming but burst is cleared
+    harness.ctrl.enableStreaming();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // Verify burst is cleared: non-change frames should NOT trigger stabilization
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+    harness.getObserver()!.onFrame(mkFrame(3, 250));
+    await Promise.resolve();
+    // Still streaming (explicit, not burst — no stabilization cutoff)
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+  });
+
+  it('stopStreaming clears an active burst and returns to sleep', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    harness.ctrl.stopStreaming();
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  // ── 8. Bootstrap does NOT block triggers ──────────────────────────────
+
+  it('speech trigger works immediately after bootstrap snapshot (no cooldown set by bootstrap)', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await harness.ctrl.start();
+
+    // Consume bootstrap
+    harness.getObserver()!.onFrame(mkFrame(0, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+
+    // Immediately trigger speech (no time advance needed — bootstrap sets no cooldown)
+    harness.ctrl.onSpeechStart();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  it('analyzeScreenNow works immediately after bootstrap (no cooldown set by bootstrap)', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await harness.ctrl.start();
+
+    // Consume bootstrap
+    harness.getObserver()!.onFrame(mkFrame(0, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+
+    // analyzeScreenNow should work immediately (bootstrap set no cooldown)
+    harness.ctrl.analyzeScreenNow();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  // ── 9. Diagnostics reflect triggers and bursts ────────────────────────
+
+  it('diagnostics include triggerSnapshotCount after speech/text triggers', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Trigger 1
+    now += 5000;
+    harness.ctrl.onSpeechStart();
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+
+    // Trigger 2
+    now += 5000;
+    harness.ctrl.onTextSent();
+    harness.getObserver()!.onFrame(mkFrame(2, 100));
+    await Promise.resolve();
+
+    const lastDiag = harness.store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastDiag.triggerSnapshotCount).toBe(2);
+  });
+
+  it('diagnostics include burstCount after visual change triggers burst', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        burstDurationMs: 100,
+        submitDecision: () => ({
+          outcome: 'send' as const,
+          classification: 'replaceable' as const,
+          reason: 'accepted',
+        }),
+      });
+      await startAndConsumeBootstrap(harness);
+
+      // Trigger burst via visual change
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+
+      let diag = harness.store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+      expect(diag.burstCount).toBe(1);
+
+      // Let burst expire, then trigger another
+      vi.advanceTimersByTime(101);
+      harness.getObserver()!.onFrame(mkFrame(2, 50));
+      await Promise.resolve();
+
+      diag = harness.store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+      expect(diag.burstCount).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── Stop clears burst state ───────────────────────────────────────────
+
+  it('stopping screen share clears burst state and resets visual change detector', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    await harness.ctrl.stop();
+    expect(harness.ctrl.getVisualSendState()).toBe('inactive');
+
+    // Restart — should be clean state (no leftover burst)
+    await harness.ctrl.start();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  // ── Exported constants ────────────────────────────────────────────────
+
+  it('exports expected burst constants', () => {
+    expect(VISUAL_BURST_DURATION_MS).toBe(5000);
+    expect(VISUAL_BURST_STABLE_FRAMES).toBe(2);
   });
 });

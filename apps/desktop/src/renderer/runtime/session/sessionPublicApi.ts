@@ -35,6 +35,8 @@ type SessionControllerPublicApiArgs = {
     analyzeScreenNow: () => void;
     enableStreaming: () => void;
     stopStreaming: () => void;
+    onTextSent: () => void;
+    isActive: () => boolean;
   };
   appendTypedUserTurn: (text: string) => string;
   voiceTranscriptCtrl: {
@@ -186,6 +188,9 @@ export function createSessionControllerPublicApi({
           await activeTransport.sendText(trimmedText);
           outboundGateway.recordSuccess();
           runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());
+          if (screenCtrl.isActive()) {
+            screenCtrl.onTextSent();
+          }
           return true;
         } catch (error) {
           voiceTranscriptCtrl.clearQueuedMixedModeAssistantReply();

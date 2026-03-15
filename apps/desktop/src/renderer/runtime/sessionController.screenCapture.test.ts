@@ -566,7 +566,7 @@ describe('createDesktopSessionController – screen share visual delivery', () =
     await controller.startScreenCapture();
 
     const visualDiagnostics = useSessionStore.getState().visualSendDiagnostics;
-    expect(visualDiagnostics.lastTransitionReason).toBe('analyzeScreenNow');
+    expect(visualDiagnostics.lastTransitionReason).toBe('bootstrap');
   });
 
   it('stopScreenCapture stops visual streaming and prevents further frame delivery', async () => {

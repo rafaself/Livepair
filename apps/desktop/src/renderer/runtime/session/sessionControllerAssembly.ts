@@ -122,6 +122,9 @@ export function createSessionControllerAssembly(
     settingsStore: dependencies.settingsStore,
     onSpeechLifecycleTransition: (previousStatus, nextStatus, eventType) => {
       logLifecycleTransition(previousStatus, nextStatus, eventType);
+      if (nextStatus === 'userSpeaking' && screenCtrl.isActive()) {
+        screenCtrl.onSpeechStart();
+      }
     },
     handleSpeechLifecycleStatusChange: (status) => {
       silenceCtrl.handleStatusChange(status);
