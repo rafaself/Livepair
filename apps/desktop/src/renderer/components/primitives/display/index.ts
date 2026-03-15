@@ -8,3 +8,5 @@ export { LivepairIcon } from './LivepairIcon';
 export type { LivepairIconProps } from './LivepairIcon';
 export { Tooltip } from './Tooltip';
 export type { TooltipProps } from './Tooltip';
+export { GeminiIcon } from './GeminiIcon';
+export type { GeminiIconProps } from './GeminiIcon';

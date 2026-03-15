@@ -299,6 +299,31 @@
   }
 }
 
+.assistant-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-6) 0 var(--space-3);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  opacity: 0.65;
+  margin-top: auto;
+}
+
+.assistant-panel__footer-icon {
+  margin-top: -1px;
+}
+
+.assistant-panel__footer-brand {
+  font-weight: 700;
+  background: linear-gradient(135deg, #4893fc 0%, #bd99fe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .assistant-panel__view {
     animation: none;

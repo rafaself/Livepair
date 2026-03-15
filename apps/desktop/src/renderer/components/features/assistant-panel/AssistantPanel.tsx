@@ -14,6 +14,7 @@ import { useAssistantPanelSettingsController } from './settings/useAssistantPane
 import { AssistantPanelSharedHeaderActions } from './AssistantPanelSharedHeaderActions';
 import { useAssistantPanelSharedViewNavigation } from './useAssistantPanelSharedViewNavigation';
 import { useAssistantPanelChatSessionData } from './chat/useAssistantPanelChatSessionData';
+import { GeminiIcon } from '../../primitives';
 import './AssistantPanel.css';
 
 import { useUiStore } from '../../../store/uiStore';
@@ -192,6 +193,11 @@ export function AssistantPanel(): JSX.Element {
               />
             </div>
           ) : null}
+        </div>
+        <div className="assistant-panel__footer">
+          <span>Powered by</span>
+          <GeminiIcon size={14} className="assistant-panel__footer-icon" />
+          <span className="assistant-panel__footer-brand">Gemini</span>
         </div>
       </Panel>
     </OverlayContainer>
