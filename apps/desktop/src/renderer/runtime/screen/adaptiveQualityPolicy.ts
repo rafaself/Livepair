@@ -2,9 +2,9 @@
  * Adaptive quality policy for screen capture delivery.
  *
  * Treats the user's quality menu selection as the baseline preference.
- * The policy can temporarily promote quality to High for visually demanding
- * moments (analyze, speech trigger, text trigger, bootstrap) and
- * automatically returns to baseline after promotion expires.
+ * The policy can temporarily promote quality to High for detail-sensitive
+ * snapshot moments and automatically returns to baseline after the promoted
+ * snapshot is consumed or the promotion window expires.
  *
  * When the baseline is already High, promotion is a no-op.
  */
@@ -15,8 +15,12 @@ import {
   type ScreenCaptureQualityParams,
 } from './screenCapturePolicy';
 
-/** How long quality stays promoted after a trigger, in milliseconds. */
-export const QUALITY_PROMOTION_DURATION_MS = 10_000;
+/**
+ * How long quality may stay promoted without a promoted snapshot dispatch,
+ * in milliseconds. This covers the next 1 FPS capture tick with some slack
+ * while avoiding long stretches of unnecessary High-quality context frames.
+ */
+export const QUALITY_PROMOTION_DURATION_MS = 2_500;
 
 export type AdaptiveQualityPolicy = {
   /** Returns the current effective capture parameters (baseline or promoted). */
@@ -33,13 +37,8 @@ export type AdaptiveQualityPolicy = {
   reset(): void;
 };
 
-export type AdaptiveQualityPolicyOptions = {
-  promotionDurationMs?: number;
-};
-
 export function createAdaptiveQualityPolicy(
   baseline: VisualSessionQuality,
-  options?: AdaptiveQualityPolicyOptions,
 ): AdaptiveQualityPolicy {
   const baselineParams = getScreenCaptureQualityParams(baseline);
   const promotedParams = getScreenCaptureQualityParams('High');

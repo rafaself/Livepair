@@ -136,18 +136,8 @@ describe('createAdaptiveQualityPolicy', () => {
 
   // ── Exported constant ──────────────────────────────────────────────────
 
-  it('exports QUALITY_PROMOTION_DURATION_MS as 10 seconds', () => {
-    expect(QUALITY_PROMOTION_DURATION_MS).toBe(10_000);
+  it('exports QUALITY_PROMOTION_DURATION_MS as 2.5 seconds', () => {
+    expect(QUALITY_PROMOTION_DURATION_MS).toBe(2_500);
   });
 
-  // ── Options ─────────────────────────────────────────────────────────────
-
-  it('accepts custom promotionDurationMs without affecting core logic', () => {
-    const policy = createAdaptiveQualityPolicy('Low', {
-      promotionDurationMs: 5_000,
-    });
-    policy.promote();
-    expect(policy.isPromoted()).toBe(true);
-    expect(policy.getEffectiveParams()).toEqual(HIGH_PARAMS);
-  });
 });
