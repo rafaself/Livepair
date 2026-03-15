@@ -50,7 +50,6 @@ function AssistantPanelHarness(): JSX.Element {
 
 async function renderAssistantPanel(): Promise<ReturnType<typeof render>> {
   await act(async () => {
-    useUiStore.getState().initializeSettingsUi(useSettingsStore.getState().settings);
     await useUiStore.getState().initializeDevicePreferences();
   });
 
@@ -61,10 +60,7 @@ describe('AssistantPanel', () => {
   beforeEach(() => {
     resetDesktopStores();
     useSettingsStore.setState({
-      settings: {
-        ...DEFAULT_DESKTOP_SETTINGS,
-        backendUrl: 'https://persisted.livepair.dev',
-      },
+      settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
     window.bridge.updateSettings = vi.fn(async (patch) => ({
@@ -95,7 +91,7 @@ describe('AssistantPanel', () => {
     });
   });
 
-  it('opens settings from the header and shows hydrated values immediately', async () => {
+  it('opens settings from the header without exposing a backend URL editor', async () => {
     useUiStore.setState({ isDebugMode: true });
     await renderAssistantPanel();
     await act(async () => {
@@ -108,13 +104,11 @@ describe('AssistantPanel', () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
     });
 
-    expect(await panelScope.findByRole('textbox', { name: /backend url/i })).toHaveValue(
-      'https://persisted.livepair.dev',
-    );
+    expect(panelScope.queryByRole('textbox', { name: /backend url/i })).toBeNull();
     expect(enumerateDevices).toHaveBeenCalledTimes(1);
   });
 
-  it('preserves config draft state when switching away from settings and back', async () => {
+  it('keeps the backend URL editor absent when switching away from settings and back', async () => {
     useUiStore.setState({ isDebugMode: true });
     await renderAssistantPanel();
     await act(async () => {
@@ -125,13 +119,6 @@ describe('AssistantPanel', () => {
     const panelScope = within(panel);
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
-    });
-
-    const backendUrlInput = await panelScope.findByRole('textbox', { name: /backend url/i });
-    await act(async () => {
-      fireEvent.change(backendUrlInput, {
-        target: { value: 'https://draft.livepair.dev' },
-      });
     });
 
     await act(async () => {
@@ -141,9 +128,7 @@ describe('AssistantPanel', () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Settings' }));
     });
 
-    expect(await panelScope.findByRole('textbox', { name: /backend url/i })).toHaveValue(
-      'https://draft.livepair.dev',
-    );
+    expect(panelScope.queryByRole('textbox', { name: /backend url/i })).toBeNull();
     expect(enumerateDevices).toHaveBeenCalledTimes(1);
   });
 
@@ -737,7 +722,6 @@ describe('AssistantPanel', () => {
     useSettingsStore.setState({
       settings: {
         ...DEFAULT_DESKTOP_SETTINGS,
-        backendUrl: 'https://persisted.livepair.dev',
         selectedInputDeviceId: 'usb-mic',
       },
       isReady: true,

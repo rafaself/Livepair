@@ -44,7 +44,6 @@ async function renderSettings(settings = DEFAULT_DESKTOP_SETTINGS): Promise<Retu
     settings,
     isReady: true,
   });
-  useUiStore.getState().initializeSettingsUi(settings);
   useSessionStore.getState().setScreenCaptureSourceSnapshot({
     sources: [
       createScreenSource('screen:1:0', 'Entire Screen', '1'),
@@ -92,12 +91,9 @@ describe('AssistantPanelSettingsView', () => {
     installMediaDevicesMock();
   });
 
-  it('renders settings sections with hydrated backend values', async () => {
+  it('renders settings sections without exposing backend URL editing', async () => {
     useUiStore.setState({ isDebugMode: true });
-    await renderSettings({
-      ...DEFAULT_DESKTOP_SETTINGS,
-      backendUrl: 'https://runtime.livepair.dev/api',
-    });
+    await renderSettings();
 
     const videoHeading = screen.getByRole('heading', { name: 'Video' });
     const audioHeading = screen.getByRole('heading', { name: 'Audio' });
@@ -106,14 +102,12 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('heading', { name: 'General' })).toBeVisible();
     expect(videoHeading).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Backend' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
     expect(
       videoHeading.compareDocumentPosition(audioHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
-    expect(screen.getByRole('textbox', { name: /backend url/i })).toHaveValue(
-      'https://runtime.livepair.dev/api',
-    );
+    expect(screen.queryByRole('heading', { name: 'Backend' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /backend url/i })).not.toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Echo cancellation' })).toHaveAttribute(
       'aria-checked',
       'true',
@@ -139,40 +133,6 @@ describe('AssistantPanelSettingsView', () => {
     });
 
     expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith('window:42:0');
-  });
-
-  it('applies a valid backend URL override on blur through the settings store', async () => {
-    useUiStore.setState({ isDebugMode: true });
-    await renderSettings();
-
-    const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
-    await act(async () => {
-      fireEvent.change(backendUrlInput, { target: { value: ' https://api.livepair.dev/v1/ ' } });
-      fireEvent.blur(backendUrlInput);
-    });
-
-    await waitFor(() => {
-      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
-        backendUrl: 'https://api.livepair.dev/v1',
-      });
-    });
-
-    expect(backendUrlInput).toHaveValue('https://api.livepair.dev/v1');
-  });
-
-  it('rejects invalid backend URLs on blur and preserves the applied value', async () => {
-    useUiStore.setState({ isDebugMode: true });
-    await renderSettings();
-
-    const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
-    await act(async () => {
-      fireEvent.change(backendUrlInput, { target: { value: 'ftp://bad.example.com' } });
-      fireEvent.blur(backendUrlInput);
-    });
-
-    expect(window.bridge.updateSettings).not.toHaveBeenCalled();
-    expect(screen.getByText('Enter a valid http:// or https:// URL.')).toBeVisible();
-    expect(backendUrlInput).toHaveValue('ftp://bad.example.com');
   });
 
   it('keeps preferred mode locked to fast in debug mode', async () => {

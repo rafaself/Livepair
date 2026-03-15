@@ -6,7 +6,6 @@ import type {
 } from '@livepair/shared-types';
 import { IPC_CHANNELS } from '../../../shared';
 import { createBackendClient } from '../../backend/backendClient';
-import type { DesktopSettingsService } from '../../settings/settingsService';
 import { isCreateEphemeralTokenRequest } from '../validators/sessionValidators';
 
 type SessionBackendClient = {
@@ -18,16 +17,13 @@ type SessionBackendClient = {
 
 type RegisterSessionIpcHandlersOptions = {
   fetchImpl?: typeof fetch | undefined;
-  settingsService: DesktopSettingsService;
 };
 
 function createSessionBackendClient({
   fetchImpl = fetch,
-  settingsService,
 }: RegisterSessionIpcHandlersOptions): SessionBackendClient {
   return createBackendClient({
     fetchImpl,
-    getBackendUrl: async () => (await settingsService.getSettings()).backendUrl,
   });
 }
 

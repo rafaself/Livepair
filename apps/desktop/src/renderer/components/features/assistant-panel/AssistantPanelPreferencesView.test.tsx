@@ -5,7 +5,6 @@ import {
   DEFAULT_SYSTEM_INSTRUCTION,
 } from '../../../../shared';
 import { useSettingsStore } from '../../../store/settingsStore';
-import { useUiStore } from '../../../store/uiStore';
 import { resetDesktopStores } from '../../../test/store';
 import { AssistantPanelPreferencesStandaloneView } from './AssistantPanelPreferencesView';
 
@@ -21,7 +20,6 @@ function renderPreferences(settings = DEFAULT_DESKTOP_SETTINGS) {
     settings,
     isReady: true,
   });
-  useUiStore.getState().initializeSettingsUi(settings);
 
   return render(<AssistantPanelPreferencesStandaloneView />);
 }

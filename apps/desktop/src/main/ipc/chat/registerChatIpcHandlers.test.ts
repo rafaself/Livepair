@@ -7,8 +7,6 @@ import type {
   LiveSessionRecord,
 } from '@livepair/shared-types';
 import { IPC_CHANNELS } from '../../../shared';
-import type { DesktopSettings } from '../../../shared/settings';
-import type { DesktopSettingsService } from '../../settings/settingsService';
 
 const CHAT_ID = '11111111-1111-1111-1111-111111111111';
 const MISSING_CHAT_ID = '22222222-2222-2222-2222-222222222222';
@@ -19,28 +17,6 @@ const mockHandle = vi.fn();
 vi.mock('electron', () => ({
   ipcMain: { handle: mockHandle },
 }));
-
-const defaultSettings: DesktopSettings = {
-  themePreference: 'system',
-  backendUrl: 'http://localhost:3000',
-  preferredMode: 'fast',
-  selectedInputDeviceId: 'default',
-  selectedOutputDeviceId: 'default',
-  voiceEchoCancellationEnabled: true,
-  voiceNoiseSuppressionEnabled: true,
-  voiceAutoGainControlEnabled: true,
-  speechSilenceTimeout: 'never',
-  isPanelPinned: false,
-  visualSessionQuality: 'Low',
-  chatTimestampVisibility: 'hidden',
-};
-
-function createSettingsServiceDouble(): DesktopSettingsService {
-  return {
-    getSettings: vi.fn(async () => defaultSettings),
-    updateSettings: vi.fn(),
-  } as unknown as DesktopSettingsService;
-}
 
 function createChatRecord(overrides: Partial<ChatRecord> = {}): ChatRecord {
   return {
@@ -109,9 +85,7 @@ describe('registerChatIpcHandlers', () => {
   it('registers chat and live session IPC channels', async () => {
     const { registerChatIpcHandlers } = await import('./registerChatIpcHandlers');
 
-    registerChatIpcHandlers({
-      settingsService: createSettingsServiceDouble(),
-    });
+    registerChatIpcHandlers({});
 
     expect(mockHandle).toHaveBeenCalledTimes(11);
     expect(mockHandle).toHaveBeenNthCalledWith(1, IPC_CHANNELS.createChat, expect.any(Function));
@@ -165,7 +139,6 @@ describe('registerChatIpcHandlers', () => {
 
     registerChatIpcHandlers({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      settingsService: createSettingsServiceDouble(),
     });
 
     const createChatHandler = mockHandle.mock.calls.find(
@@ -314,7 +287,6 @@ describe('registerChatIpcHandlers', () => {
 
     registerChatIpcHandlers({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      settingsService: createSettingsServiceDouble(),
     });
 
     const createChatHandler = mockHandle.mock.calls.find(
@@ -552,7 +524,6 @@ describe('registerChatIpcHandlers', () => {
 
     registerChatIpcHandlers({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      settingsService: createSettingsServiceDouble(),
     });
 
     const getChatSummaryHandler = mockHandle.mock.calls.find(

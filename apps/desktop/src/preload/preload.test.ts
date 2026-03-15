@@ -277,7 +277,6 @@ describe('preload bridge', () => {
     });
 
     mockInvoke.mockResolvedValueOnce({
-      backendUrl: 'http://localhost:3000',
       isPanelPinned: false,
       preferredMode: 'fast',
       selectedInputDeviceId: 'default',
@@ -288,16 +287,15 @@ describe('preload bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith('settings:get');
 
     mockInvoke.mockResolvedValueOnce({
-      backendUrl: 'https://api.livepair.dev',
       isPanelPinned: false,
       preferredMode: 'fast',
       selectedInputDeviceId: 'default',
       selectedOutputDeviceId: 'default',
-      themePreference: 'system',
+      themePreference: 'dark',
     });
-    await bridge.updateSettings({ backendUrl: 'https://api.livepair.dev' });
+    await bridge.updateSettings({ themePreference: 'dark' });
     expect(mockInvoke).toHaveBeenCalledWith('settings:update', {
-      backendUrl: 'https://api.livepair.dev',
+      themePreference: 'dark',
     });
 
     mockInvoke.mockResolvedValueOnce(undefined);

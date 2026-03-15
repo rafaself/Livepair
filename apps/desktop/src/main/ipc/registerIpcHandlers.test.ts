@@ -31,7 +31,6 @@ vi.mock('electron', () => ({
 
 const defaultSettings: DesktopSettings = {
   themePreference: 'system',
-  backendUrl: 'http://localhost:3000',
   preferredMode: 'fast',
   selectedInputDeviceId: 'default',
   selectedOutputDeviceId: 'default',
@@ -299,7 +298,7 @@ describe('registerIpcHandlers', () => {
     const settingsService = createSettingsServiceDouble();
     vi.mocked(settingsService.updateSettings).mockResolvedValue({
       ...defaultSettings,
-      backendUrl: 'https://api.livepair.dev',
+      themePreference: 'dark',
     });
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
@@ -330,21 +329,24 @@ describe('registerIpcHandlers', () => {
     });
     await expect(getSettingsHandler()).resolves.toEqual(defaultSettings);
     await expect(
-      updateSettingsHandler({}, { backendUrl: 'https://api.livepair.dev' }),
+      updateSettingsHandler({}, { themePreference: 'dark' }),
     ).resolves.toEqual({
       ...defaultSettings,
-      backendUrl: 'https://api.livepair.dev',
+      themePreference: 'dark',
     });
 
     expect(fetchImpl).toHaveBeenNthCalledWith(1, 'http://localhost:3000/health');
     expect(fetchImpl).toHaveBeenNthCalledWith(2, 'http://localhost:3000/session/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-livepair-session-token-secret': 'livepair-local-session-token-secret',
+      },
       body: JSON.stringify({ sessionId: 'session-1' }),
     });
-    expect(settingsService.getSettings).toHaveBeenCalledTimes(3);
+    expect(settingsService.getSettings).toHaveBeenCalledTimes(1);
     expect(settingsService.updateSettings).toHaveBeenCalledWith({
-      backendUrl: 'https://api.livepair.dev',
+      themePreference: 'dark',
     });
   });
 

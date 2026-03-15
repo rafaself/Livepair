@@ -8,7 +8,6 @@ import { bootstrapDesktopRenderer } from './bootstrap';
 import { resetDesktopStores } from './test/store';
 import { useSettingsStore } from './store/settingsStore';
 import { useSessionStore } from './store/sessionStore';
-import { useUiStore } from './store/uiStore';
 
 function BootstrappedScreenSourceOptions(): JSX.Element {
   const controller = useAssistantPanelSettingsController();
@@ -68,7 +67,6 @@ describe('bootstrapDesktopRenderer', () => {
     expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-1');
     expect(useSettingsStore.getState().isReady).toBe(true);
     expect(useSessionStore.getState().activeChatId).toBe('chat-1');
-    expect(useUiStore.getState().backendUrlDraft).toBe(DEFAULT_DESKTOP_SETTINGS.backendUrl);
     expect(document.documentElement.dataset['theme']).toBe('light');
   });
 

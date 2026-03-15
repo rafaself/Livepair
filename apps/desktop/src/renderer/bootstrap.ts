@@ -19,7 +19,6 @@ async function hydrateScreenCaptureSources(): Promise<void> {
 
 export async function bootstrapDesktopRenderer(): Promise<void> {
   const settings = await useSettingsStore.getState().hydrate();
-  useUiStore.getState().initializeSettingsUi(settings);
   await Promise.all([
     useUiStore.getState().initializeDevicePreferences(),
     hydrateScreenCaptureSources(),

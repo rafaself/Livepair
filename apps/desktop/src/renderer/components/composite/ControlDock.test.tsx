@@ -54,7 +54,6 @@ describe('ControlDock', () => {
   beforeEach(() => {
     resetDesktopStores();
     useSettingsStore.setState({ settings: DEFAULT_DESKTOP_SETTINGS, isReady: true });
-    useUiStore.getState().initializeSettingsUi(DEFAULT_DESKTOP_SETTINGS);
     window.bridge.updateSettings = vi.fn(async (patch) => ({
       ...useSettingsStore.getState().settings,
       ...patch,

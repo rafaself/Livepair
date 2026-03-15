@@ -1,8 +1,3 @@
-import {
-  DEFAULT_API_BASE_URL,
-  normalizeBackendBaseUrl,
-} from './backendBaseUrl';
-
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type PreferredMode = 'fast';
 export type SpeechSilenceTimeout = 'never' | '30s' | '3m';
@@ -16,7 +11,6 @@ export const MAX_SYSTEM_INSTRUCTION_LENGTH = 1200;
 
 export type DesktopSettings = {
   themePreference: ThemePreference;
-  backendUrl: string;
   preferredMode: PreferredMode;
   speechSilenceTimeout: SpeechSilenceTimeout;
   selectedInputDeviceId: string;
@@ -35,7 +29,6 @@ export type DesktopSettingsPatch = Partial<DesktopSettings>;
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   themePreference: 'system',
-  backendUrl: DEFAULT_API_BASE_URL,
   preferredMode: 'fast',
   speechSilenceTimeout: 'never',
   selectedInputDeviceId: 'default',
@@ -106,9 +99,6 @@ export function normalizeDesktopSettings(
   const themePreference = normalizeThemePreference(
     settings.themePreference ?? DEFAULT_DESKTOP_SETTINGS.themePreference,
   );
-  const backendUrl = normalizeBackendBaseUrl(
-    settings.backendUrl ?? DEFAULT_DESKTOP_SETTINGS.backendUrl,
-  );
   const preferredMode = normalizeStoredPreferredMode(
     settings.preferredMode ?? DEFAULT_DESKTOP_SETTINGS.preferredMode,
   );
@@ -140,7 +130,6 @@ export function normalizeDesktopSettings(
 
   if (
     themePreference === null ||
-    backendUrl === null ||
     preferredMode === null ||
     speechSilenceTimeout === null ||
     !isNonEmptyString(selectedInputDeviceId) ||
@@ -157,7 +146,6 @@ export function normalizeDesktopSettings(
 
   return {
     themePreference,
-    backendUrl,
     preferredMode,
     speechSilenceTimeout,
     selectedInputDeviceId,
@@ -184,14 +172,6 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.themePreference = themePreference;
-  }
-
-  if ('backendUrl' in patch) {
-    const backendUrl = normalizeBackendBaseUrl(patch.backendUrl);
-    if (backendUrl === null) {
-      return null;
-    }
-    normalizedPatch.backendUrl = backendUrl;
   }
 
   if ('preferredMode' in patch) {

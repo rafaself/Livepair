@@ -29,15 +29,6 @@ function HookHarness(): JSX.Element {
 
   return (
     <div>
-      <input
-        aria-label="backend url"
-        value={controller.backendUrlDraft}
-        onChange={(event) => controller.handleBackendUrlChange(event.currentTarget.value)}
-        onBlur={() => {
-          void controller.handleBackendUrlBlur();
-        }}
-      />
-      <output aria-label="backend-url-error">{controller.backendUrlError ?? 'none'}</output>
       <output aria-label="input-options">
         {controller.inputDeviceOptions.map((option) => option.label).join('|')}
       </output>
@@ -108,13 +99,9 @@ describe('useAssistantPanelSettingsController', () => {
   beforeEach(() => {
     resetDesktopStores();
     useSettingsStore.setState({
-      settings: {
-        ...DEFAULT_DESKTOP_SETTINGS,
-        backendUrl: 'https://persisted.livepair.dev',
-      },
+      settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
-    useUiStore.getState().initializeSettingsUi(useSettingsStore.getState().settings);
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
       sources: [
         createScreenSource('screen:1:0', 'Entire Screen', '1'),
@@ -143,67 +130,6 @@ describe('useAssistantPanelSettingsController', () => {
       selectedSourceId: sourceId,
       overlayDisplay: OVERLAY_DISPLAY,
     }));
-  });
-
-  it('normalizes and persists a valid backend url on blur', async () => {
-    render(<HookHarness />);
-
-    const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
-    await act(async () => {
-      fireEvent.change(backendUrlInput, {
-        target: { value: ' https://api.livepair.dev/v1/ ' },
-      });
-      fireEvent.blur(backendUrlInput);
-    });
-
-    await waitFor(() => {
-      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
-        backendUrl: 'https://api.livepair.dev/v1',
-      });
-    });
-    expect(backendUrlInput).toHaveValue('https://api.livepair.dev/v1');
-    expect(screen.getByLabelText('backend-url-error')).toHaveTextContent('none');
-  });
-
-  it('rejects invalid backend urls without persisting them', async () => {
-    render(<HookHarness />);
-
-    const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
-    await act(async () => {
-      fireEvent.change(backendUrlInput, {
-        target: { value: 'ftp://bad.example.com' },
-      });
-      fireEvent.blur(backendUrlInput);
-    });
-
-    expect(window.bridge.updateSettings).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('backend-url-error')).toHaveTextContent(
-      'Enter a valid http:// or https:// URL.',
-    );
-    expect(backendUrlInput).toHaveValue('ftp://bad.example.com');
-  });
-
-  it('restores the persisted backend url and surfaces an error when persistence fails', async () => {
-    window.bridge.updateSettings = vi.fn(async () => {
-      throw new Error('write failed');
-    });
-
-    render(<HookHarness />);
-
-    const backendUrlInput = screen.getByRole('textbox', { name: /backend url/i });
-    await act(async () => {
-      fireEvent.change(backendUrlInput, {
-        target: { value: 'https://draft.livepair.dev' },
-      });
-      fireEvent.blur(backendUrlInput);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('backend-url-error')).toHaveTextContent(
-        'Unable to update backend URL.',
-      );
-    });
-    expect(backendUrlInput).toHaveValue('https://persisted.livepair.dev');
   });
 
   it('surfaces hydrated device options from the ui store', async () => {
@@ -344,13 +270,9 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
   beforeEach(() => {
     resetDesktopStores();
     useSettingsStore.setState({
-      settings: {
-        ...DEFAULT_DESKTOP_SETTINGS,
-        backendUrl: 'https://persisted.livepair.dev',
-      },
+      settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
-    useUiStore.getState().initializeSettingsUi(useSettingsStore.getState().settings);
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
       sources: [
         createScreenSource('screen:1:0', 'Entire Screen', '1'),

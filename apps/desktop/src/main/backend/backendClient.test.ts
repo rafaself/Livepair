@@ -84,12 +84,18 @@ describe('backendClient', () => {
   const fetchImpl = vi.fn();
   const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
   const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  const originalBackendUrl = process.env['BACKEND_URL'];
 
   beforeEach(() => {
     getBackendUrl.mockClear();
     fetchImpl.mockReset();
     consoleInfoSpy.mockClear();
     consoleErrorSpy.mockClear();
+    if (typeof originalBackendUrl === 'undefined') {
+      delete process.env['BACKEND_URL'];
+    } else {
+      process.env['BACKEND_URL'] = originalBackendUrl;
+    }
   });
 
   it('checks backend health through the configured backend URL', async () => {
@@ -104,6 +110,21 @@ describe('backendClient', () => {
 
     await expect(client.checkHealth()).resolves.toEqual(response);
     expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/health');
+  });
+
+  it('reads the backend URL from env when no resolver is provided', async () => {
+    process.env['BACKEND_URL'] = ' https://api.livepair.dev/v1/ ';
+    const response: HealthResponse = { status: 'ok', timestamp: 'now' };
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => response),
+    });
+
+    const client = createBackendClient({ fetchImpl });
+
+    await expect(client.checkHealth()).resolves.toEqual(response);
+    expect(fetchImpl).toHaveBeenCalledWith('https://api.livepair.dev/v1/health');
   });
 
   it('throws when the health endpoint returns a non-ok response', async () => {

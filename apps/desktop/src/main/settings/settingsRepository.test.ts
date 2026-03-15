@@ -61,14 +61,12 @@ describe('DesktopSettingsRepository', () => {
 
     await expect(
       repository.updateSettings({
-        backendUrl: ' https://api.livepair.dev/v1/ ',
         themePreference: 'dark',
         voice: 'Kore',
         systemInstruction: overlongInstruction,
       }),
     ).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
-      backendUrl: 'https://api.livepair.dev/v1',
       themePreference: 'dark',
       voice: 'Kore',
       systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
@@ -77,7 +75,6 @@ describe('DesktopSettingsRepository', () => {
     const reloadedRepository = new DesktopSettingsRepository(settingsFilePath);
     await expect(reloadedRepository.getSettings()).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
-      backendUrl: 'https://api.livepair.dev/v1',
       themePreference: 'dark',
       voice: 'Kore',
       systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
@@ -89,7 +86,6 @@ describe('DesktopSettingsRepository', () => {
           version: 1,
           settings: {
             ...DEFAULT_DESKTOP_SETTINGS,
-            backendUrl: 'https://api.livepair.dev/v1',
             themePreference: 'dark',
             voice: 'Kore',
             systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
@@ -111,6 +107,7 @@ describe('DesktopSettingsRepository', () => {
         version: 1,
         settings: {
           ...DEFAULT_DESKTOP_SETTINGS,
+          backendUrl: 'https://legacy.livepair.dev',
           voice: 'BadVoice',
           systemInstruction: '   ',
         },

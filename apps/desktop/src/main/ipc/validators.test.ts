@@ -191,7 +191,6 @@ describe('ipc validators', () => {
 
   it('validates settings patch payloads', () => {
     const valid: DesktopSettingsPatch = {
-      backendUrl: 'http://localhost:3000',
       preferredMode: 'fast',
       speechSilenceTimeout: '30s',
       voiceNoiseSuppressionEnabled: true,
@@ -210,6 +209,7 @@ describe('ipc validators', () => {
       ),
     ).toBe(true);
     expect(isDesktopSettingsPatch({ bad: true })).toBe(false);
+    expect(isDesktopSettingsPatch({ backendUrl: 'http://localhost:3000' })).toBe(false);
     expect(isDesktopSettingsPatch({ selectedInputDeviceId: '' })).toBe(false);
     expect(isDesktopSettingsPatch({ preferredMode: 'slow' })).toBe(false);
     expect(isDesktopSettingsPatch({ preferredMode: 'thinking' })).toBe(false);

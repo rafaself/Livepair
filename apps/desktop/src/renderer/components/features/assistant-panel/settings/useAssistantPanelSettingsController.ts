@@ -7,10 +7,7 @@ import type {
   ThemePreference,
   VisualSessionQuality,
 } from '../../../../../shared';
-import {
-  DEFAULT_DESKTOP_SETTINGS,
-  normalizeBackendBaseUrl,
-} from '../../../../../shared';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../../../../shared';
 import { useSettingsStore } from '../../../../store/settingsStore';
 import { useSessionStore } from '../../../../store/sessionStore';
 import { useUiStore } from '../../../../store/uiStore';
@@ -42,8 +39,6 @@ export type AssistantPanelSettingsController = {
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
   screenCaptureSourceOptions: readonly SelectOptionItem[];
-  backendUrlDraft: string;
-  backendUrlError: string | null;
   selectedScreenCaptureSourceId: string;
   toggleDebugMode: () => void;
   togglePanelPinned: () => void;
@@ -61,8 +56,6 @@ export type AssistantPanelSettingsController = {
   setVoice: (voice: DesktopVoice) => void;
   setSystemInstruction: (systemInstruction: string) => void;
   restoreDefaultVoiceAndInstructions: () => void;
-  handleBackendUrlChange: (value: string) => void;
-  handleBackendUrlBlur: () => Promise<void>;
 };
 
 export function useAssistantPanelSettingsController(): AssistantPanelSettingsController {
@@ -73,10 +66,6 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
   const inputDeviceOptions = useUiStore((state) => state.inputDeviceOptions);
   const outputDeviceOptions = useUiStore((state) => state.outputDeviceOptions);
   const toggleDebugMode = useUiStore((state) => state.toggleDebugMode);
-  const backendUrlDraft = useUiStore((state) => state.backendUrlDraft);
-  const backendUrlError = useUiStore((state) => state.backendUrlError);
-  const setBackendUrlDraft = useUiStore((state) => state.setBackendUrlDraft);
-  const setBackendUrlError = useUiStore((state) => state.setBackendUrlError);
   const activeChatId = useSessionStore((state) => state.activeChatId);
   const screenCaptureSources = useSessionStore((state) => state.screenCaptureSources);
   const selectedScreenCaptureSourceId = useSessionStore(
@@ -86,7 +75,6 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     (state) => state.setScreenCaptureSourceSnapshot,
   );
   const setLastRuntimeError = useSessionStore((state) => state.setLastRuntimeError);
-  const resolvedBackendUrlDraft = backendUrlDraft || settings.backendUrl;
   const screenCaptureSourceOptions = useMemo(
     () =>
       screenCaptureSources.map((source) => ({
@@ -111,34 +99,6 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
       });
   }, [activeChatId, setLastRuntimeError, setScreenCaptureSourceSnapshot]);
 
-  const handleBackendUrlBlur = async (): Promise<void> => {
-    const normalizedBackendUrl = normalizeBackendBaseUrl(resolvedBackendUrlDraft);
-
-    if (!normalizedBackendUrl) {
-      setBackendUrlError('Enter a valid http:// or https:// URL.');
-      return;
-    }
-
-    try {
-      const nextSettings = await updateSettings({
-        backendUrl: normalizedBackendUrl,
-      });
-
-      setBackendUrlDraft(nextSettings.backendUrl);
-      setBackendUrlError(null);
-    } catch {
-      setBackendUrlDraft(settings.backendUrl);
-      setBackendUrlError('Unable to update backend URL.');
-    }
-  };
-
-  const handleBackendUrlChange = (value: string): void => {
-    setBackendUrlDraft(value);
-    if (backendUrlError !== null) {
-      setBackendUrlError(null);
-    }
-  };
-
   return {
     isDebugMode,
     isPanelPinned: settings.isPanelPinned,
@@ -159,8 +119,6 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     outputDeviceOptions:
       outputDeviceOptions.length > 0 ? outputDeviceOptions : UNAVAILABLE_OUTPUT_OPTION,
     screenCaptureSourceOptions,
-    backendUrlDraft: resolvedBackendUrlDraft,
-    backendUrlError,
     selectedScreenCaptureSourceId:
       selectedScreenCaptureSourceId ?? UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE,
     toggleDebugMode,
@@ -226,7 +184,5 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
         systemInstruction: DEFAULT_DESKTOP_SETTINGS.systemInstruction,
       });
     },
-    handleBackendUrlChange,
-    handleBackendUrlBlur,
   };
 }

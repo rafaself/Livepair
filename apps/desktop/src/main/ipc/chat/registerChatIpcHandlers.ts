@@ -2,7 +2,6 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared';
 import type { BackendClient } from '../../backend/backendClient';
 import { createBackendClient } from '../../backend/backendClient';
-import type { DesktopSettingsService } from '../../settings/settingsService';
 import {
   isAppendChatMessageRequest,
   isChatId,
@@ -37,16 +36,13 @@ type ChatBackendClient = Pick<
 
 type RegisterChatIpcHandlersOptions = {
   fetchImpl?: typeof fetch | undefined;
-  settingsService: DesktopSettingsService;
 };
 
 function createChatBackendClient({
   fetchImpl = fetch,
-  settingsService,
 }: RegisterChatIpcHandlersOptions): ChatBackendClient {
   return createBackendClient({
     fetchImpl,
-    getBackendUrl: async () => (await settingsService.getSettings()).backendUrl,
   });
 }
 

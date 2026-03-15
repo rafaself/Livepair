@@ -49,8 +49,6 @@ type UiStoreState = {
   isComposerMicrophoneEnabled: boolean;
   saveScreenFramesEnabled: boolean;
   screenFrameDumpDirectoryPath: string | null;
-  backendUrlDraft: string;
-  backendUrlError: string | null;
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
   togglePanel: () => void;
@@ -61,9 +59,6 @@ type UiStoreState = {
   setComposerMicrophoneEnabled: (enabled: boolean) => void;
   setSaveScreenFramesEnabled: (enabled: boolean) => void;
   setScreenFrameDumpDirectoryPath: (directoryPath: string | null) => void;
-  initializeSettingsUi: (settings: { backendUrl: string }) => void;
-  setBackendUrlDraft: (value: string) => void;
-  setBackendUrlError: (value: string | null) => void;
   initializeDevicePreferences: () => Promise<void>;
   reset: () => void;
 };
@@ -75,8 +70,6 @@ const defaultUiState = {
   isComposerMicrophoneEnabled: true,
   saveScreenFramesEnabled: false,
   screenFrameDumpDirectoryPath: null,
-  backendUrlDraft: '',
-  backendUrlError: null,
   inputDeviceOptions: [] as readonly SelectOptionItem[],
   outputDeviceOptions: [] as readonly SelectOptionItem[],
 };
@@ -113,12 +106,6 @@ export const useUiStore = create<UiStoreState>((set) => ({
   setSaveScreenFramesEnabled: (saveScreenFramesEnabled) => set({ saveScreenFramesEnabled }),
   setScreenFrameDumpDirectoryPath: (screenFrameDumpDirectoryPath) =>
     set({ screenFrameDumpDirectoryPath }),
-  initializeSettingsUi: ({ backendUrl }) =>
-    set((state) => ({
-      backendUrlDraft: state.backendUrlDraft || backendUrl,
-    })),
-  setBackendUrlDraft: (backendUrlDraft) => set({ backendUrlDraft }),
-  setBackendUrlError: (backendUrlError) => set({ backendUrlError }),
   initializeDevicePreferences: async () => {
     // Chromium only includes audiooutput entries in enumerateDevices after
     // microphone permission has been granted. Probe once and release immediately

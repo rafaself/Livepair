@@ -15,10 +15,11 @@ import type {
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
+import { resolveBackendBaseUrl } from '../../shared';
 
 type BackendClientOptions = {
   fetchImpl?: typeof fetch;
-  getBackendUrl: () => Promise<string>;
+  getBackendUrl?: () => Promise<string> | string;
 };
 
 const DEFAULT_SESSION_TOKEN_AUTH_SECRET = 'livepair-local-session-token-secret';
@@ -60,6 +61,10 @@ function readSessionTokenAuthSecret(): string | null {
   }
 
   return value;
+}
+
+function readBackendUrlFromEnv(): string {
+  return resolveBackendBaseUrl(process.env['BACKEND_URL']);
 }
 
 function isStateEntry(
@@ -382,6 +387,14 @@ export function createBackendClient({
   fetchImpl = fetch,
   getBackendUrl,
 }: BackendClientOptions): BackendClient {
+  async function resolveBackendUrl(): Promise<string> {
+    if (typeof getBackendUrl === 'function') {
+      return getBackendUrl();
+    }
+
+    return readBackendUrlFromEnv();
+  }
+
   async function requestJson<T>({
     init,
     nullOnStatus,
@@ -389,7 +402,7 @@ export function createBackendClient({
     path,
     statusLabel,
   }: JsonRequestOptions<T>): Promise<T> {
-    const backendUrl = await getBackendUrl();
+    const backendUrl = await resolveBackendUrl();
     const url = `${backendUrl}${path}`;
     const response = typeof init === 'undefined'
       ? await fetchImpl(url)
@@ -418,7 +431,7 @@ export function createBackendClient({
     path,
     statusLabel,
   }: OptionalJsonRequestOptions<T>): Promise<T | null> {
-    const backendUrl = await getBackendUrl();
+    const backendUrl = await resolveBackendUrl();
     const url = `${backendUrl}${path}`;
     const response = typeof init === 'undefined'
       ? await fetchImpl(url)
@@ -458,7 +471,7 @@ export function createBackendClient({
     async requestSessionToken(
       req: CreateEphemeralTokenRequest,
     ): Promise<CreateEphemeralTokenResponse> {
-      const backendUrl = await getBackendUrl();
+      const backendUrl = await resolveBackendUrl();
       const url = `${backendUrl}/session/token`;
       console.info('[desktop:backend-client] session token request started', {
         url,

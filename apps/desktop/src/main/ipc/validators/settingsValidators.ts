@@ -3,7 +3,6 @@ import { hasOnlyAllowedKeys, isNonEmptyString, isPlainRecord } from './shared';
 
 const DESKTOP_SETTINGS_PATCH_KEYS = [
   'themePreference',
-  'backendUrl',
   'preferredMode',
   'speechSilenceTimeout',
   'selectedInputDeviceId',
@@ -40,10 +39,6 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
   }
 
   if ('themePreference' in value && !isThemePreference(value['themePreference'])) {
-    return false;
-  }
-
-  if ('backendUrl' in value && typeof value['backendUrl'] !== 'string') {
     return false;
   }
 

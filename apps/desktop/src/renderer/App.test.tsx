@@ -11,7 +11,6 @@ import { App } from './App';
 import { useSettingsStore } from './store/settingsStore';
 import { useCaptureExclusionRectsStore } from './store/captureExclusionRectsStore';
 import { resetDesktopStores } from './test/store';
-import { useUiStore } from './store/uiStore';
 import { useSessionStore } from './store/sessionStore';
 import { __emitGeminiLiveSdkMessage } from './test/geminiLiveSdkMock';
 import { THEME_MEDIA_QUERY } from './theme';
@@ -80,7 +79,6 @@ describe('App', () => {
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
     });
-    useUiStore.getState().initializeSettingsUi(DEFAULT_DESKTOP_SETTINGS);
     vi.clearAllMocks();
     persistedMessages = [];
     window.bridge.checkHealth = vi.fn(

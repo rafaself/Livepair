@@ -100,19 +100,6 @@ describe('uiStore', () => {
     );
   });
 
-  it('stores backend drafts independently from persisted settings', async () => {
-    useUiStore.getState().initializeSettingsUi({ backendUrl: DEFAULT_DESKTOP_SETTINGS.backendUrl });
-    expect(useUiStore.getState().backendUrlDraft).toBe('http://localhost:3000');
-
-    useUiStore.getState().setBackendUrlDraft('https://draft.livepair.dev');
-    expect(useUiStore.getState().backendUrlDraft).toBe('https://draft.livepair.dev');
-    expect(useSettingsStore.getState().settings.backendUrl).toBe('http://localhost:3000');
-
-    await useSettingsStore.getState().updateSettings({ backendUrl: 'https://api.livepair.dev' });
-    expect(useSettingsStore.getState().settings.backendUrl).toBe('https://api.livepair.dev');
-    expect(useUiStore.getState().backendUrlDraft).toBe('https://draft.livepair.dev');
-  });
-
   it('keeps runtime assistant state in the session store', () => {
     useUiStore.setState({ isDebugMode: true });
 
@@ -143,7 +130,7 @@ describe('uiStore', () => {
     );
   });
 
-  it('resets transient drafts and device options back to defaults', async () => {
+  it('resets transient debug state and device options back to defaults', async () => {
     enumerateDevices.mockResolvedValue([
       createDevice({
         deviceId: 'default',
@@ -159,9 +146,6 @@ describe('uiStore', () => {
       }),
     ]);
 
-    useUiStore.getState().initializeSettingsUi({ backendUrl: DEFAULT_DESKTOP_SETTINGS.backendUrl });
-    useUiStore.getState().setBackendUrlDraft('https://draft.livepair.dev');
-    useUiStore.getState().setBackendUrlError('bad url');
     useUiStore.getState().toggleDebugMode();
     useUiStore.getState().setSaveScreenFramesEnabled(true);
     useUiStore.getState().setScreenFrameDumpDirectoryPath(
@@ -178,8 +162,6 @@ describe('uiStore', () => {
         isDebugMode: false,
         saveScreenFramesEnabled: false,
         screenFrameDumpDirectoryPath: null,
-        backendUrlDraft: '',
-        backendUrlError: null,
         inputDeviceOptions: [],
         outputDeviceOptions: [],
       }),

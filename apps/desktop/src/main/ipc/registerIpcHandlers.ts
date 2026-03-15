@@ -37,11 +37,9 @@ export function registerIpcHandlers({
   registerAppIpcHandlers();
   registerSessionIpcHandlers({
     fetchImpl,
-    settingsService,
   });
   registerChatIpcHandlers({
     fetchImpl,
-    settingsService,
   });
   registerSettingsIpcHandlers({
     settingsService,

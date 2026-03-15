@@ -8,17 +8,15 @@ import {
 } from './settings';
 
 describe('normalizeDesktopSettings', () => {
-  it('fills defaults and normalizes backend URLs', () => {
+  it('fills defaults for supported settings', () => {
     expect(
       normalizeDesktopSettings({
-        backendUrl: ' https://api.livepair.dev/base/ ',
         themePreference: 'dark',
         speechSilenceTimeout: '30s',
         voiceNoiseSuppressionEnabled: false,
       }),
     ).toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
-      backendUrl: 'https://api.livepair.dev/base',
       themePreference: 'dark',
       speechSilenceTimeout: '30s',
       voiceNoiseSuppressionEnabled: false,
@@ -148,7 +146,6 @@ describe('normalizeDesktopSettingsPatch', () => {
   it('normalizes valid patch values without injecting defaults', () => {
     expect(
       normalizeDesktopSettingsPatch({
-        backendUrl: ' https://api.livepair.dev/base/ ',
         preferredMode: 'fast',
         speechSilenceTimeout: '3m',
         voiceEchoCancellationEnabled: false,
@@ -157,7 +154,6 @@ describe('normalizeDesktopSettingsPatch', () => {
         systemInstruction: '  Stay concise.  ',
       }),
     ).toEqual({
-      backendUrl: 'https://api.livepair.dev/base',
       preferredMode: 'fast',
       speechSilenceTimeout: '3m',
       voiceEchoCancellationEnabled: false,
@@ -194,11 +190,6 @@ describe('normalizeDesktopSettingsPatch', () => {
     expect(
       normalizeDesktopSettingsPatch({
         selectedOutputDeviceId: '',
-      }),
-    ).toBeNull();
-    expect(
-      normalizeDesktopSettingsPatch({
-        backendUrl: 'ftp://bad.example.com',
       }),
     ).toBeNull();
     expect(
