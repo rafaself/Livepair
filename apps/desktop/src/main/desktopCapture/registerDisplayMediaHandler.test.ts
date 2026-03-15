@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CaptureSourceRegistry } from './captureSourceRegistry';
 
-type DisplayMediaCallback = (stream: { video: unknown }) => void;
+type DisplayMediaCallback = (stream: { video?: unknown }) => void;
 
 const mockSource = {
   id: 'screen:1:0',
@@ -83,10 +83,11 @@ describe('registerDisplayMediaHandler', () => {
     expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledOnce();
     expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledWith(
       expect.any(Function),
+      { useSystemPicker: true },
     );
   });
 
-  it('provides the first screen+window source to the callback when no source is selected', async () => {
+  it('does not auto-pick when multiple eligible sources remain and no source is selected', async () => {
     mockGetSources.mockResolvedValueOnce([mockSource, mockWindowSource]);
     const { registerDisplayMediaHandler } = await import(
       './registerDisplayMediaHandler'
@@ -105,9 +106,7 @@ describe('registerDisplayMediaHandler', () => {
       thumbnailSize: { width: 0, height: 0 },
     });
     expect(callback).toHaveBeenCalledOnce();
-    expect(callback).toHaveBeenCalledWith({
-      video: mockSource,
-    });
+    expect(callback).toHaveBeenCalledWith({});
   });
 
   it('uses the selected source from the registry when one is set', async () => {
@@ -117,7 +116,7 @@ describe('registerDisplayMediaHandler', () => {
     );
 
     registerDisplayMediaHandler(
-      makeRegistry({ getSelectedSource: vi.fn(() => ({ id: 'window:42:0', name: 'VSCode' })) }),
+      makeRegistry({ getSelectedSourceId: vi.fn(() => 'window:42:0') }),
     );
 
     const callback = vi.fn();
@@ -133,16 +132,20 @@ describe('registerDisplayMediaHandler', () => {
     });
   });
 
-  it('falls back to the first source when the selected source id is no longer present', async () => {
+  it('falls back to the only remaining eligible source when a previous selection disappears', async () => {
     mockGetSources.mockResolvedValueOnce([mockSource]);
-    const { registerDisplayMediaHandler } = await import(
-      './registerDisplayMediaHandler'
-    );
+    const [
+      { createCaptureSourceRegistry },
+      { registerDisplayMediaHandler },
+    ] = await Promise.all([
+      import('./captureSourceRegistry'),
+      import('./registerDisplayMediaHandler'),
+    ]);
+    const registry = createCaptureSourceRegistry();
+    registry.setSources([{ id: 'window:42:0', name: 'VSCode' }]);
+    registry.setSelectedSourceId('window:42:0');
 
-    // Registry says a window source is selected but getSources no longer returns it
-    registerDisplayMediaHandler(
-      makeRegistry({ getSelectedSource: vi.fn(() => null) }),
-    );
+    registerDisplayMediaHandler(registry);
 
     const callback = vi.fn();
     await registeredHandler!(
@@ -151,6 +154,32 @@ describe('registerDisplayMediaHandler', () => {
     );
 
     expect(callback).toHaveBeenCalledWith({ video: mockSource });
+    expect(registry.getSelectedSourceId()).toBeNull();
+  });
+
+  it('fails safely when a previous selection disappears and multiple eligible sources remain', async () => {
+    mockGetSources.mockResolvedValueOnce([mockSource, mockWindowSource]);
+    const [
+      { createCaptureSourceRegistry },
+      { registerDisplayMediaHandler },
+    ] = await Promise.all([
+      import('./captureSourceRegistry'),
+      import('./registerDisplayMediaHandler'),
+    ]);
+    const registry = createCaptureSourceRegistry();
+    registry.setSources([{ id: 'window:50:0', name: 'Browser' }]);
+    registry.setSelectedSourceId('window:50:0');
+
+    registerDisplayMediaHandler(registry);
+
+    const callback = vi.fn();
+    await registeredHandler!(
+      { frame: { url: 'http://localhost:5173' } },
+      callback,
+    );
+
+    expect(callback).toHaveBeenCalledWith({});
+    expect(registry.getSelectedSourceId()).toBeNull();
   });
 
   it('calls the callback with no source when desktopCapturer returns empty', async () => {
@@ -191,14 +220,24 @@ describe('registerDisplayMediaHandler', () => {
     expect(callback).toHaveBeenCalledWith({});
   });
 
-  it('updates the registry source list on each capture request', async () => {
-    mockGetSources.mockResolvedValueOnce([mockSource, mockWindowSource]);
+  it('updates the registry source list with only eligible sources on each capture request', async () => {
+    const livepairOverlay = {
+      id: 'window:99:0',
+      name: 'Livepair',
+      thumbnail: { toDataURL: () => '' },
+      display_id: '',
+      appIcon: null,
+    };
+    mockGetSources.mockResolvedValueOnce([livepairOverlay, mockSource, mockWindowSource]);
     const setSources = vi.fn();
     const { registerDisplayMediaHandler } = await import(
       './registerDisplayMediaHandler'
     );
 
-    registerDisplayMediaHandler(makeRegistry({ setSources }));
+    registerDisplayMediaHandler(
+      makeRegistry({ setSources }),
+      () => new Set([livepairOverlay.id]),
+    );
 
     await registeredHandler!(
       { frame: { url: 'http://localhost:5173' } },
@@ -222,30 +261,7 @@ describe('registerDisplayMediaHandler', () => {
     expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledTimes(2);
   });
 
-  // Wave 2: automatic source resolution tests
-
-  it('automatic mode prefers a screen source even when a window source appears first', async () => {
-    const windowFirst = { ...mockWindowSource };
-    const screenSecond = { ...mockSource };
-    mockGetSources.mockResolvedValueOnce([windowFirst, screenSecond]);
-    const { registerDisplayMediaHandler } = await import(
-      './registerDisplayMediaHandler'
-    );
-
-    registerDisplayMediaHandler(makeRegistry({ getSelectedSource: vi.fn(() => null), getSelectedSourceId: vi.fn(() => null) }));
-
-    const callback = vi.fn();
-    await registeredHandler!(
-      { frame: { url: 'http://localhost:5173' } },
-      callback,
-    );
-
-    expect(callback).toHaveBeenCalledWith({
-      video: expect.objectContaining({ id: 'screen:1:0' }),
-    });
-  });
-
-  it('automatic mode excludes the Livepair overlay window from selection', async () => {
+  it('allows a sole remaining non-excluded source as a safe fallback', async () => {
     const livepairOverlay = { id: 'window:99:0', name: 'Livepair', thumbnail: { toDataURL: () => '' }, display_id: '', appIcon: null };
     mockGetSources.mockResolvedValueOnce([livepairOverlay, mockWindowSource]);
     const { registerDisplayMediaHandler } = await import(
@@ -275,7 +291,7 @@ describe('registerDisplayMediaHandler', () => {
     );
 
     registerDisplayMediaHandler(
-      makeRegistry({ getSelectedSource: vi.fn(() => ({ id: 'window:42:0', name: 'VSCode' })) }),
+      makeRegistry({ getSelectedSourceId: vi.fn(() => 'window:42:0') }),
       () => new Set(['window:99:0']),
     );
 
@@ -287,30 +303,6 @@ describe('registerDisplayMediaHandler', () => {
 
     expect(callback).toHaveBeenCalledWith({
       video: expect.objectContaining({ id: 'window:42:0' }),
-    });
-  });
-
-  it('automatic fallback is deterministic when only window sources exist', async () => {
-    const windowA = { id: 'window:10:0', name: 'Terminal', thumbnail: { toDataURL: () => '' }, display_id: '', appIcon: null };
-    const windowB = { id: 'window:11:0', name: 'Browser', thumbnail: { toDataURL: () => '' }, display_id: '', appIcon: null };
-    mockGetSources.mockResolvedValueOnce([windowA, windowB]);
-    const { registerDisplayMediaHandler } = await import(
-      './registerDisplayMediaHandler'
-    );
-
-    registerDisplayMediaHandler(
-      makeRegistry({ getSelectedSource: vi.fn(() => null), getSelectedSourceId: vi.fn(() => null) }),
-    );
-
-    const callback = vi.fn();
-    await registeredHandler!(
-      { frame: { url: 'http://localhost:5173' } },
-      callback,
-    );
-
-    // Always picks the first non-excluded window source deterministically
-    expect(callback).toHaveBeenCalledWith({
-      video: expect.objectContaining({ id: 'window:10:0' }),
     });
   });
 });

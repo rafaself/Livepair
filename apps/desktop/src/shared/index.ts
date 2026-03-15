@@ -22,6 +22,7 @@ export {
   normalizeDesktopSettingsPatch,
   type DesktopSettings,
   type DesktopSettingsPatch,
+  type ChatTimestampVisibility,
   type PreferredMode,
   type SpeechSilenceTimeout,
   type ThemePreference,

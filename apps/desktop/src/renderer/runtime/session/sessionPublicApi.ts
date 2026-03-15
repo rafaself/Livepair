@@ -38,6 +38,7 @@ type SessionControllerPublicApiArgs = {
     onTextSent: () => void;
     isActive: () => boolean;
   };
+  refreshScreenCaptureSourceSnapshot: () => Promise<boolean>;
   appendTypedUserTurn: (text: string) => string;
   voiceTranscriptCtrl: {
     clearQueuedMixedModeAssistantReply: () => void;
@@ -77,6 +78,7 @@ export function createSessionControllerPublicApi({
   startSessionInternal,
   voiceChunkCtrl,
   screenCtrl,
+  refreshScreenCaptureSourceSnapshot,
   appendTypedUserTurn,
   voiceTranscriptCtrl,
   runtime,
@@ -101,9 +103,15 @@ export function createSessionControllerPublicApi({
         detail: assistantState,
       });
     },
-    startScreenCapture: () => {
+    startScreenCapture: async () => {
+      const didRefresh = await refreshScreenCaptureSourceSnapshot();
+
+      if (!didRefresh) {
+        return;
+      }
+
       store.getState().setScreenShareIntended(true);
-      return screenCtrl.start();
+      await screenCtrl.start();
     },
     analyzeScreenNow: () => {
       screenCtrl.analyzeScreenNow();

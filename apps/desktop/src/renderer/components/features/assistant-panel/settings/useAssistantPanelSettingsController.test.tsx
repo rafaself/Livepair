@@ -58,7 +58,7 @@ function HookHarness(): JSX.Element {
       </button>
       <button
         type="button"
-        onClick={() => controller.setSelectedScreenCaptureSourceId('auto')}
+        onClick={() => controller.setSelectedScreenCaptureSourceId('')}
       >
         reset screen source
       </button>
@@ -216,7 +216,7 @@ describe('useAssistantPanelSettingsController', () => {
     await waitFor(() => {
       expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Automatic (first available source)|Entire Screen|VSCode',
+        'Choose when sharing|Entire Screen|VSCode',
       );
       expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('screen:1:0');
     });
@@ -231,9 +231,9 @@ describe('useAssistantPanelSettingsController', () => {
     render(<HookHarness />);
 
     expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-      'Automatic (first available source)',
+      'Choose when sharing',
     );
-    expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('auto');
+    expect(screen.getByLabelText('selected-screen-source')).toBeEmptyDOMElement();
   });
 
   it('updates the selected screen capture source from the returned snapshot', async () => {
@@ -366,7 +366,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Automatic (first available source)|Entire Screen|VSCode',
+        'Choose when sharing|Entire Screen|VSCode',
       );
     });
 
@@ -379,7 +379,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
     await waitFor(() => {
       expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Automatic (first available source)|Entire Screen|VSCode',
+        'Choose when sharing|Entire Screen|VSCode',
       );
     });
   });
@@ -408,7 +408,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
     });
   });
 
-  it('falls back to auto when the bridge reports no selection after a chat switch', async () => {
+  it('clears the selection when the bridge reports no selection after a chat switch', async () => {
     render(<HookHarness />);
 
     await waitFor(() => {
@@ -425,7 +425,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('auto');
+      expect(screen.getByLabelText('selected-screen-source')).toBeEmptyDOMElement();
     });
   });
 
@@ -442,7 +442,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Automatic (first available source)|Entire Screen|VSCode',
+        'Choose when sharing|Entire Screen|VSCode',
       );
     });
   });
@@ -453,7 +453,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
     await waitFor(() => {
       expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Automatic (first available source)|Entire Screen|VSCode',
+        'Choose when sharing|Entire Screen|VSCode',
       );
     });
   });

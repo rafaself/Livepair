@@ -16,8 +16,8 @@ export function FieldList({ items, className }: FieldListProps): JSX.Element {
 
   return (
     <dl className={classes}>
-      {items.map(({ label, value }) => (
-        <div key={label} className="field-list__item">
+      {items.map(({ label, value }, index) => (
+        <div key={typeof label === 'string' ? label : index} className="field-list__item">
           <dt className="field-list__label">{label}</dt>
           <dd className="field-list__value">{value}</dd>
         </div>

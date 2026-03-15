@@ -9,7 +9,6 @@ export type AssistantPanelConversationSectionProps = {
   isConversationEmpty: boolean;
   isViewingPastChat?: boolean;
   lastRuntimeError: string | null;
-  activeChatTitle?: string | null;
   latestLiveSession?: LiveSessionRecord | null;
   turns: ConversationTimelineEntry[];
 };
@@ -73,7 +72,6 @@ export function AssistantPanelConversationSection({
   isConversationEmpty,
   isViewingPastChat = false,
   lastRuntimeError,
-  activeChatTitle = null,
   latestLiveSession = null,
   turns,
 }: AssistantPanelConversationSectionProps): JSX.Element {

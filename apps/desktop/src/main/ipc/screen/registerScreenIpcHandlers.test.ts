@@ -75,11 +75,13 @@ describe('registerScreenIpcHandlers', () => {
     mockGetSources.mockResolvedValue([
       { id: 'screen:1:0', name: 'Entire Screen' },
       { id: 'window:42:0', name: 'VSCode' },
+      { id: 'window:99:0', name: 'Livepair' },
     ]);
     const { registerScreenIpcHandlers } = await import('./registerScreenIpcHandlers');
 
     registerScreenIpcHandlers({
       captureSourceRegistry: createCaptureSourceRegistry(),
+      getExcludedSourceIds: () => new Set(['window:99:0']),
       platform: 'linux',
       screenFrameDumpService: createScreenFrameDumpServiceDouble(),
     });
@@ -119,11 +121,15 @@ describe('registerScreenIpcHandlers', () => {
     await expect(selectSourceHandler({}, 'window:missing:0')).rejects.toThrow(
       'Unknown screen capture source id',
     );
+    await expect(selectSourceHandler({}, 'window:99:0')).rejects.toThrow(
+      'Unknown screen capture source id',
+    );
 
     expect(mockGetSources).toHaveBeenNthCalledWith(1, CAPTURE_SOURCE_LIST_OPTIONS);
     expect(mockGetSources).toHaveBeenNthCalledWith(2, CAPTURE_SOURCE_LIST_OPTIONS);
     expect(mockGetSources).toHaveBeenNthCalledWith(3, CAPTURE_SOURCE_LIST_OPTIONS);
     expect(mockGetSources).toHaveBeenNthCalledWith(4, CAPTURE_SOURCE_LIST_OPTIONS);
+    expect(mockGetSources).toHaveBeenNthCalledWith(5, CAPTURE_SOURCE_LIST_OPTIONS);
   });
 
   it('reports access status and validates screen frame dump payloads', async () => {

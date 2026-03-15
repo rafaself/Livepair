@@ -123,8 +123,6 @@ describe('AssistantPanelChatView', () => {
       />,
     );
 
-    expect(screen.getByRole('status')).toHaveTextContent('Viewing past chat');
-    expect(screen.getByText('Interview prep')).toBeVisible();
     expect(screen.getByText('Earlier question')).toBeVisible();
     expect(screen.getByText('Earlier answer')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Resume Live Session' })).toBeVisible();
@@ -918,7 +916,7 @@ describe('AssistantPanelChatView', () => {
         ]}
         selectedInputDeviceId="usb-mic"
         screenCaptureSourceOptions={[
-          { value: 'auto', label: 'Automatic (first available source)' },
+          { value: '', label: 'Choose when sharing' },
           { value: 'screen:1:0', label: 'Entire Screen' },
           { value: 'window:42:0', label: 'VSCode' },
         ]}
@@ -979,7 +977,7 @@ describe('AssistantPanelChatView', () => {
     expect(screenOptionsButton).toHaveAttribute('aria-expanded', 'true');
     expect(
       within(screenDropdown).getByRole('option', {
-        name: 'Automatic (first available source)',
+        name: 'Choose when sharing',
       }),
     ).toBeVisible();
     expect(within(screenDropdown).getByRole('option', { name: 'Entire Screen' })).toBeVisible();

@@ -18,9 +18,9 @@ const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
 const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'Voice output unavailable in text-only release' },
 ];
-const AUTO_SCREEN_CAPTURE_SOURCE_VALUE = 'auto';
-const AUTO_SCREEN_CAPTURE_SOURCE_OPTION: readonly SelectOptionItem[] = [
-  { value: AUTO_SCREEN_CAPTURE_SOURCE_VALUE, label: 'Automatic (first available source)' },
+const UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE = '';
+const UNSELECTED_SCREEN_CAPTURE_SOURCE_OPTION: readonly SelectOptionItem[] = [
+  { value: UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE, label: 'Choose when sharing' },
 ];
 
 export type AssistantPanelSettingsController = {
@@ -83,7 +83,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
   const resolvedBackendUrlDraft = backendUrlDraft || settings.backendUrl;
   const screenCaptureSourceOptions = useMemo(
     () => [
-      ...AUTO_SCREEN_CAPTURE_SOURCE_OPTION,
+      ...UNSELECTED_SCREEN_CAPTURE_SOURCE_OPTION,
       ...screenCaptureSources.map((source) => ({
         value: source.id,
         label: source.name,
@@ -156,7 +156,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     backendUrlDraft: resolvedBackendUrlDraft,
     backendUrlError,
     selectedScreenCaptureSourceId:
-      selectedScreenCaptureSourceId ?? AUTO_SCREEN_CAPTURE_SOURCE_VALUE,
+      selectedScreenCaptureSourceId ?? UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE,
     toggleDebugMode,
     togglePanelPinned: () => {
       void updateSetting('isPanelPinned', !settings.isPanelPinned);
@@ -172,7 +172,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     },
     setSelectedScreenCaptureSourceId: (sourceId) => {
       const nextSourceId =
-        sourceId === AUTO_SCREEN_CAPTURE_SOURCE_VALUE ? null : sourceId;
+        sourceId === UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE ? null : sourceId;
 
       void window.bridge
         .selectScreenCaptureSource(nextSourceId)

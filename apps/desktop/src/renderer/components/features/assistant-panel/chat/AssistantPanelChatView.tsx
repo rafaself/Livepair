@@ -127,7 +127,6 @@ export function AssistantPanelChatView({
         : 'Start screen share';
   const composerPlaceholder = 'Add a note to the session';
   const isViewingPastChat = !isLiveSessionActive && activeChat?.isCurrent === false;
-  const activeChatTitle = activeChat?.title ?? 'Untitled chat';
 
   return (
     <section
@@ -147,7 +146,6 @@ export function AssistantPanelChatView({
         isConversationEmpty={isConversationEmpty}
         isViewingPastChat={isViewingPastChat}
         lastRuntimeError={lastRuntimeError}
-        activeChatTitle={activeChatTitle}
         latestLiveSession={latestLiveSession}
         turns={turns}
       />

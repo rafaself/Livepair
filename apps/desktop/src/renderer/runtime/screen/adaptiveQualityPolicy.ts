@@ -39,7 +39,7 @@ export type AdaptiveQualityPolicyOptions = {
 
 export function createAdaptiveQualityPolicy(
   baseline: VisualSessionQuality,
-  options?: AdaptiveQualityPolicyOptions,
+  _options?: AdaptiveQualityPolicyOptions,
 ): AdaptiveQualityPolicy {
   const baselineParams = getScreenCaptureQualityParams(baseline);
   const promotedParams = getScreenCaptureQualityParams('High');

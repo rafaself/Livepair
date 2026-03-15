@@ -3,6 +3,7 @@ import type { ScreenFrameDumpService } from '../../debug/screenFrameDumpService'
 import {
   CAPTURE_SOURCE_LIST_OPTIONS,
   type CaptureSourceRegistry,
+  filterEligibleCaptureSources,
   toCaptureSources,
 } from '../../desktopCapture/captureSourceRegistry';
 import { getScreenCaptureAccessStatus } from '../../desktopCapture/screenCaptureAccessStatus';
@@ -14,19 +15,22 @@ import {
 
 type RegisterScreenIpcHandlersOptions = {
   captureSourceRegistry: CaptureSourceRegistry;
+  getExcludedSourceIds?: () => ReadonlySet<string>;
   platform: NodeJS.Platform;
   screenFrameDumpService: ScreenFrameDumpService;
 };
 
 export function registerScreenIpcHandlers({
   captureSourceRegistry,
+  getExcludedSourceIds = () => new Set(),
   platform,
   screenFrameDumpService,
 }: RegisterScreenIpcHandlersOptions): void {
   const loadScreenCaptureSourceSnapshot = async () => {
-    const sources = toCaptureSources(
+    const sources = toCaptureSources(filterEligibleCaptureSources(
       await desktopCapturer.getSources(CAPTURE_SOURCE_LIST_OPTIONS),
-    );
+      getExcludedSourceIds(),
+    ));
     captureSourceRegistry.setSources(sources);
     return captureSourceRegistry.getSnapshot();
   };
