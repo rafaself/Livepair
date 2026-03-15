@@ -132,9 +132,10 @@
   align-items: center;
   background: #1e1f20;
   border-radius: var(--radius-full);
-  padding: 4px; /* Increased padding slightly for the inner circle */
+  padding: 0;
   gap: 0;
   transition: background-color var(--motion-fast) var(--ease-out);
+  overflow: hidden;
 }
 
 :root[data-theme='light'] .assistant-panel__composer-pill {
@@ -146,9 +147,9 @@
   background: #2b2d30 !important;
   border-radius: 50%;
   color: #ffffff;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -177,12 +178,12 @@
 .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger {
   background: transparent !important; /* Make it part of the pill background */
   border: none;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   padding: 0 12px;
   min-width: 0;
   width: 100%;
-  height: 28px;
-  min-height: 28px;
+  height: 30px;
+  min-height: 30px;
   justify-content: center;
 }
 
