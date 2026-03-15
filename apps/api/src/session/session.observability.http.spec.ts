@@ -5,7 +5,7 @@ import {
 import type { AddressInfo } from 'net';
 
 const SESSION_TOKEN_AUTH_SECRET = 'desktop-secret';
-const SESSION_TOKEN_LIVE_MODEL = 'models/gemini-2.0-flash-live-001';
+const SESSION_TOKEN_LIVE_MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
 const SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS = 2;
 const SESSION_TOKEN_RATE_LIMIT_WINDOW_MS = 200;
 

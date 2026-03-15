@@ -151,7 +151,7 @@ describe('createGeminiLiveTransport', () => {
       config: parseLiveConfig({
         provider: 'gemini',
         adapterKey: 'gemini-live',
-        model: 'models/gemini-2.0-flash-live-001',
+        model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         apiVersion: 'v1alpha',
         sessionModes: {
           text: {
@@ -186,7 +186,7 @@ describe('createGeminiLiveTransport', () => {
     expect(sdkHarness.getConnectOptions()).toEqual({
       apiKey: 'auth_tokens/test-token',
       apiVersion: 'v1alpha',
-      model: 'models/gemini-2.0-flash-live-001',
+      model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
       config: {
         responseModalities: ['TEXT'],
         mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
@@ -1103,7 +1103,7 @@ describe('createGeminiLiveTransport', () => {
       parseLiveConfig({
         provider: 'gemini',
         adapterKey: 'gemini-live',
-        model: 'models/gemini-2.0-flash-live-001',
+        model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         apiVersion: 'v1beta',
         sessionModes: {
           text: {

@@ -3,7 +3,7 @@ import './loadRootEnv';
 const DEFAULT_PORT = 3000;
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_SESSION_TOKEN_AUTH_SECRET = 'livepair-local-session-token-secret';
-const DEFAULT_SESSION_TOKEN_LIVE_MODEL = 'models/gemini-2.0-flash-live-001';
+const DEFAULT_SESSION_TOKEN_LIVE_MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
 const DEFAULT_DATABASE_URL = 'postgres://livepair:livepair@127.0.0.1:5432/livepair';
 const DEFAULT_EPHEMERAL_TOKEN_TTL_SECONDS = 60;
 const DEFAULT_SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS = 5;

@@ -98,7 +98,7 @@ export type GeminiLiveConnectConfig = {
 };
 
 // Conservative default for speech-mode screen sharing: optimize for latency/cost first.
-const DEFAULT_LIVE_MODEL = 'models/gemini-2.0-flash-live-001';
+const DEFAULT_LIVE_MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
 const DEFAULT_LIVE_API_VERSION = 'v1alpha';
 const DEFAULT_VOICE_RESPONSE_MODALITY: LiveResponseModality = 'AUDIO';
 const DEFAULT_MEDIA_RESOLUTION: LiveMediaResolution = 'MEDIA_RESOLUTION_LOW';

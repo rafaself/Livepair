@@ -14,7 +14,7 @@ describe('SessionService', () => {
     process.env = {
       ...originalEnv,
       GEMINI_API_KEY: 'gemini-key',
-      SESSION_TOKEN_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
+      SESSION_TOKEN_LIVE_MODEL: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
       SESSION_TOKEN_LIVE_SESSION_RESUMPTION: 'true',
       EPHEMERAL_TOKEN_TTL_SECONDS: '60',
     };
@@ -63,7 +63,7 @@ describe('SessionService', () => {
       newSessionExpireTime: '2026-03-09T12:01:00.000Z',
       expireTime: '2026-03-09T12:30:00.000Z',
       liveConnectConstraints: {
-        model: 'models/gemini-2.0-flash-live-001',
+        model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
           responseModalities: ['AUDIO'],
           sessionResumption: {},
@@ -85,7 +85,7 @@ describe('SessionService', () => {
     expect(createToken).toHaveBeenCalledWith(
       expect.objectContaining({
         liveConnectConstraints: expect.objectContaining({
-          model: 'models/gemini-2.0-flash-live-001',
+          model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         }),
       }),
     );

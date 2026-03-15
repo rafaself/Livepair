@@ -35,7 +35,7 @@ smoke-check:
 	@test -d node_modules || { echo "Dependencies are missing. Run: pnpm install"; exit 1; }
 	@test -f "$(SMOKE_ENV_FILE)" || { echo "Missing $(SMOKE_ENV_FILE). Copy .env.example first."; exit 1; }
 	@grep -Eq '^GEMINI_API_KEY=.+$$' "$(SMOKE_ENV_FILE)" || { echo "Missing GEMINI_API_KEY in $(SMOKE_ENV_FILE). Set it before local validation."; exit 1; }
-	@docker compose ps postgres 2>/dev/null | grep -q 'running' || { echo "Local infra is not up. Start it with: docker compose up -d"; exit 1; }
+	@docker compose ps --status running --services postgres 2>/dev/null | grep -qx 'postgres' || { echo "Local infra is not up. Start it with: docker compose up -d"; exit 1; }
 	@DOTENV_CONFIG_PATH="$(SMOKE_ENV_FILE)" pnpm --filter @livepair/api db:check
 	@printf '%s\n' 'Smoke preflight passed.' 'Next: pnpm run dev'
 

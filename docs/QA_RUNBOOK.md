@@ -61,9 +61,8 @@ Use a dev build for this runbook. The `Developer tools` panel is only available 
 
 ## Required Setup
 
-1. Copy the root env example if it does not already exist: `cp .env.example .env`.
-2. In the repository root `.env`, provide a valid `GEMINI_API_KEY`.
-3. The root `.env` defaults already cover the normal speech-mode values. For manual QA, keep those defaults or override them deliberately, and set these flags:
+1. Start from the root README quick start: run `pnpm install`, copy `.env.example` to `.env`, set `GEMINI_API_KEY`, and bring local infra up with `docker compose up -d`.
+2. In the same repository root `.env`, the existing defaults already cover the normal speech-mode values. For manual QA, keep those defaults or override them deliberately, and set these flags:
 
 ```bash
 OPEN_DEVTOOLS=true
@@ -75,11 +74,15 @@ VITE_LIVE_SESSION_RESUMPTION=true
 VITE_LIVE_CONTEXT_COMPRESSION=true
 ```
 
+3. Optional but recommended: run the local preflight before a longer QA pass.
+
+```bash
+make smoke-check
+```
+
 4. Start the normal local app flow:
 
 ```bash
-docker compose up -d
-make smoke-check
 pnpm run dev
 ```
 
@@ -100,21 +103,20 @@ If either transcription flag is disabled, run the rest of the checklist but mark
 
 Use this when you need a short local confidence pass before running the full checklist below.
 
-1. Set `GEMINI_API_KEY` in the repository root `.env`.
-2. Start infra with `docker compose up -d`.
-3. Run `make smoke-check`.
+1. Follow the root README quick start through `docker compose up -d` with a repository root `.env` that includes `GEMINI_API_KEY`.
+2. Run `make smoke-check`.
    Expected result: dependencies are present, the root `.env` exists, `GEMINI_API_KEY` is set, Docker-backed infra is running, and API database connectivity succeeds.
-4. Start the normal local app flow:
+3. Start the normal local app flow:
 
 ```bash
 pnpm run dev
 ```
 
-5. Open the desktop app, grant microphone and screen permissions if prompted, and open the panel.
-6. Start speech mode with `Talk` or resume an existing Live session.
-7. Say one short prompt and wait for one assistant reply.
-8. Confirm the app does not stay in a failed backend-health state and that you receive one visible or audible assistant response.
-9. If this passes and you need broader coverage, continue with the full checklist below.
+4. Open the desktop app, grant microphone and screen permissions if prompted, and open the panel.
+5. Start speech mode with `Talk` or resume an existing Live session.
+6. Say one short prompt and wait for one assistant reply.
+7. Confirm the app does not stay in a failed backend-health state and that you receive one visible or audible assistant response.
+8. If this passes and you need broader coverage, continue with the full checklist below.
 
 ## Evidence To Capture
 

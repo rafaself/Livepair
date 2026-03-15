@@ -46,7 +46,7 @@ describe('liveConfig', () => {
   it('loads valid config from env overrides', () => {
     const config = parseLiveConfig(
       resolveLiveConfigEnv({
-        VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
+        VITE_LIVE_MODEL: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         VITE_LIVE_API_VERSION: 'v1alpha',
         VITE_LIVE_VOICE_RESPONSE_MODALITY: 'AUDIO',
         VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION: 'true',
@@ -60,7 +60,7 @@ describe('liveConfig', () => {
     expect(config).toMatchObject({
       provider: LIVE_PROVIDER,
       adapterKey: LIVE_ADAPTER_KEY,
-      model: 'models/gemini-2.0-flash-live-001',
+      model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
       apiVersion: 'v1alpha',
       url:
         'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained',
@@ -148,7 +148,7 @@ describe('liveConfig', () => {
     const config = parseLiveConfig(resolveLiveConfigEnv({}));
 
     expect(config).toMatchObject({
-      model: 'models/gemini-2.0-flash-live-001',
+      model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
       apiVersion: 'v1alpha',
     });
     expect(config.sessionModes.voice).toEqual({
@@ -161,7 +161,7 @@ describe('liveConfig', () => {
   it('keeps text-path defaults separate from speech env requirements', () => {
     const config = parseLiveConfig(
       resolveLiveConfigEnv({
-        VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
+        VITE_LIVE_MODEL: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         VITE_LIVE_API_VERSION: 'v1alpha',
         VITE_LIVE_VOICE_RESPONSE_MODALITY: 'AUDIO',
       }),
@@ -327,7 +327,7 @@ describe('liveConfig', () => {
     expect(() =>
       parseLiveConfig(
         resolveLiveConfigEnv({
-          VITE_LIVE_MODEL: 'models/gemini-2.0-flash-live-001',
+          VITE_LIVE_MODEL: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
           VITE_LIVE_API_VERSION: 'v1beta',
           VITE_LIVE_VOICE_RESPONSE_MODALITY: 'AUDIO',
         }),

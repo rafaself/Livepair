@@ -14,7 +14,7 @@ describe('requestGeminiAuthToken', () => {
       newSessionExpireTime: '2026-03-09T12:01:30.000Z',
       expireTime: '2099-03-09T12:30:00.000Z',
       liveConnectConstraints: {
-        model: 'models/gemini-2.0-flash-live-001',
+        model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
           responseModalities: ['AUDIO'],
           sessionResumption: {},
@@ -59,7 +59,7 @@ describe('requestGeminiAuthToken', () => {
           newSessionExpireTime: '2026-03-09T12:01:30.000Z',
           expireTime: '2099-03-09T12:30:00.000Z',
           bidiGenerateContentSetup: {
-            model: 'models/gemini-2.0-flash-live-001',
+            model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
             generationConfig: {
               responseModalities: ['AUDIO'],
             },

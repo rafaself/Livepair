@@ -7,7 +7,7 @@ import { createRequire } from 'module';
 const GEMINI_AUTH_TOKEN_URL =
   'https://generativelanguage.googleapis.com/v1alpha/auth_tokens';
 const SESSION_TOKEN_AUTH_SECRET = 'desktop-secret';
-const SESSION_TOKEN_LIVE_MODEL = 'models/gemini-2.0-flash-live-001';
+const SESSION_TOKEN_LIVE_MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
 
 type TokenAppOptions = {
   sessionTokenRateLimitMaxRequests?: number;

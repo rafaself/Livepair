@@ -35,7 +35,7 @@ describe('env config', () => {
           host: '127.0.0.1',
           geminiApiKey: '',
           sessionTokenAuthSecret: 'livepair-local-session-token-secret',
-          sessionTokenLiveModel: 'models/gemini-2.0-flash-live-001',
+          sessionTokenLiveModel: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
           databaseUrl: 'postgres://livepair:livepair@127.0.0.1:5432/livepair',
           ephemeralTokenTtlSeconds: 60,
           sessionTokenRateLimitMaxRequests: 5,
@@ -52,7 +52,7 @@ describe('env config', () => {
       process.env['HOST'] = '0.0.0.0';
       process.env['GEMINI_API_KEY'] = 'key-123';
       process.env['SESSION_TOKEN_AUTH_SECRET'] = 'desktop-secret';
-      process.env['SESSION_TOKEN_LIVE_MODEL'] = 'models/gemini-2.0-flash-live-001';
+      process.env['SESSION_TOKEN_LIVE_MODEL'] = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
       process.env['DATABASE_URL'] = 'postgres://livepair:livepair@127.0.0.1:5432/livepair';
       process.env['EPHEMERAL_TOKEN_TTL_SECONDS'] = '120';
       process.env['SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS'] = '7';
@@ -68,7 +68,7 @@ describe('env config', () => {
           host: '0.0.0.0',
           geminiApiKey: 'key-123',
           sessionTokenAuthSecret: 'desktop-secret',
-          sessionTokenLiveModel: 'models/gemini-2.0-flash-live-001',
+          sessionTokenLiveModel: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
           databaseUrl: 'postgres://livepair:livepair@127.0.0.1:5432/livepair',
           ephemeralTokenTtlSeconds: 120,
           sessionTokenRateLimitMaxRequests: 7,
@@ -101,7 +101,7 @@ describe('env config', () => {
           'HOST=0.0.0.0',
           'GEMINI_API_KEY=dotenv-key',
           'SESSION_TOKEN_AUTH_SECRET=dotenv-secret',
-          'SESSION_TOKEN_LIVE_MODEL=models/gemini-2.0-flash-live-001',
+          'SESSION_TOKEN_LIVE_MODEL=models/gemini-2.5-flash-native-audio-preview-12-2025',
           'DATABASE_URL=postgres://dotenv:dotenv@127.0.0.1:5432/dotenv',
           'EPHEMERAL_TOKEN_TTL_SECONDS=75',
           'SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS=9',
@@ -120,7 +120,7 @@ describe('env config', () => {
           host: '0.0.0.0',
           geminiApiKey: 'dotenv-key',
           sessionTokenAuthSecret: 'dotenv-secret',
-          sessionTokenLiveModel: 'models/gemini-2.0-flash-live-001',
+          sessionTokenLiveModel: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
           databaseUrl: 'postgres://dotenv:dotenv@127.0.0.1:5432/dotenv',
           ephemeralTokenTtlSeconds: 75,
           sessionTokenRateLimitMaxRequests: 9,

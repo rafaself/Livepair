@@ -351,12 +351,13 @@ Also keep these paired values aligned:
 * `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL` should point to the same Gemini Live model
 * `VITE_LIVE_API_VERSION` should stay `v1alpha` for the current speech flow
 
-4. Start local infrastructure and apply database migrations:
+4. Start local infrastructure:
 
 ```bash
 docker compose up -d
-pnpm --filter @livepair/api db:migrate
 ```
+
+`docker compose` reads the local Postgres settings from the same root `.env` file and falls back to the defaults shown in `.env.example`, so the normal local flow does not need a separate Compose env file.
 
 5. Run the API and desktop app together:
 
@@ -418,7 +419,7 @@ make postgres-reset
 make postgres-down
 ```
 
-Verify connectivity or re-run migrations after a reset:
+Verify connectivity after a reset, or apply migrations when you specifically need the Postgres-backed schema:
 
 ```bash
 pnpm --filter @livepair/api db:check
@@ -463,7 +464,7 @@ Key local values:
 
 * `GEMINI_API_KEY` (**required**): backend-only Gemini credential used for `/session/token`
 * `SESSION_TOKEN_AUTH_SECRET`: shared secret that must match between the API and desktop main process
-* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL`: keep them on the same Gemini Live model resource (`models/gemini-2.0-flash-live-001` in the root example)
+* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL`: keep them on the same Gemini Live model resource (`models/gemini-2.5-flash-native-audio-preview-12-2025` in the root example)
 * `DATABASE_URL`: local Docker default is `postgres://livepair:livepair@127.0.0.1:5432/livepair`
 * `VITE_LIVE_API_VERSION`: keep `v1alpha` for the current speech flow
 * `VITE_LIVE_VOICE_RESPONSE_MODALITY`: keep `AUDIO` for speech mode
