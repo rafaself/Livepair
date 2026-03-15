@@ -27,6 +27,7 @@ describe('AssistantPanelHeader', () => {
     expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
       'Developer tools',
       'Settings',
+      'Preferences',
       'Chat',
       'Quit application',
     ]);
@@ -55,6 +56,7 @@ describe('AssistantPanelHeader', () => {
     expect(screen.queryByRole('button', { name: 'Chat history' })).toBeNull();
     expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
       'Settings',
+      'Preferences',
       'Chat',
       'Quit application',
     ]);

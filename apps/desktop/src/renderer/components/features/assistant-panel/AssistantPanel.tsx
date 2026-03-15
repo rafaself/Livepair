@@ -8,6 +8,7 @@ import {
   useAssistantPanelHistoryViewModel,
 } from './history/AssistantPanelHistoryView';
 import { AssistantPanelSettingsContent } from './settings/AssistantPanelSettingsView';
+import { AssistantPanelPreferencesView } from './AssistantPanelPreferencesView';
 import { useAssistantPanelController } from './useAssistantPanelController';
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
 import { AssistantPanelSharedHeaderActions } from './AssistantPanelSharedHeaderActions';
@@ -184,6 +185,12 @@ export function AssistantPanel(): JSX.Element {
           {panelView === 'settings' ? (
             <div className="assistant-panel__view-section">
               <AssistantPanelSettingsContent controller={settingsController} />
+            </div>
+          ) : null}
+
+          {panelView === 'preferences' ? (
+            <div className="assistant-panel__view-section">
+              <AssistantPanelPreferencesView controller={settingsController} />
             </div>
           ) : null}
 

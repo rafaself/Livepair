@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { SelectOptionItem } from '../components/primitives';
 import { useSettingsStore } from './settingsStore';
 
-export type PanelView = 'chat' | 'history' | 'settings' | 'debug';
+export type PanelView = 'chat' | 'history' | 'settings' | 'preferences' | 'debug';
 const DEFAULT_DEVICE_ID = 'default';
 const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'No microphone detected' },
