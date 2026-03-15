@@ -508,7 +508,7 @@ describe('createVisualSendPolicy – Wave 2 smart triggers', () => {
   });
 
   it('armBootstrapSnapshot does NOT set analyzeScreenNow cooldown', () => {
-    let now = 0;
+    const now = 0;
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.armBootstrapSnapshot();
@@ -524,7 +524,7 @@ describe('createVisualSendPolicy – Wave 2 smart triggers', () => {
   });
 
   it('armBootstrapSnapshot does NOT set trigger cooldown', () => {
-    let now = 0;
+    const now = 0;
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.armBootstrapSnapshot();
@@ -576,13 +576,26 @@ describe('createVisualSendPolicy – Wave 2 smart triggers', () => {
     expect(policy.getDiagnostics().triggerSnapshotCount).toBe(0);
   });
 
-  it('triggerSnapshot is no-op from streaming', () => {
+  it('triggerSnapshot is no-op from explicit streaming', () => {
     const policy = createVisualSendPolicy();
     policy.onScreenShareStarted();
     policy.enableStreaming();
     policy.triggerSnapshot('speechTrigger');
     expect(policy.getState()).toBe('streaming');
     expect(policy.getDiagnostics().triggerSnapshotCount).toBe(0);
+  });
+
+  it('triggerSnapshot interrupts a passive burst and arms a snapshot', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.startBurst();
+
+    policy.triggerSnapshot('speechTrigger');
+
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.isPassiveBurstActive()).toBe(false);
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('speechTrigger');
+    expect(policy.getDiagnostics().triggerSnapshotCount).toBe(1);
   });
 
   it('triggerSnapshot respects its own cooldown', () => {
@@ -607,7 +620,7 @@ describe('createVisualSendPolicy – Wave 2 smart triggers', () => {
   });
 
   it('trigger cooldown is independent of analyzeScreenNow cooldown', () => {
-    let now = 0;
+    const now = 0;
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
 
@@ -621,7 +634,7 @@ describe('createVisualSendPolicy – Wave 2 smart triggers', () => {
   });
 
   it('analyzeScreenNow cooldown is independent of trigger cooldown', () => {
-    let now = 0;
+    const now = 0;
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
 
@@ -701,7 +714,7 @@ describe('createVisualSendPolicy – Wave 2 smart triggers', () => {
   // ── cooldown reset on stop ───────────────────────────────────────────────
 
   it('onScreenShareStopped resets both cooldowns', () => {
-    let now = 0;
+    const now = 0;
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
 
@@ -741,5 +754,75 @@ describe('createVisualSendPolicy – Wave 2 smart triggers', () => {
     const d = policy.getDiagnostics();
     expect(d.triggerSnapshotCount).toBe(1);
     expect(d.burstCount).toBe(2);
+  });
+});
+
+describe('createVisualSendPolicy – Wave 6 passive burst bounds', () => {
+  it('ends a passive burst immediately when the hard frame budget is exhausted', () => {
+    const policy = createVisualSendPolicy({ burstMaxFrames: 2 });
+    policy.onScreenShareStarted();
+    policy.startBurst();
+
+    policy.onFrameDispatched();
+    expect(policy.getState()).toBe('streaming');
+    expect(policy.isPassiveBurstActive()).toBe(true);
+
+    policy.onFrameDispatched();
+    expect(policy.getState()).toBe('sleep');
+    expect(policy.isPassiveBurstActive()).toBe(false);
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('burstExpired');
+  });
+
+  it('blocks passive burst re-entry until the cooldown expires after budget exhaustion', () => {
+    let now = 0;
+    const policy = createVisualSendPolicy({
+      nowMs: () => now,
+      burstMaxFrames: 1,
+      burstReentryCooldownMs: 3000,
+    });
+    policy.onScreenShareStarted();
+    policy.startBurst();
+    policy.onFrameDispatched();
+
+    expect(policy.getState()).toBe('sleep');
+
+    policy.startBurst();
+    expect(policy.getState()).toBe('sleep');
+
+    now += 3000;
+    policy.startBurst();
+    expect(policy.getState()).toBe('streaming');
+  });
+
+  it('enableStreaming converts a passive burst into explicit streaming so burst budget no longer applies', () => {
+    const policy = createVisualSendPolicy({ burstMaxFrames: 1 });
+    policy.onScreenShareStarted();
+    policy.startBurst();
+
+    policy.enableStreaming();
+    expect(policy.getState()).toBe('streaming');
+    expect(policy.isPassiveBurstActive()).toBe(false);
+
+    policy.onFrameDispatched();
+    policy.onFrameDispatched();
+    expect(policy.getState()).toBe('streaming');
+  });
+
+  it('analyzeScreenNow interrupts a passive burst without arming passive re-entry cooldown', () => {
+    const now = 0;
+    const policy = createVisualSendPolicy({
+      nowMs: () => now,
+      burstReentryCooldownMs: 3000,
+    });
+    policy.onScreenShareStarted();
+    policy.startBurst();
+
+    policy.analyzeScreenNow();
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.isPassiveBurstActive()).toBe(false);
+
+    policy.onFrameDispatched();
+    policy.startBurst();
+    expect(policy.getState()).toBe('streaming');
   });
 });

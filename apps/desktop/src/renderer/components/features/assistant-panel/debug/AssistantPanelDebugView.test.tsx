@@ -106,6 +106,8 @@ describe('AssistantPanelDebugView', () => {
           sentByState: { snapshot: 2, streaming: 7 },
           droppedByPolicy: 0,
           blockedByGateway: 0,
+          triggerSnapshotCount: 0,
+          burstCount: 0,
         }}
         saveScreenFramesEnabled={false}
         screenFrameDumpDirectoryPath="/tmp/livepair/screen-frame-dumps/current-debug-session"
@@ -190,7 +192,7 @@ describe('AssistantPanelDebugView', () => {
 // Wave 3 – visual send diagnostics display
 // ---------------------------------------------------------------------------
 
-function buildBaseProps(visualSendDiagnostics: VisualSendDiagnostics) {
+function buildBaseProps(visualSendDiagnostics: Partial<VisualSendDiagnostics>) {
   return {
     backendState: 'connected' as const,
     backendIndicatorState: 'ready' as const,
@@ -267,7 +269,18 @@ function buildBaseProps(visualSendDiagnostics: VisualSendDiagnostics) {
       lastSubmittedAtMs: null,
       lastError: null,
     },
-    visualSendDiagnostics,
+    visualSendDiagnostics: {
+      lastTransitionReason: null,
+      snapshotCount: 0,
+      streamingEnteredAt: null,
+      streamingEndedAt: null,
+      sentByState: { snapshot: 0, streaming: 0 },
+      droppedByPolicy: 0,
+      blockedByGateway: 0,
+      triggerSnapshotCount: 0,
+      burstCount: 0,
+      ...visualSendDiagnostics,
+    },
     saveScreenFramesEnabled: false,
     screenFrameDumpDirectoryPath: null,
     onToggleSaveScreenFrames: vi.fn(),

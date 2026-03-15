@@ -83,6 +83,8 @@ export function buildDefaultVisualSendDiagnostics(): VisualSendDiagnostics {
     sentByState: { snapshot: 0, streaming: 0 },
     droppedByPolicy: 0,
     blockedByGateway: 0,
+    triggerSnapshotCount: 0,
+    burstCount: 0,
   };
 }
 

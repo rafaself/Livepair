@@ -91,11 +91,18 @@ export type VisualSendDiagnostics = {
 export type VisualSendPolicyOptions = {
   /** Injectable clock for deterministic tests.  Defaults to () => Date.now(). */
   nowMs?: () => number;
+  /** Hard cap on accepted frame dispatches during a passive burst. */
+  burstMaxFrames?: number;
+  /** Minimum interval before another passive burst can start. */
+  burstReentryCooldownMs?: number;
 };
 
 export type VisualSendPolicy = {
   /** Current state of the visual send state machine. */
   getState: () => VisualSendState;
+
+  /** True only while the current streaming state is a passive burst. */
+  isPassiveBurstActive: () => boolean;
 
   /**
    * Called when screen share hardware starts. Transitions inactive → sleep.
@@ -177,6 +184,8 @@ export type VisualSendPolicy = {
 
 export function createVisualSendPolicy(options?: VisualSendPolicyOptions): VisualSendPolicy {
   const nowMs = options?.nowMs ?? (() => Date.now());
+  const burstMaxFrames = Math.max(1, options?.burstMaxFrames ?? Number.POSITIVE_INFINITY);
+  const burstReentryCooldownMs = Math.max(0, options?.burstReentryCooldownMs ?? 0);
 
   let state: VisualSendState = 'inactive';
   let lastTransitionReason: VisualSendTransitionReason | null = null;
@@ -193,6 +202,9 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
   // Cooldown tracking – each cooldown is independent
   let lastSnapshotArmedAt: number | null = null;
   let lastTriggerArmedAt: number | null = null;
+  let streamingMode: 'explicit' | 'burst' | null = null;
+  let burstFramesSent = 0;
+  let lastPassiveBurstEndedAt: number | null = null;
 
   function isSnapshotCooldownActive(): boolean {
     if (lastSnapshotArmedAt === null) return false;
@@ -204,21 +216,51 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
     return nowMs() - lastTriggerArmedAt < VISUAL_TRIGGER_COOLDOWN_MS;
   }
 
+  function toIsoTimestamp(timestampMs: number): string {
+    return new Date(timestampMs).toISOString();
+  }
+
+  function isPassiveBurstActive(): boolean {
+    return state === 'streaming' && streamingMode === 'burst';
+  }
+
+  function clearStreamingMode(): void {
+    streamingMode = null;
+    burstFramesSent = 0;
+  }
+
+  function clearPassiveBurst(armReentryCooldown: boolean): void {
+    if (streamingMode !== 'burst') {
+      clearStreamingMode();
+      return;
+    }
+
+    if (armReentryCooldown) {
+      lastPassiveBurstEndedAt = nowMs();
+    }
+
+    clearStreamingMode();
+  }
+
   return {
     getState: () => state,
+    isPassiveBurstActive,
 
     onScreenShareStarted: () => {
       if (state === 'inactive') {
         state = 'sleep';
+        clearStreamingMode();
         lastTransitionReason = 'screenShareStarted';
       }
     },
 
     onScreenShareStopped: () => {
       state = 'inactive';
+      clearStreamingMode();
       lastTransitionReason = 'screenShareStopped';
       lastSnapshotArmedAt = null;
       lastTriggerArmedAt = null;
+      lastPassiveBurstEndedAt = null;
     },
 
     armBootstrapSnapshot: () => {
@@ -226,6 +268,7 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
         return;
       }
       state = 'snapshot';
+      clearStreamingMode();
       snapshotCount += 1;
       lastTransitionReason = 'bootstrap';
       // Intentionally does NOT set lastSnapshotArmedAt or lastTriggerArmedAt
@@ -240,19 +283,24 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
         return;
       }
       state = 'snapshot';
+      clearPassiveBurst(false);
       snapshotCount += 1;
       lastTransitionReason = 'analyzeScreenNow';
       lastSnapshotArmedAt = nowMs();
     },
 
     triggerSnapshot: (reason) => {
-      if (state !== 'sleep') {
+      if (state === 'inactive' || state === 'snapshot') {
+        return;
+      }
+      if (streamingMode === 'explicit') {
         return;
       }
       if (isTriggerCooldownActive()) {
         return;
       }
       state = 'snapshot';
+      clearPassiveBurst(false);
       triggerSnapshotCount += 1;
       snapshotCount += 1;
       lastTransitionReason = reason;
@@ -264,14 +312,17 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
         return;
       }
       state = 'streaming';
-      streamingEnteredAt = new Date().toISOString();
+      streamingMode = 'explicit';
+      burstFramesSent = 0;
+      streamingEnteredAt = toIsoTimestamp(nowMs());
       lastTransitionReason = 'enableStreaming';
     },
 
     stopStreaming: () => {
       if (state === 'streaming') {
         state = 'sleep';
-        streamingEndedAt = new Date().toISOString();
+        clearPassiveBurst(false);
+        streamingEndedAt = toIsoTimestamp(nowMs());
         lastTransitionReason = 'stopStreaming';
       }
     },
@@ -280,16 +331,25 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
       if (state !== 'sleep') {
         return;
       }
+      if (
+        lastPassiveBurstEndedAt !== null
+        && nowMs() - lastPassiveBurstEndedAt < burstReentryCooldownMs
+      ) {
+        return;
+      }
       state = 'streaming';
+      streamingMode = 'burst';
+      burstFramesSent = 0;
       burstCount += 1;
-      streamingEnteredAt = new Date().toISOString();
+      streamingEnteredAt = toIsoTimestamp(nowMs());
       lastTransitionReason = 'burstStart';
     },
 
     endBurst: () => {
-      if (state === 'streaming') {
+      if (isPassiveBurstActive()) {
         state = 'sleep';
-        streamingEndedAt = new Date().toISOString();
+        clearPassiveBurst(true);
+        streamingEndedAt = toIsoTimestamp(nowMs());
         lastTransitionReason = 'burstExpired';
       }
     },
@@ -301,10 +361,20 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
     onFrameDispatched: () => {
       if (state === 'snapshot') {
         state = 'sleep';
+        clearStreamingMode();
         lastTransitionReason = 'snapshotConsumed';
         sentSnapshot += 1;
       } else if (state === 'streaming') {
         sentStreaming += 1;
+        if (streamingMode === 'burst') {
+          burstFramesSent += 1;
+          if (burstFramesSent >= burstMaxFrames) {
+            state = 'sleep';
+            clearPassiveBurst(true);
+            streamingEndedAt = toIsoTimestamp(nowMs());
+            lastTransitionReason = 'burstExpired';
+          }
+        }
       }
     },
 

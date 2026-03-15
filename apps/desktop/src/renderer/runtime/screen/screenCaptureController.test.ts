@@ -2380,7 +2380,7 @@ describe('createScreenCaptureController – Wave 6 burst budgets', () => {
     await Promise.resolve();
 
     expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
-    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
 
     harness.getObserver()!.onFrame(mkFrame(3, 150));
     await Promise.resolve();
@@ -2515,6 +2515,70 @@ describe('createScreenCaptureController – Wave 6 burst budgets', () => {
     await Promise.resolve();
     expect(harness.ctrl.getVisualSendState()).toBe('streaming');
     expect(harness.sendVideoFrame).toHaveBeenCalledTimes(3);
+  });
+
+  it('speech-trigger snapshots are not starved by an active passive burst', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60_000,
+      burstSendCooldownMs: 0,
+      burstReentryCooldownMs: 10_000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5_000;
+
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    harness.sendVideoFrame.mockClear();
+
+    now += 5_000;
+    harness.ctrl.onSpeechStart();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+
+    harness.getObserver()!.onFrame(mkFrame(2, 50));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+
+    harness.getObserver()!.onFrame(mkFrame(3, 150));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+  });
+
+  it('text-trigger snapshots are not starved by an active passive burst', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60_000,
+      burstSendCooldownMs: 0,
+      burstReentryCooldownMs: 10_000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5_000;
+
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    harness.sendVideoFrame.mockClear();
+
+    now += 5_000;
+    harness.ctrl.onTextSent();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+
+    harness.getObserver()!.onFrame(mkFrame(2, 50));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+
+    harness.getObserver()!.onFrame(mkFrame(3, 150));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
   });
 
   it('screen-share stop resets the passive burst re-entry cooldown', async () => {
