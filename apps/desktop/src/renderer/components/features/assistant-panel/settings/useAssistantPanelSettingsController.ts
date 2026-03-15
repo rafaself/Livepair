@@ -68,6 +68,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
   const backendUrlError = useUiStore((state) => state.backendUrlError);
   const setBackendUrlDraft = useUiStore((state) => state.setBackendUrlDraft);
   const setBackendUrlError = useUiStore((state) => state.setBackendUrlError);
+  const activeChatId = useSessionStore((state) => state.activeChatId);
   const screenCaptureSources = useSessionStore((state) => state.screenCaptureSources);
   const selectedScreenCaptureSourceId = useSessionStore(
     (state) => state.selectedScreenCaptureSourceId,
@@ -101,7 +102,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
             : 'Failed to load screen capture sources',
         );
       });
-  }, [setLastRuntimeError, setScreenCaptureSourceSnapshot]);
+  }, [activeChatId, setLastRuntimeError, setScreenCaptureSourceSnapshot]);
 
   const handleBackendUrlBlur = async (): Promise<void> => {
     const normalizedBackendUrl = normalizeBackendBaseUrl(resolvedBackendUrlDraft);

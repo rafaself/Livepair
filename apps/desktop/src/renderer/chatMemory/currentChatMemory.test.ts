@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildRehydrationPacketFromCurrentChat, resetCurrentChatMemoryForTests } from './currentChatMemory';
+import type { ChatId } from '@livepair/shared-types';
+import {
+  buildRehydrationPacketFromCurrentChat,
+  resetCurrentChatMemoryForTests,
+  switchToChat,
+} from './currentChatMemory';
+import { useSessionStore } from '../store/sessionStore';
 import {
   MAX_SCREEN_CONTEXT_SUMMARY_LENGTH,
   SCREEN_CONTEXT_SUMMARY_KEY,
@@ -468,5 +474,89 @@ describe('currentChatMemory rehydration packet sourcing', () => {
         },
       },
     });
+  });
+});
+
+describe('wave 1: switchToChat screen-capture state preservation', () => {
+  beforeEach(() => {
+    resetCurrentChatMemoryForTests();
+    useSessionStore.getState().reset();
+  });
+
+  it('preserves screenCaptureSources through the session reset on chat switch', async () => {
+    const bridge = {
+      getChat: vi.fn().mockResolvedValue({
+        id: 'chat-2' as ChatId,
+        title: null,
+        createdAt: '2026-03-12T09:00:00.000Z',
+        updatedAt: '2026-03-12T09:00:00.000Z',
+        isCurrent: false,
+      }),
+      listChatMessages: vi.fn().mockResolvedValue([]),
+    };
+
+    useSessionStore.getState().setScreenCaptureSourceSnapshot({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'screen:1:0',
+    });
+
+    await switchToChat('chat-2' as ChatId, bridge as never);
+
+    expect(useSessionStore.getState().screenCaptureSources).toEqual([
+      { id: 'screen:1:0', name: 'Entire Screen' },
+      { id: 'window:42:0', name: 'VSCode' },
+    ]);
+  });
+
+  it('preserves selectedScreenCaptureSourceId through the session reset on chat switch', async () => {
+    const bridge = {
+      getChat: vi.fn().mockResolvedValue({
+        id: 'chat-2' as ChatId,
+        title: null,
+        createdAt: '2026-03-12T09:00:00.000Z',
+        updatedAt: '2026-03-12T09:00:00.000Z',
+        isCurrent: false,
+      }),
+      listChatMessages: vi.fn().mockResolvedValue([]),
+    };
+
+    useSessionStore.getState().setScreenCaptureSourceSnapshot({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'window:42:0',
+    });
+
+    await switchToChat('chat-2' as ChatId, bridge as never);
+
+    expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('window:42:0');
+  });
+
+  it('activeChatId is updated to the new chat after switchToChat', async () => {
+    const bridge = {
+      getChat: vi.fn().mockResolvedValue({
+        id: 'chat-2' as ChatId,
+        title: null,
+        createdAt: '2026-03-12T09:00:00.000Z',
+        updatedAt: '2026-03-12T09:00:00.000Z',
+        isCurrent: false,
+      }),
+      listChatMessages: vi.fn().mockResolvedValue([]),
+    };
+
+    useSessionStore.getState().setScreenCaptureSourceSnapshot({
+      sources: [{ id: 'screen:1:0', name: 'Entire Screen' }],
+      selectedSourceId: 'screen:1:0',
+    });
+
+    await switchToChat('chat-2' as ChatId, bridge as never);
+
+    expect(useSessionStore.getState().activeChatId).toBe('chat-2');
+    // Sources must still be available after the reset+activeChatId update
+    expect(useSessionStore.getState().screenCaptureSources).toHaveLength(1);
   });
 });

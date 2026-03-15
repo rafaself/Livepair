@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ChatId } from '@livepair/shared-types';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../../shared/settings';
 import { useSettingsStore } from '../../../../store/settingsStore';
 import { useSessionStore } from '../../../../store/sessionStore';
@@ -319,5 +320,141 @@ describe('useAssistantPanelSettingsController', () => {
       });
     });
     expect(screen.getByLabelText('visual-session-quality')).toHaveTextContent('High');
+  });
+});
+
+describe('wave 1: screen-capture source stabilization on chat switch', () => {
+  beforeEach(() => {
+    resetDesktopStores();
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        backendUrl: 'https://persisted.livepair.dev',
+      },
+      isReady: true,
+    });
+    useUiStore.getState().initializeSettingsUi(useSettingsStore.getState().settings);
+    useSessionStore.getState().setScreenCaptureSourceSnapshot({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'screen:1:0',
+    });
+    window.bridge.updateSettings = vi.fn(async (patch) => ({
+      ...useSettingsStore.getState().settings,
+      ...patch,
+    }));
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'screen:1:0',
+    }));
+    window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: sourceId,
+    }));
+  });
+
+  it('reloads the source list when activeChatId changes after a chat switch', async () => {
+    render(<HookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
+        'Automatic (first available source)|Entire Screen|VSCode',
+      );
+    });
+
+    vi.mocked(window.bridge.listScreenCaptureSources).mockClear();
+
+    act(() => {
+      useSessionStore.getState().reset({ activeChatId: 'chat-2' as ChatId });
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+      expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
+        'Automatic (first available source)|Entire Screen|VSCode',
+      );
+    });
+  });
+
+  it('preserves the source selection when the bridge reports the same selection after a chat switch', async () => {
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen' },
+        { id: 'window:42:0', name: 'VSCode' },
+      ],
+      selectedSourceId: 'window:42:0',
+    }));
+
+    render(<HookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('window:42:0');
+    });
+
+    act(() => {
+      useSessionStore.getState().reset({ activeChatId: 'chat-2' as ChatId });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('window:42:0');
+    });
+  });
+
+  it('falls back to auto when the bridge reports no selection after a chat switch', async () => {
+    render(<HookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('screen:1:0');
+    });
+
+    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+      sources: [{ id: 'screen:1:0', name: 'Entire Screen' }],
+      selectedSourceId: null,
+    }));
+
+    act(() => {
+      useSessionStore.getState().reset({ activeChatId: 'chat-2' as ChatId });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('auto');
+    });
+  });
+
+  it('shows the full source list on the first open after a chat switch without needing to reopen', async () => {
+    render(<HookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('screen-source-options')).toHaveTextContent('VSCode');
+    });
+
+    act(() => {
+      useSessionStore.getState().reset({ activeChatId: 'chat-3' as ChatId });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
+        'Automatic (first available source)|Entire Screen|VSCode',
+      );
+    });
+  });
+
+  it('loads sources on initial mount regardless of activeChatId', async () => {
+    render(<HookHarness />);
+
+    await waitFor(() => {
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+      expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
+        'Automatic (first available source)|Entire Screen|VSCode',
+      );
+    });
   });
 });
