@@ -30,4 +30,10 @@
   width: 280px;
   white-space: normal;
   text-align: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tooltip__content[data-visible='true'] {
+  opacity: 1;
 }
