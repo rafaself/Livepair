@@ -44,7 +44,6 @@ export const env = {
     process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'],
     DEFAULT_SESSION_TOKEN_RATE_LIMIT_WINDOW_MS,
   ),
-  redisUrl: process.env['REDIS_URL'] ?? '',
 };
 
 export function validateApiRuntimeEnv(requiredEnv: NodeJS.ProcessEnv = process.env): void {

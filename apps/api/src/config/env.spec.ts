@@ -24,7 +24,6 @@ describe('env config', () => {
       delete process.env['EPHEMERAL_TOKEN_TTL_SECONDS'];
       delete process.env['SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS'];
       delete process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'];
-      delete process.env['REDIS_URL'];
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
 
     try {
@@ -40,7 +39,6 @@ describe('env config', () => {
           ephemeralTokenTtlSeconds: 60,
           sessionTokenRateLimitMaxRequests: 5,
           sessionTokenRateLimitWindowMs: 60_000,
-          redisUrl: '',
       });
     } finally {
       delete process.env['DOTENV_CONFIG_PATH'];
@@ -57,7 +55,6 @@ describe('env config', () => {
       process.env['EPHEMERAL_TOKEN_TTL_SECONDS'] = '120';
       process.env['SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS'] = '7';
       process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'] = '90000';
-      process.env['REDIS_URL'] = 'redis://localhost:6379';
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
 
     try {
@@ -73,7 +70,6 @@ describe('env config', () => {
           ephemeralTokenTtlSeconds: 120,
           sessionTokenRateLimitMaxRequests: 7,
           sessionTokenRateLimitWindowMs: 90_000,
-          redisUrl: 'redis://localhost:6379',
       });
     } finally {
       delete process.env['DOTENV_CONFIG_PATH'];
@@ -90,7 +86,6 @@ describe('env config', () => {
       delete process.env['EPHEMERAL_TOKEN_TTL_SECONDS'];
       delete process.env['SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS'];
       delete process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'];
-      delete process.env['REDIS_URL'];
 
     const tempDir = mkdtempSync(join(tmpdir(), 'livepair-api-env-'));
     const envFile = join(tempDir, '.env');
@@ -106,7 +101,6 @@ describe('env config', () => {
           'EPHEMERAL_TOKEN_TTL_SECONDS=75',
           'SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS=9',
           'SESSION_TOKEN_RATE_LIMIT_WINDOW_MS=120000',
-          'REDIS_URL=redis://dotenv',
       ].join('\n'),
     );
 
@@ -125,7 +119,6 @@ describe('env config', () => {
           ephemeralTokenTtlSeconds: 75,
           sessionTokenRateLimitMaxRequests: 9,
           sessionTokenRateLimitWindowMs: 120_000,
-          redisUrl: 'redis://dotenv',
       });
     } finally {
       delete process.env['DOTENV_CONFIG_PATH'];
