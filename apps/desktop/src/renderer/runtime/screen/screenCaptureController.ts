@@ -109,13 +109,12 @@ export function createScreenCaptureController(
     frameSendCoordinator,
     onScreenShareStarted: () => {
       visualPolicy.onScreenShareStarted();
-      // Enable continuous streaming immediately so every captured frame is
-      // forwarded to the model for the duration of the screen share session.
-      // This eliminates the mismatch where screen share is active and frames
-      // exist but the model is still in effective speech-only behaviour.
-      // Callers who want a one-shot snapshot instead can call stopScreenStreaming()
-      // followed by analyzeScreenNow() after startScreenCapture() returns.
-      visualPolicy.enableStreaming();
+      // Bootstrap: send exactly one initial frame so the model has visual
+      // context, then return to sleep.  Continuous streaming is NOT enabled
+      // by default — the visual send policy remains the authority over
+      // subsequent frame delivery.  Callers who need continuous delivery
+      // must explicitly call enableStreaming() after startScreenCapture().
+      visualPolicy.analyzeScreenNow();
       flushVisualDiagnostics();
     },
     onScreenShareStopped: () => {
