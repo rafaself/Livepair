@@ -4,13 +4,6 @@
   background: var(--color-chat-bg);
 }
 
-.assistant-panel__session-status {
-  margin: 0 0 var(--space-2);
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  text-align: center;
-}
-
 .assistant-panel__composer {
   display: flex;
   flex-direction: column;

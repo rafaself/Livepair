@@ -144,7 +144,6 @@ export function AssistantPanel(): JSX.Element {
                     canSubmitText={canSubmitText}
                     activeTransport={activeTransport}
                     voiceSessionStatus={voiceSessionStatus}
-                    voiceSessionResumption={voiceSessionResumption}
                     activeChat={activeChat}
                     latestLiveSession={latestLiveSession}
                     turns={conversationTurns}
