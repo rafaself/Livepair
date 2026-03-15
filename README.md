@@ -22,6 +22,7 @@ The backend stays out of the audio/video hot path and currently serves health ch
 * Typed input inside an active Live session
 * Speech mode backed by Gemini Live API via an SDK-backed transport
 * Backend health (`GET /health`), real Gemini Live ephemeral token issuance (`POST /session/token`), and a Postgres-backed chat-memory REST module for chats, messages, live sessions, and durable summaries
+* Desktop chat persistence now flows through the backend chat-memory API while preserving the existing renderer-facing bridge/IPC contract
 * Local microphone capture pipeline and assistant audio playback
 * Interruption / barge-in behavior (local detection + playback stop)
 * Speech transcription event handling and transcript state wiring
@@ -44,7 +45,6 @@ The backend stays out of the audio/video hot path and currently serves health ch
 * Backend-backed tool endpoints such as `POST /tool/screenshot-hd` and `POST /tool/visual-summary`
 * `POST /session/error` or equivalent backend error-reporting path
 * Adaptive screen-context policy, guardrails, and any HD screenshot flow beyond the current manual frame upload path
-* Desktop cutover from local main-process chat-memory persistence to the backend chat-memory module
 
 ## 📚 Source Of Truth Docs
 
@@ -98,7 +98,7 @@ Speech mode: Desktop client → Gemini Live API
 Implemented today:
 * Issue ephemeral tokens
 * Expose backend health
-* Persist chat-memory state through Postgres-backed REST endpoints that are ready for desktop cutover
+* Persist chat-memory state through Postgres-backed REST endpoints consumed by desktop chat persistence flows
 
 Planned:
 * Expose backend-backed tools
@@ -211,9 +211,9 @@ The user experience should feel like one continuous session.
 
 Current implementation:
 
-* the desktop runtime keeps conversation state, runtime diagnostics, token-expiry metadata, and Gemini Live resumption handles in local process state
+* the desktop runtime keeps active conversation UI state, runtime diagnostics, token-expiry metadata, and Gemini Live resumption handles in local process state
 * speech-mode resumption refreshes the token when needed and falls back explicitly to safe `inactive`/`off` states on failure
-* backend chat-memory persistence is implemented as a migration target, but desktop still reads and writes its local main-process store until the cutover wave
+* durable chats, messages, live sessions, and summaries are persisted through the backend chat-memory API rather than a desktop-local SQLite store
 
 Planned extension:
 

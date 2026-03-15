@@ -29,7 +29,7 @@ Current behavior:
 - When no Live session is active, the desktop stays in an explicit inactive container state, keeps canonical chat history visible, and offers start/resume Live-session actions. Typed input is unavailable while inactive.
 - `speech` mode requests an ephemeral token from `POST /session/token`, then connects directly from the desktop to Gemini Live.
 - Typed input remains usable while speech mode is active, and it travels over the active Live session rather than a backend endpoint.
-- Backend chat-memory endpoints now exist for durable chat state, but the desktop has not switched to them yet.
+- Backend chat-memory endpoints now own durable chat state, and desktop chat IPC delegates to them while preserving the renderer-facing bridge contract.
 
 ## 2. Current Implementation Snapshot
 
@@ -42,6 +42,7 @@ Implemented:
 - `GET /health`
 - `POST /session/token` with real Gemini Live ephemeral token issuance
 - Postgres-backed chat-memory REST endpoints for chats, messages, live sessions, and durable summaries
+- Desktop chat-memory IPC delegation to backend-owned persistence for chats, messages, live sessions, and durable summaries
 - Desktop session controller coordinating inactive and speech lifecycles
 - Typed turns routed over the active Gemini Live session
 - SDK-backed Gemini Live transport adapter
@@ -65,7 +66,6 @@ Planned:
 - Backend-backed tool endpoints
 - Backend error-report endpoint
 - Adaptive screen-context policy, guardrails, and HD screenshot flow
-- Desktop cutover from local chat-memory persistence to backend-owned storage
 
 ## 3. System Context
 
@@ -116,7 +116,7 @@ Implemented:
 
 - Health endpoint
 - Gemini Live ephemeral token issuance
-- Chat-memory persistence endpoints backed by Postgres, ready for desktop cutover
+- Chat-memory persistence endpoints backed by Postgres and used by desktop persistence flows
 
 Planned:
 

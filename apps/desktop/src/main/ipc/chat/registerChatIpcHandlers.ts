@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared';
-import type { ChatMemoryService } from '../../chatMemory/chatMemoryService';
+import type { BackendClient } from '../../backend/backendClient';
+import { createBackendClient } from '../../backend/backendClient';
+import type { DesktopSettingsService } from '../../settings/settingsService';
 import {
   isAppendChatMessageRequest,
   isChatId,
@@ -18,37 +20,67 @@ function requireChatId(chatId: unknown): string {
   return chatId;
 }
 
-export function registerChatIpcHandlers({
-  chatMemoryService,
-}: {
-  chatMemoryService: ChatMemoryService;
-}): void {
+type ChatBackendClient = Pick<
+  BackendClient,
+  | 'appendChatMessage'
+  | 'createChat'
+  | 'createLiveSession'
+  | 'endLiveSession'
+  | 'getChat'
+  | 'getChatSummary'
+  | 'getOrCreateCurrentChat'
+  | 'listChatMessages'
+  | 'listChats'
+  | 'listLiveSessions'
+  | 'updateLiveSession'
+>;
+
+type RegisterChatIpcHandlersOptions = {
+  fetchImpl?: typeof fetch | undefined;
+  settingsService: DesktopSettingsService;
+};
+
+function createChatBackendClient({
+  fetchImpl = fetch,
+  settingsService,
+}: RegisterChatIpcHandlersOptions): ChatBackendClient {
+  return createBackendClient({
+    fetchImpl,
+    getBackendUrl: async () => (await settingsService.getSettings()).backendUrl,
+  });
+}
+
+export function registerChatIpcHandlers(
+  options: RegisterChatIpcHandlersOptions,
+): void {
+  const backendClient = createChatBackendClient(options);
+
   ipcMain.handle(IPC_CHANNELS.createChat, async (_event, req: unknown) => {
     if (!isCreateChatRequest(req)) {
       throw new Error('Invalid create chat payload');
     }
 
-    return chatMemoryService.createChat(req);
+    return backendClient.createChat(req);
   });
 
   ipcMain.handle(IPC_CHANNELS.getChat, async (_event, chatId: unknown) => {
-    return chatMemoryService.getChat(requireChatId(chatId));
+    return backendClient.getChat(requireChatId(chatId));
   });
 
   ipcMain.handle(IPC_CHANNELS.getOrCreateCurrentChat, async () => {
-    return chatMemoryService.getOrCreateCurrentChat();
+    return backendClient.getOrCreateCurrentChat();
   });
 
   ipcMain.handle(IPC_CHANNELS.listChats, async () => {
-    return chatMemoryService.listChats();
+    return backendClient.listChats();
   });
 
   ipcMain.handle(IPC_CHANNELS.listChatMessages, async (_event, chatId: unknown) => {
-    return chatMemoryService.listMessages(requireChatId(chatId));
+    return backendClient.listChatMessages(requireChatId(chatId));
   });
 
   ipcMain.handle(IPC_CHANNELS.getChatSummary, async (_event, chatId: unknown) => {
-    return chatMemoryService.getChatSummary(requireChatId(chatId));
+    return backendClient.getChatSummary(requireChatId(chatId));
   });
 
   ipcMain.handle(IPC_CHANNELS.appendChatMessage, async (_event, req: unknown) => {
@@ -56,7 +88,7 @@ export function registerChatIpcHandlers({
       throw new Error('Invalid append chat message payload');
     }
 
-    return chatMemoryService.appendMessage(req);
+    return backendClient.appendChatMessage(req);
   });
 
   ipcMain.handle(IPC_CHANNELS.createLiveSession, async (_event, req: unknown) => {
@@ -64,11 +96,11 @@ export function registerChatIpcHandlers({
       throw new Error('Invalid create live session payload');
     }
 
-    return chatMemoryService.createLiveSession(req);
+    return backendClient.createLiveSession(req);
   });
 
   ipcMain.handle(IPC_CHANNELS.listLiveSessions, async (_event, chatId: unknown) => {
-    return chatMemoryService.listLiveSessions(requireChatId(chatId));
+    return backendClient.listLiveSessions(requireChatId(chatId));
   });
 
   ipcMain.handle(IPC_CHANNELS.updateLiveSession, async (_event, req: unknown) => {
@@ -76,7 +108,7 @@ export function registerChatIpcHandlers({
       throw new Error('Invalid update live session payload');
     }
 
-    return chatMemoryService.updateLiveSession(req);
+    return backendClient.updateLiveSession(req);
   });
 
   ipcMain.handle(IPC_CHANNELS.endLiveSession, async (_event, req: unknown) => {
@@ -84,6 +116,6 @@ export function registerChatIpcHandlers({
       throw new Error('Invalid end live session payload');
     }
 
-    return chatMemoryService.endLiveSession(req);
+    return backendClient.endLiveSession(req);
   });
 }

@@ -1,5 +1,4 @@
 import type { BrowserWindow } from 'electron';
-import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
 import {
   createCaptureSourceRegistry,
   type CaptureSourceRegistry,
@@ -15,7 +14,6 @@ import { registerSettingsIpcHandlers } from './settings/registerSettingsIpcHandl
 
 type RegisterIpcHandlersOptions = {
   captureSourceRegistry?: CaptureSourceRegistry;
-  chatMemoryService: ChatMemoryService;
   fetchImpl?: typeof fetch;
   getMainWindow: () => BrowserWindow | null;
   platform?: NodeJS.Platform;
@@ -25,7 +23,6 @@ type RegisterIpcHandlersOptions = {
 
 export function registerIpcHandlers({
   captureSourceRegistry = createCaptureSourceRegistry(),
-  chatMemoryService,
   fetchImpl,
   getMainWindow,
   platform = process.platform,
@@ -41,7 +38,8 @@ export function registerIpcHandlers({
     settingsService,
   });
   registerChatIpcHandlers({
-    chatMemoryService,
+    fetchImpl,
+    settingsService,
   });
   registerSettingsIpcHandlers({
     settingsService,

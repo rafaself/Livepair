@@ -1,5 +1,4 @@
 import { app } from 'electron';
-import { getChatMemoryService } from './chatMemory/chatMemoryService';
 import { createCaptureSourceRegistry } from './desktopCapture/captureSourceRegistry';
 import { resolveScreenFrameDumpRootDir } from './debug/screenFrameDumpPaths';
 import { createScreenFrameDumpService } from './debug/screenFrameDumpService';
@@ -13,7 +12,6 @@ import {
   handleWindowAllClosed,
 } from './window/overlayWindow';
 
-const chatMemoryService = getChatMemoryService();
 const settingsService = getDesktopSettingsService();
 const captureSourceRegistry = createCaptureSourceRegistry();
 const screenFrameDumpService = createScreenFrameDumpService({
@@ -24,7 +22,6 @@ const screenFrameDumpService = createScreenFrameDumpService({
 });
 registerIpcHandlers({
   captureSourceRegistry,
-  chatMemoryService,
   getMainWindow,
   screenFrameDumpService,
   settingsService,
