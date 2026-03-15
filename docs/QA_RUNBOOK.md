@@ -61,9 +61,16 @@ Use a dev build for this runbook. The `Developer tools` panel is only available 
 
 ## Required Setup
 
-1. Copy and fill the app env files if they do not already exist.
-2. In `apps/api/.env`, provide a valid `GEMINI_API_KEY`.
-3. In `apps/desktop/.env`, keep the required speech-mode values from `apps/desktop/.env.example` populated, especially `VITE_LIVE_MODEL`, and set these manual-QA flags:
+1. Start from the root quick-start config if the env files do not already exist:
+
+```bash
+cp .env.example .env
+ln -sf ../../.env apps/api/.env
+ln -sf ../../.env apps/desktop/.env
+```
+
+2. In the root `.env`, provide a valid `GEMINI_API_KEY`.
+3. In the root `.env`, keep the required speech-mode values populated, especially `SESSION_TOKEN_LIVE_MODEL`, `VITE_LIVE_MODEL`, `VITE_LIVE_API_VERSION=v1alpha`, and set these manual-QA flags:
 
 ```bash
 OPEN_DEVTOOLS=true

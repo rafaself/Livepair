@@ -316,50 +316,89 @@ docs(docs): update README with commit conventions
 
 ### ✅ Prerequisites
 
-* Node.js
-* pnpm
-* Linux desktop environment with screen capture support
+* Node.js (LTS recommended)
+* `pnpm` 9.x (`packageManager` is `pnpm@9.0.0`) — install guide: [pnpm.io/installation](https://pnpm.io/installation)
+* Docker Engine with Docker Compose — install guide: [docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
+* Linux desktop environment with microphone and screen capture support
 
-### 📦 Install
+### 🚀 Quick Start
+
+1. Install workspace dependencies:
 
 ```bash
 pnpm install
 ```
 
-### 🐘 Local Postgres-backed development flow
+2. Create the main local config file and point both apps at it:
 
-Start the local Docker database, verify connectivity, and apply migrations:
+```bash
+cp .env.example .env
+ln -sf ../../.env apps/api/.env
+ln -sf ../../.env apps/desktop/.env
+```
+
+The root `.env` is the primary local config file for the normal evaluation flow. The app-local `.env.example` files are still the detailed field-by-field references, but they are not required for the standard quick-start path.
+
+3. Open `.env` and fill in the required value:
+
+```bash
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+> **Required:** `GEMINI_API_KEY` must be set before the API can issue Gemini Live session tokens.
+
+Also keep these paired values aligned:
+
+* `SESSION_TOKEN_AUTH_SECRET` is shared by the API and desktop main process
+* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL` should point to the same Gemini Live model
+* `VITE_LIVE_API_VERSION` should stay `v1alpha` for the current speech flow
+
+4. Start local infrastructure and apply database migrations:
+
+```bash
+docker compose up -d
+pnpm --filter @livepair/api db:migrate
+```
+
+5. Run the API and desktop app together:
+
+```bash
+pnpm run dev
+```
+
+The backend listens on `http://127.0.0.1:3000` by default. Use `pnpm --filter @livepair/api dev` or `pnpm --filter @livepair/desktop dev` only when you want to debug one app independently.
+
+### 🔧 Quick setup notes
+
+* If `docker compose up -d` fails, install or start Docker first, then retry with `docker compose ps`.
+* If the API exits immediately, re-check `GEMINI_API_KEY` in the root `.env`.
+* If speech mode cannot start, confirm `SESSION_TOKEN_AUTH_SECRET` matches on both sides and `VITE_LIVE_API_VERSION=v1alpha`.
+
+### 🐘 Local infrastructure helpers
+
+```bash
+docker compose up -d
+```
+
+Stop the full local stack when you are done:
+
+```bash
+docker compose down
+```
+
+Focused Postgres helpers:
 
 ```bash
 make postgres-up
+make postgres-reset
+make postgres-down
+```
+
+Verify connectivity or re-run migrations after a reset:
+
+```bash
 pnpm --filter @livepair/api db:check
 pnpm --filter @livepair/api db:migrate
-```
-
-Then run both apps together:
-
-```bash
-pnpm dev
-```
-
-Or run them separately:
-
-```bash
-pnpm --filter @livepair/api dev
-pnpm --filter @livepair/desktop dev
-```
-
-Reset the local database from scratch:
-
-```bash
-make postgres-reset
-pnpm --filter @livepair/api db:migrate
-```
-
-Stop the local database when you are done:
-
-```bash
-make postgres-down
 ```
 
 ### 🧹 Run workspace checks
@@ -385,69 +424,23 @@ pnpm verify:shared-types
 
 ## 🌍 Environment Variables
 
-Environment examples are separated per app:
+The main setup template for local evaluation is [`.env.example`](./.env.example). Copy it to `.env`, then symlink `apps/api/.env` and `apps/desktop/.env` to the root file for the normal quick-start flow.
 
-- backend: [apps/api/.env.example](./apps/api/.env.example)
-- desktop: [apps/desktop/.env.example](./apps/desktop/.env.example)
+Detailed per-app references:
 
-Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed in these files because they come from Node, Electron, or Vite rather than repository configuration.
+* backend: [apps/api/.env.example](./apps/api/.env.example)
+* desktop: [apps/desktop/.env.example](./apps/desktop/.env.example)
 
-### ⚙️ Backend: `apps/api/.env.example`
+Key local values:
 
-```bash
-PORT=
-HOST=
-GEMINI_API_KEY=
-DATABASE_URL=
-EPHEMERAL_TOKEN_TTL_SECONDS=
-REDIS_URL=
-DISABLE_HTTP_LISTEN=
-```
+* `GEMINI_API_KEY` (**required**): backend-only Gemini credential used for `/session/token`
+* `SESSION_TOKEN_AUTH_SECRET`: shared secret that must match between the API and desktop main process
+* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL`: keep them on the same Gemini Live model resource
+* `DATABASE_URL`: local Docker default is `postgres://livepair:livepair@127.0.0.1:5432/livepair`
+* `VITE_LIVE_API_VERSION`: keep `v1alpha` for the current speech flow
+* `VITE_LIVE_VOICE_RESPONSE_MODALITY`: keep `AUDIO` for speech mode
 
-Meaning:
-
-- `PORT`: backend HTTP port. Defaults to `3000` when unset.
-- `HOST`: backend bind host. Defaults to `127.0.0.1` when unset.
-- `GEMINI_API_KEY`: server-side Gemini credential used for `/session/token`. Never expose this in the desktop app.
-- `DATABASE_URL`: PostgreSQL connection string used by backend migrations and the Postgres persistence foundation. With the local Docker defaults, use `postgres://livepair:livepair@127.0.0.1:5432/livepair`.
-- `EPHEMERAL_TOKEN_TTL_SECONDS`: token lifetime returned by `/session/token`. Defaults to `60` when unset.
-- `REDIS_URL`: planned Redis connection string for future checkpoint/session storage work. It is not active in the current MVP path yet.
-- `DISABLE_HTTP_LISTEN`: when `true`, starts the backend process without binding the HTTP server. Useful for tests or environments where you want bootstrap without opening a port.
-
-Local Postgres Docker overrides:
-
-- `POSTGRES_DB`: database name for `infra/postgres/docker-compose.yml`. Defaults to `livepair`.
-- `POSTGRES_USER`: database user for local Docker Postgres. Defaults to `livepair`.
-- `POSTGRES_PASSWORD`: database password for local Docker Postgres. Defaults to `livepair`.
-- `POSTGRES_PORT`: host port for local Docker Postgres. Defaults to `5432`.
-
-### 🖥️ Desktop: `apps/desktop/.env.example`
-
-```bash
-OPEN_DEVTOOLS=
-VITE_LIVE_MODEL=
-VITE_LIVE_API_VERSION=
-VITE_LIVE_VOICE_RESPONSE_MODALITY=
-VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION=
-VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION=
-VITE_LIVE_MEDIA_RESOLUTION=
-VITE_LIVE_SESSION_RESUMPTION=
-VITE_LIVE_CONTEXT_COMPRESSION=
-```
-
-Meaning:
-
-- `OPEN_DEVTOOLS`: when `true`, Electron opens devtools automatically in desktop development mode. This is only a local developer convenience flag.
-- `VITE_LIVE_MODEL`: overrides the Gemini Live model resource used by speech mode. Defaults to `models/gemini-2.0-flash-exp`.
-- `VITE_LIVE_API_VERSION`: selects the Gemini Live API version used to derive the websocket endpoint. Supported values are `v1alpha` and `v1beta`; current ephemeral-token speech sessions require `v1alpha`.
-- `VITE_LIVE_VOICE_RESPONSE_MODALITY`: configures the response modality for speech-mode Live sessions. Supported value is `AUDIO`.
-- `VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION`: enables input-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.
-- `VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION`: enables output-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.
-- `VITE_LIVE_MEDIA_RESOLUTION`: selects the Gemini media resolution enum used for speech-mode frame uploads. Supported values are `MEDIA_RESOLUTION_LOW`, `MEDIA_RESOLUTION_MEDIUM`, and `MEDIA_RESOLUTION_HIGH`; default is `MEDIA_RESOLUTION_LOW`.
-- `VITE_LIVE_SESSION_RESUMPTION`: enables Gemini Live session resumption for voice sessions. Supported values are `true` and `false`; default is `true`.
-- `VITE_LIVE_CONTEXT_COMPRESSION`: enables Gemini Live context window compression setup for speech mode. Supported values are `true` and `false`; default is `true`.
-
-The desktop app must not contain a permanent Gemini API key.
+Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed because they come from Node, Electron, or Vite rather than repository configuration.
 
 ## ✅ Testing
 
