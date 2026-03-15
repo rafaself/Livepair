@@ -55,4 +55,33 @@ describe('settingsStore', () => {
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
     expect(useSettingsStore.getState().settings.themePreference).toBe('dark');
   });
+
+  it('hydrates and updates persisted voice preferences through the bridge', async () => {
+    window.bridge.getSettings = vi.fn().mockResolvedValue({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'Kore',
+      systemInstruction: '',
+    });
+    window.bridge.updateSettings = vi.fn().mockImplementation(async (patch) => ({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'Kore',
+      systemInstruction: '',
+      ...patch,
+    }));
+
+    await expect(useSettingsStore.getState().hydrate()).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'Kore',
+      systemInstruction: '',
+    });
+    await expect(useSettingsStore.getState().updateSetting('voice', 'Aoede')).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'Aoede',
+      systemInstruction: '',
+    });
+
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ voice: 'Aoede' });
+    expect(useSettingsStore.getState().settings.voice).toBe('Aoede');
+    expect(useSettingsStore.getState().settings.systemInstruction).toBe('');
+  });
 });

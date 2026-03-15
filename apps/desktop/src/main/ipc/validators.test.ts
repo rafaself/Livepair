@@ -196,6 +196,8 @@ describe('ipc validators', () => {
       speechSilenceTimeout: '30s',
       voiceNoiseSuppressionEnabled: true,
       isPanelPinned: true,
+      voice: 'Puck',
+      systemInstruction: '',
     };
 
     expect(isDesktopSettingsPatch(valid)).toBe(true);
@@ -215,6 +217,7 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ voiceEchoCancellationEnabled: 'yes' })).toBe(false);
     expect(isDesktopSettingsPatch({ isPanelPinned: 'yes' })).toBe(false);
     expect(isDesktopSettingsPatch({ speechSilenceTimeout: '5m' })).toBe(false);
+    expect(isDesktopSettingsPatch({ voice: 'InvalidVoice' })).toBe(false);
   });
 
   it('validates screen frame dump payloads', () => {

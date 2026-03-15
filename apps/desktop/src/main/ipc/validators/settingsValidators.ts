@@ -14,6 +14,8 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
   'isPanelPinned',
   'visualSessionQuality',
   'chatTimestampVisibility',
+  'voice',
+  'systemInstruction',
 ] as const;
 
 function isThemePreference(value: unknown): boolean {
@@ -26,6 +28,10 @@ function isPreferredMode(value: unknown): boolean {
 
 function isSpeechSilenceTimeout(value: unknown): boolean {
   return value === 'never' || value === '30s' || value === '3m';
+}
+
+function isDesktopVoice(value: unknown): boolean {
+  return value === 'Puck' || value === 'Kore' || value === 'Aoede';
 }
 
 export function isDesktopSettingsPatch(value: unknown): value is DesktopSettingsPatch {
@@ -93,6 +99,14 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
     && value['chatTimestampVisibility'] !== 'hidden'
     && value['chatTimestampVisibility'] !== 'visible'
   ) {
+    return false;
+  }
+
+  if ('voice' in value && !isDesktopVoice(value['voice'])) {
+    return false;
+  }
+
+  if ('systemInstruction' in value && typeof value['systemInstruction'] !== 'string') {
     return false;
   }
 

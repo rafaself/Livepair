@@ -58,11 +58,15 @@ describe('DesktopSettingsRepository', () => {
       repository.updateSettings({
         backendUrl: ' https://api.livepair.dev/v1/ ',
         themePreference: 'dark',
+        voice: 'Kore',
+        systemInstruction: '',
       }),
     ).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
       backendUrl: 'https://api.livepair.dev/v1',
       themePreference: 'dark',
+      voice: 'Kore',
+      systemInstruction: '',
     });
 
     const reloadedRepository = new DesktopSettingsRepository(settingsFilePath);
@@ -70,6 +74,8 @@ describe('DesktopSettingsRepository', () => {
       ...DEFAULT_DESKTOP_SETTINGS,
       backendUrl: 'https://api.livepair.dev/v1',
       themePreference: 'dark',
+      voice: 'Kore',
+      systemInstruction: '',
     });
 
     await expect(readFile(settingsFilePath, 'utf8')).resolves.toBe(
@@ -80,11 +86,34 @@ describe('DesktopSettingsRepository', () => {
             ...DEFAULT_DESKTOP_SETTINGS,
             backendUrl: 'https://api.livepair.dev/v1',
             themePreference: 'dark',
+            voice: 'Kore',
+            systemInstruction: '',
           },
         },
         null,
         2,
       ),
+    );
+  });
+
+  it('fills missing new preferences and falls back invalid persisted voice values', async () => {
+    const legacySettingsPath = join(tmpdir(), `livepair-settings-legacy-${Date.now()}.json`);
+    const { writeFile } = await import('node:fs/promises');
+
+    await writeFile(
+      legacySettingsPath,
+      JSON.stringify({
+        version: 1,
+        settings: {
+          ...DEFAULT_DESKTOP_SETTINGS,
+          voice: 'BadVoice',
+          systemInstruction: undefined,
+        },
+      }),
+    );
+
+    await expect(new DesktopSettingsRepository(legacySettingsPath).getSettings()).resolves.toEqual(
+      DEFAULT_DESKTOP_SETTINGS,
     );
   });
 
