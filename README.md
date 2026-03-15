@@ -3,12 +3,14 @@
 
 A real-time multimodal desktop assistant.
 
-This repository currently ships two distinct product paths:
+This repository currently ships one direct realtime path plus an inactive conversation shell:
 
-* `text` mode: backend-mediated streaming chat via `POST /session/chat` using Gemini text models
-* `speech` mode: direct desktop-to-Gemini Live sessions, with the backend issuing ephemeral tokens via `POST /session/token`
+* `inactive`: no active Live session; preserved conversation stays visible and the primary CTA starts or resumes Live
+* `speech`: direct desktop-to-Gemini Live sessions, with the backend issuing ephemeral tokens via `POST /session/token`
 
-The backend stays out of the audio/video hot path, but it is not "token only" anymore: today it serves health, text chat streaming, and Gemini Live token issuance. Backend checkpointing, backend-backed tools, and error-report endpoints are still planned.
+Typed notes are only sent once a Live session is active; they reuse the active Gemini Live session rather than a backend text endpoint.
+
+The backend stays out of the audio/video hot path and currently serves health checks and Gemini Live token issuance. Backend checkpointing, backend-backed tools, standalone error-report endpoints, and any dedicated backend text-chat path are not implemented today.
 
 ## Current Status
 
@@ -16,8 +18,9 @@ The backend stays out of the audio/video hot path, but it is not "token only" an
 
 * Electron overlay shell with React renderer
 * Typed preload bridge and IPC surface
-* Text mode backed by backend streaming (`POST /session/chat`) using Gemini text models
-* Voice mode backed by Gemini Live API via an SDK-backed transport
+* Inactive conversation shell that preserves history and offers start/resume Live-session actions
+* Typed input inside an active Live session
+* Speech mode backed by Gemini Live API via an SDK-backed transport
 * Backend health (`GET /health`) and real Gemini Live ephemeral token issuance (`POST /session/token`)
 * Local microphone capture pipeline and assistant audio playback
 * Interruption / barge-in behavior (local detection + playback stop)
@@ -93,7 +96,6 @@ Speech mode: Desktop client → Gemini Live API
 
 Implemented today:
 * Issue ephemeral tokens
-* Stream backend-mediated text chat
 * Expose backend health
 
 Planned:
@@ -120,22 +122,24 @@ Planned:
 
 ## 🔄 High-Level Flow
 
-### Product mode model
+### Product state model
 
-User-facing product modes:
+User-facing product states:
 
-* `text`: typed chat over the backend text endpoint
+* `inactive`: no active Live session; the chat surface remains visible and the primary action starts or resumes Live
 * `speech`: direct Gemini Live session with local audio, interruption, and optional manual screen frames
 
 Internal runtime terminology:
 
 * `voice` is the transport/session term used for the Gemini Live speech-mode path
-* `currentMode` remains the product-level source of truth for `text` vs `speech`
+* `text` is the Gemini Live session mode used for typed notes once speech mode is active
+* `currentMode` remains the product-level source of truth for `inactive` vs `speech`
 * `speechLifecycle` remains the product-level speech-state source of truth once speech mode is active
 
-Text mode (backend-mediated):
-1. The desktop app starts a streaming chat request to the backend (`POST /session/chat`).
-2. The backend streams NDJSON events from a Gemini text model back to the desktop.
+Inactive conversation state:
+1. No Live transport is connected.
+2. The desktop keeps conversation history visible and offers `Talk` / `Resume Live Session` entry actions.
+3. Typed input is unavailable until a Live session is active.
 
 Speech mode (direct realtime):
 1. The desktop app requests an ephemeral token from the backend (`POST /session/token`).
@@ -143,7 +147,7 @@ Speech mode (direct realtime):
 3. The desktop client opens a realtime session directly with Gemini Live API (SDK transport).
 4. The client streams microphone audio and, when explicitly started, manual screen frames.
 5. The model returns response audio plus transcript/text events; local interruption stops playback promptly.
-6. Typed input can still be sent while speech mode is active, but it travels over the active Live session rather than the backend text endpoint.
+6. Typed input can still be sent while speech mode is active, but it travels over the active Live session rather than a backend text endpoint.
 
 ## 📁 Repository Layout
 
@@ -164,7 +168,7 @@ Speech mode (direct realtime):
 ## 🖥️ Desktop App Responsibilities
 
 * Capture microphone input
-* Manage `text` mode and `speech` mode state
+* Manage inactive/history and speech-session state
 * Capture screen context only when explicitly started during an active speech session
 * Run local VAD for interruption detection
 * Play model audio output
@@ -178,7 +182,6 @@ Speech mode (direct realtime):
 Implemented:
 * `GET /health`
 * `POST /session/token` (Gemini Live ephemeral token issuance)
-* `POST /session/chat` (backend-mediated text chat stream)
 
 Planned:
 * `POST /session/checkpoint`
@@ -195,7 +198,7 @@ The user experience should feel like one continuous session.
 Current implementation:
 
 * the desktop runtime keeps conversation state, runtime diagnostics, token-expiry metadata, and Gemini Live resumption handles in local process state
-* speech-mode resumption refreshes the token when needed and falls back explicitly to safe `text`/`off` states on failure
+* speech-mode resumption refreshes the token when needed and falls back explicitly to safe `inactive`/`off` states on failure
 
 Planned extension:
 
@@ -366,7 +369,6 @@ Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed in 
 PORT=
 HOST=
 GEMINI_API_KEY=
-GEMINI_TEXT_MODEL=
 EPHEMERAL_TOKEN_TTL_SECONDS=
 REDIS_URL=
 DISABLE_HTTP_LISTEN=
@@ -376,8 +378,7 @@ Meaning:
 
 - `PORT`: backend HTTP port. Defaults to `3000` when unset.
 - `HOST`: backend bind host. Defaults to `127.0.0.1` when unset.
-- `GEMINI_API_KEY`: server-side Gemini credential used for both `/session/token` and `/session/chat`. Never expose this in the desktop app.
-- `GEMINI_TEXT_MODEL`: backend text-model override for `text` mode. Defaults to `gemini-2.5-flash` and must not point at a Gemini Live or native-audio model.
+- `GEMINI_API_KEY`: server-side Gemini credential used for `/session/token`. Never expose this in the desktop app.
 - `EPHEMERAL_TOKEN_TTL_SECONDS`: token lifetime returned by `/session/token`. Defaults to `60` when unset.
 - `REDIS_URL`: planned Redis connection string for future checkpoint/session storage work. It is not active in the current MVP path yet.
 - `DISABLE_HTTP_LISTEN`: when `true`, starts the backend process without binding the HTTP server. Useful for tests or environments where you want bootstrap without opening a port.
@@ -436,8 +437,8 @@ Recommended focus:
 
 Current baseline:
 
-* backend-mediated `text` mode
-* direct-to-Gemini-Live `speech` mode
+* inactive history shell plus direct-to-Gemini-Live `speech` mode
+* typed notes over the active Live session
 * local interruption handling
 * manual screen-context upload during speech mode
 * token refresh and Live session resumption

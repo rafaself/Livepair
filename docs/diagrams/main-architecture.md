@@ -8,7 +8,7 @@ flowchart TB
         UI[UI Layer<br/>Overlay / Panel / Settings]
 
         subgraph ORCH[Session Controller / Orchestrator]
-            SC[Session Lifecycle<br/>text mode / speech mode / reconnect / interrupt]
+            SC[Session Lifecycle<br/>inactive / speech / reconnect / interrupt]
         end
 
         subgraph MEDIA[Media Layer]
@@ -17,12 +17,12 @@ flowchart TB
         end
 
         subgraph CORE[Agent Core]
-            AC[Conversation State]
+            AC[Conversation State<br/>history / typed notes / transcripts]
             TM[Local Voice Tools<br/>implemented: get_current_mode / get_voice_session_status]
         end
 
         subgraph ADAPTER[Transport Layer]
-            LLM[LLM Transport Interface]
+            LLM[LLM Transport Interface<br/>text / voice session modes]
             GLA[Gemini Live Adapter]
         end
     end
@@ -30,7 +30,6 @@ flowchart TB
     subgraph B[Backend API - NestJS on Cloud Run]
         HEALTH[Health Module<br/>GET /health<br/>implemented]
         AUTH[Session / Token Module<br/>POST /session/token<br/>implemented]
-        CHAT[Session / Chat Module<br/>POST /session/chat<br/>implemented]
         TOOLS[Tools Module<br/>screenshot-hd / visual-summary<br/>planned]
         LOG[Logging / Error Module<br/>planned]
         SVC[Session Checkpoint API<br/>planned]
@@ -42,11 +41,7 @@ flowchart TB
 
     subgraph G[Gemini Live API]
         WS[Realtime WebSocket Session]
-        MODEL[Multimodal Streaming Model<br/>audio in / manual screen frames in / audio out / text out / tool requests]
-    end
-
-    subgraph GT[Gemini Text Model Path]
-        TXT[Gemini text model<br/>backend mediated]
+        MODEL[Multimodal Streaming Model<br/>audio in / typed text in / manual screen frames in / audio out / text out / tool requests]
     end
 
     U --> UI
@@ -66,14 +61,11 @@ flowchart TB
 
     AP --> GLA
     VP --> GLA
+    AC -->|typed notes while speech mode is active| GLA
 
     SC -->|GET /health| HEALTH
     SC -->|POST /session/token| AUTH
     AUTH -->|ephemeral token| SC
-    SC -->|POST /session/chat| CHAT
-    CHAT --> TXT
-    TXT --> CHAT
-    CHAT -->|NDJSON events| SC
 
     MODEL -->|tool request| TM
     TM -->|local tool response| MODEL

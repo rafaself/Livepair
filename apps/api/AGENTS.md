@@ -1,11 +1,11 @@
 # apps/api AGENTS.md
 
 ## Scope
-NestJS backend package for control-plane APIs and backend-mediated text mode.
+NestJS backend package for control-plane APIs, Gemini Live token issuance, and API observability.
 
 ## Owns
 - HTTP controllers, services, modules, and DTOs under `src/`
-- Server-side Gemini integrations, config access, and API observability
+- Server-side Gemini integrations, config access, API observability, and health/token HTTP surfaces
 
 ## Guardrails
 - Keep the backend out of the realtime audio/video path.

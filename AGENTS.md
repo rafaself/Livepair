@@ -5,8 +5,8 @@ Repo-wide defaults only. Child `AGENTS.md` files add local deltas for their own 
 
 ## Repo anchors
 - Speech mode stays desktop -> Gemini Live; do not add backend audio/video proxying.
-- The backend owns control-plane work plus today's text path: `GET /health`, `POST /session/token`, and `POST /session/chat`.
-- User-facing modes are `text` and `speech`; runtime code still uses `voice` for the Gemini Live path.
+- The backend owns control-plane work today: `GET /health` and `POST /session/token`; checkpointing, backend tools, and error reporting remain planned.
+- Product state currently centers on `inactive` and `speech`; runtime code still uses `voice` for the Gemini Live speech path and `text` for typed turns inside Live.
 - Cross-package payloads and other shared serializable contracts belong in `packages/shared-types`.
 
 ## Guardrails

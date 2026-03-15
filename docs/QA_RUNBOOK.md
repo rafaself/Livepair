@@ -1,6 +1,6 @@
 # Manual QA Runbook
 
-Last updated: 2026-03-12
+Last updated: 2026-03-15
 
 This runbook defines the real-machine manual checks required before a release or demo sign-off.
 
@@ -8,7 +8,7 @@ This runbook defines the real-machine manual checks required before a release or
 
 This runbook covers the current implemented product flows only:
 
-- text happy path
+- inactive session shell
 - enter speech mode
 - typed input inside speech mode
 - speaking flow
@@ -128,7 +128,7 @@ Expected result: the app opens without a startup crash and the `Developer tools`
 Expected result: the setting persists immediately and speech mode should not auto-end during the main voice checks.
 
 3. Open `Chat`.
-Expected result: the composer is visible and shows `Start speech mode` when the input is empty.
+Expected result: the chat surface is visible and shows an inactive-state Live-session CTA (`Talk`, `Share screen`, or `Resume Live Session`) rather than an immediate send action.
 
 ## Flow Checklist
 
@@ -139,42 +139,42 @@ Use the following status values while executing the run:
 - `Inconclusive`
 - `Not run by config`
 
-### QA-01 Text Happy Path
+### QA-01 Inactive Session Shell
 
 Steps:
 
-1. Keep the app in text mode.
-2. In the composer, enter `Summarize what Livepair can do today in three bullets.`
-3. Submit the message.
+1. End any active Live session.
+2. Keep the panel open on `Chat`.
+3. If history exists, confirm it stays visible. If the conversation is empty, stay on the empty-state card.
 
 Expected results:
 
-- the user turn appears in the conversation immediately
-- no session token request UI or speech-mode transition is required
-- assistant text streams into the conversation
-- the turn completes without the desktop entering speech mode
+- the chat surface remains visible instead of switching to a separate inactive-mode screen
+- the primary action offers `Talk`, `Share screen`, or `Resume Live Session` rather than sending a typed turn
+- typed input is unavailable until a Live session is active
 - no runtime error banner appears
 
 Capture on failure:
 
 - panel screenshot
-- last API log lines around `POST /session/chat`
+- visible primary action label and any `Developer tools` connection error state
 
 ### QA-02 Enter Speech Mode
 
 Steps:
 
-1. Clear the composer so the mic action is visible.
-2. Click `Start speech mode`.
+1. From the inactive chat surface, click the primary Live-session action (`Talk`, `Share screen`, or `Resume Live Session`, depending on what is visible).
+2. If you chose `Share screen`, confirm the source selection as prompted.
 3. Wait for the session to connect.
 
 Expected results:
 
-- the action changes to `Starting speech mode` and is temporarily disabled
+- the action changes into a Live-session starting state and is temporarily disabled
 - the panel stays on the conversation surface; no separate top transcript panel is required
-- speech mode becomes active without an extra microphone click
+- speech mode becomes active without any backend text-chat step
 - the dock shows microphone and screen-context controls
-- `Developer tools` shows voice session `Ready` and voice capture active
+- `Developer tools` shows voice session `Ready`
+- if the microphone preference is enabled, voice capture becomes active automatically
 
 Capture on failure:
 
@@ -193,7 +193,7 @@ Expected results:
 
 - the typed user turn is added to the conversation
 - speech mode stays active throughout the request
-- the session does not tear down or fall back to text mode
+- the session does not tear down or fall back to the inactive state
 - the assistant replies without losing voice-session readiness
 - `Developer tools` still shows voice session `Ready` after the turn
 
@@ -327,7 +327,7 @@ Real-machine `GoAway` is timing-dependent. The practical validation target is se
 Steps:
 
 1. Open `Developer tools` and confirm `Session resumption` is visible.
-2. Start speech mode and speak once so the session has live activity.
+2. Start a Live session and speak once so the session has live activity.
 3. Trigger a brief live-session interruption:
    - preferred: disable network access for 3 to 5 seconds, then restore it
    - acceptable: reproduce a real `GoAway` or transport recycle if it occurs naturally during the session
@@ -338,7 +338,7 @@ Expected results:
 - if a resume handle is available and the interruption is recoverable, the session attempts to resume automatically
 - `Session resumption` shows a non-idle transition such as `GoAway`, `Reconnecting`, or `Resumed`
 - after recovery, speech mode remains usable without restarting the app
-- if recovery fails, the app falls back to a safe text/off state with an explicit runtime error instead of hanging or crashing
+- if recovery fails, the app falls back to a safe inactive/off state with an explicit runtime error instead of hanging or crashing
 
 Capture on failure:
 
@@ -349,17 +349,17 @@ Capture on failure:
 
 Steps:
 
-1. In text mode, send `Give me a short answer.`
-2. Before or after the text turn completes, clear the composer and click `Start speech mode`.
-3. After the speech session is active, click `End speech mode`.
-4. Send another text prompt.
+1. From the inactive chat surface, start a Live session.
+2. After the speech session is active, send `Give me a short answer.` as a typed note.
+3. Click `End Live session`.
+4. Confirm the product returns to the inactive chat surface, then start a new Live session again.
 
 Expected results:
 
-- switching into speech mode does not leave text and speech active at the same time
-- speech mode starts cleanly and auto-starts capture
-- ending speech mode returns the product to text mode
-- text sending still works after the speech session ends
+- entering speech mode does not leave inactive and speech controls active at the same time
+- speech mode starts cleanly and auto-starts capture when the microphone preference is enabled
+- ending speech mode returns the product to the inactive chat surface while preserving history
+- starting a fresh Live session after ending the previous one still works cleanly
 
 Capture on failure:
 
@@ -370,7 +370,7 @@ Capture on failure:
 
 Steps:
 
-1. Start speech mode.
+1. Start a Live session.
 2. Click `Close panel`.
 3. Use the dock controls while the panel is closed.
 4. Reopen the panel with `Open panel`.
@@ -392,7 +392,7 @@ Steps:
 
 1. Open `Settings`.
 2. Set `Silence timeout` to `30 seconds`.
-3. Start speech mode.
+3. Start a Live session.
 4. Do not speak and do not send typed input for at least 35 seconds.
 5. After the timeout case passes or fails, set `Silence timeout` back to `3 minutes`.
 
@@ -401,7 +401,7 @@ Expected results:
 - the speech session shuts down cleanly after about 30 seconds of silence
 - microphone capture stops
 - the voice session disconnects cleanly
-- the product returns to text mode
+- the product returns to the inactive state
 - no crash or hung intermediate state remains
 
 Optional regression check:

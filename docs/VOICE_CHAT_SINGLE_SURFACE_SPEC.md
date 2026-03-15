@@ -1,7 +1,7 @@
 # Voice Chat Single-Surface Spec
 
 **Status:** Shipped
-**Last updated:** 2026-03-13
+**Last updated:** 2026-03-15
 
 ## Goal
 
@@ -10,7 +10,7 @@ Document the current shipped speech-chat architecture. This file describes the c
 ## Final UX Contract
 
 - Speech mode renders through one primary visible conversation surface.
-- Spoken user turns appear as right-aligned voice-sourced chat bubbles in the same conversation list used by text mode.
+- Spoken user turns appear as right-aligned voice-sourced chat bubbles in the same conversation list used for preserved history and typed follow-ups.
 - Assistant speech appears as a single left-aligned voice-sourced bubble that is updated in place while transcript and audio events stream in.
 - The UI does not render a separate top transcript panel in the normal chat flow.
 

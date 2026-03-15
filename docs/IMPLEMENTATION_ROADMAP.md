@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-**Last updated:** 2026-03-12
+**Last updated:** 2026-03-15
 
 This roadmap is forward-looking from the current stable baseline. For completed-release status, see [docs/MILESTONE_MATRIX.md](./MILESTONE_MATRIX.md).
 
@@ -8,7 +8,7 @@ This roadmap is forward-looking from the current stable baseline. For completed-
 
 Already implemented:
 
-- backend-mediated `text` mode through `POST /session/chat`
+- typed turns over the active Gemini Live session (no standalone backend text endpoint)
 - Gemini Live ephemeral token issuance through `POST /session/token`
 - SDK-backed Gemini Live speech transport
 - local microphone capture and assistant audio playback
@@ -100,7 +100,7 @@ Needed outcome:
 - new shared contracts will be required for checkpoints, backend error reporting, and any backend-backed tool
 - privileged desktop capabilities must remain behind typed preload APIs only
 - `currentMode` and `speechLifecycle` remain the product-level sources of truth for mode and speech-state
-- docs must continue to distinguish clearly between backend-mediated `text` mode and direct Gemini Live `speech` mode
+- docs must continue to distinguish clearly between the inactive/history shell and the direct Gemini Live `speech` session; typed turns today reuse the active Live session rather than a backend text endpoint
 - shipped speech chat uses one primary visible conversation surface; `currentVoiceTranscript` is retained as an internal compatibility mirror only
 
 ## Validation Focus For Remaining Work

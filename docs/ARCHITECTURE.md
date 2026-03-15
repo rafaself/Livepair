@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated:** 2026-03-13
+**Last updated:** 2026-03-15
 
 This document describes the current repository state. For milestone-by-milestone status, see [docs/MILESTONE_MATRIX.md](./MILESTONE_MATRIX.md).
 
@@ -12,22 +12,23 @@ This document describes the current repository state. For milestone-by-milestone
 
 ## 1. Product Model
 
-User-facing product modes:
+User-facing product states:
 
-- `text`
+- `inactive`
 - `speech`
 
 Internal runtime terminology:
 
 - `voice` is the transport/session term used for the Gemini Live speech-mode path
-- `currentMode` is the product-level source of truth for `inactive` (no active Live session; backend-mediated text turns) vs `speech`
+- `text` is the Gemini Live session mode used for typed turns once a Live session is active
+- `currentMode` is the product-level source of truth for `inactive` vs `speech`
 - `speechLifecycle` is the product-level source of truth for speech-session state once speech mode is active
 
 Current behavior:
 
-- When no Live session is active, the desktop stays in an explicit inactive container state, keeps canonical chat history visible, and routes text turns through `POST /session/chat`.
+- When no Live session is active, the desktop stays in an explicit inactive container state, keeps canonical chat history visible, and offers start/resume Live-session actions. Typed input is unavailable while inactive.
 - `speech` mode requests an ephemeral token from `POST /session/token`, then connects directly from the desktop to Gemini Live.
-- Typed input remains usable while speech mode is active, and it travels over the active Live session rather than the backend text endpoint.
+- Typed input remains usable while speech mode is active, and it travels over the active Live session rather than a backend endpoint.
 
 ## 2. Current Implementation Snapshot
 
@@ -36,10 +37,11 @@ Implemented:
 - Electron overlay shell and React renderer
 - Typed preload bridge and strict IPC boundary
 - Desktop settings persistence and overlay interaction behavior
+- Inactive conversation container with start/resume Live-session actions
 - `GET /health`
 - `POST /session/token` with real Gemini Live ephemeral token issuance
-- `POST /session/chat` with backend-mediated NDJSON text streaming
-- Desktop session controller coordinating text and speech lifecycles
+- Desktop session controller coordinating inactive and speech lifecycles
+- Typed turns routed over the active Gemini Live session
 - SDK-backed Gemini Live transport adapter
 - Local microphone capture pipeline and assistant audio playback
 - Local interruption/barge-in behavior with playback stop and recovery
@@ -69,19 +71,19 @@ Actors and systems:
 - User
 - Desktop client
 - Backend API
-- Gemini text model path
 - Gemini Live API
 - Redis session store (`Planned`)
 
 High-level interaction paths:
 
-- `text` mode: User -> Desktop client -> Backend API (`POST /session/chat`) -> Gemini text model
-- `speech` mode: User -> Desktop client -> Backend API (`POST /session/token`) -> Desktop client -> Gemini Live API
+- inactive state: User -> Desktop client (history + start/resume Live-session actions)
+- `speech` mode: User -> Desktop client -> Backend API (`GET /health`, `POST /session/token`) -> Desktop client -> Gemini Live API
+- typed follow-up during speech: User -> Desktop client -> active Gemini Live session
 
 Important boundary:
 
 - The backend stays out of the audio/video hot path.
-- The backend is not token-only anymore because it also mediates text-mode chat.
+- The backend does not currently mediate typed chat turns.
 
 ## 4. Component Responsibilities
 
@@ -91,7 +93,8 @@ Implemented:
 
 - Render the assistant UI
 - Hold product state and runtime diagnostics
-- Start and end `text` and `speech` sessions
+- Start and end Live speech sessions while preserving inactive/history state
+- Accept typed notes only while a Live session is active
 - Capture microphone audio for speech mode
 - Play assistant audio for speech mode
 - Detect interruption locally
@@ -110,7 +113,6 @@ Implemented:
 
 - Health endpoint
 - Gemini Live ephemeral token issuance
-- Backend-mediated text chat streaming
 
 Planned:
 
@@ -122,8 +124,7 @@ Planned:
 
 Implemented:
 
-- Gemini Live API for speech mode
-- Gemini text models for text mode
+- Gemini Live API for speech mode and in-session typed turns
 
 Planned:
 
@@ -131,12 +132,12 @@ Planned:
 
 ## 5. Runtime Flows
 
-### Text Mode
+### Inactive State
 
-1. The desktop starts a request to `POST /session/chat`.
-2. The backend forwards the request to the configured Gemini text model.
-3. The backend streams NDJSON events back to the desktop.
-4. The desktop updates conversation state and text-session lifecycle.
+1. No Live session is connected.
+2. The desktop keeps canonical conversation history visible.
+3. The primary UI action starts or resumes a Live session.
+4. Typed submit remains unavailable until speech mode is active.
 
 ### Speech Mode
 
@@ -147,6 +148,12 @@ Planned:
 5. The desktop can optionally stream manual screen frames.
 6. The model returns assistant audio, transcript events, tool requests, and connection events.
 7. Local interruption handling stops playback and returns the speech lifecycle toward listening/recovery.
+
+### Typed Input During Speech Mode
+
+1. The user types into the composer while speech mode is active.
+2. The desktop routes the turn over the active Gemini Live session in text mode.
+3. The shared conversation timeline updates in place on the same surface as speech turns.
 
 ### Screen Context
 
@@ -181,7 +188,7 @@ Implemented:
 
 - Speech-mode resumption uses the latest Gemini Live resumption handle when available
 - The desktop refreshes the token before resuming if the current token is near expiry
-- Explicit failure paths return the app to safe `text`/`off` states
+- Explicit failure paths return the app to safe `inactive`/`off` states
 
 Planned:
 
@@ -196,7 +203,6 @@ Implemented:
 
 - `GET /health`
 - `POST /session/token`
-- `POST /session/chat`
 
 Planned:
 
@@ -235,7 +241,7 @@ Planned:
 Current desktop runtime state includes:
 
 - conversation turns
-- text-session lifecycle
+- typed-input lifecycle (`textSessionLifecycle`)
 - `currentMode`
 - `speechLifecycle`
 - transport and backend status
