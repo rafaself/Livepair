@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AssistantPanel } from './components/features/assistant-panel/AssistantPanel';
 import { ControlDock } from './components/composite/ControlDock';
+import { useCaptureExclusionRects } from './hooks/useCaptureExclusionRects';
 import { useOverlayHitRegions } from './hooks/useOverlayHitRegions';
 import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrough';
 import type { OverlayMode } from '../shared';
@@ -12,6 +13,11 @@ import { SnackbarProvider, useSnackbar } from './components/primitives';
 
 function LinuxOverlayInteraction(): null {
   useOverlayHitRegions();
+  return null;
+}
+
+function CaptureExclusionRectSync(): null {
+  useCaptureExclusionRects();
   return null;
 }
 
@@ -78,6 +84,7 @@ function AppShell(): JSX.Element {
   return (
     <div className="app-shell">
       <ThemePreferenceSync />
+      <CaptureExclusionRectSync />
       <OverlayInteractionManager overlayMode={overlayMode} />
       <AssistantPanel />
       <ControlDock
