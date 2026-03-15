@@ -37,6 +37,7 @@ describe('main bootstrap', () => {
     useGlobalPipes.mockClear();
     listen.mockClear();
     logSpy.mockClear();
+    warnSpy.mockClear();
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
     process.env['GEMINI_API_KEY'] = 'gemini-key';
   });
@@ -90,10 +91,10 @@ describe('main bootstrap', () => {
 
   it('fails fast when GEMINI_API_KEY is missing', async () => {
     delete process.env['GEMINI_API_KEY'];
-
     await expect(import('./main')).rejects.toThrow(
       'Missing required environment variable GEMINI_API_KEY',
     );
     expect(create).not.toHaveBeenCalled();
+    expect(listen).not.toHaveBeenCalled();
   });
 });

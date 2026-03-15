@@ -27,4 +27,4 @@ async function bootstrap(): Promise<void> {
   console.log(`API listening on ${host}:${port}`);
 }
 
-bootstrap();
+void bootstrap();

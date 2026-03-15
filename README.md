@@ -372,6 +372,32 @@ The backend listens on `http://127.0.0.1:3000` by default. Use `pnpm --filter @l
 * If the API exits immediately, re-check `GEMINI_API_KEY` in the root `.env`.
 * If speech mode cannot start, confirm `SESSION_TOKEN_AUTH_SECRET` matches on both sides and `VITE_LIVE_API_VERSION=v1alpha`.
 
+### ✅ Local smoke check
+
+Before a longer manual run, use the lightweight preflight:
+
+```bash
+docker compose up -d
+make smoke-check
+```
+
+`make smoke-check` reuses the existing API `db:check` flow and fails clearly when:
+
+* dependencies are missing because `pnpm install` has not completed
+* the root `.env` file is missing
+* `GEMINI_API_KEY` is unset
+* local Docker infra is not up yet
+
+If the preflight passes, start the normal local flow with `pnpm run dev`.
+
+With the API running, you can also confirm backend health directly:
+
+```bash
+curl http://127.0.0.1:3000/health
+```
+
+For the shortest evaluator-friendly app check after startup, use the fast flow in [docs/QA_RUNBOOK.md](./docs/QA_RUNBOOK.md).
+
 ### 🐘 Local infrastructure helpers
 
 ```bash
