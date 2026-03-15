@@ -1,6 +1,6 @@
 # Milestone Matrix
 
-**Last updated:** 2026-03-11
+**Last updated:** 2026-03-15
 
 Status legend:
 
@@ -13,7 +13,7 @@ Status legend:
 | Release 0: Runtime Infrastructure | Implemented | Session controller, typed runtime state, transport abstractions, and logging hooks are present in the desktop runtime. | Keep stable; no foundational gap blocking current work. |
 | Release 1: Real Token Issuance | Implemented | `POST /session/token` issues real Gemini Live ephemeral tokens. | Hardening only. |
 | Release 2: Desktop Realtime Session Skeleton | Implemented | Desktop session controller and SDK-backed Gemini Live transport are in place. | Ongoing stabilization only. |
-| Release 3: Text-First Realtime Turn | Implemented | `text` mode uses backend-mediated NDJSON streaming through `POST /session/chat`. | Error UX and demo polish remain outside the baseline milestone. |
+| Release 3: Text-First Realtime Turn | Partial | Typed turns exist only inside an active Gemini Live session; the current repo no longer exposes a standalone backend `POST /session/chat` flow. | Decide whether inactive-mode typed submit should return, or keep typed turns as a speech-session-only capability. |
 | Release 4: Microphone Capture And Playback | Implemented | Local microphone capture, chunk upload, and assistant audio playback are present. | Further perf measurement and hardening remain. |
 | Release 5: Local VAD And Interruption Handling | Implemented | Local interruption behavior, playback stop, and recovery flow are implemented and covered by targeted tests. | Continue regression coverage. |
 | Release 6: Session Checkpointing And Recovery | Planned | No backend checkpoint endpoint, restore endpoint, or Redis-backed checkpoint store exists yet. | Implement shared contracts, backend persistence, and restore flow. |
@@ -24,7 +24,7 @@ Status legend:
 
 ## Product Model Alignment
 
-- User-facing modes are `text` and `speech`.
-- Runtime transport terminology uses `voice` for the Gemini Live speech-session path.
-- `text` mode is backend-mediated.
+- User-facing product states are `inactive` and `speech`.
+- Runtime transport terminology uses `voice` for the Gemini Live speech-session path and `text` for typed turns inside Live.
+- Inactive state keeps history visible and exposes start/resume actions; typed submit is unavailable until a Live session is active.
 - `speech` mode is direct desktop-to-Gemini Live after backend token issuance.

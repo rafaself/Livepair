@@ -15,9 +15,9 @@ This file points to the current human-facing documentation for Livepair and sepa
 
 ## Current Baseline
 
-- User-facing product modes are `text` and `speech`.
-- Runtime transport terminology still uses `voice` for the Gemini Live speech-session path.
-- `text` mode is backend-mediated through `POST /session/chat`.
+- User-facing product states are `inactive` and `speech`.
+- Runtime transport terminology still uses `voice` for the Gemini Live speech-session path and `text` for typed turns sent over Live.
+- There is no backend-mediated `POST /session/chat` path in the current repository; typed input is only sent over an active Live session.
 - `speech` mode requests an ephemeral token from `POST /session/token` and then connects directly from the desktop to Gemini Live.
 - `currentMode` and `speechLifecycle` remain the product-level sources of truth.
 - Screen context is manual-only during an active speech session.

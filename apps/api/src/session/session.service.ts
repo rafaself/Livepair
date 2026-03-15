@@ -4,7 +4,6 @@ import type {
   CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
 import { env } from '../config/env';
-import { formatTimestamp } from '@livepair/shared-utils';
 import { GeminiAuthTokenClient } from './gemini-auth-token.client';
 
 @Injectable()
@@ -21,17 +20,15 @@ export class SessionService {
     }
 
     const now = Date.now();
-    
+
     // Window to initiate the session (default 60s)
     const sessionStartWindowMs = env.ephemeralTokenTtlSeconds * 1000;
-    const newSessionExpireTime = formatTimestamp(
-      new Date(now + sessionStartWindowMs),
-    );
+    const newSessionExpireTime = new Date(now + sessionStartWindowMs).toISOString();
 
     // Absolute token validity (defaulting to 30m beyond the start window for the session duration)
-    const expireTime = formatTimestamp(
-      new Date(now + sessionStartWindowMs + 30 * 60 * 1000),
-    );
+    const expireTime = new Date(
+      now + sessionStartWindowMs + 30 * 60 * 1000,
+    ).toISOString();
 
     return this.geminiAuthTokenClient
       .createToken({
