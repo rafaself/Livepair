@@ -277,7 +277,7 @@ describe('AssistantPanel', () => {
     expect(await panelScope.findByText('No past chats yet.')).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();
-    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'New chat' })).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
 
     await act(async () => {
@@ -388,14 +388,14 @@ describe('AssistantPanel', () => {
     expect(panel.querySelector('.assistant-panel__inner-body')).toBe(sharedBody);
     expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByText('Past chats')).toBeNull();
-    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(1);
+    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(2);
     expect(sharedHeader).toContainElement(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'Back to chat' }));
-    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'New chat' })).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
     expect((sharedHeader as HTMLDivElement).querySelector('.assistant-panel__inner-header-content')).toHaveAttribute(
       'data-action-count',
-      '1',
+      '2',
     );
     expect(sharedBody).toContainElement(panelScope.getByText('No past chats yet.'));
     expect(within(sharedBody as HTMLDivElement).queryByText('Talk to Livepair')).toBeNull();
@@ -637,7 +637,7 @@ describe('AssistantPanel', () => {
 
     expect(await panelScope.findByRole('button', { name: 'Back to chat' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'Back to chat' })).toBeVisible();
-    expect(panelScope.queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
     const currentChatRow = panelScope.getByText('Initial empty chat').closest('button');
     const pastChatRow = panelScope.getByText('Past filled chat').closest('button');
     expect(currentChatRow).not.toBeNull();

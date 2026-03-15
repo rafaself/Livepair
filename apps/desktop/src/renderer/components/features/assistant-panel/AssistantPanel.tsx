@@ -117,7 +117,7 @@ export function AssistantPanel(): JSX.Element {
                 <AssistantPanelSharedHeaderActions
                   panelView={panelView}
                   showHistory={panelView === 'chat'}
-                  showCreateChat={canCreateAnotherChat}
+                  showCreateChat={panelView === 'history' || canCreateAnotherChat}
                   showBackToChat={panelView === 'history'}
                   onCreateChat={handleCreateChat}
                   onOpenHistory={handleBackToHistory}
