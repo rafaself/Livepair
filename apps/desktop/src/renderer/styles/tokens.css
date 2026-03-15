@@ -1,6 +1,5 @@
 :root {
   /* Colors */
-  --color-bg: #000000;
   --color-surface: #000000;
   --color-surface-elevated: #000000;
 
@@ -13,7 +12,6 @@
 
   --color-accent: #4C8DFF;
   --color-accent-soft: #2B5FD9;
-  --color-backdrop: rgba(0, 0, 0, 0.72);
   --color-status-listening-glow: rgba(76, 141, 255, 0.3);
   --color-status-speaking-glow-soft: rgba(43, 95, 217, 0.24);
   --color-status-speaking-glow-strong: rgba(43, 95, 217, 0.4);
@@ -38,7 +36,6 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
-  --radius-xl: 18px;
   --radius-full: 999px;
 
   /* Shadows */
@@ -47,26 +44,16 @@
   --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
 
   /* Z-index */
-  --z-base: 0;
-  --z-panel: 10;
   --z-overlay: 20;
-  --z-modal: 30;
-  --z-toast: 40;
-
-  /* Component tuning */
-  --text-input-label-scale: 1;
 
   /* Chat container */
   --color-chat-bg: #000000;
-  --color-surface-elevated-0: rgba(0, 0, 0, 0);
 }
 
 :root[data-theme='light'] {
-  --color-bg: #F3F6FA;
   --color-surface: #FFFFFF;
   --color-surface-elevated: #EEF3F8;
   --color-chat-bg: #EEF3F8;
-  --color-surface-elevated-0: rgba(238, 243, 248, 0);
 
   --color-border: #C1CCD8;
   --color-border-hover: rgba(53, 109, 255, 0.38);
@@ -77,7 +64,6 @@
 
   --color-accent: #356DFF;
   --color-accent-soft: #2B59D0;
-  --color-backdrop: rgba(226, 233, 242, 0.72);
   --color-status-listening-glow: rgba(53, 109, 255, 0.22);
   --color-status-speaking-glow-soft: rgba(43, 89, 208, 0.18);
   --color-status-speaking-glow-strong: rgba(43, 89, 208, 0.28);

@@ -115,12 +115,6 @@
   pointer-events: auto;
 }
 
-.assistant-panel__composer-control-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
 /* Pill wrapper — replaces the old control-group layout */
 .assistant-panel__composer-pill {
   display: inline-flex;

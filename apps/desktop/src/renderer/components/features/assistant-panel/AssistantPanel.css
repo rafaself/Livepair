@@ -132,25 +132,11 @@
   padding-right: var(--space-2);
 }
 
-.assistant-panel__debug-header,
-.assistant-panel__settings-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
 .assistant-panel__debug-title,
 .assistant-panel__settings-title {
   margin: 0;
   font-size: 1rem;
   color: var(--color-text-primary);
-}
-
-.assistant-panel__debug-subtitle {
-  margin: var(--space-2) 0 0;
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
 }
 
 .assistant-panel__settings-body {
