@@ -36,7 +36,9 @@ describe('main bootstrap', () => {
     useGlobalPipes.mockClear();
     listen.mockClear();
     logSpy.mockClear();
+    warnSpy.mockClear();
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
+    process.env['GEMINI_API_KEY'] = 'gemini-key';
   });
 
   afterAll(() => {
@@ -83,5 +85,16 @@ describe('main bootstrap', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       'HTTP listen disabled (DISABLE_HTTP_LISTEN=true).',
     );
+  });
+
+  it('fails fast when GEMINI_API_KEY is missing', async () => {
+    delete process.env['GEMINI_API_KEY'];
+    delete process.env['DISABLE_HTTP_LISTEN'];
+
+    await expect(import('./main')).rejects.toThrow(
+      'GEMINI_API_KEY is required to start the API',
+    );
+    expect(create).not.toHaveBeenCalled();
+    expect(listen).not.toHaveBeenCalled();
   });
 });

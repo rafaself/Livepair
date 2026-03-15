@@ -31,3 +31,9 @@ export const env = {
   ),
   redisUrl: process.env['REDIS_URL'] ?? '',
 };
+
+export function assertRequiredRuntimeEnv(): void {
+  if (!env.geminiApiKey) {
+    throw new Error('GEMINI_API_KEY is required to start the API');
+  }
+}
