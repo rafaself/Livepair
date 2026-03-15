@@ -47,6 +47,15 @@ export const VISUAL_BURST_STABLE_FRAMES = 3;
 /** Minimum interval between burst frame sends in milliseconds. */
 export const VISUAL_BURST_SEND_COOLDOWN_MS = 1000;
 
+/** Hard cap on frames sent per burst (Wave 6). */
+export const VISUAL_BURST_MAX_FRAMES = 5;
+
+/** Absolute maximum burst lifetime in milliseconds, regardless of timer resets (Wave 6). */
+export const VISUAL_BURST_MAX_LIFETIME_MS = 15_000;
+
+/** Minimum interval between consecutive bursts in milliseconds (Wave 6). */
+export const VISUAL_BURST_REENTRY_COOLDOWN_MS = 3_000;
+
 export type ScreenCaptureControllerOptions = {
   visualSendPolicyOptions?: VisualSendPolicyOptions;
   visualChangeDetectorOptions?: VisualChangeDetectorOptions;
@@ -55,6 +64,9 @@ export type ScreenCaptureControllerOptions = {
   burstDurationMs?: number;
   burstStableFrames?: number;
   burstSendCooldownMs?: number;
+  burstMaxFrames?: number;
+  burstMaxLifetimeMs?: number;
+  burstReentryCooldownMs?: number;
   promotionDurationMs?: number;
 };
 
@@ -76,6 +88,9 @@ export function createScreenCaptureController(
   const burstDurationMs = controllerOptions?.burstDurationMs ?? VISUAL_BURST_DURATION_MS;
   const burstStableFrames = controllerOptions?.burstStableFrames ?? VISUAL_BURST_STABLE_FRAMES;
   const burstSendCooldownMs = controllerOptions?.burstSendCooldownMs ?? VISUAL_BURST_SEND_COOLDOWN_MS;
+  const burstMaxFrames = controllerOptions?.burstMaxFrames ?? VISUAL_BURST_MAX_FRAMES;
+  const burstMaxLifetimeMs = controllerOptions?.burstMaxLifetimeMs ?? VISUAL_BURST_MAX_LIFETIME_MS;
+  const burstReentryCooldownMs = controllerOptions?.burstReentryCooldownMs ?? VISUAL_BURST_REENTRY_COOLDOWN_MS;
   const promotionDurationMs = controllerOptions?.promotionDurationMs ?? QUALITY_PROMOTION_DURATION_MS;
   const nowMs = controllerOptions?.visualSendPolicyOptions?.nowMs ?? (() => Date.now());
   const burstSendGate = createBurstSendGate(controllerOptions?.burstSendGateOptions);
@@ -85,6 +100,9 @@ export function createScreenCaptureController(
   let isBurstActive = false;
   let burstStableFrameCount = 0;
   let lastBurstSendAt = 0;
+  let burstFramesSent = 0;
+  let burstStartedAt = 0;
+  let lastBurstEndedAt = 0;
 
   // ── Adaptive quality ──────────────────────────────────────────────────
   //
@@ -155,6 +173,9 @@ export function createScreenCaptureController(
     isBurstActive = false;
     burstStableFrameCount = 0;
     lastBurstSendAt = 0;
+    burstFramesSent = 0;
+    lastBurstEndedAt = nowMs();
+    burstStartedAt = 0;
     clearBurstTimer();
     burstSendGate.reset();
     visualPolicy.endBurst();
@@ -170,8 +191,13 @@ export function createScreenCaptureController(
   };
 
   const startBurst = (): void => {
+    if (lastBurstEndedAt > 0 && nowMs() - lastBurstEndedAt < burstReentryCooldownMs) {
+      return;
+    }
     isBurstActive = true;
     burstStableFrameCount = 0;
+    burstFramesSent = 0;
+    burstStartedAt = nowMs();
     visualPolicy.startBurst();
     flushVisualDiagnostics();
     resetBurstTimer();
@@ -180,6 +206,16 @@ export function createScreenCaptureController(
   // ── Visual change detection (called for every captured frame) ────────────
 
   const handleFrameCaptured = (frame: { data: Uint8Array }): void => {
+    // Wave 6: end burst early if hard budget or lifetime exceeded
+    if (isBurstActive) {
+      if (
+        burstFramesSent >= burstMaxFrames
+        || nowMs() - burstStartedAt >= burstMaxLifetimeMs
+      ) {
+        endBurst();
+      }
+    }
+
     const changed = visualChangeDetector.onFrame(frame);
 
     if (changed) {
@@ -190,7 +226,10 @@ export function createScreenCaptureController(
         // This way intermittent noise slows stabilization rather than
         // preventing it entirely.
         burstStableFrameCount = Math.max(0, burstStableFrameCount - 1);
-        resetBurstTimer();
+        // Wave 6: only reset the timer if lifetime allows
+        if (nowMs() - burstStartedAt < burstMaxLifetimeMs) {
+          resetBurstTimer();
+        }
       }
     } else if (isBurstActive && visualPolicy.getState() === 'streaming') {
       burstStableFrameCount += 1;
@@ -243,6 +282,7 @@ export function createScreenCaptureController(
 
       burstSendGate.onFrameSent(frame);
       lastBurstSendAt = now;
+      burstFramesSent += 1;
       return true;
     },
     flushVisualDiagnostics,
@@ -298,6 +338,9 @@ export function createScreenCaptureController(
       isBurstActive = false;
       burstStableFrameCount = 0;
       lastBurstSendAt = 0;
+      burstFramesSent = 0;
+      burstStartedAt = 0;
+      lastBurstEndedAt = 0;
       visualChangeDetector.reset();
       burstSendGate.reset();
       resetQualityState();
@@ -325,12 +368,14 @@ export function createScreenCaptureController(
     resetSendChain: frameSendCoordinator.reset,
     getVisualSendState: () => visualPolicy.getState(),
     analyzeScreenNow: () => {
-      // Explicit user action: clear any active burst
+      // Explicit user action: clear any active burst without setting re-entry cooldown
       if (isBurstActive) {
         clearBurstTimer();
         isBurstActive = false;
         burstStableFrameCount = 0;
         lastBurstSendAt = 0;
+        burstFramesSent = 0;
+        burstStartedAt = 0;
         burstSendGate.reset();
       }
       // Promote quality for explicit analyze — likely text-heavy content.
@@ -339,11 +384,13 @@ export function createScreenCaptureController(
       flushVisualDiagnostics();
     },
     enableStreaming: () => {
-      // Explicit streaming overrides burst
+      // Explicit streaming overrides burst without setting re-entry cooldown
       clearBurstTimer();
       isBurstActive = false;
       burstStableFrameCount = 0;
       lastBurstSendAt = 0;
+      burstFramesSent = 0;
+      burstStartedAt = 0;
       burstSendGate.reset();
       visualPolicy.enableStreaming();
       flushVisualDiagnostics();
@@ -353,6 +400,8 @@ export function createScreenCaptureController(
       isBurstActive = false;
       burstStableFrameCount = 0;
       lastBurstSendAt = 0;
+      burstFramesSent = 0;
+      burstStartedAt = 0;
       burstSendGate.reset();
       // Return to baseline quality when streaming stops.
       if (qualityPolicy.isPromoted()) {

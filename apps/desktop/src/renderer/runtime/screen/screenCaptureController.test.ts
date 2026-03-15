@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createScreenCaptureController, VISUAL_BURST_DURATION_MS, VISUAL_BURST_STABLE_FRAMES, VISUAL_BURST_SEND_COOLDOWN_MS } from './screenCaptureController';
+import { createScreenCaptureController, VISUAL_BURST_DURATION_MS, VISUAL_BURST_STABLE_FRAMES, VISUAL_BURST_SEND_COOLDOWN_MS, VISUAL_BURST_MAX_FRAMES, VISUAL_BURST_MAX_LIFETIME_MS, VISUAL_BURST_REENTRY_COOLDOWN_MS } from './screenCaptureController';
 import type { VisualSendPolicyOptions } from './visualSendPolicy';
 import { createDefaultRealtimeOutboundDiagnostics } from '../outbound/realtimeOutboundGateway';
 import type { DesktopSession } from '../transport/transport.types';
@@ -32,6 +32,9 @@ function createHarness(options: {
   burstDurationMs?: number;
   burstStableFrames?: number;
   burstSendCooldownMs?: number;
+  burstMaxFrames?: number;
+  burstMaxLifetimeMs?: number;
+  burstReentryCooldownMs?: number;
   getBaselineQuality?: () => VisualSessionQuality;
   promotionDurationMs?: number;
 } = {}) {
@@ -102,7 +105,7 @@ function createHarness(options: {
     getDiagnostics: vi.fn(createDefaultRealtimeOutboundDiagnostics),
   };
 
-  const hasControllerOptions = options.visualSendPolicyOptions || options.burstDurationMs != null || options.burstStableFrames != null || options.burstSendCooldownMs != null || options.promotionDurationMs != null;
+  const hasControllerOptions = options.visualSendPolicyOptions || options.burstDurationMs != null || options.burstStableFrames != null || options.burstSendCooldownMs != null || options.burstMaxFrames != null || options.burstMaxLifetimeMs != null || options.burstReentryCooldownMs != null || options.promotionDurationMs != null;
   const controllerOptions = hasControllerOptions
     ? {
         ...(options.visualSendPolicyOptions
@@ -113,6 +116,9 @@ function createHarness(options: {
         ...(options.burstSendCooldownMs != null
           ? { burstSendCooldownMs: options.burstSendCooldownMs }
           : {}),
+        ...(options.burstMaxFrames != null ? { burstMaxFrames: options.burstMaxFrames } : {}),
+        ...(options.burstMaxLifetimeMs != null ? { burstMaxLifetimeMs: options.burstMaxLifetimeMs } : {}),
+        ...(options.burstReentryCooldownMs != null ? { burstReentryCooldownMs: options.burstReentryCooldownMs } : {}),
         ...(options.promotionDurationMs != null
           ? { promotionDurationMs: options.promotionDurationMs }
           : {}),
@@ -1591,7 +1597,7 @@ describe('createScreenCaptureController – Wave 2 triggers and burst', () => {
   // ── 8. Bootstrap does NOT block triggers ──────────────────────────────
 
   it('speech trigger works immediately after bootstrap snapshot (no cooldown set by bootstrap)', async () => {
-    let now = 0;
+    const now = 0;
     const harness = createHarness({
       visualSendPolicyOptions: { nowMs: () => now },
       submitDecision: () => ({
@@ -1613,7 +1619,7 @@ describe('createScreenCaptureController – Wave 2 triggers and burst', () => {
   });
 
   it('analyzeScreenNow works immediately after bootstrap (no cooldown set by bootstrap)', async () => {
-    let now = 0;
+    const now = 0;
     const harness = createHarness({
       visualSendPolicyOptions: { nowMs: () => now },
       submitDecision: () => ({
@@ -1669,6 +1675,7 @@ describe('createScreenCaptureController – Wave 2 triggers and burst', () => {
     try {
       const harness = createHarness({
         burstDurationMs: 100,
+        burstReentryCooldownMs: 0,
         submitDecision: () => ({
           outcome: 'send' as const,
           classification: 'replaceable' as const,
@@ -1728,6 +1735,9 @@ describe('createScreenCaptureController – Wave 2 triggers and burst', () => {
     expect(VISUAL_BURST_DURATION_MS).toBe(5000);
     expect(VISUAL_BURST_STABLE_FRAMES).toBe(3);
     expect(VISUAL_BURST_SEND_COOLDOWN_MS).toBe(1000);
+    expect(VISUAL_BURST_MAX_FRAMES).toBe(5);
+    expect(VISUAL_BURST_MAX_LIFETIME_MS).toBe(15_000);
+    expect(VISUAL_BURST_REENTRY_COOLDOWN_MS).toBe(3_000);
   });
 });
 
@@ -1828,6 +1838,7 @@ describe('createScreenCaptureController – Wave 3 burst efficiency', () => {
     const harness = createHarness({
       burstDurationMs: 100,
       burstSendCooldownMs: 5000, // very long cooldown
+      burstReentryCooldownMs: 0,
       visualSendPolicyOptions: { nowMs: () => now },
       submitDecision: alwaysSend,
     });
@@ -1895,7 +1906,7 @@ describe('createScreenCaptureController – Wave 3 burst efficiency', () => {
   // ── D. Non-burst sends unaffected ──────────────────────────────────────
 
   it('explicit streaming is not affected by burst send gate or throttle', async () => {
-    let now = 0;
+    const now = 0;
     const harness = createHarness({
       burstSendCooldownMs: 60000, // extreme cooldown
       visualSendPolicyOptions: { nowMs: () => now },
@@ -1946,6 +1957,7 @@ describe('createScreenCaptureController – Wave 3 burst efficiency', () => {
       const harness = createHarness({
         burstDurationMs: 100,
         burstSendCooldownMs: 0,
+        burstReentryCooldownMs: 0,
         visualSendPolicyOptions: { nowMs: () => now },
         submitDecision: alwaysSend,
       });
@@ -2310,6 +2322,231 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
       // Advancing time should not trigger the promotion timer callback
       vi.advanceTimersByTime(50000);
       expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 6 – Hard burst budgets and passive re-entry control
+//
+// Tests for:
+//   A. Hard frame budget per burst
+//   B. Absolute burst lifetime cap under sustained motion
+//   C. Re-entry cooldown between passive bursts
+//   D. Explicit Analyze screen now bypasses passive burst limits
+//   E. Screen-share restart resets the passive re-entry cooldown
+// ---------------------------------------------------------------------------
+describe('createScreenCaptureController – Wave 6 burst budgets', () => {
+  const mkFrame = (seq: number, fill = seq) => ({
+    data: new Uint8Array(128).fill(fill),
+    mimeType: 'image/jpeg' as const,
+    sequence: seq,
+    widthPx: 640,
+    heightPx: 360,
+  });
+
+  async function startAndConsumeBootstrap(
+    harness: ReturnType<typeof createHarness>,
+  ): Promise<void> {
+    await harness.ctrl.start();
+    harness.getObserver()!.onFrame(mkFrame(0, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+  }
+
+  const alwaysSend = (): RealtimeOutboundDecision => ({
+    outcome: 'send',
+    classification: 'replaceable',
+    reason: 'accepted',
+  });
+
+  it('ends a burst once the hard frame budget is exhausted', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60_000,
+      burstSendCooldownMs: 0,
+      burstMaxFrames: 2,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5_000;
+
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    harness.getObserver()!.onFrame(mkFrame(2, 50));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    harness.getObserver()!.onFrame(mkFrame(3, 150));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('Analyze screen now still works after a burst hits the hard frame budget', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60_000,
+      burstSendCooldownMs: 0,
+      burstMaxFrames: 1,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5_000;
+
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    harness.getObserver()!.onFrame(mkFrame(2, 50));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    harness.ctrl.analyzeScreenNow();
+    harness.getObserver()!.onFrame(mkFrame(3, 50));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('enforces the absolute burst lifetime even if motion keeps resetting the soft timer', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60_000,
+      burstSendCooldownMs: 0,
+      burstMaxLifetimeMs: 1_000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5_000;
+
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    now += 400;
+    harness.getObserver()!.onFrame(mkFrame(2, 50));
+    await Promise.resolve();
+    now += 400;
+    harness.getObserver()!.onFrame(mkFrame(3, 200));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(3);
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    now += 300;
+    harness.getObserver()!.onFrame(mkFrame(4, 20));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(3);
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('blocks passive burst re-entry during cooldown, then allows it again after cooldown', async () => {
+    vi.useFakeTimers();
+    try {
+      let now = 0;
+      const harness = createHarness({
+        burstDurationMs: 100,
+        burstSendCooldownMs: 0,
+        burstReentryCooldownMs: 3_000,
+        visualSendPolicyOptions: { nowMs: () => now },
+        submitDecision: alwaysSend,
+      });
+      await startAndConsumeBootstrap(harness);
+      now += 5_000;
+
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      vi.advanceTimersByTime(101);
+      expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+
+      now += 1_000;
+      harness.getObserver()!.onFrame(mkFrame(2, 50));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+      expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+
+      now += 2_000;
+      harness.getObserver()!.onFrame(mkFrame(3, 150));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Analyze screen now clearing an active burst does not arm passive re-entry cooldown', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60_000,
+      burstSendCooldownMs: 0,
+      burstReentryCooldownMs: 10_000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5_000;
+
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    harness.ctrl.analyzeScreenNow();
+    harness.getObserver()!.onFrame(mkFrame(2, 50));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+
+    harness.getObserver()!.onFrame(mkFrame(3, 150));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(3);
+  });
+
+  it('screen-share stop resets the passive burst re-entry cooldown', async () => {
+    vi.useFakeTimers();
+    try {
+      let now = 0;
+      const harness = createHarness({
+        burstDurationMs: 100,
+        burstSendCooldownMs: 0,
+        burstReentryCooldownMs: 10_000,
+        visualSendPolicyOptions: { nowMs: () => now },
+        submitDecision: alwaysSend,
+      });
+      await startAndConsumeBootstrap(harness);
+      now += 5_000;
+
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(101);
+      expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+
+      now += 1_000;
+      await harness.ctrl.stop();
+
+      await startAndConsumeBootstrap(harness);
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
     } finally {
       vi.useRealTimers();
     }
