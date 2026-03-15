@@ -68,13 +68,19 @@ export function createControlGatingSnapshot(
 }
 
 export function shouldShowSpeechControls(snapshot: ControlGatingSnapshot): boolean {
+  if (snapshot.speechLifecycleStatus === 'starting') {
+    return false;
+  }
   return snapshot.currentMode === 'speech' || isSpeechLifecycleActive(snapshot.speechLifecycleStatus);
 }
 
 export function getComposerSpeechActionKind(
   snapshot: ControlGatingSnapshot,
 ): 'start' | 'end' {
-  return shouldShowSpeechControls(snapshot) ? 'end' : 'start';
+  // Intentionally does not use shouldShowSpeechControls — must return 'end' during
+  // 'starting' so the composer can display a loading state while the session connects.
+  return snapshot.currentMode === 'speech' || isSpeechLifecycleActive(snapshot.speechLifecycleStatus)
+    ? 'end' : 'start';
 }
 
 export function canEndSpeechMode(snapshot: ControlGatingSnapshot): boolean {

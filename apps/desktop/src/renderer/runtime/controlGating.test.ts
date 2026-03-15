@@ -194,4 +194,15 @@ describe('controlGating', () => {
     expect(shouldShowDockEndControl(teardownSnapshot, false)).toBe(true);
     expect(shouldShowDockEndControl(teardownSnapshot, true)).toBe(false);
   });
+
+  it('hides dock speech controls while the session is still starting', () => {
+    const startingSnapshot = createControlGatingSnapshot({
+      currentMode: 'speech',
+      speechLifecycleStatus: 'starting',
+    });
+    expect(shouldShowSpeechControls(startingSnapshot)).toBe(false);
+    expect(shouldShowDockEndControl(startingSnapshot, false)).toBe(false);
+    // Composer must still show the end/loading action so the user sees feedback.
+    expect(getComposerSpeechActionKind(startingSnapshot)).toBe('end');
+  });
 });
