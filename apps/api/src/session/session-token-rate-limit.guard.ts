@@ -6,33 +6,29 @@ import {
   type ExecutionContext,
 } from '@nestjs/common';
 import { env } from '../config/env';
-
-type RequestLike = {
-  ip?: string | undefined;
-  method?: string | undefined;
-  originalUrl?: string | undefined;
-  url?: string | undefined;
-  socket?: {
-    remoteAddress?: string | undefined;
-  };
-};
+import { ObservabilityService } from '../observability/observability.service';
+import {
+  resolveSessionTokenRequestContext,
+  type SessionTokenRequestLike,
+} from './session-token-request-context';
 
 type RateLimitBucket = {
   count: number;
   windowStartedAt: number;
 };
 
-function resolveClientIp(request: RequestLike): string {
-  return request.ip?.trim() || request.socket?.remoteAddress?.trim() || 'unknown';
-}
-
 @Injectable()
 export class SessionTokenRateLimitGuard implements CanActivate {
   private readonly buckets = new Map<string, RateLimitBucket>();
 
+  constructor(
+    private readonly observabilityService: ObservabilityService,
+  ) {}
+
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<RequestLike>();
-    const clientIp = resolveClientIp(request);
+    const request = context.switchToHttp().getRequest<SessionTokenRequestLike>();
+    const requestContext = resolveSessionTokenRequestContext(request);
+    const clientIp = requestContext.clientIp;
     const now = Date.now();
     const windowMs = env.sessionTokenRateLimitWindowMs;
     const maxRequests = env.sessionTokenRateLimitMaxRequests;
@@ -48,10 +44,11 @@ export class SessionTokenRateLimitGuard implements CanActivate {
     }
 
     if (currentBucket.count >= maxRequests) {
-      console.warn('[session:token-rate-limit] rejected', {
-        clientIp,
-        method: request.method ?? 'POST',
-        path: request.originalUrl ?? request.url ?? '/session/token',
+      this.observabilityService.recordSessionTokenRequest({
+        outcome: 'rate_limited',
+      });
+      console.warn('[session:token] rate limited', {
+        ...requestContext,
         limit: maxRequests,
         windowMs,
         requestsInWindow: currentBucket.count,

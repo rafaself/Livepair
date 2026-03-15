@@ -1,9 +1,14 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
 import { env } from '../config/env';
+import { ObservabilityService } from '../observability/observability.service';
 import { GeminiAuthTokenClient } from './gemini-auth-token.client';
 
 const DEFAULT_EPHEMERAL_TOKEN_EXPIRE_WINDOW_MS = 30 * 60 * 1000;
@@ -12,20 +17,39 @@ const DEFAULT_EPHEMERAL_TOKEN_EXPIRE_WINDOW_MS = 30 * 60 * 1000;
 export class SessionService {
   constructor(
     private readonly geminiAuthTokenClient: GeminiAuthTokenClient,
+    private readonly observabilityService: ObservabilityService,
   ) {}
 
   async createEphemeralToken(
-    _req: CreateEphemeralTokenRequest,
+    req: CreateEphemeralTokenRequest,
   ): Promise<CreateEphemeralTokenResponse> {
     if (!env.geminiApiKey) {
+      this.observabilityService.recordSessionTokenRequest({
+        outcome: 'service_unavailable',
+      });
+      console.error('[session:token] service unavailable', {
+        reason: 'gemini_api_key_missing',
+      });
       throw new ServiceUnavailableException('Gemini API key is not configured');
     }
 
     if (!env.sessionTokenLiveModel) {
+      this.observabilityService.recordSessionTokenRequest({
+        outcome: 'service_unavailable',
+      });
+      console.error('[session:token] service unavailable', {
+        reason: 'live_model_missing',
+      });
       throw new ServiceUnavailableException('Session token Live model is not configured');
     }
 
     if (!env.sessionTokenLiveModel.startsWith('models/')) {
+      this.observabilityService.recordSessionTokenRequest({
+        outcome: 'service_unavailable',
+      });
+      console.error('[session:token] service unavailable', {
+        reason: 'live_model_invalid',
+      });
       throw new ServiceUnavailableException(
         'Session token Live model must use the "models/..." resource format',
       );
@@ -42,8 +66,8 @@ export class SessionService {
       now + Math.max(sessionStartWindowMs, DEFAULT_EPHEMERAL_TOKEN_EXPIRE_WINDOW_MS),
     ).toISOString();
 
-    return this.geminiAuthTokenClient
-      .createToken({
+    try {
+      const token = await this.geminiAuthTokenClient.createToken({
         apiKey: env.geminiApiKey,
         newSessionExpireTime,
         expireTime,
@@ -56,11 +80,34 @@ export class SessionService {
             sessionResumption: {},
           },
         },
-      })
-      .then((token) => ({
+      });
+
+      this.observabilityService.recordSessionTokenRequest({
+        outcome: 'issued',
+      });
+      console.info('[session:token] issued', {
+        constraintModel: env.sessionTokenLiveModel,
+        responseModalities: ['AUDIO'],
+        sessionResumption: true,
+        expireTime,
+        newSessionExpireTime,
+        sessionIdProvided:
+          typeof req.sessionId === 'string' && req.sessionId.trim().length > 0,
+      });
+
+      return {
         token: token.token,
         expireTime,
         newSessionExpireTime,
-      }));
+      };
+    } catch (error) {
+      if (error instanceof BadGatewayException) {
+        this.observabilityService.recordSessionTokenRequest({
+          outcome: 'upstream_failed',
+        });
+      }
+
+      throw error;
+    }
   }
 }

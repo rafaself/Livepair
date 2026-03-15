@@ -3,6 +3,8 @@ import { ServiceUnavailableException } from '@nestjs/common';
 
 describe('SessionService', () => {
   const originalEnv = process.env;
+  let consoleInfoSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.resetModules();
@@ -14,24 +16,33 @@ describe('SessionService', () => {
       SESSION_TOKEN_LIVE_SESSION_RESUMPTION: 'true',
       EPHEMERAL_TOKEN_TTL_SECONDS: '60',
     };
+    consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     jest.useRealTimers();
     process.env = originalEnv;
+    consoleInfoSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   async function createSessionService() {
     const { SessionService } = await import('./session.service');
+    const { ObservabilityService } = await import('../observability/observability.service');
 
     const geminiAuthTokenClient = {
       createToken: jest.fn().mockResolvedValue({
         token: 'auth-tokens/constrained-token',
       }),
     };
+    const observabilityService = new ObservabilityService();
 
     return {
-      service: new SessionService(geminiAuthTokenClient as never),
+      service: new SessionService(
+        geminiAuthTokenClient as never,
+        observabilityService,
+      ),
       createToken: geminiAuthTokenClient.createToken,
     };
   }

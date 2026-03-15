@@ -90,8 +90,17 @@ describe('requestGeminiAuthToken', () => {
     } as Response);
 
     await expect(requestGeminiAuthToken(createRequestOptions())).rejects.toEqual(
-      new BadGatewayException('Gemini token request failed: upstream 500 - backend unavailable'),
+      new BadGatewayException('Gemini token provisioning failed'),
     );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[session:token] upstream provisioning failed',
+      expect.objectContaining({
+        outcome: 'upstream_error',
+        status: 500,
+        detail: 'backend unavailable',
+      }),
+    );
+    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain('gemini-key');
 
     await expect(observabilityService.getMetrics()).resolves.toMatch(
       /gemini_auth_token_requests_total\{outcome="upstream_error"\} 1/,
@@ -105,8 +114,16 @@ describe('requestGeminiAuthToken', () => {
     fetchImpl.mockRejectedValue(new Error('network down'));
 
     await expect(requestGeminiAuthToken(createRequestOptions())).rejects.toEqual(
-      new BadGatewayException('Gemini token request failed: network down'),
+      new BadGatewayException('Gemini token provisioning failed'),
     );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[session:token] upstream provisioning failed',
+      expect.objectContaining({
+        outcome: 'network_error',
+        detail: 'network down',
+      }),
+    );
+    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain('gemini-key');
 
     await expect(observabilityService.getMetrics()).resolves.toMatch(
       /gemini_auth_token_requests_total\{outcome="network_error"\} 1/,
@@ -126,7 +143,13 @@ describe('requestGeminiAuthToken', () => {
     } as Response);
 
     await expect(requestGeminiAuthToken(createRequestOptions())).rejects.toEqual(
-      new BadGatewayException('Gemini token response was invalid'),
+      new BadGatewayException('Gemini token provisioning failed'),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[session:token] upstream provisioning failed',
+      expect.objectContaining({
+        outcome: 'invalid_payload',
+      }),
     );
 
     await expect(observabilityService.getMetrics()).resolves.toMatch(
@@ -148,7 +171,13 @@ describe('requestGeminiAuthToken', () => {
     } as Response);
 
     await expect(requestGeminiAuthToken(createRequestOptions())).rejects.toEqual(
-      new BadGatewayException('Gemini token response was invalid'),
+      new BadGatewayException('Gemini token provisioning failed'),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[session:token] upstream provisioning failed',
+      expect.objectContaining({
+        outcome: 'invalid_payload',
+      }),
     );
   });
 

@@ -110,25 +110,26 @@ export async function requestGeminiAuthToken({
       });
     } catch (error) {
       outcome = 'network_error';
-      console.error('[session:gemini-auth-token] network request failed', error);
       const detail = error instanceof Error && error.message.length > 0
         ? error.message
         : 'network failure';
-      throw new BadGatewayException(`Gemini token request failed: ${detail}`);
+      console.error('[session:token] upstream provisioning failed', {
+        outcome,
+        detail,
+        errorName: error instanceof Error ? error.name : 'Error',
+      });
+      throw new BadGatewayException('Gemini token provisioning failed');
     }
 
     if (!response.ok) {
       outcome = 'upstream_error';
       const detail = await readUpstreamErrorDetail(response);
-      console.error('[session:gemini-auth-token] upstream request failed', {
+      console.error('[session:token] upstream provisioning failed', {
+        outcome,
         status: response.status,
         detail,
       });
-      throw new BadGatewayException(
-        detail
-          ? `Gemini token request failed: upstream ${response.status} - ${detail}`
-          : `Gemini token request failed: upstream ${response.status}`,
-      );
+      throw new BadGatewayException('Gemini token provisioning failed');
     }
 
     let payload: GeminiAuthTokenPayload;
@@ -136,12 +137,18 @@ export async function requestGeminiAuthToken({
       payload = (await response.json()) as GeminiAuthTokenPayload;
     } catch {
       outcome = 'invalid_payload';
-      throw new BadGatewayException('Gemini token response was invalid');
+      console.error('[session:token] upstream provisioning failed', {
+        outcome,
+      });
+      throw new BadGatewayException('Gemini token provisioning failed');
     }
 
     if (!isNormalizedAuthTokenPayload(payload)) {
       outcome = 'invalid_payload';
-      throw new BadGatewayException('Gemini token response was invalid');
+      console.error('[session:token] upstream provisioning failed', {
+        outcome,
+      });
+      throw new BadGatewayException('Gemini token provisioning failed');
     }
 
     outcome = 'success';

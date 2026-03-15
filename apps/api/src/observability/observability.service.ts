@@ -16,6 +16,16 @@ type GeminiAuthTokenMetricLabels = {
   outcome: 'success' | 'network_error' | 'upstream_error' | 'invalid_payload';
 };
 
+type SessionTokenMetricLabels = {
+  outcome:
+    | 'issued'
+    | 'auth_required'
+    | 'auth_invalid'
+    | 'rate_limited'
+    | 'upstream_failed'
+    | 'service_unavailable';
+};
+
 @Injectable()
 export class ObservabilityService {
   private readonly registry = new Registry();
@@ -54,6 +64,13 @@ export class ObservabilityService {
     registers: [this.registry],
   });
 
+  private readonly sessionTokenRequestsTotal = new Counter({
+    name: 'livepair_session_token_requests_total',
+    help: 'Total number of protected session token endpoint outcomes by outcome.',
+    labelNames: ['outcome'] as const,
+    registers: [this.registry],
+  });
+
   constructor() {
     collectDefaultMetrics({ register: this.registry });
   }
@@ -81,5 +98,9 @@ export class ObservabilityService {
   ): void {
     this.geminiAuthTokenRequestsTotal.inc(labels);
     this.geminiAuthTokenRequestDurationSeconds.observe(durationSeconds);
+  }
+
+  recordSessionTokenRequest(labels: SessionTokenMetricLabels): void {
+    this.sessionTokenRequestsTotal.inc(labels);
   }
 }
