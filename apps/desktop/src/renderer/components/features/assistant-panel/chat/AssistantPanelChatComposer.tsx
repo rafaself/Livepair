@@ -1,4 +1,4 @@
-import { Cast, Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, Monitor, MonitorOff } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
 import { useEffect, useRef } from 'react';
 import { Button, IconButton, Select, type SelectOptionItem } from '../../../primitives';
@@ -15,7 +15,6 @@ export type AssistantPanelChatComposerProps = {
   isLiveSessionActive: boolean;
   isPanelOpen: boolean;
   inputDeviceOptions?: readonly SelectOptionItem[];
-  liveSessionPhaseLabel?: string | null;
   placeholder: string;
   screenCaptureSourceOptions?: readonly SelectOptionItem[];
   selectedInputDeviceId?: string;
@@ -42,7 +41,6 @@ export function AssistantPanelChatComposer({
   isLiveSessionActive,
   isPanelOpen,
   inputDeviceOptions = [],
-  liveSessionPhaseLabel = null,
   placeholder,
   screenCaptureSourceOptions = [],
   selectedInputDeviceId = '',
@@ -111,12 +109,6 @@ export function AssistantPanelChatComposer({
 
   return (
     <div className="assistant-panel__composer-section">
-      {liveSessionPhaseLabel && !isConversationEmpty ? (
-        <p className="assistant-panel__session-status" role="status" aria-live="polite">
-          {liveSessionPhaseLabel}
-        </p>
-      ) : null}
-
       <div
         className={[
           'assistant-panel__composer-transition',
@@ -219,7 +211,11 @@ export function AssistantPanelChatComposer({
                       void onToggleComposerScreenShare();
                     }}
                   >
-                    <Cast size={16} aria-hidden="true" />
+                    {isComposerScreenShareActive ? (
+                      <Monitor size={16} aria-hidden="true" />
+                    ) : (
+                      <MonitorOff size={16} aria-hidden="true" />
+                    )}
                   </IconButton>
                 </div>
               </div>

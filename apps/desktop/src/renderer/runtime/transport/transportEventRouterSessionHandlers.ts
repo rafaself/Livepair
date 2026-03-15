@@ -35,6 +35,7 @@ function handleConnectionStateChanged(
   }
 
   if (event.state === 'connected') {
+    const wasResumption = ops.isVoiceResumptionInFlight();
     ops.setVoiceSessionStatus('ready');
     ops.resetVoiceToolState();
     store.setAssistantActivity('idle');
@@ -42,9 +43,9 @@ function handleConnectionStateChanged(
     store.setLastRuntimeError(null);
     ops.resetVoiceTurnTranscriptState();
     ops.setVoiceSessionResumption({
-      status: ops.isVoiceResumptionInFlight() ? 'resumed' : 'connected',
+      status: wasResumption ? 'resumed' : 'connected',
       lastDetail:
-        ops.isVoiceResumptionInFlight()
+        wasResumption
           ? store.voiceSessionResumption.lastDetail
           : null,
     });
@@ -61,6 +62,11 @@ function handleConnectionStateChanged(
       selectedOutputDeviceId:
         ops.settingsStore.getState().settings.selectedOutputDeviceId,
     });
+
+    if (store.screenShareIntended && store.screenCaptureState === 'disabled') {
+      ops.restoreScreenCapture();
+    }
+
     return;
   }
 

@@ -6,3 +6,5 @@ export { Divider } from './Divider';
 export type { DividerProps } from './Divider';
 export { LivepairIcon } from './LivepairIcon';
 export type { LivepairIconProps } from './LivepairIcon';
+export { Tooltip } from './Tooltip';
+export type { TooltipProps } from './Tooltip';

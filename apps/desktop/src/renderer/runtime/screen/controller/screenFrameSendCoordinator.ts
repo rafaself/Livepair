@@ -33,6 +33,7 @@ export function createScreenFrameSendCoordinator({
   onFrameDispatched,
   onFrameDroppedByPolicy,
   onFrameBlockedByGateway,
+  shouldSendFrame,
   flushVisualDiagnostics,
   onSendStarted,
   onSendSucceeded,
@@ -60,6 +61,12 @@ export function createScreenFrameSendCoordinator({
    * returned block or drop. Records the outcome in policy diagnostics.
    */
   onFrameBlockedByGateway: () => void;
+  /**
+   * Wave 3 – optional per-frame relevance check.  Called after allowSend()
+   * passes but before gateway submission.  If it returns false the frame is
+   * treated as dropped-by-policy (e.g. burst send gate / throttle).
+   */
+  shouldSendFrame?: (frame: LocalScreenFrame) => boolean;
   flushVisualDiagnostics: () => void;
   onSendStarted: () => void;
   onSendSucceeded: () => void;
@@ -177,6 +184,13 @@ export function createScreenFrameSendCoordinator({
 
       if (!allowSend()) {
         // Wave 4: frame was captured but policy (inactive/sleep) prevented send.
+        onFrameDroppedByPolicy();
+        flushVisualDiagnostics();
+        return Promise.resolve();
+      }
+
+      // Wave 3: per-frame relevance check (burst send gate / throttle).
+      if (shouldSendFrame && !shouldSendFrame(frame)) {
         onFrameDroppedByPolicy();
         flushVisualDiagnostics();
         return Promise.resolve();

@@ -5,6 +5,9 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-transparent-visuals');
 }
 
+// Suppress harmless Autofill CDP errors from Chromium native log when DevTools opens.
+app.commandLine.appendSwitch('disable-features', 'AutofillServerCommunication');
+
 let mainWindow: BrowserWindow | null = null;
 
 export function getMainWindow(): BrowserWindow | null {
@@ -33,7 +36,8 @@ export function createWindow(): void {
     },
   });
 
-  win.webContents.on('console-message', (_event, level, message) => {
+  win.webContents.on('console-message', (_event, level, message, _line, sourceId) => {
+    if (sourceId?.startsWith('devtools://')) return;
     if (level >= 3) {
       console.error('[renderer]', message);
     } else if (level >= 2) {
@@ -50,7 +54,13 @@ export function createWindow(): void {
     }
     win.webContents.on('before-input-event', (_event, input) => {
       if (input.control && input.shift && input.key.toLowerCase() === 'i') {
-        win.webContents.toggleDevTools();
+        if (win.webContents.isDevToolsOpened()) {
+          win.webContents.closeDevTools();
+          win.setAlwaysOnTop(true);
+        } else {
+          win.setAlwaysOnTop(false);
+          win.webContents.openDevTools({ mode: 'detach', activate: true });
+        }
       }
     });
   } else {

@@ -11,10 +11,12 @@ function createHarness(options: {
   gatewayDecision?: RealtimeOutboundDecision;
 } = {}) {
   const setLastRuntimeError = vi.fn();
+  const setScreenShareIntended = vi.fn();
   const store = {
     getState: vi.fn(() => ({
       setAssistantState: vi.fn(),
       setLastRuntimeError,
+      setScreenShareIntended,
       setVoiceCaptureState: vi.fn(),
       setVoiceSessionStatus: vi.fn(),
       voiceCaptureState: 'idle',
@@ -27,6 +29,8 @@ function createHarness(options: {
     analyzeScreenNow: vi.fn(),
     enableStreaming: vi.fn(),
     stopStreaming: vi.fn(),
+    onTextSent: vi.fn(),
+    isActive: vi.fn(() => false),
   };
 
   const sendText = vi.fn(async () => undefined);
@@ -93,6 +97,7 @@ function createHarness(options: {
     queueMixedModeAssistantReply,
     clearQueuedMixedModeAssistantReply,
     setLastRuntimeError,
+    setScreenShareIntended,
     syncSpeechSilenceTimeout,
     setVoiceErrorState,
     logRuntimeError,
@@ -183,5 +188,19 @@ describe('createSessionControllerPublicApi – Wave 3 screen streaming controls'
     harness.publicApi.stopScreenStreaming();
     expect(harness.screenCtrl.enableStreaming).toHaveBeenCalledTimes(1);
     expect(harness.screenCtrl.stopStreaming).toHaveBeenCalledTimes(1);
+  });
+
+  it('sets screenShareIntended to true when starting screen capture', async () => {
+    const harness = createHarness();
+    await harness.publicApi.startScreenCapture();
+    expect(harness.setScreenShareIntended).toHaveBeenCalledWith(true);
+    expect(harness.screenCtrl.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('sets screenShareIntended to false when stopping screen capture', async () => {
+    const harness = createHarness();
+    await harness.publicApi.stopScreenCapture();
+    expect(harness.setScreenShareIntended).toHaveBeenCalledWith(false);
+    expect(harness.screenCtrl.stop).toHaveBeenCalledTimes(1);
   });
 });

@@ -104,9 +104,6 @@ describe('AssistantPanelSettingsView', () => {
       'aria-checked',
       'true',
     );
-    expect(screen.getByRole('button', { name: 'Silence timeout' })).toHaveTextContent(
-      'Never',
-    );
   });
 
   it('lists available screen capture sources and persists the selected source from settings', async () => {
@@ -156,15 +153,10 @@ describe('AssistantPanelSettingsView', () => {
     expect(backendUrlInput).toHaveValue('ftp://bad.example.com');
   });
 
-  it('updates persisted theme and keeps preferred mode locked to fast', async () => {
+  it('keeps preferred mode locked to fast in debug mode', async () => {
     useUiStore.setState({ isDebugMode: true });
     await renderSettings();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Use dark theme' }));
-    });
-
-    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
     expect(screen.getByRole('button', { name: /preferred mode/i })).toHaveTextContent('Fast');
     expect(screen.getByRole('button', { name: /preferred mode/i })).toBeDisabled();
   });
@@ -375,20 +367,5 @@ describe('AssistantPanelSettingsView', () => {
     expect(screen.getByRole('button', { name: /output device/i })).toHaveTextContent(
       'HDMI Output 1',
     );
-  });
-
-  it('persists the speech silence timeout from the audio section', async () => {
-    await renderSettings();
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Silence timeout' }));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('option', { name: '3 minutes' }));
-    });
-
-    expect(window.bridge.updateSettings).toHaveBeenCalledWith({
-      speechSilenceTimeout: '3m',
-    });
   });
 });

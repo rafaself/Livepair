@@ -380,11 +380,11 @@ export function createBackendClient({
       ? await fetchImpl(url)
       : await fetchImpl(url, init);
 
-    if (!response.ok) {
-      if (typeof nullOnStatus !== 'undefined' && response.status === nullOnStatus) {
-        return null as T;
-      }
+    if (typeof nullOnStatus !== 'undefined' && response.status === nullOnStatus) {
+      return null as T;
+    }
 
+    if (!response.ok) {
       const detail = await readErrorDetail(response);
       throw new Error(
         detail
@@ -494,6 +494,7 @@ export function createBackendClient({
       chatId: ChatId,
     ): Promise<DurableChatSummaryRecord | null> {
       return requestJson({
+        nullOnStatus: 204,
         parse: parseChatSummaryResponse,
         path: `/chat-memory/chats/${chatId}/summary`,
         statusLabel: 'Get chat summary failed',

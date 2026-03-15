@@ -25,3 +25,5 @@ export { Select } from './select';
 export type { SelectProps, SelectOptionItem } from './select';
 export { Snackbar, SnackbarProvider, useSnackbar } from './feedback';
 export type { SnackbarContextValue, SnackbarProps, SnackbarProviderProps, SnackbarVariant } from './feedback';
+export { Tooltip } from './display';
+export type { TooltipProps } from './display';

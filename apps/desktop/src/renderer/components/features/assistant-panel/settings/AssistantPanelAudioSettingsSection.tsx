@@ -2,13 +2,7 @@ import { AudioLines } from 'lucide-react';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
 import { FieldList } from '../../../composite';
 import { ViewSection } from '../../../layout';
-import { Select, Switch, type SelectOptionItem } from '../../../primitives';
-
-const SPEECH_SILENCE_TIMEOUT_OPTIONS: readonly SelectOptionItem[] = [
-  { value: 'never', label: 'Never' },
-  { value: '30s', label: '30 seconds' },
-  { value: '3m', label: '3 minutes' },
-] as const;
+import { Select, Switch } from '../../../primitives';
 
 type AudioSettingsController = Pick<
   AssistantPanelSettingsController,
@@ -16,13 +10,11 @@ type AudioSettingsController = Pick<
   | 'outputDeviceOptions'
   | 'selectedInputDeviceId'
   | 'selectedOutputDeviceId'
-  | 'speechSilenceTimeout'
   | 'voiceEchoCancellationEnabled'
   | 'voiceNoiseSuppressionEnabled'
   | 'voiceAutoGainControlEnabled'
   | 'setSelectedInputDeviceId'
   | 'setSelectedOutputDeviceId'
-  | 'setSpeechSilenceTimeout'
   | 'setVoiceEchoCancellationEnabled'
   | 'setVoiceNoiseSuppressionEnabled'
   | 'setVoiceAutoGainControlEnabled'
@@ -41,13 +33,11 @@ export function AssistantPanelAudioSettingsSection({
     outputDeviceOptions,
     selectedInputDeviceId,
     selectedOutputDeviceId,
-    speechSilenceTimeout,
     voiceEchoCancellationEnabled,
     voiceNoiseSuppressionEnabled,
     voiceAutoGainControlEnabled,
     setSelectedInputDeviceId,
     setSelectedOutputDeviceId,
-    setSpeechSilenceTimeout,
     setVoiceEchoCancellationEnabled,
     setVoiceNoiseSuppressionEnabled,
     setVoiceAutoGainControlEnabled,
@@ -89,27 +79,6 @@ export function AssistantPanelAudioSettingsSection({
                   setSelectedOutputDeviceId(event.target.value);
                 }}
                 disabled={isOutputUnavailable}
-                size="sm"
-              />
-            ),
-          },
-          {
-            label: 'Silence timeout',
-            value: (
-              <Select
-                aria-label="Silence timeout"
-                className="assistant-panel__settings-select assistant-panel__settings-audio-select"
-                options={SPEECH_SILENCE_TIMEOUT_OPTIONS}
-                value={speechSilenceTimeout}
-                onChange={(event) => {
-                  if (
-                    event.target.value === 'never' ||
-                    event.target.value === '30s' ||
-                    event.target.value === '3m'
-                  ) {
-                    setSpeechSilenceTimeout(event.target.value);
-                  }
-                }}
                 size="sm"
               />
             ),

@@ -34,6 +34,7 @@ const defaultSettings: DesktopSettings = {
   speechSilenceTimeout: 'never',
   isPanelPinned: false,
   visualSessionQuality: 'Low',
+  chatTimestampVisibility: 'hidden',
 };
 
 function createSettingsServiceDouble(): DesktopSettingsService {

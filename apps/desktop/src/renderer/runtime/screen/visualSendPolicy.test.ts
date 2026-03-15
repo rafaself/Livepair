@@ -478,3 +478,268 @@ describe('createVisualSendPolicy – Wave 4 drop/block diagnostics', () => {
     expect(d.sentByState.streaming).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Wave 2 – Smart Triggers, Bootstrap, and Burst
+// ---------------------------------------------------------------------------
+describe('createVisualSendPolicy – Wave 2 smart triggers', () => {
+  // ── armBootstrapSnapshot ─────────────────────────────────────────────────
+
+  it('armBootstrapSnapshot transitions sleep → snapshot with bootstrap reason', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.armBootstrapSnapshot();
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('bootstrap');
+  });
+
+  it('armBootstrapSnapshot is no-op from inactive', () => {
+    const policy = createVisualSendPolicy();
+    policy.armBootstrapSnapshot();
+    expect(policy.getState()).toBe('inactive');
+  });
+
+  it('armBootstrapSnapshot is no-op from snapshot or streaming', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.enableStreaming();
+    policy.armBootstrapSnapshot();
+    expect(policy.getState()).toBe('streaming');
+  });
+
+  it('armBootstrapSnapshot does NOT set analyzeScreenNow cooldown', () => {
+    let now = 0;
+    const policy = createVisualSendPolicy({ nowMs: () => now });
+    policy.onScreenShareStarted();
+    policy.armBootstrapSnapshot();
+
+    // Consume bootstrap
+    policy.onFrameDispatched();
+    expect(policy.getState()).toBe('sleep');
+
+    // analyzeScreenNow should work immediately (no cooldown from bootstrap)
+    policy.analyzeScreenNow();
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('analyzeScreenNow');
+  });
+
+  it('armBootstrapSnapshot does NOT set trigger cooldown', () => {
+    let now = 0;
+    const policy = createVisualSendPolicy({ nowMs: () => now });
+    policy.onScreenShareStarted();
+    policy.armBootstrapSnapshot();
+
+    // Consume bootstrap
+    policy.onFrameDispatched();
+    expect(policy.getState()).toBe('sleep');
+
+    // triggerSnapshot should work immediately (no cooldown from bootstrap)
+    policy.triggerSnapshot('speechTrigger');
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('speechTrigger');
+  });
+
+  // ── triggerSnapshot ──────────────────────────────────────────────────────
+
+  it('triggerSnapshot(speechTrigger) transitions sleep → snapshot', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.triggerSnapshot('speechTrigger');
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('speechTrigger');
+    expect(policy.getDiagnostics().triggerSnapshotCount).toBe(1);
+  });
+
+  it('triggerSnapshot(textTrigger) transitions sleep → snapshot', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.triggerSnapshot('textTrigger');
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('textTrigger');
+    expect(policy.getDiagnostics().triggerSnapshotCount).toBe(1);
+  });
+
+  it('triggerSnapshot is no-op from inactive', () => {
+    const policy = createVisualSendPolicy();
+    policy.triggerSnapshot('speechTrigger');
+    expect(policy.getState()).toBe('inactive');
+    expect(policy.getDiagnostics().triggerSnapshotCount).toBe(0);
+  });
+
+  it('triggerSnapshot is no-op from snapshot (bootstrap pending)', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.armBootstrapSnapshot();
+    policy.triggerSnapshot('speechTrigger');
+    // Still in snapshot from bootstrap, trigger was a no-op
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('bootstrap');
+    expect(policy.getDiagnostics().triggerSnapshotCount).toBe(0);
+  });
+
+  it('triggerSnapshot is no-op from streaming', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.enableStreaming();
+    policy.triggerSnapshot('speechTrigger');
+    expect(policy.getState()).toBe('streaming');
+    expect(policy.getDiagnostics().triggerSnapshotCount).toBe(0);
+  });
+
+  it('triggerSnapshot respects its own cooldown', () => {
+    let now = 0;
+    const policy = createVisualSendPolicy({ nowMs: () => now });
+    policy.onScreenShareStarted();
+
+    policy.triggerSnapshot('speechTrigger');
+    expect(policy.getState()).toBe('snapshot');
+    policy.onFrameDispatched(); // consume → sleep
+
+    // Within 2s cooldown → no-op
+    now += 1000;
+    policy.triggerSnapshot('textTrigger');
+    expect(policy.getState()).toBe('sleep');
+
+    // After cooldown → works
+    now += 1500; // total 2500ms > 2000ms
+    policy.triggerSnapshot('textTrigger');
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.getDiagnostics().triggerSnapshotCount).toBe(2);
+  });
+
+  it('trigger cooldown is independent of analyzeScreenNow cooldown', () => {
+    let now = 0;
+    const policy = createVisualSendPolicy({ nowMs: () => now });
+    policy.onScreenShareStarted();
+
+    // Set analyzeScreenNow cooldown
+    policy.analyzeScreenNow();
+    policy.onFrameDispatched(); // consume → sleep
+
+    // triggerSnapshot should work immediately (different cooldown)
+    policy.triggerSnapshot('speechTrigger');
+    expect(policy.getState()).toBe('snapshot');
+  });
+
+  it('analyzeScreenNow cooldown is independent of trigger cooldown', () => {
+    let now = 0;
+    const policy = createVisualSendPolicy({ nowMs: () => now });
+    policy.onScreenShareStarted();
+
+    // Set trigger cooldown
+    policy.triggerSnapshot('speechTrigger');
+    policy.onFrameDispatched(); // consume → sleep
+
+    // analyzeScreenNow should work immediately (different cooldown)
+    policy.analyzeScreenNow();
+    expect(policy.getState()).toBe('snapshot');
+  });
+
+  // ── startBurst / endBurst ────────────────────────────────────────────────
+
+  it('startBurst transitions sleep → streaming with burstStart reason', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.startBurst();
+    expect(policy.getState()).toBe('streaming');
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('burstStart');
+    expect(policy.getDiagnostics().burstCount).toBe(1);
+  });
+
+  it('startBurst is no-op from streaming', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.enableStreaming();
+    policy.startBurst();
+    // Still in streaming but reason unchanged
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('enableStreaming');
+    expect(policy.getDiagnostics().burstCount).toBe(0);
+  });
+
+  it('startBurst is no-op from snapshot', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.armBootstrapSnapshot();
+    policy.startBurst();
+    expect(policy.getState()).toBe('snapshot');
+    expect(policy.getDiagnostics().burstCount).toBe(0);
+  });
+
+  it('startBurst is no-op from inactive', () => {
+    const policy = createVisualSendPolicy();
+    policy.startBurst();
+    expect(policy.getState()).toBe('inactive');
+    expect(policy.getDiagnostics().burstCount).toBe(0);
+  });
+
+  it('endBurst transitions streaming → sleep with burstExpired reason', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.startBurst();
+    policy.endBurst();
+    expect(policy.getState()).toBe('sleep');
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('burstExpired');
+  });
+
+  it('endBurst is no-op from sleep', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.endBurst();
+    expect(policy.getState()).toBe('sleep');
+    expect(policy.getDiagnostics().lastTransitionReason).toBe('screenShareStarted');
+  });
+
+  it('frames are sent during burst (streaming state)', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+    policy.startBurst();
+    expect(policy.allowSend()).toBe(true);
+    policy.onFrameDispatched();
+    expect(policy.getState()).toBe('streaming'); // stays streaming
+    expect(policy.getDiagnostics().sentByState.streaming).toBe(1);
+  });
+
+  // ── cooldown reset on stop ───────────────────────────────────────────────
+
+  it('onScreenShareStopped resets both cooldowns', () => {
+    let now = 0;
+    const policy = createVisualSendPolicy({ nowMs: () => now });
+    policy.onScreenShareStarted();
+
+    // Set both cooldowns
+    policy.analyzeScreenNow();
+    policy.onFrameDispatched();
+    policy.triggerSnapshot('speechTrigger');
+    policy.onFrameDispatched();
+
+    policy.onScreenShareStopped();
+
+    // Start a new session
+    policy.onScreenShareStarted();
+
+    // Both should work immediately
+    policy.analyzeScreenNow();
+    expect(policy.getState()).toBe('snapshot');
+    policy.onFrameDispatched();
+
+    policy.triggerSnapshot('textTrigger');
+    expect(policy.getState()).toBe('snapshot');
+  });
+
+  // ── diagnostics ──────────────────────────────────────────────────────────
+
+  it('diagnostics include triggerSnapshotCount and burstCount', () => {
+    const policy = createVisualSendPolicy();
+    policy.onScreenShareStarted();
+
+    policy.triggerSnapshot('speechTrigger');
+    policy.onFrameDispatched();
+    policy.startBurst();
+    policy.endBurst();
+    policy.startBurst();
+    policy.endBurst();
+
+    const d = policy.getDiagnostics();
+    expect(d.triggerSnapshotCount).toBe(1);
+    expect(d.burstCount).toBe(2);
+  });
+});

@@ -7,6 +7,7 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 export type PreferredMode = 'fast';
 export type SpeechSilenceTimeout = 'never' | '30s' | '3m';
 export type VisualSessionQuality = 'Low' | 'Medium' | 'High';
+export type ChatTimestampVisibility = 'hidden' | 'visible';
 
 export type DesktopSettings = {
   themePreference: ThemePreference;
@@ -20,6 +21,7 @@ export type DesktopSettings = {
   voiceAutoGainControlEnabled: boolean;
   isPanelPinned: boolean;
   visualSessionQuality: VisualSessionQuality;
+  chatTimestampVisibility: ChatTimestampVisibility;
 };
 
 export type DesktopSettingsPatch = Partial<DesktopSettings>;
@@ -36,6 +38,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   voiceAutoGainControlEnabled: true,
   isPanelPinned: false,
   visualSessionQuality: 'Low',
+  chatTimestampVisibility: 'hidden',
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -62,6 +65,10 @@ function normalizeSpeechSilenceTimeout(value: unknown): SpeechSilenceTimeout | n
 
 function normalizeVisualSessionQuality(value: unknown): VisualSessionQuality | null {
   return value === 'Low' || value === 'Medium' || value === 'High' ? value : null;
+}
+
+function normalizeChatTimestampVisibility(value: unknown): ChatTimestampVisibility | null {
+  return value === 'hidden' || value === 'visible' ? value : null;
 }
 
 export function normalizeDesktopSettings(
@@ -96,6 +103,9 @@ export function normalizeDesktopSettings(
   const visualSessionQuality = normalizeVisualSessionQuality(
     settings.visualSessionQuality ?? DEFAULT_DESKTOP_SETTINGS.visualSessionQuality,
   );
+  const chatTimestampVisibility = normalizeChatTimestampVisibility(
+    settings.chatTimestampVisibility ?? DEFAULT_DESKTOP_SETTINGS.chatTimestampVisibility,
+  );
 
   if (
     themePreference === null ||
@@ -108,7 +118,8 @@ export function normalizeDesktopSettings(
     typeof voiceNoiseSuppressionEnabled !== 'boolean' ||
     typeof voiceAutoGainControlEnabled !== 'boolean' ||
     typeof isPanelPinned !== 'boolean' ||
-    visualSessionQuality === null
+    visualSessionQuality === null ||
+    chatTimestampVisibility === null
   ) {
     return null;
   }
@@ -125,6 +136,7 @@ export function normalizeDesktopSettings(
     voiceAutoGainControlEnabled,
     isPanelPinned,
     visualSessionQuality,
+    chatTimestampVisibility,
   };
 }
 
@@ -213,6 +225,14 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.visualSessionQuality = visualSessionQuality;
+  }
+
+  if ('chatTimestampVisibility' in patch) {
+    const chatTimestampVisibility = normalizeChatTimestampVisibility(patch.chatTimestampVisibility);
+    if (chatTimestampVisibility === null) {
+      return null;
+    }
+    normalizedPatch.chatTimestampVisibility = chatTimestampVisibility;
   }
 
   return normalizedPatch;

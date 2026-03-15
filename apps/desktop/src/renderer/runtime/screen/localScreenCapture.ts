@@ -55,6 +55,8 @@ export type LocalScreenCapture = {
     maxWidthPx?: number;
   }) => Promise<void>;
   stop: () => Promise<void>;
+  /** Update capture quality parameters mid-session. Takes effect on the next frame. */
+  updateQuality: (params: { jpegQuality?: number; maxWidthPx?: number }) => void;
 };
 
 export type CreateLocalScreenCaptureDependencies = {
@@ -154,6 +156,10 @@ export function createLocalScreenCapture(
   let stopRequested = false;
   let captureGeneration = 0;
 
+  // Mutable quality parameters — updated by start() and updateQuality().
+  let currentJpegQuality = SCREEN_CAPTURE_JPEG_QUALITY;
+  let currentMaxWidthPx = SCREEN_CAPTURE_MAX_WIDTH_PX;
+
   function releaseResources(): void {
     if (stopInterval) {
       stopInterval();
@@ -244,8 +250,8 @@ export function createLocalScreenCapture(
         Number.isFinite(requestedFrameRateHz) && requestedFrameRateHz > 0
           ? Math.min(requestedFrameRateHz, 2)
           : SCREEN_CAPTURE_FRAME_RATE_HZ;
-      const jpegQuality = options.jpegQuality ?? SCREEN_CAPTURE_JPEG_QUALITY;
-      const maxWidthPx = options.maxWidthPx ?? SCREEN_CAPTURE_MAX_WIDTH_PX;
+      currentJpegQuality = options.jpegQuality ?? SCREEN_CAPTURE_JPEG_QUALITY;
+      currentMaxWidthPx = options.maxWidthPx ?? SCREEN_CAPTURE_MAX_WIDTH_PX;
       const intervalMs = Math.round(1000 / frameRateHz);
 
       let capturedStream: MediaStream;
@@ -342,7 +348,7 @@ export function createLocalScreenCapture(
           return;
         }
 
-        const targetWidth = Math.min(vw, maxWidthPx);
+        const targetWidth = Math.min(vw, currentMaxWidthPx);
         const targetHeight = Math.round((vh / vw) * targetWidth);
 
         if (targetWidth !== cvs.width || targetHeight !== cvs.height) {
@@ -357,7 +363,7 @@ export function createLocalScreenCapture(
         }
 
         ctx.drawImage(video as unknown as HTMLVideoElement, 0, 0, targetWidth, targetHeight);
-        await captureFrame(cvs, jpegQuality, sessionGeneration);
+        await captureFrame(cvs, currentJpegQuality, sessionGeneration);
       }, intervalMs);
     })();
 
@@ -393,5 +399,10 @@ export function createLocalScreenCapture(
     stopRequested = false;
   };
 
-  return { start, stop };
+  const updateQuality = (params: { jpegQuality?: number; maxWidthPx?: number }): void => {
+    if (params.jpegQuality !== undefined) currentJpegQuality = params.jpegQuality;
+    if (params.maxWidthPx !== undefined) currentMaxWidthPx = params.maxWidthPx;
+  };
+
+  return { start, stop, updateQuality };
 }

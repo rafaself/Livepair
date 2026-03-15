@@ -35,6 +35,8 @@ type SessionControllerPublicApiArgs = {
     analyzeScreenNow: () => void;
     enableStreaming: () => void;
     stopStreaming: () => void;
+    onTextSent: () => void;
+    isActive: () => boolean;
   };
   appendTypedUserTurn: (text: string) => string;
   voiceTranscriptCtrl: {
@@ -100,6 +102,7 @@ export function createSessionControllerPublicApi({
       });
     },
     startScreenCapture: () => {
+      store.getState().setScreenShareIntended(true);
       return screenCtrl.start();
     },
     analyzeScreenNow: () => {
@@ -118,6 +121,7 @@ export function createSessionControllerPublicApi({
       await voiceChunkCtrl.startCapture();
     },
     stopScreenCapture: () => {
+      store.getState().setScreenShareIntended(false);
       return screenCtrl.stop();
     },
     stopVoiceCapture: async () => {
@@ -186,6 +190,9 @@ export function createSessionControllerPublicApi({
           await activeTransport.sendText(trimmedText);
           outboundGateway.recordSuccess();
           runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());
+          if (screenCtrl.isActive()) {
+            screenCtrl.onTextSent();
+          }
           return true;
         } catch (error) {
           voiceTranscriptCtrl.clearQueuedMixedModeAssistantReply();

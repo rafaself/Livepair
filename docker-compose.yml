@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-livepair}
+      POSTGRES_USER: ${POSTGRES_USER:-livepair}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-livepair}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - livepair-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -h 127.0.0.1',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./infra/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - '9090:9090'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+  grafana:
+    image: grafana/grafana-oss:11.2.2
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - '3001:3000'
+    depends_on:
+      - prometheus
+
+volumes:
+  livepair-postgres-data:
+    name: livepair-postgres-data

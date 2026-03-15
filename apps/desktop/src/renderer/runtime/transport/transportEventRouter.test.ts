@@ -9,6 +9,8 @@ function createMockOps() {
     setLastRuntimeError: vi.fn(),
     voiceSessionResumption: { status: 'idle', latestHandle: null as string | null, resumable: false, lastDetail: null as string | null },
     voiceSessionDurability: { lastDetail: null as string | null },
+    screenShareIntended: false,
+    screenCaptureState: 'disabled' as string,
   };
   return {
     store: { getState: vi.fn().mockReturnValue(storeState) } as never,
@@ -65,6 +67,7 @@ function createMockOps() {
     setVoiceErrorState: vi.fn(),
     cleanupTransport: vi.fn(),
     resumeVoiceSession: vi.fn().mockResolvedValue(undefined),
+    restoreScreenCapture: vi.fn(),
     _storeState: storeState,
   };
 }
@@ -169,6 +172,54 @@ describe('createTransportEventRouter', () => {
       expect(ops.cleanupTransport).toHaveBeenCalledTimes(1);
       expect(ops._storeState.setAssistantActivity).toHaveBeenCalledWith('idle');
       expect(ops._storeState.setActiveTransport).toHaveBeenCalledWith(null);
+    });
+
+    it('restores screen capture on connected when intent is set and capture is disabled', () => {
+      const ops = createMockOps();
+      ops._storeState.screenShareIntended = true;
+      ops._storeState.screenCaptureState = 'disabled';
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'connection-state-changed', state: 'connected' });
+
+      expect(ops.restoreScreenCapture).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not restore screen capture on connected when intent is false', () => {
+      const ops = createMockOps();
+      ops._storeState.screenShareIntended = false;
+      ops._storeState.screenCaptureState = 'disabled';
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'connection-state-changed', state: 'connected' });
+
+      expect(ops.restoreScreenCapture).not.toHaveBeenCalled();
+    });
+
+    it('does not restore screen capture when capture is already active', () => {
+      const ops = createMockOps();
+      ops._storeState.screenShareIntended = true;
+      ops._storeState.screenCaptureState = 'capturing';
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'connection-state-changed', state: 'connected' });
+
+      expect(ops.restoreScreenCapture).not.toHaveBeenCalled();
+    });
+
+    it('restores screen capture after resume reconnect when intent is set', () => {
+      const ops = createMockOps();
+      ops.isVoiceResumptionInFlight.mockReturnValue(true);
+      ops._storeState.screenShareIntended = true;
+      ops._storeState.screenCaptureState = 'disabled';
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'connection-state-changed', state: 'connected' });
+
+      expect(ops.restoreScreenCapture).toHaveBeenCalledTimes(1);
+      expect(ops.setVoiceSessionResumption).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'resumed' }),
+      );
     });
   });
 

@@ -277,7 +277,7 @@ describe('AssistantPanel', () => {
     expect(await panelScope.findByText('No past chats yet.')).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();
-    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'New chat' })).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
 
     await act(async () => {
@@ -388,14 +388,14 @@ describe('AssistantPanel', () => {
     expect(panel.querySelector('.assistant-panel__inner-body')).toBe(sharedBody);
     expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByText('Past chats')).toBeNull();
-    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(1);
+    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(2);
     expect(sharedHeader).toContainElement(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'Back to chat' }));
-    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'New chat' })).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
     expect((sharedHeader as HTMLDivElement).querySelector('.assistant-panel__inner-header-content')).toHaveAttribute(
       'data-action-count',
-      '1',
+      '2',
     );
     expect(sharedBody).toContainElement(panelScope.getByText('No past chats yet.'));
     expect(within(sharedBody as HTMLDivElement).queryByText('Talk to Livepair')).toBeNull();
@@ -637,7 +637,7 @@ describe('AssistantPanel', () => {
 
     expect(await panelScope.findByRole('button', { name: 'Back to chat' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'Back to chat' })).toBeVisible();
-    expect(panelScope.queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
     const currentChatRow = panelScope.getByText('Initial empty chat').closest('button');
     const pastChatRow = panelScope.getByText('Past filled chat').closest('button');
     expect(currentChatRow).not.toBeNull();
@@ -653,6 +653,61 @@ describe('AssistantPanel', () => {
     expect(useUiStore.getState().panelView).toBe('chat');
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
     expect(panelScope.queryByRole('button', { name: 'New chat' })).toBeNull();
+  });
+
+  it('new chat button in history navigates back to chat without creating a chat when the current chat is already empty', async () => {
+    useSessionStore.getState().setActiveChatId('chat-empty-history');
+    window.bridge.getChat = vi.fn(async (chatId: string) =>
+      chatId === 'chat-empty-history'
+        ? {
+            id: 'chat-empty-history',
+            title: 'Empty chat',
+            createdAt: '2026-03-12T08:00:00.000Z',
+            updatedAt: '2026-03-12T08:00:00.000Z',
+            isCurrent: true,
+          }
+        : null,
+    );
+    window.bridge.listChats = vi.fn(async () => [
+      {
+        id: 'chat-empty-history',
+        title: 'Empty chat',
+        createdAt: '2026-03-12T08:00:00.000Z',
+        updatedAt: '2026-03-12T08:00:00.000Z',
+        isCurrent: true,
+      },
+    ]);
+    window.bridge.listChatMessages = vi.fn(async () => []);
+    window.bridge.listLiveSessions = vi.fn(async () => []);
+    window.bridge.createChat = vi.fn(async () => ({
+      id: 'should-not-be-called',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    }));
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'History' }));
+    });
+
+    expect(await panelScope.findByRole('button', { name: 'New chat' })).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'New chat' }));
+    });
+
+    expect(useUiStore.getState().panelView).toBe('chat');
+    expect(useSessionStore.getState().activeChatId).toBe('chat-empty-history');
+    expect(window.bridge.createChat).not.toHaveBeenCalled();
   });
 
   it('opens separate in-chat microphone and screen-share dropdowns and applies selections through the existing source paths', async () => {

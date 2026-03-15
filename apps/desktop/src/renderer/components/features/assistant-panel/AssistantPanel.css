@@ -43,7 +43,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 8px 20px 0;
+  padding: 0 20px;
   background: var(--color-chat-bg);
   flex-shrink: 0;
   z-index: 2;

@@ -124,6 +124,7 @@ describe('sessionStore', () => {
           resumable: false,
           lastDetail: null,
         },
+        screenShareIntended: false,
         screenCaptureState: 'disabled',
         screenCaptureDiagnostics: {
           captureSource: null,
@@ -549,6 +550,16 @@ describe('sessionStore', () => {
       expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
     });
 
+    it('updates screenShareIntended through the dedicated setter', () => {
+      expect(useSessionStore.getState().screenShareIntended).toBe(false);
+
+      useSessionStore.getState().setScreenShareIntended(true);
+      expect(useSessionStore.getState().screenShareIntended).toBe(true);
+
+      useSessionStore.getState().setScreenShareIntended(false);
+      expect(useSessionStore.getState().screenShareIntended).toBe(false);
+    });
+
     it('patches screenCaptureDiagnostics without clobbering unrelated fields', () => {
       useSessionStore.getState().setScreenCaptureDiagnostics({
         captureSource: 'Entire screen',
@@ -633,6 +644,12 @@ describe('sessionStore', () => {
 
       expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
       expect(useSessionStore.getState().screenCaptureDiagnostics.frameCount).toBe(0);
+    });
+
+    it('resets screenShareIntended to false on resetTextSessionRuntime()', () => {
+      useSessionStore.getState().setScreenShareIntended(true);
+      useSessionStore.getState().resetTextSessionRuntime();
+      expect(useSessionStore.getState().screenShareIntended).toBe(false);
     });
   });
 

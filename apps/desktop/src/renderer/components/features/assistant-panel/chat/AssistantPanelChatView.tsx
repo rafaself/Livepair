@@ -7,14 +7,12 @@ import {
   canSubmitComposerText,
   createControlGatingSnapshot,
   isSpeechLifecycleActive,
-  selectLiveSessionPhaseLabel,
   type ConversationTimelineEntry,
   type ProductMode,
   type ScreenCaptureState,
   type SpeechLifecycleStatus,
   type TextSessionStatus,
   type TransportKind,
-  type VoiceSessionResumptionState,
   type VoiceSessionStatus,
 } from '../../../../runtime';
 import { AssistantPanelChatComposer } from './AssistantPanelChatComposer';
@@ -35,7 +33,6 @@ export type AssistantPanelChatViewProps = {
   canSubmitText: boolean;
   activeTransport?: TransportKind | null;
   voiceSessionStatus?: VoiceSessionStatus;
-  voiceSessionResumption?: VoiceSessionResumptionState | null;
   activeChat?: ChatRecord | null;
   latestLiveSession?: LiveSessionRecord | null;
   turns: ConversationTimelineEntry[];
@@ -70,7 +67,6 @@ export function AssistantPanelChatView({
   canSubmitText,
   activeTransport = null,
   voiceSessionStatus = 'disconnected',
-  voiceSessionResumption = null,
   activeChat = null,
   latestLiveSession = null,
   turns,
@@ -107,11 +103,6 @@ export function AssistantPanelChatView({
     !canSubmitText ||
     !canSubmitComposerText(controlGatingSnapshot);
   const isLiveSessionActive = isSpeechLifecycleActive(speechLifecycleStatus);
-  const liveSessionPhaseLabel = selectLiveSessionPhaseLabel({
-    speechLifecycle: { status: speechLifecycleStatus },
-    voiceSessionResumption: voiceSessionResumption ?? { status: 'idle', latestHandle: null, resumable: false, lastDetail: null },
-    voiceSessionStatus,
-  });
   const composerAction = createAssistantPanelComposerAction({
     controlGatingSnapshot,
     draftText,
@@ -171,7 +162,6 @@ export function AssistantPanelChatView({
         isLiveSessionActive={isLiveSessionActive}
         isPanelOpen={isPanelOpen ?? false}
         inputDeviceOptions={inputDeviceOptions}
-        liveSessionPhaseLabel={liveSessionPhaseLabel}
         placeholder={composerPlaceholder}
         screenCaptureSourceOptions={screenCaptureSourceOptions}
         selectedInputDeviceId={selectedInputDeviceId}

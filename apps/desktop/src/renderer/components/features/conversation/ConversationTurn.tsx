@@ -5,6 +5,7 @@ import { Badge, IconButton } from '../../primitives';
 import { isTranscriptArtifact, type ConversationTimelineEntry } from '../../../runtime';
 import { TypingIndicator } from '../TypingIndicator';
 import { renderAssistantMarkdown } from '../assistant-panel/chat/renderAssistantMarkdown';
+import { useSettingsStore } from '../../../store/settingsStore';
 import './ConversationTurn.css';
 
 export type ConversationTurnProps = {
@@ -27,6 +28,7 @@ export function ConversationTurn({
   ...rest
 }: ConversationTurnProps): JSX.Element {
   const [copied, setCopied] = useState(false);
+  const chatTimestampVisibility = useSettingsStore((state) => state.settings.chatTimestampVisibility);
 
   const isTranscript = isTranscriptArtifact(turn);
   const isInterruptedTranscript = isTranscript && turn.statusLabel === 'Interrupted';
@@ -83,9 +85,9 @@ export function ConversationTurn({
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
               </IconButton>
-            ) : (
+            ) : chatTimestampVisibility === 'visible' ? (
               <time className="conversation-turn__timestamp">{turn.timestamp}</time>
-            )}
+            ) : null}
             {isTypedNote ? (
               <Badge variant="default">Note</Badge>
             ) : null}

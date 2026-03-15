@@ -1,4 +1,4 @@
-import { Bug, MessageCircle, Settings, X } from 'lucide-react';
+import { Bug, MessageCircle, Settings, Settings2, X } from 'lucide-react';
 import { type PanelView } from '../../../store/uiStore';
 import { PanelHeader } from '../../layout';
 import { Button, LivepairIcon } from '../../primitives';
@@ -11,6 +11,10 @@ export type AssistantPanelHeaderProps = {
 
 function getButtonClassName(panelView: PanelView, targetView: PanelView): string | undefined {
   return panelView === targetView ? 'assistant-panel__header-btn--active' : undefined;
+}
+
+function isChatSectionActive(panelView: PanelView): boolean {
+  return panelView === 'chat' || panelView === 'history';
 }
 
 export function AssistantPanelHeader({
@@ -45,10 +49,20 @@ export function AssistantPanelHeader({
       <Button
         variant="ghost"
         size="sm"
+        onClick={() => setPanelView('preferences')}
+        aria-label="Preferences"
+        aria-pressed={panelView === 'preferences'}
+        className={getButtonClassName(panelView, 'preferences')}
+      >
+        <Settings2 size={16} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => setPanelView('chat')}
         aria-label="Chat"
-        aria-pressed={panelView === 'chat'}
-        className={getButtonClassName(panelView, 'chat')}
+        aria-pressed={isChatSectionActive(panelView)}
+        className={isChatSectionActive(panelView) ? 'assistant-panel__header-btn--active' : undefined}
       >
         <MessageCircle size={16} />
       </Button>

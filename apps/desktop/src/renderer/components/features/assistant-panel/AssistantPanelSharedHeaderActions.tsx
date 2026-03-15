@@ -21,18 +21,6 @@ export function AssistantPanelSharedHeaderActions({
   onBackToChat,
 }: AssistantPanelSharedHeaderActionsProps): JSX.Element {
   const actions = [
-    showHistory ? (
-      <IconButton
-        key="history"
-        label="History"
-        size="sm"
-        className="assistant-panel__inner-header-action"
-        disabled={onOpenHistory === undefined}
-        onClick={onOpenHistory}
-      >
-        <History size={16} className="assistant-panel__inner-header-icon" />
-      </IconButton>
-    ) : null,
     showCreateChat ? (
       <IconButton
         key="new-chat"
@@ -45,6 +33,18 @@ export function AssistantPanelSharedHeaderActions({
         }}
       >
         <MessageCirclePlus size={16} className="assistant-panel__inner-header-icon" />
+      </IconButton>
+    ) : null,
+    showHistory ? (
+      <IconButton
+        key="history"
+        label="History"
+        size="sm"
+        className="assistant-panel__inner-header-action"
+        disabled={onOpenHistory === undefined}
+        onClick={onOpenHistory}
+      >
+        <History size={16} className="assistant-panel__inner-header-icon" />
       </IconButton>
     ) : null,
     showBackToChat ? (

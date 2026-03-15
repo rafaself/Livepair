@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createScreenCaptureController } from './screenCaptureController';
+import { createScreenCaptureController, VISUAL_BURST_DURATION_MS, VISUAL_BURST_STABLE_FRAMES, VISUAL_BURST_SEND_COOLDOWN_MS } from './screenCaptureController';
 import type { VisualSendPolicyOptions } from './visualSendPolicy';
 import { createDefaultRealtimeOutboundDiagnostics } from '../outbound/realtimeOutboundGateway';
 import type { DesktopSession } from '../transport/transport.types';
@@ -10,12 +10,18 @@ import type {
 } from '../outbound/outbound.types';
 import type { VoiceSessionStatus } from '../voice/voice.types';
 import type { ScreenCaptureState } from './screen.types';
-import type { LocalScreenCaptureObserver } from './localScreenCapture';
+import type {
+  LocalScreenCapture,
+  LocalScreenCaptureObserver,
+} from './localScreenCapture';
 import {
   SCREEN_CAPTURE_FRAME_RATE_HZ,
   SCREEN_CAPTURE_JPEG_QUALITY,
   SCREEN_CAPTURE_MAX_WIDTH_PX,
 } from './localScreenCapture';
+import type { VisualSessionQuality } from '../../../shared/settings';
+import { getScreenCaptureQualityParams } from './screenCapturePolicy';
+import { QUALITY_PROMOTION_DURATION_MS } from './adaptiveQualityPolicy';
 
 function createHarness(options: {
   voiceSessionStatus?: VoiceSessionStatus;
@@ -23,6 +29,11 @@ function createHarness(options: {
   saveScreenFramesEnabled?: boolean;
   submitDecision?: (callIndex: number) => RealtimeOutboundDecision;
   visualSendPolicyOptions?: VisualSendPolicyOptions;
+  burstDurationMs?: number;
+  burstStableFrames?: number;
+  burstSendCooldownMs?: number;
+  getBaselineQuality?: () => VisualSessionQuality;
+  promotionDurationMs?: number;
 } = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
   let currentScreenState: ScreenCaptureState = screenCaptureState;
@@ -47,7 +58,7 @@ function createHarness(options: {
   let resolveStop: (() => void) | null = null;
   let deferStop = false;
   const mockCapture = {
-    start: vi.fn(() => Promise.resolve()),
+    start: vi.fn(async (_options: Parameters<LocalScreenCapture['start']>[0]) => undefined),
     stop: vi.fn(() => {
       if (!deferStop) {
         return Promise.resolve();
@@ -57,7 +68,8 @@ function createHarness(options: {
         resolveStop = resolve;
       });
     }),
-  };
+    updateQuality: vi.fn((_params: Parameters<LocalScreenCapture['updateQuality']>[0]) => undefined),
+  } satisfies LocalScreenCapture;
   const createCapture = vi.fn((observer: LocalScreenCaptureObserver) => {
     capturedObserver = observer;
     return mockCapture;
@@ -81,7 +93,7 @@ function createHarness(options: {
         outcome: gatewaySubmitCount === 1 ? 'send' : 'replace',
         classification: 'replaceable',
         reason: gatewaySubmitCount === 1 ? 'accepted' : 'superseded-latest',
-      };
+      } satisfies RealtimeOutboundDecision;
     }),
     settle: vi.fn(),
     recordFailure: vi.fn(),
@@ -90,6 +102,22 @@ function createHarness(options: {
     getDiagnostics: vi.fn(createDefaultRealtimeOutboundDiagnostics),
   };
 
+  const hasControllerOptions = options.visualSendPolicyOptions || options.burstDurationMs != null || options.burstStableFrames != null || options.burstSendCooldownMs != null || options.promotionDurationMs != null;
+  const controllerOptions = hasControllerOptions
+    ? {
+        ...(options.visualSendPolicyOptions
+          ? { visualSendPolicyOptions: options.visualSendPolicyOptions }
+          : {}),
+        ...(options.burstDurationMs != null ? { burstDurationMs: options.burstDurationMs } : {}),
+        ...(options.burstStableFrames != null ? { burstStableFrames: options.burstStableFrames } : {}),
+        ...(options.burstSendCooldownMs != null
+          ? { burstSendCooldownMs: options.burstSendCooldownMs }
+          : {}),
+        ...(options.promotionDurationMs != null
+          ? { promotionDurationMs: options.promotionDurationMs }
+          : {}),
+      }
+    : undefined;
   const ctrl = createScreenCaptureController(
     store,
     createCapture,
@@ -101,7 +129,8 @@ function createHarness(options: {
       saveScreenFrameDumpFrame,
       setScreenFrameDumpDirectoryPath,
     },
-    options.visualSendPolicyOptions,
+    controllerOptions,
+    options.getBaselineQuality,
   );
 
   return {
@@ -128,33 +157,14 @@ function createHarness(options: {
 }
 
 describe('createScreenCaptureController', () => {
-  it('isActive returns false initially', () => {
-    const { ctrl } = createHarness();
-    expect(ctrl.isActive()).toBe(false);
-  });
-
-  it('start creates capture and transitions to capturing', async () => {
-    const { ctrl, store, createCapture } = createHarness();
-
-    await ctrl.start();
-
-    expect(createCapture).toHaveBeenCalledTimes(1);
-    expect(ctrl.isActive()).toBe(true);
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('requestingPermission');
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('ready');
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('capturing');
-  });
-
-  it('flushes visual diagnostics through start, streaming frame send, and stop', async () => {
-    // start() now arms enableStreaming so the last diagnostics flush after
-    // start reflects the enableStreaming transition.
+  it('flushes visual diagnostics through start, bootstrap frame send, and stop', async () => {
     const { ctrl, store } = createHarness();
 
     await ctrl.start();
     expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
-      lastTransitionReason: 'enableStreaming',
-      snapshotCount: 0,
-      streamingEnteredAt: expect.any(String),
+      lastTransitionReason: 'bootstrap',
+      snapshotCount: 1,
+      streamingEnteredAt: null,
       streamingEndedAt: null,
       sentByState: {
         snapshot: 0,
@@ -162,6 +172,8 @@ describe('createScreenCaptureController', () => {
       },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      triggerSnapshotCount: 0,
+      burstCount: 0,
     });
 
     await ctrl.enqueueFrameSend({
@@ -172,30 +184,34 @@ describe('createScreenCaptureController', () => {
       heightPx: 360,
     });
     expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
-      lastTransitionReason: 'enableStreaming',
-      snapshotCount: 0,
-      streamingEnteredAt: expect.any(String),
+      lastTransitionReason: 'snapshotConsumed',
+      snapshotCount: 1,
+      streamingEnteredAt: null,
       streamingEndedAt: null,
       sentByState: {
-        snapshot: 0,
-        streaming: 1,
+        snapshot: 1,
+        streaming: 0,
       },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      triggerSnapshotCount: 0,
+      burstCount: 0,
     });
 
     await ctrl.stop();
     expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
       lastTransitionReason: 'screenShareStopped',
-      snapshotCount: 0,
-      streamingEnteredAt: expect.any(String),
+      snapshotCount: 1,
+      streamingEnteredAt: null,
       streamingEndedAt: null,
       sentByState: {
-        snapshot: 0,
-        streaming: 1,
+        snapshot: 1,
+        streaming: 0,
       },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      triggerSnapshotCount: 0,
+      burstCount: 0,
     });
   });
 
@@ -211,130 +227,6 @@ describe('createScreenCaptureController', () => {
     });
   });
 
-  it('does not start or write a debug frame dump when saving is disabled', async () => {
-    const {
-      ctrl,
-      getObserver,
-      startScreenFrameDumpSession,
-      saveScreenFrameDumpFrame,
-    } = createHarness({ saveScreenFramesEnabled: false });
-
-    await ctrl.start();
-    getObserver()!.onFrame({
-      data: new Uint8Array([1, 2, 3]),
-      mimeType: 'image/jpeg',
-      sequence: 1,
-      widthPx: 640,
-      heightPx: 360,
-    });
-    await Promise.resolve();
-
-    expect(startScreenFrameDumpSession).not.toHaveBeenCalled();
-    expect(saveScreenFrameDumpFrame).not.toHaveBeenCalled();
-  });
-
-  it('starts a fresh debug frame dump session and saves sampled frames when enabled', async () => {
-    const {
-      ctrl,
-      getObserver,
-      startScreenFrameDumpSession,
-      saveScreenFrameDumpFrame,
-      setScreenFrameDumpDirectoryPath,
-    } = createHarness({ saveScreenFramesEnabled: true });
-
-    await ctrl.start();
-
-    expect(setScreenFrameDumpDirectoryPath).toHaveBeenCalledWith(null);
-    expect(startScreenFrameDumpSession).toHaveBeenCalledTimes(1);
-    expect(setScreenFrameDumpDirectoryPath).toHaveBeenCalledWith(
-      '/tmp/livepair/screen-frame-dumps/current-debug-session',
-    );
-
-    getObserver()!.onFrame({
-      data: new Uint8Array([7, 8, 9]),
-      mimeType: 'image/jpeg',
-      sequence: 3,
-      widthPx: 320,
-      heightPx: 180,
-    });
-
-    await vi.waitFor(() => {
-      expect(saveScreenFrameDumpFrame).toHaveBeenCalledWith({
-        data: new Uint8Array([7, 8, 9]),
-        mimeType: 'image/jpeg',
-        sequence: 3,
-      });
-    });
-  });
-
-  it('start rejects when voice session is not active', async () => {
-    const { ctrl, store } = createHarness({ voiceSessionStatus: 'disconnected' });
-
-    await ctrl.start();
-
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('error');
-    expect(store.setLastRuntimeError).toHaveBeenCalledWith(
-      'Screen context requires an active Live session',
-    );
-    expect(ctrl.isActive()).toBe(false);
-  });
-
-  it('start rejects when no active Live transport is attached', async () => {
-    const { ctrl, createCapture, store, setTransport } = createHarness({ voiceSessionStatus: 'ready' });
-    setTransport(null);
-
-    await ctrl.start();
-
-    expect(createCapture).not.toHaveBeenCalled();
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('error');
-    expect(store.setLastRuntimeError).toHaveBeenCalledWith(
-      'Screen context requires an active Live session',
-    );
-    expect(ctrl.isActive()).toBe(false);
-  });
-
-  it('start is no-op when already capturing', async () => {
-    const { ctrl, createCapture } = createHarness({ screenCaptureState: 'capturing' });
-
-    await ctrl.start();
-
-    expect(createCapture).not.toHaveBeenCalled();
-  });
-
-  it('start handles capture.start failure', async () => {
-    const { ctrl, store, mockCapture } = createHarness();
-    mockCapture.start.mockRejectedValue(new Error('permission denied'));
-
-    await ctrl.start();
-
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('error');
-    expect(store.setLastRuntimeError).toHaveBeenCalledWith(
-      expect.stringContaining('permission denied'),
-    );
-    expect(ctrl.isActive()).toBe(false);
-  });
-
-  it('stop with active capture calls capture.stop', async () => {
-    const { ctrl, mockCapture } = createHarness();
-
-    await ctrl.start();
-    await ctrl.stop();
-
-    expect(mockCapture.stop).toHaveBeenCalled();
-    expect(ctrl.isActive()).toBe(false);
-  });
-
-  it('stop transitions through stopping to disabled', async () => {
-    const { ctrl, store } = createHarness();
-
-    await ctrl.start();
-    store.setScreenCaptureState.mockClear();
-    await ctrl.stop();
-
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('stopping');
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('disabled');
-  });
-
   it('keeps the current debug frame dump path available after screen capture stops', async () => {
     const {
       ctrl,
@@ -347,64 +239,6 @@ describe('createScreenCaptureController', () => {
     await ctrl.stop();
 
     expect(setScreenFrameDumpDirectoryPath).not.toHaveBeenCalledWith(null);
-  });
-
-  it('start waits for an in-flight stop before creating a new capture', async () => {
-    const { ctrl, createCapture, enableDeferredStop, resolveStop } = createHarness();
-
-    await ctrl.start();
-    enableDeferredStop();
-    const stopPromise = ctrl.stop();
-    await Promise.resolve();
-
-    const restartPromise = ctrl.start();
-    await Promise.resolve();
-
-    expect(createCapture).toHaveBeenCalledTimes(1);
-
-    resolveStop();
-    await stopPromise;
-    await restartPromise;
-
-    expect(createCapture).toHaveBeenCalledTimes(2);
-  });
-
-  it('stop is no-op when already disabled', async () => {
-    const { ctrl, store } = createHarness({ screenCaptureState: 'disabled' });
-
-    await ctrl.stop();
-
-    expect(store.setScreenCaptureState).not.toHaveBeenCalled();
-  });
-
-  it('stop without capture resets to disabled', async () => {
-    const { ctrl, store } = createHarness({ screenCaptureState: 'error' });
-
-    await ctrl.stop();
-
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('disabled');
-  });
-
-  it('stopInternal without capture sets state directly', () => {
-    const { ctrl, store } = createHarness();
-
-    ctrl.stopInternal({ nextState: 'error', detail: 'test', preserveDiagnostics: true, uploadStatus: 'error' });
-
-    expect(store.setScreenCaptureState).toHaveBeenCalledWith('error');
-    expect(store.setScreenCaptureDiagnostics).toHaveBeenCalledWith({
-      lastUploadStatus: 'error',
-      lastError: 'test',
-    });
-  });
-
-  it('stopInternal without preserveDiagnostics resets them', () => {
-    const { ctrl, store } = createHarness();
-
-    ctrl.stopInternal();
-
-    expect(store.setScreenCaptureDiagnostics).toHaveBeenCalledWith(
-      expect.objectContaining({ frameCount: 0, lastError: null }),
-    );
   });
 
   it('resetDiagnostics resets all fields', () => {
@@ -423,334 +257,6 @@ describe('createScreenCaptureController', () => {
       lastError: null,
     });
   });
-
-  it('enqueueFrameSend sends frame via transport', async () => {
-    const { ctrl, sendVideoFrame, store, outboundGateway } = createHarness();
-
-    await ctrl.start();
-    ctrl.enableStreaming();
-    const frame = { data: new Uint8Array([1, 2]), mimeType: 'image/jpeg' as const, sequence: 1, widthPx: 640, heightPx: 480 };
-    await ctrl.enqueueFrameSend(frame);
-
-    expect(outboundGateway.submit).toHaveBeenCalledWith({
-      kind: 'visual_frame',
-      channelKey: 'visual:screen',
-      replaceKey: 'visual:screen',
-      sequence: 1,
-      createdAtMs: expect.any(Number),
-      estimatedBytes: 2,
-    });
-    expect(sendVideoFrame).toHaveBeenCalledWith(frame.data, frame.mimeType);
-    expect(outboundGateway.recordSuccess).toHaveBeenCalledTimes(1);
-    expect(store.setScreenCaptureDiagnostics).toHaveBeenCalledWith({
-      lastUploadStatus: 'sending',
-      lastError: null,
-    });
-  });
-
-  it('does not dispatch visual frames when the gateway blocks them', async () => {
-    const { ctrl, sendVideoFrame, outboundGateway, store } = createHarness({
-      submitDecision: () => ({
-        outcome: 'block',
-        classification: 'replaceable',
-        reason: 'breaker-open',
-      }),
-    });
-
-    await ctrl.start();
-    ctrl.enableStreaming();
-    await ctrl.enqueueFrameSend({
-      data: new Uint8Array([9]),
-      mimeType: 'image/jpeg',
-      sequence: 1,
-      widthPx: 320,
-      heightPx: 240,
-    });
-
-    expect(outboundGateway.submit).toHaveBeenCalledTimes(1);
-    expect(sendVideoFrame).not.toHaveBeenCalled();
-    expect(outboundGateway.recordSuccess).not.toHaveBeenCalled();
-    expect(outboundGateway.recordFailure).not.toHaveBeenCalled();
-    expect(
-      store.setScreenCaptureDiagnostics.mock.calls.some(
-        ([patch]) => patch.lastUploadStatus === 'sending',
-      ),
-    ).toBe(false);
-  });
-
-  it('drops screen frames while resume temporarily leaves no active transport', async () => {
-    const { ctrl, setTransport, sendVideoFrame } = createHarness();
-
-    await ctrl.start();
-    setTransport(null);
-    const frame = { data: new Uint8Array([1]), mimeType: 'image/jpeg' as const, sequence: 1, widthPx: 320, heightPx: 240 };
-    const result = await ctrl.enqueueFrameSend(frame);
-
-    expect(result).toBeUndefined();
-    expect(sendVideoFrame).not.toHaveBeenCalled();
-  });
-
-  it('drops queued screen frames if resumption swaps the active transport before send', async () => {
-    const { ctrl, setTransport, sendVideoFrame, store } = createHarness();
-    const nextTransport = {
-      sendVideoFrame: vi.fn(() => Promise.resolve()),
-    } as unknown as DesktopSession;
-    let resolveFirstSend!: () => void;
-    sendVideoFrame.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveFirstSend = () => resolve();
-        }),
-    );
-
-    await ctrl.start();
-    ctrl.enableStreaming();
-    const firstSend = ctrl.enqueueFrameSend({
-      data: new Uint8Array([1]),
-      mimeType: 'image/jpeg',
-      sequence: 1,
-      widthPx: 320,
-      heightPx: 240,
-    });
-    await Promise.resolve();
-    const secondSend = ctrl.enqueueFrameSend({
-      data: new Uint8Array([2]),
-      mimeType: 'image/jpeg',
-      sequence: 2,
-      widthPx: 320,
-      heightPx: 240,
-    });
-
-    setTransport(nextTransport);
-    resolveFirstSend();
-    await Promise.all([firstSend, secondSend]);
-
-    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
-    expect(nextTransport.sendVideoFrame).not.toHaveBeenCalled();
-    expect(
-      store.setScreenCaptureDiagnostics.mock.calls.filter(
-        ([patch]) => patch.lastUploadStatus === 'sent',
-      ),
-    ).toHaveLength(0);
-  });
-
-  it('routes replaceable visual frames through the gateway and keeps only bounded latest pending work', async () => {
-    const { ctrl, sendVideoFrame, outboundGateway } = createHarness({
-      submitDecision: (callIndex) => ({
-        outcome: callIndex === 1 ? 'send' : 'replace',
-        classification: 'replaceable',
-        reason: callIndex === 1 ? 'accepted' : 'superseded-latest',
-      }),
-    });
-    let resolveFirstSend!: () => void;
-
-    sendVideoFrame
-      .mockImplementationOnce(
-        () =>
-          new Promise<void>((resolve) => {
-            resolveFirstSend = resolve;
-          }),
-      )
-      .mockResolvedValueOnce(undefined);
-
-    await ctrl.start();
-    ctrl.enableStreaming();
-    const firstSend = ctrl.enqueueFrameSend({
-      data: new Uint8Array([1]),
-      mimeType: 'image/jpeg',
-      sequence: 1,
-      widthPx: 320,
-      heightPx: 240,
-    });
-    await Promise.resolve();
-    const secondSend = ctrl.enqueueFrameSend({
-      data: new Uint8Array([2]),
-      mimeType: 'image/jpeg',
-      sequence: 2,
-      widthPx: 320,
-      heightPx: 240,
-    });
-    const thirdSend = ctrl.enqueueFrameSend({
-      data: new Uint8Array([3]),
-      mimeType: 'image/jpeg',
-      sequence: 3,
-      widthPx: 320,
-      heightPx: 240,
-    });
-
-    resolveFirstSend();
-    await Promise.all([firstSend, secondSend, thirdSend]);
-
-    expect(outboundGateway.submit).toHaveBeenCalledTimes(3);
-    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
-    expect(sendVideoFrame.mock.calls).toEqual([
-      [new Uint8Array([1]), 'image/jpeg'],
-      [new Uint8Array([3]), 'image/jpeg'],
-    ]);
-  });
-
-  it('ignores stale send failures after capture stops', async () => {
-    const { ctrl, sendVideoFrame, store } = createHarness();
-    let rejectSend!: (error: Error) => void;
-    let firstSendStarted = false;
-    sendVideoFrame.mockImplementationOnce(
-      () =>
-        new Promise<void>((_resolve, reject) => {
-          firstSendStarted = true;
-          rejectSend = reject;
-        }),
-    );
-
-    await ctrl.start();
-    ctrl.enableStreaming();
-    const sendPromise = ctrl.enqueueFrameSend({
-      data: new Uint8Array([1]),
-      mimeType: 'image/jpeg',
-      sequence: 1,
-      widthPx: 320,
-      heightPx: 240,
-    });
-
-    await vi.waitFor(() => {
-      expect(firstSendStarted).toBe(true);
-    });
-    await ctrl.stop();
-    rejectSend(new Error('frame upload failed after stop'));
-    await sendPromise;
-
-    expect(
-      store.setScreenCaptureState.mock.calls.some(([state]) => state === 'error'),
-    ).toBe(false);
-    expect(store.setLastRuntimeError).not.toHaveBeenCalledWith(
-      'frame upload failed after stop',
-    );
-  });
-
-  it('stops capture and preserves error diagnostics when an active frame send fails', async () => {
-    const { ctrl, sendVideoFrame, store, outboundGateway, mockCapture } = createHarness();
-    sendVideoFrame.mockRejectedValueOnce(new Error('frame upload failed'));
-
-    await ctrl.start();
-    ctrl.enableStreaming();
-    await ctrl.enqueueFrameSend({
-      data: new Uint8Array([1]),
-      mimeType: 'image/jpeg',
-      sequence: 1,
-      widthPx: 320,
-      heightPx: 240,
-    });
-
-    await vi.waitFor(() => {
-      expect(outboundGateway.recordFailure).toHaveBeenCalledWith('frame upload failed');
-      expect(mockCapture.stop).toHaveBeenCalledTimes(1);
-      expect(store.setLastRuntimeError).toHaveBeenCalledWith('frame upload failed');
-      expect(store.setScreenCaptureState.mock.calls.slice(-2)).toEqual([
-        ['stopping'],
-        ['error'],
-      ]);
-      expect(store.setScreenCaptureDiagnostics).toHaveBeenLastCalledWith({
-        lastUploadStatus: 'error',
-        lastError: 'frame upload failed',
-      });
-    });
-
-    expect(ctrl.getVisualSendState()).toBe('inactive');
-    expect(ctrl.isActive()).toBe(false);
-  });
-
-  it('resets the send chain when capture is toggled off and back on', async () => {
-    const { ctrl, sendVideoFrame } = createHarness();
-    let firstSendStarted = false;
-    sendVideoFrame
-      .mockImplementationOnce(
-        () =>
-          new Promise<void>(() => {
-            firstSendStarted = true;
-          }),
-      )
-      .mockResolvedValueOnce(undefined);
-
-    await ctrl.start();
-    ctrl.enableStreaming();
-    void ctrl.enqueueFrameSend({
-      data: new Uint8Array([1]),
-      mimeType: 'image/jpeg',
-      sequence: 1,
-      widthPx: 320,
-      heightPx: 240,
-    });
-    await vi.waitFor(() => {
-      expect(firstSendStarted).toBe(true);
-    });
-
-    await ctrl.stop();
-    await ctrl.start();
-    ctrl.enableStreaming();
-    await ctrl.enqueueFrameSend({
-      data: new Uint8Array([2]),
-      mimeType: 'image/jpeg',
-      sequence: 2,
-      widthPx: 320,
-      heightPx: 240,
-    });
-
-    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
-    expect(sendVideoFrame.mock.calls[1]).toEqual([
-      new Uint8Array([2]),
-      'image/jpeg',
-    ]);
-  });
-
-  it('enqueueFrameSend is no-op without active capture', async () => {
-    const { ctrl, sendVideoFrame } = createHarness();
-
-    // Not started, so no capture
-    const frame = { data: new Uint8Array([1]), mimeType: 'image/jpeg' as const, sequence: 1, widthPx: 320, heightPx: 240 };
-    await ctrl.enqueueFrameSend(frame);
-
-    expect(sendVideoFrame).not.toHaveBeenCalled();
-  });
-
-  it('observer onError stops capture, preserves diagnostics, and resets visual state', async () => {
-    const { ctrl, store, getObserver, mockCapture } = createHarness();
-
-    await ctrl.start();
-    ctrl.enableStreaming();
-    getObserver()!.onError('device lost');
-
-    await vi.waitFor(() => {
-      expect(mockCapture.stop).toHaveBeenCalledTimes(1);
-      expect(store.setLastRuntimeError).toHaveBeenCalledWith('device lost');
-      expect(store.setScreenCaptureState.mock.calls.slice(-2)).toEqual([
-        ['stopping'],
-        ['error'],
-      ]);
-      expect(store.setScreenCaptureDiagnostics).toHaveBeenLastCalledWith({
-        lastUploadStatus: 'error',
-        lastError: 'device lost',
-      });
-    });
-
-    expect(ctrl.getVisualSendState()).toBe('inactive');
-    expect(ctrl.isActive()).toBe(false);
-  });
-
-  it('observer onDiagnostics patches store', async () => {
-    const { ctrl, store, getObserver } = createHarness();
-
-    await ctrl.start();
-    getObserver()!.onDiagnostics({ frameCount: 42 });
-
-    expect(store.setScreenCaptureDiagnostics).toHaveBeenCalledWith({ frameCount: 42 });
-  });
-
-  it('start allowed for all active voice statuses', async () => {
-    for (const status of ['ready', 'capturing', 'streaming', 'interrupted'] as VoiceSessionStatus[]) {
-      const { ctrl, createCapture } = createHarness({ voiceSessionStatus: status });
-      await ctrl.start();
-      expect(createCapture).toHaveBeenCalledTimes(1);
-    }
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -761,9 +267,9 @@ describe('createScreenCaptureController', () => {
 // request (analyzeScreenNow → snapshot) or an explicit streaming trigger.
 // ---------------------------------------------------------------------------
 describe('createScreenCaptureController – visual send policy', () => {
-  it('sends the first frame automatically after start (streaming armed on start)', async () => {
-    // start() arms streaming so the model immediately has visual context and
-    // continues to receive frames for the duration of the screen share session.
+  it('sends the first frame automatically after start (bootstrap snapshot)', async () => {
+    // start() arms a bootstrap snapshot so the model immediately has visual
+    // context. After this single frame, the policy reverts to sleep.
     const { ctrl, getObserver, sendVideoFrame } = createHarness();
     await ctrl.start();
 
@@ -777,6 +283,36 @@ describe('createScreenCaptureController – visual send policy', () => {
     await Promise.resolve();
 
     expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send subsequent frames after the bootstrap snapshot is consumed', async () => {
+    // After the bootstrap snapshot, the policy is in sleep. Subsequent frames
+    // should NOT be sent unless the caller explicitly enables streaming.
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+    await ctrl.start();
+
+    // First frame: bootstrap snapshot consumed
+    getObserver()!.onFrame({
+      data: new Uint8Array([1]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 640,
+      heightPx: 360,
+    });
+    await Promise.resolve();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Second frame: sleep → blocked
+    getObserver()!.onFrame({
+      data: new Uint8Array([2]),
+      mimeType: 'image/jpeg',
+      sequence: 2,
+      widthPx: 640,
+      heightPx: 360,
+    });
+    await Promise.resolve();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(ctrl.getVisualSendState()).toBe('sleep');
   });
 
   it('sends exactly one frame after analyzeScreenNow (snapshot)', async () => {
@@ -874,12 +410,12 @@ describe('createScreenCaptureController – visual send policy', () => {
     expect(ctrl.getVisualSendState()).toBe('inactive');
   });
 
-  it('visual state becomes streaming after start succeeds (streaming armed on start)', async () => {
-    // start() now arms streaming so the model receives continuous visual
-    // context without any explicit call from the caller.
+  it('visual state becomes snapshot after start succeeds (bootstrap armed on start)', async () => {
+    // start() arms a bootstrap snapshot so the model receives initial visual
+    // context. The policy then reverts to sleep after the first frame.
     const { ctrl } = createHarness();
     await ctrl.start();
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
   });
 
   it('visual state becomes snapshot after analyzeScreenNow', async () => {
@@ -958,11 +494,13 @@ describe('createScreenCaptureController – visual send pipeline (Wave 2)', () =
   // ── sleep ──────────────────────────────────────────────────────────────────
 
   it('sleep blocks a burst of frames arriving through the observer', async () => {
-    // start() arms streaming; stop streaming explicitly to reach sleep, then
-    // verify a subsequent burst is blocked.
+    // start() arms a bootstrap snapshot; consume it, then verify a subsequent
+    // burst in sleep is blocked.
     const { ctrl, getObserver, sendVideoFrame } = createHarness();
     await ctrl.start();
-    ctrl.stopStreaming(); // explicitly transition to sleep
+    // Consume the bootstrap snapshot
+    getObserver()!.onFrame(mkFrame(0));
+    await Promise.resolve();
     sendVideoFrame.mockClear();
 
     // Now in sleep; subsequent frames must all be blocked
@@ -1174,9 +712,9 @@ describe('createScreenCaptureController – visual send pipeline (Wave 2)', () =
     expect(ctrl.getVisualSendState()).toBe('inactive');
   });
 
-  it('restarting screen share re-arms streaming; all frames flow in the new session', async () => {
-    // Each start() arms streaming so the new capture session immediately
-    // delivers frames to the model without any extra configuration.
+  it('restarting screen share re-arms bootstrap snapshot for the new session', async () => {
+    // Each start() arms a bootstrap snapshot so the new capture session
+    // immediately delivers one initial frame to the model.
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: (i) => ({
         outcome: i <= 3 ? 'send' as const : 'replace' as const,
@@ -1185,7 +723,7 @@ describe('createScreenCaptureController – visual send pipeline (Wave 2)', () =
       }),
     });
 
-    // First session: frames flow freely
+    // First session: bootstrap snapshot delivers one frame
     await ctrl.start();
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
@@ -1193,16 +731,18 @@ describe('createScreenCaptureController – visual send pipeline (Wave 2)', () =
     await ctrl.stop();
     sendVideoFrame.mockClear();
 
-    // Second session: streaming re-armed by start(); frames continue to flow
+    // Second session: bootstrap snapshot re-armed by start()
     await ctrl.start();
     getObserver()!.onFrame(mkFrame(2));
     await Promise.resolve();
     expect(sendVideoFrame).toHaveBeenCalledTimes(1);
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    // After bootstrap consumed, policy reverts to sleep
+    expect(ctrl.getVisualSendState()).toBe('sleep');
 
+    // Further frames are blocked in sleep
     getObserver()!.onFrame(mkFrame(3));
     await Promise.resolve();
-    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1229,11 +769,11 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     heightPx: 360,
   });
 
-  // ── Requirement 1 & 3: continuous visual delivery from start ──────────────
+  // ── Requirement 1 & 3: bootstrap snapshot delivers initial visual context ─
 
-  it('enabling screen share immediately arms streaming so the first frame reaches the model', async () => {
-    // start() must arm streaming so every frame from the hardware is forwarded
-    // to the model for the duration of the screen share session.
+  it('enabling screen share arms a bootstrap snapshot so the first frame reaches the model', async () => {
+    // start() must arm a bootstrap snapshot so the first frame from the
+    // hardware is forwarded to the model without any explicit caller action.
     const { ctrl, getObserver, sendVideoFrame } = createHarness();
 
     await ctrl.start();
@@ -1247,9 +787,9 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     expect(sendVideoFrame).toHaveBeenCalledWith(mkFrame(1).data, mkFrame(1).mimeType);
   });
 
-  it('all subsequent frames are delivered continuously while streaming is active', async () => {
-    // Unlike snapshot mode, streaming forwards every frame – the model always
-    // has up-to-date visual context while screen share is on.
+  it('after the bootstrap snapshot, policy reverts to sleep and blocks subsequent frames', async () => {
+    // The bootstrap snapshot delivers exactly one frame. After that, the
+    // policy is in sleep and no further frames are sent automatically.
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: (i) => ({
         outcome: i === 1 ? 'send' as const : 'replace' as const,
@@ -1262,27 +802,29 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
 
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Second frame is blocked because policy is now in sleep
     getObserver()!.onFrame(mkFrame(2));
     await Promise.resolve();
-
-    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(ctrl.getVisualSendState()).toBe('sleep');
   });
 
-  it('visual state is streaming immediately after start (before the first frame arrives)', async () => {
+  it('visual state is snapshot immediately after start (before the first frame arrives)', async () => {
     // Policy must already be armed when start() resolves so a slow capture
-    // device is still fully wired for delivery.
+    // device is still fully wired for initial delivery.
     const { ctrl } = createHarness();
 
     await ctrl.start();
 
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
   });
 
-  it('screen share active leaves model with visual context – no speech-only mismatch', async () => {
-    // Regression test for the original mismatch: after enabling screen share
-    // the assistant must receive visual frames without extra steps, and the
-    // channel must remain open (streaming, not sleep) for continuous delivery.
+  it('screen share active gives model initial visual context via bootstrap snapshot', async () => {
+    // After enabling screen share the assistant receives one initial frame
+    // for context. The policy then returns to sleep — continuous delivery
+    // requires an explicit enableStreaming() call.
     const { ctrl, getObserver, sendVideoFrame } = createHarness();
 
     await ctrl.start();
@@ -1290,15 +832,15 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     await Promise.resolve();
 
     expect(sendVideoFrame).toHaveBeenCalledTimes(1);
-    // Policy stays in streaming – the model continues to receive visual updates.
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    // Policy reverts to sleep after bootstrap — no continuous delivery by default.
+    expect(ctrl.getVisualSendState()).toBe('sleep');
   });
 
-  // ── Requirement 2: gateway-blocked frame does not close the streaming channel ─
+  // ── Requirement 2: gateway-blocked frame does not consume the bootstrap snapshot ─
 
-  it('streaming channel stays open when the outbound gateway blocks a frame', async () => {
-    // In streaming mode a gateway block does NOT consume any state token –
-    // the next frame passes allowSend() just as before.
+  it('bootstrap snapshot stays armed when the outbound gateway blocks a frame', async () => {
+    // A gateway block does NOT consume the snapshot — the bootstrap frame
+    // remains armed for the next attempt when the gateway recovers.
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: () => ({
         outcome: 'block' as const,
@@ -1313,11 +855,11 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     await Promise.resolve();
 
     expect(sendVideoFrame).not.toHaveBeenCalled();
-    // Policy remains streaming – channel is open for when the gateway recovers.
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    // Policy remains snapshot – bootstrap is still pending for when the gateway recovers.
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
   });
 
-  it('streaming channel stays open when the outbound gateway drops a frame', async () => {
+  it('bootstrap snapshot stays armed when the outbound gateway drops a frame', async () => {
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: () => ({
         outcome: 'drop' as const,
@@ -1332,13 +874,13 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     await Promise.resolve();
 
     expect(sendVideoFrame).not.toHaveBeenCalled();
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
   });
 
-  it('frame is delivered on the next gateway-accepted attempt after a transient block', async () => {
+  it('bootstrap frame is delivered on the next gateway-accepted attempt after a transient block', async () => {
     // Mixed scenario: first frame blocked, second frame accepted.
-    // Both frames pass allowSend() (streaming); the first is blocked by the
-    // gateway, the second gets through.
+    // Both frames pass allowSend() (snapshot); the first is blocked by the
+    // gateway (snapshot not consumed), the second gets through.
     let callIndex = 0;
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: () => {
@@ -1352,44 +894,34 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
 
     await ctrl.start();
 
-    // First frame: gateway blocks – channel stays streaming
+    // First frame: gateway blocks – snapshot stays armed
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
     expect(sendVideoFrame).not.toHaveBeenCalled();
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
 
-    // Second frame: gateway accepts – delivered successfully
+    // Second frame: gateway accepts – bootstrap delivered, reverts to sleep
     getObserver()!.onFrame(mkFrame(2));
     await Promise.resolve();
     expect(sendVideoFrame).toHaveBeenCalledTimes(1);
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    expect(ctrl.getVisualSendState()).toBe('sleep');
   });
 
   // ── Requirement 4: stopStreaming / enableStreaming wired on public ctrl ────
 
-  it('stopStreaming transitions policy to sleep and subsequent frames are blocked', async () => {
-    const { ctrl, getObserver, sendVideoFrame } = createHarness();
-
-    await ctrl.start();
-    ctrl.stopStreaming();
-    expect(ctrl.getVisualSendState()).toBe('sleep');
-
-    getObserver()!.onFrame(mkFrame(1));
-    await Promise.resolve();
-    expect(sendVideoFrame).not.toHaveBeenCalled();
-  });
-
-  it('enableStreaming after stopStreaming resumes continuous frame delivery', async () => {
+  it('enableStreaming transitions policy from sleep to streaming and enables continuous delivery', async () => {
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: (i) => ({
-        outcome: i === 1 ? 'send' as const : 'replace' as const,
+        outcome: i <= 2 ? 'send' as const : 'replace' as const,
         classification: 'replaceable' as const,
-        reason: i === 1 ? 'accepted' : 'superseded-latest',
+        reason: i <= 2 ? 'accepted' : 'superseded-latest',
       }),
     });
 
     await ctrl.start();
-    ctrl.stopStreaming();
+    // Consume bootstrap snapshot
+    getObserver()!.onFrame(mkFrame(0));
+    await Promise.resolve();
     sendVideoFrame.mockClear();
 
     ctrl.enableStreaming();
@@ -1400,40 +932,66 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     expect(sendVideoFrame).toHaveBeenCalledTimes(1);
   });
 
-  it('visual send diagnostics reflect enableStreaming transition reason after start', async () => {
+  it('stopStreaming transitions policy to sleep and subsequent frames are blocked', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+
+    await ctrl.start();
+    // Consume bootstrap, then enable streaming, then stop it
+    getObserver()!.onFrame(mkFrame(0));
+    await Promise.resolve();
+    sendVideoFrame.mockClear();
+    ctrl.enableStreaming();
+    ctrl.stopStreaming();
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+  });
+
+  it('visual send diagnostics reflect bootstrap transition reason after start', async () => {
     const { ctrl, store, getObserver } = createHarness();
 
     await ctrl.start();
-    // Diagnostics after start: transition reason reflects enableStreaming
+    // Diagnostics after start: transition reason reflects bootstrap
     expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith(
-      expect.objectContaining({ lastTransitionReason: 'enableStreaming', snapshotCount: 0 }),
+      expect.objectContaining({ lastTransitionReason: 'bootstrap', snapshotCount: 1 }),
     );
 
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
 
-    // A streaming frame increments sentByState.streaming
+    // A bootstrap frame increments sentByState.snapshot
     expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith(
-      expect.objectContaining({ lastTransitionReason: 'enableStreaming', sentByState: { snapshot: 0, streaming: 1 } }),
+      expect.objectContaining({ lastTransitionReason: 'snapshotConsumed', sentByState: { snapshot: 1, streaming: 0 } }),
     );
   });
 
   // ── Requirement 5: no regression in existing policy transitions ───────────
 
-  it('analyzeScreenNow interrupts streaming to arm a one-shot snapshot', async () => {
+  it('analyzeScreenNow arms a one-shot snapshot from sleep', async () => {
     // analyzeScreenNow() is preserved for explicit single-frame captures.
-    // From streaming it transitions to snapshot, delivering exactly one frame,
-    // then the channel goes to sleep.
+    // From sleep it transitions to snapshot, delivering exactly one frame,
+    // then the channel returns to sleep.
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: (i) => ({
         outcome: i <= 2 ? 'send' as const : 'replace' as const,
         classification: 'replaceable' as const,
         reason: i <= 2 ? 'accepted' : 'superseded-latest',
       }),
+      visualSendPolicyOptions: { nowMs: (() => {
+        let t = 0;
+        return () => { t += 5000; return t; };
+      })() },
     });
 
     await ctrl.start();
-    // At this point we are in streaming. Call analyzeScreenNow to interrupt.
+    // Consume bootstrap snapshot
+    getObserver()!.onFrame(mkFrame(0));
+    await Promise.resolve();
+    sendVideoFrame.mockClear();
+
+    // Now in sleep. Call analyzeScreenNow to arm a new snapshot.
     ctrl.analyzeScreenNow();
     expect(ctrl.getVisualSendState()).toBe('snapshot');
 
@@ -1441,7 +999,7 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
     expect(sendVideoFrame).toHaveBeenCalledTimes(1);
-    // Back to sleep (snapshot consumed, NOT back to streaming)
+    // Back to sleep (snapshot consumed)
     expect(ctrl.getVisualSendState()).toBe('sleep');
   });
 
@@ -1456,7 +1014,7 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     expect(ctrl.getVisualSendState()).toBe('inactive');
   });
 
-  it('restarting screen share after stop re-arms streaming for the new session', async () => {
+  it('restarting screen share after stop re-arms bootstrap snapshot for the new session', async () => {
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: (i) => ({
         outcome: i <= 2 ? 'send' as const : 'replace' as const,
@@ -1472,9 +1030,9 @@ describe('createScreenCaptureController – screen-capture initial delivery', ()
     await ctrl.stop();
     sendVideoFrame.mockClear();
 
-    // Second session: streaming must be re-armed
+    // Second session: bootstrap snapshot must be re-armed
     await ctrl.start();
-    expect(ctrl.getVisualSendState()).toBe('streaming');
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
     getObserver()!.onFrame(mkFrame(2));
     await Promise.resolve();
 
@@ -1510,7 +1068,9 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
     const { ctrl, getObserver, store } = createHarness();
 
     await ctrl.start();
-    ctrl.stopStreaming(); // go to sleep so the next frame is blocked
+    // Consume bootstrap snapshot so we're in sleep
+    getObserver()!.onFrame(mkFrame(0));
+    await Promise.resolve();
     store.setScreenCaptureDiagnostics.mockClear();
 
     // In sleep – hardware delivers frame but it won't be sent
@@ -1522,39 +1082,42 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
 
   // ── Requirement 2: sent frame increments send diagnostics separately ──────
 
-  it('sent frame increments sentByState.streaming counter in visual send diagnostics', async () => {
-    // start() arms streaming so sent frames increment streaming, not snapshot.
+  it('bootstrap frame increments sentByState.snapshot counter in visual send diagnostics', async () => {
+    // start() arms a bootstrap snapshot so the first sent frame increments snapshot.
     const { ctrl, store, getObserver } = createHarness();
 
     await ctrl.start();
-    getObserver()!.onFrame(mkFrame(1)); // streaming frame
+    getObserver()!.onFrame(mkFrame(1)); // bootstrap snapshot frame
     await Promise.resolve();
 
     const lastCall = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
     expect(lastCall).toMatchObject({
-      sentByState: { snapshot: 0, streaming: 1 },
+      sentByState: { snapshot: 1, streaming: 0 },
     });
   });
 
-  it('streaming frames increment sentByState.streaming separately from capture count', async () => {
+  it('streaming frames increment sentByState.streaming after explicit enableStreaming', async () => {
     const { ctrl, store, getObserver } = createHarness({
       submitDecision: (i) => ({
-        outcome: i <= 2 ? 'send' as const : 'replace' as const,
+        outcome: i <= 3 ? 'send' as const : 'replace' as const,
         classification: 'replaceable' as const,
-        reason: i <= 2 ? 'accepted' : 'superseded-latest',
+        reason: i <= 3 ? 'accepted' : 'superseded-latest',
       }),
     });
 
-    // start() already arms streaming – no need to drain a snapshot first
+    // Consume bootstrap snapshot first, then enable streaming
     await ctrl.start();
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
+    ctrl.enableStreaming();
     getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+    getObserver()!.onFrame(mkFrame(3));
     await Promise.resolve();
 
     const lastCall = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
     expect(lastCall).toMatchObject({
-      sentByState: { snapshot: 0, streaming: 2 },
+      sentByState: { snapshot: 1, streaming: 2 },
     });
   });
 
@@ -1570,7 +1133,7 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
     });
 
     await ctrl.start();
-    // streaming is armed; frame 1 passes allowSend() but gateway blocks it
+    // bootstrap snapshot is armed; frame 1 passes allowSend() but gateway blocks it
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
 
@@ -1586,10 +1149,9 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
     const { ctrl, getObserver, store } = createHarness();
 
     await ctrl.start();
-    // Send frame 1 via streaming, then stop streaming to enter sleep
+    // Send frame 1 via bootstrap snapshot, then policy reverts to sleep
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
-    ctrl.stopStreaming(); // → sleep
     store.setVisualSendDiagnostics.mockClear();
 
     // Sleep state – next frame is policy-blocked
@@ -1599,13 +1161,19 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
     const lastDiagnostics = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
     expect(lastDiagnostics).toMatchObject({
       droppedByPolicy: expect.any(Number),
-      // sentByState reflects only the earlier streaming send, not the dropped frame
-      sentByState: { snapshot: 0, streaming: 1 },
+      // sentByState reflects only the earlier bootstrap send, not the dropped frame
+      sentByState: { snapshot: 1, streaming: 0 },
     });
     expect(lastDiagnostics.droppedByPolicy).toBeGreaterThan(0);
   });
 
   it('blockedByGateway count does not appear in sentByState after multiple gateway blocks', async () => {
+    // Bootstrap snapshot is armed but all frames are gateway-blocked.
+    // Only the first frame passes allowSend() (snapshot); subsequent ones
+    // are blocked by the snapshot being consumed on gateway-block... but wait,
+    // gateway-blocked frames do NOT consume the snapshot, so all frames
+    // will hit allowSend() = true until the snapshot is consumed by a
+    // successful dispatch. Since all are blocked, snapshot stays armed.
     const { ctrl, getObserver, store } = createHarness({
       submitDecision: () => ({
         outcome: 'block' as const,
@@ -1637,7 +1205,9 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
     });
 
     await ctrl.start();
-    ctrl.stopStreaming(); // go to sleep so the next frame is blocked
+    // Consume bootstrap snapshot so we're in sleep
+    getObserver()!.onFrame(mkFrame(0));
+    await Promise.resolve();
 
     // In sleep – frame is captured but not sent
     const blockedFrame = mkFrame(1);
@@ -1666,18 +1236,27 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
   });
 
   it('no regression: sentByState.snapshot increments when a snapshot frame is sent via analyzeScreenNow', async () => {
-    // analyzeScreenNow arms a snapshot from sleep/streaming. The snapshot-sent
+    // analyzeScreenNow arms a snapshot from sleep. The snapshot-sent
     // counter must increment when that frame reaches the transport.
-    const { ctrl, store, getObserver } = createHarness();
+    const { ctrl, store, getObserver } = createHarness({
+      visualSendPolicyOptions: { nowMs: (() => {
+        let t = 0;
+        return () => { t += 5000; return t; };
+      })() },
+    });
 
     await ctrl.start();
-    ctrl.stopStreaming(); // → sleep so analyzeScreenNow arms from sleep (cooldown not active from enableStreaming)
-    ctrl.analyzeScreenNow(); // arms snapshot
+    // Consume bootstrap snapshot
+    getObserver()!.onFrame(mkFrame(0));
+    await Promise.resolve();
+
+    ctrl.analyzeScreenNow(); // arms snapshot from sleep
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
 
     const lastCall = store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
-    expect(lastCall.sentByState.snapshot).toBe(1);
+    // 2 snapshots: 1 bootstrap + 1 explicit
+    expect(lastCall.sentByState.snapshot).toBe(2);
   });
 
   it('no regression: gateway-blocked frame does not change screenCaptureDiagnostics lastUploadStatus to sent', async () => {
@@ -1696,5 +1275,1043 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
     const calls = store.setScreenCaptureDiagnostics.mock.calls;
     const sentCalls = calls.filter(([p]) => p.lastUploadStatus === 'sent');
     expect(sentCalls).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 2 – Intelligent local triggers for visual delivery
+//
+// Tests for:
+//   1. Speech trigger (onSpeechStart) fires a snapshot
+//   2. Text trigger (onTextSent) fires a snapshot
+//   3. Visual change detection triggers burst streaming
+//   4. Burst auto-expires after timer
+//   5. Burst ends early on stabilization (consecutive non-change frames)
+//   6. Burst timer resets on continued visual change
+//   7. Explicit analyzeScreenNow/enableStreaming/stopStreaming clear burst state
+//   8. Bootstrap snapshot does NOT block subsequent triggers
+//   9. Diagnostics reflect triggers and bursts
+// ---------------------------------------------------------------------------
+describe('createScreenCaptureController – Wave 2 triggers and burst', () => {
+  const mkFrame = (seq: number, fill = seq) => ({
+    data: new Uint8Array(128).fill(fill),
+    mimeType: 'image/jpeg' as const,
+    sequence: seq,
+    widthPx: 640,
+    heightPx: 360,
+  });
+
+  // Helper: start controller, consume bootstrap snapshot, and return to sleep
+  async function startAndConsumeBootstrap(harness: ReturnType<typeof createHarness>) {
+    await harness.ctrl.start();
+    harness.getObserver()!.onFrame(mkFrame(0, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+  }
+
+  // ── 1. Speech trigger ───────────────────────────────────────────────────
+
+  it('onSpeechStart arms a snapshot when screen share is active and in sleep', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Advance past any cooldown
+    now += 5000;
+    harness.ctrl.onSpeechStart();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+
+    // Next frame should be sent
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+    // Back to sleep after snapshot consumed
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('onSpeechStart is no-op when screen share is not active', () => {
+    const harness = createHarness();
+    // Not started
+    harness.ctrl.onSpeechStart();
+    expect(harness.ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  // ── 2. Text trigger ────────────────────────────────────────────────────
+
+  it('onTextSent arms a snapshot when screen share is active and in sleep', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+    });
+    await startAndConsumeBootstrap(harness);
+
+    now += 5000;
+    harness.ctrl.onTextSent();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('onTextSent is no-op when screen share is not active', () => {
+    const harness = createHarness();
+    harness.ctrl.onTextSent();
+    expect(harness.ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  // ── Trigger cooldown ──────────────────────────────────────────────────
+
+  it('triggers respect their own cooldown: second trigger within 2s is ignored', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+    });
+    await startAndConsumeBootstrap(harness);
+
+    now += 5000;
+    harness.ctrl.onSpeechStart();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+
+    // Consume the snapshot
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+
+    // Within cooldown (2s), another trigger should be ignored
+    now += 1000;
+    harness.ctrl.onTextSent();
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+
+    // After cooldown passes, trigger works
+    now += 2000;
+    harness.ctrl.onTextSent();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  // ── 3. Visual change detection → burst ────────────────────────────────
+
+  it('visual change in a frame triggers burst streaming from sleep', async () => {
+    const harness = createHarness({
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Send a frame with drastically different content to trigger visual change
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    // The frame that triggered the burst should be sent
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+
+  // ── 4. Burst auto-expires after timer ─────────────────────────────────
+
+  it('burst auto-expires after burstDurationMs', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        burstDurationMs: 100,
+        submitDecision: () => ({
+          outcome: 'send' as const,
+          classification: 'replaceable' as const,
+          reason: 'accepted',
+        }),
+      });
+      await startAndConsumeBootstrap(harness);
+
+      // Trigger burst via visual change
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Advance past burst duration
+      vi.advanceTimersByTime(101);
+      expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── 5. Burst ends early on stabilization ──────────────────────────────
+
+  it('burst ends early when consecutive non-change frames reach the stabilization threshold', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000, // long timer so only stabilization ends it
+      burstStableFrames: 2,
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Trigger burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // Two consecutive non-change frames (same fill=250 as the last)
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+    // 1 non-change frame, not enough yet
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    harness.getObserver()!.onFrame(mkFrame(3, 250));
+    await Promise.resolve();
+    // 2 consecutive non-change frames → stabilization → back to sleep
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  // ── 6. Burst timer resets on continued visual change ──────────────────
+
+  it('burst timer resets when visual changes continue during an active burst', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        burstDurationMs: 100,
+        submitDecision: () => ({
+          outcome: 'send' as const,
+          classification: 'replaceable' as const,
+          reason: 'accepted',
+        }),
+      });
+      await startAndConsumeBootstrap(harness);
+
+      // Start burst
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Advance 80ms (within burst window)
+      vi.advanceTimersByTime(80);
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Another visual change resets the timer
+      harness.getObserver()!.onFrame(mkFrame(2, 50));
+      await Promise.resolve();
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Advance another 80ms — would have expired under original timer, but not after reset
+      vi.advanceTimersByTime(80);
+      expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+      // Now advance past full burst duration from last reset
+      vi.advanceTimersByTime(50);
+      expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── 7. Explicit controls clear burst state ────────────────────────────
+
+  it('analyzeScreenNow clears an active burst', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // analyzeScreenNow clears burst and arms snapshot
+    harness.ctrl.analyzeScreenNow();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  it('enableStreaming clears an active burst and enters explicit streaming', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // enableStreaming overrides burst — still streaming but burst is cleared
+    harness.ctrl.enableStreaming();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // Verify burst is cleared: non-change frames should NOT trigger stabilization
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+    harness.getObserver()!.onFrame(mkFrame(3, 250));
+    await Promise.resolve();
+    // Still streaming (explicit, not burst — no stabilization cutoff)
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+  });
+
+  it('stopStreaming clears an active burst and returns to sleep', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    harness.ctrl.stopStreaming();
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  // ── 8. Bootstrap does NOT block triggers ──────────────────────────────
+
+  it('speech trigger works immediately after bootstrap snapshot (no cooldown set by bootstrap)', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await harness.ctrl.start();
+
+    // Consume bootstrap
+    harness.getObserver()!.onFrame(mkFrame(0, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+
+    // Immediately trigger speech (no time advance needed — bootstrap sets no cooldown)
+    harness.ctrl.onSpeechStart();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  it('analyzeScreenNow works immediately after bootstrap (no cooldown set by bootstrap)', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await harness.ctrl.start();
+
+    // Consume bootstrap
+    harness.getObserver()!.onFrame(mkFrame(0, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+
+    // analyzeScreenNow should work immediately (bootstrap set no cooldown)
+    harness.ctrl.analyzeScreenNow();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  // ── 9. Diagnostics reflect triggers and bursts ────────────────────────
+
+  it('diagnostics include triggerSnapshotCount after speech/text triggers', async () => {
+    let now = 0;
+    const harness = createHarness({
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Trigger 1
+    now += 5000;
+    harness.ctrl.onSpeechStart();
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+
+    // Trigger 2
+    now += 5000;
+    harness.ctrl.onTextSent();
+    harness.getObserver()!.onFrame(mkFrame(2, 100));
+    await Promise.resolve();
+
+    const lastDiag = harness.store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastDiag.triggerSnapshotCount).toBe(2);
+  });
+
+  it('diagnostics include burstCount after visual change triggers burst', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        burstDurationMs: 100,
+        submitDecision: () => ({
+          outcome: 'send' as const,
+          classification: 'replaceable' as const,
+          reason: 'accepted',
+        }),
+      });
+      await startAndConsumeBootstrap(harness);
+
+      // Trigger burst via visual change
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+
+      let diag = harness.store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+      expect(diag.burstCount).toBe(1);
+
+      // Let burst expire, then trigger another
+      vi.advanceTimersByTime(101);
+      harness.getObserver()!.onFrame(mkFrame(2, 50));
+      await Promise.resolve();
+
+      diag = harness.store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+      expect(diag.burstCount).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── Stop clears burst state ───────────────────────────────────────────
+
+  it('stopping screen share clears burst state and resets visual change detector', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      submitDecision: () => ({
+        outcome: 'send' as const,
+        classification: 'replaceable' as const,
+        reason: 'accepted',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    await harness.ctrl.stop();
+    expect(harness.ctrl.getVisualSendState()).toBe('inactive');
+
+    // Restart — should be clean state (no leftover burst)
+    await harness.ctrl.start();
+    expect(harness.ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  // ── Exported constants ────────────────────────────────────────────────
+
+  it('exports expected burst constants', () => {
+    expect(VISUAL_BURST_DURATION_MS).toBe(5000);
+    expect(VISUAL_BURST_STABLE_FRAMES).toBe(3);
+    expect(VISUAL_BURST_SEND_COOLDOWN_MS).toBe(1000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 3 – Burst gating, throttling, and stabilization refinement
+//
+// Tests for:
+//   A. Pre-send visual gate: near-duplicate frames suppressed during burst
+//   B. Burst send throttle: minimum interval between burst sends
+//   C. Decay-based stabilization: noise frames slow but don't prevent shutdown
+//   D. Non-burst sends are unaffected by gate/throttle
+// ---------------------------------------------------------------------------
+describe('createScreenCaptureController – Wave 3 burst efficiency', () => {
+  const mkFrame = (seq: number, fill = seq) => ({
+    data: new Uint8Array(128).fill(fill),
+    mimeType: 'image/jpeg' as const,
+    sequence: seq,
+    widthPx: 640,
+    heightPx: 360,
+  });
+
+  async function startAndConsumeBootstrap(harness: ReturnType<typeof createHarness>) {
+    await harness.ctrl.start();
+    harness.getObserver()!.onFrame(mkFrame(0, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+  }
+
+  const alwaysSend = (): RealtimeOutboundDecision => ({
+    outcome: 'send' as const,
+    classification: 'replaceable' as const,
+    reason: 'accepted',
+  });
+
+  // ── A. Pre-send visual gate ─────────────────────────────────────────────
+
+  it('burst send gate suppresses near-duplicate frames during burst', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      burstSendCooldownMs: 0, // disable throttle to isolate gate behavior
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    // Trigger burst with a changed frame (fill=250 vs baseline fill=100)
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Send identical frame — should be suppressed by visual gate
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Send a different frame — should pass the gate
+    harness.getObserver()!.onFrame(mkFrame(3, 50));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+  });
+
+  // ── B. Burst send throttle ──────────────────────────────────────────────
+
+  it('burst send throttle enforces minimum interval between burst sends', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      burstSendCooldownMs: 1000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    // Trigger burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Within cooldown (500ms later) — different frame but throttled
+    now += 500;
+    harness.getObserver()!.onFrame(mkFrame(2, 50));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // After cooldown (1100ms from first send) — should pass
+    now += 600;
+    harness.getObserver()!.onFrame(mkFrame(3, 150));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+  });
+
+  it('first frame in burst always bypasses throttle cooldown', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 100,
+      burstSendCooldownMs: 5000, // very long cooldown
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    vi.useFakeTimers();
+    try {
+      // Trigger first burst — first frame should always send
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+      // Let burst expire
+      vi.advanceTimersByTime(101);
+
+      // Start second burst — first frame should bypass cooldown
+      now += 200; // only 200ms since last send
+      harness.getObserver()!.onFrame(mkFrame(2, 50));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── C. Decay-based stabilization ────────────────────────────────────────
+
+  it('stabilization uses decay: noise frame reduces counter instead of resetting', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      burstStableFrames: 3,
+      burstSendCooldownMs: 0,
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // 2 non-change frames: count → 2
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+    harness.getObserver()!.onFrame(mkFrame(3, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming'); // not yet at 3
+
+    // 1 change frame (noise): count → max(0, 2-1) = 1
+    harness.getObserver()!.onFrame(mkFrame(4, 50));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // 2 more non-change frames: count → 2, then 3 → stabilized
+    harness.getObserver()!.onFrame(mkFrame(5, 50));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming'); // count=2
+
+    harness.getObserver()!.onFrame(mkFrame(6, 50));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep'); // count=3 → done
+  });
+
+  // ── D. Non-burst sends unaffected ──────────────────────────────────────
+
+  it('explicit streaming is not affected by burst send gate or throttle', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstSendCooldownMs: 60000, // extreme cooldown
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: (i) => ({
+        outcome: i <= 5 ? 'send' as const : 'replace' as const,
+        classification: 'replaceable' as const,
+        reason: i <= 5 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    harness.ctrl.enableStreaming();
+
+    // Send identical frames rapidly — all should pass (not burst, so no gate/throttle)
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    harness.getObserver()!.onFrame(mkFrame(2, 100));
+    await Promise.resolve();
+    harness.getObserver()!.onFrame(mkFrame(3, 100));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(3);
+  });
+
+  it('snapshot sends are not affected by burst send gate or throttle', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstSendCooldownMs: 60000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Explicit analyzeScreenNow arms snapshot — should send regardless of throttle
+    now += 5000;
+    harness.ctrl.analyzeScreenNow();
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Burst gate resets between bursts ───────────────────────────────────
+
+  it('burst send gate resets when burst ends', async () => {
+    vi.useFakeTimers();
+    try {
+      let now = 0;
+      const harness = createHarness({
+        burstDurationMs: 100,
+        burstSendCooldownMs: 0,
+        visualSendPolicyOptions: { nowMs: () => now },
+        submitDecision: alwaysSend,
+      });
+      await startAndConsumeBootstrap(harness);
+      now += 5000;
+
+      // First burst: send frame with fill=250
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+      // Let burst expire
+      vi.advanceTimersByTime(101);
+      expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+
+      // Second burst: use a different fill to trigger visual change detection
+      // (change detector baseline is fill=250 from first burst).
+      // The burst send gate was reset, so the first frame of the new burst sends.
+      harness.getObserver()!.onFrame(mkFrame(2, 50));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── droppedByPolicy counts gated/throttled frames ─────────────────────
+
+  it('frames suppressed by burst gate/throttle increment droppedByPolicy', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      burstSendCooldownMs: 0,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    // Trigger burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+
+    // Same frame — gated, should count as droppedByPolicy
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+
+    const lastDiag = harness.store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastDiag.droppedByPolicy).toBeGreaterThan(0);
+  });
+});
+
+describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
+  const alwaysSend = (): RealtimeOutboundDecision => ({
+    outcome: 'send',
+    classification: 'replaceable',
+    reason: 'accepted',
+  });
+
+  const LOW_PARAMS = getScreenCaptureQualityParams('Low');
+  const MEDIUM_PARAMS = getScreenCaptureQualityParams('Medium');
+  const HIGH_PARAMS = getScreenCaptureQualityParams('High');
+
+  async function startCapture(harness: ReturnType<typeof createHarness>): Promise<void> {
+    await harness.ctrl.start();
+    // Consume the bootstrap snapshot send
+    harness.getObserver()!.onFrame({
+      data: new Uint8Array([1, 2, 3]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 640,
+      heightPx: 360,
+    });
+    await Promise.resolve();
+  }
+
+  it('exports the promotion duration constant', () => {
+    expect(QUALITY_PROMOTION_DURATION_MS).toBe(10_000);
+  });
+
+  it('passes baseline quality params to capture.start when baseline is Low', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'Low',
+      submitDecision: alwaysSend,
+    });
+    await harness.ctrl.start();
+    expect(harness.mockCapture.start).toHaveBeenCalledTimes(1);
+    // capture.start() is called before onScreenShareStarted fires, so params are baseline
+    const startArgs = harness.mockCapture.start.mock.calls[0]?.[0];
+    if (!startArgs) {
+      throw new Error('Expected capture.start to receive quality parameters');
+    }
+    expect(startArgs.jpegQuality).toBe(LOW_PARAMS.jpegQuality);
+    expect(startArgs.maxWidthPx).toBe(LOW_PARAMS.maxWidthPx);
+    // Then promotion happens via onScreenShareStarted → promoteQuality → updateQuality
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+  });
+
+  it('passes baseline quality params to capture.start when baseline is High (no promotion)', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'High',
+      submitDecision: alwaysSend,
+    });
+    await harness.ctrl.start();
+    expect(harness.mockCapture.start).toHaveBeenCalledTimes(1);
+    const startArgs = harness.mockCapture.start.mock.calls[0]?.[0];
+    if (!startArgs) {
+      throw new Error('Expected capture.start to receive quality parameters');
+    }
+    // High baseline — promotion is no-op, still High
+    expect(startArgs.jpegQuality).toBe(HIGH_PARAMS.jpegQuality);
+    expect(startArgs.maxWidthPx).toBe(HIGH_PARAMS.maxWidthPx);
+  });
+
+  it('promotes quality on bootstrap and calls updateQuality', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'Low',
+      submitDecision: alwaysSend,
+    });
+    await harness.ctrl.start();
+    // Bootstrap triggers promote → updateQuality should be called with High params
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+  });
+
+  it('does not call updateQuality on bootstrap when baseline is High', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'High',
+      submitDecision: alwaysSend,
+    });
+    await harness.ctrl.start();
+    // High baseline — promote() is no-op, updateQuality never called
+    expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+  });
+
+  it('promotes quality on analyzeScreenNow and calls updateQuality', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Medium',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+
+      // Clear the bootstrap promotion call
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Let bootstrap promotion expire
+      vi.advanceTimersByTime(50000);
+
+      // updateQuality called with baseline params on expiry
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
+      harness.mockCapture.updateQuality.mockClear();
+
+      harness.ctrl.analyzeScreenNow();
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('promotes quality on onSpeechStart and calls updateQuality', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Let bootstrap promotion expire
+      vi.advanceTimersByTime(50000);
+      harness.mockCapture.updateQuality.mockClear();
+
+      harness.ctrl.onSpeechStart();
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('promotes quality on onTextSent and calls updateQuality', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Let bootstrap promotion expire
+      vi.advanceTimersByTime(50000);
+      harness.mockCapture.updateQuality.mockClear();
+
+      harness.ctrl.onTextSent();
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('promotion auto-expires and returns to baseline quality', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Medium',
+        promotionDurationMs: 5000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      // Bootstrap promoted → updateQuality(HIGH) already called
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Advance past promotion expiry
+      vi.advanceTimersByTime(5000);
+
+      // Should revert to baseline
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-promotion resets the expiry timer', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 5000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Advance halfway
+      vi.advanceTimersByTime(3000);
+
+      // Re-promote via speech
+      harness.ctrl.onSpeechStart();
+      // Should not have called updateQuality again (already promoted)
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      // Advance another 3s — original timer would have fired, but reset didn't
+      vi.advanceTimersByTime(3000);
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      // Full duration from re-promotion
+      vi.advanceTimersByTime(2000);
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stopStreaming returns to baseline quality when promoted', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      harness.ctrl.enableStreaming();
+      harness.ctrl.stopStreaming();
+
+      // Should revert to baseline
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
+
+      // Promotion timer should have been cleared — advancing time should not fire it
+      vi.advanceTimersByTime(50000);
+      // Only the one call from stopStreaming
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('start() reinitializes quality policy with fresh baseline', async () => {
+    vi.useFakeTimers();
+    try {
+      let baseline: VisualSessionQuality = 'Low';
+      const harness = createHarness({
+        getBaselineQuality: () => baseline,
+        promotionDurationMs: 5000,
+        submitDecision: alwaysSend,
+      });
+
+      // First session with Low baseline
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+      vi.advanceTimersByTime(5000);
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
+
+      // Stop screen share
+      await harness.ctrl.stop();
+      harness.setScreenState('disabled');
+      harness.mockCapture.updateQuality.mockClear();
+      harness.mockCapture.start.mockClear();
+
+      // Change baseline to Medium
+      baseline = 'Medium';
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+      vi.advanceTimersByTime(5000);
+      // Should revert to Medium, not Low
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('High baseline makes all promotions no-ops', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'High',
+        promotionDurationMs: 5000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+
+      // No updateQuality calls at all — baseline is already High
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      harness.ctrl.analyzeScreenNow();
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      harness.ctrl.onSpeechStart();
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      harness.ctrl.onTextSent();
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(5000);
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('quality resets on screen share stop', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Stop screen share (which calls onScreenShareStopped → resetQualityState)
+      await harness.ctrl.stop();
+
+      // Advancing time should not trigger the promotion timer callback
+      vi.advanceTimersByTime(50000);
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

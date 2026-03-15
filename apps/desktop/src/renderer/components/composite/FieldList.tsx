@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import './FieldList.css';
 
 export type FieldListItem = {
-  label: string;
+  label: ReactNode;
   value: ReactNode;
 };
 
