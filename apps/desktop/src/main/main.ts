@@ -31,7 +31,10 @@ registerIpcHandlers({
 });
 
 app.whenReady().then(() => {
-  registerDisplayMediaHandler(captureSourceRegistry);
+  registerDisplayMediaHandler(captureSourceRegistry, () => {
+    const win = getMainWindow();
+    return win ? new Set([win.getMediaSourceId()]) : new Set();
+  });
   createWindow();
   app.on('activate', () => {
     handleAppActivate();

@@ -221,4 +221,96 @@ describe('registerDisplayMediaHandler', () => {
 
     expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledTimes(2);
   });
+
+  // Wave 2: automatic source resolution tests
+
+  it('automatic mode prefers a screen source even when a window source appears first', async () => {
+    const windowFirst = { ...mockWindowSource };
+    const screenSecond = { ...mockSource };
+    mockGetSources.mockResolvedValueOnce([windowFirst, screenSecond]);
+    const { registerDisplayMediaHandler } = await import(
+      './registerDisplayMediaHandler'
+    );
+
+    registerDisplayMediaHandler(makeRegistry({ getSelectedSource: vi.fn(() => null), getSelectedSourceId: vi.fn(() => null) }));
+
+    const callback = vi.fn();
+    await registeredHandler!(
+      { frame: { url: 'http://localhost:5173' } },
+      callback,
+    );
+
+    expect(callback).toHaveBeenCalledWith({
+      video: expect.objectContaining({ id: 'screen:1:0' }),
+    });
+  });
+
+  it('automatic mode excludes the Livepair overlay window from selection', async () => {
+    const livepairOverlay = { id: 'window:99:0', name: 'Livepair', thumbnail: { toDataURL: () => '' }, display_id: '', appIcon: null };
+    mockGetSources.mockResolvedValueOnce([livepairOverlay, mockWindowSource]);
+    const { registerDisplayMediaHandler } = await import(
+      './registerDisplayMediaHandler'
+    );
+
+    registerDisplayMediaHandler(
+      makeRegistry({ getSelectedSource: vi.fn(() => null), getSelectedSourceId: vi.fn(() => null) }),
+      () => new Set([livepairOverlay.id]),
+    );
+
+    const callback = vi.fn();
+    await registeredHandler!(
+      { frame: { url: 'http://localhost:5173' } },
+      callback,
+    );
+
+    expect(callback).toHaveBeenCalledWith({
+      video: expect.objectContaining({ id: 'window:42:0' }),
+    });
+  });
+
+  it('manual selection of a window source still works when explicitly chosen', async () => {
+    mockGetSources.mockResolvedValueOnce([mockSource, mockWindowSource]);
+    const { registerDisplayMediaHandler } = await import(
+      './registerDisplayMediaHandler'
+    );
+
+    registerDisplayMediaHandler(
+      makeRegistry({ getSelectedSource: vi.fn(() => ({ id: 'window:42:0', name: 'VSCode' })) }),
+      () => new Set(['window:99:0']),
+    );
+
+    const callback = vi.fn();
+    await registeredHandler!(
+      { frame: { url: 'http://localhost:5173' } },
+      callback,
+    );
+
+    expect(callback).toHaveBeenCalledWith({
+      video: expect.objectContaining({ id: 'window:42:0' }),
+    });
+  });
+
+  it('automatic fallback is deterministic when only window sources exist', async () => {
+    const windowA = { id: 'window:10:0', name: 'Terminal', thumbnail: { toDataURL: () => '' }, display_id: '', appIcon: null };
+    const windowB = { id: 'window:11:0', name: 'Browser', thumbnail: { toDataURL: () => '' }, display_id: '', appIcon: null };
+    mockGetSources.mockResolvedValueOnce([windowA, windowB]);
+    const { registerDisplayMediaHandler } = await import(
+      './registerDisplayMediaHandler'
+    );
+
+    registerDisplayMediaHandler(
+      makeRegistry({ getSelectedSource: vi.fn(() => null), getSelectedSourceId: vi.fn(() => null) }),
+    );
+
+    const callback = vi.fn();
+    await registeredHandler!(
+      { frame: { url: 'http://localhost:5173' } },
+      callback,
+    );
+
+    // Always picks the first non-excluded window source deterministically
+    expect(callback).toHaveBeenCalledWith({
+      video: expect.objectContaining({ id: 'window:10:0' }),
+    });
+  });
 });
