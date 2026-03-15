@@ -1,5 +1,10 @@
 import type { LiveConnectMode } from '../core/session.types';
 import { VOICE_TOOL_DECLARATIONS } from '../voice/tools/voiceTools';
+import {
+  resolveDesktopVoicePreference,
+  resolveSystemInstructionPreference,
+  type DesktopVoice,
+} from '../../../shared';
 
 export const LIVE_PROVIDER = 'gemini' as const;
 export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
@@ -63,6 +68,16 @@ export type GeminiLiveConnectConfig = {
   inputAudioTranscription?: Record<string, never> | undefined;
   outputAudioTranscription?: Record<string, never> | undefined;
   mediaResolution?: LiveMediaResolution | undefined;
+  speechConfig?:
+    | {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: DesktopVoice;
+          };
+        };
+      }
+    | undefined;
+  systemInstruction?: string | undefined;
   sessionResumption?:
     | {
         handle?: string;
@@ -301,6 +316,8 @@ export function buildGeminiLiveConnectConfig(
   mode: LiveConnectMode,
   options: {
     resumeHandle?: string | undefined;
+    voice?: DesktopVoice | undefined;
+    systemInstruction?: string | undefined;
   } = {},
 ): GeminiLiveConnectConfig {
   if (config.apiVersion !== 'v1alpha') {
@@ -338,6 +355,19 @@ export function buildGeminiLiveConnectConfig(
     liveConnectConfig.contextWindowCompression = {
       slidingWindow: {},
     };
+  }
+
+  if (mode === 'voice' && !options.resumeHandle) {
+    liveConnectConfig.speechConfig = {
+      voiceConfig: {
+        prebuiltVoiceConfig: {
+          voiceName: resolveDesktopVoicePreference(options.voice),
+        },
+      },
+    };
+    liveConnectConfig.systemInstruction = resolveSystemInstructionPreference(
+      options.systemInstruction,
+    );
   }
 
   if (mode === 'voice') {

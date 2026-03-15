@@ -7,6 +7,10 @@ import {
   parseLiveConfig,
   resolveLiveConfigEnv,
 } from './liveConfig';
+import {
+  DEFAULT_SYSTEM_INSTRUCTION,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
+} from '../../../shared';
 import { visualSessionQualityToMediaResolution } from './visualSessionQuality';
 
 function createRawLiveConfig(overrides: Partial<Parameters<typeof parseLiveConfig>[0]> = {}) {
@@ -228,11 +232,60 @@ describe('liveConfig', () => {
     expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
       responseModalities: ['AUDIO'],
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: 'Puck',
+          },
+        },
+      },
+      systemInstruction: 'You are Livepair, a realtime multimodal desktop assistant.',
       tools: [
         {
           functionDeclarations: expect.any(Array),
         },
       ],
+    });
+  });
+
+  it('normalizes invalid voice and empty instructions before they reach Live config', () => {
+    const config = parseLiveConfig(createRawLiveConfig());
+
+    expect(
+      buildGeminiLiveConnectConfig(config, 'voice', {
+        voice: 'BadVoice' as never,
+        systemInstruction: '   ',
+      }),
+    ).toMatchObject({
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: 'Puck',
+          },
+        },
+      },
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+    });
+  });
+
+  it('trims and caps instructions before they reach Live config', () => {
+    const config = parseLiveConfig(createRawLiveConfig());
+    const overlongInstruction = `  ${'c'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 20)}  `;
+
+    expect(
+      buildGeminiLiveConnectConfig(config, 'voice', {
+        voice: 'Kore',
+        systemInstruction: overlongInstruction,
+      }),
+    ).toMatchObject({
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: 'Kore',
+          },
+        },
+      },
+      systemInstruction: 'c'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
     });
   });
 

@@ -3,7 +3,10 @@ import type {
   DesktopSettings,
   DesktopSettingsPatch,
 } from '../../shared';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared';
+import {
+  DEFAULT_DESKTOP_SETTINGS,
+  normalizeDesktopSettings,
+} from '../../shared';
 
 type SettingsStoreState = {
   settings: DesktopSettings;
@@ -24,6 +27,16 @@ const defaultSettingsState = {
 
 let pendingHydration: Promise<DesktopSettings> | null = null;
 
+function normalizeBridgeSettings(settings: DesktopSettings): DesktopSettings {
+  const normalized = normalizeDesktopSettings(settings);
+
+  if (normalized === null) {
+    throw new Error('Invalid desktop settings received from bridge');
+  }
+
+  return normalized;
+}
+
 export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
   ...defaultSettingsState,
   hydrate: async () => {
@@ -37,7 +50,7 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
 
     pendingHydration = (async () => {
       try {
-        const settings = await window.bridge.getSettings();
+        const settings = normalizeBridgeSettings(await window.bridge.getSettings());
 
         set({
           settings,
@@ -56,7 +69,7 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
     return get().updateSettings({ [key]: value } as DesktopSettingsPatch);
   },
   updateSettings: async (patch) => {
-    const settings = await window.bridge.updateSettings(patch);
+    const settings = normalizeBridgeSettings(await window.bridge.updateSettings(patch));
     set({ settings, isReady: true });
     return settings;
   },

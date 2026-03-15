@@ -12,6 +12,7 @@ export type DesktopVoice = 'Puck' | 'Kore' | 'Aoede';
 
 export const DEFAULT_SYSTEM_INSTRUCTION =
   'You are Livepair, a realtime multimodal desktop assistant.';
+export const MAX_SYSTEM_INSTRUCTION_LENGTH = 1200;
 
 export type DesktopSettings = {
   themePreference: ThemePreference;
@@ -83,8 +84,20 @@ function normalizeDesktopVoice(value: unknown): DesktopVoice | null {
   return value === 'Puck' || value === 'Kore' || value === 'Aoede' ? value : null;
 }
 
-function normalizeSystemInstruction(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
+function normalizeSystemInstructionText(value: string): string {
+  const normalized = value.trim().slice(0, MAX_SYSTEM_INSTRUCTION_LENGTH);
+
+  return normalized.length > 0 ? normalized : DEFAULT_SYSTEM_INSTRUCTION;
+}
+
+export function resolveDesktopVoicePreference(value: unknown): DesktopVoice {
+  return normalizeDesktopVoice(value) ?? DEFAULT_DESKTOP_SETTINGS.voice;
+}
+
+export function resolveSystemInstructionPreference(value: unknown): string {
+  return typeof value === 'string'
+    ? normalizeSystemInstructionText(value)
+    : DEFAULT_SYSTEM_INSTRUCTION;
 }
 
 export function normalizeDesktopSettings(
@@ -122,10 +135,8 @@ export function normalizeDesktopSettings(
   const chatTimestampVisibility = normalizeChatTimestampVisibility(
     settings.chatTimestampVisibility ?? DEFAULT_DESKTOP_SETTINGS.chatTimestampVisibility,
   );
-  const voice = normalizeDesktopVoice(settings.voice) ?? DEFAULT_DESKTOP_SETTINGS.voice;
-  const systemInstruction = normalizeSystemInstruction(
-    settings.systemInstruction ?? DEFAULT_DESKTOP_SETTINGS.systemInstruction,
-  );
+  const voice = resolveDesktopVoicePreference(settings.voice);
+  const systemInstruction = resolveSystemInstructionPreference(settings.systemInstruction);
 
   if (
     themePreference === null ||
@@ -139,8 +150,7 @@ export function normalizeDesktopSettings(
     typeof voiceAutoGainControlEnabled !== 'boolean' ||
     typeof isPanelPinned !== 'boolean' ||
     visualSessionQuality === null ||
-    chatTimestampVisibility === null ||
-    systemInstruction === null
+    chatTimestampVisibility === null
   ) {
     return null;
   }
@@ -267,11 +277,12 @@ export function normalizeDesktopSettingsPatch(
   }
 
   if ('systemInstruction' in patch) {
-    const systemInstruction = normalizeSystemInstruction(patch.systemInstruction);
-    if (systemInstruction === null) {
+    if (typeof patch.systemInstruction !== 'string') {
       return null;
     }
-    normalizedPatch.systemInstruction = systemInstruction;
+    normalizedPatch.systemInstruction = resolveSystemInstructionPreference(
+      patch.systemInstruction,
+    );
   }
 
   return normalizedPatch;

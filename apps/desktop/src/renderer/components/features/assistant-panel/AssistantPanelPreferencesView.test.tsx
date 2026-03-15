@@ -100,7 +100,7 @@ describe('AssistantPanelPreferencesView', () => {
     });
   });
 
-  it('persists empty instructions on blur', async () => {
+  it('round-trips empty instructions on blur back to the default instruction', async () => {
     renderPreferences({
       ...DEFAULT_DESKTOP_SETTINGS,
       systemInstruction: 'Custom instruction',
@@ -118,7 +118,10 @@ describe('AssistantPanelPreferencesView', () => {
         systemInstruction: '',
       });
     });
-    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent('0/1200');
+    expect(instructions).toHaveValue(DEFAULT_SYSTEM_INSTRUCTION);
+    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent(
+      `${DEFAULT_SYSTEM_INSTRUCTION.length}/1200`,
+    );
   });
 
   it('enforces the 1200 character limit in the UI', async () => {

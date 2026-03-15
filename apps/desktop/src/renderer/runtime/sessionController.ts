@@ -26,11 +26,17 @@ function resolveDesktopSessionControllerDependencies(
     logger: defaultRuntimeLogger,
     checkBackendHealth,
     requestSessionToken,
-    createTransport: (_kind) => createGeminiLiveTransport({
-      mediaResolutionOverride: visualSessionQualityToMediaResolution(
-        useSettingsStore.getState().settings.visualSessionQuality,
-      ),
-    }),
+    createTransport: (_kind) => {
+      const settings = useSettingsStore.getState().settings;
+
+      return createGeminiLiveTransport({
+        mediaResolutionOverride: visualSessionQualityToMediaResolution(
+          settings.visualSessionQuality,
+        ),
+        voice: settings.voice,
+        systemInstruction: settings.systemInstruction,
+      });
+    },
     createVoiceCapture: (observer) => createLocalVoiceCapture(observer),
     createVoicePlayback: (observer, options) =>
       createAssistantAudioPlayback(observer, options),

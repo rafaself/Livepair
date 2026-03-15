@@ -3,7 +3,11 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
+import {
+  DEFAULT_DESKTOP_SETTINGS,
+  DEFAULT_SYSTEM_INSTRUCTION,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
+} from '../../shared/settings';
 import { DesktopSettingsRepository } from './settingsRepository';
 
 describe('DesktopSettingsRepository', () => {
@@ -53,20 +57,21 @@ describe('DesktopSettingsRepository', () => {
 
   it('merges partial updates, normalizes values, and persists them to disk', async () => {
     const repository = new DesktopSettingsRepository(settingsFilePath);
+    const overlongInstruction = `  ${'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 15)}  `;
 
     await expect(
       repository.updateSettings({
         backendUrl: ' https://api.livepair.dev/v1/ ',
         themePreference: 'dark',
         voice: 'Kore',
-        systemInstruction: '',
+        systemInstruction: overlongInstruction,
       }),
     ).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
       backendUrl: 'https://api.livepair.dev/v1',
       themePreference: 'dark',
       voice: 'Kore',
-      systemInstruction: '',
+      systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
     });
 
     const reloadedRepository = new DesktopSettingsRepository(settingsFilePath);
@@ -75,7 +80,7 @@ describe('DesktopSettingsRepository', () => {
       backendUrl: 'https://api.livepair.dev/v1',
       themePreference: 'dark',
       voice: 'Kore',
-      systemInstruction: '',
+      systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
     });
 
     await expect(readFile(settingsFilePath, 'utf8')).resolves.toBe(
@@ -87,7 +92,7 @@ describe('DesktopSettingsRepository', () => {
             backendUrl: 'https://api.livepair.dev/v1',
             themePreference: 'dark',
             voice: 'Kore',
-            systemInstruction: '',
+            systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
           },
         },
         null,
@@ -96,7 +101,7 @@ describe('DesktopSettingsRepository', () => {
     );
   });
 
-  it('fills missing new preferences and falls back invalid persisted voice values', async () => {
+  it('fills missing new preferences and falls back invalid persisted preference values', async () => {
     const legacySettingsPath = join(tmpdir(), `livepair-settings-legacy-${Date.now()}.json`);
     const { writeFile } = await import('node:fs/promises');
 
@@ -107,14 +112,16 @@ describe('DesktopSettingsRepository', () => {
         settings: {
           ...DEFAULT_DESKTOP_SETTINGS,
           voice: 'BadVoice',
-          systemInstruction: undefined,
+          systemInstruction: '   ',
         },
       }),
     );
 
-    await expect(new DesktopSettingsRepository(legacySettingsPath).getSettings()).resolves.toEqual(
-      DEFAULT_DESKTOP_SETTINGS,
-    );
+    await expect(new DesktopSettingsRepository(legacySettingsPath).getSettings()).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      voice: 'Puck',
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+    });
   });
 
   it('serializes overlapping updates so concurrent writes do not lose settings', async () => {

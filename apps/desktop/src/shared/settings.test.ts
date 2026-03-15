@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_DESKTOP_SETTINGS,
+  DEFAULT_SYSTEM_INSTRUCTION,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
   normalizeDesktopSettings,
   normalizeDesktopSettingsPatch,
 } from './settings';
@@ -75,13 +77,35 @@ describe('voice and system instruction settings', () => {
     });
   });
 
-  it('accepts an empty persisted system instruction', () => {
+  it('falls back to the default instruction when the persisted instruction is empty', () => {
     expect(
       normalizeDesktopSettings({
         systemInstruction: '',
       }),
     ).toMatchObject({
-      systemInstruction: '',
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+    });
+  });
+
+  it('falls back to the default instruction when the persisted instruction is whitespace-only', () => {
+    expect(
+      normalizeDesktopSettings({
+        systemInstruction: '   \n\t  ',
+      }),
+    ).toMatchObject({
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+    });
+  });
+
+  it('trims and caps persisted instructions to the product max length', () => {
+    const overlongInstruction = `  ${'a'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 25)}  `;
+
+    expect(
+      normalizeDesktopSettings({
+        systemInstruction: overlongInstruction,
+      }),
+    ).toMatchObject({
+      systemInstruction: 'a'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
     });
   });
 });
@@ -130,7 +154,7 @@ describe('normalizeDesktopSettingsPatch', () => {
         voiceEchoCancellationEnabled: false,
         isPanelPinned: true,
         voice: 'Aoede',
-        systemInstruction: '',
+        systemInstruction: '  Stay concise.  ',
       }),
     ).toEqual({
       backendUrl: 'https://api.livepair.dev/base',
@@ -139,7 +163,25 @@ describe('normalizeDesktopSettingsPatch', () => {
       voiceEchoCancellationEnabled: false,
       isPanelPinned: true,
       voice: 'Aoede',
-      systemInstruction: '',
+      systemInstruction: 'Stay concise.',
+    });
+  });
+
+  it('normalizes empty or overlong instruction patches before persistence', () => {
+    expect(
+      normalizeDesktopSettingsPatch({
+        systemInstruction: '  \n ',
+      }),
+    ).toEqual({
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+    });
+
+    expect(
+      normalizeDesktopSettingsPatch({
+        systemInstruction: `  ${'b'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 10)}  `,
+      }),
+    ).toEqual({
+      systemInstruction: 'b'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
     });
   });
 

@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import {
+  DEFAULT_SYSTEM_INSTRUCTION,
+} from '../../../shared';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
 import {
   parseLiveConfig,
@@ -220,6 +223,105 @@ describe('createGeminiLiveTransport', () => {
       config: {
         responseModalities: ['AUDIO'],
         mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: 'Puck',
+            },
+          },
+        },
+        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+        tools: expect.any(Array),
+      } satisfies GeminiLiveConnectConfig,
+      callbacks: expect.any(Object),
+    });
+
+    sdkHarness.emitMessage({ setupComplete: {} });
+    await connectPromise;
+  });
+
+  it.each(['Puck', 'Kore', 'Aoede'] as const)(
+    'passes explicit %s voice selection and saved instructions for new voice sessions',
+    async (voice) => {
+      const sdkHarness = createSdkHarness();
+      const transport = createGeminiLiveTransport({
+        connectSession: sdkHarness.connectSession,
+        config: TEST_LIVE_CONFIG,
+        voice,
+        systemInstruction: 'Keep answers brief and action-oriented.',
+      });
+
+      const connectPromise = transport.connect({
+        token: {
+          token: 'auth_tokens/test-token',
+          expireTime: '2099-03-09T12:30:00.000Z',
+          newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+        },
+        mode: 'voice',
+      });
+
+      await Promise.resolve();
+
+      expect(sdkHarness.getConnectOptions()).toEqual({
+        apiKey: 'auth_tokens/test-token',
+        apiVersion: 'v1alpha',
+        model: 'models/gemini-2.0-flash-exp',
+        config: {
+          responseModalities: ['AUDIO'],
+          mediaResolution: 'MEDIA_RESOLUTION_LOW',
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: voice,
+              },
+            },
+          },
+          systemInstruction: 'Keep answers brief and action-oriented.',
+          tools: expect.any(Array),
+        } satisfies GeminiLiveConnectConfig,
+        callbacks: expect.any(Object),
+      });
+
+      sdkHarness.emitMessage({ setupComplete: {} });
+      await connectPromise;
+    },
+  );
+
+  it('falls back to the default instruction when the saved instruction is empty', async () => {
+    const sdkHarness = createSdkHarness();
+    const transport = createGeminiLiveTransport({
+      connectSession: sdkHarness.connectSession,
+      config: TEST_LIVE_CONFIG,
+      voice: 'Puck',
+      systemInstruction: '',
+    });
+
+    const connectPromise = transport.connect({
+      token: {
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      },
+      mode: 'voice',
+    });
+
+    await Promise.resolve();
+
+    expect(sdkHarness.getConnectOptions()).toEqual({
+      apiKey: 'auth_tokens/test-token',
+      apiVersion: 'v1alpha',
+      model: 'models/gemini-2.0-flash-exp',
+      config: {
+        responseModalities: ['AUDIO'],
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: 'Puck',
+            },
+          },
+        },
+        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
         tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
@@ -333,6 +435,8 @@ describe('createGeminiLiveTransport', () => {
         sessionResumptionEnabled: true,
         contextCompressionEnabled: true,
       }),
+      voice: 'Aoede',
+      systemInstruction: 'Do not carry this over while resuming.',
     });
 
     const connectPromise = transport.connect({
@@ -1186,6 +1290,14 @@ describe('createGeminiLiveTransport', () => {
         mediaResolution: 'MEDIA_RESOLUTION_LOW',
         inputAudioTranscription: {},
         outputAudioTranscription: {},
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: 'Puck',
+            },
+          },
+        },
+        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
         tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),

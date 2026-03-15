@@ -3,6 +3,7 @@ import type {
   DesktopSessionConnectParams,
   LiveSessionEvent,
 } from './transport.types';
+import type { DesktopVoice } from '../../../shared';
 import type { VoiceToolResponse } from '../voice/voice.types';
 import {
   LIVE_ADAPTER_KEY,
@@ -55,6 +56,8 @@ type CreateGeminiLiveTransportOptions = {
    * user setting wins without mutating the static LiveConfig.
    */
   mediaResolutionOverride?: LiveMediaResolution;
+  voice?: DesktopVoice | undefined;
+  systemInstruction?: string | undefined;
 };
 
 export class GeminiLiveTransport implements DesktopSession {
@@ -66,16 +69,22 @@ export class GeminiLiveTransport implements DesktopSession {
   ) => Promise<GeminiLiveSdkSession>;
   private readonly config: LiveConfig;
   private readonly mediaResolutionOverride: LiveMediaResolution | undefined;
+  private readonly voice: DesktopVoice | undefined;
+  private readonly systemInstruction: string | undefined;
   private readonly state = createGeminiLiveTransportState();
 
   constructor({
     connectSession = connectGeminiLiveSdkSession,
     config = getLiveConfig(),
     mediaResolutionOverride,
+    voice,
+    systemInstruction,
   }: CreateGeminiLiveTransportOptions = {}) {
     this.connectSession = connectSession;
     this.config = config;
     this.mediaResolutionOverride = mediaResolutionOverride;
+    this.voice = voice;
+    this.systemInstruction = systemInstruction;
   }
 
   subscribe(listener: (event: LiveSessionEvent) => void): () => void {
@@ -141,6 +150,8 @@ export class GeminiLiveTransport implements DesktopSession {
     try {
       liveConnectConfig = buildGeminiLiveConnectConfig(effectiveConfig, mode, {
         resumeHandle,
+        voice: this.voice,
+        systemInstruction: this.systemInstruction,
       });
     } catch (error) {
       const detail = getErrorDetail(error, 'Gemini Live connection failed');
