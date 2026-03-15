@@ -14,6 +14,7 @@ import type {
   RehydrationPacketContextState,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
+import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 
 type BackendClientOptions = {
   fetchImpl?: typeof fetch;
@@ -47,6 +48,16 @@ function isValidTimestamp(value: unknown): value is string {
 
 function isExpiredTimestamp(value: string, now = Date.now()): boolean {
   return Date.parse(value) <= now;
+}
+
+function readSessionTokenAuthSecret(): string | null {
+  const value = process.env['SESSION_TOKEN_AUTH_SECRET'];
+
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null;
+  }
+
+  return value;
 }
 
 function isStateEntry(
@@ -452,9 +463,15 @@ export function createBackendClient({
         request: req,
       });
 
+      const sessionTokenAuthSecret = readSessionTokenAuthSecret();
       const res = await fetchImpl(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionTokenAuthSecret
+            ? { [SESSION_TOKEN_AUTH_HEADER_NAME]: sessionTokenAuthSecret }
+            : {}),
+        },
         body: JSON.stringify(req),
       });
       if (!res.ok) {
