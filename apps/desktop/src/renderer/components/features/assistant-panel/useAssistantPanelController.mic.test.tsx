@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
@@ -92,10 +92,12 @@ describe('useAssistantPanelController – composer media controls', () => {
 
   it('stores the microphone preference for the next session and applies it after speech mode starts', async () => {
     const handleStartVoiceSession = vi.fn(async () => undefined);
+    const handleStartVoiceCapture = vi.fn(async () => undefined);
     const handleStopVoiceCapture = vi.fn(async () => undefined);
     mockUseSessionRuntime.mockReturnValue(
       createRuntime({
         handleStartVoiceSession,
+        handleStartVoiceCapture,
         handleStopVoiceCapture,
       }),
     );
@@ -116,7 +118,8 @@ describe('useAssistantPanelController – composer media controls', () => {
     });
 
     expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
-    expect(handleStopVoiceCapture).toHaveBeenCalledTimes(1);
+    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
+    expect(handleStopVoiceCapture).not.toHaveBeenCalled();
   });
 
   it('toggles active-session microphone capture without ending or restarting the session', async () => {
@@ -184,10 +187,14 @@ describe('useAssistantPanelController – composer media controls', () => {
 
   it('starts a Live session with screen sharing when toggled from an inactive composer', async () => {
     const handleStartVoiceSession = vi.fn(async () => undefined);
+    const handleStartVoiceCapture = vi.fn(async () => undefined);
+    const handleStartScreenCapture = vi.fn(async () => undefined);
     const handleStopVoiceCapture = vi.fn(async () => undefined);
     mockUseSessionRuntime.mockReturnValue(
       createRuntime({
         handleStartVoiceSession,
+        handleStartVoiceCapture,
+        handleStartScreenCapture,
         handleStopVoiceCapture,
       }),
     );
@@ -199,6 +206,8 @@ describe('useAssistantPanelController – composer media controls', () => {
     });
 
     expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
+    expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
+    expect(handleStartVoiceCapture).toHaveBeenCalledTimes(1);
     expect(handleStopVoiceCapture).not.toHaveBeenCalled();
   });
 
@@ -254,35 +263,32 @@ describe('useAssistantPanelController – composer media controls', () => {
     expect(result.current.draftText).toBe('  keep draft  ');
   });
 
-  it('waits for the voice session to become ready before starting queued screen capture', async () => {
+  it('starts screen sharing before microphone capture when toggled from an inactive composer', async () => {
     const handleStartVoiceSession = vi.fn(async () => undefined);
+    const handleStartVoiceCapture = vi.fn(async () => undefined);
     const handleStartScreenCapture = vi.fn(async () => undefined);
-    let runtime = createRuntime({
+    mockUseSessionRuntime.mockReturnValue(
+      createRuntime({
       handleStartVoiceSession,
+      handleStartVoiceCapture,
       handleStartScreenCapture,
-      voiceSessionStatus: 'connecting',
-    });
-    mockUseSessionRuntime.mockImplementation(() => runtime);
+      }),
+    );
 
-    const { result, rerender } = renderHook(() => useAssistantPanelController());
+    const { result } = renderHook(() => useAssistantPanelController());
 
     await act(async () => {
       await result.current.handleToggleComposerScreenShare();
     });
 
     expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
-    expect(handleStartScreenCapture).not.toHaveBeenCalled();
-
-    runtime = createRuntime({
-      ...runtime,
-      handleStartVoiceSession,
-      handleStartScreenCapture,
-      voiceSessionStatus: 'ready',
-    });
-    rerender();
-
-    await waitFor(() => {
-      expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
-    });
+    expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
+    expect(handleStartVoiceCapture).toHaveBeenCalledTimes(1);
+    expect(handleStartVoiceSession.mock.invocationCallOrder[0]).toBeLessThan(
+      handleStartScreenCapture.mock.invocationCallOrder[0]!,
+    );
+    expect(handleStartScreenCapture.mock.invocationCallOrder[0]).toBeLessThan(
+      handleStartVoiceCapture.mock.invocationCallOrder[0]!,
+    );
   });
 });

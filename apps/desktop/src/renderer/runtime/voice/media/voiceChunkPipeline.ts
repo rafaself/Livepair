@@ -22,10 +22,6 @@ export type VoiceChunkPipelineOps = {
   currentVoiceSessionStatus: () => VoiceSessionStatus;
   setVoiceSessionStatus: (s: VoiceSessionStatus) => void;
   setVoiceErrorState: (detail: string) => void;
-  endSessionInternal: (opts: {
-    preserveLastRuntimeError: string;
-    preserveVoiceRuntimeDiagnostics: boolean;
-  }) => void;
   logRuntimeError: (scope: string, message: string, context: Record<string, unknown>) => void;
 };
 
@@ -33,10 +29,7 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
   const dispatch = createVoiceChunkDispatch(ops);
   const captureBinding = createVoiceCaptureBinding(ops, dispatch.enqueueChunkSend);
 
-  const startCapture = async (
-    options: { shutdownOnFailure?: boolean } = {},
-  ): Promise<boolean> => {
-    const { shutdownOnFailure = false } = options;
+  const startCapture = async (): Promise<boolean> => {
     const store = ops.store.getState();
 
     if (
@@ -55,15 +48,6 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
       store.setVoiceCaptureDiagnostics({
         lastError: VOICE_SESSION_NOT_READY_DETAIL,
       });
-
-      if (shutdownOnFailure) {
-        store.setVoiceSessionStatus('error');
-        store.setLastRuntimeError(VOICE_SESSION_NOT_READY_DETAIL);
-        void ops.endSessionInternal({
-          preserveLastRuntimeError: VOICE_SESSION_NOT_READY_DETAIL,
-          preserveVoiceRuntimeDiagnostics: true,
-        });
-      }
 
       return false;
     }
@@ -94,24 +78,20 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
       });
       dispatch.advanceAudioLane();
       ops.store.getState().setVoiceCaptureState('capturing');
-      ops.store.getState().setVoiceSessionStatus('ready');
+      ops.store.getState().setVoiceSessionStatus(
+        store.voiceSessionStatus === 'interrupted' || store.voiceSessionStatus === 'recovering'
+          ? store.voiceSessionStatus
+          : 'ready',
+      );
       return true;
     } catch (error) {
       const detail = asErrorDetail(error, 'Failed to start microphone capture');
       ops.store.getState().setVoiceCaptureState('error');
-      ops.store.getState().setVoiceSessionStatus('error');
       ops.store.getState().setVoiceCaptureDiagnostics({
         lastError: detail,
         selectedInputDeviceId,
       });
       ops.store.getState().setLastRuntimeError(detail);
-
-      if (shutdownOnFailure) {
-        void ops.endSessionInternal({
-          preserveLastRuntimeError: detail,
-          preserveVoiceRuntimeDiagnostics: true,
-        });
-      }
 
       return false;
     }

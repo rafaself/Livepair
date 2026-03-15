@@ -5,22 +5,21 @@ function createMockArgs() {
   const setLastRuntimeError = vi.fn();
   const setVoiceSessionResumption = vi.fn();
 
-  return {
-    store: {
-      getState: vi.fn(() => ({
-        setLastRuntimeError,
-        setVoiceSessionResumption,
-      })),
-    } as never,
-    isCurrentSessionOperation: vi.fn(() => true),
-    applySpeechLifecycleEvent: vi.fn(),
-    setVoiceResumptionInFlight: vi.fn(),
-    createTransport: vi.fn(),
-    activateVoiceTransport: vi.fn(),
-    startVoiceCapture: vi.fn(),
-    buildRehydrationPacketFromCurrentChat: vi.fn(),
-    invalidatePersistedLiveSession: vi.fn().mockResolvedValue(undefined),
-    createPersistedLiveSession: vi.fn().mockResolvedValue(undefined),
+    return {
+      store: {
+        getState: vi.fn(() => ({
+          setLastRuntimeError,
+          setVoiceSessionResumption,
+        })),
+      } as never,
+      isCurrentSessionOperation: vi.fn(() => true),
+      applySpeechLifecycleEvent: vi.fn(),
+      setVoiceResumptionInFlight: vi.fn(),
+      createTransport: vi.fn(),
+      activateVoiceTransport: vi.fn(),
+      buildRehydrationPacketFromCurrentChat: vi.fn(),
+      invalidatePersistedLiveSession: vi.fn().mockResolvedValue(undefined),
+      createPersistedLiveSession: vi.fn().mockResolvedValue(undefined),
     endPersistedLiveSession: vi.fn().mockResolvedValue(undefined),
     logRuntimeDiagnostic: vi.fn(),
     _storeState: {
@@ -69,7 +68,6 @@ describe('createSessionVoiceConnection', () => {
       connect: vi.fn().mockResolvedValue(undefined),
     };
     args.createTransport.mockReturnValue(transport);
-    args.startVoiceCapture.mockResolvedValue(true);
     const connection = createSessionVoiceConnection(args);
     const token = { client_secret: { value: 'token' } } as never;
 
@@ -100,7 +98,6 @@ describe('createSessionVoiceConnection', () => {
       mode: 'voice',
       resumeHandle: 'resume-handle',
     });
-    expect(args.startVoiceCapture).toHaveBeenCalledTimes(1);
     expect(args.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'session.ready' });
   });
 });

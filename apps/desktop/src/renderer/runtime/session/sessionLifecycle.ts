@@ -60,7 +60,6 @@ type SessionControllerLifecycleArgs = {
   setVoiceResumptionInFlight: (value: boolean) => void;
   createTransport: () => DesktopSession;
   activateVoiceTransport: (transport: DesktopSession) => void;
-  startVoiceCapture: () => Promise<boolean>;
   setVoiceErrorState: (detail: string) => Promise<void>;
   checkBackendHealth: () => Promise<boolean>;
   textRuntimeFailed: () => void;
@@ -99,7 +98,6 @@ export function createSessionControllerLifecycle({
   setVoiceResumptionInFlight,
   createTransport,
   activateVoiceTransport,
-  startVoiceCapture,
   setVoiceErrorState,
   checkBackendHealth,
   textRuntimeFailed,
@@ -112,7 +110,6 @@ export function createSessionControllerLifecycle({
     setVoiceResumptionInFlight,
     createTransport,
     activateVoiceTransport,
-    startVoiceCapture,
     buildRehydrationPacketFromCurrentChat,
     invalidatePersistedLiveSession,
     createPersistedLiveSession,

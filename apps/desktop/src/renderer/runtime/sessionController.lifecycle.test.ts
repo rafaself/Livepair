@@ -151,7 +151,7 @@ describe('createDesktopSessionController – lifecycle', () => {
         speechLifecycle: {
           status: 'listening',
         },
-        voiceCaptureState: 'capturing',
+        voiceCaptureState: 'idle',
         voiceSessionStatus: 'ready',
         voiceSessionResumption: {
           status: 'connected',
@@ -198,7 +198,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       chatId: 'chat-1',
       startedAt: expect.any(String),
     });
-    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+    expect(voiceCapture.start).not.toHaveBeenCalled();
   });
 
   it('attempts persisted live-session resumption before opening a fresh session', async () => {
@@ -254,7 +254,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       resumable: true,
       lastDetail: 'Restoring persisted Live session',
     });
-    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+    expect(voiceCapture.start).not.toHaveBeenCalled();
   });
 
   it('falls back to a new rehydrated Live session when no restore candidate exists', async () => {
@@ -381,7 +381,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     });
     expect(useSessionStore.getState().lastRuntimeError).toBeNull();
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
-    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+    expect(voiceCapture.start).not.toHaveBeenCalled();
   });
 
   it('falls back to a new rehydrated Live session when persisted resumption fails', async () => {
@@ -529,7 +529,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(useSessionStore.getState().lastRuntimeError).toBeNull();
     expect(useSessionStore.getState().currentMode).toBe('speech');
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
-    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
+    expect(voiceCapture.start).not.toHaveBeenCalled();
   });
 
   it('seeds a new Live session from canonical persisted chat history instead of renderer-only turns', async () => {

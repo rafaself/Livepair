@@ -224,7 +224,6 @@ export function createSessionLifecycleAssembly({
     activateVoiceTransport: (transport) => {
       transportActivation.activateTransport(transport, handleTransportEvent);
     },
-    startVoiceCapture: () => voiceChunkCtrl.startCapture({ shutdownOnFailure: true }),
     setVoiceErrorState: (detail) => settleVoiceErrorState(detail),
     checkBackendHealth: () => dependencies.checkBackendHealth(),
     textRuntimeFailed: () => undefined,

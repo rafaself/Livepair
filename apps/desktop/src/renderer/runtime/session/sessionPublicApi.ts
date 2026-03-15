@@ -27,7 +27,7 @@ type SessionControllerPublicApiArgs = {
     getVoiceCapture: () => {
       stop: () => Promise<void>;
     };
-    startCapture: (options?: { shutdownOnFailure?: boolean }) => Promise<boolean>;
+    startCapture: () => Promise<boolean>;
   };
   screenCtrl: {
     start: () => Promise<void>;

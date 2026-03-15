@@ -45,7 +45,7 @@ function isSpeechLifecycleTransitioning(status: SpeechLifecycleStatus): boolean 
   return status === 'starting' || status === 'ending';
 }
 
-function hasVoiceTransportCapability(snapshot: ControlGatingSnapshot): boolean {
+function hasLiveTransportCapability(snapshot: ControlGatingSnapshot): boolean {
   return (
     snapshot.activeTransport === LIVE_ADAPTER_KEY &&
     SCREEN_STARTABLE_VOICE_STATUSES.includes(snapshot.voiceSessionStatus)
@@ -94,7 +94,7 @@ export function canSubmitComposerText(snapshot: ControlGatingSnapshot): boolean 
     return false;
   }
 
-  if (!isSpeechLifecycleActive(snapshot.speechLifecycleStatus)) {
+  if (snapshot.currentMode !== 'speech') {
     return false;
   }
 
@@ -102,11 +102,11 @@ export function canSubmitComposerText(snapshot: ControlGatingSnapshot): boolean 
     return false;
   }
 
-  return hasVoiceTransportCapability(snapshot);
+  return hasLiveTransportCapability(snapshot);
 }
 
 export function canToggleMicrophone(snapshot: ControlGatingSnapshot): boolean {
-  if (!shouldShowSpeechControls(snapshot)) {
+  if (snapshot.currentMode !== 'speech') {
     return false;
   }
 
@@ -128,7 +128,7 @@ export function canToggleMicrophone(snapshot: ControlGatingSnapshot): boolean {
 }
 
 export function canToggleScreenContext(snapshot: ControlGatingSnapshot): boolean {
-  if (!shouldShowSpeechControls(snapshot)) {
+  if (snapshot.currentMode !== 'speech') {
     return false;
   }
 
@@ -145,6 +145,6 @@ export function canToggleScreenContext(snapshot: ControlGatingSnapshot): boolean
 
   return (
     !isSpeechLifecycleTransitioning(snapshot.speechLifecycleStatus) &&
-    hasVoiceTransportCapability(snapshot)
+    hasLiveTransportCapability(snapshot)
   );
 }

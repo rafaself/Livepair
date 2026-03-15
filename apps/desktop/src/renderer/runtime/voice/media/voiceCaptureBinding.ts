@@ -18,6 +18,18 @@ export function createVoiceCaptureBinding(
   let voiceCapture: LocalVoiceCapture | null = null;
   const voiceChunkListeners = new Set<(chunk: LocalVoiceChunk) => void>();
 
+  const getVoiceSessionStatusAfterCaptureError = (): ReturnType<
+    VoiceChunkPipelineOps['currentVoiceSessionStatus']
+  > => {
+    const currentStatus = ops.currentVoiceSessionStatus();
+
+    if (currentStatus === 'interrupted' || currentStatus === 'recovering') {
+      return currentStatus;
+    }
+
+    return ops.getActiveTransport() ? 'ready' : 'disconnected';
+  };
+
   const createCaptureObserver = (): LocalVoiceCaptureObserver => ({
     onChunk: (chunk) => {
       for (const listener of voiceChunkListeners) {
@@ -37,10 +49,21 @@ export function createVoiceCaptureBinding(
       ops.store.getState().setVoiceCaptureDiagnostics(diagnostics);
     },
     onError: (detail) => {
-      ops.store.getState().setVoiceCaptureState('error');
-      ops.store.getState().setVoiceSessionStatus('error');
-      ops.store.getState().setLastRuntimeError(detail);
-      ops.store.getState().setVoiceCaptureDiagnostics({
+      const store = ops.store.getState();
+      const currentStatus = ops.currentVoiceSessionStatus();
+
+      store.setVoiceCaptureState('error');
+      store.setLocalUserSpeechActive(false);
+      if (
+        currentStatus !== 'connecting'
+        && currentStatus !== 'stopping'
+        && currentStatus !== 'disconnected'
+        && currentStatus !== 'error'
+      ) {
+        store.setVoiceSessionStatus(getVoiceSessionStatusAfterCaptureError());
+      }
+      store.setLastRuntimeError(detail);
+      store.setVoiceCaptureDiagnostics({
         lastError: detail,
       });
       ops.logRuntimeError('voice-capture', 'local capture failed', { detail });
