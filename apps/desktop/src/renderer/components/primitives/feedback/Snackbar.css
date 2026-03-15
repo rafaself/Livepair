@@ -1,81 +1,110 @@
 .snackbar-container {
   position: fixed;
-  bottom: var(--space-6);
-  right: var(--space-6);
+  bottom: var(--space-8);
+  right: 0;
+  width: min(420px, calc(100vw - var(--space-4)));
   z-index: var(--z-snackbar);
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-3);
   pointer-events: none;
-  max-width: 400px;
-  width: calc(100vw - var(--space-12));
+  padding: 0 var(--space-6);
 }
 
 .snackbar {
-  --snackbar-accent: transparent;
+  --snackbar-accent: var(--color-accent);
+  --snackbar-bg: rgba(18, 18, 18, 0.85);
+  --snackbar-border: rgba(255, 255, 255, 0.12);
 
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-left: 3px solid var(--snackbar-accent);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  flex-direction: column;
+  width: 100%;
+  max-width: 380px;
+  background: var(--snackbar-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--snackbar-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 
+    0 12px 40px -12px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.3);
   pointer-events: all;
-  animation: snackbar-in 200ms ease-out forwards;
+  overflow: hidden;
+  max-height: 200px;
+  animation: snackbar-in 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: transform 200ms ease, border-color 200ms ease;
+}
+
+:root[data-theme='light'] .snackbar {
+  --snackbar-bg: rgba(255, 255, 255, 0.9);
+  --snackbar-border: rgba(0, 0, 0, 0.08);
+}
+
+.snackbar:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .snackbar--exiting {
-  animation: snackbar-out 200ms ease-out forwards;
+  animation: snackbar-out 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.snackbar__content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  max-height: 197px; /* Account for progress bar */
 }
 
 .snackbar--error {
   --snackbar-accent: var(--color-error);
 }
 
-.snackbar--error .snackbar__icon {
-  color: var(--color-error);
-}
-
 .snackbar--success {
   --snackbar-accent: var(--color-success);
-}
-
-.snackbar--success .snackbar__icon {
-  color: var(--color-success);
 }
 
 .snackbar--warning {
   --snackbar-accent: var(--color-warning);
 }
 
-.snackbar--warning .snackbar__icon {
-  color: var(--color-warning);
-}
-
 .snackbar--info {
   --snackbar-accent: var(--color-accent);
-}
-
-.snackbar--info .snackbar__icon {
-  color: var(--color-accent);
 }
 
 .snackbar__icon {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  margin-top: 1px;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--snackbar-accent);
+  background: color-mix(in srgb, var(--snackbar-accent) 15%, transparent);
+  border-radius: 50%;
+}
+
+.snackbar__icon svg {
+  width: 14px;
+  height: 14px;
 }
 
 .snackbar__message {
   flex: 1;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
   color: var(--color-text-primary);
-  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 8.4em; /* Approx 6 lines based on 1.4 line-height */
 }
 
 .snackbar__close {
@@ -83,48 +112,71 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  margin-top: -1px;
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition:
-    color 150ms ease-out,
-    background-color 150ms ease-out;
+  border-radius: 50%;
+  transition: all 200ms ease;
+  margin-right: calc(var(--space-2) * -1);
 }
 
 .snackbar__close:hover {
   color: var(--color-text-primary);
-  background: var(--color-surface);
+  background: rgba(255, 255, 255, 0.1);
+  transform: rotate(90deg);
+}
+
+:root[data-theme='light'] .snackbar__close:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .snackbar__close:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--snackbar-accent);
   outline-offset: 2px;
+}
+
+.snackbar__progress {
+  height: 3px;
+  background: var(--snackbar-accent);
+  width: 100%;
+  transform-origin: left;
+  animation: snackbar-timer var(--duration) linear forwards;
+  opacity: 0.8;
 }
 
 @keyframes snackbar-in {
   from {
     opacity: 0;
-    transform: translateX(calc(100% + var(--space-6)));
+    transform: translateY(20px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes snackbar-out {
   from {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0) scale(1);
   }
   to {
     opacity: 0;
-    transform: translateX(calc(100% + var(--space-6)));
+    transform: translateY(20px) scale(0.95);
   }
 }
+
+@keyframes snackbar-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+

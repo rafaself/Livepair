@@ -16,40 +16,43 @@ const EXIT_DURATION_MS = 200;
 
 const ICONS: Record<SnackbarVariant, JSX.Element> = {
   error: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <path
-        d="M5.5 5.5 10.5 10.5M10.5 5.5 5.5 10.5"
+        d="M3 3L11 11M11 3L3 11"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="2"
         strokeLinecap="round"
       />
     </svg>
   ),
   success: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <path
-        d="M5 8 7.5 10.5 11 6"
+        d="M3 7.5L5.5 10L11 4.5"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>
   ),
   warning: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M8 2.5 14 13.5H2L8 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M8 7V9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path
+        d="M7 2L12 11H2L7 2Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M7 5.5V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="7" cy="10" r="0.5" fill="currentColor" />
     </svg>
   ),
   info: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8 7.5V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="8" cy="5.25" r="0.75" fill="currentColor" />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 6V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="7" cy="4" r="0.5" fill="currentColor" />
     </svg>
   ),
 };
@@ -94,24 +97,28 @@ export function Snackbar({
       role={variant === 'error' ? 'alert' : 'status'}
       aria-live={variant === 'error' ? 'assertive' : 'polite'}
       className={classes}
+      style={{ '--duration': `${duration}ms` } as React.CSSProperties}
     >
-      <span className="snackbar__icon">{ICONS[variant]}</span>
-      <span className="snackbar__message">{message}</span>
-      <button
-        type="button"
-        className="snackbar__close"
-        aria-label="Dismiss notification"
-        onClick={startExit}
-      >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path
-            d="M2 2 12 12M12 2 2 12"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </svg>
-      </button>
+      <div className="snackbar__content">
+        <span className="snackbar__icon">{ICONS[variant]}</span>
+        <span className="snackbar__message">{message}</span>
+        <button
+          type="button"
+          className="snackbar__close"
+          aria-label="Dismiss notification"
+          onClick={startExit}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path
+              d="M3.5 3.5 10.5 10.5M10.5 3.5 3.5 10.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+      <div className="snackbar__progress" />
     </div>
   );
 }
