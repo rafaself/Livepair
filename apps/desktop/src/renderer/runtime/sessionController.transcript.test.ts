@@ -99,7 +99,8 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
 
     // After settlement the user transcript artifact is replaced by the
-    // canonical user turn, keeping correct chronological order.
+    // canonical user turn, and the assistant transcript is materialized as
+    // a canonical assistant turn so it persists across navigation.
     voiceTransport.emit({ type: 'turn-complete' });
 
     expect(visibleTimeline()).toEqual([
@@ -111,10 +112,11 @@ describe('createDesktopSessionController – transcript', () => {
         source: 'voice',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-turn-1',
         role: 'assistant',
         content: 'Hi',
         state: 'complete',
+        source: 'voice',
       }),
     ]);
   });
@@ -162,6 +164,8 @@ describe('createDesktopSessionController – transcript', () => {
     voiceTransport.emit({ type: 'output-transcript', text: 'Hi' });
     voiceTransport.emit({ type: 'turn-complete' });
 
+    // Both user and assistant are materialized as canonical conversation turns
+    // so that assistant content persists across navigation.
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         id: 'user-turn-1',
@@ -170,21 +174,22 @@ describe('createDesktopSessionController – transcript', () => {
         state: 'complete',
         source: 'voice',
       }),
-    ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-turn-1',
+        role: 'assistant',
         content: 'Hi',
         state: 'complete',
+        source: 'voice',
       }),
     ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
         id: 'user-turn-1',
         content: 'Hello there',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-turn-1',
         content: 'Hi',
         state: 'complete',
       }),
@@ -203,7 +208,7 @@ describe('createDesktopSessionController – transcript', () => {
         content: 'Hello there',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-turn-1',
         content: 'Hi',
         state: 'complete',
       }),
@@ -464,7 +469,7 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
   });
 
-  it('preserves settled assistant transcript artifacts in the timeline after ending speech mode', async () => {
+  it('preserves assistant voice responses in the timeline after ending speech mode', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
     await controller.startSession({ mode: 'speech' });
@@ -474,7 +479,8 @@ describe('createDesktopSessionController – transcript', () => {
     voiceTransport.emit({ type: 'output-transcript', text: 'Hi there' });
     voiceTransport.emit({ type: 'turn-complete' });
 
-    // Before ending, verify the assistant transcript artifact is visible.
+    // Before ending, verify the assistant turn is visible as a canonical turn
+    // (materialized from transcript since no text-delta was received).
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
         id: 'user-turn-1',
@@ -483,14 +489,15 @@ describe('createDesktopSessionController – transcript', () => {
         state: 'complete',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-turn-1',
         role: 'assistant',
         content: 'Hi there',
         state: 'complete',
+        source: 'voice',
       }),
     ]);
 
-    // End speech mode — agent transcripts must NOT disappear.
+    // End speech mode — assistant turns must NOT disappear.
     await controller.endSpeechMode();
 
     expect(visibleTimeline()).toEqual([
@@ -501,15 +508,16 @@ describe('createDesktopSessionController – transcript', () => {
         state: 'complete',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-turn-1',
         role: 'assistant',
         content: 'Hi there',
         state: 'complete',
+        source: 'voice',
       }),
     ]);
   });
 
-  it('finalizes and preserves an in-flight assistant transcript artifact when speech mode ends mid-stream', async () => {
+  it('materializes an in-flight assistant transcript as a canonical turn when speech mode ends mid-stream', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
     await controller.startSession({ mode: 'speech' });
@@ -518,8 +526,8 @@ describe('createDesktopSessionController – transcript', () => {
     voiceTransport.emit({ type: 'input-transcript', text: 'Question' });
     voiceTransport.emit({ type: 'output-transcript', text: 'Partial answer' });
 
-    // End speech mode before turn-complete — the in-flight artifact should be
-    // salvaged (finalized) and remain visible.
+    // End speech mode before turn-complete — the in-flight transcript content
+    // should be salvaged as a canonical assistant turn so it persists.
     await controller.endSpeechMode();
 
     expect(visibleTimeline()).toEqual([
@@ -530,10 +538,11 @@ describe('createDesktopSessionController – transcript', () => {
         state: 'complete',
       }),
       expect.objectContaining({
-        id: 'assistant-transcript-2',
+        id: 'assistant-turn-1',
         role: 'assistant',
         content: 'Partial answer',
         state: 'complete',
+        source: 'voice',
       }),
     ]);
   });

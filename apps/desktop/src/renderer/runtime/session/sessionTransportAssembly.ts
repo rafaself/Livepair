@@ -149,9 +149,15 @@ export function createSessionTransportAssembly({
       const settledAssistantArtifact = conversationCtx.lastSettledAssistantArtifactId
         ? getTranscriptArtifact(conversationCtx, conversationCtx.lastSettledAssistantArtifactId)
         : null;
-      const assistantTurnId = draft
-        ? appendCompletedAssistantTurn(conversationCtx, draft.content, {
+
+      // Prefer the text-delta draft when available. When the model responded
+      // with audio only (no text-delta events), fall back to the output
+      // transcript so the assistant turn is still persisted to chat history.
+      const turnContent = draft?.content ?? settledAssistantArtifact?.content?.trim() ?? null;
+      const assistantTurnId = turnContent
+        ? appendCompletedAssistantTurn(conversationCtx, turnContent, {
             source: 'voice',
+            transcriptFinal: !draft ? settledAssistantArtifact?.transcriptFinal : undefined,
             ...(settledAssistantArtifact?.timelineOrdinal !== undefined
               ? { timelineOrdinal: settledAssistantArtifact.timelineOrdinal }
               : {}),

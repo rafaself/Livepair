@@ -1,5 +1,6 @@
 import type { ConversationContext } from '../../conversation/conversationTurnManager';
 import {
+  appendCompletedAssistantTurn,
   appendUserTurn,
   clearCurrentVoiceTurns,
   finalizeCurrentVoiceAssistantTranscriptArtifact,
@@ -128,13 +129,40 @@ export function createVoiceTranscriptLifecycle({
     }
 
     if (activeAssistantArtifact?.state === 'streaming') {
-      if (activeAssistantArtifact.content.trim().length > 0) {
+      const hasContent = activeAssistantArtifact.content.trim().length > 0;
+
+      if (hasContent) {
         interruptCurrentVoiceAssistantTranscriptArtifact(conversationCtx);
       }
 
-      finalizeCurrentVoiceAssistantTranscriptArtifact(conversationCtx, {
-        interrupted: activeAssistantArtifact.content.trim().length > 0,
-      });
+      // Materialize the in-flight transcript as a persisted assistant turn so
+      // it survives navigation to the chat history list and back.
+      if (hasContent && activeAssistantArtifact.attachedTurnId === undefined) {
+        const assistantTurnId = appendCompletedAssistantTurn(
+          conversationCtx,
+          activeAssistantArtifact.content,
+          {
+            source: 'voice',
+            transcriptFinal: activeAssistantArtifact.transcriptFinal,
+            ...(activeAssistantArtifact.timelineOrdinal !== undefined
+              ? { timelineOrdinal: activeAssistantArtifact.timelineOrdinal }
+              : {}),
+          },
+        );
+
+        finalizeCurrentVoiceAssistantTranscriptArtifact(conversationCtx, {
+          interrupted: true,
+          ...(assistantTurnId ? { attachedTurnId: assistantTurnId } : {}),
+        });
+
+        if (assistantTurnId) {
+          onConversationTurnSettled?.(assistantTurnId);
+        }
+      } else {
+        finalizeCurrentVoiceAssistantTranscriptArtifact(conversationCtx, {
+          interrupted: hasContent,
+        });
+      }
     }
 
     clearTranscript();
