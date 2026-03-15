@@ -56,11 +56,11 @@ export function AssistantPanelScreenSettingsSection({
             ),
           },
           {
-            label: 'Visual quality',
+            label: 'Frame quality',
             value: (
               <div className="assistant-panel__settings-field-stack">
                 <Select
-                  aria-label="Visual quality"
+                  aria-label="Frame quality"
                   className="assistant-panel__settings-select"
                   options={VISUAL_QUALITY_OPTIONS}
                   value={visualSessionQuality}
