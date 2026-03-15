@@ -19,7 +19,7 @@ description: Plans non-trivial Livepair changes before coding by anchoring to th
 1. Inspect the current implementation before planning. Use the smallest relevant reads under:
    - `apps/desktop/src/main`, `apps/desktop/src/preload`, `apps/desktop/src/renderer`
    - `apps/api/src`
-   - `packages/shared-types/src`, `packages/shared-utils/src`
+   - `packages/shared-types/src`
    - `README.md`, `docs/ARCHITECTURE.md`, `WATCHOUTS.md`
 2. Separate `implemented today` from `planned target`. Do not plan against docs-only architecture without naming the missing code.
 3. List the exact files or modules expected to change. Include new files if any.
@@ -42,7 +42,6 @@ description: Plans non-trivial Livepair changes before coding by anchoring to th
    - `pnpm --filter @livepair/api test`
    - `pnpm --filter @livepair/desktop test`
    - `pnpm --filter @livepair/shared-types test`
-   - `pnpm --filter @livepair/shared-utils test`
    - widen to `verify:<pkg>` only when the task warrants it
 8. Declare downstream skills:
    - contract changed -> `contract-change-check`

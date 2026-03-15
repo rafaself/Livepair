@@ -19,7 +19,6 @@ description: Applies TDD in Livepair by writing the smallest failing test first,
 
 - `apps/api`: Jest + `@nestjs/testing` + `supertest` when useful
 - `apps/desktop`: Vitest + Testing Library + `src/renderer/test/setup.ts`
-- `packages/shared-utils`: Vitest in node mode
 - `packages/shared-types`: compile-only type assertions via `pnpm --filter @livepair/shared-types test`
 
 ## Workflow

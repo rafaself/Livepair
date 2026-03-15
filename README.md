@@ -156,8 +156,7 @@ Speech mode (direct realtime):
 │   └── desktop
 │       └── ...
 ├── packages
-│   ├── shared-types
-│   └── shared-utils
+│   └── shared-types
 └── .agents
     └── skills
 ```
@@ -261,7 +260,7 @@ type(scope): message
 | Scope | Covers |
 |-------|--------|
 | `monorepo` | Root configs, workspace, tooling |
-| `shared` | `packages/shared-types`, `packages/shared-utils` |
+| `shared` | `packages/shared-types` |
 | `api` | `apps/api` backend |
 | `desktop` | `apps/desktop` Electron app |
 | `docs` | Documentation files |
@@ -270,7 +269,7 @@ type(scope): message
 
 ```
 chore(monorepo): scaffold pnpm workspace with root configs
-feat(shared): add shared-types and shared-utils packages
+feat(shared): add shared-types package
 feat(api): add NestJS backend with health and session modules
 feat(desktop): add Electron app with React renderer and IPC bridge
 fix(api): correct token expiry calculation
@@ -345,7 +344,6 @@ Smallest relevant package-level checks:
 pnpm verify:api
 pnpm verify:desktop
 pnpm verify:shared-types
-pnpm verify:shared-utils
 ```
 
 ## Manual QA
