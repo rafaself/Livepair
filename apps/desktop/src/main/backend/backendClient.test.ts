@@ -295,7 +295,7 @@ describe('backendClient', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: vi.fn(async () => createChatSummaryRecord()),
+        text: vi.fn(async () => JSON.stringify(createChatSummaryRecord())),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -512,6 +512,42 @@ describe('backendClient', () => {
     const client = createBackendClient({ fetchImpl, getBackendUrl });
 
     await expect(client.getChat(MISSING_CHAT_ID)).resolves.toBeNull();
+  });
+
+  it('maps 204 chat summary responses to null for new chats without summaries', async () => {
+    const json = vi.fn(async () => {
+      throw new Error('getChatSummary should not parse a 204 response body');
+    });
+
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 204,
+      json,
+    });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(client.getChatSummary(CHAT_ID)).resolves.toBeNull();
+    expect(json).not.toHaveBeenCalled();
+  });
+
+  it('treats unexpected empty successful chat summary responses as no summary', async () => {
+    const text = vi.fn(async () => '');
+    const json = vi.fn(async () => {
+      throw new SyntaxError('Unexpected end of JSON input');
+    });
+
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text,
+      json,
+    });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(client.getChatSummary(CHAT_ID)).resolves.toBeNull();
+    expect(text).toHaveBeenCalledTimes(1);
   });
 
   it('throws detailed errors for chat-memory failures', async () => {

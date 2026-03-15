@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Put,
+  Res,
 } from '@nestjs/common';
 import type {
   ChatMessageRecord,
@@ -24,6 +25,10 @@ import { EndLiveSessionDto } from './dto/end-live-session.dto';
 import { UpdateLiveSessionResumptionDto } from './dto/update-live-session-resumption.dto';
 import { UpdateLiveSessionSnapshotDto } from './dto/update-live-session-snapshot.dto';
 import { ChatMemoryService } from './chat-memory.service';
+
+type ResponseLike = {
+  status(code: number): void;
+};
 
 @Controller('chat-memory')
 export class ChatMemoryController {
@@ -74,10 +79,18 @@ export class ChatMemoryController {
   }
 
   @Get('chats/:chatId/summary')
-  getChatSummary(
+  async getChatSummary(
     @Param('chatId', new ParseUUIDPipe()) chatId: string,
-  ): Promise<DurableChatSummaryRecord | null> {
-    return this.chatMemoryService.getChatSummary(chatId);
+    @Res({ passthrough: true }) response: ResponseLike,
+  ): Promise<DurableChatSummaryRecord | undefined> {
+    const summary = await this.chatMemoryService.getChatSummary(chatId);
+
+    if (summary === null) {
+      response.status(204);
+      return undefined;
+    }
+
+    return summary;
   }
 
   @Post('chats/:chatId/live-sessions')

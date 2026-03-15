@@ -365,7 +365,7 @@ describe('registerIpcHandlers', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: vi.fn(async () => createChatSummaryRecord()),
+        text: vi.fn(async () => JSON.stringify(createChatSummaryRecord())),
       })
       .mockResolvedValueOnce({
         ok: true,

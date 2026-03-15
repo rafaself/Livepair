@@ -17,6 +17,10 @@ async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function readText(response: Response): Promise<string> {
+  return response.text();
+}
+
 describeWithDatabase('ChatMemory HTTP integration', () => {
   let app: INestApplication;
   let baseUrl: string;
@@ -44,6 +48,18 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
     if (typeof app !== 'undefined') {
       await app.close();
     }
+  });
+
+  it('returns 204 with no body when a chat has no durable summary yet', async () => {
+    const currentChatResponse = await fetch(`${baseUrl}/chat-memory/chats/current`, {
+      method: 'PUT',
+    });
+    expect(currentChatResponse.status).toBe(200);
+    const currentChat = await readJson<ChatRecord>(currentChatResponse);
+
+    const summaryResponse = await fetch(`${baseUrl}/chat-memory/chats/${currentChat.id}/summary`);
+    expect(summaryResponse.status).toBe(204);
+    await expect(readText(summaryResponse)).resolves.toBe('');
   });
 
   it('creates chats, messages, live sessions, and durable summaries through the HTTP surface', async () => {

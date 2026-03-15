@@ -345,6 +345,8 @@ type JsonRequestOptions<T> = {
   statusLabel: string;
 };
 
+type OptionalJsonRequestOptions<T> = JsonRequestOptions<T>;
+
 export type BackendClient = {
   checkHealth: () => Promise<HealthResponse>;
   requestSessionToken: (
@@ -394,6 +396,41 @@ export function createBackendClient({
     }
 
     return parse(await response.json());
+  }
+
+  async function requestOptionalJson<T>({
+    init,
+    nullOnStatus,
+    parse,
+    path,
+    statusLabel,
+  }: OptionalJsonRequestOptions<T>): Promise<T | null> {
+    const backendUrl = await getBackendUrl();
+    const url = `${backendUrl}${path}`;
+    const response = typeof init === 'undefined'
+      ? await fetchImpl(url)
+      : await fetchImpl(url, init);
+
+    if (typeof nullOnStatus !== 'undefined' && response.status === nullOnStatus) {
+      return null;
+    }
+
+    if (!response.ok) {
+      const detail = await readErrorDetail(response);
+      throw new Error(
+        detail
+          ? `${statusLabel}: ${response.status} - ${detail}`
+          : `${statusLabel}: ${response.status}`,
+      );
+    }
+
+    const body = (await response.text()).trim();
+
+    if (body.length === 0) {
+      return null;
+    }
+
+    return parse(JSON.parse(body));
   }
 
   return {
@@ -493,7 +530,7 @@ export function createBackendClient({
     async getChatSummary(
       chatId: ChatId,
     ): Promise<DurableChatSummaryRecord | null> {
-      return requestJson({
+      return requestOptionalJson({
         nullOnStatus: 204,
         parse: parseChatSummaryResponse,
         path: `/chat-memory/chats/${chatId}/summary`,
