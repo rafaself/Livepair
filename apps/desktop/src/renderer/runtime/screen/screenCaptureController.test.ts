@@ -1678,8 +1678,9 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
 
     // Frame dump should have been called for the blocked frame too
     await vi.waitFor(() => {
-      const allSeqs = saveScreenFrameDumpFrame.mock.calls.map(([f]) => f.sequence);
-      expect(allSeqs).toContain(2);
+      expect(saveScreenFrameDumpFrame).toHaveBeenCalledWith(
+        expect.objectContaining({ sequence: 2 }),
+      );
     });
   });
 
