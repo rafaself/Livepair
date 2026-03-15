@@ -36,13 +36,6 @@ export function createVoiceCaptureBinding(
         listener(chunk);
       }
 
-      ops.store.getState().setVoiceCaptureDiagnostics({
-        chunkCount: chunk.sequence,
-        sampleRateHz: chunk.sampleRateHz,
-        bytesPerChunk: chunk.data.byteLength,
-        chunkDurationMs: chunk.durationMs,
-        lastError: null,
-      });
       void enqueueChunkSend(chunk);
     },
     onDiagnostics: (diagnostics) => {
