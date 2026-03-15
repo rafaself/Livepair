@@ -148,7 +148,7 @@ describe('ControlDock', () => {
     expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
   });
 
-  it('disables microphone and screen controls while speech mode is starting or ending', () => {
+  it('hides starting controls and disables teardown controls while speech mode is starting or ending', () => {
     const { rerender } = render(
       <ControlDock
         {...createDockProps({
@@ -160,11 +160,11 @@ describe('ControlDock', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /live session is starting/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /live session is starting/i })).toBeNull();
     expect(
-      screen.getByRole('button', { name: /screen context unavailable while live session starts/i }),
-    ).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Starting Live session' })).toBeDisabled();
+      screen.queryByRole('button', { name: /screen context unavailable while live session starts/i }),
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Starting Live session' })).toBeNull();
 
     rerender(
       <ControlDock

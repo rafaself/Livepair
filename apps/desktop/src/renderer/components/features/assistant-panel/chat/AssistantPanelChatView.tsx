@@ -134,6 +134,7 @@ export function AssistantPanelChatView({
       aria-label="Live session history"
     >
       <AssistantPanelConversationSection
+        activeChatTitle={activeChat?.title ?? null}
         emptyState={
           <AssistantPanelConversationEmptyState
             assistantState={assistantState}

@@ -20,6 +20,36 @@ type ChatHistoryListItem = {
   resumeLabel: string | null;
 };
 
+function buildHistoryBadges({
+  activeChatId,
+  chat,
+  latestSessionLabel,
+  resumeLabel,
+}: {
+  activeChatId: string | null;
+  chat: ChatRecord;
+  latestSessionLabel: string | null;
+  resumeLabel: string | null;
+}): string[] {
+  const badges: string[] = [];
+
+  if (chat.id === activeChatId) {
+    badges.push('Opened now');
+  } else if (chat.isCurrent) {
+    badges.push('Current chat');
+  }
+
+  if (latestSessionLabel !== null) {
+    badges.push(latestSessionLabel);
+  }
+
+  if (resumeLabel !== null) {
+    badges.push(resumeLabel);
+  }
+
+  return badges;
+}
+
 export type AssistantPanelHistoryViewModel = {
   chatItems: ChatHistoryListItem[];
   isLoading: boolean;
@@ -122,32 +152,50 @@ export function AssistantPanelHistoryView({
         </p>
       ) : null}
       <ul className="chat-history__list" role="list">
-        {chatItems.map(({ chat, preview, latestSessionLabel: _latestSessionLabel, resumeLabel: _resumeLabel }) => (
-          <li key={chat.id} className="chat-history__item">
-            <button
-              type="button"
-              className={
-                chat.id === activeChatId
-                  ? 'chat-history__btn chat-history__btn--active'
-                  : 'chat-history__btn'
-              }
-              onClick={() => onSelectChat(chat.id)}
-              aria-current={chat.id === activeChatId ? 'true' : undefined}
-            >
-              <span className="chat-history__content">
-                <span className="chat-history__row">
-                  <span className="chat-history__title">
-                    {chat.title ?? 'Untitled chat'}
+        {chatItems.map(({ chat, preview, latestSessionLabel, resumeLabel }) => {
+          const badges = buildHistoryBadges({
+            activeChatId,
+            chat,
+            latestSessionLabel,
+            resumeLabel,
+          });
+
+          return (
+            <li key={chat.id} className="chat-history__item">
+              <button
+                type="button"
+                className={
+                  chat.id === activeChatId
+                    ? 'chat-history__btn chat-history__btn--active'
+                    : 'chat-history__btn'
+                }
+                onClick={() => onSelectChat(chat.id)}
+                aria-current={chat.id === activeChatId ? 'true' : undefined}
+              >
+                <span className="chat-history__content">
+                  <span className="chat-history__row">
+                    <span className="chat-history__title">
+                      {chat.title ?? 'Untitled chat'}
+                    </span>
+                    <span className="chat-history__date">
+                      {formatChatDate(chat.updatedAt)}
+                    </span>
                   </span>
-                  <span className="chat-history__date">
-                    {formatChatDate(chat.updatedAt)}
-                  </span>
+                  <span className="chat-history__preview">{preview}</span>
+                  {badges.length > 0 ? (
+                    <span className="chat-history__badges">
+                      {badges.map((badge) => (
+                        <span key={badge} className="chat-history__badge">
+                          {badge}
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
                 </span>
-                <span className="chat-history__preview">{preview}</span>
-              </span>
-            </button>
-          </li>
-        ))}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

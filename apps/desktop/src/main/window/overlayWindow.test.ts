@@ -7,8 +7,10 @@ const mockQuit = vi.fn();
 const mockLoadURL = vi.fn();
 const mockLoadFile = vi.fn();
 const mockOpenDevTools = vi.fn();
-const mockToggleDevTools = vi.fn();
+const mockCloseDevTools = vi.fn();
+const mockIsDevToolsOpened = vi.fn(() => false);
 const mockSetIgnoreMouseEvents = vi.fn();
+const mockSetAlwaysOnTop = vi.fn();
 const mockSetShape = vi.fn();
 const mockWindowOn = vi.fn();
 const mockGetAllWindows = vi.fn((): unknown[] => []);
@@ -21,10 +23,12 @@ const browserWindowCtor = vi.fn(() => ({
   loadFile: mockLoadFile,
   webContents: {
     openDevTools: mockOpenDevTools,
-    toggleDevTools: mockToggleDevTools,
+    closeDevTools: mockCloseDevTools,
+    isDevToolsOpened: mockIsDevToolsOpened,
     on: mockWebContentsOn,
   },
   setIgnoreMouseEvents: mockSetIgnoreMouseEvents,
+  setAlwaysOnTop: mockSetAlwaysOnTop,
   setShape: mockSetShape,
   on: mockWindowOn,
 }));
@@ -50,6 +54,7 @@ describe('overlayWindow', () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.unstubAllEnvs();
+    mockIsDevToolsOpened.mockReturnValue(false);
   });
 
   it('creates the transparent overlay window and tracks it as the current window', async () => {
@@ -108,7 +113,8 @@ describe('overlayWindow', () => {
     beforeInputHandler?.({}, { control: true, shift: true, key: 'i' });
     beforeInputHandler?.({}, { control: true, shift: false, key: 'i' });
 
-    expect(mockToggleDevTools).toHaveBeenCalledTimes(1);
+    expect(mockOpenDevTools).toHaveBeenCalledWith({ mode: 'detach', activate: true });
+    expect(mockSetAlwaysOnTop).toHaveBeenCalledWith(false);
     expect(overlayWindow.getMainWindow()).not.toBeNull();
 
     closedHandler?.();

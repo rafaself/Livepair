@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
+import { useSettingsStore } from '../../../store/settingsStore';
 import { ConversationTurn } from './ConversationTurn';
 
 function renderTurn({
@@ -33,7 +35,23 @@ function getBody(article: HTMLElement): HTMLElement | null {
 }
 
 describe('ConversationTurn', () => {
+  beforeEach(() => {
+    useSettingsStore.setState({
+      settings: DEFAULT_DESKTOP_SETTINGS,
+      isReady: true,
+    });
+  });
+
   it('renders a user turn with timestamp and compact styling', () => {
+    useSettingsStore.setState((state) => ({
+      ...state,
+      settings: {
+        ...state.settings,
+        chatTimestampVisibility: 'visible',
+      },
+      isReady: true,
+    }));
+
     render(
       <ConversationTurn
         turn={{

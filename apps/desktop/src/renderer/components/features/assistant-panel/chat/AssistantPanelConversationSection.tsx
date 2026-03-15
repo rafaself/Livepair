@@ -5,6 +5,7 @@ import { ConversationList } from '../../conversation/ConversationList';
 import type { ConversationTimelineEntry } from '../../../../runtime';
 
 export type AssistantPanelConversationSectionProps = {
+  activeChatTitle?: string | null;
   emptyState: ReactNode;
   isConversationEmpty: boolean;
   isViewingPastChat?: boolean;
@@ -68,6 +69,7 @@ function buildSessionMetadataRows(
 }
 
 export function AssistantPanelConversationSection({
+  activeChatTitle = null,
   emptyState,
   isConversationEmpty,
   isViewingPastChat = false,
@@ -75,16 +77,32 @@ export function AssistantPanelConversationSection({
   latestLiveSession = null,
   turns,
 }: AssistantPanelConversationSectionProps): JSX.Element {
+  const shouldShowPastChatState = isViewingPastChat;
   const shouldShowLatestSessionMetadata = isViewingPastChat && latestLiveSession !== null;
   const latestSessionMetadataRows = latestLiveSession ? buildSessionMetadataRows(latestLiveSession) : [];
   const shouldShowInlineRuntimeError = Boolean(lastRuntimeError) && !isConversationEmpty;
   const shouldShowMessageMeta =
-    shouldShowLatestSessionMetadata || shouldShowInlineRuntimeError;
+    shouldShowPastChatState || shouldShowLatestSessionMetadata || shouldShowInlineRuntimeError;
 
   return (
     <div className="assistant-panel__messages-section">
       {shouldShowMessageMeta ? (
         <div className="assistant-panel__messages-meta">
+          {shouldShowPastChatState ? (
+            <section className="assistant-panel__history-state" aria-label="Viewing past chat">
+              <div className="assistant-panel__history-state-header">
+                <div className="assistant-panel__history-state-copy">
+                  <p className="assistant-panel__history-state-label">Viewing past chat</p>
+                  <p className="assistant-panel__history-state-title">
+                    {activeChatTitle?.trim() || 'Untitled chat'}
+                  </p>
+                </div>
+              </div>
+              <p className="assistant-panel__history-state-body">
+                This chat stays read-only until you start a new Live session.
+              </p>
+            </section>
+          ) : null}
           {shouldShowLatestSessionMetadata ? (
             <section className="assistant-panel__session-history" aria-label="Latest Live session">
               <div className="assistant-panel__session-history-header">
