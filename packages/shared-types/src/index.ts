@@ -24,13 +24,9 @@ export interface ChatMessageRecord {
   sequence: number;
 }
 
-export type RehydrationPacketTurnRole = ChatMessageRole;
-
-export type RehydrationPacketTurnKind = 'message';
-
 export interface RehydrationPacketTurn {
-  role: RehydrationPacketTurnRole;
-  kind: RehydrationPacketTurnKind;
+  role: ChatMessageRole;
+  kind: 'message';
   text: string;
   createdAt: string;
   sequence: number;
