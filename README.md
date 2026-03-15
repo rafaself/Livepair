@@ -1,4 +1,4 @@
-# <img src="apps/desktop/src/renderer/components/primitives/livepair-icon.svg" width="32" height="32" alt="Livepair" /> Livepair
+# <img src="apps/desktop/src/renderer/components/primitives/display/livepair-icon.svg" width="32" height="32" alt="Livepair" /> <img src="apps/desktop/src/renderer/components/primitives/livepair-icon.svg" width="32" height="32" alt="Livepair" />
 ## Realtime Multimodal Desktop Assistant
 
 A real-time multimodal desktop assistant.
