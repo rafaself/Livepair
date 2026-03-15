@@ -61,4 +61,28 @@ describe('mapScreenCaptureStartError', () => {
       'Screen capture is unavailable because the Electron display-media handler is not active in this build.',
     );
   });
+
+  it('maps Electron empty-callback rejection to an actionable source-selection message on non-Linux', () => {
+    expect(
+      mapScreenCaptureStartError(new Error('Error starting capture'), makeAccessStatus({ platform: 'darwin' })),
+    ).toBe(
+      'No screen source could be selected. Open screen share settings and choose a source before starting capture.',
+    );
+  });
+
+  it('maps Electron empty-callback rejection to a Linux-specific message on Linux', () => {
+    expect(
+      mapScreenCaptureStartError(new Error('Error starting capture'), makeAccessStatus({ platform: 'linux' })),
+    ).toBe(
+      'No screen source could be selected. Select a source in the screen share settings, or confirm a desktop portal or PipeWire screen-sharing service is running on Linux.',
+    );
+  });
+
+  it('maps Electron empty-callback rejection to source-selection message when access status is null', () => {
+    expect(
+      mapScreenCaptureStartError(new Error('Error starting capture'), null),
+    ).toBe(
+      'No screen source could be selected. Open screen share settings and choose a source before starting capture.',
+    );
+  });
 });

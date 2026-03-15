@@ -19,13 +19,18 @@ describe('selectAutoSource', () => {
     expect(selectAutoSource(sources, excluded)).toBe(windowSource);
   });
 
-  it('returns null when multiple eligible sources remain', () => {
+  it('returns the first screen source when multiple eligible sources include a screen source', () => {
     const sources = [windowSource, screenSource];
-    expect(selectAutoSource(sources)).toBeNull();
+    expect(selectAutoSource(sources)).toBe(screenSource);
   });
 
-  it('returns null when multiple eligible screen sources remain', () => {
+  it('returns the first screen source when multiple screen sources exist', () => {
     const sources = [screenSource, screenSource2];
+    expect(selectAutoSource(sources)).toBe(screenSource);
+  });
+
+  it('returns null when only window sources remain (no screen source to auto-pick)', () => {
+    const sources = [windowSource, { id: 'window:43:0', name: 'Terminal' }];
     expect(selectAutoSource(sources)).toBeNull();
   });
 

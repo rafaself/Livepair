@@ -57,7 +57,10 @@ export function registerDisplayMediaHandler(
         } else {
           respondOnce({});
         }
-      } catch {
+      } catch (error) {
+        console.error('[desktop:display-media] getSources failed', {
+          message: error instanceof Error ? error.message : String(error),
+        });
         respondOnce({});
       }
     },

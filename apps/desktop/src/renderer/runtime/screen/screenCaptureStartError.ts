@@ -54,6 +54,16 @@ export function mapScreenCaptureStartError(
     return 'Screen capture is unavailable because the Electron display-media handler is not active in this build.';
   }
 
+  // Electron emits this message when the display-media handler responds with
+  // no video source (empty callback). This happens when no screen source is
+  // available or selected — surface a clear, actionable message instead of
+  // the raw internal string.
+  if (errorMessage === 'Error starting capture') {
+    return accessStatus?.platform === 'linux'
+      ? 'No screen source could be selected. Select a source in the screen share settings, or confirm a desktop portal or PipeWire screen-sharing service is running on Linux.'
+      : 'No screen source could be selected. Open screen share settings and choose a source before starting capture.';
+  }
+
   if (errorMessage.length > 0) {
     return errorMessage;
   }

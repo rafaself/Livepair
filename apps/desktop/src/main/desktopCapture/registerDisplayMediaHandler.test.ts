@@ -84,13 +84,13 @@ describe('registerDisplayMediaHandler', () => {
     expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledWith(expect.any(Function));
   });
 
-  it('does not auto-pick when multiple eligible sources remain and no source is selected', async () => {
+  it('auto-picks the screen source when multiple sources exist and no source is selected', async () => {
     mockGetSources.mockResolvedValueOnce([mockSource, mockWindowSource]);
     const { registerDisplayMediaHandler } = await import(
       './registerDisplayMediaHandler'
     );
 
-    registerDisplayMediaHandler(makeRegistry({ getSelectedSource: vi.fn(() => null) }));
+    registerDisplayMediaHandler(makeRegistry({ getSelectedSourceId: vi.fn(() => null) }));
 
     const callback = vi.fn();
     await registeredHandler!(
@@ -102,6 +102,26 @@ describe('registerDisplayMediaHandler', () => {
       types: ['screen', 'window'],
       thumbnailSize: { width: 0, height: 0 },
     });
+    expect(callback).toHaveBeenCalledOnce();
+    expect(callback).toHaveBeenCalledWith({
+      video: expect.objectContaining({ id: mockSource.id }),
+    });
+  });
+
+  it('calls the callback with no source when only window sources exist and none is selected', async () => {
+    mockGetSources.mockResolvedValueOnce([mockWindowSource, { id: 'window:43:0', name: 'Terminal', thumbnail: { toDataURL: () => '' }, display_id: '', appIcon: null }]);
+    const { registerDisplayMediaHandler } = await import(
+      './registerDisplayMediaHandler'
+    );
+
+    registerDisplayMediaHandler(makeRegistry({ getSelectedSourceId: vi.fn(() => null) }));
+
+    const callback = vi.fn();
+    await registeredHandler!(
+      { frame: { url: 'http://localhost:5173' } },
+      callback,
+    );
+
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith({});
   });
@@ -154,8 +174,33 @@ describe('registerDisplayMediaHandler', () => {
     expect(registry.getSelectedSourceId()).toBeNull();
   });
 
-  it('fails safely when a previous selection disappears and multiple eligible sources remain', async () => {
+  it('auto-picks the screen source when a previous selection disappears and multiple eligible sources remain', async () => {
     mockGetSources.mockResolvedValueOnce([mockSource, mockWindowSource]);
+    const [
+      { createCaptureSourceRegistry },
+      { registerDisplayMediaHandler },
+    ] = await Promise.all([
+      import('./captureSourceRegistry'),
+      import('./registerDisplayMediaHandler'),
+    ]);
+    const registry = createCaptureSourceRegistry();
+    registry.setSources([{ id: 'window:50:0', name: 'Browser' }]);
+    registry.setSelectedSourceId('window:50:0');
+
+    registerDisplayMediaHandler(registry);
+
+    const callback = vi.fn();
+    await registeredHandler!(
+      { frame: { url: 'http://localhost:5173' } },
+      callback,
+    );
+
+    expect(callback).toHaveBeenCalledWith({ video: expect.objectContaining({ id: mockSource.id }) });
+    expect(registry.getSelectedSourceId()).toBeNull();
+  });
+
+  it('calls the callback with no source when a previous selection disappears and only window sources remain', async () => {
+    mockGetSources.mockResolvedValueOnce([mockWindowSource, { id: 'window:43:0', name: 'Terminal', thumbnail: { toDataURL: () => '' }, display_id: '', appIcon: null }]);
     const [
       { createCaptureSourceRegistry },
       { registerDisplayMediaHandler },
@@ -198,12 +243,14 @@ describe('registerDisplayMediaHandler', () => {
     expect(callback).toHaveBeenCalledWith({});
   });
 
-  it('calls the callback with no source when desktopCapturer throws', async () => {
+  it('calls the callback with no source and logs the error when desktopCapturer throws', async () => {
     mockGetSources.mockRejectedValueOnce(new Error('system error'));
 
     const { registerDisplayMediaHandler } = await import(
       './registerDisplayMediaHandler'
     );
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     registerDisplayMediaHandler(makeRegistry());
 
@@ -215,6 +262,12 @@ describe('registerDisplayMediaHandler', () => {
 
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith({});
+    expect(consoleError).toHaveBeenCalledWith(
+      '[desktop:display-media] getSources failed',
+      expect.objectContaining({ message: 'system error' }),
+    );
+
+    consoleError.mockRestore();
   });
 
   it('updates the registry source list with only eligible sources on each capture request', async () => {
