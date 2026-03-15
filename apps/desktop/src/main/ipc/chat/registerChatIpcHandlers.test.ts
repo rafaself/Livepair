@@ -1,24 +1,49 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
-  AppendChatMessageRequest,
   ChatMessageRecord,
   ChatRecord,
   DurableChatSummaryRecord,
   LiveSessionRecord,
 } from '@livepair/shared-types';
 import { IPC_CHANNELS } from '../../../shared';
-import type { ChatMemoryService } from '../../chatMemory/chatMemoryService';
+import type { DesktopSettings } from '../../../shared/settings';
+import type { DesktopSettingsService } from '../../settings/settingsService';
 
+const CHAT_ID = '11111111-1111-1111-1111-111111111111';
+const MISSING_CHAT_ID = '22222222-2222-2222-2222-222222222222';
+const MESSAGE_ID = '33333333-3333-3333-3333-333333333333';
+const LIVE_SESSION_ID = '44444444-4444-4444-4444-444444444444';
 const mockHandle = vi.fn();
 
 vi.mock('electron', () => ({
   ipcMain: { handle: mockHandle },
 }));
 
+const defaultSettings: DesktopSettings = {
+  themePreference: 'system',
+  backendUrl: 'http://localhost:3000',
+  preferredMode: 'fast',
+  selectedInputDeviceId: 'default',
+  selectedOutputDeviceId: 'default',
+  voiceEchoCancellationEnabled: true,
+  voiceNoiseSuppressionEnabled: true,
+  voiceAutoGainControlEnabled: true,
+  speechSilenceTimeout: 'never',
+  isPanelPinned: false,
+  visualSessionQuality: 'Low',
+};
+
+function createSettingsServiceDouble(): DesktopSettingsService {
+  return {
+    getSettings: vi.fn(async () => defaultSettings),
+    updateSettings: vi.fn(),
+  } as unknown as DesktopSettingsService;
+}
+
 function createChatRecord(overrides: Partial<ChatRecord> = {}): ChatRecord {
   return {
-    id: 'chat-1',
+    id: CHAT_ID,
     title: null,
     createdAt: '2026-03-12T00:00:00.000Z',
     updatedAt: '2026-03-12T00:00:00.000Z',
@@ -31,8 +56,8 @@ function createChatMessageRecord(
   overrides: Partial<ChatMessageRecord> = {},
 ): ChatMessageRecord {
   return {
-    id: 'message-1',
-    chatId: 'chat-1',
+    id: MESSAGE_ID,
+    chatId: CHAT_ID,
     role: 'user',
     contentText: 'Hello',
     createdAt: '2026-03-12T00:00:00.000Z',
@@ -45,8 +70,8 @@ function createLiveSessionRecord(
   overrides: Partial<LiveSessionRecord> = {},
 ): LiveSessionRecord {
   return {
-    id: 'live-session-1',
-    chatId: 'chat-1',
+    id: LIVE_SESSION_ID,
+    chatId: CHAT_ID,
     startedAt: '2026-03-12T00:00:00.000Z',
     endedAt: null,
     status: 'active',
@@ -64,7 +89,7 @@ function createChatSummaryRecord(
   overrides: Partial<DurableChatSummaryRecord> = {},
 ): DurableChatSummaryRecord {
   return {
-    chatId: 'chat-1',
+    chatId: CHAT_ID,
     schemaVersion: 1,
     source: 'local-recent-history-v1',
     summaryText: 'Compact continuity summary',
@@ -72,24 +97,6 @@ function createChatSummaryRecord(
     updatedAt: '2026-03-12T00:05:00.000Z',
     ...overrides,
   };
-}
-
-function createChatMemoryServiceDouble(): ChatMemoryService {
-  return {
-    createChat: vi.fn(() => createChatRecord()),
-    getChat: vi.fn(() => createChatRecord()),
-    getOrCreateCurrentChat: vi.fn(() => createChatRecord()),
-    listChats: vi.fn(() => [createChatRecord()]),
-    listMessages: vi.fn(() => [createChatMessageRecord()]),
-    getChatSummary: vi.fn(() => createChatSummaryRecord()),
-    appendMessage: vi.fn((request: AppendChatMessageRequest) =>
-      createChatMessageRecord(request),
-    ),
-    createLiveSession: vi.fn(() => createLiveSessionRecord()),
-    listLiveSessions: vi.fn(() => [createLiveSessionRecord()]),
-    updateLiveSession: vi.fn(() => createLiveSessionRecord({ restorable: true })),
-    endLiveSession: vi.fn(() => createLiveSessionRecord({ status: 'ended' })),
-  } as unknown as ChatMemoryService;
 }
 
 describe('registerChatIpcHandlers', () => {
@@ -102,7 +109,7 @@ describe('registerChatIpcHandlers', () => {
     const { registerChatIpcHandlers } = await import('./registerChatIpcHandlers');
 
     registerChatIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
+      settingsService: createSettingsServiceDouble(),
     });
 
     expect(mockHandle).toHaveBeenCalledTimes(11);
@@ -151,20 +158,21 @@ describe('registerChatIpcHandlers', () => {
     );
   });
 
-  it('validates and delegates chat memory requests', async () => {
-    const chatMemoryService = createChatMemoryServiceDouble();
+  it('validates chat memory requests before calling the backend client', async () => {
+    const fetchImpl = vi.fn();
     const { registerChatIpcHandlers } = await import('./registerChatIpcHandlers');
 
     registerChatIpcHandlers({
-      chatMemoryService,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      settingsService: createSettingsServiceDouble(),
     });
 
     const createChatHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.createChat,
     )?.[1] as (_event: unknown, req: unknown) => Promise<ChatRecord>;
-    const listChatsHandler = mockHandle.mock.calls.find(
-      ([channel]) => channel === IPC_CHANNELS.listChats,
-    )?.[1] as () => Promise<ChatRecord[]>;
+    const getChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.getChat,
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatRecord | null>;
     const listMessagesHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.listChatMessages,
     )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatMessageRecord[]>;
@@ -190,10 +198,11 @@ describe('registerChatIpcHandlers', () => {
     await expect(createChatHandler({}, { title: 5 })).rejects.toThrow(
       'Invalid create chat payload',
     );
+    await expect(getChatHandler({}, '')).rejects.toThrow('Invalid chat id');
     await expect(listMessagesHandler({}, '')).rejects.toThrow('Invalid chat id');
     await expect(getChatSummaryHandler({}, '')).rejects.toThrow('Invalid chat id');
     await expect(
-      appendMessageHandler({}, { chatId: 'chat-1', role: 'system', contentText: 'bad' }),
+      appendMessageHandler({}, { chatId: CHAT_ID, role: 'system', contentText: 'bad' }),
     ).rejects.toThrow('Invalid append chat message payload');
     await expect(createLiveSessionHandler({}, { chatId: '' })).rejects.toThrow(
       'Invalid create live session payload',
@@ -206,19 +215,156 @@ describe('registerChatIpcHandlers', () => {
       'Invalid end live session payload',
     );
 
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('delegates chat memory requests through the backend client', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: vi.fn(async () => createChatRecord({ title: 'New chat' })),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: vi.fn(async () => '{"message":"Chat not found"}'),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => createChatRecord()),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => [createChatRecord()]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => [createChatMessageRecord()]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => createChatSummaryRecord()),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: vi.fn(async () =>
+          createChatMessageRecord({
+            role: 'assistant',
+            contentText: 'Stored',
+          }),
+        ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: vi.fn(async () => createLiveSessionRecord()),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => [createLiveSessionRecord()]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () =>
+          createLiveSessionRecord({
+            resumptionHandle: 'handles/live-session-1',
+            lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+            restorable: true,
+          }),
+        ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () =>
+          createLiveSessionRecord({
+            summarySnapshot: 'Persisted summary snapshot',
+            contextStateSnapshot: {
+              task: {
+                entries: [{ key: 'taskStatus', value: 'active' }],
+              },
+              context: {
+                entries: [{ key: 'repo', value: 'Livepair' }],
+              },
+            },
+          }),
+        ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () =>
+          createLiveSessionRecord({
+            endedAt: '2026-03-12T00:05:00.000Z',
+            status: 'ended',
+            endedReason: 'user-ended',
+          }),
+        ),
+      });
+    const { registerChatIpcHandlers } = await import('./registerChatIpcHandlers');
+
+    registerChatIpcHandlers({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      settingsService: createSettingsServiceDouble(),
+    });
+
+    const createChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.createChat,
+    )?.[1] as (_event: unknown, req: unknown) => Promise<ChatRecord>;
+    const getChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.getChat,
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatRecord | null>;
+    const getOrCreateCurrentChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.getOrCreateCurrentChat,
+    )?.[1] as () => Promise<ChatRecord>;
+    const listChatsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.listChats,
+    )?.[1] as () => Promise<ChatRecord[]>;
+    const listMessagesHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.listChatMessages,
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatMessageRecord[]>;
+    const getChatSummaryHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.getChatSummary,
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<DurableChatSummaryRecord | null>;
+    const appendMessageHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.appendChatMessage,
+    )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
+    const createLiveSessionHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.createLiveSession,
+    )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
+    const listLiveSessionsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.listLiveSessions,
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<LiveSessionRecord[]>;
+    const updateLiveSessionHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.updateLiveSession,
+    )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
+    const endLiveSessionHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.endLiveSession,
+    )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
+
     await expect(createChatHandler({}, { title: 'New chat' })).resolves.toEqual(
-      createChatRecord(),
+      createChatRecord({ title: 'New chat' }),
     );
+    await expect(getChatHandler({}, MISSING_CHAT_ID)).resolves.toBeNull();
+    await expect(getOrCreateCurrentChatHandler()).resolves.toEqual(createChatRecord());
     await expect(listChatsHandler()).resolves.toEqual([createChatRecord()]);
-    await expect(listMessagesHandler({}, 'chat-1')).resolves.toEqual([
+    await expect(listMessagesHandler({}, CHAT_ID)).resolves.toEqual([
       createChatMessageRecord(),
     ]);
-    await expect(getChatSummaryHandler({}, 'chat-1')).resolves.toEqual(
+    await expect(getChatSummaryHandler({}, CHAT_ID)).resolves.toEqual(
       createChatSummaryRecord(),
     );
     await expect(
       appendMessageHandler({}, {
-        chatId: 'chat-1',
+        chatId: CHAT_ID,
         role: 'assistant',
         contentText: 'Stored',
       }),
@@ -228,50 +374,171 @@ describe('registerChatIpcHandlers', () => {
         contentText: 'Stored',
       }),
     );
-    await expect(createLiveSessionHandler({}, { chatId: 'chat-1' })).resolves.toEqual(
+    await expect(createLiveSessionHandler({}, { chatId: CHAT_ID })).resolves.toEqual(
       createLiveSessionRecord(),
     );
-    await expect(listLiveSessionsHandler({}, 'chat-1')).resolves.toEqual([
+    await expect(listLiveSessionsHandler({}, CHAT_ID)).resolves.toEqual([
       createLiveSessionRecord(),
     ]);
     await expect(
       updateLiveSessionHandler({}, {
         kind: 'resumption',
-        id: 'live-session-1',
+        id: LIVE_SESSION_ID,
         resumptionHandle: 'handles/live-session-1',
         lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
         restorable: true,
         invalidatedAt: null,
         invalidationReason: null,
       }),
-    ).resolves.toEqual(createLiveSessionRecord({ restorable: true }));
+    ).resolves.toEqual(
+      createLiveSessionRecord({
+        resumptionHandle: 'handles/live-session-1',
+        lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+        restorable: true,
+      }),
+    );
     await expect(
-      endLiveSessionHandler({}, { id: 'live-session-1', status: 'ended' }),
-    ).resolves.toEqual(createLiveSessionRecord({ status: 'ended' }));
+      updateLiveSessionHandler({}, {
+        kind: 'snapshot',
+        id: LIVE_SESSION_ID,
+        summarySnapshot: 'Persisted summary snapshot',
+        contextStateSnapshot: {
+          task: {
+            entries: [{ key: 'taskStatus', value: 'active' }],
+          },
+          context: {
+            entries: [{ key: 'repo', value: 'Livepair' }],
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      createLiveSessionRecord({
+        summarySnapshot: 'Persisted summary snapshot',
+        contextStateSnapshot: {
+          task: {
+            entries: [{ key: 'taskStatus', value: 'active' }],
+          },
+          context: {
+            entries: [{ key: 'repo', value: 'Livepair' }],
+          },
+        },
+      }),
+    );
+    await expect(
+      endLiveSessionHandler({}, {
+        id: LIVE_SESSION_ID,
+        status: 'ended',
+        endedAt: '2026-03-12T00:05:00.000Z',
+        endedReason: 'user-ended',
+      }),
+    ).resolves.toEqual(
+      createLiveSessionRecord({
+        endedAt: '2026-03-12T00:05:00.000Z',
+        status: 'ended',
+        endedReason: 'user-ended',
+      }),
+    );
 
-    expect(chatMemoryService.createChat).toHaveBeenCalledWith({ title: 'New chat' });
-    expect(chatMemoryService.listChats).toHaveBeenCalledTimes(1);
-    expect(chatMemoryService.listMessages).toHaveBeenCalledWith('chat-1');
-    expect(chatMemoryService.getChatSummary).toHaveBeenCalledWith('chat-1');
-    expect(chatMemoryService.appendMessage).toHaveBeenCalledWith({
-      chatId: 'chat-1',
-      role: 'assistant',
-      contentText: 'Stored',
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, 'http://localhost:3000/chat-memory/chats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'New chat' }),
     });
-    expect(chatMemoryService.createLiveSession).toHaveBeenCalledWith({ chatId: 'chat-1' });
-    expect(chatMemoryService.listLiveSessions).toHaveBeenCalledWith('chat-1');
-    expect(chatMemoryService.updateLiveSession).toHaveBeenCalledWith({
-      kind: 'resumption',
-      id: 'live-session-1',
-      resumptionHandle: 'handles/live-session-1',
-      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
-      restorable: true,
-      invalidatedAt: null,
-      invalidationReason: null,
-    });
-    expect(chatMemoryService.endLiveSession).toHaveBeenCalledWith({
-      id: 'live-session-1',
-      status: 'ended',
-    });
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      `http://localhost:3000/chat-memory/chats/${MISSING_CHAT_ID}`,
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:3000/chat-memory/chats/current',
+      { method: 'PUT' },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(4, 'http://localhost:3000/chat-memory/chats');
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      5,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages`,
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      6,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/summary`,
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      7,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: CHAT_ID,
+          role: 'assistant',
+          contentText: 'Stored',
+        }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      8,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: CHAT_ID }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      9,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      10,
+      `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/resumption`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'resumption',
+          id: LIVE_SESSION_ID,
+          resumptionHandle: 'handles/live-session-1',
+          lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+          restorable: true,
+          invalidatedAt: null,
+          invalidationReason: null,
+        }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      11,
+      `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/snapshot`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'snapshot',
+          id: LIVE_SESSION_ID,
+          summarySnapshot: 'Persisted summary snapshot',
+          contextStateSnapshot: {
+            task: {
+              entries: [{ key: 'taskStatus', value: 'active' }],
+            },
+            context: {
+              entries: [{ key: 'repo', value: 'Livepair' }],
+            },
+          },
+        }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      12,
+      `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/end`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: LIVE_SESSION_ID,
+          status: 'ended',
+          endedAt: '2026-03-12T00:05:00.000Z',
+          endedReason: 'user-ended',
+        }),
+      },
+    );
   });
 });

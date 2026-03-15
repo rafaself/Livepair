@@ -11,6 +11,7 @@
     "db:migration:create": "node-pg-migrate create -m src/database/migrations -j sql",
     "typecheck": "tsc --noEmit",
     "test": "jest",
+    "test:chat-memory": "jest --runInBand src/chat-memory/chat-summary.spec.ts src/chat-memory/chat-memory.service.spec.ts src/chat-memory/chat-memory.repository.db.spec.ts src/chat-memory/chat-memory.http.db.spec.ts",
     "test:coverage": "jest --coverage --runInBand",
     "test:watch": "jest --watch",
     "lint": "eslint src/"

@@ -4,25 +4,17 @@
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {
-    "rebuild:native:electron": "electron-rebuild -f -o better-sqlite3",
-    "rebuild:native:node": "pnpm rebuild better-sqlite3",
-    "predev": "pnpm run rebuild:native:electron",
     "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
-    "prebuild": "pnpm run rebuild:native:electron",
     "build": "electron-vite build",
-    "pretest": "pnpm run rebuild:native:node",
     "test": "vitest run",
-    "pretest:coverage": "pnpm run rebuild:native:node",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
-    "prepreview": "pnpm run rebuild:native:electron",
     "preview": "env -u ELECTRON_RUN_AS_NODE electron-vite preview",
     "lint": "eslint src/"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
     "@livepair/shared-types": "workspace:*",
-    "better-sqlite3": "^12.6.2",
     "lucide-react": "^0.577.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -31,7 +23,6 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.3",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^20.12.0",

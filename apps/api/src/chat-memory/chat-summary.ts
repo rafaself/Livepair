@@ -73,5 +73,8 @@ export function shouldReplaceDurableChatSummary(
   existingSummary: DurableChatSummaryRecord | null,
   nextSummary: DurableChatSummaryRecord,
 ): boolean {
-  return existingSummary === null || nextSummary.coveredThroughSequence > existingSummary.coveredThroughSequence;
+  return (
+    existingSummary === null ||
+    nextSummary.coveredThroughSequence > existingSummary.coveredThroughSequence
+  );
 }

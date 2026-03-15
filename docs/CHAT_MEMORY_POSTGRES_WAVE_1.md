@@ -1,6 +1,8 @@
 # Wave 1: Chat-Memory PostgreSQL Design Baseline
 
-## Current state
+> Historical note: this document captures the Wave 1 baseline before the desktop cutover and cleanup. Current production no longer ships `apps/desktop/src/main/chatMemory/` or `chat-memory.sqlite`; durable chat memory now lives behind the backend `/chat-memory/*` APIs.
+
+## Historical current state
 
 - Implemented today: desktop main owns chat-memory persistence in `apps/desktop/src/main/chatMemory/` and stores it in `app.getPath('userData')/chat-memory.sqlite`.
 - The renderer only sees the typed bridge in `apps/desktop/src/shared/desktopBridge.ts` via preload IPC wrappers.

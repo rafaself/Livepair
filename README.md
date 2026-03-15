@@ -21,7 +21,8 @@ The backend stays out of the audio/video hot path and currently serves health ch
 * Inactive conversation shell that preserves history and offers start/resume Live-session actions
 * Typed input inside an active Live session
 * Speech mode backed by Gemini Live API via an SDK-backed transport
-* Backend health (`GET /health`) and real Gemini Live ephemeral token issuance (`POST /session/token`)
+* Backend health (`GET /health`), real Gemini Live ephemeral token issuance (`POST /session/token`), and a Postgres-backed chat-memory REST module for chats, messages, live sessions, and durable summaries
+* Desktop chat persistence now flows through the backend chat-memory API while preserving the existing renderer-facing bridge/IPC contract
 * Local microphone capture pipeline and assistant audio playback
 * Interruption / barge-in behavior (local detection + playback stop)
 * Speech transcription event handling and transcript state wiring
@@ -97,6 +98,7 @@ Speech mode: Desktop client → Gemini Live API
 Implemented today:
 * Issue ephemeral tokens
 * Expose backend health
+* Persist chat-memory state through Postgres-backed REST endpoints consumed by desktop chat persistence flows
 
 Planned:
 * Expose backend-backed tools
@@ -182,6 +184,18 @@ Speech mode (direct realtime):
 Implemented:
 * `GET /health`
 * `POST /session/token` (Gemini Live ephemeral token issuance)
+* `PUT /chat-memory/chats/current`
+* `POST /chat-memory/chats`
+* `GET /chat-memory/chats`
+* `GET /chat-memory/chats/:chatId`
+* `GET /chat-memory/chats/:chatId/messages`
+* `POST /chat-memory/chats/:chatId/messages`
+* `GET /chat-memory/chats/:chatId/summary`
+* `GET /chat-memory/chats/:chatId/live-sessions`
+* `POST /chat-memory/chats/:chatId/live-sessions`
+* `PATCH /chat-memory/live-sessions/:id/resumption`
+* `PATCH /chat-memory/live-sessions/:id/snapshot`
+* `POST /chat-memory/live-sessions/:id/end`
 
 Planned:
 * `POST /session/checkpoint`
@@ -197,8 +211,9 @@ The user experience should feel like one continuous session.
 
 Current implementation:
 
-* the desktop runtime keeps conversation state, runtime diagnostics, token-expiry metadata, and Gemini Live resumption handles in local process state
+* the desktop runtime keeps active conversation UI state, runtime diagnostics, token-expiry metadata, and Gemini Live resumption handles in local process state
 * speech-mode resumption refreshes the token when needed and falls back explicitly to safe `inactive`/`off` states on failure
+* durable chats, messages, live sessions, and summaries are persisted through the backend chat-memory API rather than a desktop-local SQLite store
 
 Planned extension:
 
@@ -311,48 +326,40 @@ docs(docs): update README with commit conventions
 pnpm install
 ```
 
-### ▶️ Run the desktop app
+### 🐘 Local Postgres-backed development flow
 
-Preferred:
+Start the local Docker database, verify connectivity, and apply migrations:
+
+```bash
+make postgres-up
+pnpm --filter @livepair/api db:check
+pnpm --filter @livepair/api db:migrate
+```
+
+Then run both apps together:
 
 ```bash
 pnpm dev
 ```
 
-Desktop only:
-
-```bash
-pnpm --filter @livepair/desktop dev
-```
-
-### ▶️ Run the backend
-
-Preferred:
+Or run them separately:
 
 ```bash
 pnpm --filter @livepair/api dev
+pnpm --filter @livepair/desktop dev
 ```
 
-### 🐘 Local PostgreSQL for Wave 2
-
-Start the local Docker database:
-
-```bash
-make postgres-up
-```
-
-Check the backend DB connection and apply migrations:
-
-```bash
-pnpm --filter @livepair/api db:check
-pnpm --filter @livepair/api db:migrate
-```
-
-Recreate the local database from scratch and rerun migrations:
+Reset the local database from scratch:
 
 ```bash
 make postgres-reset
 pnpm --filter @livepair/api db:migrate
+```
+
+Stop the local database when you are done:
+
+```bash
+make postgres-down
 ```
 
 ### 🧹 Run workspace checks

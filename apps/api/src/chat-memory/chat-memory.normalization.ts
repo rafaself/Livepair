@@ -1,3 +1,5 @@
+import { ChatMemoryInputError } from './chat-memory.errors';
+
 export function normalizeTitle(title: string | null | undefined): string | null {
   if (typeof title !== 'string') {
     return title ?? null;
@@ -11,7 +13,7 @@ export function normalizeContentText(contentText: string): string {
   const trimmedContent = contentText.trim();
 
   if (trimmedContent.length === 0) {
-    throw new Error('Chat message content must not be empty');
+    throw new ChatMemoryInputError('Chat message content must not be empty');
   }
 
   return trimmedContent;

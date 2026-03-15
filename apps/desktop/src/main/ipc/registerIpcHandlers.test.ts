@@ -2,14 +2,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrowserWindow } from 'electron';
 import type {
-  AppendChatMessageRequest,
   ChatMessageRecord,
   ChatRecord,
   DurableChatSummaryRecord,
   LiveSessionRecord,
 } from '@livepair/shared-types';
 import type { DesktopSettings } from '../../shared/settings';
-import type { ChatMemoryService } from '../chatMemory/chatMemoryService';
 import type { DesktopSettingsService } from '../settings/settingsService';
 
 const mockHandle = vi.fn();
@@ -110,24 +108,6 @@ function createChatSummaryRecord(
   };
 }
 
-function createChatMemoryServiceDouble(): ChatMemoryService {
-  return {
-    createChat: vi.fn(() => createChatRecord()),
-    getChat: vi.fn(() => createChatRecord()),
-    getOrCreateCurrentChat: vi.fn(() => createChatRecord()),
-    listChats: vi.fn(() => [createChatRecord()]),
-    listMessages: vi.fn(() => [createChatMessageRecord()]),
-    getChatSummary: vi.fn(() => createChatSummaryRecord()),
-    appendMessage: vi.fn((request: AppendChatMessageRequest) =>
-      createChatMessageRecord(request),
-    ),
-    createLiveSession: vi.fn(() => createLiveSessionRecord()),
-    listLiveSessions: vi.fn(() => [createLiveSessionRecord()]),
-    updateLiveSession: vi.fn(() => createLiveSessionRecord({ restorable: true })),
-    endLiveSession: vi.fn(() => createLiveSessionRecord({ status: 'ended' })),
-  } as unknown as ChatMemoryService;
-}
-
 function createScreenFrameDumpServiceDouble(): {
   startSession: ReturnType<typeof vi.fn>;
   saveFrame: ReturnType<typeof vi.fn>;
@@ -139,6 +119,8 @@ function createScreenFrameDumpServiceDouble(): {
     saveFrame: vi.fn(async () => undefined),
   };
 }
+
+
 
 describe('registerIpcHandlers', () => {
   beforeEach(() => {
@@ -152,7 +134,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow: () => null,
       screenFrameDumpService: createScreenFrameDumpServiceDouble(),
       settingsService: createSettingsServiceDouble(),
@@ -274,7 +255,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       fetchImpl: fetchImpl as unknown as typeof fetch,
       getMainWindow: () => null,
       screenFrameDumpService: createScreenFrameDumpServiceDouble(),
@@ -315,7 +295,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       fetchImpl: fetchImpl as unknown as typeof fetch,
       getMainWindow: () => null,
       settingsService,
@@ -360,13 +339,68 @@ describe('registerIpcHandlers', () => {
     });
   });
 
-  it('validates and delegates chat memory handlers through the chat memory service', async () => {
-    const chatMemoryService = createChatMemoryServiceDouble();
+  it('validates and delegates chat memory handlers through the backend client', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: vi.fn(async () => createChatRecord({ title: 'New chat' })),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: vi.fn(async () => '{"message":"Chat not found"}'),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => createChatRecord()),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => [createChatMessageRecord()]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => createChatSummaryRecord()),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: vi.fn(async () =>
+          createChatMessageRecord({
+            role: 'assistant',
+            contentText: 'Stored',
+          }),
+        ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: vi.fn(async () => createLiveSessionRecord()),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => [createLiveSessionRecord()]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => createLiveSessionRecord({ restorable: true })),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => createLiveSessionRecord({ status: 'ended' })),
+      });
     const settingsService = createSettingsServiceDouble();
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
       getMainWindow: () => null,
       screenFrameDumpService: createScreenFrameDumpServiceDouble(),
       settingsService,
@@ -424,9 +458,11 @@ describe('registerIpcHandlers', () => {
     );
 
     await expect(createChatHandler({}, { title: 'New chat' })).resolves.toEqual(
-      createChatRecord(),
+      createChatRecord({ title: 'New chat' }),
     );
-    await expect(getChatHandler({}, 'chat-1')).resolves.toEqual(createChatRecord());
+    await expect(
+      getChatHandler({}, 'missing-chat-id'),
+    ).resolves.toBeNull();
     await expect(getOrCreateCurrentChatHandler()).resolves.toEqual(createChatRecord());
     await expect(listMessagesHandler({}, 'chat-1')).resolves.toEqual([
       createChatMessageRecord(),
@@ -461,31 +497,83 @@ describe('registerIpcHandlers', () => {
       endLiveSessionHandler({}, { id: 'live-session-1', status: 'ended' }),
     ).resolves.toEqual(createLiveSessionRecord({ status: 'ended' }));
 
-    expect(chatMemoryService.createChat).toHaveBeenCalledWith({ title: 'New chat' });
-    expect(chatMemoryService.getChat).toHaveBeenCalledWith('chat-1');
-    expect(chatMemoryService.getOrCreateCurrentChat).toHaveBeenCalledTimes(1);
-    expect(chatMemoryService.listMessages).toHaveBeenCalledWith('chat-1');
-    expect(chatMemoryService.getChatSummary).toHaveBeenCalledWith('chat-1');
-    expect(chatMemoryService.appendMessage).toHaveBeenCalledWith({
-      chatId: 'chat-1',
-      role: 'assistant',
-      contentText: 'Stored',
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, 'http://localhost:3000/chat-memory/chats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'New chat' }),
     });
-    expect(chatMemoryService.createLiveSession).toHaveBeenCalledWith({ chatId: 'chat-1' });
-    expect(chatMemoryService.listLiveSessions).toHaveBeenCalledWith('chat-1');
-    expect(chatMemoryService.updateLiveSession).toHaveBeenCalledWith({
-      kind: 'resumption',
-      id: 'live-session-1',
-      resumptionHandle: 'handles/live-session-1',
-      lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
-      restorable: true,
-      invalidatedAt: null,
-      invalidationReason: null,
-    });
-    expect(chatMemoryService.endLiveSession).toHaveBeenCalledWith({
-      id: 'live-session-1',
-      status: 'ended',
-    });
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3000/chat-memory/chats/missing-chat-id',
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:3000/chat-memory/chats/current',
+      { method: 'PUT' },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      4,
+      'http://localhost:3000/chat-memory/chats/chat-1/messages',
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      5,
+      'http://localhost:3000/chat-memory/chats/chat-1/summary',
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      6,
+      'http://localhost:3000/chat-memory/chats/chat-1/messages',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Stored',
+        }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      7,
+      'http://localhost:3000/chat-memory/chats/chat-1/live-sessions',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: 'chat-1' }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      8,
+      'http://localhost:3000/chat-memory/chats/chat-1/live-sessions',
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      9,
+      'http://localhost:3000/chat-memory/live-sessions/live-session-1/resumption',
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'resumption',
+          id: 'live-session-1',
+          resumptionHandle: 'handles/live-session-1',
+          lastResumptionUpdateAt: '2026-03-12T00:01:00.000Z',
+          restorable: true,
+          invalidatedAt: null,
+          invalidationReason: null,
+        }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      10,
+      'http://localhost:3000/chat-memory/live-sessions/live-session-1/end',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: 'live-session-1',
+          status: 'ended',
+        }),
+      },
+    );
   });
 
   it('validates and delegates screen frame dump handlers', async () => {
@@ -494,7 +582,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow: () => null,
       screenFrameDumpService,
       settingsService,
@@ -538,7 +625,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow: () => null,
       settingsService,
     });
@@ -568,7 +654,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow: () => null,
       settingsService,
     });
@@ -612,7 +697,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow: () => null,
       platform: 'darwin',
       settingsService,
@@ -639,7 +723,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow: () => null,
       settingsService,
     });
@@ -665,7 +748,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'linux',
       settingsService,
@@ -680,7 +762,6 @@ describe('registerIpcHandlers', () => {
 
     mockHandle.mockReset();
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'win32',
       settingsService,
@@ -707,7 +788,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'win32',
       settingsService,
@@ -722,7 +802,6 @@ describe('registerIpcHandlers', () => {
 
     mockHandle.mockReset();
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'linux',
       settingsService,
@@ -742,7 +821,6 @@ describe('registerIpcHandlers', () => {
     const { registerIpcHandlers } = await import('./registerIpcHandlers');
 
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'linux',
       settingsService,
@@ -759,7 +837,6 @@ describe('registerIpcHandlers', () => {
 
     mockHandle.mockReset();
     registerIpcHandlers({
-      chatMemoryService: createChatMemoryServiceDouble(),
       getMainWindow,
       platform: 'win32',
       settingsService,
