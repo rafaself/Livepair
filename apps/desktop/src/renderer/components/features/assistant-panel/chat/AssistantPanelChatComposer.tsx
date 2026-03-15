@@ -1,4 +1,4 @@
-import { Cast, Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, Monitor, MonitorOff } from 'lucide-react';
 import type { ChangeEventHandler, FormEventHandler, KeyboardEvent } from 'react';
 import { useEffect, useRef } from 'react';
 import { Button, IconButton, Select, type SelectOptionItem } from '../../../primitives';
@@ -211,7 +211,11 @@ export function AssistantPanelChatComposer({
                       void onToggleComposerScreenShare();
                     }}
                   >
-                    <Cast size={16} aria-hidden="true" />
+                    {isComposerScreenShareActive ? (
+                      <Monitor size={16} aria-hidden="true" />
+                    ) : (
+                      <MonitorOff size={16} aria-hidden="true" />
+                    )}
                   </IconButton>
                 </div>
               </div>
