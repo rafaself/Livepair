@@ -10,7 +10,10 @@ import type {
 } from '../outbound/outbound.types';
 import type { VoiceSessionStatus } from '../voice/voice.types';
 import type { ScreenCaptureState } from './screen.types';
-import type { LocalScreenCaptureObserver } from './localScreenCapture';
+import type {
+  LocalScreenCapture,
+  LocalScreenCaptureObserver,
+} from './localScreenCapture';
 import {
   SCREEN_CAPTURE_FRAME_RATE_HZ,
   SCREEN_CAPTURE_JPEG_QUALITY,
@@ -55,7 +58,7 @@ function createHarness(options: {
   let resolveStop: (() => void) | null = null;
   let deferStop = false;
   const mockCapture = {
-    start: vi.fn(() => Promise.resolve()),
+    start: vi.fn(async (_options: Parameters<LocalScreenCapture['start']>[0]) => undefined),
     stop: vi.fn(() => {
       if (!deferStop) {
         return Promise.resolve();
@@ -65,8 +68,8 @@ function createHarness(options: {
         resolveStop = resolve;
       });
     }),
-    updateQuality: vi.fn(),
-  };
+    updateQuality: vi.fn((_params: Parameters<LocalScreenCapture['updateQuality']>[0]) => undefined),
+  } satisfies LocalScreenCapture;
   const createCapture = vi.fn((observer: LocalScreenCaptureObserver) => {
     capturedObserver = observer;
     return mockCapture;
@@ -90,7 +93,7 @@ function createHarness(options: {
         outcome: gatewaySubmitCount === 1 ? 'send' : 'replace',
         classification: 'replaceable',
         reason: gatewaySubmitCount === 1 ? 'accepted' : 'superseded-latest',
-      };
+      } satisfies RealtimeOutboundDecision;
     }),
     settle: vi.fn(),
     recordFailure: vi.fn(),
@@ -100,6 +103,21 @@ function createHarness(options: {
   };
 
   const hasControllerOptions = options.visualSendPolicyOptions || options.burstDurationMs != null || options.burstStableFrames != null || options.burstSendCooldownMs != null || options.promotionDurationMs != null;
+  const controllerOptions = hasControllerOptions
+    ? {
+        ...(options.visualSendPolicyOptions
+          ? { visualSendPolicyOptions: options.visualSendPolicyOptions }
+          : {}),
+        ...(options.burstDurationMs != null ? { burstDurationMs: options.burstDurationMs } : {}),
+        ...(options.burstStableFrames != null ? { burstStableFrames: options.burstStableFrames } : {}),
+        ...(options.burstSendCooldownMs != null
+          ? { burstSendCooldownMs: options.burstSendCooldownMs }
+          : {}),
+        ...(options.promotionDurationMs != null
+          ? { promotionDurationMs: options.promotionDurationMs }
+          : {}),
+      }
+    : undefined;
   const ctrl = createScreenCaptureController(
     store,
     createCapture,
@@ -111,15 +129,7 @@ function createHarness(options: {
       saveScreenFrameDumpFrame,
       setScreenFrameDumpDirectoryPath,
     },
-    hasControllerOptions
-      ? {
-          visualSendPolicyOptions: options.visualSendPolicyOptions,
-          burstDurationMs: options.burstDurationMs,
-          burstStableFrames: options.burstStableFrames,
-          burstSendCooldownMs: options.burstSendCooldownMs,
-          promotionDurationMs: options.promotionDurationMs,
-        }
-      : undefined,
+    controllerOptions,
     options.getBaselineQuality,
   );
 
@@ -1719,7 +1729,7 @@ describe('createScreenCaptureController – Wave 4 capture/send diagnostics sepa
   it('frame dump persists frames that were NOT sent (policy-gated out)', async () => {
     // The frame dump records captured frames for debugging purposes.
     // It must run even when the policy blocks the send.
-    const { ctrl, getObserver, sendVideoFrame, saveScreenFrameDumpFrame } = createHarness({
+    const { ctrl, getObserver, saveScreenFrameDumpFrame } = createHarness({
       saveScreenFramesEnabled: true,
     });
 
@@ -2275,7 +2285,7 @@ describe('createScreenCaptureController – Wave 3 burst efficiency', () => {
     harness.sendVideoFrame.mockClear();
   }
 
-  const alwaysSend = () => ({
+  const alwaysSend = (): RealtimeOutboundDecision => ({
     outcome: 'send' as const,
     classification: 'replaceable' as const,
     reason: 'accepted',
@@ -2551,8 +2561,12 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
       submitDecision: alwaysSend,
     });
     await harness.ctrl.start();
+    expect(harness.mockCapture.start).toHaveBeenCalledTimes(1);
     // capture.start() is called before onScreenShareStarted fires, so params are baseline
     const startArgs = harness.mockCapture.start.mock.calls[0]?.[0];
+    if (!startArgs) {
+      throw new Error('Expected capture.start to receive quality parameters');
+    }
     expect(startArgs.jpegQuality).toBe(LOW_PARAMS.jpegQuality);
     expect(startArgs.maxWidthPx).toBe(LOW_PARAMS.maxWidthPx);
     // Then promotion happens via onScreenShareStarted → promoteQuality → updateQuality
@@ -2565,7 +2579,11 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
       submitDecision: alwaysSend,
     });
     await harness.ctrl.start();
+    expect(harness.mockCapture.start).toHaveBeenCalledTimes(1);
     const startArgs = harness.mockCapture.start.mock.calls[0]?.[0];
+    if (!startArgs) {
+      throw new Error('Expected capture.start to receive quality parameters');
+    }
     // High baseline — promotion is no-op, still High
     expect(startArgs.jpegQuality).toBe(HIGH_PARAMS.jpegQuality);
     expect(startArgs.maxWidthPx).toBe(HIGH_PARAMS.maxWidthPx);
