@@ -58,12 +58,12 @@ describe('requestGeminiAuthToken', () => {
           uses: 1,
           newSessionExpireTime: '2026-03-09T12:01:30.000Z',
           expireTime: '2099-03-09T12:30:00.000Z',
-          liveConnectConstraints: {
+          bidiGenerateContentSetup: {
             model: 'models/gemini-2.0-flash-live-001',
-            config: {
+            generationConfig: {
               responseModalities: ['AUDIO'],
-              sessionResumption: {},
             },
+            sessionResumption: {},
           },
         }),
       },

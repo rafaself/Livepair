@@ -105,7 +105,17 @@ export async function requestGeminiAuthToken({
           uses: 1,
           newSessionExpireTime,
           expireTime,
-          liveConnectConstraints,
+          // The Gemini REST API expects bidiGenerateContentSetup (not
+          // liveConnectConstraints). Mirrors the mapping the @google/genai SDK
+          // performs internally via liveConnectConstraintsToMldev +
+          // convertBidiSetupToTokenSetup.
+          bidiGenerateContentSetup: {
+            model: liveConnectConstraints.model,
+            generationConfig: {
+              responseModalities: liveConnectConstraints.config.responseModalities,
+            },
+            sessionResumption: liveConnectConstraints.config.sessionResumption,
+          },
         }),
       });
     } catch (error) {

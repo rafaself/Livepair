@@ -176,12 +176,12 @@ describe('desktop client protected token flow', () => {
           uses: 1,
           expireTime: expect.any(String),
           newSessionExpireTime: expect.any(String),
-          liveConnectConstraints: {
+          bidiGenerateContentSetup: {
             model: SESSION_TOKEN_LIVE_MODEL,
-            config: {
+            generationConfig: {
               responseModalities: ['AUDIO'],
-              sessionResumption: {},
             },
+            sessionResumption: {},
           },
         },
       ]);
