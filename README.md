@@ -333,6 +333,28 @@ Preferred:
 pnpm --filter @livepair/api dev
 ```
 
+### 🐘 Local PostgreSQL for Wave 2
+
+Start the local Docker database:
+
+```bash
+make postgres-up
+```
+
+Check the backend DB connection and apply migrations:
+
+```bash
+pnpm --filter @livepair/api db:check
+pnpm --filter @livepair/api db:migrate
+```
+
+Recreate the local database from scratch and rerun migrations:
+
+```bash
+make postgres-reset
+pnpm --filter @livepair/api db:migrate
+```
+
 ### 🧹 Run workspace checks
 
 ```bash
@@ -369,6 +391,7 @@ Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed in 
 PORT=
 HOST=
 GEMINI_API_KEY=
+DATABASE_URL=
 EPHEMERAL_TOKEN_TTL_SECONDS=
 REDIS_URL=
 DISABLE_HTTP_LISTEN=
@@ -379,9 +402,17 @@ Meaning:
 - `PORT`: backend HTTP port. Defaults to `3000` when unset.
 - `HOST`: backend bind host. Defaults to `127.0.0.1` when unset.
 - `GEMINI_API_KEY`: server-side Gemini credential used for `/session/token`. Never expose this in the desktop app.
+- `DATABASE_URL`: PostgreSQL connection string used by backend migrations and the Postgres persistence foundation. With the local Docker defaults, use `postgres://livepair:livepair@127.0.0.1:5432/livepair`.
 - `EPHEMERAL_TOKEN_TTL_SECONDS`: token lifetime returned by `/session/token`. Defaults to `60` when unset.
 - `REDIS_URL`: planned Redis connection string for future checkpoint/session storage work. It is not active in the current MVP path yet.
 - `DISABLE_HTTP_LISTEN`: when `true`, starts the backend process without binding the HTTP server. Useful for tests or environments where you want bootstrap without opening a port.
+
+Local Postgres Docker overrides:
+
+- `POSTGRES_DB`: database name for `infra/postgres/docker-compose.yml`. Defaults to `livepair`.
+- `POSTGRES_USER`: database user for local Docker Postgres. Defaults to `livepair`.
+- `POSTGRES_PASSWORD`: database password for local Docker Postgres. Defaults to `livepair`.
+- `POSTGRES_PORT`: host port for local Docker Postgres. Defaults to `5432`.
 
 ### 🖥️ Desktop: `apps/desktop/.env.example`
 

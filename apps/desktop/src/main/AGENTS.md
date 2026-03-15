@@ -12,6 +12,7 @@ Privileged Electron main-process code.
 - Any new renderer-facing capability must be added in `../shared/desktopBridge.ts`, implemented here, and validated in `ipc/validators.ts` before exposure.
 - Keep handlers thin; push reusable work into local services/modules.
 - Do not move Gemini Live audio or video transport into main.
+- Treat desktop-local chat-memory persistence as transitional; preserve the bridge contract, but move durable chat-memory ownership toward backend APIs instead of growing new main-process storage.
 
 ## Look here first
 - `window/overlayWindow.ts`
