@@ -267,16 +267,75 @@ describe('App', () => {
     expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
   });
 
-  it('shows runtime errors from the session store in the snackbar', async () => {
+  it.each([
+    'token failed',
+    'Failed to request voice session token',
+    'Failed to connect voice session',
+  ])('shows a retry snackbar for Live session start failure: %s', async (detail) => {
     installMatchMedia(true);
 
     render(<App />);
 
     act(() => {
-      useSessionStore.getState().setLastRuntimeError('token failed');
+      useSessionStore.getState().setLastRuntimeError(detail);
     });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('token failed');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't start Live session. Try again.",
+    );
+  });
+
+  it.each([
+    {
+      detail: 'Microphone permission was denied',
+      expectedMessage: 'Microphone blocked. Check permissions and try again.',
+    },
+    {
+      detail: 'No microphone device is available',
+      expectedMessage: 'No microphone available. Check your mic and try again.',
+    },
+    {
+      detail:
+        'macOS screen recording permission is denied. Enable Livepair in System Settings > Privacy & Security > Screen Recording, then restart the app.',
+      expectedMessage: 'Screen sharing blocked. Check permissions and try again.',
+    },
+    {
+      detail:
+        'No screen source could be selected. Open screen share settings and choose a source before starting capture.',
+      expectedMessage: 'Choose a screen to share, then try again.',
+    },
+    {
+      detail: 'Screen context requires an active Live session',
+      expectedMessage: 'Start Live session before sharing your screen.',
+    },
+  ])('shows actionable capture guidance for $detail', async ({ detail, expectedMessage }) => {
+    installMatchMedia(true);
+
+    render(<App />);
+
+    act(() => {
+      useSessionStore.getState().setLastRuntimeError(detail);
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage);
+  });
+
+  it('shows a restart snackbar when the current Live session can no longer resume', async () => {
+    installMatchMedia(true);
+
+    render(<App />);
+
+    act(() => {
+      useSessionStore.getState().setVoiceSessionResumption({
+        status: 'resumeFailed',
+        lastDetail: 'token refresh failed',
+      });
+      useSessionStore.getState().setLastRuntimeError('token refresh failed');
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Live session expired. Start again.',
+    );
   });
 
   it('shows recovery snackbars when a Live session reconnects after interruption', async () => {

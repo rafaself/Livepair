@@ -114,6 +114,62 @@ export function App(): JSX.Element {
   );
 }
 
+function formatRuntimeSnackbarMessage(detail: string): string {
+  const normalizedDetail = detail.trim().toLowerCase();
+
+  if (
+    normalizedDetail.includes('microphone permission was denied')
+    || normalizedDetail.includes('microphone permission')
+  ) {
+    return 'Microphone blocked. Check permissions and try again.';
+  }
+
+  if (normalizedDetail.includes('no microphone device is available')) {
+    return 'No microphone available. Check your mic and try again.';
+  }
+
+  if (
+    normalizedDetail.includes('screen capture permission was denied')
+    || normalizedDetail.includes('screen recording permission')
+    || normalizedDetail.includes('screen recording is restricted')
+  ) {
+    return 'Screen sharing blocked. Check permissions and try again.';
+  }
+
+  if (
+    normalizedDetail.includes('no screen source could be selected')
+    || normalizedDetail.includes('no screen or window sources are available')
+  ) {
+    return 'Choose a screen to share, then try again.';
+  }
+
+  if (normalizedDetail.includes('screen context requires an active live session')) {
+    return 'Start Live session before sharing your screen.';
+  }
+
+  if (
+    normalizedDetail.includes('token refresh failed')
+    || normalizedDetail.includes('resume handle unavailable')
+    || normalizedDetail.includes('session marked non-resumable')
+    || normalizedDetail.includes('failed to resume voice session')
+    || normalizedDetail.includes('voice session token was unavailable for fallback')
+    || normalizedDetail.includes('persisted live session')
+  ) {
+    return 'Live session expired. Start again.';
+  }
+
+  if (
+    normalizedDetail === 'token failed'
+    || normalizedDetail.includes('failed to request voice session token')
+    || normalizedDetail.includes('failed to connect voice session')
+    || normalizedDetail.includes('backend health check failed')
+  ) {
+    return "Couldn't start Live session. Try again.";
+  }
+
+  return detail;
+}
+
 function RuntimeSnackbarObserver(): null {
   const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
   const voiceSessionResumptionStatus = useSessionStore(
@@ -125,7 +181,7 @@ function RuntimeSnackbarObserver(): null {
 
   useEffect(() => {
     if (lastRuntimeError) {
-      showError(lastRuntimeError);
+      showError(formatRuntimeSnackbarMessage(lastRuntimeError));
     }
   }, [lastRuntimeError, showError]);
 
