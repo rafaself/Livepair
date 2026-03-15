@@ -21,6 +21,8 @@ describe('env config', () => {
       delete process.env['SESSION_TOKEN_AUTH_SECRET'];
       delete process.env['DATABASE_URL'];
       delete process.env['EPHEMERAL_TOKEN_TTL_SECONDS'];
+      delete process.env['SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS'];
+      delete process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'];
       delete process.env['REDIS_URL'];
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
 
@@ -34,6 +36,8 @@ describe('env config', () => {
           sessionTokenAuthSecret: '',
           databaseUrl: '',
           ephemeralTokenTtlSeconds: 60,
+          sessionTokenRateLimitMaxRequests: 5,
+          sessionTokenRateLimitWindowMs: 60_000,
           redisUrl: '',
       });
     } finally {
@@ -48,6 +52,8 @@ describe('env config', () => {
       process.env['SESSION_TOKEN_AUTH_SECRET'] = 'desktop-secret';
       process.env['DATABASE_URL'] = 'postgres://livepair:livepair@127.0.0.1:5432/livepair';
       process.env['EPHEMERAL_TOKEN_TTL_SECONDS'] = '120';
+      process.env['SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS'] = '7';
+      process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'] = '90000';
       process.env['REDIS_URL'] = 'redis://localhost:6379';
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
 
@@ -61,6 +67,8 @@ describe('env config', () => {
           sessionTokenAuthSecret: 'desktop-secret',
           databaseUrl: 'postgres://livepair:livepair@127.0.0.1:5432/livepair',
           ephemeralTokenTtlSeconds: 120,
+          sessionTokenRateLimitMaxRequests: 7,
+          sessionTokenRateLimitWindowMs: 90_000,
           redisUrl: 'redis://localhost:6379',
       });
     } finally {
@@ -75,6 +83,8 @@ describe('env config', () => {
       delete process.env['SESSION_TOKEN_AUTH_SECRET'];
       delete process.env['DATABASE_URL'];
       delete process.env['EPHEMERAL_TOKEN_TTL_SECONDS'];
+      delete process.env['SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS'];
+      delete process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'];
       delete process.env['REDIS_URL'];
 
     const tempDir = mkdtempSync(join(tmpdir(), 'livepair-api-env-'));
@@ -88,6 +98,8 @@ describe('env config', () => {
           'SESSION_TOKEN_AUTH_SECRET=dotenv-secret',
           'DATABASE_URL=postgres://dotenv:dotenv@127.0.0.1:5432/dotenv',
           'EPHEMERAL_TOKEN_TTL_SECONDS=75',
+          'SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS=9',
+          'SESSION_TOKEN_RATE_LIMIT_WINDOW_MS=120000',
           'REDIS_URL=redis://dotenv',
       ].join('\n'),
     );
@@ -104,11 +116,28 @@ describe('env config', () => {
           sessionTokenAuthSecret: 'dotenv-secret',
           databaseUrl: 'postgres://dotenv:dotenv@127.0.0.1:5432/dotenv',
           ephemeralTokenTtlSeconds: 75,
+          sessionTokenRateLimitMaxRequests: 9,
+          sessionTokenRateLimitWindowMs: 120_000,
           redisUrl: 'redis://dotenv',
       });
     } finally {
       delete process.env['DOTENV_CONFIG_PATH'];
       rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('falls back to conservative rate-limit defaults for invalid values', async () => {
+      process.env['SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS'] = '0';
+      process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'] = '-1';
+    process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
+
+    try {
+      const { env } = await import('./env');
+
+        expect(env.sessionTokenRateLimitMaxRequests).toBe(5);
+        expect(env.sessionTokenRateLimitWindowMs).toBe(60_000);
+    } finally {
+      delete process.env['DOTENV_CONFIG_PATH'];
     }
   });
 

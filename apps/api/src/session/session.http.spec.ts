@@ -7,6 +7,14 @@ import {
 import type { AddressInfo } from 'net';
 
 const SESSION_TOKEN_AUTH_SECRET = 'desktop-secret';
+const SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS = 2;
+const SESSION_TOKEN_RATE_LIMIT_WINDOW_MS = 200;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 async function createTokenApp() {
   const { ValidationPipe } = await import('@nestjs/common');
@@ -55,13 +63,18 @@ describe('Session token HTTP auth', () => {
     process.env = {
       ...originalEnv,
       SESSION_TOKEN_AUTH_SECRET,
+      SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS: String(
+        SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS,
+      ),
+      SESSION_TOKEN_RATE_LIMIT_WINDOW_MS: String(SESSION_TOKEN_RATE_LIMIT_WINDOW_MS),
     };
     harness = await createTokenApp();
     app = harness.app;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     harness?.createEphemeralToken.mockClear();
+    await sleep(SESSION_TOKEN_RATE_LIMIT_WINDOW_MS + 20);
   });
 
   afterAll(async () => {
@@ -139,5 +152,123 @@ describe('Session token HTTP auth', () => {
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
     expect(harness.createEphemeralToken).toHaveBeenCalledWith({ sessionId: 'session-1' });
+  });
+
+  it('allows token requests within the configured rate limit', async () => {
+    if (!harness) {
+      throw new Error('Token auth test harness was not initialized');
+    }
+
+    const firstResponse = await fetch(`${harness.baseUrl}/session/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: SESSION_TOKEN_AUTH_SECRET,
+      },
+      body: JSON.stringify({ sessionId: 'session-1' }),
+    });
+
+    const secondResponse = await fetch(`${harness.baseUrl}/session/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: SESSION_TOKEN_AUTH_SECRET,
+      },
+      body: JSON.stringify({ sessionId: 'session-2' }),
+    });
+
+    expect(firstResponse.status).toBe(201);
+    expect(secondResponse.status).toBe(201);
+    expect(harness.createEphemeralToken).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects burst token requests above the configured rate limit with 429', async () => {
+    if (!harness) {
+      throw new Error('Token auth test harness was not initialized');
+    }
+
+    await fetch(`${harness.baseUrl}/session/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: SESSION_TOKEN_AUTH_SECRET,
+      },
+      body: JSON.stringify({ sessionId: 'session-1' }),
+    });
+
+    await fetch(`${harness.baseUrl}/session/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: SESSION_TOKEN_AUTH_SECRET,
+      },
+      body: JSON.stringify({ sessionId: 'session-2' }),
+    });
+
+    const response = await fetch(`${harness.baseUrl}/session/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: SESSION_TOKEN_AUTH_SECRET,
+      },
+      body: JSON.stringify({ sessionId: 'session-3' }),
+    });
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({
+      statusCode: 429,
+      message: 'Session token rate limit exceeded',
+      error: 'Too Many Requests',
+    });
+    expect(harness.createEphemeralToken).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows token requests again after the configured rate-limit window elapses', async () => {
+    if (!harness) {
+      throw new Error('Token auth test harness was not initialized');
+    }
+
+    await fetch(`${harness.baseUrl}/session/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: SESSION_TOKEN_AUTH_SECRET,
+      },
+      body: JSON.stringify({ sessionId: 'session-1' }),
+    });
+
+    await fetch(`${harness.baseUrl}/session/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: SESSION_TOKEN_AUTH_SECRET,
+      },
+      body: JSON.stringify({ sessionId: 'session-2' }),
+    });
+
+    const rejectedResponse = await fetch(`${harness.baseUrl}/session/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: SESSION_TOKEN_AUTH_SECRET,
+      },
+      body: JSON.stringify({ sessionId: 'session-3' }),
+    });
+
+    expect(rejectedResponse.status).toBe(429);
+
+    await sleep(SESSION_TOKEN_RATE_LIMIT_WINDOW_MS + 20);
+
+    const recoveredResponse = await fetch(`${harness.baseUrl}/session/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: SESSION_TOKEN_AUTH_SECRET,
+      },
+      body: JSON.stringify({ sessionId: 'session-4' }),
+    });
+
+    expect(recoveredResponse.status).toBe(201);
+    expect(harness.createEphemeralToken).toHaveBeenCalledTimes(3);
   });
 });
