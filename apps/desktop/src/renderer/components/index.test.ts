@@ -6,8 +6,8 @@ describe('components barrel exports', () => {
     expect(Components.Button).toBeDefined();
     expect(Components.ButtonGroup).toBeDefined();
     expect(Components.IconButton).toBeDefined();
-    expect(Components.OutlinedField).toBeDefined();
     expect(Components.TextInput).toBeDefined();
+    expect(Components.Select).toBeDefined();
     expect(Components.Panel).toBeDefined();
     expect(Components.ControlDock).toBeDefined();
     expect(Components.StatusIndicator).toBeDefined();

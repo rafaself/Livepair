@@ -1,23 +1,23 @@
 # apps/api AGENTS.md
 
-## Purpose
-NestJS backend for the control plane and backend-mediated text mode. It stays out of the audio/video hot path.
+## Scope
+NestJS backend package for control-plane APIs and backend-mediated text mode.
 
-## What belongs here
-- Backend-only controllers, services, DTOs, modules, and integrations under `src/`.
-- HTTP validation, config access, and server-side orchestration.
+## Owns
+- HTTP controllers, services, modules, and DTOs under `src/`
+- Server-side Gemini integrations, config access, and API observability
 
-## What must not go here
-- Media relay or proxy logic for the Live speech path.
-- Duplicated request or response shapes from `@livepair/shared-types`.
-- Direct `process.env` reads outside the config layer.
+## Guardrails
+- Keep the backend out of the realtime audio/video path.
+- Keep controllers thin; move business logic into services.
+- Reuse `@livepair/shared-types` for cross-package request/response shapes instead of forking contracts locally.
+- Put validated DTOs in `<domain>/dto/`, rely on the global `ValidationPipe`, and read env through `src/config/env.ts`.
 
-## Local conventions
-- Add new domains as modules under `src/<domain>/`.
-- Keep controllers thin; put business logic in services.
-- DTOs live in `<domain>/dto/`, implement shared request types when applicable, and carry validation decorators.
-- Read env through `src/config/env.ts`.
-- Validate external input at the controller boundary via the global `ValidationPipe`.
+## Look here first
+- `src/session/`
+- `src/health/`
+- `src/observability/`
+- `src/config/env.ts`
 
 ## Verification
-- Prefer `pnpm verify:api` after code changes in this package.
+- `pnpm verify:api`
