@@ -165,7 +165,7 @@ export function createScreenCaptureHarness(): {
   return {
     createScreenCapture: vi.fn((nextObserver) => {
       observer = nextObserver;
-      return { start, stop };
+      return { start, stop, updateQuality: vi.fn() };
     }),
     emitFrame: (frame = {}) => {
       observer?.onFrame({

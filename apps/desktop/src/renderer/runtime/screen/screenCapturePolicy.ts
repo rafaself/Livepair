@@ -12,3 +12,27 @@ export const SCREEN_CAPTURE_START_POLICY = {
   jpegQuality: SCREEN_CAPTURE_JPEG_QUALITY,
   maxWidthPx: SCREEN_CAPTURE_MAX_WIDTH_PX,
 } as const;
+
+// ── Quality tier capture parameters ──────────────────────────────────────
+//
+// Maps the user-facing quality setting to local capture encoding parameters.
+// These affect frame resolution and JPEG compression quality at the
+// capture level, independent of the API-side media resolution config.
+
+export type ScreenCaptureQualityParams = {
+  maxWidthPx: number;
+  jpegQuality: number;
+};
+
+export function getScreenCaptureQualityParams(
+  quality: 'Low' | 'Medium' | 'High',
+): ScreenCaptureQualityParams {
+  switch (quality) {
+    case 'Low':
+      return { maxWidthPx: 768, jpegQuality: 0.70 };
+    case 'Medium':
+      return { maxWidthPx: 1280, jpegQuality: 0.85 };
+    case 'High':
+      return { maxWidthPx: SCREEN_CAPTURE_MAX_WIDTH_PX, jpegQuality: SCREEN_CAPTURE_JPEG_QUALITY };
+  }
+}

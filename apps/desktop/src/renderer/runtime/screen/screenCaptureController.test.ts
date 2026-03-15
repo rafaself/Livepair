@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createScreenCaptureController, VISUAL_BURST_DURATION_MS, VISUAL_BURST_STABLE_FRAMES } from './screenCaptureController';
+import { createScreenCaptureController, VISUAL_BURST_DURATION_MS, VISUAL_BURST_STABLE_FRAMES, VISUAL_BURST_SEND_COOLDOWN_MS } from './screenCaptureController';
 import type { VisualSendPolicyOptions } from './visualSendPolicy';
 import { createDefaultRealtimeOutboundDiagnostics } from '../outbound/realtimeOutboundGateway';
 import type { DesktopSession } from '../transport/transport.types';
@@ -16,6 +16,9 @@ import {
   SCREEN_CAPTURE_JPEG_QUALITY,
   SCREEN_CAPTURE_MAX_WIDTH_PX,
 } from './localScreenCapture';
+import type { VisualSessionQuality } from '../../../shared/settings';
+import { getScreenCaptureQualityParams } from './screenCapturePolicy';
+import { QUALITY_PROMOTION_DURATION_MS } from './adaptiveQualityPolicy';
 
 function createHarness(options: {
   voiceSessionStatus?: VoiceSessionStatus;
@@ -25,6 +28,9 @@ function createHarness(options: {
   visualSendPolicyOptions?: VisualSendPolicyOptions;
   burstDurationMs?: number;
   burstStableFrames?: number;
+  burstSendCooldownMs?: number;
+  getBaselineQuality?: () => VisualSessionQuality;
+  promotionDurationMs?: number;
 } = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
   let currentScreenState: ScreenCaptureState = screenCaptureState;
@@ -59,6 +65,7 @@ function createHarness(options: {
         resolveStop = resolve;
       });
     }),
+    updateQuality: vi.fn(),
   };
   const createCapture = vi.fn((observer: LocalScreenCaptureObserver) => {
     capturedObserver = observer;
@@ -92,6 +99,7 @@ function createHarness(options: {
     getDiagnostics: vi.fn(createDefaultRealtimeOutboundDiagnostics),
   };
 
+  const hasControllerOptions = options.visualSendPolicyOptions || options.burstDurationMs != null || options.burstStableFrames != null || options.burstSendCooldownMs != null || options.promotionDurationMs != null;
   const ctrl = createScreenCaptureController(
     store,
     createCapture,
@@ -103,13 +111,16 @@ function createHarness(options: {
       saveScreenFrameDumpFrame,
       setScreenFrameDumpDirectoryPath,
     },
-    (options.visualSendPolicyOptions || options.burstDurationMs != null || options.burstStableFrames != null)
+    hasControllerOptions
       ? {
           visualSendPolicyOptions: options.visualSendPolicyOptions,
           burstDurationMs: options.burstDurationMs,
           burstStableFrames: options.burstStableFrames,
+          burstSendCooldownMs: options.burstSendCooldownMs,
+          promotionDurationMs: options.promotionDurationMs,
         }
       : undefined,
+    options.getBaselineQuality,
   );
 
   return {
@@ -2234,6 +2245,584 @@ describe('createScreenCaptureController – Wave 2 triggers and burst', () => {
 
   it('exports expected burst constants', () => {
     expect(VISUAL_BURST_DURATION_MS).toBe(5000);
-    expect(VISUAL_BURST_STABLE_FRAMES).toBe(2);
+    expect(VISUAL_BURST_STABLE_FRAMES).toBe(3);
+    expect(VISUAL_BURST_SEND_COOLDOWN_MS).toBe(1000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 3 – Burst gating, throttling, and stabilization refinement
+//
+// Tests for:
+//   A. Pre-send visual gate: near-duplicate frames suppressed during burst
+//   B. Burst send throttle: minimum interval between burst sends
+//   C. Decay-based stabilization: noise frames slow but don't prevent shutdown
+//   D. Non-burst sends are unaffected by gate/throttle
+// ---------------------------------------------------------------------------
+describe('createScreenCaptureController – Wave 3 burst efficiency', () => {
+  const mkFrame = (seq: number, fill = seq) => ({
+    data: new Uint8Array(128).fill(fill),
+    mimeType: 'image/jpeg' as const,
+    sequence: seq,
+    widthPx: 640,
+    heightPx: 360,
+  });
+
+  async function startAndConsumeBootstrap(harness: ReturnType<typeof createHarness>) {
+    await harness.ctrl.start();
+    harness.getObserver()!.onFrame(mkFrame(0, 100));
+    await Promise.resolve();
+    harness.sendVideoFrame.mockClear();
+  }
+
+  const alwaysSend = () => ({
+    outcome: 'send' as const,
+    classification: 'replaceable' as const,
+    reason: 'accepted',
+  });
+
+  // ── A. Pre-send visual gate ─────────────────────────────────────────────
+
+  it('burst send gate suppresses near-duplicate frames during burst', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      burstSendCooldownMs: 0, // disable throttle to isolate gate behavior
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    // Trigger burst with a changed frame (fill=250 vs baseline fill=100)
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Send identical frame — should be suppressed by visual gate
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Send a different frame — should pass the gate
+    harness.getObserver()!.onFrame(mkFrame(3, 50));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+  });
+
+  // ── B. Burst send throttle ──────────────────────────────────────────────
+
+  it('burst send throttle enforces minimum interval between burst sends', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      burstSendCooldownMs: 1000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    // Trigger burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Within cooldown (500ms later) — different frame but throttled
+    now += 500;
+    harness.getObserver()!.onFrame(mkFrame(2, 50));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // After cooldown (1100ms from first send) — should pass
+    now += 600;
+    harness.getObserver()!.onFrame(mkFrame(3, 150));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+  });
+
+  it('first frame in burst always bypasses throttle cooldown', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 100,
+      burstSendCooldownMs: 5000, // very long cooldown
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    vi.useFakeTimers();
+    try {
+      // Trigger first burst — first frame should always send
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+      // Let burst expire
+      vi.advanceTimersByTime(101);
+
+      // Start second burst — first frame should bypass cooldown
+      now += 200; // only 200ms since last send
+      harness.getObserver()!.onFrame(mkFrame(2, 50));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── C. Decay-based stabilization ────────────────────────────────────────
+
+  it('stabilization uses decay: noise frame reduces counter instead of resetting', async () => {
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      burstStableFrames: 3,
+      burstSendCooldownMs: 0,
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Start burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // 2 non-change frames: count → 2
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+    harness.getObserver()!.onFrame(mkFrame(3, 250));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming'); // not yet at 3
+
+    // 1 change frame (noise): count → max(0, 2-1) = 1
+    harness.getObserver()!.onFrame(mkFrame(4, 50));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming');
+
+    // 2 more non-change frames: count → 2, then 3 → stabilized
+    harness.getObserver()!.onFrame(mkFrame(5, 50));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('streaming'); // count=2
+
+    harness.getObserver()!.onFrame(mkFrame(6, 50));
+    await Promise.resolve();
+    expect(harness.ctrl.getVisualSendState()).toBe('sleep'); // count=3 → done
+  });
+
+  // ── D. Non-burst sends unaffected ──────────────────────────────────────
+
+  it('explicit streaming is not affected by burst send gate or throttle', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstSendCooldownMs: 60000, // extreme cooldown
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: (i) => ({
+        outcome: i <= 5 ? 'send' as const : 'replace' as const,
+        classification: 'replaceable' as const,
+        reason: i <= 5 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+    await startAndConsumeBootstrap(harness);
+
+    harness.ctrl.enableStreaming();
+
+    // Send identical frames rapidly — all should pass (not burst, so no gate/throttle)
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    harness.getObserver()!.onFrame(mkFrame(2, 100));
+    await Promise.resolve();
+    harness.getObserver()!.onFrame(mkFrame(3, 100));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(3);
+  });
+
+  it('snapshot sends are not affected by burst send gate or throttle', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstSendCooldownMs: 60000,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+
+    // Explicit analyzeScreenNow arms snapshot — should send regardless of throttle
+    now += 5000;
+    harness.ctrl.analyzeScreenNow();
+    harness.getObserver()!.onFrame(mkFrame(1, 100));
+    await Promise.resolve();
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Burst gate resets between bursts ───────────────────────────────────
+
+  it('burst send gate resets when burst ends', async () => {
+    vi.useFakeTimers();
+    try {
+      let now = 0;
+      const harness = createHarness({
+        burstDurationMs: 100,
+        burstSendCooldownMs: 0,
+        visualSendPolicyOptions: { nowMs: () => now },
+        submitDecision: alwaysSend,
+      });
+      await startAndConsumeBootstrap(harness);
+      now += 5000;
+
+      // First burst: send frame with fill=250
+      harness.getObserver()!.onFrame(mkFrame(1, 250));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+      // Let burst expire
+      vi.advanceTimersByTime(101);
+      expect(harness.ctrl.getVisualSendState()).toBe('sleep');
+
+      // Second burst: use a different fill to trigger visual change detection
+      // (change detector baseline is fill=250 from first burst).
+      // The burst send gate was reset, so the first frame of the new burst sends.
+      harness.getObserver()!.onFrame(mkFrame(2, 50));
+      await Promise.resolve();
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── droppedByPolicy counts gated/throttled frames ─────────────────────
+
+  it('frames suppressed by burst gate/throttle increment droppedByPolicy', async () => {
+    let now = 0;
+    const harness = createHarness({
+      burstDurationMs: 60000,
+      burstSendCooldownMs: 0,
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: alwaysSend,
+    });
+    await startAndConsumeBootstrap(harness);
+    now += 5000;
+
+    // Trigger burst
+    harness.getObserver()!.onFrame(mkFrame(1, 250));
+    await Promise.resolve();
+
+    // Same frame — gated, should count as droppedByPolicy
+    harness.getObserver()!.onFrame(mkFrame(2, 250));
+    await Promise.resolve();
+
+    const lastDiag = harness.store.setVisualSendDiagnostics.mock.calls.at(-1)?.[0];
+    expect(lastDiag.droppedByPolicy).toBeGreaterThan(0);
+  });
+});
+
+describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
+  const alwaysSend = (): RealtimeOutboundDecision => ({
+    outcome: 'send',
+    classification: 'replaceable',
+    reason: 'accepted',
+  });
+
+  const LOW_PARAMS = getScreenCaptureQualityParams('Low');
+  const MEDIUM_PARAMS = getScreenCaptureQualityParams('Medium');
+  const HIGH_PARAMS = getScreenCaptureQualityParams('High');
+
+  async function startCapture(harness: ReturnType<typeof createHarness>): Promise<void> {
+    await harness.ctrl.start();
+    // Consume the bootstrap snapshot send
+    harness.getObserver()!.onFrame({
+      data: new Uint8Array([1, 2, 3]),
+      mimeType: 'image/jpeg',
+      sequence: 1,
+      widthPx: 640,
+      heightPx: 360,
+    });
+    await Promise.resolve();
+  }
+
+  it('exports the promotion duration constant', () => {
+    expect(QUALITY_PROMOTION_DURATION_MS).toBe(10_000);
+  });
+
+  it('passes baseline quality params to capture.start when baseline is Low', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'Low',
+      submitDecision: alwaysSend,
+    });
+    await harness.ctrl.start();
+    // capture.start() is called before onScreenShareStarted fires, so params are baseline
+    const startArgs = harness.mockCapture.start.mock.calls[0]?.[0];
+    expect(startArgs.jpegQuality).toBe(LOW_PARAMS.jpegQuality);
+    expect(startArgs.maxWidthPx).toBe(LOW_PARAMS.maxWidthPx);
+    // Then promotion happens via onScreenShareStarted → promoteQuality → updateQuality
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+  });
+
+  it('passes baseline quality params to capture.start when baseline is High (no promotion)', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'High',
+      submitDecision: alwaysSend,
+    });
+    await harness.ctrl.start();
+    const startArgs = harness.mockCapture.start.mock.calls[0]?.[0];
+    // High baseline — promotion is no-op, still High
+    expect(startArgs.jpegQuality).toBe(HIGH_PARAMS.jpegQuality);
+    expect(startArgs.maxWidthPx).toBe(HIGH_PARAMS.maxWidthPx);
+  });
+
+  it('promotes quality on bootstrap and calls updateQuality', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'Low',
+      submitDecision: alwaysSend,
+    });
+    await harness.ctrl.start();
+    // Bootstrap triggers promote → updateQuality should be called with High params
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+  });
+
+  it('does not call updateQuality on bootstrap when baseline is High', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'High',
+      submitDecision: alwaysSend,
+    });
+    await harness.ctrl.start();
+    // High baseline — promote() is no-op, updateQuality never called
+    expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+  });
+
+  it('promotes quality on analyzeScreenNow and calls updateQuality', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Medium',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+
+      // Clear the bootstrap promotion call
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Let bootstrap promotion expire
+      vi.advanceTimersByTime(50000);
+
+      // updateQuality called with baseline params on expiry
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
+      harness.mockCapture.updateQuality.mockClear();
+
+      harness.ctrl.analyzeScreenNow();
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('promotes quality on onSpeechStart and calls updateQuality', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Let bootstrap promotion expire
+      vi.advanceTimersByTime(50000);
+      harness.mockCapture.updateQuality.mockClear();
+
+      harness.ctrl.onSpeechStart();
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('promotes quality on onTextSent and calls updateQuality', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Let bootstrap promotion expire
+      vi.advanceTimersByTime(50000);
+      harness.mockCapture.updateQuality.mockClear();
+
+      harness.ctrl.onTextSent();
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('promotion auto-expires and returns to baseline quality', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Medium',
+        promotionDurationMs: 5000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      // Bootstrap promoted → updateQuality(HIGH) already called
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Advance past promotion expiry
+      vi.advanceTimersByTime(5000);
+
+      // Should revert to baseline
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-promotion resets the expiry timer', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 5000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Advance halfway
+      vi.advanceTimersByTime(3000);
+
+      // Re-promote via speech
+      harness.ctrl.onSpeechStart();
+      // Should not have called updateQuality again (already promoted)
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      // Advance another 3s — original timer would have fired, but reset didn't
+      vi.advanceTimersByTime(3000);
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      // Full duration from re-promotion
+      vi.advanceTimersByTime(2000);
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stopStreaming returns to baseline quality when promoted', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      harness.ctrl.enableStreaming();
+      harness.ctrl.stopStreaming();
+
+      // Should revert to baseline
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
+
+      // Promotion timer should have been cleared — advancing time should not fire it
+      vi.advanceTimersByTime(50000);
+      // Only the one call from stopStreaming
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('start() reinitializes quality policy with fresh baseline', async () => {
+    vi.useFakeTimers();
+    try {
+      let baseline: VisualSessionQuality = 'Low';
+      const harness = createHarness({
+        getBaselineQuality: () => baseline,
+        promotionDurationMs: 5000,
+        submitDecision: alwaysSend,
+      });
+
+      // First session with Low baseline
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+      vi.advanceTimersByTime(5000);
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
+
+      // Stop screen share
+      await harness.ctrl.stop();
+      harness.setScreenState('disabled');
+      harness.mockCapture.updateQuality.mockClear();
+      harness.mockCapture.start.mockClear();
+
+      // Change baseline to Medium
+      baseline = 'Medium';
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+      vi.advanceTimersByTime(5000);
+      // Should revert to Medium, not Low
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('High baseline makes all promotions no-ops', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'High',
+        promotionDurationMs: 5000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+
+      // No updateQuality calls at all — baseline is already High
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      harness.ctrl.analyzeScreenNow();
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      harness.ctrl.onSpeechStart();
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      harness.ctrl.onTextSent();
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(5000);
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('quality resets on screen share stop', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHarness({
+        getBaselineQuality: () => 'Low',
+        promotionDurationMs: 50000,
+        submitDecision: alwaysSend,
+      });
+      await startCapture(harness);
+      harness.mockCapture.updateQuality.mockClear();
+
+      // Stop screen share (which calls onScreenShareStopped → resetQualityState)
+      await harness.ctrl.stop();
+
+      // Advancing time should not trigger the promotion timer callback
+      vi.advanceTimersByTime(50000);
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

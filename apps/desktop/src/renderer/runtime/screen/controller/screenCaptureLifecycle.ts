@@ -40,6 +40,7 @@ export function createScreenCaptureLifecycle({
   frameDumpCoordinator,
   frameSendCoordinator,
   onFrameCaptured,
+  getCaptureStartParams,
   onScreenShareStarted,
   onScreenShareStopped,
 }: {
@@ -51,6 +52,7 @@ export function createScreenCaptureLifecycle({
   frameDumpCoordinator: ScreenFrameDumpCoordinator;
   frameSendCoordinator: ScreenFrameSendCoordinator;
   onFrameCaptured?: (frame: LocalScreenFrame) => void;
+  getCaptureStartParams?: () => { jpegQuality?: number; maxWidthPx?: number };
   onScreenShareStarted: () => void;
   onScreenShareStopped: () => void;
 }): Pick<
@@ -204,7 +206,10 @@ export function createScreenCaptureLifecycle({
     controllerState.setCapture(capture, captureGeneration);
 
     try {
-      await capture.start(SCREEN_CAPTURE_START_POLICY);
+      const startParams = getCaptureStartParams
+        ? { ...SCREEN_CAPTURE_START_POLICY, ...getCaptureStartParams() }
+        : SCREEN_CAPTURE_START_POLICY;
+      await capture.start(startParams);
 
       if (!controllerState.isCurrentCapture(capture, captureGeneration)) {
         return;

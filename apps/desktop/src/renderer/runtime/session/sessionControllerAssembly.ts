@@ -71,6 +71,8 @@ export function createSessionControllerAssembly(
         useUiStore.getState().setScreenFrameDumpDirectoryPath(directoryPath);
       },
     },
+    undefined,
+    () => dependencies.settingsStore.getState().settings.visualSessionQuality,
   );
   let setVoiceErrorState = (_detail: string): void => {
     throw new Error('setVoiceErrorState called before initialization');
