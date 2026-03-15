@@ -23,6 +23,19 @@ export function registerDisplayMediaHandler(
 ): void {
   session.defaultSession.setDisplayMediaRequestHandler(
     async (_request, callback) => {
+      let responded = false;
+      const respondOnce = (response: Parameters<typeof callback>[0]): void => {
+        if (responded) return;
+        responded = true;
+        try {
+          callback(response);
+        } catch {
+          // Electron throws if the callback is invoked after the request has
+          // already been answered (e.g. in a race). Swallow silently — the
+          // renderer already received a response.
+        }
+      };
+
       try {
         const sources = await desktopCapturer.getSources(CAPTURE_SOURCE_LIST_OPTIONS);
         const eligibleSources = filterEligibleCaptureSources(
@@ -38,14 +51,14 @@ export function registerDisplayMediaHandler(
           ?? selectAutoSource(toCaptureSources(eligibleSources));
 
         if (source) {
-          callback({
+          respondOnce({
             video: eligibleSources.find((eligibleSource) => eligibleSource.id === source.id) ?? source,
           });
         } else {
-          callback({});
+          respondOnce({});
         }
       } catch {
-        callback({});
+        respondOnce({});
       }
     },
   );

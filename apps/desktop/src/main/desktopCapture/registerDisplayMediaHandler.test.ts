@@ -247,6 +247,86 @@ describe('registerDisplayMediaHandler', () => {
     ]);
   });
 
+  it('calls the callback exactly once when the callback itself throws on the success path', async () => {
+    // Regression: if callback({ video }) throws, the catch block must NOT call
+    // callback a second time — that is the "one-time callback called twice" bug.
+    mockGetSources.mockResolvedValueOnce([mockSource]);
+    const { registerDisplayMediaHandler } = await import(
+      './registerDisplayMediaHandler'
+    );
+
+    registerDisplayMediaHandler(
+      makeRegistry({ getSelectedSourceId: vi.fn(() => mockSource.id) }),
+    );
+
+    let callCount = 0;
+    const throwingCallback = vi.fn((_arg: { video?: unknown }) => {
+      callCount += 1;
+      if (callCount === 1) {
+        throw new Error('One-time callback was called more than once');
+      }
+    });
+
+    // Should not throw an unhandled rejection and callback must be invoked once.
+    await expect(
+      registeredHandler!(
+        { frame: { url: 'http://localhost:5173' } },
+        throwingCallback,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(throwingCallback).toHaveBeenCalledOnce();
+  });
+
+  it('calls the callback exactly once when the callback itself throws on the no-source path', async () => {
+    mockGetSources.mockResolvedValueOnce([]);
+    const { registerDisplayMediaHandler } = await import(
+      './registerDisplayMediaHandler'
+    );
+
+    registerDisplayMediaHandler(makeRegistry());
+
+    let callCount = 0;
+    const throwingCallback = vi.fn((_arg: { video?: unknown }) => {
+      callCount += 1;
+      if (callCount === 1) {
+        throw new Error('One-time callback was called more than once');
+      }
+    });
+
+    await expect(
+      registeredHandler!(
+        { frame: { url: 'http://localhost:5173' } },
+        throwingCallback,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(throwingCallback).toHaveBeenCalledOnce();
+  });
+
+  it('does not produce an unhandled rejection when the callback throws', async () => {
+    mockGetSources.mockResolvedValueOnce([mockSource]);
+    const { registerDisplayMediaHandler } = await import(
+      './registerDisplayMediaHandler'
+    );
+
+    registerDisplayMediaHandler(
+      makeRegistry({ getSelectedSourceId: vi.fn(() => mockSource.id) }),
+    );
+
+    const throwingCallback = vi.fn(() => {
+      throw new Error('One-time callback was called more than once');
+    });
+
+    // The handler must swallow the callback throw — no rejection propagated.
+    await expect(
+      registeredHandler!(
+        { frame: { url: 'http://localhost:5173' } },
+        throwingCallback,
+      ),
+    ).resolves.toBeUndefined();
+  });
+
   it('is idempotent — calling twice still registers exactly one handler', async () => {
     const { registerDisplayMediaHandler } = await import(
       './registerDisplayMediaHandler'
