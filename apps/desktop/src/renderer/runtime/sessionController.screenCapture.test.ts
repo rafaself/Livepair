@@ -310,7 +310,7 @@ describe('createDesktopSessionController – screen capture', () => {
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
   });
 
-  it('stops screen capture when the active Live runtime is replaced during resume', async () => {
+  it('restores screen capture automatically when the active Live runtime is replaced during resume', async () => {
     const firstTransport = createVoiceTransportHarness();
     const resumedTransport = createVoiceTransportHarness();
     const screenCapture = createScreenCaptureHarness();
@@ -354,11 +354,12 @@ describe('createDesktopSessionController – screen capture', () => {
         mode: 'voice',
         resumeHandle: 'handles/voice-session-2',
       });
-      expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
+      expect(screenCapture.start).toHaveBeenCalledTimes(2);
+      expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
     });
   });
 
-  it('keeps screen capture disabled after fallback replaces the active Live runtime until manually re-enabled', async () => {
+  it('restores screen capture automatically after fallback replaces the active Live runtime', async () => {
     const firstTransport = createVoiceTransportHarness();
     const fallbackTransport = createVoiceTransportHarness();
     const screenCapture = createScreenCaptureHarness();
@@ -403,15 +404,14 @@ describe('createDesktopSessionController – screen capture', () => {
         mode: 'voice',
         rehydrationPacket: expect.any(Object),
       });
-      expect(useSessionStore.getState().screenCaptureState).toBe('disabled');
+      expect(screenCapture.start).toHaveBeenCalledTimes(2);
+      expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
     });
 
-    await controller.startScreenCapture();
     controller.analyzeScreenNow();
     screenCapture.emitFrame({ sequence: 2 });
 
     await vi.waitFor(() => {
-      expect(screenCapture.start).toHaveBeenCalledTimes(2);
       expect(fallbackTransport.sendVideoFrame).toHaveBeenCalledWith(
         new Uint8Array([1, 2, 3]),
         'image/jpeg',

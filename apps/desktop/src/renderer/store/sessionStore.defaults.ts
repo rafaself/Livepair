@@ -110,6 +110,7 @@ export function buildDefaultSessionState(): SessionStoreData {
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
     voiceToolState: createDefaultVoiceToolState(),
     realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
+    screenShareIntended: false,
     screenCaptureState: 'disabled',
     screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
     visualSendDiagnostics: buildDefaultVisualSendDiagnostics(),

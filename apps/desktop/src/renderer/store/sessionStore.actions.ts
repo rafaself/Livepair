@@ -80,6 +80,7 @@ function buildResetTextSessionRuntimeState(
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
     voiceToolState: createDefaultVoiceToolState(),
     realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
+    screenShareIntended: false,
     screenCaptureState: 'disabled',
     screenCaptureDiagnostics: buildDefaultScreenCaptureDiagnostics(),
     visualSendDiagnostics: buildDefaultVisualSendDiagnostics(),
@@ -208,6 +209,7 @@ export function createSessionStoreActions(
       set({
         currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
       }),
+    setScreenShareIntended: (screenShareIntended) => set({ screenShareIntended }),
     setScreenCaptureState: (screenCaptureState) => set({ screenCaptureState }),
     setScreenCaptureDiagnostics: (patch) =>
       set((state) => ({

@@ -71,6 +71,7 @@ export type TransportEventRouterOps = {
   setVoiceErrorState: (detail: string) => void;
   cleanupTransport: () => void;
   resumeVoiceSession: (detail: string) => Promise<void>;
+  restoreScreenCapture: () => void;
 };
 
 export type TransportEventRouterContext = {

@@ -191,6 +191,9 @@ export function createSessionTransportAssembly({
     setVoiceErrorState: (detail) => setVoiceErrorState(detail),
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     resumeVoiceSession: (detail) => voiceResumeCtrl.resume(detail),
+    restoreScreenCapture: () => {
+      void screenCtrl.start();
+    },
   });
   const { handleTransportEvent } = transportRouter;
 

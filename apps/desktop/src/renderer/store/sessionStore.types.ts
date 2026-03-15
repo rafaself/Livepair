@@ -56,6 +56,7 @@ export type SessionStoreData = {
   currentVoiceTranscript: CurrentVoiceTranscript;
   voiceToolState: VoiceToolState;
   realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
+  screenShareIntended: boolean;
   screenCaptureState: ScreenCaptureState;
   screenCaptureDiagnostics: ScreenCaptureDiagnostics;
   visualSendDiagnostics: VisualSendDiagnostics;
@@ -118,6 +119,7 @@ export type SessionStoreActions = {
     patch: Partial<CurrentVoiceTranscript[keyof CurrentVoiceTranscript]>,
   ) => void;
   clearCurrentVoiceTranscript: () => void;
+  setScreenShareIntended: (screenShareIntended: boolean) => void;
   setScreenCaptureState: (screenCaptureState: ScreenCaptureState) => void;
   setScreenCaptureDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => void;
   setVisualSendDiagnostics: (diagnostics: VisualSendDiagnostics) => void;

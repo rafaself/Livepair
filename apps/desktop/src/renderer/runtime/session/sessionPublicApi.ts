@@ -102,6 +102,7 @@ export function createSessionControllerPublicApi({
       });
     },
     startScreenCapture: () => {
+      store.getState().setScreenShareIntended(true);
       return screenCtrl.start();
     },
     analyzeScreenNow: () => {
@@ -120,6 +121,7 @@ export function createSessionControllerPublicApi({
       await voiceChunkCtrl.startCapture();
     },
     stopScreenCapture: () => {
+      store.getState().setScreenShareIntended(false);
       return screenCtrl.stop();
     },
     stopVoiceCapture: async () => {
