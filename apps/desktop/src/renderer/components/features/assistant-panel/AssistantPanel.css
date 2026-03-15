@@ -236,6 +236,54 @@
   opacity: 0.65;
 }
 
+.assistant-panel__settings-persona-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.assistant-panel__settings-persona-label {
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+}
+
+.assistant-panel__settings-textarea {
+  width: 100%;
+  min-height: 7.5rem;
+  resize: vertical;
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.assistant-panel__settings-textarea:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 65%, transparent);
+  outline-offset: 1px;
+}
+
+.assistant-panel__settings-persona-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.assistant-panel__settings-counter {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, currentColor);
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.assistant-panel__settings-persona-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .assistant-panel__settings-section-reveal {
   animation: settings-section-reveal 250ms var(--ease-out) both;
 }

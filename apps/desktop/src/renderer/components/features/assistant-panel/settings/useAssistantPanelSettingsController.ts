@@ -1,12 +1,16 @@
 import { useEffect, useMemo } from 'react';
 import type {
   ChatTimestampVisibility,
+  DesktopVoice,
   PreferredMode,
   SpeechSilenceTimeout,
   ThemePreference,
   VisualSessionQuality,
 } from '../../../../../shared';
-import { normalizeBackendBaseUrl } from '../../../../../shared';
+import {
+  DEFAULT_DESKTOP_SETTINGS,
+  normalizeBackendBaseUrl,
+} from '../../../../../shared';
 import { useSettingsStore } from '../../../../store/settingsStore';
 import { useSessionStore } from '../../../../store/sessionStore';
 import { useUiStore } from '../../../../store/uiStore';
@@ -33,6 +37,8 @@ export type AssistantPanelSettingsController = {
   themePreference: ThemePreference;
   visualSessionQuality: VisualSessionQuality;
   chatTimestampVisibility: ChatTimestampVisibility;
+  voice: DesktopVoice;
+  systemInstruction: string;
   inputDeviceOptions: readonly SelectOptionItem[];
   outputDeviceOptions: readonly SelectOptionItem[];
   screenCaptureSourceOptions: readonly SelectOptionItem[];
@@ -52,6 +58,9 @@ export type AssistantPanelSettingsController = {
   setThemePreference: (themePreference: ThemePreference) => void;
   setVisualSessionQuality: (quality: VisualSessionQuality) => void;
   setChatTimestampVisibility: (visibility: ChatTimestampVisibility) => void;
+  setVoice: (voice: DesktopVoice) => void;
+  setSystemInstruction: (systemInstruction: string) => void;
+  restoreDefaultVoiceAndInstructions: () => void;
   handleBackendUrlChange: (value: string) => void;
   handleBackendUrlBlur: () => Promise<void>;
 };
@@ -143,6 +152,8 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     themePreference: settings.themePreference,
     visualSessionQuality: settings.visualSessionQuality,
     chatTimestampVisibility: settings.chatTimestampVisibility,
+    voice: settings.voice,
+    systemInstruction: settings.systemInstruction,
     inputDeviceOptions:
       inputDeviceOptions.length > 0 ? inputDeviceOptions : UNAVAILABLE_INPUT_OPTION,
     outputDeviceOptions:
@@ -202,6 +213,18 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     },
     setChatTimestampVisibility: (chatTimestampVisibility) => {
       void updateSetting('chatTimestampVisibility', chatTimestampVisibility);
+    },
+    setVoice: (voice) => {
+      void updateSetting('voice', voice);
+    },
+    setSystemInstruction: (systemInstruction) => {
+      void updateSetting('systemInstruction', systemInstruction);
+    },
+    restoreDefaultVoiceAndInstructions: () => {
+      void updateSettings({
+        voice: DEFAULT_DESKTOP_SETTINGS.voice,
+        systemInstruction: DEFAULT_DESKTOP_SETTINGS.systemInstruction,
+      });
     },
     handleBackendUrlChange,
     handleBackendUrlBlur,
