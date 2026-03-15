@@ -67,6 +67,8 @@ describe('AssistantPanel', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
+    window.bridge.getChat = vi.fn().mockResolvedValue(null);
+    window.bridge.listLiveSessions = vi.fn().mockResolvedValue([]);
     enumerateDevices.mockReset();
     enumerateDevices.mockResolvedValue([]);
     Object.defineProperty(window.navigator, 'mediaDevices', {
@@ -286,7 +288,7 @@ describe('AssistantPanel', () => {
     expect(useUiStore.getState().panelView).toBe('chat');
   });
 
-  it('shows history and new chat actions in the shared chat header without a Session History label', async () => {
+  it('shows only the history action in the shared chat header for a clean conversation', async () => {
     await renderAssistantPanel();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
@@ -305,11 +307,45 @@ describe('AssistantPanel', () => {
     expect(sharedBody).not.toBeNull();
     expect(panel.querySelectorAll('.assistant-panel__inner-body')).toHaveLength(1);
     expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
-    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(2);
+    expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(1);
     expect(sharedHeader).toContainElement(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'History' }));
-    expect(sharedHeader).toContainElement(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'New chat' }));
+    expect((sharedHeader as HTMLDivElement).querySelector('.assistant-panel__inner-header-content')).toHaveAttribute(
+      'data-action-count',
+      '1',
+    );
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Back to chat' })).toBeNull();
     expect(sharedBody).toContainElement(panelScope.getByText('Talk to Livepair'));
+  });
+
+  it('shows history and new chat actions in chat mode after a persisted chat has content', async () => {
+    useSessionStore.getState().setActiveChatId('chat-existing');
+    useSessionStore.getState().replaceConversationTurns([
+      {
+        id: 'turn-existing-1',
+        role: 'assistant',
+        content: 'Persisted chat content that makes this chat no longer new.',
+        timestamp: '09:30',
+        state: 'complete',
+      },
+    ]);
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const sharedHeader = panel.querySelector('.assistant-panel__inner-header');
+
+    expect(sharedHeader).not.toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'History' })).toBeVisible();
+    expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'New chat' })).toBeVisible();
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Back to chat' })).toBeNull();
+    expect((sharedHeader as HTMLDivElement).querySelector('.assistant-panel__inner-header-content')).toHaveAttribute(
+      'data-action-count',
+      '2',
+    );
   });
 
   it('keeps the shared inner header structure fixed while switching between chat and history', async () => {
@@ -354,9 +390,13 @@ describe('AssistantPanel', () => {
     expect(within(sharedHeader as HTMLDivElement).queryByText('Past chats')).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(1);
     expect(sharedHeader).toContainElement(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'Back to chat' }));
-    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
+    expect((sharedHeader as HTMLDivElement).querySelector('.assistant-panel__inner-header-content')).toHaveAttribute(
+      'data-action-count',
+      '1',
+    );
     expect(sharedBody).toContainElement(panelScope.getByText('No past chats yet.'));
     expect(within(sharedBody as HTMLDivElement).queryByText('Talk to Livepair')).toBeNull();
   });
@@ -530,10 +570,10 @@ describe('AssistantPanel', () => {
     expect(panelScope.queryByText('Viewing past chat')).toBeNull();
     expect(panelScope.queryByText('Past-session reply that should disappear')).toBeNull();
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
-    expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
+    expect(panelScope.queryByRole('button', { name: 'New chat' })).toBeNull();
   });
 
-  it('keeps history and chat actions wired when creating a new chat from an already empty current chat', async () => {
+  it('hides new chat actions when the current chat is already empty', async () => {
     useSessionStore.getState().setActiveChatId('chat-empty-current');
     window.bridge.getChat = vi.fn(async (chatId: string) => {
       if (chatId === 'chat-empty-current') {
@@ -546,42 +586,38 @@ describe('AssistantPanel', () => {
         };
       }
 
-      if (chatId === 'chat-fresh-empty') {
-        return {
-          id: 'chat-fresh-empty',
-          title: 'Fresh chat',
-          createdAt: '2026-03-12T10:00:00.000Z',
-          updatedAt: '2026-03-12T10:00:00.000Z',
-          isCurrent: true,
-        };
-      }
-
       return null;
     });
-    window.bridge.createChat = vi.fn(async () => ({
-      id: 'chat-fresh-empty',
-      title: 'Fresh chat',
-      createdAt: '2026-03-12T10:00:00.000Z',
-      updatedAt: '2026-03-12T10:00:00.000Z',
-      isCurrent: true,
-    }));
     window.bridge.listChats = vi.fn(async () => [
-      {
-        id: 'chat-fresh-empty',
-        title: 'Fresh chat',
-        createdAt: '2026-03-12T10:00:00.000Z',
-        updatedAt: '2026-03-12T10:00:00.000Z',
-        isCurrent: true,
-      },
       {
         id: 'chat-empty-current',
         title: 'Initial empty chat',
         createdAt: '2026-03-12T08:00:00.000Z',
         updatedAt: '2026-03-12T08:00:00.000Z',
+        isCurrent: true,
+      },
+      {
+        id: 'chat-past-filled',
+        title: 'Past filled chat',
+        createdAt: '2026-03-12T06:00:00.000Z',
+        updatedAt: '2026-03-12T06:30:00.000Z',
         isCurrent: false,
       },
     ]);
-    window.bridge.listChatMessages = vi.fn(async () => []);
+    window.bridge.listChatMessages = vi.fn(async (chatId: string) =>
+      chatId === 'chat-past-filled'
+        ? [
+            {
+              id: 'message-past-filled-1',
+              chatId,
+              role: 'assistant' as const,
+              contentText: 'Saved context from an older chat.',
+              createdAt: '2026-03-12T06:15:00.000Z',
+              sequence: 1,
+            },
+          ]
+        : [],
+    );
     window.bridge.listLiveSessions = vi.fn(async () => []);
 
     await renderAssistantPanel();
@@ -593,19 +629,7 @@ describe('AssistantPanel', () => {
     const panelScope = within(panel);
 
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
-    expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
-
-    await act(async () => {
-      fireEvent.click(panelScope.getByRole('button', { name: 'New chat' }));
-    });
-
-    await waitFor(() => {
-      expect(window.bridge.createChat).toHaveBeenCalledTimes(1);
-      expect(useSessionStore.getState().activeChatId).toBe('chat-fresh-empty');
-    });
-
-    expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
-    expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
+    expect(panelScope.queryByRole('button', { name: 'New chat' })).toBeNull();
 
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'History' }));
@@ -613,18 +637,22 @@ describe('AssistantPanel', () => {
 
     expect(await panelScope.findByRole('button', { name: 'Back to chat' })).toBeVisible();
     expect(panelScope.getByRole('button', { name: 'Back to chat' })).toBeVisible();
-    const freshChatRow = panelScope.getByText('Fresh chat').closest('button');
-    expect(freshChatRow).not.toBeNull();
-    expect(within(freshChatRow as HTMLButtonElement).getByText('No saved turns yet.')).toBeVisible();
+    expect(panelScope.queryByRole('button', { name: 'New chat' })).toBeNull();
+    const currentChatRow = panelScope.getByText('Initial empty chat').closest('button');
+    const pastChatRow = panelScope.getByText('Past filled chat').closest('button');
+    expect(currentChatRow).not.toBeNull();
+    expect(within(currentChatRow as HTMLButtonElement).getByText('No saved turns yet.')).toBeVisible();
+    expect(pastChatRow).not.toBeNull();
+    expect(within(pastChatRow as HTMLButtonElement).getByText('Saved context from an older chat.')).toBeVisible();
 
     await act(async () => {
       fireEvent.click(panelScope.getByRole('button', { name: 'Back to chat' }));
     });
 
-    expect(useSessionStore.getState().activeChatId).toBe('chat-fresh-empty');
+    expect(useSessionStore.getState().activeChatId).toBe('chat-empty-current');
     expect(useUiStore.getState().panelView).toBe('chat');
     expect(panelScope.getByRole('button', { name: 'History' })).toBeVisible();
-    expect(panelScope.getByRole('button', { name: 'New chat' })).toBeVisible();
+    expect(panelScope.queryByRole('button', { name: 'New chat' })).toBeNull();
   });
 
   it('opens separate in-chat microphone and screen-share dropdowns and applies selections through the existing source paths', async () => {

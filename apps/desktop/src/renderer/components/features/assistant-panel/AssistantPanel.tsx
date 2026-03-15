@@ -82,6 +82,9 @@ export function AssistantPanel(): JSX.Element {
   } = useAssistantPanelChatSessionData({
     activeChatId,
   });
+  const hasCreatedChatSession =
+    activeChatId !== null || activeChat !== null || latestLiveSession !== null;
+  const canCreateAnotherChat = hasCreatedChatSession && !isConversationEmpty;
   const {
     handleSelectChat,
     handleBackToHistory,
@@ -113,6 +116,9 @@ export function AssistantPanel(): JSX.Element {
               <div className="assistant-panel__inner-header">
                 <AssistantPanelSharedHeaderActions
                   panelView={panelView}
+                  showHistory={panelView === 'chat'}
+                  showCreateChat={canCreateAnotherChat}
+                  showBackToChat={panelView === 'history'}
                   onCreateChat={handleCreateChat}
                   onOpenHistory={handleBackToHistory}
                   onBackToChat={handleBackToChat}

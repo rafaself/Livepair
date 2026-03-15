@@ -9,11 +9,13 @@ import { AssistantPanelSharedHeaderActions } from '../AssistantPanelSharedHeader
 type HistoryViewHarnessProps = {
   activeChatId: string | null;
   onSelectChat?: (chatId: string) => void;
+  showCreateChat?: boolean;
 };
 
 function HistoryViewHarness({
   activeChatId,
   onSelectChat = () => {},
+  showCreateChat = false,
 }: HistoryViewHarnessProps): JSX.Element {
   const viewModel = useAssistantPanelHistoryViewModel({
     activeChatId,
@@ -25,6 +27,10 @@ function HistoryViewHarness({
       <div className="assistant-panel__inner-header">
         <AssistantPanelSharedHeaderActions
           panelView="history"
+          showHistory={false}
+          showCreateChat={showCreateChat}
+          showBackToChat
+          onCreateChat={async () => {}}
           onBackToChat={() => {}}
         />
       </div>
@@ -40,7 +46,7 @@ function HistoryViewHarness({
 }
 
 describe('AssistantPanelHistoryView', () => {
-  it('renders the history body inside the shared header harness with only a Back to chat action', async () => {
+  it('renders the history body inside the shared header harness with only Back to chat for a new conversation', async () => {
     window.bridge.listChats = vi.fn(async () => []);
 
     render(<HistoryViewHarness activeChatId={null} />);
@@ -51,6 +57,7 @@ describe('AssistantPanelHistoryView', () => {
     expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByText('Past chats')).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(1);
+    expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'Back to chat' })).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
   });
