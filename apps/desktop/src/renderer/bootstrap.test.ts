@@ -5,7 +5,7 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
 import { useAssistantPanelSettingsController } from './components/features/assistant-panel/settings/useAssistantPanelSettingsController';
 import { resetCurrentChatMemoryForTests } from './chatMemory/currentChatMemory';
 import { bootstrapDesktopRenderer } from './bootstrap';
-import { resetDesktopStores } from './store/testing';
+import { resetDesktopStores } from './test/store';
 import { useSettingsStore } from './store/settingsStore';
 import { useSessionStore } from './store/sessionStore';
 import { useUiStore } from './store/uiStore';

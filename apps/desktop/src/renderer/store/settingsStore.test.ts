@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
-import { resetDesktopStores } from './testing';
+import { resetDesktopStores } from '../test/store';
 import { useSettingsStore } from './settingsStore';
 
 describe('settingsStore', () => {

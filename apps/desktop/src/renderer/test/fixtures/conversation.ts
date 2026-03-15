@@ -1,4 +1,5 @@
-import type { ConversationTurnModel } from './conversation.types';
+export type { ConversationTurnModel } from '../../runtime';
+import type { ConversationTurnModel } from '../../runtime';
 
 export const MOCK_CONVERSATION_TURNS: readonly ConversationTurnModel[] = [
   {

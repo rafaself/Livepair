@@ -5,7 +5,7 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
 import { useSessionRuntime } from '../../../runtime';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { useSessionStore } from '../../../store/sessionStore';
-import { resetDesktopStores } from '../../../store/testing';
+import { resetDesktopStores } from '../../../test/store';
 import { useUiStore } from '../../../store/uiStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
 
