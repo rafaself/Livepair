@@ -144,20 +144,6 @@ export function AssistantPanelHistoryView({
                   </span>
                 </span>
                 <span className="chat-history__preview">{preview}</span>
-                <span className="chat-history__badges" aria-label="Chat relationship and latest session">
-                  {chat.isCurrent ? (
-                    <span className="chat-history__badge">Current chat</span>
-                  ) : null}
-                  {chat.id === activeChatId && !chat.isCurrent ? (
-                    <span className="chat-history__badge">Opened now</span>
-                  ) : null}
-                  {latestSessionLabel ? (
-                    <span className="chat-history__badge">{latestSessionLabel}</span>
-                  ) : null}
-                  {resumeLabel ? (
-                    <span className="chat-history__badge">{resumeLabel}</span>
-                  ) : null}
-                </span>
               </span>
             </button>
           </li>
