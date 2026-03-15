@@ -47,10 +47,16 @@ describe('bootstrapDesktopRenderer', () => {
     window.bridge.listChatMessages = vi.fn().mockResolvedValue([]);
     window.bridge.listScreenCaptureSources = vi.fn().mockResolvedValue({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+        { id: 'window:42:0', name: 'VSCode', kind: 'window' },
       ],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
     });
   });
 
@@ -71,10 +77,16 @@ describe('bootstrapDesktopRenderer', () => {
 
     expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState().screenCaptureSources).toEqual([
-      { id: 'screen:1:0', name: 'Entire Screen' },
-      { id: 'window:42:0', name: 'VSCode' },
+      { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+      { id: 'window:42:0', name: 'VSCode', kind: 'window' },
     ]);
     expect(useSessionStore.getState().selectedScreenCaptureSourceId).toBe('screen:1:0');
+    expect(useSessionStore.getState().overlayDisplay).toEqual({
+      displayId: '1',
+      bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+      workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+      scaleFactor: 2,
+    });
 
     render(createElement(BootstrappedScreenSourceOptions));
 

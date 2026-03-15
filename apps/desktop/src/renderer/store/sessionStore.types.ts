@@ -1,5 +1,9 @@
 import type { ChatId } from '@livepair/shared-types';
-import type { ScreenCaptureSource, ScreenCaptureSourceSnapshot } from '../../shared';
+import type {
+  ScreenCaptureOverlayDisplay,
+  ScreenCaptureSource,
+  ScreenCaptureSourceSnapshot,
+} from '../../shared';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
 import type {
   AssistantActivityState,
@@ -62,6 +66,7 @@ export type SessionStoreData = {
   visualSendDiagnostics: VisualSendDiagnostics;
   screenCaptureSources: ScreenCaptureSource[];
   selectedScreenCaptureSourceId: string | null;
+  overlayDisplay: ScreenCaptureOverlayDisplay | null;
   localUserSpeechActive: boolean;
 };
 

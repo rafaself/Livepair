@@ -14,11 +14,18 @@ const mockHandle = vi.fn();
 const mockGetSources = vi.fn();
 const mockQuit = vi.fn();
 const mockGetMediaAccessStatus = vi.fn();
+const mockGetPrimaryDisplay = vi.fn(() => ({
+  id: 1,
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+}));
 
 vi.mock('electron', () => ({
   app: { quit: mockQuit },
   desktopCapturer: { getSources: mockGetSources },
   ipcMain: { handle: mockHandle },
+  screen: { getPrimaryDisplay: mockGetPrimaryDisplay },
   systemPreferences: { getMediaAccessStatus: mockGetMediaAccessStatus },
 }));
 
@@ -129,6 +136,7 @@ describe('registerIpcHandlers', () => {
     mockHandle.mockReset();
     mockGetSources.mockReset();
     mockGetMediaAccessStatus.mockReset();
+    mockGetPrimaryDisplay.mockClear();
   });
 
   it('registers the expected IPC channels', async () => {
@@ -645,10 +653,12 @@ describe('registerIpcHandlers', () => {
       {
         id: 'screen:1:0',
         name: 'Entire Screen',
+        display_id: '1',
       },
       {
         id: 'window:42:0',
         name: 'VSCode',
+        display_id: '',
       },
     ]);
     const settingsService = createSettingsServiceDouble();
@@ -668,18 +678,30 @@ describe('registerIpcHandlers', () => {
 
     await expect(listSourcesHandler()).resolves.toEqual({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+        { id: 'window:42:0', name: 'VSCode', kind: 'window' },
       ],
-      selectedSourceId: null,
+      selectedSourceId: 'screen:1:0',
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
     });
 
     await expect(selectSourceHandler({}, 'window:42:0')).resolves.toEqual({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+        { id: 'window:42:0', name: 'VSCode', kind: 'window' },
       ],
       selectedSourceId: 'window:42:0',
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
     });
 
     expect(mockGetSources).toHaveBeenNthCalledWith(1, {
@@ -718,6 +740,7 @@ describe('registerIpcHandlers', () => {
       {
         id: 'screen:1:0',
         name: 'Entire Screen',
+        display_id: '1',
       },
     ]);
     const settingsService = createSettingsServiceDouble();

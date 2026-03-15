@@ -1,6 +1,13 @@
 import { vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS, type DesktopBridge } from '../../shared';
 
+const DEFAULT_OVERLAY_DISPLAY = {
+  displayId: '1',
+  bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+  workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+  scaleFactor: 1,
+} as const;
+
 function buildBaseMockDesktopBridge() {
   return {
     overlayMode: 'linux-shape' as DesktopBridge['overlayMode'],
@@ -29,10 +36,12 @@ function buildBaseMockDesktopBridge() {
     listScreenCaptureSources: vi.fn(async () => ({
       sources: [],
       selectedSourceId: null,
+      overlayDisplay: DEFAULT_OVERLAY_DISPLAY,
     })),
     selectScreenCaptureSource: vi.fn(async (sourceId) => ({
       sources: [],
       selectedSourceId: sourceId,
+      overlayDisplay: DEFAULT_OVERLAY_DISPLAY,
     })),
     startScreenFrameDumpSession: vi.fn(async () => ({
       directoryPath: '/tmp/livepair/screen-frame-dumps/current-debug-session',

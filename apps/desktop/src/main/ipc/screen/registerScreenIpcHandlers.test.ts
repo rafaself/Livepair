@@ -10,10 +10,17 @@ import type { ScreenFrameDumpService } from '../../debug/screenFrameDumpService'
 const mockHandle = vi.fn();
 const mockGetSources = vi.fn();
 const mockGetMediaAccessStatus = vi.fn();
+const mockGetPrimaryDisplay = vi.fn(() => ({
+  id: 1,
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+}));
 
 vi.mock('electron', () => ({
   desktopCapturer: { getSources: mockGetSources },
   ipcMain: { handle: mockHandle },
+  screen: { getPrimaryDisplay: mockGetPrimaryDisplay },
   systemPreferences: { getMediaAccessStatus: mockGetMediaAccessStatus },
 }));
 
@@ -32,6 +39,7 @@ describe('registerScreenIpcHandlers', () => {
     mockHandle.mockReset();
     mockGetSources.mockReset();
     mockGetMediaAccessStatus.mockReset();
+    mockGetPrimaryDisplay.mockClear();
   });
 
   it('registers screen capture and frame dump IPC channels', async () => {
@@ -73,9 +81,9 @@ describe('registerScreenIpcHandlers', () => {
 
   it('lists, selects, clears, and validates capture sources', async () => {
     mockGetSources.mockResolvedValue([
-      { id: 'screen:1:0', name: 'Entire Screen' },
-      { id: 'window:42:0', name: 'VSCode' },
-      { id: 'window:99:0', name: 'Livepair' },
+      { id: 'screen:1:0', name: 'Entire Screen', display_id: '1' },
+      { id: 'window:42:0', name: 'VSCode', display_id: '' },
+      { id: 'window:99:0', name: 'Livepair', display_id: '' },
     ]);
     const { registerScreenIpcHandlers } = await import('./registerScreenIpcHandlers');
 
@@ -95,24 +103,42 @@ describe('registerScreenIpcHandlers', () => {
 
     await expect(listSourcesHandler()).resolves.toEqual({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+        { id: 'window:42:0', name: 'VSCode', kind: 'window' },
       ],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
     });
     await expect(selectSourceHandler({}, 'window:42:0')).resolves.toEqual({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+        { id: 'window:42:0', name: 'VSCode', kind: 'window' },
       ],
       selectedSourceId: 'window:42:0',
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
     });
     await expect(selectSourceHandler({}, null)).resolves.toEqual({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+        { id: 'window:42:0', name: 'VSCode', kind: 'window' },
       ],
       selectedSourceId: null,
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
     });
 
     await expect(selectSourceHandler({}, 42)).rejects.toThrow(

@@ -25,14 +25,35 @@ export type OverlayHitRegion = {
   height: number;
 };
 
+export type ScreenCaptureRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type ScreenCaptureSourceKind = 'screen' | 'window';
+
+export type ScreenCaptureOverlayDisplay = {
+  displayId: string;
+  // Electron screen coordinates in DIP, matching BrowserWindow positioning.
+  bounds: ScreenCaptureRect;
+  // Electron work-area coordinates in DIP for the display hosting the overlay window.
+  workArea: ScreenCaptureRect;
+  scaleFactor: number;
+};
+
 export type ScreenCaptureSource = {
   id: string;
   name: string;
+  kind: ScreenCaptureSourceKind;
+  displayId?: string;
 };
 
 export type ScreenCaptureSourceSnapshot = {
   sources: ScreenCaptureSource[];
   selectedSourceId: string | null;
+  overlayDisplay: ScreenCaptureOverlayDisplay;
 };
 
 export type ScreenFrameDumpSessionInfo = {

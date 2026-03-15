@@ -47,8 +47,13 @@ function setActiveChatState(
   pendingAppend = Promise.resolve();
 
   const store = useSessionStore.getState();
-  const { screenCaptureSources, selectedScreenCaptureSourceId } = store;
-  store.reset({ activeChatId: chat.id, screenCaptureSources, selectedScreenCaptureSourceId });
+  const { screenCaptureSources, selectedScreenCaptureSourceId, overlayDisplay } = store;
+  store.reset({
+    activeChatId: chat.id,
+    screenCaptureSources,
+    selectedScreenCaptureSourceId,
+    overlayDisplay,
+  });
   store.replaceConversationTurns(mapChatMessageRecordsToConversationTurns([...messages]));
 }
 

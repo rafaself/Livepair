@@ -118,6 +118,7 @@ export function buildDefaultSessionState(): SessionStoreData {
     visualSendDiagnostics: buildDefaultVisualSendDiagnostics(),
     screenCaptureSources: [],
     selectedScreenCaptureSourceId: null,
+    overlayDisplay: null,
     localUserSpeechActive: false,
   };
 }

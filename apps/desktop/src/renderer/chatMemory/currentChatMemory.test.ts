@@ -11,6 +11,21 @@ import {
   SCREEN_CONTEXT_SUMMARY_KEY,
 } from './screenContextState';
 
+const OVERLAY_DISPLAY = {
+  displayId: '1',
+  bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+  scaleFactor: 2,
+} as const;
+
+function createScreenSource(id: string, name: string, displayId: string) {
+  return { id, name, kind: 'screen' as const, displayId };
+}
+
+function createWindowSource(id: string, name: string) {
+  return { id, name, kind: 'window' as const };
+}
+
 describe('currentChatMemory rehydration packet sourcing', () => {
   beforeEach(() => {
     resetCurrentChatMemoryForTests();
@@ -497,17 +512,18 @@ describe('wave 1: switchToChat screen-capture state preservation', () => {
 
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     });
 
     await switchToChat('chat-2' as ChatId, bridge as never);
 
     expect(useSessionStore.getState().screenCaptureSources).toEqual([
-      { id: 'screen:1:0', name: 'Entire Screen' },
-      { id: 'window:42:0', name: 'VSCode' },
+      createScreenSource('screen:1:0', 'Entire Screen', '1'),
+      createWindowSource('window:42:0', 'VSCode'),
     ]);
   });
 
@@ -525,10 +541,11 @@ describe('wave 1: switchToChat screen-capture state preservation', () => {
 
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
       sources: [
-        { id: 'screen:1:0', name: 'Entire Screen' },
-        { id: 'window:42:0', name: 'VSCode' },
+        createScreenSource('screen:1:0', 'Entire Screen', '1'),
+        createWindowSource('window:42:0', 'VSCode'),
       ],
       selectedSourceId: 'window:42:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     });
 
     await switchToChat('chat-2' as ChatId, bridge as never);
@@ -549,8 +566,9 @@ describe('wave 1: switchToChat screen-capture state preservation', () => {
     };
 
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
-      sources: [{ id: 'screen:1:0', name: 'Entire Screen' }],
+      sources: [createScreenSource('screen:1:0', 'Entire Screen', '1')],
       selectedSourceId: 'screen:1:0',
+      overlayDisplay: OVERLAY_DISPLAY,
     });
 
     await switchToChat('chat-2' as ChatId, bridge as never);
