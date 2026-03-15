@@ -7,17 +7,6 @@ import {
 } from './captureSourceRegistry';
 import { selectAutoSource } from './selectAutoSource';
 
-type DisplayMediaRequestHandler = Parameters<
-  typeof session.defaultSession.setDisplayMediaRequestHandler
->[0];
-
-type SessionWithDisplayMediaPickerOption = typeof session.defaultSession & {
-  setDisplayMediaRequestHandler: (
-    handler: DisplayMediaRequestHandler,
-    options?: { useSystemPicker?: boolean },
-  ) => void;
-};
-
 /**
  * Registers a display-media request handler on the default Electron session.
  *
@@ -25,17 +14,14 @@ type SessionWithDisplayMediaPickerOption = typeof session.defaultSession & {
  * renderer throws "Not supported". The handler uses `desktopCapturer` to
  * enumerate screen and window sources, keeps the registry in sync, and
  * honors any selected source when present. When the user has not selected a
- * source, Electron's system picker is preferred when available. If Electron
- * still invokes this handler, automatic fallback is limited to the single
- * unambiguous eligible source.
+ * source, automatic fallback is limited to the single unambiguous eligible
+ * source so the app's registry-backed selection flow remains authoritative.
  */
 export function registerDisplayMediaHandler(
   captureSourceRegistry: CaptureSourceRegistry,
   getExcludedSourceIds: () => ReadonlySet<string> = () => new Set(),
 ): void {
-  const defaultSession = session.defaultSession as SessionWithDisplayMediaPickerOption;
-
-  defaultSession.setDisplayMediaRequestHandler(
+  session.defaultSession.setDisplayMediaRequestHandler(
     async (_request, callback) => {
       try {
         const sources = await desktopCapturer.getSources(CAPTURE_SOURCE_LIST_OPTIONS);
@@ -62,6 +48,5 @@ export function registerDisplayMediaHandler(
         callback({});
       }
     },
-    { useSystemPicker: true },
   );
 }

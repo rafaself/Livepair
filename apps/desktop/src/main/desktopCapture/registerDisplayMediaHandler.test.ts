@@ -73,7 +73,7 @@ describe('registerDisplayMediaHandler', () => {
     registeredHandler = null;
   });
 
-  it('registers a display media request handler on the default session', async () => {
+  it('registers a display media request handler without the Electron system picker', async () => {
     const { registerDisplayMediaHandler } = await import(
       './registerDisplayMediaHandler'
     );
@@ -81,10 +81,7 @@ describe('registerDisplayMediaHandler', () => {
     registerDisplayMediaHandler(makeRegistry());
 
     expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledOnce();
-    expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledWith(
-      expect.any(Function),
-      { useSystemPicker: true },
-    );
+    expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it('does not auto-pick when multiple eligible sources remain and no source is selected', async () => {

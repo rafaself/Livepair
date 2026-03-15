@@ -86,15 +86,12 @@ describe('main process runtime', () => {
     expect(mockLoadURL).toHaveBeenCalledWith('http://localhost:5173');
   });
 
-  it('registers the display media handler before creating the window', async () => {
+  it('registers the display media handler before creating the window without enabling the system picker', async () => {
     await import('./main');
     await Promise.resolve();
 
     expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledOnce();
-    expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledWith(
-      expect.any(Function),
-      { useSystemPicker: true },
-    );
+    expect(mockSetDisplayMediaRequestHandler).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it('routes activate and window-all-closed callbacks through the overlay helpers', async () => {
