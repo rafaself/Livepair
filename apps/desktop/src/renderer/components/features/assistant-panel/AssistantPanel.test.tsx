@@ -655,6 +655,61 @@ describe('AssistantPanel', () => {
     expect(panelScope.queryByRole('button', { name: 'New chat' })).toBeNull();
   });
 
+  it('new chat button in history navigates back to chat without creating a chat when the current chat is already empty', async () => {
+    useSessionStore.getState().setActiveChatId('chat-empty-history');
+    window.bridge.getChat = vi.fn(async (chatId: string) =>
+      chatId === 'chat-empty-history'
+        ? {
+            id: 'chat-empty-history',
+            title: 'Empty chat',
+            createdAt: '2026-03-12T08:00:00.000Z',
+            updatedAt: '2026-03-12T08:00:00.000Z',
+            isCurrent: true,
+          }
+        : null,
+    );
+    window.bridge.listChats = vi.fn(async () => [
+      {
+        id: 'chat-empty-history',
+        title: 'Empty chat',
+        createdAt: '2026-03-12T08:00:00.000Z',
+        updatedAt: '2026-03-12T08:00:00.000Z',
+        isCurrent: true,
+      },
+    ]);
+    window.bridge.listChatMessages = vi.fn(async () => []);
+    window.bridge.listLiveSessions = vi.fn(async () => []);
+    window.bridge.createChat = vi.fn(async () => ({
+      id: 'should-not-be-called',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    }));
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'History' }));
+    });
+
+    expect(await panelScope.findByRole('button', { name: 'New chat' })).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'New chat' }));
+    });
+
+    expect(useUiStore.getState().panelView).toBe('chat');
+    expect(useSessionStore.getState().activeChatId).toBe('chat-empty-history');
+    expect(window.bridge.createChat).not.toHaveBeenCalled();
+  });
+
   it('opens separate in-chat microphone and screen-share dropdowns and applies selections through the existing source paths', async () => {
     useSessionStore.getState().replaceConversationTurns([
       {

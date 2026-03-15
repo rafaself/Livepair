@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { OverlayContainer, Panel } from '../../layout';
 import { AssistantPanelDebugView } from './debug/AssistantPanelDebugView';
 import { AssistantPanelChatView } from './chat/AssistantPanelChatView';
@@ -95,6 +96,14 @@ export function AssistantPanel(): JSX.Element {
     resetChatSessionData,
   });
 
+  const handleCreateOrReturnToChat = useCallback(async (): Promise<void> => {
+    if (canCreateAnotherChat) {
+      await handleCreateChat();
+    } else {
+      handleBackToChat();
+    }
+  }, [canCreateAnotherChat, handleCreateChat, handleBackToChat]);
+
   return (
     <OverlayContainer>
       <Panel
@@ -119,7 +128,7 @@ export function AssistantPanel(): JSX.Element {
                   showHistory={panelView === 'chat'}
                   showCreateChat={panelView === 'history' || canCreateAnotherChat}
                   showBackToChat={panelView === 'history'}
-                  onCreateChat={handleCreateChat}
+                  onCreateChat={handleCreateOrReturnToChat}
                   onOpenHistory={handleBackToHistory}
                   onBackToChat={handleBackToChat}
                 />
