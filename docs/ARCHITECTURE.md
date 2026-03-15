@@ -57,7 +57,7 @@ Implemented:
 
 Partial:
 
-- Screen context is implemented only as manual start/stop capture during an active speech session
+- Screen context is implemented only as manual start/stop capture during an active Live session
 - Operational hardening exists for token refresh, session resumption, and degraded-state handling, but backend error reporting is not implemented
 - Voice-mode tool handling exists only for narrow local inspection tools
 
@@ -97,12 +97,12 @@ Implemented:
 
 - Render the assistant UI
 - Hold product state and runtime diagnostics
-- Start and end Live speech sessions while preserving inactive/history state
+- Start and end Live sessions for speech mode while preserving inactive/history state
 - Accept typed notes only while a Live session is active
 - Capture microphone audio for speech mode
 - Play assistant audio for speech mode
 - Detect interruption locally
-- Send manual screen frames during an active speech session
+- Send manual screen frames during an active Live session
 - Execute narrow local voice tools
 
 Planned:
@@ -149,8 +149,8 @@ Planned:
 1. The desktop requests an ephemeral token from `POST /session/token`.
 2. The backend returns a short-lived Gemini Live token.
 3. The desktop opens a Gemini Live session directly.
-4. The desktop streams microphone audio.
-5. The desktop can optionally stream manual screen frames.
+4. The desktop can start microphone audio independently on the active Live session.
+5. The desktop can optionally start manual screen frames on the same Live session.
 6. The model returns assistant audio, transcript events, tool requests, and connection events.
 7. Local interruption handling stops playback and returns the speech lifecycle toward listening/recovery.
 
@@ -165,7 +165,7 @@ Planned:
 Implemented:
 
 - Manual start/stop only
-- Active speech session required
+- Active Live session required
 - Lightweight JPEG frames at explicit conservative settings: 1 FPS, compressed JPEG, reduced width, and latest-frame-wins while an earlier frame send is still in flight
 - Voice-mode screen sharing uses `MEDIA_RESOLUTION_LOW` by default unless the desktop env overrides it
 - Runtime replacement during reconnect/resume/fallback always stops screen capture; users must manually re-enable it on the replacement Live runtime

@@ -30,7 +30,6 @@ type ConnectFallbackVoiceSessionArgs = {
   createPersistedLiveSession: () => Promise<void>;
   activateVoiceTransport: (transport: DesktopSession) => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
-  startVoiceCapture: () => Promise<boolean>;
   applySpeechLifecycleEvent: (event: { type: 'session.ready' }) => void;
 };
 
@@ -46,7 +45,6 @@ export async function connectFallbackVoiceSession({
   createPersistedLiveSession,
   activateVoiceTransport,
   setVoiceResumptionInFlight,
-  startVoiceCapture,
   applySpeechLifecycleEvent,
 }: ConnectFallbackVoiceSessionArgs): Promise<VoiceFallbackAttemptResult> {
   logRuntimeDiagnostic('voice-session', 'starting explicit fallback session', {
@@ -104,15 +102,6 @@ export async function connectFallbackVoiceSession({
       return {
         status: 'failed',
         detail: 'Voice session fallback was superseded',
-      };
-    }
-
-    const didStartVoiceCapture = await startVoiceCapture();
-
-    if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
-      return {
-        status: 'failed',
-        detail: 'Failed to start voice capture after fallback session startup',
       };
     }
 

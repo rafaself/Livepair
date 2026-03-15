@@ -194,7 +194,7 @@ describe('createDesktopSessionController – voice tools', () => {
     expect(voiceTransport.sendToolResponses).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        voiceSessionStatus: 'recovering',
+        voiceSessionStatus: 'ready',
         voiceToolState: {
           status: 'idle',
           toolName: null,

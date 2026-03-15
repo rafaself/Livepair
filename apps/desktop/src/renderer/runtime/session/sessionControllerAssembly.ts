@@ -116,7 +116,6 @@ export function createSessionControllerAssembly(
     currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
     setVoiceSessionStatus: (s) => runtimeRef.current!.setVoiceSessionStatus(s),
     setVoiceErrorState: (d) => setVoiceErrorState(d),
-    endSessionInternal: (o) => void endSessionInternal(o),
     logRuntimeError,
   });
   const stateSync = createSessionControllerStateSync({

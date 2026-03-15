@@ -180,7 +180,7 @@ describe('createDesktopSessionController – voice capture', () => {
       expect.objectContaining({
         currentMode: 'speech',
         voiceCaptureState: 'error',
-        voiceSessionStatus: 'error',
+        voiceSessionStatus: 'ready',
         voiceCaptureDiagnostics: expect.objectContaining({
           lastError: 'Microphone permission was denied',
         }),

@@ -23,7 +23,6 @@ type SessionVoiceConnectionArgs = {
   setVoiceResumptionInFlight: (value: boolean) => void;
   createTransport: () => DesktopSession;
   activateVoiceTransport: (transport: DesktopSession) => void;
-  startVoiceCapture: () => Promise<boolean>;
   buildRehydrationPacketFromCurrentChat: () => Promise<RehydrationPacket>;
   invalidatePersistedLiveSession: (patch: {
     restorable: false;
@@ -49,7 +48,6 @@ export function createSessionVoiceConnection({
   setVoiceResumptionInFlight,
   createTransport,
   activateVoiceTransport,
-  startVoiceCapture,
   buildRehydrationPacketFromCurrentChat,
   invalidatePersistedLiveSession,
   createPersistedLiveSession,
@@ -117,12 +115,6 @@ export function createSessionVoiceConnection({
         return { status: 'failed', detail: 'Voice session resumption was superseded' };
       }
 
-      const didStartVoiceCapture = await startVoiceCapture();
-
-      if (!didStartVoiceCapture || !isCurrentSessionOperation(operationId)) {
-        return { status: 'failed', detail: 'Failed to start voice capture after session resumption' };
-      }
-
       applySpeechLifecycleEvent({ type: 'session.ready' });
       return { status: 'resumed' };
     } catch (error) {
@@ -169,7 +161,6 @@ export function createSessionVoiceConnection({
       createPersistedLiveSession,
       activateVoiceTransport,
       setVoiceResumptionInFlight,
-      startVoiceCapture,
       applySpeechLifecycleEvent: (event) => {
         applySpeechLifecycleEvent(event);
       },

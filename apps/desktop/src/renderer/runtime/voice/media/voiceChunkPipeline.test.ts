@@ -246,8 +246,9 @@ describe('createVoiceChunkPipeline', () => {
       expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenCalledWith({ chunkCount: 5 });
     });
 
-    it('onError sets capture and session to error', () => {
+    it('onError keeps the live session ready when local capture fails', () => {
       const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('streaming');
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
@@ -255,11 +256,12 @@ describe('createVoiceChunkPipeline', () => {
       observer.onError('Permission denied');
 
       expect(ops._storeState.setVoiceCaptureState).toHaveBeenCalledWith('error');
-      expect(ops._storeState.setVoiceSessionStatus).toHaveBeenCalledWith('error');
+      expect(ops._storeState.setVoiceSessionStatus).toHaveBeenCalledWith('ready');
       expect(ops._storeState.setLastRuntimeError).toHaveBeenCalledWith('Permission denied');
       expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenCalledWith({
         lastError: 'Permission denied',
       });
+      expect(ops._storeState.setLocalUserSpeechActive).toHaveBeenCalledWith(false);
       expect(ops.logRuntimeError).toHaveBeenCalledWith(
         'voice-capture',
         'local capture failed',
@@ -558,30 +560,18 @@ describe('createVoiceChunkPipeline', () => {
       });
     });
 
-    it('calls endSessionInternal when shutdownOnFailure is true and session not ready', async () => {
+    it('keeps the live session intact when startCapture is requested before the session is ready', async () => {
       const ops = createMockOps();
       ops._storeState.voiceSessionStatus = 'disconnected';
       const pipeline = createVoiceChunkPipeline(ops as never);
 
-      await pipeline.startCapture({ shutdownOnFailure: true });
+      await pipeline.startCapture();
 
-      expect(ops.endSessionInternal).toHaveBeenCalledWith({
-        preserveLastRuntimeError: 'Voice session is not ready',
-        preserveVoiceRuntimeDiagnostics: true,
-      });
+      expect(ops._storeState.setVoiceSessionStatus).not.toHaveBeenCalled();
+      expect(ops._storeState.setLastRuntimeError).not.toHaveBeenCalled();
     });
 
-    it('does not call endSessionInternal when shutdownOnFailure is false', async () => {
-      const ops = createMockOps();
-      ops._storeState.voiceSessionStatus = 'disconnected';
-      const pipeline = createVoiceChunkPipeline(ops as never);
-
-      await pipeline.startCapture({ shutdownOnFailure: false });
-
-      expect(ops.endSessionInternal).not.toHaveBeenCalled();
-    });
-
-    it('handles capture start failure', async () => {
+    it('handles capture start failure without forcing the live session into error', async () => {
       const ops = createMockOps();
       ops._capture.start.mockRejectedValue(new Error('Mic denied'));
       const pipeline = createVoiceChunkPipeline(ops as never);
@@ -590,21 +580,8 @@ describe('createVoiceChunkPipeline', () => {
 
       expect(result).toBe(false);
       expect(ops._storeState.setVoiceCaptureState).toHaveBeenCalledWith('error');
-      expect(ops._storeState.setVoiceSessionStatus).toHaveBeenCalledWith('error');
+      expect(ops._storeState.setVoiceSessionStatus).not.toHaveBeenCalled();
       expect(ops._storeState.setLastRuntimeError).toHaveBeenCalledWith('Mic denied');
-    });
-
-    it('calls endSessionInternal on capture start failure with shutdownOnFailure', async () => {
-      const ops = createMockOps();
-      ops._capture.start.mockRejectedValue(new Error('Mic denied'));
-      const pipeline = createVoiceChunkPipeline(ops as never);
-
-      await pipeline.startCapture({ shutdownOnFailure: true });
-
-      expect(ops.endSessionInternal).toHaveBeenCalledWith({
-        preserveLastRuntimeError: 'Mic denied',
-        preserveVoiceRuntimeDiagnostics: true,
-      });
     });
 
     it('initializes diagnostics with correct default values', async () => {

@@ -35,7 +35,7 @@ The backend stays out of the audio/video hot path and currently serves health ch
 
 ### Partially implemented / in progress
 
-* Screen context is live in speech mode, but only through manual start/stop capture; adaptive capture policy and tuning are not implemented yet
+* Screen context is live over an active Live session, but only through manual start/stop capture; adaptive capture policy and tuning are not implemented yet
 * Operational hardening exists for token refresh, resumption, and explicit degraded-state handling, but backend error reporting and broader diagnostics are not implemented yet
 * Voice-mode tool handling exists only for narrow local inspection tools (`get_current_mode`, `get_voice_session_status`); backend-backed tool endpoints are still absent
 
@@ -147,7 +147,7 @@ Speech mode (direct realtime):
 1. The desktop app requests an ephemeral token from the backend (`POST /session/token`).
 2. The backend returns a short-lived token for Gemini Live usage.
 3. The desktop client opens a realtime session directly with Gemini Live API (SDK transport).
-4. The client streams microphone audio and, when explicitly started, manual screen frames.
+4. The client starts microphone audio and manual screen frames independently over the active Live session.
 5. The model returns response audio plus transcript/text events; local interruption stops playback promptly.
 6. Typed input can still be sent while speech mode is active, but it travels over the active Live session rather than a backend text endpoint.
 
@@ -171,7 +171,7 @@ Speech mode (direct realtime):
 
 * Capture microphone input
 * Manage inactive/history and speech-session state
-* Capture screen context only when explicitly started during an active speech session
+* Capture screen context only when explicitly started during an active Live session
 * Run local VAD for interruption detection
 * Play model audio output
 * Render transcript and session state
@@ -229,7 +229,7 @@ Product state rules:
 Current implementation:
 
 * screen capture is manual-only
-* screen capture requires an active speech session
+* screen capture requires an active Live session
 * uploaded frames use an explicit conservative policy: 1 FPS capture, compressed JPEG, reduced width, and latest-frame-wins backpressure while a prior upload is in flight
 * Live voice sessions use `MEDIA_RESOLUTION_LOW` by default for screen sharing unless explicitly overridden
 * if reconnect/resume falls through to a replacement Live runtime, screen capture is stopped and must be manually re-enabled on the new runtime

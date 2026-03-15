@@ -258,7 +258,6 @@ export function createSessionTransportAssembly({
         setVoiceResumptionInFlight: (value) => {
           runtimeRef.current!.setVoiceResumptionInFlight(value);
         },
-        startVoiceCapture: () => voiceChunkCtrl.startCapture({ shutdownOnFailure: true }),
         applySpeechLifecycleEvent: (event) => {
           runtimeRef.current!.applySpeechLifecycleEvent(event);
         },

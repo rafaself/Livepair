@@ -153,7 +153,6 @@ export function useAssistantPanelController(): AssistantPanelController {
     setComposerMicrophoneEnabled,
     isVoiceSessionActive,
     voiceCaptureState,
-    voiceSessionStatus,
     screenCaptureState,
     onStartVoiceSession,
     onStartVoiceCapture,

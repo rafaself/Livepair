@@ -22,12 +22,13 @@ type StopCaptureOptions = StopScreenCaptureOptions & {
   propagateStopError?: boolean;
 };
 
-function isActiveVoiceSessionStatus(status: VoiceSessionStatus): boolean {
+function isLiveSessionReadyForScreenCapture(status: VoiceSessionStatus): boolean {
   return (
     status === 'ready'
     || status === 'capturing'
     || status === 'streaming'
     || status === 'interrupted'
+    || status === 'recovering'
   );
 }
 
@@ -146,7 +147,7 @@ export function createScreenCaptureLifecycle({
     const voiceStatus = state.voiceSessionStatus;
     const transport = getTransport();
 
-    if (transport === null || !isActiveVoiceSessionStatus(voiceStatus)) {
+    if (transport === null || !isLiveSessionReadyForScreenCapture(voiceStatus)) {
       const detail = 'Screen context requires an active Live session';
       state.setScreenCaptureState('error');
       state.setScreenCaptureDiagnostics({
