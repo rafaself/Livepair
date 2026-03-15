@@ -81,27 +81,12 @@ export function AssistantPanelConversationSection({
   const latestSessionMetadataRows = latestLiveSession ? buildSessionMetadataRows(latestLiveSession) : [];
   const shouldShowInlineRuntimeError = Boolean(lastRuntimeError) && !isConversationEmpty;
   const shouldShowMessageMeta =
-    isViewingPastChat || shouldShowLatestSessionMetadata || shouldShowInlineRuntimeError;
+    shouldShowLatestSessionMetadata || shouldShowInlineRuntimeError;
 
   return (
     <div className="assistant-panel__messages-section">
       {shouldShowMessageMeta ? (
         <div className="assistant-panel__messages-meta">
-          {isViewingPastChat ? (
-            <div className="assistant-panel__history-state" role="status" aria-live="polite">
-              <div className="assistant-panel__history-state-header">
-                <div className="assistant-panel__history-state-copy">
-                  <p className="assistant-panel__history-state-label">Viewing past chat</p>
-                  <p className="assistant-panel__history-state-title">
-                    {activeChatTitle ?? 'Untitled chat'}
-                  </p>
-                  <p className="assistant-panel__history-state-body">
-                    Durable chat container with preserved context. Latest Live session details stay separate below.
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : null}
           {shouldShowLatestSessionMetadata ? (
             <section className="assistant-panel__session-history" aria-label="Latest Live session">
               <div className="assistant-panel__session-history-header">
