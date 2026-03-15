@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -9,6 +10,19 @@ import {
   createVoiceCaptureHarness,
   createVoicePlaybackHarness,
 } from './sessionController.testUtils';
+
+type VoiceLatencyMetricTestState = {
+  status: 'available' | 'pending' | 'unavailable';
+  valueMs: number | null;
+  lastValueMs: number | null;
+  startedAtMs: number | null;
+};
+
+type VoiceSessionLatencyTestState = {
+  connect: VoiceLatencyMetricTestState;
+  firstModelResponse: VoiceLatencyMetricTestState;
+  speechToFirstModelResponse: VoiceLatencyMetricTestState;
+};
 
 describe('createDesktopSessionController – speech lifecycle', () => {
   beforeEach(() => {
@@ -60,6 +74,73 @@ describe('createDesktopSessionController – speech lifecycle', () => {
 
     await vi.runAllTimersAsync();
     expect(useSessionStore.getState().speechLifecycle.status).toBe('listening');
+
+    vi.useRealTimers();
+  });
+
+  it('records connect, first-response, and speech-to-response latency in the session store', async () => {
+    vi.useFakeTimers();
+
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const voicePlayback = createVoicePlaybackHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn(
+        () =>
+          new Promise<CreateEphemeralTokenResponse>((resolve) => {
+            setTimeout(() => {
+              resolve({
+                token: 'auth_tokens/test-token',
+                expireTime: '2099-03-09T12:30:00.000Z',
+                newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+              });
+            }, 40);
+          }),
+      ),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      createVoicePlayback: voicePlayback.createVoicePlayback,
+      settingsStore: useSettingsStore,
+    });
+
+    const startPromise = controller.startSession({ mode: 'speech' });
+    await vi.advanceTimersByTimeAsync(40);
+    await startPromise;
+
+    await vi.advanceTimersByTimeAsync(25);
+    voiceTransport.emit({ type: 'input-transcript', text: 'hello' });
+
+    await vi.advanceTimersByTimeAsync(35);
+    voiceTransport.emit({ type: 'output-transcript', text: 'hi there' });
+
+    expect(
+      (useSessionStore.getState() as unknown as { voiceSessionLatency: VoiceSessionLatencyTestState })
+        .voiceSessionLatency,
+    ).toEqual({
+      connect: {
+        status: 'available',
+        valueMs: 40,
+        lastValueMs: 40,
+        startedAtMs: null,
+      },
+      firstModelResponse: {
+        status: 'available',
+        valueMs: 60,
+        lastValueMs: 60,
+        startedAtMs: null,
+      },
+      speechToFirstModelResponse: {
+        status: 'available',
+        valueMs: 35,
+        lastValueMs: 35,
+        startedAtMs: null,
+      },
+    });
 
     vi.useRealTimers();
   });

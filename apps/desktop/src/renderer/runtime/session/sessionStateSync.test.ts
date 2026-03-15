@@ -1,17 +1,66 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createSessionControllerStateSync } from './sessionStateSync';
 
+type VoiceLatencyMetricTestState = {
+  status: 'available' | 'pending' | 'unavailable';
+  valueMs: number | null;
+  lastValueMs: number | null;
+  startedAtMs: number | null;
+};
+
+type VoiceSessionLatencyTestState = {
+  connect: VoiceLatencyMetricTestState;
+  firstModelResponse: VoiceLatencyMetricTestState;
+  speechToFirstModelResponse: VoiceLatencyMetricTestState;
+};
+
+function createVoiceSessionLatencyState(
+  overrides: Partial<VoiceSessionLatencyTestState> = {},
+): VoiceSessionLatencyTestState {
+  return {
+    connect: {
+      status: 'unavailable',
+      valueMs: null,
+      lastValueMs: null,
+      startedAtMs: null,
+    },
+    firstModelResponse: {
+      status: 'unavailable',
+      valueMs: null,
+      lastValueMs: null,
+      startedAtMs: null,
+    },
+    speechToFirstModelResponse: {
+      status: 'unavailable',
+      valueMs: null,
+      lastValueMs: null,
+      startedAtMs: null,
+    },
+    ...overrides,
+  };
+}
+
 function createMockArgs(speechStatus = 'off', mode = 'text') {
   const storeState = {
     speechLifecycle: { status: speechStatus },
     voiceSessionStatus: 'disconnected',
+    voiceSessionLatency: createVoiceSessionLatencyState(),
     currentMode: mode,
     textSessionLifecycle: { status: 'idle' },
     voiceCaptureState: 'idle',
     voicePlaybackState: 'idle',
-    setSpeechLifecycle: vi.fn(),
-    setVoiceSessionStatus: vi.fn(),
-    setCurrentMode: vi.fn(),
+    setSpeechLifecycle: vi.fn((speechLifecycle) => {
+      storeState.speechLifecycle = speechLifecycle;
+    }),
+    setVoiceSessionStatus: vi.fn((voiceSessionStatus) => {
+      storeState.voiceSessionStatus = voiceSessionStatus;
+    }),
+    setVoiceSessionLatency: vi.fn((voiceSessionLatency) => {
+      storeState.voiceSessionLatency = voiceSessionLatency;
+    }),
+    setCurrentMode: vi.fn((currentMode) => {
+      storeState.currentMode = currentMode;
+    }),
     setVoiceSessionResumption: vi.fn(),
     setVoiceSessionDurability: vi.fn(),
   };
@@ -34,6 +83,7 @@ function createMockArgs(speechStatus = 'off', mode = 'text') {
     resetVoiceTurnTranscriptState: vi.fn(),
     applyVoiceTranscriptUpdate: vi.fn(),
     syncVoiceDurabilityState: vi.fn(),
+    getNowMs: vi.fn(() => 0),
     _storeState: storeState,
   };
 }
@@ -62,6 +112,147 @@ describe('createSessionControllerStateSync', () => {
       expect(result).toBe('listening');
       expect(args._storeState.setSpeechLifecycle).not.toHaveBeenCalled();
       expect(args.onSpeechLifecycleTransition).not.toHaveBeenCalled();
+    });
+
+    it('tracks connect, first-response, and speech-to-response latency from lifecycle events', () => {
+      const args = createMockArgs('off');
+      args.getNowMs = vi
+        .fn()
+        .mockReturnValueOnce(1_000)
+        .mockReturnValueOnce(1_450)
+        .mockReturnValueOnce(1_900)
+        .mockReturnValueOnce(2_050);
+      const sync = createSessionControllerStateSync(args as never);
+
+      sync.applySpeechLifecycleEvent({ type: 'session.start.requested' });
+      sync.applySpeechLifecycleEvent({ type: 'session.ready' });
+      sync.applySpeechLifecycleEvent({ type: 'user.speech.detected' });
+      sync.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
+
+      expect(args._storeState.setVoiceSessionLatency).toHaveBeenNthCalledWith(
+        1,
+        createVoiceSessionLatencyState({
+          connect: {
+            status: 'pending',
+            valueMs: null,
+            lastValueMs: null,
+            startedAtMs: 1_000,
+          },
+        }),
+      );
+      expect(args._storeState.setVoiceSessionLatency).toHaveBeenNthCalledWith(
+        2,
+        createVoiceSessionLatencyState({
+          connect: {
+            status: 'available',
+            valueMs: 450,
+            lastValueMs: 450,
+            startedAtMs: null,
+          },
+          firstModelResponse: {
+            status: 'pending',
+            valueMs: null,
+            lastValueMs: null,
+            startedAtMs: 1_450,
+          },
+        }),
+      );
+      expect(args._storeState.setVoiceSessionLatency).toHaveBeenNthCalledWith(
+        3,
+        createVoiceSessionLatencyState({
+          connect: {
+            status: 'available',
+            valueMs: 450,
+            lastValueMs: 450,
+            startedAtMs: null,
+          },
+          firstModelResponse: {
+            status: 'pending',
+            valueMs: null,
+            lastValueMs: null,
+            startedAtMs: 1_450,
+          },
+          speechToFirstModelResponse: {
+            status: 'pending',
+            valueMs: null,
+            lastValueMs: null,
+            startedAtMs: 1_900,
+          },
+        }),
+      );
+      expect(args._storeState.setVoiceSessionLatency).toHaveBeenNthCalledWith(
+        4,
+        createVoiceSessionLatencyState({
+          connect: {
+            status: 'available',
+            valueMs: 450,
+            lastValueMs: 450,
+            startedAtMs: null,
+          },
+          firstModelResponse: {
+            status: 'available',
+            valueMs: 600,
+            lastValueMs: 600,
+            startedAtMs: null,
+          },
+          speechToFirstModelResponse: {
+            status: 'available',
+            valueMs: 150,
+            lastValueMs: 150,
+            startedAtMs: null,
+          },
+        }),
+      );
+    });
+
+    it('marks pending latency values unavailable on session end while preserving last completed values', () => {
+      const args = createMockArgs('assistantSpeaking');
+      args._storeState.voiceSessionLatency = createVoiceSessionLatencyState({
+        connect: {
+          status: 'available',
+          valueMs: 420,
+          lastValueMs: 420,
+          startedAtMs: null,
+        },
+        firstModelResponse: {
+          status: 'pending',
+          valueMs: null,
+          lastValueMs: 310,
+          startedAtMs: 2_000,
+        },
+        speechToFirstModelResponse: {
+          status: 'pending',
+          valueMs: null,
+          lastValueMs: 180,
+          startedAtMs: 2_100,
+        },
+      });
+      const sync = createSessionControllerStateSync(args as never);
+
+      sync.applySpeechLifecycleEvent({ type: 'session.end.requested' });
+
+      expect(args._storeState.setVoiceSessionLatency).toHaveBeenCalledWith(
+        createVoiceSessionLatencyState({
+          connect: {
+            status: 'available',
+            valueMs: 420,
+            lastValueMs: 420,
+            startedAtMs: null,
+          },
+          firstModelResponse: {
+            status: 'unavailable',
+            valueMs: null,
+            lastValueMs: 310,
+            startedAtMs: null,
+          },
+          speechToFirstModelResponse: {
+            status: 'unavailable',
+            valueMs: null,
+            lastValueMs: 180,
+            startedAtMs: null,
+          },
+        }),
+      );
     });
   });
 

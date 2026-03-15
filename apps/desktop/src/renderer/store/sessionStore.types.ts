@@ -26,6 +26,7 @@ import type {
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
+  VoiceSessionLatencyState,
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
@@ -51,6 +52,7 @@ export type SessionStoreData = {
   lastDebugEvent: RuntimeDebugEvent | null;
   speechLifecycle: SpeechLifecycle;
   voiceSessionStatus: VoiceSessionStatus;
+  voiceSessionLatency: VoiceSessionLatencyState;
   voiceSessionResumption: VoiceSessionResumptionState;
   voiceSessionDurability: VoiceSessionDurabilityState;
   voiceCaptureState: VoiceCaptureState;
@@ -109,6 +111,7 @@ export type SessionStoreActions = {
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
   setSpeechLifecycle: (speechLifecycle: SpeechLifecycle) => void;
   setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
+  setVoiceSessionLatency: (voiceSessionLatency: VoiceSessionLatencyState) => void;
   setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;
   setVoiceCaptureState: (voiceCaptureState: VoiceCaptureState) => void;

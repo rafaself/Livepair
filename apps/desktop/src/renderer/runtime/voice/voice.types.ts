@@ -49,6 +49,21 @@ export type VoicePlaybackDiagnostics = {
   lastError: string | null;
 };
 
+export type VoiceSessionLatencyMetricStatus = 'available' | 'pending' | 'unavailable';
+
+export type VoiceSessionLatencyMetric = {
+  status: VoiceSessionLatencyMetricStatus;
+  valueMs: number | null;
+  lastValueMs: number | null;
+  startedAtMs: number | null;
+};
+
+export type VoiceSessionLatencyState = {
+  connect: VoiceSessionLatencyMetric;
+  firstModelResponse: VoiceSessionLatencyMetric;
+  speechToFirstModelResponse: VoiceSessionLatencyMetric;
+};
+
 export type VoiceTranscriptEntry = {
   text: string;
   isFinal?: boolean | undefined;

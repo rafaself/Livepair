@@ -5,6 +5,7 @@ import type {
   VisualSendDiagnostics,
   VoiceCaptureState,
   VoicePlaybackState,
+  VoiceSessionLatencyMetric,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
   VoiceToolState,
@@ -58,6 +59,18 @@ export function truncateHandle(handle: string | null): string {
 
 export function formatVoicePlaybackState(state: VoicePlaybackState): string {
   return formatCapitalizedState(state);
+}
+
+export function formatVoiceLatencyMetric(metric: VoiceSessionLatencyMetric): string {
+  if (metric.status === 'available' && metric.valueMs != null) {
+    return `${metric.valueMs} ms`;
+  }
+
+  if (metric.status === 'pending') {
+    return metric.lastValueMs == null ? 'Pending' : `Pending (last: ${metric.lastValueMs} ms)`;
+  }
+
+  return metric.lastValueMs == null ? 'Unavailable' : `Unavailable (last: ${metric.lastValueMs} ms)`;
 }
 
 export function formatVoiceToolState(state: VoiceToolState['status']): string {

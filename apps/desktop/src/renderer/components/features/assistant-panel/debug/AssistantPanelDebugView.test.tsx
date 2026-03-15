@@ -9,6 +9,41 @@ import type { VisualSendDiagnostics } from '../../../../runtime';
 import { useSessionStore } from '../../../../store/sessionStore';
 import { resetDesktopStores } from '../../../../test/store';
 
+type VoiceLatencyMetricTestState = {
+  status: 'available' | 'pending' | 'unavailable';
+  valueMs: number | null;
+  lastValueMs: number | null;
+};
+
+type VoiceSessionLatencyTestState = {
+  connect: VoiceLatencyMetricTestState;
+  firstModelResponse: VoiceLatencyMetricTestState;
+  speechToFirstModelResponse: VoiceLatencyMetricTestState;
+};
+
+function createVoiceSessionLatencyState(
+  overrides: Partial<VoiceSessionLatencyTestState> = {},
+): VoiceSessionLatencyTestState {
+  return {
+    connect: {
+      status: 'unavailable',
+      valueMs: null,
+      lastValueMs: null,
+    },
+    firstModelResponse: {
+      status: 'unavailable',
+      valueMs: null,
+      lastValueMs: null,
+    },
+    speechToFirstModelResponse: {
+      status: 'unavailable',
+      valueMs: null,
+      lastValueMs: null,
+    },
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   resetDesktopStores();
 });
@@ -21,6 +56,23 @@ describe('AssistantPanelDebugView', () => {
     useSessionStore.setState({
       backendState: 'failed',
       voiceSessionStatus: 'streaming',
+      voiceSessionLatency: createVoiceSessionLatencyState({
+        connect: {
+          status: 'available',
+          valueMs: 450,
+          lastValueMs: 450,
+        },
+        firstModelResponse: {
+          status: 'pending',
+          valueMs: null,
+          lastValueMs: 320,
+        },
+        speechToFirstModelResponse: {
+          status: 'unavailable',
+          valueMs: null,
+          lastValueMs: 180,
+        },
+      }),
       voiceSessionResumption: {
         status: 'reconnecting',
         latestHandle: 'handles/voice-session-2',
@@ -115,7 +167,7 @@ describe('AssistantPanelDebugView', () => {
         triggerSnapshotCount: 0,
         burstCount: 0,
       },
-    });
+    } as never);
 
     render(
       <AssistantPanelDebugView
@@ -147,6 +199,12 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Capturing')).toBeVisible();
     expect(screen.getByText('Voice playback')).toBeVisible();
     expect(screen.getByText('Playing')).toBeVisible();
+    expect(screen.getByText('Connect latency')).toBeVisible();
+    expect(screen.getByText('450 ms')).toBeVisible();
+    expect(screen.getByText('First model response')).toBeVisible();
+    expect(screen.getByText('Pending (last: 320 ms)')).toBeVisible();
+    expect(screen.getByText('Speech to response')).toBeVisible();
+    expect(screen.getByText('Unavailable (last: 180 ms)')).toBeVisible();
     expect(screen.getByText('Screen context')).toBeVisible();
     expect(screen.getByText('Outbound guardrails')).toBeVisible();
     expect(screen.getByText('Breaker')).toBeVisible();
