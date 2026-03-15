@@ -10,81 +10,41 @@ export function LivepairIcon({
   return (
     <svg
       width={size}
-      height={size}
-      viewBox="0 0 1024 1024"
-      fill="none"
+      height={Math.round(size * (652 / 768))}
+      viewBox="0 0 768 652"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
-      aria-hidden="true"
+      aria-label="Equalizer logo"
     >
       <defs>
-        <linearGradient
-          id="ringGradient"
-          x1="170"
-          y1="512"
-          x2="854"
-          y2="512"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="#FF3B3B" />
-          <stop offset="18%" stopColor="#FF8A00" />
-          <stop offset="34%" stopColor="#FFD400" />
-          <stop offset="50%" stopColor="#7CFF00" />
-          <stop offset="66%" stopColor="#19D3C5" />
-          <stop offset="82%" stopColor="#1DA1F2" />
-          <stop offset="100%" stopColor="#1D4ED8" />
+        <linearGradient id="bar1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FFD54A" />
+          <stop offset="100%" stopColor="#F4B400" />
         </linearGradient>
-
-        <linearGradient
-          id="innerShade"
-          x1="512"
-          y1="210"
-          x2="512"
-          y2="814"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="white" stopOpacity="0.28" />
-          <stop offset="35%" stopColor="white" stopOpacity="0.10" />
-          <stop offset="100%" stopColor="black" stopOpacity="0.20" />
+        <linearGradient id="bar2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#F2994A" />
+          <stop offset="100%" stopColor="#B7C84B" />
         </linearGradient>
-
-        <filter
-          id="softShadow"
-          x="116"
-          y="116"
-          width="792"
-          height="792"
-          filterUnits="userSpaceOnUse"
-          colorInterpolationFilters="sRGB"
-        >
-          <feDropShadow
-            dx="0"
-            dy="18"
-            stdDeviation="18"
-            floodColor="#000000"
-            floodOpacity="0.14"
-          />
-        </filter>
+        <linearGradient id="bar3" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stopColor="#D95C86" />
+          <stop offset="50%" stopColor="#9CA0B2" />
+          <stop offset="100%" stopColor="#41B565" />
+        </linearGradient>
+        <linearGradient id="bar4" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#7A74E8" />
+          <stop offset="100%" stopColor="#3EA9D3" />
+        </linearGradient>
+        <linearGradient id="bar5" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#4C8AF0" />
+          <stop offset="100%" stopColor="#457FDD" />
+        </linearGradient>
       </defs>
 
-      <g filter="url(#softShadow)">
-        <circle
-          cx="512"
-          cy="512"
-          r="302"
-          stroke="url(#ringGradient)"
-          strokeWidth="92"
-          strokeLinecap="round"
-        />
-        <circle
-          cx="512"
-          cy="512"
-          r="302"
-          stroke="url(#innerShade)"
-          strokeWidth="92"
-          strokeLinecap="round"
-        />
-      </g>
+      <rect x="31" y="212" width="78" height="168" rx="39" fill="url(#bar1)" />
+      <rect x="184" y="120" width="78" height="353" rx="39" fill="url(#bar2)" />
+      <rect x="337" y="29" width="78" height="536" rx="39" fill="url(#bar3)" />
+      <rect x="490" y="120" width="78" height="353" rx="39" fill="url(#bar4)" />
+      <rect x="643" y="212" width="78" height="168" rx="39" fill="url(#bar5)" />
     </svg>
   );
 }
