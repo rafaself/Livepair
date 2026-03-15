@@ -1,37 +1,27 @@
 # AGENTS.md
 
 ## Scope
-This file applies repository-wide. Subdirectories may add *only local deltas* via their own `AGENTS.md`.
+Repo-wide defaults only. Child `AGENTS.md` files add local deltas for their own subtrees.
 
-## Project Snapshot
-Livepair is an Electron + React desktop assistant with a small NestJS backend.
+## Repo anchors
+- Speech mode stays desktop -> Gemini Live; do not add backend audio/video proxying.
+- The backend owns control-plane work plus today's text path: `GET /health`, `POST /session/token`, and `POST /session/chat`.
+- User-facing modes are `text` and `speech`; runtime code still uses `voice` for the Gemini Live path.
+- Cross-package payloads and other shared serializable contracts belong in `packages/shared-types`.
 
-- **Realtime hot path:** speech mode connects directly from the desktop to Gemini Live (no backend proxy for audio/video).
-- **Backend role today:** control-plane plus backend-mediated text mode (`GET /health`, `POST /session/token`, `POST /session/chat`).
-- **Planned backend work:** checkpoint persistence, backend-backed tool endpoints, and error reporting are not implemented yet.
-- **Product model:** user-facing modes are `text` and `speech`; runtime transport terminology still uses `voice` for the Gemini Live session path.
-- **Shared contracts:** centralized in `packages/shared-types`.
+## Guardrails
+- Ask before adding a new production dependency.
+- Keep Electron privilege behind preload + typed bridges; do not weaken existing desktop security defaults.
+- Do not duplicate API/IPC/event schemas; update shared contracts and all consumers in the same task.
+- Validate external input at HTTP, IPC, and filesystem boundaries.
+- If an environment variable changes, update the relevant app-local `.env.example` in the same task.
+- Prefer small, targeted changes; use TDD when the logic warrants it.
 
-## Non-Negotiables
-- Ask for confirmation before adding new **production** dependencies (changes to any `package.json` `dependencies`).
-- Do not weaken Electron security. Keep privileged access behind preload + typed bridges (see `apps/desktop/AGENTS.md`).
-- Do not duplicate API/IPC/event schemas across packages; update `packages/shared-types` and all callers in the same task.
-- Validate external input at boundaries (HTTP, IPC, filesystem).
+## Verification
+- Start with the smallest relevant checks.
+- Repo-wide: `pnpm lint`, `pnpm typecheck`, `pnpm test`
+- Package-level: `pnpm verify:<pkg>`
 
-## Working Style
-- Prefer small, targeted changes; avoid unrelated refactors.
-- Prefer TDD when it is practical and cost-effective (especially for logic-heavy code).
-- If adding/removing an environment variable, update the relevant app-local `.env.example` in the same task.
-
-## Validation Before Done
-- Run the smallest relevant verification set:
-  - repo-wide: `pnpm lint`, `pnpm typecheck`, `pnpm test`
-  - focused: `pnpm verify:<pkg>` (see root `package.json` scripts)
-
-## Notes
-- Prefer small, composable files. If a file is already large or orchestration-heavy, avoid growing it when a clean local extraction is reasonable.
-- Treat ~650+ LOC composition-heavy files as decomposition candidates; ~300 LOC cohesive files are acceptable for now.
-- Do not force opportunistic refactors, but when a task already touches a hotspot, make the smallest safe structural improvement that leaves the area easier to extend next time.
-
-## Agent Skills
-Reusable workflows live in `.agents/skills/<name>/SKILL.md`.
+## Local guidance
+- Add local `AGENTS.md` files only at real module boundaries with distinct rules.
+- Check for nearby child guides under `apps/`, `packages/`, and `infra/` before changing a subtree.
