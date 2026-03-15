@@ -1,5 +1,6 @@
 import { Palette, PanelRight, Timer } from 'lucide-react';
 import type { AssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
+import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
 import { FieldList } from '../../composite';
 import { ViewSection } from '../../layout';
 import { Select, Switch, type SelectOptionItem } from '../../primitives';
@@ -108,4 +109,9 @@ export function AssistantPanelPreferencesView({
       </div>
     </div>
   );
+}
+
+export function AssistantPanelPreferencesStandaloneView(): JSX.Element {
+  const controller = useAssistantPanelSettingsController();
+  return <AssistantPanelPreferencesView controller={controller} />;
 }

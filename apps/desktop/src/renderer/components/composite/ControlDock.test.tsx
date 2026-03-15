@@ -4,7 +4,7 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { useSettingsStore } from '../../store/settingsStore';
 import { resetDesktopStores } from '../../test/store';
 import { useUiStore } from '../../store/uiStore';
-import { AssistantPanelSettingsView } from '../features/assistant-panel/settings/AssistantPanelSettingsView';
+import { AssistantPanelPreferencesStandaloneView } from '../features/assistant-panel/AssistantPanelPreferencesView';
 import { type ControlDockProps, ControlDock } from './ControlDock';
 
 function createDockProps(
@@ -39,7 +39,7 @@ function renderDock(overrides: Partial<ControlDockProps> = {}) {
         <output aria-label="panel-open">{String(isPanelOpen)}</output>
         <output aria-label="panel-pinned">{String(isPanelPinned)}</output>
         <ControlDock {...props} />
-        <AssistantPanelSettingsView />
+        <AssistantPanelPreferencesStandaloneView />
       </>
     );
   }
