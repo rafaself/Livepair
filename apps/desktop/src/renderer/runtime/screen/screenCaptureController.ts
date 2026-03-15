@@ -109,11 +109,13 @@ export function createScreenCaptureController(
     frameSendCoordinator,
     onScreenShareStarted: () => {
       visualPolicy.onScreenShareStarted();
-      // Wave 3: immediately arm an initial snapshot so the first captured frame
-      // reaches the model without requiring an explicit analyzeScreenNow() call.
-      // This eliminates the state mismatch where screen share is active but the
-      // model is still in effective speech-only mode.
-      visualPolicy.analyzeScreenNow();
+      // Enable continuous streaming immediately so every captured frame is
+      // forwarded to the model for the duration of the screen share session.
+      // This eliminates the mismatch where screen share is active and frames
+      // exist but the model is still in effective speech-only behaviour.
+      // Callers who want a one-shot snapshot instead can call stopScreenStreaming()
+      // followed by analyzeScreenNow() after startScreenCapture() returns.
+      visualPolicy.enableStreaming();
       flushVisualDiagnostics();
     },
     onScreenShareStopped: () => {

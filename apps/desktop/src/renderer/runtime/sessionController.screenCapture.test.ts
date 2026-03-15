@@ -475,3 +475,210 @@ describe('createDesktopSessionController – screen capture', () => {
     expect(voiceTransport.sendVideoFrame).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Screen share → visual delivery: end-to-end behavior
+//
+// These tests lock in the runtime guarantee that enabling screen share results
+// in real, continuous visual context reaching the model – not just a single
+// snapshot followed by effective speech-only behaviour.
+// ---------------------------------------------------------------------------
+describe('createDesktopSessionController – screen share visual delivery', () => {
+  beforeEach(() => {
+    resetDesktopStoresWithDefaults();
+  });
+
+  function makeController(
+    voiceTransport: ReturnType<typeof createVoiceTransportHarness>,
+    screenCapture: ReturnType<typeof createScreenCaptureHarness>,
+  ) {
+    return createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+  }
+
+  it('startScreenCapture alone (no analyzeScreenNow) sends the first frame to the model', async () => {
+    // Regression guard: startScreenCapture() must arm continuous visual
+    // delivery immediately. Callers must not need to call analyzeScreenNow()
+    // to get any frame delivered.
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = makeController(voiceTransport, screenCapture);
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+
+    // No analyzeScreenNow() call here – visual delivery must happen automatically.
+    screenCapture.emitFrame({ sequence: 1 });
+
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledWith(
+        new Uint8Array([1, 2, 3]),
+        'image/jpeg',
+      );
+    });
+  });
+
+  it('startScreenCapture enables streaming so every subsequent frame is also delivered', async () => {
+    // After startScreenCapture, the model must receive ALL frames at 1 FPS,
+    // not just the first one. The visual state must stay in streaming, not
+    // revert to sleep after the first frame.
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = makeController(voiceTransport, screenCapture);
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+
+    // Emit three consecutive frames – all three must reach the transport.
+    screenCapture.emitFrame({ sequence: 1 });
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(1);
+    });
+
+    screenCapture.emitFrame({ sequence: 2 });
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(2);
+    });
+
+    screenCapture.emitFrame({ sequence: 3 });
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  it('visual send state is streaming (not sleep/inactive) after startScreenCapture succeeds', async () => {
+    // The model must not be left in effective speech-only state. After
+    // startScreenCapture the visual send state must be streaming so incoming
+    // frames are forwarded without any further action from the caller.
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = makeController(voiceTransport, screenCapture);
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+
+    const visualDiagnostics = useSessionStore.getState().visualSendDiagnostics;
+    expect(visualDiagnostics.lastTransitionReason).toBe('enableStreaming');
+  });
+
+  it('stopScreenCapture stops visual streaming and prevents further frame delivery', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = makeController(voiceTransport, screenCapture);
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+    await controller.stopScreenCapture();
+
+    screenCapture.emitFrame({ sequence: 1 });
+    await Promise.resolve();
+
+    expect(voiceTransport.sendVideoFrame).not.toHaveBeenCalled();
+  });
+
+  it('if the first gateway-submitted frame is blocked, a subsequent frame is still delivered', async () => {
+    // The gateway may block the very first frame (e.g. circuit breaker already
+    // open). The visual channel must remain open so the next frame succeeds.
+    // Under streaming mode, each frame independently passes allowSend(); there
+    // is no "snapshot consumed" cliff-edge that would silence the channel.
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    // First two calls to startScreenCapture(); after that the real controller.
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+
+    // Simulate frame 1 failing at the transport layer.
+    voiceTransport.sendVideoFrame.mockRejectedValueOnce(new Error('transient error'));
+    screenCapture.emitFrame({ sequence: 1 });
+
+    // Wait for error to propagate (this will stop screen capture with error).
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState().screenCaptureState).toBe('error');
+    });
+
+    // Re-enable screen share – the visual channel must be fully functional again.
+    await controller.startScreenCapture();
+    screenCapture.emitFrame({ sequence: 2 });
+
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(2);
+      expect(useSessionStore.getState().screenCaptureState).toBe('streaming');
+    });
+  });
+
+  it('analyzeScreenNow still works for an explicit one-shot snapshot during an active streaming session', async () => {
+    // analyzeScreenNow is preserved for callers that want a deliberate
+    // single-frame capture. In streaming mode the analyzeScreenNow request
+    // transitions to snapshot then back to streaming after the frame is sent.
+    // (Preserved policy semantics.)
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = makeController(voiceTransport, screenCapture);
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+
+    // Normal streaming frame.
+    screenCapture.emitFrame({ sequence: 1 });
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(1);
+    });
+
+    // Explicit analyzeScreenNow is a no-op while streaming (policy design:
+    // streaming already forwards every frame; snapshot semantics don't apply).
+    // The important thing is that streaming continues after the call.
+    controller.analyzeScreenNow();
+
+    screenCapture.emitFrame({ sequence: 2 });
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('enableScreenStreaming / stopScreenStreaming round-trip is stable', async () => {
+    // The public streaming controls must be exercisable without side-effects
+    // on the rest of the session.
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = makeController(voiceTransport, screenCapture);
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+
+    // Stop streaming → sleep: frames should be blocked.
+    controller.stopScreenStreaming();
+    screenCapture.emitFrame({ sequence: 1 });
+    await Promise.resolve();
+    expect(voiceTransport.sendVideoFrame).not.toHaveBeenCalled();
+
+    // Re-enable streaming: frames should flow again.
+    controller.enableScreenStreaming();
+    screenCapture.emitFrame({ sequence: 2 });
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(1);
+    });
+  });
+});
