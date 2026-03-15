@@ -1,5 +1,5 @@
 .assistant-panel {
-  gap: var(--space-4);
+  gap: var(--space-3);
   background: var(--color-surface-elevated);
 }
 
@@ -43,28 +43,56 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 12px 20px 0;
+  padding: 8px 20px 0;
   background: var(--color-chat-bg);
   flex-shrink: 0;
   z-index: 2;
 }
 
 .assistant-panel__inner-header-content {
-  display: grid;
-  grid-template-columns: max-content;
+  display: inline-flex;
   align-items: center;
+  box-sizing: border-box;
   min-height: 28px;
   margin-left: auto;
+  overflow: hidden;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface-elevated) 78%, transparent);
+  box-shadow: var(--shadow-sm);
+  transition:
+    inline-size var(--motion-fast) var(--ease-out),
+    padding var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.assistant-panel__inner-header-content[data-action-count='1'] {
+  inline-size: 38px;
+}
+
+.assistant-panel__inner-header-content[data-action-count='2'] {
+  inline-size: 74px;
 }
 
 .assistant-panel__inner-header-actions {
-  grid-area: 1 / 1;
-  display: grid;
-  grid-template-columns: repeat(2, 28px);
+  display: inline-flex;
   align-items: center;
-  justify-items: center;
+  box-sizing: border-box;
   gap: var(--space-2);
   min-height: 28px;
+  overflow: hidden;
+  transition: inline-size var(--motion-fast) var(--ease-out);
+}
+
+.assistant-panel__inner-header-actions[data-action-count='1'] {
+  inline-size: 28px;
+}
+
+.assistant-panel__inner-header-actions[data-action-count='2'] {
+  inline-size: 64px;
 }
 
 .assistant-panel__inner-header-actions > * {
@@ -72,18 +100,22 @@
 }
 
 .assistant-panel__inner-header-action {
-  justify-self: center;
+  flex-shrink: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+}
+
+.assistant-panel__inner-header-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+}
+
+.assistant-panel__inner-header-action:focus-visible {
+  outline-offset: 1px;
 }
 
 .assistant-panel__inner-header-icon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-}
-
-.assistant-panel__inner-header-action-spacer {
-  width: 28px;
-  height: 28px;
 }
 
 .assistant-panel__inner-body {
