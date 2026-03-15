@@ -15,7 +15,6 @@
     "@livepair/shared-types": "workspace:*",
     "@livepair/shared-utils": "workspace:*",
     "@nestjs/common": "^10.3.0",
-    "@nestjs/config": "^3.2.0",
     "@nestjs/core": "^10.3.0",
     "@nestjs/platform-express": "^10.3.0",
     "class-transformer": "^0.5.1",
