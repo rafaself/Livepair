@@ -33,7 +33,8 @@ export function createWindow(): void {
     },
   });
 
-  win.webContents.on('console-message', (_event, level, message) => {
+  win.webContents.on('console-message', (_event, level, message, _line, sourceId) => {
+    if (sourceId?.startsWith('devtools://')) return;
     if (level >= 3) {
       console.error('[renderer]', message);
     } else if (level >= 2) {

@@ -1,5 +1,6 @@
 import { Info } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import './Tooltip.css';
 
 export type TooltipProps = {
@@ -8,12 +9,39 @@ export type TooltipProps = {
 };
 
 export function Tooltip({ content, size = 13 }: TooltipProps): JSX.Element {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+
+  function handleMouseEnter() {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.top - 6,
+        left: rect.left,
+      });
+    }
+  }
+
   return (
     <span className="tooltip">
-      <span className="tooltip__trigger">
+      <span
+        ref={triggerRef}
+        className="tooltip__trigger"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setPos(null)}
+      >
         <Info size={size} />
       </span>
-      <span className="tooltip__content">{content}</span>
+      {pos !== null &&
+        createPortal(
+          <span
+            className="tooltip__content"
+            style={{ top: pos.top, left: pos.left }}
+          >
+            {content}
+          </span>,
+          document.body
+        )}
     </span>
   );
 }
