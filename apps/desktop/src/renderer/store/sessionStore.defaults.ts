@@ -2,6 +2,7 @@ import type { AssistantRuntimeState } from '../state/assistantUiState';
 import {
   LIVE_ADAPTER_KEY,
   createDefaultRealtimeOutboundDiagnostics,
+  createDefaultVoiceSessionLatencyState,
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
   createDefaultVoiceToolState,
@@ -107,6 +108,7 @@ export function buildDefaultSessionState(): SessionStoreData {
     lastDebugEvent: null,
     speechLifecycle: createSpeechSessionLifecycle(),
     voiceSessionStatus: 'disconnected',
+    voiceSessionLatency: createDefaultVoiceSessionLatencyState(),
     voiceSessionResumption: createDefaultVoiceSessionResumptionState(),
     voiceSessionDurability: createDefaultVoiceSessionDurabilityState(),
     voiceCaptureState: 'idle',

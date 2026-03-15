@@ -1,4 +1,5 @@
 import type {
+  VoiceSessionLatencyState,
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceToolState,
@@ -22,6 +23,29 @@ export function createDefaultVoiceSessionDurabilityState(): VoiceSessionDurabili
     expireTime: null,
     newSessionExpireTime: null,
     lastDetail: null,
+  };
+}
+
+export function createDefaultVoiceSessionLatencyState(): VoiceSessionLatencyState {
+  return {
+    connect: {
+      status: 'unavailable',
+      valueMs: null,
+      lastValueMs: null,
+      startedAtMs: null,
+    },
+    firstModelResponse: {
+      status: 'unavailable',
+      valueMs: null,
+      lastValueMs: null,
+      startedAtMs: null,
+    },
+    speechToFirstModelResponse: {
+      status: 'unavailable',
+      valueMs: null,
+      lastValueMs: null,
+      startedAtMs: null,
+    },
   };
 }
 

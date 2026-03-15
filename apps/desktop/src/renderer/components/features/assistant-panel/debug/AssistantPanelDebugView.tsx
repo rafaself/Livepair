@@ -7,7 +7,6 @@ import {
 } from './AssistantPanelDebugSections';
 import { useSessionStore } from '../../../../store/sessionStore';
 import {
-  selectAssistantRuntimeState,
   selectBackendIndicatorState,
   selectBackendLabel,
   selectTokenFeedback,
@@ -29,6 +28,7 @@ export function AssistantPanelDebugView({
   const {
     backendState,
     voiceSessionStatus,
+    voiceSessionLatency,
     voiceSessionResumption,
     voiceSessionDurability,
     voiceCaptureState,
@@ -44,6 +44,7 @@ export function AssistantPanelDebugView({
     useShallow((state) => ({
       backendState: state.backendState,
       voiceSessionStatus: state.voiceSessionStatus,
+      voiceSessionLatency: state.voiceSessionLatency,
       voiceSessionResumption: state.voiceSessionResumption,
       voiceSessionDurability: state.voiceSessionDurability,
       voiceCaptureState: state.voiceCaptureState,
@@ -75,6 +76,7 @@ export function AssistantPanelDebugView({
 
       <AssistantPanelDebugAudioSection
         voiceSessionStatus={voiceSessionStatus}
+        voiceSessionLatency={voiceSessionLatency}
         voiceSessionResumption={voiceSessionResumption}
         voiceSessionDurability={voiceSessionDurability}
         voiceCaptureState={voiceCaptureState}

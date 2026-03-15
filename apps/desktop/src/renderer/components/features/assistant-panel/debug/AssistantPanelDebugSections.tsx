@@ -9,6 +9,7 @@ import type {
   VoiceCaptureState,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
+  VoiceSessionLatencyState,
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
@@ -20,6 +21,7 @@ import { ViewSection } from '../../../layout';
 import { Button, Switch } from '../../../primitives';
 import {
   formatCapitalizedState,
+  formatVoiceLatencyMetric,
   formatOutboundBreakerState,
   formatOutboundDecisionOutcome,
   formatOutboundDecisionReason,
@@ -86,6 +88,7 @@ export function AssistantPanelDebugConnectionSection({
 
 export type AssistantPanelDebugAudioSectionProps = {
   voiceSessionStatus: VoiceSessionStatus;
+  voiceSessionLatency: VoiceSessionLatencyState;
   voiceSessionResumption: VoiceSessionResumptionState;
   voiceSessionDurability: VoiceSessionDurabilityState;
   voiceCaptureState: VoiceCaptureState;
@@ -97,6 +100,7 @@ export type AssistantPanelDebugAudioSectionProps = {
 
 export function AssistantPanelDebugAudioSection({
   voiceSessionStatus,
+  voiceSessionLatency,
   voiceSessionResumption,
   voiceSessionDurability,
   voiceCaptureState,
@@ -110,6 +114,18 @@ export function AssistantPanelDebugAudioSection({
       <FieldList
         items={[
           { label: 'Voice session', value: formatVoiceSessionStatus(voiceSessionStatus) },
+          {
+            label: 'Connect latency',
+            value: formatVoiceLatencyMetric(voiceSessionLatency.connect),
+          },
+          {
+            label: 'First model response',
+            value: formatVoiceLatencyMetric(voiceSessionLatency.firstModelResponse),
+          },
+          {
+            label: 'Speech to response',
+            value: formatVoiceLatencyMetric(voiceSessionLatency.speechToFirstModelResponse),
+          },
           {
             label: 'Session resumption',
             value: formatVoiceSessionResumptionStatus(voiceSessionResumption.status),
