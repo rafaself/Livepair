@@ -22,8 +22,11 @@ export {
 export {
   DEFAULT_DESKTOP_SETTINGS,
   DEFAULT_SYSTEM_INSTRUCTION,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
   normalizeDesktopSettings,
   normalizeDesktopSettingsPatch,
+  resolveDesktopVoicePreference,
+  resolveSystemInstructionPreference,
   type DesktopSettings,
   type DesktopSettingsPatch,
   type ChatTimestampVisibility,

@@ -1,8 +1,8 @@
 import type { LiveConnectMode } from '../core/session.types';
 import { VOICE_TOOL_DECLARATIONS } from '../voice/tools/voiceTools';
 import {
-  DEFAULT_DESKTOP_SETTINGS,
-  DEFAULT_SYSTEM_INSTRUCTION,
+  resolveDesktopVoicePreference,
+  resolveSystemInstructionPreference,
   type DesktopVoice,
 } from '../../../shared';
 
@@ -169,18 +169,6 @@ function parseMediaResolution(value: string): LiveMediaResolution {
   }
 
   throw createConfigError(`Live media resolution "${value}" is not supported`);
-}
-
-function resolveLiveVoice(voice: DesktopVoice | undefined): DesktopVoice {
-  return voice ?? DEFAULT_DESKTOP_SETTINGS.voice;
-}
-
-function resolveLiveSystemInstruction(systemInstruction: string | undefined): string {
-  if (typeof systemInstruction === 'string' && systemInstruction.trim().length > 0) {
-    return systemInstruction;
-  }
-
-  return DEFAULT_SYSTEM_INSTRUCTION;
 }
 
 function parseSessionModeConfig(
@@ -373,11 +361,11 @@ export function buildGeminiLiveConnectConfig(
     liveConnectConfig.speechConfig = {
       voiceConfig: {
         prebuiltVoiceConfig: {
-          voiceName: resolveLiveVoice(options.voice),
+          voiceName: resolveDesktopVoicePreference(options.voice),
         },
       },
     };
-    liveConnectConfig.systemInstruction = resolveLiveSystemInstruction(
+    liveConnectConfig.systemInstruction = resolveSystemInstructionPreference(
       options.systemInstruction,
     );
   }

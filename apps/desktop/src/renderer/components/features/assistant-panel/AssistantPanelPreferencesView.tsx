@@ -2,6 +2,7 @@ import { MessageSquareText, Palette, PanelRight, Timer } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
   DEFAULT_DESKTOP_SETTINGS,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
   type DesktopVoice,
 } from '../../../../shared';
 import type { AssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
@@ -21,7 +22,6 @@ const VOICE_OPTIONS: readonly SelectOptionItem[] = [
   { value: 'Kore', label: 'Kore' },
   { value: 'Aoede', label: 'Aoede' },
 ];
-const SYSTEM_INSTRUCTIONS_MAX_LENGTH = 1200;
 
 
 type PreferencesController = Pick<
@@ -200,11 +200,11 @@ export function AssistantPanelPreferencesView({
               id={instructionsId}
               aria-label="Instructions"
               className="assistant-panel__settings-textarea"
-              maxLength={SYSTEM_INSTRUCTIONS_MAX_LENGTH}
+              maxLength={MAX_SYSTEM_INSTRUCTION_LENGTH}
               value={instructionsDraft}
               onChange={(event) => {
                 setInstructionsDraft(
-                  event.currentTarget.value.slice(0, SYSTEM_INSTRUCTIONS_MAX_LENGTH),
+                  event.currentTarget.value.slice(0, MAX_SYSTEM_INSTRUCTION_LENGTH),
                 );
               }}
               onBlur={() => {
@@ -222,7 +222,7 @@ export function AssistantPanelPreferencesView({
                   aria-label="Instructions character count"
                   className="assistant-panel__settings-counter"
                 >
-                  {instructionsCharacterCount}/{SYSTEM_INSTRUCTIONS_MAX_LENGTH}
+                  {instructionsCharacterCount}/{MAX_SYSTEM_INSTRUCTION_LENGTH}
                 </output>
               </div>
               <div className="assistant-panel__settings-persona-actions">
