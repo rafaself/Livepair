@@ -1,0 +1,130 @@
+.snackbar-container {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: var(--z-snackbar);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  pointer-events: none;
+  max-width: 400px;
+  width: calc(100vw - var(--space-12));
+}
+
+.snackbar {
+  --snackbar-accent: transparent;
+
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--snackbar-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  pointer-events: all;
+  animation: snackbar-in 200ms ease-out forwards;
+}
+
+.snackbar--exiting {
+  animation: snackbar-out 200ms ease-out forwards;
+}
+
+.snackbar--error {
+  --snackbar-accent: var(--color-error);
+}
+
+.snackbar--error .snackbar__icon {
+  color: var(--color-error);
+}
+
+.snackbar--success {
+  --snackbar-accent: var(--color-success);
+}
+
+.snackbar--success .snackbar__icon {
+  color: var(--color-success);
+}
+
+.snackbar--warning {
+  --snackbar-accent: var(--color-warning);
+}
+
+.snackbar--warning .snackbar__icon {
+  color: var(--color-warning);
+}
+
+.snackbar--info {
+  --snackbar-accent: var(--color-accent);
+}
+
+.snackbar--info .snackbar__icon {
+  color: var(--color-accent);
+}
+
+.snackbar__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+}
+
+.snackbar__message {
+  flex: 1;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+
+.snackbar__close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-top: -1px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition:
+    color 150ms ease-out,
+    background-color 150ms ease-out;
+}
+
+.snackbar__close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.snackbar__close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@keyframes snackbar-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(100% + var(--space-6)));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes snackbar-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(calc(100% + var(--space-6)));
+  }
+}

@@ -45,6 +45,7 @@
 
   /* Z-index */
   --z-overlay: 20;
+  --z-snackbar: 50;
 
   /* Chat container */
   --color-chat-bg: #000000;

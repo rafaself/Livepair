@@ -6,7 +6,9 @@ import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrou
 import type { OverlayMode } from '../shared';
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
 import { useSettingsStore } from './store/settingsStore';
+import { useSessionStore } from './store/sessionStore';
 import { useSessionRuntime } from './runtime';
+import { SnackbarProvider, useSnackbar } from './components/primitives';
 
 function LinuxOverlayInteraction(): null {
   useOverlayHitRegions();
@@ -97,5 +99,23 @@ function AppShell(): JSX.Element {
 }
 
 export function App(): JSX.Element {
-  return <AppShell />;
+  return (
+    <SnackbarProvider>
+      <ErrorSnackbarObserver />
+      <AppShell />
+    </SnackbarProvider>
+  );
+}
+
+function ErrorSnackbarObserver(): null {
+  const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
+  const { showError } = useSnackbar();
+
+  useEffect(() => {
+    if (lastRuntimeError) {
+      showError(lastRuntimeError);
+    }
+  }, [lastRuntimeError, showError]);
+
+  return null;
 }
