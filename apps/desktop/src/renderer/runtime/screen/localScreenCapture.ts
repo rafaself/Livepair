@@ -150,6 +150,12 @@ function defaultCreateInterval(callback: () => void, intervalMs: number): () => 
   };
 }
 
+function shouldClearLastMaskedFrameAt(maskAnalysis: CaptureExclusionMaskAnalysis): boolean {
+  return maskAnalysis.maskReason === 'window-source'
+    || maskAnalysis.maskReason === 'other-display'
+    || maskAnalysis.maskReason === 'missing-overlay-display';
+}
+
 export function createLocalScreenCapture(
   observer: LocalScreenCaptureObserver,
   {
@@ -254,6 +260,8 @@ export function createLocalScreenCapture(
       maskReason: maskAnalysis.maskReason,
       ...(maskAnalysis.overlayMaskActive
         ? { lastMaskedFrameAt: frameTimestamp }
+        : shouldClearLastMaskedFrameAt(maskAnalysis)
+          ? { lastMaskedFrameAt: null }
         : {}),
     });
   }

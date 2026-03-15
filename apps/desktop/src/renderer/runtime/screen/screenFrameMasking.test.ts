@@ -200,4 +200,22 @@ describe('getCaptureExclusionMaskRects', () => {
       maskReason: 'hidden',
     });
   });
+
+  it('keeps workArea-relative mapping correct when scaleFactor is not 1', () => {
+    expect(getCaptureExclusionMaskRects({
+      canvasWidth: 2560,
+      canvasHeight: 1440,
+      exclusionRects: [{ x: 100, y: 20, width: 50, height: 30 }],
+      overlayVisibility: 'panel-open',
+      overlayDisplay: {
+        displayId: 'display-1',
+        bounds: { x: 0, y: 0, width: 1280, height: 720 },
+        workArea: { x: 0, y: 40, width: 1280, height: 680 },
+        scaleFactor: 2,
+      },
+      selectedSource: createScreenSource(),
+    })).toEqual([
+      { x: 200, y: 120, width: 100, height: 60 },
+    ]);
+  });
 });

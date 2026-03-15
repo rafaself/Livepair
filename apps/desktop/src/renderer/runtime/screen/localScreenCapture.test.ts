@@ -527,11 +527,160 @@ describe('createLocalScreenCapture', () => {
           maskReason: 'window-source',
         }),
       );
-      expect(obs.onDiagnostics.mock.lastCall?.[0].lastMaskedFrameAt).toBeUndefined();
+      expect(obs.onDiagnostics.mock.lastCall?.[0].lastMaskedFrameAt).toBeNull();
       const diagnosticCallsWithMaskedTimestamp = obs.onDiagnostics.mock.calls.filter(
         ([diagnostics]) => diagnostics.lastMaskedFrameAt === firstMaskedFrameAt,
       );
       expect(diagnosticCallsWithMaskedTimestamp).toHaveLength(1);
+    });
+
+    it('keeps diagnostics aligned as the panel opens and closes during streaming', async () => {
+      const maskingContext: CaptureExclusionMaskingContext = {
+        exclusionRects: [{ x: 5, y: 10, width: 20, height: 20 }],
+        overlayVisibility: 'panel-closed-dock-only',
+        overlayDisplay: {
+          displayId: 'display-1',
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+          workArea: { x: 0, y: 0, width: 200, height: 100 },
+          scaleFactor: 1,
+        },
+        selectedSource: {
+          id: 'screen-1',
+          name: 'Entire screen',
+          kind: 'screen',
+          displayId: 'display-1',
+        },
+      };
+      const { capture, obs, tickInterval } = createHarness({
+        videoWidth: 200,
+        videoHeight: 100,
+        trackWidth: 200,
+        trackHeight: 100,
+        maskingContext,
+      });
+
+      await capture.start({});
+      await tickInterval();
+      expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          overlayMaskActive: true,
+          maskedRectCount: 1,
+          maskReason: 'panel-closed-dock-only',
+        }),
+      );
+
+      maskingContext.overlayVisibility = 'panel-open';
+      maskingContext.exclusionRects = [
+        { x: 5, y: 10, width: 20, height: 20 },
+        { x: 50, y: 0, width: 40, height: 100 },
+      ];
+
+      await tickInterval();
+      expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          overlayMaskActive: true,
+          maskedRectCount: 2,
+          maskReason: 'panel-open',
+        }),
+      );
+
+      maskingContext.overlayVisibility = 'panel-closed-dock-only';
+      maskingContext.exclusionRects = [{ x: 5, y: 10, width: 20, height: 20 }];
+
+      await tickInterval();
+      expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          overlayMaskActive: true,
+          maskedRectCount: 1,
+          maskReason: 'panel-closed-dock-only',
+        }),
+      );
+    });
+
+    it('clears stale lastMaskedFrameAt when source switching disables masking and restores it when matching resumes', async () => {
+      const maskingContext: CaptureExclusionMaskingContext = {
+        exclusionRects: [{ x: 10, y: 20, width: 30, height: 40 }],
+        overlayVisibility: 'panel-open',
+        overlayDisplay: {
+          displayId: 'display-1',
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+          workArea: { x: 0, y: 0, width: 200, height: 100 },
+          scaleFactor: 1,
+        },
+        selectedSource: {
+          id: 'screen-1',
+          name: 'Entire screen',
+          kind: 'screen',
+          displayId: 'display-1',
+        },
+      };
+      const { capture, obs, tickInterval } = createHarness({
+        videoWidth: 200,
+        videoHeight: 100,
+        trackWidth: 200,
+        trackHeight: 100,
+        maskingContext,
+      });
+
+      await capture.start({});
+      await tickInterval();
+
+      const firstMaskedFrameAt = obs.onDiagnostics.mock.lastCall?.[0].lastMaskedFrameAt;
+      if (typeof firstMaskedFrameAt !== 'string') {
+        throw new Error('Expected first masked frame timestamp');
+      }
+
+      maskingContext.selectedSource = {
+        id: 'window-1',
+        name: 'Livepair',
+        kind: 'window',
+      };
+      await tickInterval();
+      expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          overlayMaskActive: false,
+          maskedRectCount: 0,
+          maskReason: 'window-source',
+          lastMaskedFrameAt: null,
+        }),
+      );
+
+      maskingContext.selectedSource = {
+        id: 'screen-2',
+        name: 'Other display',
+        kind: 'screen',
+        displayId: 'display-2',
+      };
+      await tickInterval();
+      expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          overlayMaskActive: false,
+          maskedRectCount: 0,
+          maskReason: 'other-display',
+          lastMaskedFrameAt: null,
+        }),
+      );
+
+      maskingContext.selectedSource = {
+        id: 'screen-1',
+        name: 'Entire screen',
+        kind: 'screen',
+        displayId: 'display-1',
+      };
+      await tickInterval();
+
+      expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          overlayMaskActive: true,
+          maskedRectCount: 1,
+          maskReason: 'panel-open',
+          lastMaskedFrameAt: expect.any(String),
+        }),
+      );
+      const diagnosticCallsWithMaskedTimestamp = obs.onDiagnostics.mock.calls.filter(
+        ([diagnostics]) => typeof diagnostics.lastMaskedFrameAt === 'string',
+      );
+      expect(diagnosticCallsWithMaskedTimestamp).toHaveLength(2);
     });
   });
 
