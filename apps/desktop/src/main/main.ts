@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './loadRootEnv';
 import { app } from 'electron';
 import { createCaptureSourceRegistry } from './desktopCapture/captureSourceRegistry';
 import { resolveScreenFrameDumpRootDir } from './debug/screenFrameDumpPaths';

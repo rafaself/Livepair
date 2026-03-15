@@ -326,12 +326,20 @@ docs(docs): update README with commit conventions
 pnpm install
 ```
 
+### 🔐 Local environment setup
+
+Copy the root example once, then keep local runtime config in the repository root:
+
+```bash
+cp .env.example .env
+```
+
 ### 🐘 Local Postgres-backed development flow
 
 Start the local Docker database, verify connectivity, and apply migrations:
 
 ```bash
-make postgres-up
+docker compose up -d
 pnpm --filter @livepair/api db:check
 pnpm --filter @livepair/api db:migrate
 ```
@@ -339,7 +347,7 @@ pnpm --filter @livepair/api db:migrate
 Then run both apps together:
 
 ```bash
-pnpm dev
+pnpm run dev
 ```
 
 Or run them separately:
@@ -385,14 +393,18 @@ pnpm verify:shared-types
 
 ## 🌍 Environment Variables
 
-Environment examples are separated per app:
+The primary local setup file is the repository root example:
+
+- main setup: [.env.example](./.env.example)
+
+App-local env examples remain as reference documentation for each app and should stay aligned with the root defaults:
 
 - backend: [apps/api/.env.example](./apps/api/.env.example)
 - desktop: [apps/desktop/.env.example](./apps/desktop/.env.example)
 
 Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed in these files because they come from Node, Electron, or Vite rather than repository configuration.
 
-### ⚙️ Backend: `apps/api/.env.example`
+### ⚙️ Backend reference: `apps/api/.env.example`
 
 ```bash
 PORT=
@@ -406,11 +418,13 @@ DISABLE_HTTP_LISTEN=
 
 Meaning:
 
-- `PORT`: backend HTTP port. Defaults to `3000` when unset.
-- `HOST`: backend bind host. Defaults to `127.0.0.1` when unset.
+- `PORT`: backend HTTP port. The root local example uses `3000`.
+- `HOST`: backend bind host. The root local example uses `127.0.0.1`.
 - `GEMINI_API_KEY`: server-side Gemini credential used for `/session/token`. Never expose this in the desktop app.
+- `SESSION_TOKEN_AUTH_SECRET`: shared local auth secret used by the desktop main process when calling `/session/token`.
+- `SESSION_TOKEN_LIVE_MODEL`: backend Gemini Live model constraint. Keep it aligned with `VITE_LIVE_MODEL` in the root `.env`.
 - `DATABASE_URL`: PostgreSQL connection string used by backend migrations and the Postgres persistence foundation. With the local Docker defaults, use `postgres://livepair:livepair@127.0.0.1:5432/livepair`.
-- `EPHEMERAL_TOKEN_TTL_SECONDS`: token lifetime returned by `/session/token`. Defaults to `60` when unset.
+- `EPHEMERAL_TOKEN_TTL_SECONDS`: token lifetime returned by `/session/token`. The root local example uses `60`.
 - `REDIS_URL`: planned Redis connection string for future checkpoint/session storage work. It is not active in the current MVP path yet.
 - `DISABLE_HTTP_LISTEN`: when `true`, starts the backend process without binding the HTTP server. Useful for tests or environments where you want bootstrap without opening a port.
 
@@ -421,7 +435,7 @@ Local Postgres Docker overrides:
 - `POSTGRES_PASSWORD`: database password for local Docker Postgres. Defaults to `livepair`.
 - `POSTGRES_PORT`: host port for local Docker Postgres. Defaults to `5432`.
 
-### 🖥️ Desktop: `apps/desktop/.env.example`
+### 🖥️ Desktop reference: `apps/desktop/.env.example`
 
 ```bash
 OPEN_DEVTOOLS=
@@ -437,9 +451,9 @@ VITE_LIVE_CONTEXT_COMPRESSION=
 
 Meaning:
 
-- `OPEN_DEVTOOLS`: when `true`, Electron opens devtools automatically in desktop development mode. This is only a local developer convenience flag.
-- `VITE_LIVE_MODEL`: overrides the Gemini Live model resource used by speech mode. Defaults to `models/gemini-2.0-flash-exp`.
-- `VITE_LIVE_API_VERSION`: selects the Gemini Live API version used to derive the websocket endpoint. Supported values are `v1alpha` and `v1beta`; current ephemeral-token speech sessions require `v1alpha`.
+- `OPEN_DEVTOOLS`: when `true`, Electron opens devtools automatically in desktop development mode. The root local example uses `false`.
+- `VITE_LIVE_MODEL`: Gemini Live model resource used by speech mode. Keep it aligned with `SESSION_TOKEN_LIVE_MODEL` in the root `.env`; the primary local example uses `models/gemini-2.0-flash-live-001`.
+- `VITE_LIVE_API_VERSION`: selects the Gemini Live API version used to derive the websocket endpoint. Supported values are `v1alpha` and `v1beta`; current ephemeral-token speech sessions require `v1alpha`, which is what the root local example uses.
 - `VITE_LIVE_VOICE_RESPONSE_MODALITY`: configures the response modality for speech-mode Live sessions. Supported value is `AUDIO`.
 - `VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION`: enables input-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.
 - `VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION`: enables output-audio transcription for voice sessions. Supported values are `true` and `false`; default is `false`.

@@ -2,6 +2,8 @@ import { resolve } from 'path';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
+const repoRoot = resolve(__dirname, '../..');
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
@@ -24,6 +26,7 @@ export default defineConfig({
     },
   },
   renderer: {
+    envDir: repoRoot,
     root: resolve(__dirname, 'src/renderer'),
     build: {
       rollupOptions: {
