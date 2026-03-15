@@ -75,23 +75,46 @@ VITE_LIVE_SESSION_RESUMPTION=true
 VITE_LIVE_CONTEXT_COMPRESSION=true
 ```
 
-4. Start the backend:
+4. Start the normal local app flow:
+
+```bash
+docker compose up -d
+make smoke-check
+pnpm run dev
+```
+
+If you need isolated backend and desktop logs while debugging a failure, run the apps separately:
 
 ```bash
 pnpm --filter @livepair/api dev
-```
-
-5. Start the desktop app:
-
-```bash
 pnpm --filter @livepair/desktop dev
 ```
 
-6. Grant microphone and screen permissions when prompted.
-7. Open the panel with `Open panel`.
-8. Confirm the `Developer tools` tab is visible in the panel header.
+5. Grant microphone and screen permissions when prompted.
+6. Open the panel with `Open panel`.
+7. Confirm the `Developer tools` tab is visible in the panel header.
 
 If either transcription flag is disabled, run the rest of the checklist but mark the transcription case `Not run by config`.
+
+## Fast Local Evaluation Flow
+
+Use this when you need a short local confidence pass before running the full checklist below.
+
+1. Set `GEMINI_API_KEY` in the repository root `.env`.
+2. Start infra with `docker compose up -d`.
+3. Run `make smoke-check`.
+   Expected result: dependencies are present, the root `.env` exists, `GEMINI_API_KEY` is set, Docker-backed infra is running, and API database connectivity succeeds.
+4. Start the normal local app flow:
+
+```bash
+pnpm run dev
+```
+
+5. Open the desktop app, grant microphone and screen permissions if prompted, and open the panel.
+6. Start speech mode with `Talk` or resume an existing Live session.
+7. Say one short prompt and wait for one assistant reply.
+8. Confirm the app does not stay in a failed backend-health state and that you receive one visible or audible assistant response.
+9. If this passes and you need broader coverage, continue with the full checklist below.
 
 ## Evidence To Capture
 
