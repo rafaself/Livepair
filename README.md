@@ -326,48 +326,40 @@ docs(docs): update README with commit conventions
 pnpm install
 ```
 
-### ▶️ Run the desktop app
+### 🐘 Local Postgres-backed development flow
 
-Preferred:
+Start the local Docker database, verify connectivity, and apply migrations:
+
+```bash
+make postgres-up
+pnpm --filter @livepair/api db:check
+pnpm --filter @livepair/api db:migrate
+```
+
+Then run both apps together:
 
 ```bash
 pnpm dev
 ```
 
-Desktop only:
-
-```bash
-pnpm --filter @livepair/desktop dev
-```
-
-### ▶️ Run the backend
-
-Preferred:
+Or run them separately:
 
 ```bash
 pnpm --filter @livepair/api dev
+pnpm --filter @livepair/desktop dev
 ```
 
-### 🐘 Local PostgreSQL for Wave 2
-
-Start the local Docker database:
-
-```bash
-make postgres-up
-```
-
-Check the backend DB connection and apply migrations:
-
-```bash
-pnpm --filter @livepair/api db:check
-pnpm --filter @livepair/api db:migrate
-```
-
-Recreate the local database from scratch and rerun migrations:
+Reset the local database from scratch:
 
 ```bash
 make postgres-reset
 pnpm --filter @livepair/api db:migrate
+```
+
+Stop the local database when you are done:
+
+```bash
+make postgres-down
 ```
 
 ### 🧹 Run workspace checks

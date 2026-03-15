@@ -5,14 +5,14 @@ Privileged Electron main-process code.
 
 ## Owns
 - BrowserWindow creation and app lifecycle
-- IPC handler registration, filesystem access, desktop capture, and local persistence services
+- IPC handler registration, filesystem access, desktop capture, and local desktop settings persistence
 
 ## Guardrails
 - Keep BrowserWindow security defaults intact: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`.
 - Any new renderer-facing capability must be added in `../shared/desktopBridge.ts`, implemented here, and validated in `ipc/validators.ts` before exposure.
 - Keep handlers thin; push reusable work into local services/modules.
 - Do not move Gemini Live audio or video transport into main.
-- Treat desktop-local chat-memory persistence as transitional; preserve the bridge contract, but move durable chat-memory ownership toward backend APIs instead of growing new main-process storage.
+- Do not reintroduce desktop-local durable chat-memory persistence; preserve the bridge contract and keep chat-memory ownership on backend APIs.
 
 ## Look here first
 - `window/overlayWindow.ts`

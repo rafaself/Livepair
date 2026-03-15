@@ -43,6 +43,7 @@ Implemented:
 - `POST /session/token` with real Gemini Live ephemeral token issuance
 - Postgres-backed chat-memory REST endpoints for chats, messages, live sessions, and durable summaries
 - Desktop chat-memory IPC delegation to backend-owned persistence for chats, messages, live sessions, and durable summaries
+- No desktop-local durable chat-memory store in production
 - Desktop session controller coordinating inactive and speech lifecycles
 - Typed turns routed over the active Gemini Live session
 - SDK-backed Gemini Live transport adapter

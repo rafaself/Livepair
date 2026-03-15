@@ -12,7 +12,7 @@ NestJS backend package for control-plane APIs, Gemini Live token issuance, and A
 - Keep controllers thin; move business logic into services.
 - Reuse `@livepair/shared-types` for cross-package request/response shapes instead of forking contracts locally.
 - Put validated DTOs in `<domain>/dto/`, rely on the global `ValidationPipe`, and read env through `src/config/env.ts`.
-- Durable chat-memory persistence is the target backend ownership boundary for the SQLite -> PostgreSQL migration; keep it behind validated DTOs and service-owned logic.
+- Durable chat-memory persistence is a current backend ownership boundary; keep it behind validated DTOs and service-owned logic.
 
 ## Look here first
 - `src/session/`
