@@ -39,6 +39,7 @@
   font-weight: 800;
   color: var(--color-text-primary);
   letter-spacing: -0.01em;
+  opacity: 0.9;
 }
 
 .assistant-panel__conversation-empty-body {

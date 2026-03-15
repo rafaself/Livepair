@@ -25,6 +25,7 @@
   color: var(--color-accent);
   margin: 0;
   letter-spacing: -0.02em;
+  opacity: 0.9;
 }
 
 .panel-header__actions {
