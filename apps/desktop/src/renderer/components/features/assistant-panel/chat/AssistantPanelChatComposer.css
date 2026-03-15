@@ -132,7 +132,7 @@
   align-items: center;
   background: #1e1f20;
   border-radius: var(--radius-full);
-  padding: 1px;
+  padding: 1px 1px 1px 0;
   gap: 1px;
   height: 32px;
   transition: background-color var(--motion-fast) var(--ease-out);
