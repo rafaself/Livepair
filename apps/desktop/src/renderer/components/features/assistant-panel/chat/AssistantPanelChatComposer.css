@@ -155,7 +155,7 @@
   align-items: center;
   justify-content: center;
   align-self: center;
-  margin: 0 1px 0 0; /* Tiny gap from the edge */
+  margin: 0; /* Direct contact with the dots button area */
 }
 
 .assistant-panel__composer-pill .assistant-panel__composer-control:hover:not(:disabled) {
@@ -182,8 +182,8 @@
 .assistant-panel__composer-pill .assistant-panel__composer-select .select-trigger {
   background: transparent !important; /* Make it part of the pill background */
   border: none;
-  border-radius: 0;
-  padding: 0 16px; /* Space for the dots */
+  border-radius: 0; /* Let the pill overflow:hidden handle the outer curve */
+  padding: 0 16px 0 20px; /* Offset to center the dots in the leftover space */
   min-width: 0;
   width: 100%;
   height: 100%;
