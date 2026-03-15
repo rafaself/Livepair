@@ -2034,8 +2034,23 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
     await Promise.resolve();
   }
 
+  async function dispatchFrame(
+    harness: ReturnType<typeof createHarness>,
+    sequence = 2,
+    fill = sequence,
+  ): Promise<void> {
+    harness.getObserver()!.onFrame({
+      data: new Uint8Array([fill]),
+      mimeType: 'image/jpeg',
+      sequence,
+      widthPx: 640,
+      heightPx: 360,
+    });
+    await Promise.resolve();
+  }
+
   it('exports the promotion duration constant', () => {
-    expect(QUALITY_PROMOTION_DURATION_MS).toBe(10_000);
+    expect(QUALITY_PROMOTION_DURATION_MS).toBe(2_500);
   });
 
   it('passes baseline quality params to capture.start when baseline is Low', async () => {
@@ -2052,8 +2067,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
     }
     expect(startArgs.jpegQuality).toBe(LOW_PARAMS.jpegQuality);
     expect(startArgs.maxWidthPx).toBe(LOW_PARAMS.maxWidthPx);
-    // Then promotion happens via onScreenShareStarted → promoteQuality → updateQuality
-    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+    expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
   });
 
   it('passes baseline quality params to capture.start when baseline is High (no promotion)', async () => {
@@ -2070,150 +2084,145 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
     // High baseline — promotion is no-op, still High
     expect(startArgs.jpegQuality).toBe(HIGH_PARAMS.jpegQuality);
     expect(startArgs.maxWidthPx).toBe(HIGH_PARAMS.maxWidthPx);
+    expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
   });
 
-  it('promotes quality on bootstrap and calls updateQuality', async () => {
+  it('keeps bootstrap snapshots at baseline quality', async () => {
     const harness = createHarness({
       getBaselineQuality: () => 'Low',
       submitDecision: alwaysSend,
     });
     await harness.ctrl.start();
-    // Bootstrap triggers promote → updateQuality should be called with High params
-    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
-  });
-
-  it('does not call updateQuality on bootstrap when baseline is High', async () => {
-    const harness = createHarness({
-      getBaselineQuality: () => 'High',
-      submitDecision: alwaysSend,
-    });
-    await harness.ctrl.start();
-    // High baseline — promote() is no-op, updateQuality never called
     expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
   });
 
-  it('promotes quality on analyzeScreenNow and calls updateQuality', async () => {
+  it('promotes quality on analyzeScreenNow and reverts after the promoted snapshot is dispatched', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'Medium',
+      promotionDurationMs: 5_000,
+      submitDecision: alwaysSend,
+    });
+    await startCapture(harness);
+    harness.mockCapture.updateQuality.mockClear();
+
+    harness.ctrl.analyzeScreenNow();
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+
+    harness.mockCapture.updateQuality.mockClear();
+    await dispatchFrame(harness);
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
+  });
+
+  it('does not promote when analyzeScreenNow is suppressed by snapshot cooldown', async () => {
+    let now = 0;
+    const harness = createHarness({
+      getBaselineQuality: () => 'Low',
+      submitDecision: alwaysSend,
+      visualSendPolicyOptions: {
+        nowMs: () => now,
+      },
+    });
+    await startCapture(harness);
+    harness.mockCapture.updateQuality.mockClear();
+
+    harness.ctrl.analyzeScreenNow();
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+
+    harness.mockCapture.updateQuality.mockClear();
+    await dispatchFrame(harness);
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
+
+    harness.mockCapture.updateQuality.mockClear();
+    now += 1_000;
+    harness.ctrl.analyzeScreenNow();
+    expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+  });
+
+  it('promotes quality on onSpeechStart and reverts after the triggered snapshot is dispatched', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'Low',
+      promotionDurationMs: 5_000,
+      submitDecision: alwaysSend,
+    });
+    await startCapture(harness);
+    harness.mockCapture.updateQuality.mockClear();
+
+    harness.ctrl.onSpeechStart();
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+
+    harness.mockCapture.updateQuality.mockClear();
+    await dispatchFrame(harness);
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
+  });
+
+  it('promotes quality on onTextSent and reverts after the triggered snapshot is dispatched', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'Low',
+      promotionDurationMs: 5_000,
+      submitDecision: alwaysSend,
+    });
+    await startCapture(harness);
+    harness.mockCapture.updateQuality.mockClear();
+
+    harness.ctrl.onTextSent();
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+
+    harness.mockCapture.updateQuality.mockClear();
+    await dispatchFrame(harness);
+    expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
+  });
+
+  it('does not promote when onTextSent is suppressed by explicit streaming', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'Low',
+      submitDecision: alwaysSend,
+    });
+    await startCapture(harness);
+    harness.mockCapture.updateQuality.mockClear();
+
+    harness.ctrl.enableStreaming();
+    harness.ctrl.onTextSent();
+
+    expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
+  });
+
+  it('promotion auto-expires and returns to baseline quality when no snapshot is dispatched', async () => {
     vi.useFakeTimers();
     try {
       const harness = createHarness({
         getBaselineQuality: () => 'Medium',
-        promotionDurationMs: 50000,
+        promotionDurationMs: 5000,
         submitDecision: alwaysSend,
       });
       await startCapture(harness);
-
-      // Clear the bootstrap promotion call
-      harness.mockCapture.updateQuality.mockClear();
-
-      // Let bootstrap promotion expire
-      vi.advanceTimersByTime(50000);
-
-      // updateQuality called with baseline params on expiry
-      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
-      harness.mockCapture.updateQuality.mockClear();
-
-      harness.ctrl.analyzeScreenNow();
-      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('promotes quality on onSpeechStart and calls updateQuality', async () => {
-    vi.useFakeTimers();
-    try {
-      const harness = createHarness({
-        getBaselineQuality: () => 'Low',
-        promotionDurationMs: 50000,
-        submitDecision: alwaysSend,
-      });
-      await startCapture(harness);
-      harness.mockCapture.updateQuality.mockClear();
-
-      // Let bootstrap promotion expire
-      vi.advanceTimersByTime(50000);
-      harness.mockCapture.updateQuality.mockClear();
-
-      harness.ctrl.onSpeechStart();
-      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('promotes quality on onTextSent and calls updateQuality', async () => {
-    vi.useFakeTimers();
-    try {
-      const harness = createHarness({
-        getBaselineQuality: () => 'Low',
-        promotionDurationMs: 50000,
-        submitDecision: alwaysSend,
-      });
-      await startCapture(harness);
-      harness.mockCapture.updateQuality.mockClear();
-
-      // Let bootstrap promotion expire
-      vi.advanceTimersByTime(50000);
       harness.mockCapture.updateQuality.mockClear();
 
       harness.ctrl.onTextSent();
       expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
 
-  it('promotion auto-expires and returns to baseline quality', async () => {
-    vi.useFakeTimers();
-    try {
-      const harness = createHarness({
-        getBaselineQuality: () => 'Medium',
-        promotionDurationMs: 5000,
-        submitDecision: alwaysSend,
-      });
-      await startCapture(harness);
-      // Bootstrap promoted → updateQuality(HIGH) already called
       harness.mockCapture.updateQuality.mockClear();
+      vi.advanceTimersByTime(4_999);
+      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
 
-      // Advance past promotion expiry
-      vi.advanceTimersByTime(5000);
-
-      // Should revert to baseline
+      vi.advanceTimersByTime(1);
       expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('re-promotion resets the expiry timer', async () => {
-    vi.useFakeTimers();
-    try {
-      const harness = createHarness({
-        getBaselineQuality: () => 'Low',
-        promotionDurationMs: 5000,
-        submitDecision: alwaysSend,
-      });
-      await startCapture(harness);
-      harness.mockCapture.updateQuality.mockClear();
+  it('keeps passive burst frames at the baseline quality', async () => {
+    const harness = createHarness({
+      getBaselineQuality: () => 'Low',
+      submitDecision: alwaysSend,
+    });
+    await startCapture(harness);
+    harness.mockCapture.updateQuality.mockClear();
 
-      // Advance halfway
-      vi.advanceTimersByTime(3000);
+    await dispatchFrame(harness, 2, 9);
+    await dispatchFrame(harness, 3, 10);
 
-      // Re-promote via speech
-      harness.ctrl.onSpeechStart();
-      // Should not have called updateQuality again (already promoted)
-      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
-
-      // Advance another 3s — original timer would have fired, but reset didn't
-      vi.advanceTimersByTime(3000);
-      expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
-
-      // Full duration from re-promotion
-      vi.advanceTimersByTime(2000);
-      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(harness.mockCapture.updateQuality).not.toHaveBeenCalled();
   });
 
   it('stopStreaming returns to baseline quality when promoted', async () => {
@@ -2227,7 +2236,10 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
       await startCapture(harness);
       harness.mockCapture.updateQuality.mockClear();
 
-      harness.ctrl.enableStreaming();
+      harness.ctrl.onSpeechStart();
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+
+      harness.mockCapture.updateQuality.mockClear();
       harness.ctrl.stopStreaming();
 
       // Should revert to baseline
@@ -2255,7 +2267,10 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
       // First session with Low baseline
       await startCapture(harness);
       harness.mockCapture.updateQuality.mockClear();
-      vi.advanceTimersByTime(5000);
+      harness.ctrl.analyzeScreenNow();
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+      harness.mockCapture.updateQuality.mockClear();
+      await dispatchFrame(harness);
       expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(LOW_PARAMS);
 
       // Stop screen share
@@ -2268,7 +2283,10 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
       baseline = 'Medium';
       await startCapture(harness);
       harness.mockCapture.updateQuality.mockClear();
-      vi.advanceTimersByTime(5000);
+      harness.ctrl.analyzeScreenNow();
+      expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(HIGH_PARAMS);
+      harness.mockCapture.updateQuality.mockClear();
+      await dispatchFrame(harness);
       // Should revert to Medium, not Low
       expect(harness.mockCapture.updateQuality).toHaveBeenCalledWith(MEDIUM_PARAMS);
     } finally {
@@ -2316,7 +2334,9 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
       await startCapture(harness);
       harness.mockCapture.updateQuality.mockClear();
 
-      // Stop screen share (which calls onScreenShareStopped → resetQualityState)
+      harness.ctrl.onSpeechStart();
+      harness.mockCapture.updateQuality.mockClear();
+
       await harness.ctrl.stop();
 
       // Advancing time should not trigger the promotion timer callback

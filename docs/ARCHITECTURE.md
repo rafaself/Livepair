@@ -66,7 +66,7 @@ Planned:
 - Backend checkpoint persistence and restore flow
 - Backend-backed tool endpoints
 - Backend error-report endpoint
-- Adaptive screen-context policy, guardrails, and HD screenshot flow
+- Additional screen-context guardrails, tuning, and HD screenshot flow
 
 ## 3. System Context
 
@@ -109,7 +109,7 @@ Planned:
 
 - Broader backend-backed tool execution
 - Checkpoint save/restore integration
-- Adaptive screen capture policy
+- Additional adaptive screen capture guardrails and HD screenshot flow
 
 ### Backend API
 
@@ -167,13 +167,15 @@ Implemented:
 - Manual start/stop only
 - Active Live session required
 - Lightweight JPEG frames at explicit conservative settings: 1 FPS, compressed JPEG, reduced width, and latest-frame-wins while an earlier frame send is still in flight
+- The user-selected frame-quality menu is the baseline local capture quality
+- Explicit analyze, speech-trigger, and text-trigger snapshots temporarily promote local capture quality to `High`, then return to baseline after the promoted snapshot dispatches or a short timeout
+- Bootstrap snapshots and passive burst/context frames stay at the baseline quality
 - Voice-mode screen sharing uses `MEDIA_RESOLUTION_LOW` by default unless the desktop env overrides it
 - Runtime replacement during reconnect/resume/fallback always stops screen capture; users must manually re-enable it on the replacement Live runtime
 - Durable multimodal carry-over is limited to an optional compact text-only `screenContextSummary` entry in the existing rehydration context snapshot; raw screen media and live screen state remain ephemeral
 
 Planned:
 
-- Adaptive capture boosts
 - Additional guardrails and tuning
 - HD screenshot tool path if needed
 

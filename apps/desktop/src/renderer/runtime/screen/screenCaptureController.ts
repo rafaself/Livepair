@@ -24,7 +24,6 @@ import {
   createAdaptiveQualityPolicy,
   QUALITY_PROMOTION_DURATION_MS,
 } from './adaptiveQualityPolicy';
-import type { AdaptiveQualityPolicyOptions } from './adaptiveQualityPolicy';
 import type { VisualSessionQuality } from '../../../shared/settings';
 import type {
   CreateScreenCapture,
@@ -60,7 +59,6 @@ export type ScreenCaptureControllerOptions = {
   visualSendPolicyOptions?: VisualSendPolicyOptions;
   visualChangeDetectorOptions?: VisualChangeDetectorOptions;
   burstSendGateOptions?: BurstSendGateOptions;
-  adaptiveQualityPolicyOptions?: AdaptiveQualityPolicyOptions;
   burstDurationMs?: number;
   burstStableFrames?: number;
   burstSendCooldownMs?: number;
@@ -113,7 +111,6 @@ export function createScreenCaptureController(
 
   let qualityPolicy = createAdaptiveQualityPolicy(
     getBaselineQuality?.() ?? 'High',
-    controllerOptions?.adaptiveQualityPolicyOptions,
   );
   let promotionTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -131,6 +128,15 @@ export function createScreenCaptureController(
     }
   };
 
+  const endPromotion = (): void => {
+    clearPromotionTimer();
+    if (!qualityPolicy.isPromoted()) {
+      return;
+    }
+    qualityPolicy.endPromotion();
+    applyQualityToCapture();
+  };
+
   const promoteQuality = (): void => {
     const wasPromoted = qualityPolicy.isPromoted();
     qualityPolicy.promote();
@@ -139,14 +145,19 @@ export function createScreenCaptureController(
     clearPromotionTimer();
     promotionTimer = setTimeout(() => {
       promotionTimer = null;
-      qualityPolicy.endPromotion();
-      applyQualityToCapture();
+      endPromotion();
     }, promotionDurationMs);
   };
 
   const resetQualityState = (): void => {
     clearPromotionTimer();
     qualityPolicy.reset();
+  };
+
+  const armSnapshot = (action: () => void): boolean => {
+    const previousState = visualPolicy.getState();
+    action();
+    return previousState !== 'snapshot' && visualPolicy.getState() === 'snapshot';
   };
 
   const flushVisualDiagnostics = (): void => {
@@ -274,8 +285,12 @@ export function createScreenCaptureController(
     getRealtimeOutboundGateway,
     allowSend: () => visualPolicy.allowSend(),
     onFrameDispatched: () => {
+      const wasSnapshot = visualPolicy.getState() === 'snapshot';
       const wasPassiveBurstActive = visualPolicy.isPassiveBurstActive();
       visualPolicy.onFrameDispatched();
+      if (wasSnapshot) {
+        endPromotion();
+      }
       if (wasPassiveBurstActive && !visualPolicy.isPassiveBurstActive()) {
         clearPassiveBurstTracking();
       }
@@ -350,8 +365,6 @@ export function createScreenCaptureController(
       // by default — the visual send policy remains the authority over
       // subsequent frame delivery.
       visualPolicy.armBootstrapSnapshot();
-      // Bootstrap snapshot should use promoted quality for clear first impression.
-      promoteQuality();
       flushVisualDiagnostics();
     },
     onScreenShareStopped: () => {
@@ -373,7 +386,6 @@ export function createScreenCaptureController(
       // the latest user preference is picked up.
       qualityPolicy = createAdaptiveQualityPolicy(
         getBaselineQuality?.() ?? 'High',
-        controllerOptions?.adaptiveQualityPolicyOptions,
       );
       return lifecycle.start();
     },
@@ -385,10 +397,14 @@ export function createScreenCaptureController(
     resetSendChain: frameSendCoordinator.reset,
     getVisualSendState: () => visualPolicy.getState(),
     analyzeScreenNow: () => {
+      if (!lifecycle.isActive()) return;
       const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
-      // Promote quality for explicit analyze — likely text-heavy content.
-      promoteQuality();
-      visualPolicy.analyzeScreenNow();
+      const didArmSnapshot = armSnapshot(() => {
+        visualPolicy.analyzeScreenNow();
+      });
+      if (didArmSnapshot) {
+        promoteQuality();
+      }
       if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
         clearPassiveBurstTracking(true);
       }
@@ -418,8 +434,12 @@ export function createScreenCaptureController(
     onSpeechStart: () => {
       if (!lifecycle.isActive()) return;
       const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
-      promoteQuality();
-      visualPolicy.triggerSnapshot('speechTrigger');
+      const didArmSnapshot = armSnapshot(() => {
+        visualPolicy.triggerSnapshot('speechTrigger');
+      });
+      if (didArmSnapshot) {
+        promoteQuality();
+      }
       if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
         clearPassiveBurstTracking(true);
       }
@@ -428,8 +448,12 @@ export function createScreenCaptureController(
     onTextSent: () => {
       if (!lifecycle.isActive()) return;
       const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
-      promoteQuality();
-      visualPolicy.triggerSnapshot('textTrigger');
+      const didArmSnapshot = armSnapshot(() => {
+        visualPolicy.triggerSnapshot('textTrigger');
+      });
+      if (didArmSnapshot) {
+        promoteQuality();
+      }
       if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
         clearPassiveBurstTracking(true);
       }
