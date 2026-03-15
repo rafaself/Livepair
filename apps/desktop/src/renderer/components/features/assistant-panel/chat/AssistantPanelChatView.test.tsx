@@ -916,7 +916,6 @@ describe('AssistantPanelChatView', () => {
         ]}
         selectedInputDeviceId="usb-mic"
         screenCaptureSourceOptions={[
-          { value: '', label: 'Choose when sharing' },
           { value: 'screen:1:0', label: 'Entire Screen' },
           { value: 'window:42:0', label: 'VSCode' },
         ]}
@@ -975,11 +974,6 @@ describe('AssistantPanelChatView', () => {
 
     const screenDropdown = screen.getByRole('listbox');
     expect(screenOptionsButton).toHaveAttribute('aria-expanded', 'true');
-    expect(
-      within(screenDropdown).getByRole('option', {
-        name: 'Choose when sharing',
-      }),
-    ).toBeVisible();
     expect(within(screenDropdown).getByRole('option', { name: 'Entire Screen' })).toBeVisible();
     expect(within(screenDropdown).getByRole('option', { name: 'VSCode' })).toBeVisible();
 

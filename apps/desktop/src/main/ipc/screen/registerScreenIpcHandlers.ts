@@ -32,6 +32,14 @@ export function registerScreenIpcHandlers({
       getExcludedSourceIds(),
     ));
     captureSourceRegistry.setSources(sources);
+
+    if (captureSourceRegistry.getSelectedSourceId() === null) {
+      const firstScreen = sources.find((source) => source.id.startsWith('screen:'));
+      if (firstScreen) {
+        captureSourceRegistry.setSelectedSourceId(firstScreen.id);
+      }
+    }
+
     return captureSourceRegistry.getSnapshot();
   };
 

@@ -98,7 +98,7 @@ describe('registerScreenIpcHandlers', () => {
         { id: 'screen:1:0', name: 'Entire Screen' },
         { id: 'window:42:0', name: 'VSCode' },
       ],
-      selectedSourceId: null,
+      selectedSourceId: 'screen:1:0',
     });
     await expect(selectSourceHandler({}, 'window:42:0')).resolves.toEqual({
       sources: [

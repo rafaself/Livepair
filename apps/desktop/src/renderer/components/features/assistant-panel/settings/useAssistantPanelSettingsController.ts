@@ -19,9 +19,6 @@ const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'Voice output unavailable in text-only release' },
 ];
 const UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE = '';
-const UNSELECTED_SCREEN_CAPTURE_SOURCE_OPTION: readonly SelectOptionItem[] = [
-  { value: UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE, label: 'Choose when sharing' },
-];
 
 export type AssistantPanelSettingsController = {
   isDebugMode: boolean;
@@ -82,13 +79,11 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
   const setLastRuntimeError = useSessionStore((state) => state.setLastRuntimeError);
   const resolvedBackendUrlDraft = backendUrlDraft || settings.backendUrl;
   const screenCaptureSourceOptions = useMemo(
-    () => [
-      ...UNSELECTED_SCREEN_CAPTURE_SOURCE_OPTION,
-      ...screenCaptureSources.map((source) => ({
+    () =>
+      screenCaptureSources.map((source) => ({
         value: source.id,
         label: source.name,
       })),
-    ],
     [screenCaptureSources],
   );
 

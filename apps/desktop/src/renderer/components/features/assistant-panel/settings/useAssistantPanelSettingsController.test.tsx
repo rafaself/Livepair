@@ -216,13 +216,13 @@ describe('useAssistantPanelSettingsController', () => {
     await waitFor(() => {
       expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Choose when sharing|Entire Screen|VSCode',
+        'Entire Screen|VSCode',
       );
       expect(screen.getByLabelText('selected-screen-source')).toHaveTextContent('screen:1:0');
     });
   });
 
-  it('falls back to the automatic option when screen capture sources are unavailable', () => {
+  it('shows no options when screen capture sources are unavailable', () => {
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
       sources: [],
       selectedSourceId: null,
@@ -230,9 +230,7 @@ describe('useAssistantPanelSettingsController', () => {
 
     render(<HookHarness />);
 
-    expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-      'Choose when sharing',
-    );
+    expect(screen.getByLabelText('screen-source-options')).toBeEmptyDOMElement();
     expect(screen.getByLabelText('selected-screen-source')).toBeEmptyDOMElement();
   });
 
@@ -366,7 +364,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Choose when sharing|Entire Screen|VSCode',
+        'Entire Screen|VSCode',
       );
     });
 
@@ -379,7 +377,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
     await waitFor(() => {
       expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Choose when sharing|Entire Screen|VSCode',
+        'Entire Screen|VSCode',
       );
     });
   });
@@ -442,7 +440,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Choose when sharing|Entire Screen|VSCode',
+        'Entire Screen|VSCode',
       );
     });
   });
@@ -453,7 +451,7 @@ describe('wave 1: screen-capture source stabilization on chat switch', () => {
     await waitFor(() => {
       expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
       expect(screen.getByLabelText('screen-source-options')).toHaveTextContent(
-        'Choose when sharing|Entire Screen|VSCode',
+        'Entire Screen|VSCode',
       );
     });
   });
