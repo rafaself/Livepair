@@ -12,6 +12,7 @@ import { useSettingsStore } from './store/settingsStore';
 import { useCaptureExclusionRectsStore } from './store/captureExclusionRectsStore';
 import { resetDesktopStores } from './test/store';
 import { useUiStore } from './store/uiStore';
+import { useSessionStore } from './store/sessionStore';
 import { __emitGeminiLiveSdkMessage } from './test/geminiLiveSdkMock';
 import { THEME_MEDIA_QUERY } from './theme';
 
@@ -264,6 +265,67 @@ describe('App', () => {
     expect(screen.queryByRole('form', { name: 'Send message to Livepair' })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(window.bridge.requestSessionToken).not.toHaveBeenCalled();
+  });
+
+  it('shows runtime errors from the session store in the snackbar', async () => {
+    installMatchMedia(true);
+
+    render(<App />);
+
+    act(() => {
+      useSessionStore.getState().setLastRuntimeError('token failed');
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('token failed');
+  });
+
+  it('shows recovery snackbars when a Live session reconnects after interruption', async () => {
+    installMatchMedia(true);
+
+    render(<App />);
+
+    act(() => {
+      useSessionStore.getState().setVoiceSessionResumption({
+        status: 'reconnecting',
+        lastDetail: 'server draining',
+      });
+    });
+
+    expect(await screen.findByText('Reconnecting Live session...')).toBeVisible();
+
+    act(() => {
+      useSessionStore.getState().setVoiceSessionResumption({
+        status: 'resumed',
+        lastDetail: 'server draining',
+      });
+    });
+
+    expect(await screen.findByText('Live session reconnected')).toBeVisible();
+  });
+
+  it('shows a restart snackbar when recovery falls back to a fresh Live session', async () => {
+    installMatchMedia(true);
+
+    render(<App />);
+
+    act(() => {
+      useSessionStore.getState().setVoiceSessionResumption({
+        status: 'reconnecting',
+        lastDetail: 'server draining',
+      });
+    });
+
+    expect(await screen.findByText('Reconnecting Live session...')).toBeVisible();
+
+    act(() => {
+      useSessionStore.getState().setVoiceSessionResumption({
+        status: 'connected',
+        resumable: false,
+        lastDetail: null,
+      });
+    });
+
+    expect(await screen.findByText('Live session restarted')).toBeVisible();
   });
 
   it('ends speech mode without clearing history and returns to the inactive resume CTA', async () => {

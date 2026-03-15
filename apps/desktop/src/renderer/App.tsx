@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AssistantPanel } from './components/features/assistant-panel/AssistantPanel';
 import { ControlDock } from './components/composite/ControlDock';
 import { useCaptureExclusionRects } from './hooks/useCaptureExclusionRects';
@@ -108,21 +108,52 @@ function AppShell(): JSX.Element {
 export function App(): JSX.Element {
   return (
     <SnackbarProvider>
-      <ErrorSnackbarObserver />
+      <RuntimeSnackbarObserver />
       <AppShell />
     </SnackbarProvider>
   );
 }
 
-function ErrorSnackbarObserver(): null {
+function RuntimeSnackbarObserver(): null {
   const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
-  const { showError } = useSnackbar();
+  const voiceSessionResumptionStatus = useSessionStore(
+    (state) => state.voiceSessionResumption.status,
+  );
+  const { showError, showSnackbar } = useSnackbar();
+  const previousResumptionStatusRef = useRef(voiceSessionResumptionStatus);
+  const recoveryNoticePendingRef = useRef(false);
 
   useEffect(() => {
     if (lastRuntimeError) {
       showError(lastRuntimeError);
     }
   }, [lastRuntimeError, showError]);
+
+  useEffect(() => {
+    const previousStatus = previousResumptionStatusRef.current;
+
+    if (voiceSessionResumptionStatus === previousStatus) {
+      return;
+    }
+
+    if (voiceSessionResumptionStatus === 'reconnecting') {
+      recoveryNoticePendingRef.current = true;
+      showSnackbar('Reconnecting Live session...', 'warning');
+    } else if (voiceSessionResumptionStatus === 'resumed' && recoveryNoticePendingRef.current) {
+      recoveryNoticePendingRef.current = false;
+      showSnackbar('Live session reconnected', 'success');
+    } else if (voiceSessionResumptionStatus === 'connected' && recoveryNoticePendingRef.current) {
+      recoveryNoticePendingRef.current = false;
+      showSnackbar('Live session restarted', 'info');
+    } else if (
+      voiceSessionResumptionStatus === 'idle'
+      || voiceSessionResumptionStatus === 'resumeFailed'
+    ) {
+      recoveryNoticePendingRef.current = false;
+    }
+
+    previousResumptionStatusRef.current = voiceSessionResumptionStatus;
+  }, [voiceSessionResumptionStatus, showSnackbar]);
 
   return null;
 }
