@@ -13,6 +13,10 @@ function getButtonClassName(panelView: PanelView, targetView: PanelView): string
   return panelView === targetView ? 'assistant-panel__header-btn--active' : undefined;
 }
 
+function isChatSectionActive(panelView: PanelView): boolean {
+  return panelView === 'chat' || panelView === 'history';
+}
+
 export function AssistantPanelHeader({
   panelView,
   setPanelView,
@@ -47,8 +51,8 @@ export function AssistantPanelHeader({
         size="sm"
         onClick={() => setPanelView('chat')}
         aria-label="Chat"
-        aria-pressed={panelView === 'chat'}
-        className={getButtonClassName(panelView, 'chat')}
+        aria-pressed={isChatSectionActive(panelView)}
+        className={isChatSectionActive(panelView) ? 'assistant-panel__header-btn--active' : undefined}
       >
         <MessageCircle size={16} />
       </Button>

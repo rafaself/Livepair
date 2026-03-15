@@ -72,4 +72,18 @@ describe('AssistantPanelHeader', () => {
     expect(screen.getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-pressed', 'false');
   });
+
+  it('marks chat as active when the history view is selected', () => {
+    render(
+      <AssistantPanelHeader
+        panelView="history"
+        setPanelView={vi.fn()}
+        isDebugMode={false}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Chat' })).toHaveClass('assistant-panel__header-btn--active');
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-pressed', 'false');
+  });
 });
