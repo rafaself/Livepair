@@ -21,7 +21,7 @@ The backend stays out of the audio/video hot path and currently serves health ch
 * Inactive conversation shell that preserves history and offers start/resume Live-session actions
 * Typed input inside an active Live session
 * Speech mode backed by Gemini Live API via an SDK-backed transport
-* Backend health (`GET /health`) and real Gemini Live ephemeral token issuance (`POST /session/token`)
+* Backend health (`GET /health`), real Gemini Live ephemeral token issuance (`POST /session/token`), and a Postgres-backed chat-memory REST module for chats, messages, live sessions, and durable summaries
 * Local microphone capture pipeline and assistant audio playback
 * Interruption / barge-in behavior (local detection + playback stop)
 * Speech transcription event handling and transcript state wiring
@@ -44,6 +44,7 @@ The backend stays out of the audio/video hot path and currently serves health ch
 * Backend-backed tool endpoints such as `POST /tool/screenshot-hd` and `POST /tool/visual-summary`
 * `POST /session/error` or equivalent backend error-reporting path
 * Adaptive screen-context policy, guardrails, and any HD screenshot flow beyond the current manual frame upload path
+* Desktop cutover from local main-process chat-memory persistence to the backend chat-memory module
 
 ## 📚 Source Of Truth Docs
 
@@ -97,6 +98,7 @@ Speech mode: Desktop client → Gemini Live API
 Implemented today:
 * Issue ephemeral tokens
 * Expose backend health
+* Persist chat-memory state through Postgres-backed REST endpoints that are ready for desktop cutover
 
 Planned:
 * Expose backend-backed tools
@@ -182,6 +184,18 @@ Speech mode (direct realtime):
 Implemented:
 * `GET /health`
 * `POST /session/token` (Gemini Live ephemeral token issuance)
+* `PUT /chat-memory/chats/current`
+* `POST /chat-memory/chats`
+* `GET /chat-memory/chats`
+* `GET /chat-memory/chats/:chatId`
+* `GET /chat-memory/chats/:chatId/messages`
+* `POST /chat-memory/chats/:chatId/messages`
+* `GET /chat-memory/chats/:chatId/summary`
+* `GET /chat-memory/chats/:chatId/live-sessions`
+* `POST /chat-memory/chats/:chatId/live-sessions`
+* `PATCH /chat-memory/live-sessions/:id/resumption`
+* `PATCH /chat-memory/live-sessions/:id/snapshot`
+* `POST /chat-memory/live-sessions/:id/end`
 
 Planned:
 * `POST /session/checkpoint`
@@ -199,6 +213,7 @@ Current implementation:
 
 * the desktop runtime keeps conversation state, runtime diagnostics, token-expiry metadata, and Gemini Live resumption handles in local process state
 * speech-mode resumption refreshes the token when needed and falls back explicitly to safe `inactive`/`off` states on failure
+* backend chat-memory persistence is implemented as a migration target, but desktop still reads and writes its local main-process store until the cutover wave
 
 Planned extension:
 
