@@ -8,6 +8,29 @@ import {
   expectDefaultResumptionState,
 } from './sessionController.testUtils';
 
+function createVoiceSessionLatencyState() {
+  return {
+    connect: {
+      status: 'available' as const,
+      valueMs: 45,
+      lastValueMs: 45,
+      startedAtMs: null,
+    },
+    firstModelResponse: {
+      status: 'available' as const,
+      valueMs: 60,
+      lastValueMs: 60,
+      startedAtMs: null,
+    },
+    speechToFirstModelResponse: {
+      status: 'available' as const,
+      valueMs: 35,
+      lastValueMs: 35,
+      startedAtMs: null,
+    },
+  };
+}
+
 describe('createDesktopSessionController – resumption', () => {
   beforeEach(() => {
     resetDesktopStoresWithDefaults();
@@ -348,6 +371,66 @@ describe('createDesktopSessionController – resumption', () => {
       lastDetail: 'server draining',
     });
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+  });
+
+  it('keeps reconnect latency diagnostics honest by demoting stale values to unavailable last values', async () => {
+    const firstTransport = createVoiceTransportHarness();
+    const resumedTransport = createVoiceTransportHarness();
+    const requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'auth_tokens/test-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken,
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(resumedTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    useSessionStore.getState().setVoiceSessionLatency(createVoiceSessionLatencyState());
+
+    firstTransport.emit({
+      type: 'session-resumption-update',
+      handle: 'handles/voice-session-2',
+      resumable: true,
+    });
+    firstTransport.emit({
+      type: 'go-away',
+      detail: 'server draining',
+    });
+
+    await vi.waitFor(() => {
+      expect(resumedTransport.connect).toHaveBeenCalled();
+    });
+
+    expect(useSessionStore.getState().voiceSessionLatency).toEqual({
+      connect: {
+        status: 'unavailable',
+        valueMs: null,
+        lastValueMs: 45,
+        startedAtMs: null,
+      },
+      firstModelResponse: {
+        status: 'unavailable',
+        valueMs: null,
+        lastValueMs: 60,
+        startedAtMs: null,
+      },
+      speechToFirstModelResponse: {
+        status: 'unavailable',
+        valueMs: null,
+        lastValueMs: 35,
+        startedAtMs: null,
+      },
+    });
   });
 
   it('falls back to a fresh Live session when a voice disconnect has no usable handle', async () => {

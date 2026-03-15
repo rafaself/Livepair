@@ -1,5 +1,6 @@
 import { LIVE_ADAPTER_KEY } from './liveConfig';
 import { shouldIgnoreTermination } from './transportEventGating';
+import { invalidateVoiceSessionLatency } from '../session/voiceSessionLatencyState';
 import { isTokenValidForReconnect } from '../voice/session/voiceSessionToken';
 import type { LiveSessionEvent } from './transport.types';
 import type { TransportEventRouterContext } from './transportEventRouterTypes';
@@ -89,7 +90,7 @@ function handleGoAway(
   context: TransportEventRouterContext,
   event: Extract<LiveSessionEvent, { type: 'go-away' }>,
 ): void {
-  const { ops } = context;
+  const { ops, store } = context;
   const detail = getUnavailableDetail(event.detail);
   const voiceStatus = ops.currentVoiceSessionStatus();
 
@@ -103,6 +104,7 @@ function handleGoAway(
 
   logResumeRequest(context, detail, 'resume requested after go-away');
   ops.cancelVoiceToolCalls(detail);
+  store.setVoiceSessionLatency(invalidateVoiceSessionLatency(store.voiceSessionLatency));
   ops.setVoiceSessionResumption({
     status: 'goAway',
     lastDetail: detail,
@@ -118,7 +120,7 @@ function handleConnectionTerminated(
   context: TransportEventRouterContext,
   event: Extract<LiveSessionEvent, { type: 'connection-terminated' }>,
 ): void {
-  const { ops } = context;
+  const { ops, store } = context;
   const detail = getUnavailableDetail(event.detail);
   const voiceStatus = ops.currentVoiceSessionStatus();
 
@@ -132,6 +134,7 @@ function handleConnectionTerminated(
 
   logResumeRequest(context, detail, 'resume requested after connection termination');
   ops.cancelVoiceToolCalls(detail);
+  store.setVoiceSessionLatency(invalidateVoiceSessionLatency(store.voiceSessionLatency));
   ops.setVoiceSessionDurability({
     tokenValid: isTokenValidForReconnect(ops.getToken()),
     lastDetail: detail,

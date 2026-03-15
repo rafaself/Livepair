@@ -1,14 +1,39 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTransportEventRouter } from './transportEventRouter';
 
+function createVoiceSessionLatencyState() {
+  return {
+    connect: {
+      status: 'available' as const,
+      valueMs: 45,
+      lastValueMs: 45,
+      startedAtMs: null,
+    },
+    firstModelResponse: {
+      status: 'available' as const,
+      valueMs: 60,
+      lastValueMs: 60,
+      startedAtMs: null,
+    },
+    speechToFirstModelResponse: {
+      status: 'available' as const,
+      valueMs: 35,
+      lastValueMs: 35,
+      startedAtMs: null,
+    },
+  };
+}
+
 function createMockOps() {
   const storeState = {
     setLastDebugEvent: vi.fn(),
     setAssistantActivity: vi.fn(),
     setActiveTransport: vi.fn(),
     setLastRuntimeError: vi.fn(),
+    setVoiceSessionLatency: vi.fn(),
     voiceSessionResumption: { status: 'idle', latestHandle: null as string | null, resumable: false, lastDetail: null as string | null },
     voiceSessionDurability: { lastDetail: null as string | null },
+    voiceSessionLatency: createVoiceSessionLatencyState(),
     screenShareIntended: false,
     screenCaptureState: 'disabled' as string,
   };
@@ -241,6 +266,34 @@ describe('createTransportEventRouter', () => {
       expect(ops.resumeVoiceSession).toHaveBeenCalledWith('server draining');
     });
 
+    it('demotes latency diagnostics to unavailable last values before resuming', () => {
+      const ops = createMockOps();
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'go-away', detail: 'server draining' });
+
+      expect(ops._storeState.setVoiceSessionLatency).toHaveBeenCalledWith({
+        connect: {
+          status: 'unavailable',
+          valueMs: null,
+          lastValueMs: 45,
+          startedAtMs: null,
+        },
+        firstModelResponse: {
+          status: 'unavailable',
+          valueMs: null,
+          lastValueMs: 60,
+          startedAtMs: null,
+        },
+        speechToFirstModelResponse: {
+          status: 'unavailable',
+          valueMs: null,
+          lastValueMs: 35,
+          startedAtMs: null,
+        },
+      });
+    });
+
     it('uses fallback detail when none provided', () => {
       const ops = createMockOps();
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
@@ -276,6 +329,35 @@ describe('createTransportEventRouter', () => {
 
       expect(ops.cancelVoiceToolCalls).toHaveBeenCalledWith('transport recycled');
       expect(ops.resumeVoiceSession).toHaveBeenCalledWith('transport recycled');
+    });
+
+    it('demotes latency diagnostics to unavailable last values before reconnecting', () => {
+      const ops = createMockOps();
+      ops.currentVoiceSessionStatus.mockReturnValue('ready');
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'connection-terminated', detail: 'transport recycled' });
+
+      expect(ops._storeState.setVoiceSessionLatency).toHaveBeenCalledWith({
+        connect: {
+          status: 'unavailable',
+          valueMs: null,
+          lastValueMs: 45,
+          startedAtMs: null,
+        },
+        firstModelResponse: {
+          status: 'unavailable',
+          valueMs: null,
+          lastValueMs: 60,
+          startedAtMs: null,
+        },
+        speechToFirstModelResponse: {
+          status: 'unavailable',
+          valueMs: null,
+          lastValueMs: 35,
+          startedAtMs: null,
+        },
+      });
     });
 
     it('no-ops when voice session is stopping', () => {
