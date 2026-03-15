@@ -62,6 +62,7 @@ describe('useCaptureExclusionRects', () => {
     await waitFor(() => {
       const rects = useCaptureExclusionRectsStore.getState().rects;
       expect(rects.length).toBeGreaterThan(0);
+      expect(useCaptureExclusionRectsStore.getState().overlayVisibility).toBe('panel-closed-dock-only');
       expect(rects.some((rect) => rect.x === 1580 && rect.width === 340)).toBe(false);
       expect(rects.some((rect) => rect.x === 1500 && rect.width === 80)).toBe(true);
     });
@@ -69,6 +70,7 @@ describe('useCaptureExclusionRects', () => {
     panel.className = 'panel panel--open';
 
     await waitFor(() => {
+      expect(useCaptureExclusionRectsStore.getState().overlayVisibility).toBe('panel-open');
       expect(useCaptureExclusionRectsStore.getState().rects).toContainEqual({
         x: 1580,
         y: 0,
@@ -81,6 +83,7 @@ describe('useCaptureExclusionRects', () => {
 
     await waitFor(() => {
       const rects = useCaptureExclusionRectsStore.getState().rects;
+      expect(useCaptureExclusionRectsStore.getState().overlayVisibility).toBe('panel-closed-dock-only');
       expect(rects.some((rect) => rect.x === 1580 && rect.width === 340)).toBe(false);
       expect(rects.some((rect) => rect.x === 1500 && rect.width === 80)).toBe(true);
     });
@@ -91,6 +94,7 @@ describe('useCaptureExclusionRects', () => {
 
     await waitFor(() => {
       expect(useCaptureExclusionRectsStore.getState().rects).toEqual([]);
+      expect(useCaptureExclusionRectsStore.getState().overlayVisibility).toBe('hidden');
     });
   });
 
@@ -106,5 +110,6 @@ describe('useCaptureExclusionRects', () => {
     unmount();
 
     expect(useCaptureExclusionRectsStore.getState().rects).toEqual([]);
+    expect(useCaptureExclusionRectsStore.getState().overlayVisibility).toBe('hidden');
   });
 });

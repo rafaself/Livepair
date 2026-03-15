@@ -29,6 +29,10 @@ export function createEmptyScreenCaptureDiagnostics(): ScreenCaptureDiagnostics 
     widthPx: null,
     heightPx: null,
     lastFrameAt: null,
+    overlayMaskActive: false,
+    maskedRectCount: 0,
+    lastMaskedFrameAt: null,
+    maskReason: 'hidden',
     lastUploadStatus: 'idle',
     lastError: null,
   };

@@ -66,7 +66,9 @@ export type {
   RealtimeOutboundVisualFrameEvent,
 } from './outbound/outbound.types';
 export type {
+  CaptureExclusionOverlayVisibility,
   ScreenCaptureDiagnostics,
+  ScreenCaptureMaskReason,
   ScreenCaptureState,
   ScreenFrameUploadStatus,
 } from './screen/screen.types';

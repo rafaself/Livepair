@@ -45,6 +45,7 @@ function resolveDesktopSessionControllerDependencies(
 
         return {
           exclusionRects: useCaptureExclusionRectsStore.getState().rects,
+          overlayVisibility: useCaptureExclusionRectsStore.getState().overlayVisibility,
           overlayDisplay: sessionState.overlayDisplay,
           selectedSource,
         };

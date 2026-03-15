@@ -4,7 +4,10 @@ import type {
   ScreenCaptureOverlayDisplay,
   ScreenCaptureSource,
 } from '../../../shared';
-import { getCaptureExclusionMaskRects } from './screenFrameMasking';
+import {
+  analyzeCaptureExclusionMask,
+  getCaptureExclusionMaskRects,
+} from './screenFrameMasking';
 
 const OVERLAY_DISPLAY: ScreenCaptureOverlayDisplay = {
   displayId: 'display-1',
@@ -47,6 +50,7 @@ describe('getCaptureExclusionMaskRects', () => {
       canvasWidth: 1000,
       canvasHeight: 500,
       exclusionRects,
+      overlayVisibility: 'panel-open',
       overlayDisplay: OVERLAY_DISPLAY,
       selectedSource: createScreenSource(),
     })).toEqual([
@@ -60,6 +64,7 @@ describe('getCaptureExclusionMaskRects', () => {
       canvasWidth: 400,
       canvasHeight: 200,
       exclusionRects: [{ x: -30, y: -20, width: 60, height: 40 }],
+      overlayVisibility: 'panel-closed-dock-only',
       overlayDisplay: {
         displayId: 'display-1',
         bounds: { x: 0, y: 0, width: 200, height: 100 },
@@ -77,6 +82,7 @@ describe('getCaptureExclusionMaskRects', () => {
       canvasWidth: 1000,
       canvasHeight: 500,
       exclusionRects: [{ x: 100, y: 50, width: 300, height: 200 }],
+      overlayVisibility: 'panel-open',
       overlayDisplay: OVERLAY_DISPLAY,
       selectedSource: createWindowSource(),
     })).toEqual([]);
@@ -87,6 +93,7 @@ describe('getCaptureExclusionMaskRects', () => {
       canvasWidth: 1000,
       canvasHeight: 500,
       exclusionRects: [{ x: 100, y: 50, width: 300, height: 200 }],
+      overlayVisibility: 'panel-open',
       overlayDisplay: OVERLAY_DISPLAY,
       selectedSource: createScreenSource({ displayId: 'display-2' }),
     })).toEqual([]);
@@ -97,6 +104,7 @@ describe('getCaptureExclusionMaskRects', () => {
       canvasWidth: 1000,
       canvasHeight: 500,
       exclusionRects: [],
+      overlayVisibility: 'hidden',
       overlayDisplay: OVERLAY_DISPLAY,
       selectedSource: createScreenSource(),
     })).toEqual([]);
@@ -105,8 +113,91 @@ describe('getCaptureExclusionMaskRects', () => {
       canvasWidth: 1000,
       canvasHeight: 500,
       exclusionRects: [{ x: 100, y: 50, width: 300, height: 200 }],
+      overlayVisibility: 'panel-open',
       overlayDisplay: null,
       selectedSource: createScreenSource(),
     })).toEqual([]);
+  });
+
+  it('reports active masking diagnostics for panel-open and dock-only frames', () => {
+    expect(analyzeCaptureExclusionMask({
+      canvasWidth: 1000,
+      canvasHeight: 500,
+      exclusionRects: [{ x: 100, y: 50, width: 300, height: 200 }],
+      overlayVisibility: 'panel-open',
+      overlayDisplay: OVERLAY_DISPLAY,
+      selectedSource: createScreenSource(),
+    })).toMatchObject({
+      overlayMaskActive: true,
+      maskedRectCount: 1,
+      maskReason: 'panel-open',
+    });
+
+    expect(analyzeCaptureExclusionMask({
+      canvasWidth: 1000,
+      canvasHeight: 500,
+      exclusionRects: [{ x: 100, y: 50, width: 300, height: 200 }],
+      overlayVisibility: 'panel-closed-dock-only',
+      overlayDisplay: OVERLAY_DISPLAY,
+      selectedSource: createScreenSource(),
+    })).toMatchObject({
+      overlayMaskActive: true,
+      maskedRectCount: 1,
+      maskReason: 'panel-closed-dock-only',
+    });
+  });
+
+  it('reports useful non-masking reasons from the same decision path', () => {
+    expect(analyzeCaptureExclusionMask({
+      canvasWidth: 1000,
+      canvasHeight: 500,
+      exclusionRects: [{ x: 100, y: 50, width: 300, height: 200 }],
+      overlayVisibility: 'panel-open',
+      overlayDisplay: OVERLAY_DISPLAY,
+      selectedSource: createWindowSource(),
+    })).toMatchObject({
+      overlayMaskActive: false,
+      maskedRectCount: 0,
+      maskReason: 'window-source',
+    });
+
+    expect(analyzeCaptureExclusionMask({
+      canvasWidth: 1000,
+      canvasHeight: 500,
+      exclusionRects: [{ x: 100, y: 50, width: 300, height: 200 }],
+      overlayVisibility: 'panel-open',
+      overlayDisplay: OVERLAY_DISPLAY,
+      selectedSource: createScreenSource({ displayId: 'display-2' }),
+    })).toMatchObject({
+      overlayMaskActive: false,
+      maskedRectCount: 0,
+      maskReason: 'other-display',
+    });
+
+    expect(analyzeCaptureExclusionMask({
+      canvasWidth: 1000,
+      canvasHeight: 500,
+      exclusionRects: [{ x: 100, y: 50, width: 300, height: 200 }],
+      overlayVisibility: 'panel-open',
+      overlayDisplay: null,
+      selectedSource: createScreenSource(),
+    })).toMatchObject({
+      overlayMaskActive: false,
+      maskedRectCount: 0,
+      maskReason: 'missing-overlay-display',
+    });
+
+    expect(analyzeCaptureExclusionMask({
+      canvasWidth: 1000,
+      canvasHeight: 500,
+      exclusionRects: [],
+      overlayVisibility: 'hidden',
+      overlayDisplay: OVERLAY_DISPLAY,
+      selectedSource: createScreenSource(),
+    })).toMatchObject({
+      overlayMaskActive: false,
+      maskedRectCount: 0,
+      maskReason: 'hidden',
+    });
   });
 });

@@ -3,6 +3,10 @@ import type {
   ScreenCaptureOverlayDisplay,
   ScreenCaptureSource,
 } from '../../../shared';
+import type {
+  CaptureExclusionOverlayVisibility,
+  ScreenCaptureMaskReason,
+} from './screen.types';
 
 type CanvasMaskRect = OverlayHitRegion;
 
@@ -13,6 +17,7 @@ type MaskCanvasContext = {
 
 export type CaptureExclusionMaskingContext = {
   exclusionRects: OverlayHitRegion[];
+  overlayVisibility: CaptureExclusionOverlayVisibility;
   overlayDisplay: ScreenCaptureOverlayDisplay | null;
   selectedSource: ScreenCaptureSource | null;
 };
@@ -22,55 +27,72 @@ type GetCaptureExclusionMaskRectsArgs = CaptureExclusionMaskingContext & {
   canvasHeight: number;
 };
 
+export type CaptureExclusionMaskAnalysis = {
+  maskRects: CanvasMaskRect[];
+  overlayMaskActive: boolean;
+  maskedRectCount: number;
+  maskReason: ScreenCaptureMaskReason;
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function shouldApplyCaptureExclusionMask(
-  context: CaptureExclusionMaskingContext,
-): context is CaptureExclusionMaskingContext & {
-  overlayDisplay: ScreenCaptureOverlayDisplay;
-  selectedSource: ScreenCaptureSource & { kind: 'screen'; displayId: string };
-} {
-  return context.exclusionRects.length > 0
-    && context.overlayDisplay !== null
-    && context.selectedSource?.kind === 'screen'
-    && typeof context.selectedSource.displayId === 'string'
-    && context.selectedSource.displayId === context.overlayDisplay.displayId;
+function createInactiveMaskAnalysis(
+  maskReason: ScreenCaptureMaskReason,
+): CaptureExclusionMaskAnalysis {
+  return {
+    maskRects: [],
+    overlayMaskActive: false,
+    maskedRectCount: 0,
+    maskReason,
+  };
 }
 
-export function getCaptureExclusionMaskRects({
+export function analyzeCaptureExclusionMask({
   canvasWidth,
   canvasHeight,
   exclusionRects,
+  overlayVisibility,
   overlayDisplay,
   selectedSource,
-}: GetCaptureExclusionMaskRectsArgs): CanvasMaskRect[] {
-  const maskingContext = { exclusionRects, overlayDisplay, selectedSource };
+}: GetCaptureExclusionMaskRectsArgs): CaptureExclusionMaskAnalysis {
+  if (selectedSource?.kind === 'window') {
+    return createInactiveMaskAnalysis('window-source');
+  }
+
+  if (overlayDisplay === null) {
+    return createInactiveMaskAnalysis('missing-overlay-display');
+  }
 
   if (
-    canvasWidth <= 0
+    selectedSource?.kind !== 'screen'
+    || typeof selectedSource.displayId !== 'string'
+    || selectedSource.displayId !== overlayDisplay.displayId
+  ) {
+    return createInactiveMaskAnalysis('other-display');
+  }
+
+  if (overlayVisibility === 'hidden') {
+    return createInactiveMaskAnalysis('hidden');
+  }
+
+  if (
+    exclusionRects.length === 0
+    || canvasWidth <= 0
     || canvasHeight <= 0
-    || !shouldApplyCaptureExclusionMask(maskingContext)
+    || overlayDisplay.bounds.width <= 0
+    || overlayDisplay.bounds.height <= 0
   ) {
-    return [];
+    return createInactiveMaskAnalysis('no-rects');
   }
 
-  const matchedOverlayDisplay = maskingContext.overlayDisplay;
+  const scaleX = canvasWidth / overlayDisplay.bounds.width;
+  const scaleY = canvasHeight / overlayDisplay.bounds.height;
+  const workAreaOffsetX = overlayDisplay.workArea.x - overlayDisplay.bounds.x;
+  const workAreaOffsetY = overlayDisplay.workArea.y - overlayDisplay.bounds.y;
 
-  if (
-    matchedOverlayDisplay.bounds.width <= 0
-    || matchedOverlayDisplay.bounds.height <= 0
-  ) {
-    return [];
-  }
-
-  const scaleX = canvasWidth / matchedOverlayDisplay.bounds.width;
-  const scaleY = canvasHeight / matchedOverlayDisplay.bounds.height;
-  const workAreaOffsetX = matchedOverlayDisplay.workArea.x - matchedOverlayDisplay.bounds.x;
-  const workAreaOffsetY = matchedOverlayDisplay.workArea.y - matchedOverlayDisplay.bounds.y;
-
-  return exclusionRects.flatMap((rect) => {
+  const maskRects = exclusionRects.flatMap((rect) => {
     const leftPx = (rect.x + workAreaOffsetX) * scaleX;
     const topPx = (rect.y + workAreaOffsetY) * scaleY;
     const rightPx = (rect.x + rect.width + workAreaOffsetX) * scaleX;
@@ -89,20 +111,39 @@ export function getCaptureExclusionMaskRects({
 
     return [{ x, y, width, height }];
   });
+
+  if (maskRects.length === 0) {
+    return createInactiveMaskAnalysis('no-rects');
+  }
+
+  return {
+    maskRects,
+    overlayMaskActive: true,
+    maskedRectCount: maskRects.length,
+    maskReason: overlayVisibility,
+  };
+}
+
+export function getCaptureExclusionMaskRects(
+  args: GetCaptureExclusionMaskRectsArgs,
+): CanvasMaskRect[] {
+  return analyzeCaptureExclusionMask(args).maskRects;
 }
 
 export function applyCaptureExclusionMask(
   ctx: MaskCanvasContext,
   args: GetCaptureExclusionMaskRectsArgs,
-): void {
-  const maskRects = getCaptureExclusionMaskRects(args);
+): CaptureExclusionMaskAnalysis {
+  const analysis = analyzeCaptureExclusionMask(args);
 
-  if (maskRects.length === 0) {
-    return;
+  if (!analysis.overlayMaskActive) {
+    return analysis;
   }
 
   ctx.fillStyle = '#000';
-  for (const rect of maskRects) {
+  for (const rect of analysis.maskRects) {
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
   }
+
+  return analysis;
 }

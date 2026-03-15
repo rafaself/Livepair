@@ -11,6 +11,7 @@ import {
   applyCaptureExclusionMask,
 } from './screenFrameMasking';
 import type { CaptureExclusionMaskingContext } from './screenFrameMasking';
+import type { CaptureExclusionMaskAnalysis } from './screenFrameMasking';
 
 export {
   SCREEN_CAPTURE_FRAME_RATE_HZ,
@@ -77,6 +78,7 @@ export type CreateLocalScreenCaptureDependencies = {
 function defaultGetCaptureExclusionMaskingContext(): CaptureExclusionMaskingContext {
   return {
     exclusionRects: [],
+    overlayVisibility: 'hidden',
     overlayDisplay: null,
     selectedSource: null,
   };
@@ -214,6 +216,7 @@ export function createLocalScreenCapture(
     cvs: CanvasLike,
     jpegQuality: number,
     generation: number,
+    maskAnalysis: CaptureExclusionMaskAnalysis,
   ): Promise<void> {
     let data: Uint8Array;
 
@@ -239,12 +242,19 @@ export function createLocalScreenCapture(
       heightPx: cvs.height,
     };
 
+    const frameTimestamp = new Date().toISOString();
     observer.onFrame(frame);
     observer.onDiagnostics({
       frameCount: sequence,
       widthPx: cvs.width,
       heightPx: cvs.height,
-      lastFrameAt: new Date().toISOString(),
+      lastFrameAt: frameTimestamp,
+      overlayMaskActive: maskAnalysis.overlayMaskActive,
+      maskedRectCount: maskAnalysis.maskedRectCount,
+      maskReason: maskAnalysis.maskReason,
+      ...(maskAnalysis.overlayMaskActive
+        ? { lastMaskedFrameAt: frameTimestamp }
+        : {}),
     });
   }
 
@@ -345,6 +355,10 @@ export function createLocalScreenCapture(
         widthPx: null,
         heightPx: null,
         lastFrameAt: null,
+        overlayMaskActive: false,
+        maskedRectCount: 0,
+        lastMaskedFrameAt: null,
+        maskReason: 'hidden',
         lastUploadStatus: 'idle',
         lastError: null,
       });
@@ -379,12 +393,12 @@ export function createLocalScreenCapture(
         }
 
         ctx.drawImage(video as unknown as HTMLVideoElement, 0, 0, targetWidth, targetHeight);
-        applyCaptureExclusionMask(ctx, {
+        const maskAnalysis = applyCaptureExclusionMask(ctx, {
           canvasWidth: cvs.width,
           canvasHeight: cvs.height,
           ...getCaptureExclusionMaskingContext(),
         });
-        await captureFrame(cvs, currentJpegQuality, sessionGeneration);
+        await captureFrame(cvs, currentJpegQuality, sessionGeneration, maskAnalysis);
       }, intervalMs);
     })();
 

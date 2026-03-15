@@ -1,15 +1,19 @@
 import { useCallback } from 'react';
 import type { OverlayHitRegion } from '../../shared/desktopBridge';
+import type { CaptureExclusionOverlayVisibility } from '../runtime/public';
 import { useCaptureExclusionRectsStore } from '../store/captureExclusionRectsStore';
 import { useVisibleOverlayRects } from './useVisibleOverlayRects';
 
 export function useCaptureExclusionRects(): void {
-  const setRects = useCaptureExclusionRectsStore((state) => state.setRects);
+  const setSnapshot = useCaptureExclusionRectsStore((state) => state.setSnapshot);
   const handleVisibleOverlayRectsChange = useCallback(
-    (rects: OverlayHitRegion[]) => {
-      setRects(rects);
+    (
+      rects: OverlayHitRegion[],
+      overlayVisibility: CaptureExclusionOverlayVisibility,
+    ) => {
+      setSnapshot(rects, overlayVisibility);
     },
-    [setRects],
+    [setSnapshot],
   );
 
   useVisibleOverlayRects({

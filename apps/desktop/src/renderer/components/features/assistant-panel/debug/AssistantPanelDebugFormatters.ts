@@ -1,5 +1,6 @@
 import type {
   RealtimeOutboundDiagnostics,
+  ScreenCaptureDiagnostics,
   ScreenCaptureState,
   VisualSendDiagnostics,
   VoiceCaptureState,
@@ -85,6 +86,36 @@ export function formatScreenCaptureState(state: ScreenCaptureState): string {
   }
 
   return formatCapitalizedState(state);
+}
+
+export function formatOverlayMaskReason(
+  reason: ScreenCaptureDiagnostics['maskReason'],
+): string {
+  if (reason === 'panel-open') {
+    return 'Panel open';
+  }
+
+  if (reason === 'panel-closed-dock-only') {
+    return 'Panel closed (dock only)';
+  }
+
+  if (reason === 'window-source') {
+    return 'Window source';
+  }
+
+  if (reason === 'other-display') {
+    return 'Other display';
+  }
+
+  if (reason === 'missing-overlay-display') {
+    return 'Missing overlay display';
+  }
+
+  if (reason === 'no-rects') {
+    return 'No rects';
+  }
+
+  return 'Hidden';
 }
 
 export function formatVisualTransitionReason(

@@ -1,14 +1,23 @@
 import { useEffect } from 'react';
 import type { OverlayHitRegion } from '../../shared/desktopBridge';
 import {
-  collectVisibleOverlayRects,
+  collectVisibleOverlaySnapshot,
   shouldCollectVisibleOverlayRectsForMutation,
   VISIBLE_OVERLAY_SELECTOR,
 } from './visibleOverlayRects';
+import type { CaptureExclusionOverlayVisibility } from '../runtime/public';
+
+const EMPTY_VISIBLE_OVERLAY_SNAPSHOT_KEY = JSON.stringify({
+  rects: [],
+  overlayVisibility: 'hidden',
+});
 
 type UseVisibleOverlayRectsOptions = {
   enabled?: boolean;
-  onChange: (rects: OverlayHitRegion[]) => void;
+  onChange: (
+    rects: OverlayHitRegion[],
+    overlayVisibility: CaptureExclusionOverlayVisibility,
+  ) => void;
 };
 
 export function useVisibleOverlayRects({
@@ -26,15 +35,15 @@ export function useVisibleOverlayRects({
     let lastPublishedKey: string | null = null;
 
     const publishVisibleOverlayRects = (): void => {
-      const rects = collectVisibleOverlayRects();
-      const nextKey = JSON.stringify(rects);
+      const snapshot = collectVisibleOverlaySnapshot();
+      const nextKey = JSON.stringify(snapshot);
 
       if (nextKey === lastPublishedKey) {
         return;
       }
 
       lastPublishedKey = nextKey;
-      onChange(rects);
+      onChange(snapshot.rects, snapshot.overlayVisibility);
     };
 
     const schedulePublish = (): void => {
@@ -130,8 +139,8 @@ export function useVisibleOverlayRects({
       document.removeEventListener('transitionrun', handleTransitionRun, true);
       document.removeEventListener('transitionend', handleTransitionEnd, true);
       document.removeEventListener('transitioncancel', handleTransitionEnd, true);
-      if (lastPublishedKey !== '[]') {
-        onChange([]);
+      if (lastPublishedKey !== EMPTY_VISIBLE_OVERLAY_SNAPSHOT_KEY) {
+        onChange([], 'hidden');
       }
     };
   }, [enabled, onChange]);

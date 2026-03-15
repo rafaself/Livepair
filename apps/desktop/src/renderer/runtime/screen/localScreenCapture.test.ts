@@ -169,6 +169,7 @@ function createHarness(opts: {
       >,
     getCaptureExclusionMaskingContext: () => opts.maskingContext ?? {
       exclusionRects: [],
+      overlayVisibility: 'hidden',
       overlayDisplay: null,
       selectedSource: null,
     },
@@ -436,6 +437,7 @@ describe('createLocalScreenCapture', () => {
         trackHeight: 100,
         maskingContext: {
           exclusionRects: [{ x: 10, y: 20, width: 30, height: 40 }],
+          overlayVisibility: 'panel-open',
           overlayDisplay: {
             displayId: 'display-1',
             bounds: { x: 0, y: 0, width: 200, height: 100 },
@@ -466,6 +468,70 @@ describe('createLocalScreenCapture', () => {
       expect(ctx2d.fillStyle).toBe('#000');
       expect(drawImageOrder).toBeLessThan(fillRectOrder);
       expect(fillRectOrder).toBeLessThan(toBlobOrder);
+    });
+
+    it('publishes masking diagnostics from the same decision path and preserves lastMaskedFrameAt on skipped frames', async () => {
+      const maskingContext: CaptureExclusionMaskingContext = {
+        exclusionRects: [{ x: 10, y: 20, width: 30, height: 40 }],
+        overlayVisibility: 'panel-open',
+        overlayDisplay: {
+          displayId: 'display-1',
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+          workArea: { x: 0, y: 0, width: 200, height: 100 },
+          scaleFactor: 1,
+        },
+        selectedSource: {
+          id: 'screen-1',
+          name: 'Entire screen',
+          kind: 'screen',
+          displayId: 'display-1',
+        },
+      };
+      const { capture, obs, tickInterval } = createHarness({
+        videoWidth: 200,
+        videoHeight: 100,
+        trackWidth: 200,
+        trackHeight: 100,
+        maskingContext,
+      });
+
+      await capture.start({});
+      await tickInterval();
+
+      expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          overlayMaskActive: true,
+          maskedRectCount: 1,
+          maskReason: 'panel-open',
+          lastMaskedFrameAt: expect.any(String),
+        }),
+      );
+
+      const firstMaskedFrameAt = obs.onDiagnostics.mock.lastCall?.[0].lastMaskedFrameAt;
+      if (typeof firstMaskedFrameAt !== 'string') {
+        throw new Error('Expected first masked frame timestamp');
+      }
+
+      maskingContext.selectedSource = {
+        id: 'window-1',
+        name: 'Livepair',
+        kind: 'window',
+      };
+
+      await tickInterval();
+
+      expect(obs.onDiagnostics).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          overlayMaskActive: false,
+          maskedRectCount: 0,
+          maskReason: 'window-source',
+        }),
+      );
+      expect(obs.onDiagnostics.mock.lastCall?.[0].lastMaskedFrameAt).toBeUndefined();
+      const diagnosticCallsWithMaskedTimestamp = obs.onDiagnostics.mock.calls.filter(
+        ([diagnostics]) => diagnostics.lastMaskedFrameAt === firstMaskedFrameAt,
+      );
+      expect(diagnosticCallsWithMaskedTimestamp).toHaveLength(1);
     });
   });
 

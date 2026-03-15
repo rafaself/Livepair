@@ -1,6 +1,11 @@
 import type { OverlayHitRegion } from '../../shared/desktopBridge';
+import type { CaptureExclusionOverlayVisibility } from '../runtime/public';
 
 export type VisibleOverlayRect = OverlayHitRegion;
+export type VisibleOverlaySnapshot = {
+  rects: VisibleOverlayRect[];
+  overlayVisibility: CaptureExclusionOverlayVisibility;
+};
 
 export const VISIBLE_OVERLAY_SELECTOR = '.control-dock, .panel.panel--open';
 const VISIBLE_OVERLAY_MUTATION_SELECTOR = '.control-dock, .panel';
@@ -89,9 +94,40 @@ export function toVisibleOverlayRects(element: Element): VisibleOverlayRect[] {
 }
 
 export function collectVisibleOverlayRects(root: ParentNode = document): VisibleOverlayRect[] {
-  return Array.from(root.querySelectorAll(VISIBLE_OVERLAY_SELECTOR)).flatMap((element) =>
-    toVisibleOverlayRects(element),
-  );
+  return collectVisibleOverlaySnapshot(root).rects;
+}
+
+export function collectVisibleOverlaySnapshot(root: ParentNode = document): VisibleOverlaySnapshot {
+  let hasVisibleDock = false;
+  let hasVisibleOpenPanel = false;
+  const rects: VisibleOverlayRect[] = [];
+
+  for (const element of Array.from(root.querySelectorAll(VISIBLE_OVERLAY_SELECTOR))) {
+    const nextRects = toVisibleOverlayRects(element);
+
+    if (nextRects.length === 0) {
+      continue;
+    }
+
+    if (element.matches('.panel.panel--open')) {
+      hasVisibleOpenPanel = true;
+    }
+
+    if (element.matches('.control-dock')) {
+      hasVisibleDock = true;
+    }
+
+    rects.push(...nextRects);
+  }
+
+  return {
+    rects,
+    overlayVisibility: hasVisibleOpenPanel
+      ? 'panel-open'
+      : hasVisibleDock
+        ? 'panel-closed-dock-only'
+        : 'hidden',
+  };
 }
 
 function isVisibleOverlayRelatedElement(element: Element): boolean {
