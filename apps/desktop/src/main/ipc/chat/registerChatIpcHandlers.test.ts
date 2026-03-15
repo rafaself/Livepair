@@ -541,4 +541,23 @@ describe('registerChatIpcHandlers', () => {
       },
     );
   });
+
+  it('returns null from getChatSummary when the backend responds with 204', async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+    });
+    const { registerChatIpcHandlers } = await import('./registerChatIpcHandlers');
+
+    registerChatIpcHandlers({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      settingsService: createSettingsServiceDouble(),
+    });
+
+    const getChatSummaryHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.getChatSummary,
+    )?.[1] as (_event: unknown, chatId: unknown) => Promise<DurableChatSummaryRecord | null>;
+
+    await expect(getChatSummaryHandler({}, CHAT_ID)).resolves.toBeNull();
+  });
 });
