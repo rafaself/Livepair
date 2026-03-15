@@ -33,6 +33,8 @@ type SessionControllerPublicApiArgs = {
     start: () => Promise<void>;
     stop: () => Promise<void>;
     analyzeScreenNow: () => void;
+    enableStreaming: () => void;
+    stopStreaming: () => void;
   };
   appendTypedUserTurn: (text: string) => string;
   voiceTranscriptCtrl: {
@@ -102,6 +104,12 @@ export function createSessionControllerPublicApi({
     },
     analyzeScreenNow: () => {
       screenCtrl.analyzeScreenNow();
+    },
+    enableScreenStreaming: () => {
+      screenCtrl.enableStreaming();
+    },
+    stopScreenStreaming: () => {
+      screenCtrl.stopStreaming();
     },
     startSession: async ({ mode }) => {
       await startSessionInternal({ mode });

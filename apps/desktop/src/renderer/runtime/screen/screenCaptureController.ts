@@ -64,6 +64,10 @@ export function createScreenCaptureController(
     getTransport,
     getRealtimeOutboundGateway,
     allowSend: () => visualPolicy.allowSend(),
+    onFrameDispatched: () => {
+      visualPolicy.onFrameDispatched();
+      flushVisualDiagnostics();
+    },
     flushVisualDiagnostics,
     onSendStarted: () => {
       store.getState().setScreenCaptureDiagnostics({
@@ -99,6 +103,11 @@ export function createScreenCaptureController(
     frameSendCoordinator,
     onScreenShareStarted: () => {
       visualPolicy.onScreenShareStarted();
+      // Wave 3: immediately arm an initial snapshot so the first captured frame
+      // reaches the model without requiring an explicit analyzeScreenNow() call.
+      // This eliminates the state mismatch where screen share is active but the
+      // model is still in effective speech-only mode.
+      visualPolicy.analyzeScreenNow();
       flushVisualDiagnostics();
     },
     onScreenShareStopped: () => {

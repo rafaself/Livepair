@@ -106,12 +106,22 @@ export type VisualSendPolicy = {
    */
   stopStreaming: () => void;
   /**
-   * Called at the frame-send gating point.
-   * Returns true when the current frame should be forwarded to the model.
-   * Side effect: if state is `snapshot`, transitions to `sleep` after returning true
-   * (exactly one frame is allowed per analyzeScreenNow call).
+   * Called at the frame-send gating point (before submitting to the outbound gateway).
+   * Returns true when the current policy state permits forwarding a frame.
+   * Non-consuming: does NOT transition snapshot → sleep. Call onFrameDispatched()
+   * after the gateway accepts the frame to perform the state transition and update
+   * diagnostics counters.
    */
   allowSend: () => boolean;
+  /**
+   * Wave 3 – called after the outbound gateway accepts a frame for dispatch.
+   * Performs the consuming side-effects that allowSend() no longer applies eagerly:
+   *   - snapshot state: transitions to sleep and increments the snapshot-sent counter
+   *   - streaming state: increments the streaming-sent counter
+   * Must only be called when allowSend() returned true AND the gateway did not
+   * block or drop the frame.
+   */
+  onFrameDispatched: () => void;
   /**
    * Wave 3 – returns a read-only diagnostics snapshot.
    * Each call returns a new object; the caller owns the reference.
@@ -187,17 +197,17 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
     },
 
     allowSend: () => {
+      return state === 'snapshot' || state === 'streaming';
+    },
+
+    onFrameDispatched: () => {
       if (state === 'snapshot') {
         state = 'sleep';
         lastTransitionReason = 'snapshotConsumed';
         sentSnapshot += 1;
-        return true;
-      }
-      if (state === 'streaming') {
+      } else if (state === 'streaming') {
         sentStreaming += 1;
-        return true;
       }
-      return false;
     },
 
     getDiagnostics: () => ({

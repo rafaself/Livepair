@@ -30,6 +30,7 @@ export function createScreenFrameSendCoordinator({
   getTransport,
   getRealtimeOutboundGateway,
   allowSend,
+  onFrameDispatched,
   flushVisualDiagnostics,
   onSendStarted,
   onSendSucceeded,
@@ -40,6 +41,13 @@ export function createScreenFrameSendCoordinator({
   getTransport: GetTransport;
   getRealtimeOutboundGateway: GetRealtimeOutboundGateway;
   allowSend: () => boolean;
+  /**
+   * Wave 3 – called immediately after the gateway accepts a frame for dispatch.
+   * Triggers the consuming side-effects in the visual policy (snapshot → sleep
+   * transition, counter increments) so they only occur when the frame will
+   * actually reach the transport.
+   */
+  onFrameDispatched: () => void;
   flushVisualDiagnostics: () => void;
   onSendStarted: () => void;
   onSendSucceeded: () => void;
@@ -159,8 +167,6 @@ export function createScreenFrameSendCoordinator({
         return Promise.resolve();
       }
 
-      flushVisualDiagnostics();
-
       visualOutboundSequence += 1;
       const decision = getRealtimeOutboundGateway().submit({
         kind: 'visual_frame',
@@ -174,6 +180,12 @@ export function createScreenFrameSendCoordinator({
       if (decision.outcome === 'drop' || decision.outcome === 'block') {
         return Promise.resolve();
       }
+
+      // Wave 3: consume the snapshot (or increment streaming counter) only now
+      // that the gateway has accepted the frame for dispatch.  This prevents
+      // snapshot state from being silently consumed when the gateway blocks.
+      onFrameDispatched();
+      flushVisualDiagnostics();
 
       pendingFrame = {
         capture: activeCapture.capture,

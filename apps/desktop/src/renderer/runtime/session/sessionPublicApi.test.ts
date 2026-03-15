@@ -21,6 +21,14 @@ function createHarness(options: {
     })),
   } as never;
 
+  const screenCtrl = {
+    start: vi.fn(async () => undefined),
+    stop: vi.fn(async () => undefined),
+    analyzeScreenNow: vi.fn(),
+    enableStreaming: vi.fn(),
+    stopStreaming: vi.fn(),
+  };
+
   const sendText = vi.fn(async () => undefined);
   const activeTransport = {
     kind: 'gemini-live' as const,
@@ -57,11 +65,7 @@ function createHarness(options: {
       getVoiceCapture: vi.fn(() => ({ stop: vi.fn(async () => undefined) })),
       startCapture: vi.fn(async () => true),
     },
-    screenCtrl: {
-      start: vi.fn(async () => undefined),
-      stop: vi.fn(async () => undefined),
-      analyzeScreenNow: vi.fn(),
-    },
+    screenCtrl,
     appendTypedUserTurn,
     voiceTranscriptCtrl: {
       queueMixedModeAssistantReply,
@@ -82,6 +86,7 @@ function createHarness(options: {
 
   return {
     publicApi,
+    screenCtrl,
     sendText,
     outboundGateway,
     appendTypedUserTurn,
@@ -153,5 +158,30 @@ describe('createSessionControllerPublicApi', () => {
     expect(harness.sendText).not.toHaveBeenCalled();
     expect(harness.outboundGateway.recordSuccess).not.toHaveBeenCalled();
     expect(harness.outboundGateway.recordFailure).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 3 – public API wiring for enableScreenStreaming / stopScreenStreaming
+// ---------------------------------------------------------------------------
+describe('createSessionControllerPublicApi – Wave 3 screen streaming controls', () => {
+  it('enableScreenStreaming delegates to screenCtrl.enableStreaming', () => {
+    const harness = createHarness();
+    harness.publicApi.enableScreenStreaming();
+    expect(harness.screenCtrl.enableStreaming).toHaveBeenCalledTimes(1);
+  });
+
+  it('stopScreenStreaming delegates to screenCtrl.stopStreaming', () => {
+    const harness = createHarness();
+    harness.publicApi.stopScreenStreaming();
+    expect(harness.screenCtrl.stopStreaming).toHaveBeenCalledTimes(1);
+  });
+
+  it('enableScreenStreaming and stopScreenStreaming are independent calls', () => {
+    const harness = createHarness();
+    harness.publicApi.enableScreenStreaming();
+    harness.publicApi.stopScreenStreaming();
+    expect(harness.screenCtrl.enableStreaming).toHaveBeenCalledTimes(1);
+    expect(harness.screenCtrl.stopStreaming).toHaveBeenCalledTimes(1);
   });
 });

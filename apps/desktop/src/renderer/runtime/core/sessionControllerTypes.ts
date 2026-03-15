@@ -34,6 +34,10 @@ export type DesktopSessionController = {
   stopScreenCapture: () => Promise<void>;
   /** Trigger a one-shot visual snapshot: send exactly one frame to the model, then sleep. */
   analyzeScreenNow: () => void;
+  /** Enable continuous visual streaming: every captured frame is forwarded to the model. */
+  enableScreenStreaming: () => void;
+  /** Stop continuous visual streaming: return to sleep (frames blocked until next snapshot or re-enable). */
+  stopScreenStreaming: () => void;
   subscribeToVoiceChunks: (listener: (chunk: LocalVoiceChunk) => void) => () => void;
   submitTextTurn: (text: string) => Promise<boolean>;
   endSpeechMode: () => Promise<void>;

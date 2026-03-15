@@ -145,22 +145,12 @@ describe('createScreenCaptureController', () => {
     expect(store.setScreenCaptureState).toHaveBeenCalledWith('capturing');
   });
 
-  it('flushes visual diagnostics through start, snapshot send, and stop', async () => {
+  it('flushes visual diagnostics through start, auto-snapshot send, and stop', async () => {
+    // Wave 3: start() arms the initial snapshot immediately (analyzeScreenNow),
+    // so the last diagnostics flush after start reflects that transition.
     const { ctrl, store } = createHarness();
 
     await ctrl.start();
-    expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
-      lastTransitionReason: 'screenShareStarted',
-      snapshotCount: 0,
-      streamingEnteredAt: null,
-      streamingEndedAt: null,
-      sentByState: {
-        snapshot: 0,
-        streaming: 0,
-      },
-    });
-
-    ctrl.analyzeScreenNow();
     expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith({
       lastTransitionReason: 'analyzeScreenNow',
       snapshotCount: 1,
@@ -765,7 +755,10 @@ describe('createScreenCaptureController', () => {
 // request (analyzeScreenNow → snapshot) or an explicit streaming trigger.
 // ---------------------------------------------------------------------------
 describe('createScreenCaptureController – visual send policy', () => {
-  it('does NOT send frames automatically after start (visual state is sleep)', async () => {
+  it('sends the first frame automatically after start (Wave 3: auto-snapshot armed on start)', async () => {
+    // Wave 3 change: start() arms an initial snapshot so the model immediately
+    // has visual context. The first frame from the hardware is dispatched
+    // automatically; subsequent frames revert to sleep (no silent streaming).
     const { ctrl, getObserver, sendVideoFrame } = createHarness();
     await ctrl.start();
 
@@ -778,7 +771,7 @@ describe('createScreenCaptureController – visual send policy', () => {
     });
     await Promise.resolve();
 
-    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
   });
 
   it('sends exactly one frame after analyzeScreenNow (snapshot)', async () => {
@@ -876,10 +869,12 @@ describe('createScreenCaptureController – visual send policy', () => {
     expect(ctrl.getVisualSendState()).toBe('inactive');
   });
 
-  it('visual state becomes sleep after start succeeds', async () => {
+  it('visual state becomes snapshot after start succeeds (Wave 3: auto-snapshot armed)', async () => {
+    // Wave 3: start() now arms an initial snapshot immediately so the model
+    // gets visual context without an explicit analyzeScreenNow() call.
     const { ctrl } = createHarness();
     await ctrl.start();
-    expect(ctrl.getVisualSendState()).toBe('sleep');
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
   });
 
   it('visual state becomes snapshot after analyzeScreenNow', async () => {
@@ -958,11 +953,17 @@ describe('createScreenCaptureController – visual send pipeline (Wave 2)', () =
   // ── sleep ──────────────────────────────────────────────────────────────────
 
   it('sleep blocks a burst of frames arriving through the observer', async () => {
+    // Wave 3: start() arms an initial snapshot, so we must first drain it
+    // (frame 1) to reach sleep state, then verify a subsequent burst is blocked.
     const { ctrl, getObserver, sendVideoFrame } = createHarness();
     await ctrl.start();
-    // Visual state is sleep after start; do NOT arm snapshot or streaming.
+    // Consume the auto-snapshot to reach sleep
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    sendVideoFrame.mockClear();
 
-    for (let i = 1; i <= 5; i++) {
+    // Now in sleep; subsequent frames must all be blocked
+    for (let i = 2; i <= 6; i++) {
       getObserver()!.onFrame(mkFrame(i));
     }
     await Promise.resolve();
@@ -1170,34 +1171,336 @@ describe('createScreenCaptureController – visual send pipeline (Wave 2)', () =
     expect(ctrl.getVisualSendState()).toBe('inactive');
   });
 
-  it('restarting screen share requires explicit re-arm before frames are sent', async () => {
+  it('restarting screen share re-arms auto-snapshot; sleep is reached only after it is consumed', async () => {
+    // Wave 3: each start() arms a new auto-snapshot (cooldown reset on stop).
+    // The snapshot is consumed on the first frame of the new session; subsequent
+    // frames revert to sleep and require explicit re-arm (analyzeScreenNow /
+    // enableStreaming) to flow again.
     const { ctrl, getObserver, sendVideoFrame } = createHarness({
       submitDecision: (i) => ({
-        outcome: i === 1 ? 'send' : 'replace',
+        outcome: i <= 2 ? 'send' as const : 'replace' as const,
         classification: 'replaceable' as const,
-        reason: i === 1 ? 'accepted' : 'superseded-latest',
+        reason: i <= 2 ? 'accepted' : 'superseded-latest',
       }),
     });
 
-    // First session: arm streaming, send a frame, stop
+    // First session: auto-snapshot consumed by frame 1, then stop
     await ctrl.start();
-    ctrl.enableStreaming();
     getObserver()!.onFrame(mkFrame(1));
     await Promise.resolve();
     await ctrl.stop();
     sendVideoFrame.mockClear();
 
-    // Second session: start without re-arming → sleep → no frames
+    // Second session: start() re-arms auto-snapshot (cooldown reset by stop)
     await ctrl.start();
+    // First frame consumed by the new auto-snapshot
     getObserver()!.onFrame(mkFrame(2));
     await Promise.resolve();
-    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
     expect(ctrl.getVisualSendState()).toBe('sleep');
+    sendVideoFrame.mockClear();
+
+    // Subsequent frames are blocked until explicitly re-armed
+    getObserver()!.onFrame(mkFrame(3));
+    await Promise.resolve();
+    expect(sendVideoFrame).not.toHaveBeenCalled();
 
     // Re-arm streaming → frames flow again
     ctrl.enableStreaming();
-    getObserver()!.onFrame(mkFrame(3));
+    getObserver()!.onFrame(mkFrame(4));
     await Promise.resolve();
     expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Visual send policy integration – Wave 3
+//
+// These tests lock in the screen-capture stabilization requirements:
+//   1. Enabling screen share sends an initial snapshot automatically so the
+//      model immediately has visual context (no hidden extra steps).
+//   2. If the first captured frame is gateway-blocked or dropped, the snapshot
+//      is NOT incorrectly consumed (policy stays snapshot-armed for the next
+//      frame that can actually reach the model).
+//   3. Screen share active no longer leaves the model in speech-only state.
+//   4. enableStreaming / stopStreaming are wired on the public ScreenCaptureController
+//      surface and tested end-to-end through the public API.
+//   5. No regression in sleep / snapshot / streaming policy transitions.
+// ---------------------------------------------------------------------------
+describe('createScreenCaptureController – Wave 3 screen-capture stabilization', () => {
+  const mkFrame = (seq: number) => ({
+    data: new Uint8Array([seq]),
+    mimeType: 'image/jpeg' as const,
+    sequence: seq,
+    widthPx: 640,
+    heightPx: 360,
+  });
+
+  // ── Requirement 1 & 3: initial visual frame sent automatically on start ───
+
+  it('enabling screen share automatically arms an initial snapshot so the first frame reaches the model', async () => {
+    // The mismatch: previously, start() left the policy in sleep and no frame
+    // was ever sent until the user explicitly called analyzeScreenNow().
+    // After the fix, start() must arm an initial snapshot automatically.
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+
+    await ctrl.start();
+
+    // First frame from the capture hardware must reach the model without any
+    // explicit analyzeScreenNow() call from the UI.
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(sendVideoFrame).toHaveBeenCalledWith(mkFrame(1).data, mkFrame(1).mimeType);
+  });
+
+  it('after the initial auto-snapshot is consumed the policy returns to sleep (subsequent frames blocked)', async () => {
+    // The auto-snapshot is a one-shot: exactly one frame is sent, then the
+    // policy reverts to sleep so continuous streaming does not start silently.
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+
+    await ctrl.start();
+
+    getObserver()!.onFrame(mkFrame(1)); // consumed by auto-snapshot
+    await Promise.resolve();
+    getObserver()!.onFrame(mkFrame(2)); // back in sleep – must be blocked
+    await Promise.resolve();
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('visual state is snapshot immediately after start (before the first frame arrives)', async () => {
+    // Policy should already be armed when start() resolves, not just when the
+    // first frame arrives – so a slow capture device still gets a snapshot.
+    const { ctrl } = createHarness();
+
+    await ctrl.start();
+
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  it('screen share active leaves model with visual context – no speech-only mismatch', async () => {
+    // Regression test for the original mismatch: after enabling screen share
+    // the assistant must receive at least one visual frame without extra steps.
+    const { ctrl, getObserver, sendVideoFrame } = createHarness();
+
+    await ctrl.start();
+    // Simulate the first periodic frame from the capture hardware
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    // Model now has visual context
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    // Policy is back in sleep (not streaming), so it's snapshot-first semantics
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  // ── Requirement 2: snapshot not consumed when gateway blocks the frame ────
+
+  it('snapshot is not consumed when the outbound gateway blocks the frame', async () => {
+    // If the gateway returns block/drop, allowSend() will have returned true
+    // (transitioning snapshot→sleep) but the frame never reached the model.
+    // The fix: snapshot must only be consumed when the frame is truly dispatched.
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: () => ({
+        outcome: 'block' as const,
+        classification: 'replaceable' as const,
+        reason: 'breaker-open',
+      }),
+    });
+
+    await ctrl.start();
+    // auto-snapshot armed by start()
+
+    // First frame: gateway blocks it – snapshot should NOT be consumed
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+    // Policy must still be snapshot-armed (or at minimum still allow one more frame)
+    // so that when the gateway recovers, the next frame is sent.
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  it('snapshot is not consumed when the outbound gateway drops the frame', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: () => ({
+        outcome: 'drop' as const,
+        classification: 'replaceable' as const,
+        reason: 'superseded-latest',
+      }),
+    });
+
+    await ctrl.start();
+
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
+  });
+
+  it('snapshot is consumed only when a frame actually reaches the transport', async () => {
+    // Mixed scenario: first frame blocked, second frame accepted.
+    // Only one frame should be sent total (the snapshot is consumed on the
+    // second attempt when the gateway allows it).
+    let callIndex = 0;
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: () => {
+        callIndex += 1;
+        if (callIndex === 1) {
+          return { outcome: 'block' as const, classification: 'replaceable' as const, reason: 'breaker-open' };
+        }
+        return { outcome: 'send' as const, classification: 'replaceable' as const, reason: 'accepted' };
+      },
+    });
+
+    await ctrl.start();
+
+    // First frame: gateway blocks → snapshot stays armed
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+    expect(ctrl.getVisualSendState()).toBe('snapshot');
+
+    // Second frame: gateway accepts → snapshot consumed, frame sent
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  // ── Requirement 4: enableStreaming / stopStreaming wired on public ctrl ───
+
+  it('enableStreaming transitions policy to streaming and frames flow continuously', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i === 1 ? 'send' as const : 'replace' as const,
+        classification: 'replaceable' as const,
+        reason: i === 1 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+
+    await ctrl.start();
+    // Consume the auto-snapshot so we can test enableStreaming from sleep
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    sendVideoFrame.mockClear();
+
+    ctrl.enableStreaming();
+    expect(ctrl.getVisualSendState()).toBe('streaming');
+
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it('stopStreaming transitions policy back to sleep and subsequent frames are blocked', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i === 1 ? 'send' as const : 'replace' as const,
+        classification: 'replaceable' as const,
+        reason: i === 1 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+
+    await ctrl.start();
+    // Drain auto-snapshot
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    sendVideoFrame.mockClear();
+
+    ctrl.enableStreaming();
+    ctrl.stopStreaming();
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+    expect(sendVideoFrame).not.toHaveBeenCalled();
+  });
+
+  it('visual send diagnostics are flushed to the store when the auto-snapshot is consumed', async () => {
+    const { ctrl, store, getObserver } = createHarness();
+
+    await ctrl.start();
+    // Diagnostics after start: transition reason should reflect auto-snapshot arm
+    expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lastTransitionReason: 'analyzeScreenNow', snapshotCount: 1 }),
+    );
+
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    expect(store.setVisualSendDiagnostics).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lastTransitionReason: 'snapshotConsumed', sentByState: { snapshot: 1, streaming: 0 } }),
+    );
+  });
+
+  // ── Requirement 5: no regression in existing policy transitions ───────────
+
+  it('explicit analyzeScreenNow after the auto-snapshot still arms a new snapshot (after cooldown)', async () => {
+    let now = 0;
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i <= 2 ? 'send' as const : 'replace' as const,
+        classification: 'replaceable' as const,
+        reason: i <= 2 ? 'accepted' : 'superseded-latest',
+      }),
+      visualSendPolicyOptions: { nowMs: () => now },
+    });
+
+    await ctrl.start();
+
+    // Auto-snapshot: first frame sent automatically
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    // Advance past cooldown and call analyzeScreenNow explicitly
+    now += 3000;
+    ctrl.analyzeScreenNow();
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(ctrl.getVisualSendState()).toBe('sleep');
+  });
+
+  it('stop resets visual state to inactive even when started with auto-snapshot', async () => {
+    const { ctrl, getObserver } = createHarness();
+
+    await ctrl.start();
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    await ctrl.stop();
+
+    expect(ctrl.getVisualSendState()).toBe('inactive');
+  });
+
+  it('restarting screen share after stop re-arms the auto-snapshot for the new session', async () => {
+    const { ctrl, getObserver, sendVideoFrame } = createHarness({
+      submitDecision: (i) => ({
+        outcome: i <= 2 ? 'send' as const : 'replace' as const,
+        classification: 'replaceable' as const,
+        reason: i <= 2 ? 'accepted' : 'superseded-latest',
+      }),
+    });
+
+    // First session
+    await ctrl.start();
+    getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    await ctrl.stop();
+    sendVideoFrame.mockClear();
+
+    // Second session: auto-snapshot must be re-armed (cooldown reset by stop)
+    await ctrl.start();
+    getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+
+    expect(sendVideoFrame).toHaveBeenCalledTimes(1);
+    expect(sendVideoFrame).toHaveBeenCalledWith(mkFrame(2).data, mkFrame(2).mimeType);
   });
 });

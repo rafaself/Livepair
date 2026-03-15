@@ -20,6 +20,9 @@ import { createVisualSendPolicy } from './visualSendPolicy';
 //     cooldown window.
 //   - streaming→snapshot transitions (analyzeScreenNow from streaming) also
 //     respect the cooldown.
+//
+// Note (Wave 3): allowSend() is now a non-consuming check. Use
+// onFrameDispatched() to drive the snapshot→sleep transition.
 // ---------------------------------------------------------------------------
 
 describe('Wave 7 – snapshot cooldown: basic enforcement', () => {
@@ -36,7 +39,7 @@ describe('Wave 7 – snapshot cooldown: basic enforcement', () => {
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow();
-    policy.allowSend(); // consume → sleep
+    policy.onFrameDispatched(); // consume → sleep
 
     // Advance time but not past the cooldown
     now += 1000;
@@ -49,7 +52,7 @@ describe('Wave 7 – snapshot cooldown: basic enforcement', () => {
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow();
-    policy.allowSend(); // consume → sleep
+    policy.onFrameDispatched(); // consume → sleep
 
     // Advance past the cooldown
     now += 3000;
@@ -62,7 +65,7 @@ describe('Wave 7 – snapshot cooldown: basic enforcement', () => {
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow();
-    policy.allowSend();
+    policy.onFrameDispatched();
 
     now += 3000; // exactly at boundary
     policy.analyzeScreenNow();
@@ -74,7 +77,7 @@ describe('Wave 7 – snapshot cooldown: basic enforcement', () => {
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow();
-    policy.allowSend();
+    policy.onFrameDispatched();
 
     now += 2999; // one ms short
     policy.analyzeScreenNow();
@@ -89,7 +92,7 @@ describe('Wave 7 – snapshot cooldown: rapid-fire suppression', () => {
     policy.onScreenShareStarted();
 
     policy.analyzeScreenNow(); // arm
-    policy.allowSend();        // consume → sleep
+    policy.onFrameDispatched(); // consume → sleep
 
     // Five rapid calls within the cooldown window
     for (let i = 0; i < 5; i++) {
@@ -106,7 +109,7 @@ describe('Wave 7 – snapshot cooldown: rapid-fire suppression', () => {
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
 
-    // Simulate caller invoking analyzeScreenNow + allowSend rapidly 10 times
+    // Simulate caller invoking analyzeScreenNow + onFrameDispatched rapidly 10 times
     // within 2 seconds total (200 ms apart)
     let snapshotsArmed = 0;
     for (let i = 0; i < 10; i++) {
@@ -114,7 +117,7 @@ describe('Wave 7 – snapshot cooldown: rapid-fire suppression', () => {
       policy.analyzeScreenNow();
       if (policy.getState() === 'snapshot') {
         snapshotsArmed++;
-        policy.allowSend();
+        policy.onFrameDispatched();
       }
     }
 
@@ -131,7 +134,7 @@ describe('Wave 7 – snapshot cooldown: streaming path', () => {
 
     // First snapshot from sleep
     policy.analyzeScreenNow();
-    policy.allowSend(); // → sleep
+    policy.onFrameDispatched(); // → sleep
     // Enter streaming
     policy.enableStreaming();
     // Try analyzeScreenNow from streaming within cooldown
@@ -146,7 +149,7 @@ describe('Wave 7 – snapshot cooldown: streaming path', () => {
     policy.onScreenShareStarted();
 
     policy.analyzeScreenNow();
-    policy.allowSend(); // → sleep
+    policy.onFrameDispatched(); // → sleep
     policy.enableStreaming();
 
     now += 3000;
@@ -161,7 +164,7 @@ describe('Wave 7 – snapshot cooldown: reset on screen share stop', () => {
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow();
-    policy.allowSend();
+    policy.onFrameDispatched();
 
     // Stop and restart
     policy.onScreenShareStopped();
@@ -174,14 +177,14 @@ describe('Wave 7 – snapshot cooldown: reset on screen share stop', () => {
   });
 });
 
-describe('Wave 7 – snapshot cooldown: no default clock (real Date.now)', () => {
+describe('Wave 7 – no default clock (real Date.now)', () => {
   it('createVisualSendPolicy() works with no options (uses real clock)', () => {
     // Smoke test: no options still creates a working policy
     const policy = createVisualSendPolicy();
     policy.onScreenShareStarted();
     policy.analyzeScreenNow();
     expect(policy.getState()).toBe('snapshot');
-    policy.allowSend();
+    policy.onFrameDispatched();
     expect(policy.getState()).toBe('sleep');
   });
 });
@@ -192,7 +195,7 @@ describe('Wave 7 – cooldown diagnostics', () => {
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow(); // count = 1
-    policy.allowSend();
+    policy.onFrameDispatched();
 
     now += 500; // within cooldown
     policy.analyzeScreenNow(); // suppressed
@@ -206,11 +209,11 @@ describe('Wave 7 – cooldown diagnostics', () => {
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow(); // count = 1
-    policy.allowSend();
+    policy.onFrameDispatched();
 
     now += 3000;
     policy.analyzeScreenNow(); // count = 2
-    policy.allowSend();
+    policy.onFrameDispatched();
 
     expect(policy.getDiagnostics().snapshotCount).toBe(2);
   });
@@ -222,7 +225,7 @@ describe('Wave 7 – Wave 1 non-regression: cooldown does not affect non-snapsho
     const policy = createVisualSendPolicy({ nowMs: () => now });
     policy.onScreenShareStarted();
     policy.analyzeScreenNow();
-    policy.allowSend();
+    policy.onFrameDispatched();
 
     // Streaming transitions should work normally within cooldown window
     now += 100;
