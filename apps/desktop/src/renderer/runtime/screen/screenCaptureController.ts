@@ -79,12 +79,6 @@ export function createScreenCaptureController(
   controllerOptions?: ScreenCaptureControllerOptions,
   getBaselineQuality?: () => VisualSessionQuality,
 ): ScreenCaptureController {
-  const visualPolicy = createVisualSendPolicy(controllerOptions?.visualSendPolicyOptions);
-  const controllerState = createScreenCaptureControllerState();
-  const visualChangeDetector = createVisualChangeDetector(
-    controllerOptions?.visualChangeDetectorOptions,
-  );
-
   const burstDurationMs = controllerOptions?.burstDurationMs ?? VISUAL_BURST_DURATION_MS;
   const burstStableFrames = controllerOptions?.burstStableFrames ?? VISUAL_BURST_STABLE_FRAMES;
   const burstSendCooldownMs = controllerOptions?.burstSendCooldownMs ?? VISUAL_BURST_SEND_COOLDOWN_MS;
@@ -93,16 +87,24 @@ export function createScreenCaptureController(
   const burstReentryCooldownMs = controllerOptions?.burstReentryCooldownMs ?? VISUAL_BURST_REENTRY_COOLDOWN_MS;
   const promotionDurationMs = controllerOptions?.promotionDurationMs ?? QUALITY_PROMOTION_DURATION_MS;
   const nowMs = controllerOptions?.visualSendPolicyOptions?.nowMs ?? (() => Date.now());
+  const visualPolicy = createVisualSendPolicy({
+    ...controllerOptions?.visualSendPolicyOptions,
+    burstMaxFrames,
+    burstReentryCooldownMs,
+  });
+  const controllerState = createScreenCaptureControllerState();
+  const visualChangeDetector = createVisualChangeDetector(
+    controllerOptions?.visualChangeDetectorOptions,
+  );
   const burstSendGate = createBurstSendGate(controllerOptions?.burstSendGateOptions);
 
-  // Burst state – managed by the controller, not the policy
+  // Passive burst heuristics – the policy owns the active/cooldown state, while
+  // the controller owns change detection, timers, and burst-local send gating.
   let burstTimer: ReturnType<typeof setTimeout> | null = null;
-  let isBurstActive = false;
+  let burstLifetimeTimer: ReturnType<typeof setTimeout> | null = null;
   let burstStableFrameCount = 0;
   let lastBurstSendAt = 0;
-  let burstFramesSent = 0;
-  let burstStartedAt = 0;
-  let lastBurstEndedAt = 0;
+  let passiveBurstStartedAt = 0;
 
   // ── Adaptive quality ──────────────────────────────────────────────────
   //
@@ -168,16 +170,30 @@ export function createScreenCaptureController(
     }
   };
 
-  const endBurst = (): void => {
-    if (!isBurstActive) return;
-    isBurstActive = false;
+  const clearBurstLifetimeTimer = (): void => {
+    if (burstLifetimeTimer !== null) {
+      clearTimeout(burstLifetimeTimer);
+      burstLifetimeTimer = null;
+    }
+  };
+
+  let resetFrameSendChain = (): void => {};
+
+  const clearPassiveBurstTracking = (dropPendingFrame = false): void => {
     burstStableFrameCount = 0;
     lastBurstSendAt = 0;
-    burstFramesSent = 0;
-    lastBurstEndedAt = nowMs();
-    burstStartedAt = 0;
+    passiveBurstStartedAt = 0;
     clearBurstTimer();
+    clearBurstLifetimeTimer();
     burstSendGate.reset();
+    if (dropPendingFrame) {
+      resetFrameSendChain();
+    }
+  };
+
+  const endBurst = (): void => {
+    if (!visualPolicy.isPassiveBurstActive()) return;
+    clearPassiveBurstTracking();
     visualPolicy.endBurst();
     flushVisualDiagnostics();
   };
@@ -190,30 +206,35 @@ export function createScreenCaptureController(
     }, burstDurationMs);
   };
 
+  const resetBurstLifetimeTimer = (): void => {
+    clearBurstLifetimeTimer();
+    burstLifetimeTimer = setTimeout(() => {
+      burstLifetimeTimer = null;
+      endBurst();
+    }, burstMaxLifetimeMs);
+  };
+
   const startBurst = (): void => {
-    if (lastBurstEndedAt > 0 && nowMs() - lastBurstEndedAt < burstReentryCooldownMs) {
+    const wasPassiveBurstActive = visualPolicy.isPassiveBurstActive();
+    visualPolicy.startBurst();
+    if (wasPassiveBurstActive || !visualPolicy.isPassiveBurstActive()) {
       return;
     }
-    isBurstActive = true;
-    burstStableFrameCount = 0;
-    burstFramesSent = 0;
-    burstStartedAt = nowMs();
-    visualPolicy.startBurst();
+    clearPassiveBurstTracking();
+    passiveBurstStartedAt = nowMs();
     flushVisualDiagnostics();
     resetBurstTimer();
+    resetBurstLifetimeTimer();
   };
 
   // ── Visual change detection (called for every captured frame) ────────────
 
   const handleFrameCaptured = (frame: { data: Uint8Array }): void => {
-    // Wave 6: end burst early if hard budget or lifetime exceeded
-    if (isBurstActive) {
-      if (
-        burstFramesSent >= burstMaxFrames
-        || nowMs() - burstStartedAt >= burstMaxLifetimeMs
-      ) {
-        endBurst();
-      }
+    if (
+      visualPolicy.isPassiveBurstActive()
+      && nowMs() - passiveBurstStartedAt >= burstMaxLifetimeMs
+    ) {
+      endBurst();
     }
 
     const changed = visualChangeDetector.onFrame(frame);
@@ -221,17 +242,14 @@ export function createScreenCaptureController(
     if (changed) {
       if (visualPolicy.getState() === 'sleep') {
         startBurst();
-      } else if (isBurstActive) {
+      } else if (visualPolicy.isPassiveBurstActive()) {
         // Decay: subtract 1 credit instead of resetting to 0.
         // This way intermittent noise slows stabilization rather than
         // preventing it entirely.
         burstStableFrameCount = Math.max(0, burstStableFrameCount - 1);
-        // Wave 6: only reset the timer if lifetime allows
-        if (nowMs() - burstStartedAt < burstMaxLifetimeMs) {
-          resetBurstTimer();
-        }
+        resetBurstTimer();
       }
-    } else if (isBurstActive && visualPolicy.getState() === 'streaming') {
+    } else if (visualPolicy.isPassiveBurstActive()) {
       burstStableFrameCount += 1;
       if (burstStableFrameCount >= burstStableFrames) {
         endBurst();
@@ -256,7 +274,11 @@ export function createScreenCaptureController(
     getRealtimeOutboundGateway,
     allowSend: () => visualPolicy.allowSend(),
     onFrameDispatched: () => {
+      const wasPassiveBurstActive = visualPolicy.isPassiveBurstActive();
       visualPolicy.onFrameDispatched();
+      if (wasPassiveBurstActive && !visualPolicy.isPassiveBurstActive()) {
+        clearPassiveBurstTracking();
+      }
       flushVisualDiagnostics();
     },
     onFrameDroppedByPolicy: () => {
@@ -267,7 +289,7 @@ export function createScreenCaptureController(
     },
     shouldSendFrame: (frame) => {
       // Only gate burst sends; explicit streaming and snapshots pass through.
-      if (!isBurstActive) return true;
+      if (!visualPolicy.isPassiveBurstActive()) return true;
 
       // Throttle: enforce minimum interval between burst sends.
       const now = nowMs();
@@ -282,7 +304,6 @@ export function createScreenCaptureController(
 
       burstSendGate.onFrameSent(frame);
       lastBurstSendAt = now;
-      burstFramesSent += 1;
       return true;
     },
     flushVisualDiagnostics,
@@ -335,20 +356,16 @@ export function createScreenCaptureController(
     },
     onScreenShareStopped: () => {
       clearBurstTimer();
-      isBurstActive = false;
-      burstStableFrameCount = 0;
-      lastBurstSendAt = 0;
-      burstFramesSent = 0;
-      burstStartedAt = 0;
-      lastBurstEndedAt = 0;
+      clearBurstLifetimeTimer();
+      clearPassiveBurstTracking();
       visualChangeDetector.reset();
-      burstSendGate.reset();
       resetQualityState();
       visualPolicy.onScreenShareStopped();
       flushVisualDiagnostics();
     },
   });
   stopInternal = lifecycle.stopInternal;
+  resetFrameSendChain = frameSendCoordinator.reset;
 
   return {
     start: () => {
@@ -368,59 +385,54 @@ export function createScreenCaptureController(
     resetSendChain: frameSendCoordinator.reset,
     getVisualSendState: () => visualPolicy.getState(),
     analyzeScreenNow: () => {
-      // Explicit user action: clear any active burst without setting re-entry cooldown
-      if (isBurstActive) {
-        clearBurstTimer();
-        isBurstActive = false;
-        burstStableFrameCount = 0;
-        lastBurstSendAt = 0;
-        burstFramesSent = 0;
-        burstStartedAt = 0;
-        burstSendGate.reset();
-      }
+      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       // Promote quality for explicit analyze — likely text-heavy content.
       promoteQuality();
       visualPolicy.analyzeScreenNow();
+      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
+        clearPassiveBurstTracking(true);
+      }
       flushVisualDiagnostics();
     },
     enableStreaming: () => {
-      // Explicit streaming overrides burst without setting re-entry cooldown
-      clearBurstTimer();
-      isBurstActive = false;
-      burstStableFrameCount = 0;
-      lastBurstSendAt = 0;
-      burstFramesSent = 0;
-      burstStartedAt = 0;
-      burstSendGate.reset();
+      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       visualPolicy.enableStreaming();
+      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
+        clearPassiveBurstTracking(true);
+      }
       flushVisualDiagnostics();
     },
     stopStreaming: () => {
-      clearBurstTimer();
-      isBurstActive = false;
-      burstStableFrameCount = 0;
-      lastBurstSendAt = 0;
-      burstFramesSent = 0;
-      burstStartedAt = 0;
-      burstSendGate.reset();
+      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       // Return to baseline quality when streaming stops.
       if (qualityPolicy.isPromoted()) {
         resetQualityState();
         applyQualityToCapture();
       }
       visualPolicy.stopStreaming();
+      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
+        clearPassiveBurstTracking(true);
+      }
       flushVisualDiagnostics();
     },
     onSpeechStart: () => {
       if (!lifecycle.isActive()) return;
+      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       promoteQuality();
       visualPolicy.triggerSnapshot('speechTrigger');
+      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
+        clearPassiveBurstTracking(true);
+      }
       flushVisualDiagnostics();
     },
     onTextSent: () => {
       if (!lifecycle.isActive()) return;
+      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       promoteQuality();
       visualPolicy.triggerSnapshot('textTrigger');
+      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
+        clearPassiveBurstTracking(true);
+      }
       flushVisualDiagnostics();
     },
   };
