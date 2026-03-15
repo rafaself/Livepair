@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import { selectAssistantRuntimeState } from '../runtime';
+import { resetDesktopStores } from '../test/store';
 import { useSessionStore } from './sessionStore';
 import { useSettingsStore } from './settingsStore';
-import { resetDesktopStores } from './testing';
 import { useUiStore } from './uiStore';
 
 const enumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();

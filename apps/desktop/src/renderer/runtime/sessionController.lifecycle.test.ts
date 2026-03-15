@@ -5,7 +5,7 @@ import { createDesktopSessionController } from './sessionController';
 import { selectAssistantRuntimeState, selectIsConversationEmpty } from './selectors';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { resetDesktopStoresWithDefaults } from '../store/testing';
+import { resetDesktopStoresWithDefaults } from '../test/store';
 import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import {
   createUnusedTransport,

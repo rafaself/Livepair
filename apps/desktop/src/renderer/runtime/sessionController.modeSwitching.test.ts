@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { resetDesktopStoresWithDefaults } from '../store/testing';
+import { resetDesktopStoresWithDefaults } from '../test/store';
 import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import {
   createVoiceTransportHarness,

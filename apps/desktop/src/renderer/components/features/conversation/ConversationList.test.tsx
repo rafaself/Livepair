@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConversationList } from './ConversationList';
-import { MOCK_CONVERSATION_TURNS } from './mockConversation';
+import { MOCK_CONVERSATION_TURNS } from '../../../test/fixtures/conversation';
 
 function setViewportMetrics(
   viewport: HTMLElement,

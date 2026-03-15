@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetDesktopStores } from '../../../store/testing';
+import { resetDesktopStores } from '../../../test/store';
 import { useSessionStore } from '../../../store/sessionStore';
 import {
   appendCompletedAssistantTurn,

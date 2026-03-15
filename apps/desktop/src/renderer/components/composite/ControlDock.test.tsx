@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
 import { useSettingsStore } from '../../store/settingsStore';
-import { resetDesktopStores } from '../../store/testing';
+import { resetDesktopStores } from '../../test/store';
 import { useUiStore } from '../../store/uiStore';
 import { AssistantPanelSettingsView } from '../features/assistant-panel/settings/AssistantPanelSettingsView';
 import { type ControlDockProps, ControlDock } from './ControlDock';

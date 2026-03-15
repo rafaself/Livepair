@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
 import { App } from './App';
 import { useSettingsStore } from './store/settingsStore';
-import { resetDesktopStores } from './store/testing';
+import { resetDesktopStores } from './test/store';
 import { useUiStore } from './store/uiStore';
 import { __emitGeminiLiveSdkMessage } from './test/geminiLiveSdkMock';
 import { THEME_MEDIA_QUERY } from './theme';

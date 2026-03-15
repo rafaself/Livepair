@@ -6,7 +6,7 @@ import { resetCurrentLiveSessionForTests } from '../liveSessions';
 import { __resetGeminiLiveSdkMock } from './geminiLiveSdkMock';
 import { resetDesktopSessionController } from '../runtime';
 import { resetLiveConfigForTests } from '../runtime/transport/liveConfig';
-import { resetDesktopStores } from '../store/testing';
+import { resetDesktopStores } from './store';
 import { createMockDesktopBridge } from './bridgeMocks';
 
 beforeEach(async () => {

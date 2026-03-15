@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
-import { resetDesktopStores } from '../../../store/testing';
+import { resetDesktopStores } from '../../../test/store';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { useUiStore } from '../../../store/uiStore';
 import { useSessionStore } from '../../../store/sessionStore';

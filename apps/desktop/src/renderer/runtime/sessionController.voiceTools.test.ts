@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
-import { resetDesktopStoresWithDefaults } from '../store/testing';
+import { resetDesktopStoresWithDefaults } from '../test/store';
 import * as voiceToolsModule from './voice/tools/voiceTools';
 import {
   createVoiceTransportHarness,
