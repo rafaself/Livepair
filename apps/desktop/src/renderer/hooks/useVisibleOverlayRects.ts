@@ -103,6 +103,10 @@ export function useVisibleOverlayRects({
       }
     };
 
+    const getTransitioningDock = (target: Element): Element | null => (
+      target.matches('.control-dock') ? target : target.closest('.control-dock')
+    );
+
     const handleTransitionRun = (event: Event): void => {
       if (!(event.target instanceof Element)) {
         return;
@@ -114,12 +118,25 @@ export function useVisibleOverlayRects({
         transitioningElements.add(target);
         ensureTransitionLoop();
         schedulePublish();
-      } else if (target.matches(PANEL_CLOSING_SELECTOR)) {
+        return;
+      }
+
+      if (target.matches(PANEL_CLOSING_SELECTOR)) {
         // Panel is closing: panel--open was removed but the CSS transform is still animating.
         // Track it so its rects remain in the masking snapshot until transitionend.
         closingPanelTransitions.add(target);
         schedulePublish();
+        return;
       }
+
+      const transitioningDock = getTransitioningDock(target);
+      if (!transitioningDock) {
+        return;
+      }
+
+      transitioningElements.add(transitioningDock);
+      ensureTransitionLoop();
+      schedulePublish();
     };
 
     const handleTransitionEnd = (event: Event): void => {
@@ -128,12 +145,20 @@ export function useVisibleOverlayRects({
       }
 
       const target = event.target;
+      const transitioningDock = getTransitioningDock(target);
 
-      if (!target.matches(VISIBLE_OVERLAY_SELECTOR) && !target.matches(PANEL_CLOSING_SELECTOR)) {
+      if (
+        !target.matches(VISIBLE_OVERLAY_SELECTOR) &&
+        !target.matches(PANEL_CLOSING_SELECTOR) &&
+        !transitioningDock
+      ) {
         return;
       }
 
       transitioningElements.delete(target);
+      if (transitioningDock) {
+        transitioningElements.delete(transitioningDock);
+      }
       closingPanelTransitions.delete(target);
       schedulePublish();
     };

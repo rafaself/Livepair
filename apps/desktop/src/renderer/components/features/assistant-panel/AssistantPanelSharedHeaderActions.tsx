@@ -20,60 +20,53 @@ export function AssistantPanelSharedHeaderActions({
   onOpenHistory,
   onBackToChat,
 }: AssistantPanelSharedHeaderActionsProps): JSX.Element {
-  const actions = [
-    showCreateChat ? (
-      <IconButton
-        key="new-chat"
-        label="New chat"
-        size="sm"
-        className="assistant-panel__inner-header-action"
-        disabled={onCreateChat === undefined}
-        onClick={() => {
-          void onCreateChat?.();
-        }}
-      >
-        <MessageCirclePlus size={16} className="assistant-panel__inner-header-icon" />
-      </IconButton>
-    ) : null,
-    showHistory ? (
-      <IconButton
-        key="history"
-        label="History"
-        size="sm"
-        className="assistant-panel__inner-header-action"
-        disabled={onOpenHistory === undefined}
-        onClick={onOpenHistory}
-      >
-        <History size={16} className="assistant-panel__inner-header-icon" />
-      </IconButton>
-    ) : null,
-    showBackToChat ? (
-      <IconButton
-        key="back-to-chat"
-        label="Back to chat"
-        size="sm"
-        className="assistant-panel__inner-header-action"
-        disabled={onBackToChat === undefined}
-        onClick={onBackToChat}
-      >
-        <ArrowRight size={16} className="assistant-panel__inner-header-icon" />
-      </IconButton>
-    ) : null,
-  ].filter((action): action is JSX.Element => action !== null);
-  const actionCount = actions.length;
-
   return (
     <div
       className="assistant-panel__inner-header-content"
       data-panel-view={panelView}
-      data-action-count={String(actionCount)}
     >
       <div
         className="assistant-panel__inner-header-actions"
         data-panel-view={panelView}
-        data-action-count={String(actionCount)}
       >
-        {actions}
+        {showCreateChat ? (
+          <IconButton
+            key="new-chat"
+            label="New chat"
+            size="sm"
+            className="assistant-panel__inner-header-action"
+            disabled={onCreateChat === undefined}
+            onClick={() => {
+              void onCreateChat?.();
+            }}
+          >
+            <MessageCirclePlus size={16} className="assistant-panel__inner-header-icon" />
+          </IconButton>
+        ) : null}
+        {showHistory ? (
+          <IconButton
+            key="history"
+            label="History"
+            size="sm"
+            className="assistant-panel__inner-header-action"
+            disabled={onOpenHistory === undefined}
+            onClick={onOpenHistory}
+          >
+            <History size={16} className="assistant-panel__inner-header-icon" />
+          </IconButton>
+        ) : null}
+        {showBackToChat ? (
+          <IconButton
+            key="back-to-chat"
+            label="Back to chat"
+            size="sm"
+            className="assistant-panel__inner-header-action"
+            disabled={onBackToChat === undefined}
+            onClick={onBackToChat}
+          >
+            <ArrowRight size={16} className="assistant-panel__inner-header-icon" />
+          </IconButton>
+        ) : null}
       </div>
     </div>
   );

@@ -14,7 +14,6 @@
   background: var(--color-surface-elevated);
   box-shadow: var(--shadow-md);
   opacity: 1;
-  will-change: right, opacity, transform;
   transition:
     right var(--motion-normal) var(--ease-out),
     box-shadow var(--motion-normal) var(--ease-out),
@@ -87,12 +86,12 @@
 }
 
 .control-dock__btn--danger {
-  color: var(--color-error) !important;
+  color: #D66262 !important;
 }
 
 .control-dock__btn--danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.15) !important;
-  color: var(--color-error) !important;
+  background: rgba(214, 98, 98, 0.15) !important;
+  color: #D66262 !important;
 }
 
 .control-dock__panel-btn svg {

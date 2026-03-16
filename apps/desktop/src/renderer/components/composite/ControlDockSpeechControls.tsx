@@ -1,5 +1,5 @@
-import { Mic, MicOff, Monitor, MonitorOff, Square, ScanEye } from 'lucide-react';
-import { Divider, IconButton } from '../primitives';
+import { Mic, MicOff, Monitor, MonitorOff, ScanEye } from 'lucide-react';
+import { Divider, IconButton, StopIcon } from '../primitives';
 import type { ControlDockUiState } from './controlDockUiState';
 
 export type ControlDockSpeechControlsProps = {
@@ -112,7 +112,7 @@ export function ControlDockSpeechControls({
               void onEndSession();
             }}
           >
-            <Square size={18} fill="currentColor" />
+            <StopIcon size={24} />
           </IconButton>
         </div>
       </div>

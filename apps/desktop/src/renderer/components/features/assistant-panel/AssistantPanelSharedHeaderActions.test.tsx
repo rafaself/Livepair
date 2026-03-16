@@ -69,8 +69,6 @@ describe('AssistantPanelSharedHeaderActions', () => {
     });
 
     const historyButton = screen.getByRole('button', { name: 'History' });
-    const content = document.querySelector('.assistant-panel__inner-header-content');
-    const actions = document.querySelector('.assistant-panel__inner-header-actions');
 
     expect(screen.getAllByRole('button')).toHaveLength(1);
     expect(historyButton).toHaveClass(
@@ -81,9 +79,6 @@ describe('AssistantPanelSharedHeaderActions', () => {
     expect(historyButton.querySelector('svg.lucide-history')).not.toBeNull();
     expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Back to chat' })).toBeNull();
-    expect(content).toHaveAttribute('data-action-count', '1');
-    expect(actions).toHaveAttribute('data-action-count', '1');
-
     fireEvent.click(historyButton);
 
     expect(onOpenHistory).toHaveBeenCalledOnce();
@@ -139,22 +134,18 @@ describe('AssistantPanelSharedHeaderActions', () => {
     });
 
     const backButton = screen.getByRole('button', { name: 'Back to chat' });
-    const content = document.querySelector('.assistant-panel__inner-header-content');
-    const actions = document.querySelector('.assistant-panel__inner-header-actions');
 
     expect(screen.getAllByRole('button')).toHaveLength(1);
     expect(backButton.querySelector('svg.lucide-arrow-right')).not.toBeNull();
     expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'History' })).toBeNull();
-    expect(content).toHaveAttribute('data-action-count', '1');
-    expect(actions).toHaveAttribute('data-action-count', '1');
 
     fireEvent.click(backButton);
 
     expect(onBackToChat).toHaveBeenCalledOnce();
   });
 
-  it('keeps the shared header content containers stable while swapping fitted action counts', () => {
+  it('keeps the shared header content containers stable while swapping action buttons', () => {
     const { container, rerender } = renderSharedHeaderActions({
       panelView: 'chat',
       showHistory: true,
@@ -172,8 +163,6 @@ describe('AssistantPanelSharedHeaderActions', () => {
     expect(actions).not.toBeNull();
     expect(within(content as HTMLDivElement).getByRole('button', { name: 'History' })).toBeVisible();
     expect(within(content as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
-    expect(content).toHaveAttribute('data-action-count', '1');
-    expect(actions).toHaveAttribute('data-action-count', '1');
 
     rerender(
       <div className="assistant-panel__inner-header">
@@ -191,8 +180,6 @@ describe('AssistantPanelSharedHeaderActions', () => {
 
     expect(container.querySelector('.assistant-panel__inner-header-content')).toBe(content);
     expect(container.querySelector('.assistant-panel__inner-header-actions')).toBe(actions);
-    expect(content).toHaveAttribute('data-action-count', '2');
-    expect(actions).toHaveAttribute('data-action-count', '2');
     expect(within(content as HTMLDivElement).getByRole('button', { name: 'Back to chat' })).toBeVisible();
     expect(within(content as HTMLDivElement).getByRole('button', { name: 'New chat' })).toBeVisible();
     expect(within(content as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();

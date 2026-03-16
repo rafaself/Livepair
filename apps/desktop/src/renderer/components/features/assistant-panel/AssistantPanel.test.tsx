@@ -308,10 +308,6 @@ describe('AssistantPanel', () => {
     expect(within(sharedHeader as HTMLDivElement).queryByText(/session history/i)).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).getAllByRole('button')).toHaveLength(1);
     expect(sharedHeader).toContainElement(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'History' }));
-    expect((sharedHeader as HTMLDivElement).querySelector('.assistant-panel__inner-header-content')).toHaveAttribute(
-      'data-action-count',
-      '1',
-    );
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'New chat' })).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Back to chat' })).toBeNull();
     expect(sharedBody).toContainElement(panelScope.getByText('Talk to Livepair'));
@@ -341,10 +337,6 @@ describe('AssistantPanel', () => {
     expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'History' })).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'New chat' })).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Back to chat' })).toBeNull();
-    expect((sharedHeader as HTMLDivElement).querySelector('.assistant-panel__inner-header-content')).toHaveAttribute(
-      'data-action-count',
-      '2',
-    );
   });
 
   it('keeps the shared inner header structure fixed while switching between chat and history', async () => {
@@ -392,10 +384,6 @@ describe('AssistantPanel', () => {
     expect(within(sharedHeader as HTMLDivElement).getByRole('button', { name: 'New chat' })).toBeVisible();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'History' })).toBeNull();
     expect(within(sharedHeader as HTMLDivElement).queryByRole('button', { name: 'Refresh history' })).toBeNull();
-    expect((sharedHeader as HTMLDivElement).querySelector('.assistant-panel__inner-header-content')).toHaveAttribute(
-      'data-action-count',
-      '2',
-    );
     expect(sharedBody).toContainElement(panelScope.getByText('No past chats yet.'));
     expect(within(sharedBody as HTMLDivElement).queryByText('Talk to Livepair')).toBeNull();
   });

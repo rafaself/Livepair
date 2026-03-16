@@ -165,6 +165,63 @@ describe('useOverlayHitRegions', () => {
     ]);
   });
 
+  it('tracks dock child transitions so linux shape grows when speech controls appear', async () => {
+    let nextFrameId = 0;
+    const frameQueue = new Map<number, FrameRequestCallback>();
+
+    requestAnimationFrameSpy.mockImplementation((callback: FrameRequestCallback): number => {
+      nextFrameId += 1;
+      frameQueue.set(nextFrameId, callback);
+      return nextFrameId;
+    });
+    cancelAnimationFrameSpy.mockImplementation((id: number): void => {
+      frameQueue.delete(id);
+    });
+
+    let dockRect = { x: 1500, y: 300, width: 80, height: 40 };
+    const dock = createHitElement('control-dock', dockRect);
+    const dockChild = document.createElement('div');
+    dockChild.className = 'control-dock__item-wrapper control-dock__item-wrapper--visible';
+    dock.appendChild(dockChild);
+
+    Object.defineProperty(dock, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        x: dockRect.x,
+        y: dockRect.y,
+        width: dockRect.width,
+        height: dockRect.height,
+        top: dockRect.y,
+        left: dockRect.x,
+        right: dockRect.x + dockRect.width,
+        bottom: dockRect.y + dockRect.height,
+        toJSON: () => ({}),
+      }),
+    });
+
+    renderHook(() => useOverlayHitRegions());
+    await Promise.resolve();
+
+    expect(mockSetOverlayHitRegions).toHaveBeenCalledTimes(1);
+
+    const transitionRunEvent = new Event('transitionrun', { bubbles: true });
+    Object.defineProperty(transitionRunEvent, 'propertyName', { value: 'height' });
+    dockRect = { x: 1500, y: 300, width: 80, height: 220 };
+    dockChild.dispatchEvent(transitionRunEvent);
+
+    const firstFrame = frameQueue.get(1);
+    expect(firstFrame).toBeTypeOf('function');
+    firstFrame?.(16);
+    await Promise.resolve();
+
+    const publishedRegions = mockSetOverlayHitRegions.mock.lastCall?.[0];
+    expect(publishedRegions).toBeDefined();
+    expect(publishedRegions.some((region: { x: number; width: number }) => (
+      region.x === 1500 && region.width === 80
+    ))).toBe(true);
+    expect(mockSetOverlayHitRegions).toHaveBeenCalledTimes(2);
+  });
+
   it('does not throw when bridge is unavailable', () => {
     // @ts-expect-error testing graceful degradation
     delete window.bridge;
