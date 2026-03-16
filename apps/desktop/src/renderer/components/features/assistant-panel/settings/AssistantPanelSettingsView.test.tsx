@@ -102,6 +102,10 @@ describe('AssistantPanelSettingsView', () => {
     expect(shareScreenHeading).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
+    await act(async () => {
+      fireEvent.mouseEnter(screen.getByLabelText('About debug mode'));
+    });
+    expect(screen.getByText('Shows extra diagnostics and developer controls.')).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'General' })).not.toBeInTheDocument();
     expect(
       shareScreenHeading.compareDocumentPosition(audioHeading) & Node.DOCUMENT_POSITION_FOLLOWING,

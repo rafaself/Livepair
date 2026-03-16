@@ -2,7 +2,7 @@ import { Wrench } from 'lucide-react';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
 import { FieldList } from '../../../composite';
 import { ViewSection } from '../../../layout';
-import { Switch } from '../../../primitives';
+import { Switch, Tooltip } from '../../../primitives';
 
 type AdvancedSettingsController = Pick<
   AssistantPanelSettingsController,
@@ -24,7 +24,15 @@ export function AssistantPanelAdvancedSettingsSection({
         className="assistant-panel__settings-field-list field-list--aligned-controls"
         items={[
           {
-            label: 'Debug mode',
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                Debug mode
+                <Tooltip
+                  content="Shows extra diagnostics and developer controls."
+                  label="About debug mode"
+                />
+              </span>
+            ),
             value: (
               <Switch
                 aria-label="Debug mode"
