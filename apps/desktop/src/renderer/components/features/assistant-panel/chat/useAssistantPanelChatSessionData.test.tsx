@@ -32,6 +32,7 @@ function createLiveSessionRecord(chatId: string): LiveSessionRecord {
     endedAt: null,
     status: 'active',
     endedReason: null,
+    voice: 'Puck',
     resumptionHandle: `handles/${chatId}`,
     lastResumptionUpdateAt: '2026-03-14T10:10:00.000Z',
     restorable: true,
