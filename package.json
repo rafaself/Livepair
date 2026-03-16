@@ -8,6 +8,7 @@
     "typecheck": "pnpm -r --filter !livepair typecheck",
     "test": "pnpm --filter @livepair/shared-types build && pnpm -r --filter !livepair test",
     "test:coverage": "pnpm --filter @livepair/shared-types test && pnpm --filter @livepair/api test:coverage && pnpm --filter @livepair/desktop test:coverage",
+    "migration:up": "pnpm --filter @livepair/api db:migrate",
     "lint:api": "pnpm --filter @livepair/api lint",
     "lint:desktop": "pnpm --filter @livepair/desktop lint",
     "lint:shared-types": "pnpm --filter @livepair/shared-types lint",

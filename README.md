@@ -501,7 +501,7 @@ Verify connectivity after a reset, or apply migrations when you specifically nee
 
 ```bash
 pnpm --filter @livepair/api db:check
-pnpm --filter @livepair/api db:migrate
+pnpm migration:up
 ```
 
 ### 🧹 Run workspace checks
