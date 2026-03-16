@@ -68,7 +68,6 @@ export type EffectiveVoiceSessionCapabilities = GeminiLiveEffectiveVoiceSessionC
 type LiveConfigEnv = Partial<Record<
   | 'VITE_LIVE_MODEL'
   | 'VITE_LIVE_API_VERSION'
-  | 'VITE_LIVE_MEDIA_RESOLUTION'
   | 'VITE_LIVE_CONTEXT_COMPRESSION',
   string
 >>;
@@ -110,10 +109,10 @@ export type GeminiLiveConnectConfig = {
     | undefined;
 };
 
-// Conservative default for speech-mode screen sharing: optimize for latency/cost first.
+// Match the first-use screen-quality selector default so transport bootstrap and UI agree.
 const DEFAULT_LIVE_MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
 const DEFAULT_LIVE_API_VERSION = 'v1alpha';
-const DEFAULT_MEDIA_RESOLUTION: LiveMediaResolution = 'MEDIA_RESOLUTION_LOW';
+const DEFAULT_MEDIA_RESOLUTION: LiveMediaResolution = 'MEDIA_RESOLUTION_MEDIUM';
 const AUDIO_TRANSCRIPTION_DISABLED = false;
 
 export function composeLiveSystemInstruction(
@@ -279,7 +278,7 @@ export function resolveLiveConfigEnv(
       },
       voice: buildGeminiLiveVoiceModeConfig(),
     },
-    mediaResolution: env.VITE_LIVE_MEDIA_RESOLUTION?.trim() || DEFAULT_MEDIA_RESOLUTION,
+    mediaResolution: DEFAULT_MEDIA_RESOLUTION,
     sessionResumptionEnabled:
       GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.sessionResumptionEnabled,
     contextCompressionEnabled: parseBooleanEnv(

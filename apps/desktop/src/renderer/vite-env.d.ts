@@ -10,7 +10,6 @@ declare global {
   interface ImportMetaEnv {
     readonly VITE_LIVE_MODEL?: string;
     readonly VITE_LIVE_API_VERSION?: string;
-    readonly VITE_LIVE_MEDIA_RESOLUTION?: string;
     readonly VITE_LIVE_CONTEXT_COMPRESSION?: string;
   }
 

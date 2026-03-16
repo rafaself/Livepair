@@ -55,7 +55,6 @@ describe('liveConfig', () => {
       resolveLiveConfigEnv({
         VITE_LIVE_MODEL: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         VITE_LIVE_API_VERSION: 'v1alpha',
-        VITE_LIVE_MEDIA_RESOLUTION: 'MEDIA_RESOLUTION_MEDIUM',
         VITE_LIVE_CONTEXT_COMPRESSION: 'true',
       }),
     );
@@ -152,6 +151,8 @@ describe('liveConfig', () => {
     expect(config).toMatchObject({
       model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
       apiVersion: 'v1alpha',
+      mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+      contextCompressionEnabled: true,
     });
     expect(config.sessionModes.voice).toEqual(buildGeminiLiveVoiceModeConfig());
   });
@@ -199,7 +200,6 @@ describe('liveConfig', () => {
 
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
       responseModalities: ['TEXT'],
-      mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
     });
   });
 
@@ -236,13 +236,16 @@ describe('liveConfig', () => {
     });
   });
 
-  it('uses an explicit low mediaResolution default for voice-mode screen sharing', () => {
-    const config = parseLiveConfig(createRawLiveConfig());
+  it('uses a medium mediaResolution default for voice-mode screen sharing', () => {
+    const config = parseLiveConfig(resolveLiveConfigEnv({}));
 
     expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
       ...buildGeminiLiveConnectCapabilityConfig(),
-      mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
       sessionResumption: {},
+      contextWindowCompression: {
+        slidingWindow: {},
+      },
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: {
@@ -324,7 +327,7 @@ describe('liveConfig', () => {
   });
 
   it('keeps built-in Google Search grounding off the text connect path', () => {
-    const config = parseLiveConfig(createRawLiveConfig());
+    const config = parseLiveConfig(resolveLiveConfigEnv({}));
 
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
       responseModalities: ['TEXT'],
