@@ -1,4 +1,4 @@
-import { Mic, MicOff, Monitor, MonitorOff, PhoneOff, ScanEye } from 'lucide-react';
+import { Mic, MicOff, Monitor, MonitorOff, Square, ScanEye } from 'lucide-react';
 import { Divider, IconButton } from '../primitives';
 import type { ControlDockUiState } from './controlDockUiState';
 
@@ -89,7 +89,7 @@ export function ControlDockSpeechControls({
             void onEndSession();
           }}
         >
-          <PhoneOff size={18} />
+          <Square size={18} fill="currentColor" />
         </IconButton>
       ) : null}
 
