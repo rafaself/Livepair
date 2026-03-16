@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel --filter !livepair dev",
+    "desktop": "pnpm --filter @livepair/desktop dev",
     "build": "pnpm -r --filter !livepair build",
     "lint": "pnpm -r --filter !livepair lint",
     "typecheck": "pnpm -r --filter !livepair typecheck",
