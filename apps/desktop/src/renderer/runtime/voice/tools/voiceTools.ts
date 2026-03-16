@@ -64,7 +64,7 @@ const BASE_VOICE_TOOL_DECLARATIONS: readonly VoiceToolDeclaration[] = [
 const PROJECT_GROUNDING_TOOL_DECLARATIONS: readonly VoiceToolDeclaration[] = [
   {
     name: 'search_project_knowledge',
-    description: 'Search curated project documents for project-specific facts, architecture, implementation details, internal docs, and specs. Use this for repository-specific factual questions. Do not use it for current public web facts, runtime app state when a direct tool already exists, or brainstorming and stylistic opinions.',
+    description: 'Search curated project documents for project-specific facts, architecture, implementation details, and internal docs. Use this for repository-specific factual questions. Do not use it for current public web facts, runtime app state when a direct tool already exists, or brainstorming and stylistic opinions.',
     parameters: {
       type: 'object',
       properties: {

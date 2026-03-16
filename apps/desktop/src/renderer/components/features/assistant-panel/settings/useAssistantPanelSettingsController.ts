@@ -3,7 +3,6 @@ import type {
   ChatTimestampVisibility,
   ContinuousScreenQuality,
   DesktopVoice,
-  PreferredMode,
   ScreenContextMode,
   SpeechSilenceTimeout,
   ThemePreference,
@@ -16,10 +15,10 @@ import { useUiStore } from '../../../../store/uiStore';
 import type { SelectOptionItem } from '../../../primitives';
 
 const UNAVAILABLE_INPUT_OPTION: readonly SelectOptionItem[] = [
-  { value: 'unavailable', label: 'Voice input unavailable in text-only release' },
+  { value: 'unavailable', label: 'No voice input devices available' },
 ];
 const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
-  { value: 'unavailable', label: 'Voice output unavailable in text-only release' },
+  { value: 'unavailable', label: 'No voice output devices available' },
 ];
 const UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE = '';
 const GROUNDING_CHANGE_DETAIL =
@@ -28,7 +27,6 @@ const GROUNDING_CHANGE_DETAIL =
 export type AssistantPanelSettingsController = {
   isDebugMode: boolean;
   isPanelPinned: boolean;
-  preferredMode: PreferredMode;
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
   speechSilenceTimeout: SpeechSilenceTimeout;
@@ -48,7 +46,6 @@ export type AssistantPanelSettingsController = {
   selectedScreenCaptureSourceId: string;
   toggleDebugMode: () => void;
   togglePanelPinned: () => void;
-  setPreferredMode: (mode: PreferredMode) => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
   setSelectedOutputDeviceId: (deviceId: string) => void;
   setSelectedScreenCaptureSourceId: (sourceId: string) => void;
@@ -110,7 +107,6 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
   return {
     isDebugMode,
     isPanelPinned: settings.isPanelPinned,
-    preferredMode: settings.preferredMode,
     selectedInputDeviceId: settings.selectedInputDeviceId,
     selectedOutputDeviceId: settings.selectedOutputDeviceId,
     speechSilenceTimeout: settings.speechSilenceTimeout,
@@ -134,9 +130,6 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     toggleDebugMode,
     togglePanelPinned: () => {
       void updateSetting('isPanelPinned', !settings.isPanelPinned);
-    },
-    setPreferredMode: (preferredMode) => {
-      void updateSetting('preferredMode', preferredMode);
     },
     setSelectedInputDeviceId: (selectedInputDeviceId) => {
       void updateSetting('selectedInputDeviceId', selectedInputDeviceId);

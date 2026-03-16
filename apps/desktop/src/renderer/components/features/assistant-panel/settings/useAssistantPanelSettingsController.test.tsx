@@ -47,9 +47,6 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={controller.togglePanelPinned}>
         toggle pinned
       </button>
-      <button type="button" onClick={() => controller.setPreferredMode('fast')}>
-        set fast
-      </button>
       <button type="button" onClick={() => controller.setSelectedInputDeviceId('usb-mic')}>
         set input
       </button>
@@ -177,6 +174,13 @@ describe('useAssistantPanelSettingsController', () => {
     });
   });
 
+  it('uses neutral fallback labels when device options are unavailable', () => {
+    render(<HookHarness />);
+
+    expect(screen.getByLabelText('input-options')).toHaveTextContent('No voice input devices available');
+    expect(screen.getByLabelText('output-options')).toHaveTextContent('No voice output devices available');
+  });
+
   it('shows no options when screen capture sources are unavailable', () => {
     useSessionStore.getState().setScreenCaptureSourceSnapshot({
       sources: [],
@@ -221,7 +225,6 @@ describe('useAssistantPanelSettingsController', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'toggle debug' }));
     fireEvent.click(screen.getByRole('button', { name: 'toggle pinned' }));
-    fireEvent.click(screen.getByRole('button', { name: 'set fast' }));
     fireEvent.click(screen.getByRole('button', { name: 'set input' }));
     fireEvent.click(screen.getByRole('button', { name: 'set output' }));
     fireEvent.click(screen.getByRole('button', { name: 'set screen source' }));
@@ -237,7 +240,6 @@ describe('useAssistantPanelSettingsController', () => {
       expect(screen.getByLabelText('debug-mode')).toHaveTextContent('true');
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ isPanelPinned: true });
-    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ preferredMode: 'fast' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ selectedInputDeviceId: 'usb-mic' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({
       selectedOutputDeviceId: 'desk-speakers',

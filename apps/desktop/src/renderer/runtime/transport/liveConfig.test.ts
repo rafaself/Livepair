@@ -307,6 +307,7 @@ describe('liveConfig', () => {
     expect(composeLiveSystemInstruction('Stay concise.')).toBe(
       `Stay concise.\n\n${LIVE_GROUNDING_POLICY_INSTRUCTION}`,
     );
+    expect(LIVE_GROUNDING_POLICY_INSTRUCTION).not.toContain('specs');
   });
 
   it('keeps grounding-routing out of system instruction when grounding is disabled', () => {

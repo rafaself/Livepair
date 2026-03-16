@@ -99,10 +99,10 @@ describe('AssistantPanelSettingsView', () => {
     const audioHeading = screen.getByRole('heading', { name: 'Audio' });
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'General' })).toBeVisible();
     expect(shareScreenHeading).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'General' })).not.toBeInTheDocument();
     expect(
       shareScreenHeading.compareDocumentPosition(audioHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
@@ -178,12 +178,11 @@ describe('AssistantPanelSettingsView', () => {
     );
   });
 
-  it('keeps preferred mode locked to fast in debug mode', async () => {
+  it('does not render the removed preferred mode control in debug mode', async () => {
     useUiStore.setState({ isDebugMode: true });
     await renderSettings();
 
-    expect(screen.getByRole('button', { name: /preferred mode/i })).toHaveTextContent('Fast');
-    expect(screen.getByRole('button', { name: /preferred mode/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /preferred mode/i })).toBeNull();
   });
 
   it('renders enumerated devices, resets invalid stored selections, and persists chosen devices', async () => {
