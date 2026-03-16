@@ -11,26 +11,29 @@ import type {
 import { isSessionActiveLifecycle, isTextTurnInFlight } from './text/textSessionLifecycle';
 import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
 
-function collectVisibleTranscriptArtifacts(
+function collectAttachedTurnIds(
   transcriptArtifacts: readonly TranscriptArtifactModel[],
-): readonly TranscriptArtifactModel[] {
-  let visibleArtifacts: TranscriptArtifactModel[] | null = null;
+): ReadonlySet<string> {
+  const attachedIds = new Set<string>();
 
-  for (const [index, artifact] of transcriptArtifacts.entries()) {
+  for (const artifact of transcriptArtifacts) {
     if (artifact.attachedTurnId !== undefined) {
-      if (visibleArtifacts === null) {
-        visibleArtifacts = transcriptArtifacts.slice(0, index);
-      }
-
-      continue;
-    }
-
-    if (visibleArtifacts !== null) {
-      visibleArtifacts.push(artifact);
+      attachedIds.add(artifact.attachedTurnId);
     }
   }
 
-  return visibleArtifacts ?? transcriptArtifacts;
+  return attachedIds;
+}
+
+function excludeAttachedConversationTurns(
+  conversationTurns: readonly ConversationTurnModel[],
+  attachedTurnIds: ReadonlySet<string>,
+): readonly ConversationTurnModel[] {
+  if (attachedTurnIds.size === 0) {
+    return conversationTurns;
+  }
+
+  return conversationTurns.filter((turn) => !attachedTurnIds.has(turn.id));
 }
 
 function hasDefinedIncreasingOrdinals(
@@ -242,38 +245,36 @@ export function selectCanSubmitText(
 export function selectIsConversationEmpty(
   state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
 ): boolean {
-  if (state.conversationTurns.length > 0) {
-    return false;
-  }
-
-  return !state.transcriptArtifacts.some((artifact) => artifact.attachedTurnId === undefined);
+  return state.conversationTurns.length === 0 && state.transcriptArtifacts.length === 0;
 }
 
 export function selectVisibleConversationTimeline(
   state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
 ): ConversationTimelineEntry[] {
-  const visibleTranscriptArtifacts = collectVisibleTranscriptArtifacts(state.transcriptArtifacts);
+  const { transcriptArtifacts } = state;
+  const attachedTurnIds = collectAttachedTurnIds(transcriptArtifacts);
+  const visibleTurns = excludeAttachedConversationTurns(state.conversationTurns, attachedTurnIds);
 
-  if (state.conversationTurns.length === 0) {
-    return visibleTranscriptArtifacts === state.transcriptArtifacts
-      ? state.transcriptArtifacts
-      : [...visibleTranscriptArtifacts];
+  if (visibleTurns.length === 0) {
+    return transcriptArtifacts.length > 0
+      ? [...transcriptArtifacts]
+      : [];
   }
 
-  if (visibleTranscriptArtifacts.length === 0) {
-    return state.conversationTurns;
+  if (transcriptArtifacts.length === 0) {
+    return [...visibleTurns];
   }
 
   if (
-    hasDefinedIncreasingOrdinals(state.conversationTurns)
-    && hasDefinedIncreasingOrdinals(visibleTranscriptArtifacts)
+    hasDefinedIncreasingOrdinals(visibleTurns)
+    && hasDefinedIncreasingOrdinals(transcriptArtifacts)
   ) {
-    return mergeOrderedConversationTimeline(state.conversationTurns, visibleTranscriptArtifacts);
+    return mergeOrderedConversationTimeline(visibleTurns, transcriptArtifacts);
   }
 
   return [
-    ...state.conversationTurns,
-    ...visibleTranscriptArtifacts,
+    ...visibleTurns,
+    ...transcriptArtifacts,
   ]
     .map((entry, index) => ({ entry, index }))
     .sort((left, right) => {
