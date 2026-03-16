@@ -11,7 +11,7 @@ import {
   DEFAULT_SYSTEM_INSTRUCTION,
   MAX_SYSTEM_INSTRUCTION_LENGTH,
 } from '../../../shared';
-import { visualSessionQualityToMediaResolution } from './visualSessionQuality';
+import { continuousScreenQualityToMediaResolution } from './continuousScreenQuality';
 
 function createRawLiveConfig(overrides: Partial<Parameters<typeof parseLiveConfig>[0]> = {}) {
   return {
@@ -283,15 +283,15 @@ describe('liveConfig', () => {
   });
 
   it('wave 5: visual session quality maps correctly to media resolution values', () => {
-    expect(visualSessionQualityToMediaResolution('Low')).toBe('MEDIA_RESOLUTION_LOW');
-    expect(visualSessionQualityToMediaResolution('Medium')).toBe('MEDIA_RESOLUTION_MEDIUM');
-    expect(visualSessionQualityToMediaResolution('High')).toBe('MEDIA_RESOLUTION_HIGH');
+    expect(continuousScreenQualityToMediaResolution('low')).toBe('MEDIA_RESOLUTION_LOW');
+    expect(continuousScreenQualityToMediaResolution('medium')).toBe('MEDIA_RESOLUTION_MEDIUM');
+    expect(continuousScreenQualityToMediaResolution('high')).toBe('MEDIA_RESOLUTION_HIGH');
   });
 
   it('wave 5: buildGeminiLiveConnectConfig uses quality-derived media resolution for voice mode', () => {
     const config = parseLiveConfig(
       createRawLiveConfig({
-        mediaResolution: visualSessionQualityToMediaResolution('Medium'),
+        mediaResolution: continuousScreenQualityToMediaResolution('medium'),
       }),
     );
 
@@ -303,7 +303,7 @@ describe('liveConfig', () => {
   it('wave 5: buildGeminiLiveConnectConfig uses quality-derived media resolution for text mode (non-default)', () => {
     const config = parseLiveConfig(
       createRawLiveConfig({
-        mediaResolution: visualSessionQualityToMediaResolution('High'),
+        mediaResolution: continuousScreenQualityToMediaResolution('high'),
       }),
     );
 
@@ -315,7 +315,7 @@ describe('liveConfig', () => {
   it('wave 5: the Live model is not changed by visual session quality', () => {
     const config = parseLiveConfig(
       createRawLiveConfig({
-        mediaResolution: visualSessionQualityToMediaResolution('High'),
+        mediaResolution: continuousScreenQualityToMediaResolution('high'),
       }),
     );
 

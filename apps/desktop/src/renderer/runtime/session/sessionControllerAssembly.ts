@@ -18,6 +18,7 @@ import { createSessionTransportAssembly } from './sessionTransportAssembly';
 import { createSessionLifecycleAssembly } from './sessionLifecycleAssembly';
 import { createSessionConversationSupport } from './sessionConversationSupport';
 import { useUiStore } from '../../store/uiStore';
+import { resolveActiveScreenContextQuality } from '../../../shared';
 import type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
@@ -74,7 +75,7 @@ export function createSessionControllerAssembly(
       },
     },
     undefined,
-    () => dependencies.settingsStore.getState().settings.visualSessionQuality,
+    () => resolveActiveScreenContextQuality(dependencies.settingsStore.getState().settings),
   );
   const refreshScreenCaptureSourceSnapshot = async (): Promise<boolean> => {
     try {

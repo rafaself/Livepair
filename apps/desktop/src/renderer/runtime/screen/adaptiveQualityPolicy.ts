@@ -9,7 +9,7 @@
  * When the baseline is already High, promotion is a no-op.
  */
 
-import type { VisualSessionQuality } from '../../../shared/settings';
+import type { ContinuousScreenQuality } from '../../../shared/settings';
 import {
   getScreenCaptureQualityParams,
   type ScreenCaptureQualityParams,
@@ -38,11 +38,11 @@ export type AdaptiveQualityPolicy = {
 };
 
 export function createAdaptiveQualityPolicy(
-  baseline: VisualSessionQuality,
+  baseline: ContinuousScreenQuality,
 ): AdaptiveQualityPolicy {
   const baselineParams = getScreenCaptureQualityParams(baseline);
-  const promotedParams = getScreenCaptureQualityParams('High');
-  const alreadyMax = baseline === 'High';
+  const promotedParams = getScreenCaptureQualityParams('high');
+  const alreadyMax = baseline === 'high';
 
   let promoted = false;
 

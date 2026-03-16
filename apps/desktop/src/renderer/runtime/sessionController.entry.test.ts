@@ -118,7 +118,7 @@ describe('sessionController entry', () => {
     useSettingsStore.setState({
       settings: {
         ...DEFAULT_DESKTOP_SETTINGS,
-        visualSessionQuality: 'High',
+        continuousScreenQuality: 'high',
         voice: 'Aoede',
         systemInstruction: 'Answer as a focused pair-programming assistant.',
       },

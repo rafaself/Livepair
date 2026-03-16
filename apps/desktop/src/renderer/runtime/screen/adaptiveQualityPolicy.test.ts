@@ -5,35 +5,35 @@ import {
 } from './adaptiveQualityPolicy';
 import { getScreenCaptureQualityParams } from './screenCapturePolicy';
 
-const LOW_PARAMS = getScreenCaptureQualityParams('Low');
-const MEDIUM_PARAMS = getScreenCaptureQualityParams('Medium');
-const HIGH_PARAMS = getScreenCaptureQualityParams('High');
+const LOW_PARAMS = getScreenCaptureQualityParams('low');
+const MEDIUM_PARAMS = getScreenCaptureQualityParams('medium');
+const HIGH_PARAMS = getScreenCaptureQualityParams('high');
 
 describe('createAdaptiveQualityPolicy', () => {
   // ── Baseline behaviour ──────────────────────────────────────────────────
 
   it('returns baseline params when no promotion is active', () => {
-    const policy = createAdaptiveQualityPolicy('Medium');
+    const policy = createAdaptiveQualityPolicy('medium');
     expect(policy.getEffectiveParams()).toEqual(MEDIUM_PARAMS);
     expect(policy.getBaselineParams()).toEqual(MEDIUM_PARAMS);
   });
 
   it('reports not promoted initially', () => {
-    const policy = createAdaptiveQualityPolicy('Low');
+    const policy = createAdaptiveQualityPolicy('low');
     expect(policy.isPromoted()).toBe(false);
   });
 
   // ── Promotion from Low ──────────────────────────────────────────────────
 
   it('promotes effective params to High when baseline is Low', () => {
-    const policy = createAdaptiveQualityPolicy('Low');
+    const policy = createAdaptiveQualityPolicy('low');
     policy.promote();
     expect(policy.isPromoted()).toBe(true);
     expect(policy.getEffectiveParams()).toEqual(HIGH_PARAMS);
   });
 
   it('keeps baseline unchanged after promotion from Low', () => {
-    const policy = createAdaptiveQualityPolicy('Low');
+    const policy = createAdaptiveQualityPolicy('low');
     policy.promote();
     expect(policy.getBaselineParams()).toEqual(LOW_PARAMS);
   });
@@ -41,14 +41,14 @@ describe('createAdaptiveQualityPolicy', () => {
   // ── Promotion from Medium ───────────────────────────────────────────────
 
   it('promotes effective params to High when baseline is Medium', () => {
-    const policy = createAdaptiveQualityPolicy('Medium');
+    const policy = createAdaptiveQualityPolicy('medium');
     policy.promote();
     expect(policy.isPromoted()).toBe(true);
     expect(policy.getEffectiveParams()).toEqual(HIGH_PARAMS);
   });
 
   it('keeps baseline unchanged after promotion from Medium', () => {
-    const policy = createAdaptiveQualityPolicy('Medium');
+    const policy = createAdaptiveQualityPolicy('medium');
     policy.promote();
     expect(policy.getBaselineParams()).toEqual(MEDIUM_PARAMS);
   });
@@ -56,7 +56,7 @@ describe('createAdaptiveQualityPolicy', () => {
   // ── Promotion is a no-op when baseline is High ──────────────────────────
 
   it('does not promote when baseline is already High', () => {
-    const policy = createAdaptiveQualityPolicy('High');
+    const policy = createAdaptiveQualityPolicy('high');
     policy.promote();
     expect(policy.isPromoted()).toBe(false);
     expect(policy.getEffectiveParams()).toEqual(HIGH_PARAMS);
@@ -65,7 +65,7 @@ describe('createAdaptiveQualityPolicy', () => {
   // ── endPromotion ────────────────────────────────────────────────────────
 
   it('returns to baseline after endPromotion', () => {
-    const policy = createAdaptiveQualityPolicy('Low');
+    const policy = createAdaptiveQualityPolicy('low');
     policy.promote();
     expect(policy.isPromoted()).toBe(true);
 
@@ -75,7 +75,7 @@ describe('createAdaptiveQualityPolicy', () => {
   });
 
   it('endPromotion is safe to call when not promoted', () => {
-    const policy = createAdaptiveQualityPolicy('Medium');
+    const policy = createAdaptiveQualityPolicy('medium');
     policy.endPromotion();
     expect(policy.isPromoted()).toBe(false);
     expect(policy.getEffectiveParams()).toEqual(MEDIUM_PARAMS);
@@ -84,7 +84,7 @@ describe('createAdaptiveQualityPolicy', () => {
   // ── reset ───────────────────────────────────────────────────────────────
 
   it('reset clears active promotion', () => {
-    const policy = createAdaptiveQualityPolicy('Low');
+    const policy = createAdaptiveQualityPolicy('low');
     policy.promote();
     expect(policy.isPromoted()).toBe(true);
 
@@ -94,7 +94,7 @@ describe('createAdaptiveQualityPolicy', () => {
   });
 
   it('reset is safe to call when not promoted', () => {
-    const policy = createAdaptiveQualityPolicy('Medium');
+    const policy = createAdaptiveQualityPolicy('medium');
     policy.reset();
     expect(policy.isPromoted()).toBe(false);
     expect(policy.getEffectiveParams()).toEqual(MEDIUM_PARAMS);
@@ -103,7 +103,7 @@ describe('createAdaptiveQualityPolicy', () => {
   // ── Re-promotion after endPromotion/reset ───────────────────────────────
 
   it('can be promoted again after endPromotion', () => {
-    const policy = createAdaptiveQualityPolicy('Low');
+    const policy = createAdaptiveQualityPolicy('low');
     policy.promote();
     policy.endPromotion();
     policy.promote();
@@ -112,7 +112,7 @@ describe('createAdaptiveQualityPolicy', () => {
   });
 
   it('can be promoted again after reset', () => {
-    const policy = createAdaptiveQualityPolicy('Medium');
+    const policy = createAdaptiveQualityPolicy('medium');
     policy.promote();
     policy.reset();
     policy.promote();
@@ -123,7 +123,7 @@ describe('createAdaptiveQualityPolicy', () => {
   // ── Repeated promote calls ──────────────────────────────────────────────
 
   it('repeated promote calls are idempotent', () => {
-    const policy = createAdaptiveQualityPolicy('Low');
+    const policy = createAdaptiveQualityPolicy('low');
     policy.promote();
     policy.promote();
     policy.promote();

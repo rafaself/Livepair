@@ -19,7 +19,7 @@ import {
   SCREEN_CAPTURE_JPEG_QUALITY,
   SCREEN_CAPTURE_MAX_WIDTH_PX,
 } from './localScreenCapture';
-import type { VisualSessionQuality } from '../../../shared/settings';
+import type { ContinuousScreenQuality } from '../../../shared/settings';
 import { getScreenCaptureQualityParams } from './screenCapturePolicy';
 import { QUALITY_PROMOTION_DURATION_MS } from './adaptiveQualityPolicy';
 
@@ -35,7 +35,7 @@ function createHarness(options: {
   burstMaxFrames?: number;
   burstMaxLifetimeMs?: number;
   burstReentryCooldownMs?: number;
-  getBaselineQuality?: () => VisualSessionQuality;
+  getBaselineQuality?: () => ContinuousScreenQuality;
   promotionDurationMs?: number;
 } = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
@@ -2021,9 +2021,9 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
     reason: 'accepted',
   });
 
-  const LOW_PARAMS = getScreenCaptureQualityParams('Low');
-  const MEDIUM_PARAMS = getScreenCaptureQualityParams('Medium');
-  const HIGH_PARAMS = getScreenCaptureQualityParams('High');
+  const LOW_PARAMS = getScreenCaptureQualityParams('low');
+  const MEDIUM_PARAMS = getScreenCaptureQualityParams('medium');
+  const HIGH_PARAMS = getScreenCaptureQualityParams('high');
 
   async function startCapture(harness: ReturnType<typeof createHarness>): Promise<void> {
     await harness.ctrl.start();
@@ -2059,7 +2059,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
 
   it('passes baseline quality params to capture.start when baseline is Low', async () => {
     const harness = createHarness({
-      getBaselineQuality: () => 'Low',
+      getBaselineQuality: () => 'low',
       submitDecision: alwaysSend,
     });
     await harness.ctrl.start();
@@ -2076,7 +2076,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
 
   it('passes baseline quality params to capture.start when baseline is High (no promotion)', async () => {
     const harness = createHarness({
-      getBaselineQuality: () => 'High',
+      getBaselineQuality: () => 'high',
       submitDecision: alwaysSend,
     });
     await harness.ctrl.start();
@@ -2093,7 +2093,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
 
   it('keeps bootstrap snapshots at baseline quality', async () => {
     const harness = createHarness({
-      getBaselineQuality: () => 'Low',
+      getBaselineQuality: () => 'low',
       submitDecision: alwaysSend,
     });
     await harness.ctrl.start();
@@ -2102,7 +2102,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
 
   it('promotes quality on analyzeScreenNow and reverts after the promoted snapshot is dispatched', async () => {
     const harness = createHarness({
-      getBaselineQuality: () => 'Medium',
+      getBaselineQuality: () => 'medium',
       promotionDurationMs: 5_000,
       submitDecision: alwaysSend,
     });
@@ -2120,7 +2120,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
   it('does not promote when analyzeScreenNow is suppressed by snapshot cooldown', async () => {
     let now = 0;
     const harness = createHarness({
-      getBaselineQuality: () => 'Low',
+      getBaselineQuality: () => 'low',
       submitDecision: alwaysSend,
       visualSendPolicyOptions: {
         nowMs: () => now,
@@ -2144,7 +2144,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
 
   it('promotes quality on onSpeechStart and reverts after the triggered snapshot is dispatched', async () => {
     const harness = createHarness({
-      getBaselineQuality: () => 'Low',
+      getBaselineQuality: () => 'low',
       promotionDurationMs: 5_000,
       submitDecision: alwaysSend,
     });
@@ -2161,7 +2161,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
 
   it('promotes quality on onTextSent and reverts after the triggered snapshot is dispatched', async () => {
     const harness = createHarness({
-      getBaselineQuality: () => 'Low',
+      getBaselineQuality: () => 'low',
       promotionDurationMs: 5_000,
       submitDecision: alwaysSend,
     });
@@ -2178,7 +2178,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
 
   it('does not promote when onTextSent is suppressed by explicit streaming', async () => {
     const harness = createHarness({
-      getBaselineQuality: () => 'Low',
+      getBaselineQuality: () => 'low',
       submitDecision: alwaysSend,
     });
     await startCapture(harness);
@@ -2194,7 +2194,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
     vi.useFakeTimers();
     try {
       const harness = createHarness({
-        getBaselineQuality: () => 'Medium',
+        getBaselineQuality: () => 'medium',
         promotionDurationMs: 5000,
         submitDecision: alwaysSend,
       });
@@ -2217,7 +2217,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
 
   it('keeps passive burst frames at the baseline quality', async () => {
     const harness = createHarness({
-      getBaselineQuality: () => 'Low',
+      getBaselineQuality: () => 'low',
       submitDecision: alwaysSend,
     });
     await startCapture(harness);
@@ -2233,7 +2233,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
     vi.useFakeTimers();
     try {
       const harness = createHarness({
-        getBaselineQuality: () => 'Low',
+        getBaselineQuality: () => 'low',
         promotionDurationMs: 50000,
         submitDecision: alwaysSend,
       });
@@ -2261,7 +2261,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
   it('start() reinitializes quality policy with fresh baseline', async () => {
     vi.useFakeTimers();
     try {
-      let baseline: VisualSessionQuality = 'Low';
+      let baseline: ContinuousScreenQuality = 'low';
       const harness = createHarness({
         getBaselineQuality: () => baseline,
         promotionDurationMs: 5000,
@@ -2284,7 +2284,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
       harness.mockCapture.start.mockClear();
 
       // Change baseline to Medium
-      baseline = 'Medium';
+      baseline = 'medium';
       await startCapture(harness);
       harness.mockCapture.updateQuality.mockClear();
       harness.ctrl.analyzeScreenNow();
@@ -2302,7 +2302,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
     vi.useFakeTimers();
     try {
       const harness = createHarness({
-        getBaselineQuality: () => 'High',
+        getBaselineQuality: () => 'high',
         promotionDurationMs: 5000,
         submitDecision: alwaysSend,
       });
@@ -2331,7 +2331,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
     vi.useFakeTimers();
     try {
       const harness = createHarness({
-        getBaselineQuality: () => 'Low',
+        getBaselineQuality: () => 'low',
         promotionDurationMs: 50000,
         submitDecision: alwaysSend,
       });
@@ -2359,7 +2359,7 @@ describe('createScreenCaptureController – Wave 4 adaptive quality', () => {
 //   A. Hard frame budget per burst
 //   B. Absolute burst lifetime cap under sustained motion
 //   C. Re-entry cooldown between passive bursts
-//   D. Explicit Analyze screen now bypasses passive burst limits
+//   D. Explicit Send screen now bypasses passive burst limits
 //   E. Screen-share restart resets the passive re-entry cooldown
 // ---------------------------------------------------------------------------
 describe('createScreenCaptureController – Wave 6 burst budgets', () => {
@@ -2413,7 +2413,7 @@ describe('createScreenCaptureController – Wave 6 burst budgets', () => {
     expect(harness.ctrl.getVisualSendState()).toBe('sleep');
   });
 
-  it('Analyze screen now still works after a burst hits the hard frame budget', async () => {
+  it('Send screen now still works after a burst hits the hard frame budget', async () => {
     let now = 0;
     const harness = createHarness({
       burstDurationMs: 60_000,
@@ -2512,7 +2512,7 @@ describe('createScreenCaptureController – Wave 6 burst budgets', () => {
     }
   });
 
-  it('Analyze screen now clearing an active burst does not arm passive re-entry cooldown', async () => {
+  it('Send screen now clearing an active burst does not arm passive re-entry cooldown', async () => {
     let now = 0;
     const harness = createHarness({
       burstDurationMs: 60_000,

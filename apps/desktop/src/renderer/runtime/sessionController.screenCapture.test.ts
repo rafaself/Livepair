@@ -141,7 +141,7 @@ describe('createDesktopSessionController – screen capture', () => {
     expect(screenCapture.start).not.toHaveBeenCalled();
     expect(useSessionStore.getState().screenCaptureState).toBe('error');
     expect(useSessionStore.getState().lastRuntimeError).toBe(
-      'Screen context requires an active Live session',
+      'Screen sharing requires an active Live session',
     );
   });
 
@@ -770,7 +770,7 @@ describe('createDesktopSessionController – screen share visual delivery', () =
     });
     voiceTransport.sendVideoFrame.mockClear();
 
-    // Enable streaming then stop: frames should be blocked.
+    // Continuous sharing enabled then stop: frames should be blocked.
     controller.enableScreenStreaming();
     controller.stopScreenStreaming();
     screenCapture.emitFrame({ sequence: 1 });

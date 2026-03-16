@@ -24,7 +24,7 @@ import {
   createAdaptiveQualityPolicy,
   QUALITY_PROMOTION_DURATION_MS,
 } from './adaptiveQualityPolicy';
-import type { VisualSessionQuality } from '../../../shared/settings';
+import type { ContinuousScreenQuality } from '../../../shared/settings';
 import type {
   CreateScreenCapture,
   GetRealtimeOutboundGateway,
@@ -75,7 +75,7 @@ export function createScreenCaptureController(
   getRealtimeOutboundGateway: GetRealtimeOutboundGateway,
   screenFrameDumpControls?: ScreenFrameDumpControls,
   controllerOptions?: ScreenCaptureControllerOptions,
-  getBaselineQuality?: () => VisualSessionQuality,
+  getBaselineQuality?: () => ContinuousScreenQuality,
 ): ScreenCaptureController {
   const burstDurationMs = controllerOptions?.burstDurationMs ?? VISUAL_BURST_DURATION_MS;
   const burstStableFrames = controllerOptions?.burstStableFrames ?? VISUAL_BURST_STABLE_FRAMES;
@@ -110,7 +110,7 @@ export function createScreenCaptureController(
   // from settings.  This ensures we pick up the latest user preference.
 
   let qualityPolicy = createAdaptiveQualityPolicy(
-    getBaselineQuality?.() ?? 'High',
+    getBaselineQuality?.() ?? 'high',
   );
   let promotionTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -385,7 +385,7 @@ export function createScreenCaptureController(
       // Reinitialize quality policy with fresh baseline on each start so
       // the latest user preference is picked up.
       qualityPolicy = createAdaptiveQualityPolicy(
-        getBaselineQuality?.() ?? 'High',
+        getBaselineQuality?.() ?? 'high',
       );
       return lifecycle.start();
     },
