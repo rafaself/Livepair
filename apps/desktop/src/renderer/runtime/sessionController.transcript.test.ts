@@ -324,12 +324,16 @@ describe('createDesktopSessionController – transcript', () => {
         attachedTurnId: 'assistant-turn-1',
       }),
     ]);
-    // The visible timeline shows the transcript artifact (what was spoken),
-    // while the canonical turn is hidden (used for backend persistence).
+    // The visible timeline keeps the spoken transcript first, but also keeps
+    // the canonical persisted assistant turn visible when its text differs.
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
         id: 'assistant-transcript-1',
         content: 'Transcript bubble reply',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Canonical reply',
       }),
     ]);
   });
@@ -439,6 +443,10 @@ describe('createDesktopSessionController – transcript', () => {
         id: 'assistant-transcript-2',
         content: 'Transcript bubble reply',
       }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Canonical reply',
+      }),
     ]);
   });
 
@@ -487,7 +495,8 @@ describe('createDesktopSessionController – transcript', () => {
 
     // The spoken request transcript artifact covers the canonical turn.
     // The typed follow-up has no transcript, so the canonical turn is shown.
-    // The assistant transcript artifact covers the canonical assistant turn.
+    // The assistant transcript stays first, while the canonical assistant turn
+    // remains visible because its persisted text differs from the transcript.
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
         id: 'user-transcript-1',
@@ -502,6 +511,11 @@ describe('createDesktopSessionController – transcript', () => {
       expect.objectContaining({
         id: 'assistant-transcript-2',
         content: 'typed reply transcript',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'typed reply canonical',
         source: 'voice',
       }),
     ]);
