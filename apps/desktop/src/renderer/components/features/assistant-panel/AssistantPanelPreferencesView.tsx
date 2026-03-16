@@ -30,12 +30,14 @@ type PreferencesController = Pick<
   | 'themePreference'
   | 'speechSilenceTimeout'
   | 'chatTimestampVisibility'
+  | 'groundingEnabled'
   | 'voice'
   | 'systemInstruction'
   | 'togglePanelPinned'
   | 'setThemePreference'
   | 'setSpeechSilenceTimeout'
   | 'setChatTimestampVisibility'
+  | 'setGroundingEnabled'
   | 'setVoice'
   | 'setSystemInstruction'
   | 'restoreDefaultVoiceAndInstructions'
@@ -53,12 +55,14 @@ export function AssistantPanelPreferencesView({
     themePreference,
     speechSilenceTimeout,
     chatTimestampVisibility,
+    groundingEnabled,
     voice,
     systemInstruction,
     togglePanelPinned,
     setThemePreference,
     setSpeechSilenceTimeout,
     setChatTimestampVisibility,
+    setGroundingEnabled,
     setVoice,
     setSystemInstruction,
     restoreDefaultVoiceAndInstructions,
@@ -165,6 +169,17 @@ export function AssistantPanelPreferencesView({
             className="assistant-panel__settings-field-list field-list--aligned-controls"
             items={[
               {
+                label: 'Grounding',
+                value: (
+                  <Switch
+                    aria-label="Grounding"
+                    checked={groundingEnabled}
+                    className="assistant-panel__settings-switch"
+                    onCheckedChange={setGroundingEnabled}
+                  />
+                ),
+              },
+              {
                 label: 'Voice',
                 value: (
                   <Select
@@ -188,6 +203,11 @@ export function AssistantPanelPreferencesView({
               },
             ]}
           />
+          <div className="assistant-panel__settings-field-stack">
+            <span className="assistant-panel__settings-hint">
+              Uses project knowledge and Google Search for future live sessions.
+            </span>
+          </div>
 
           <div className="assistant-panel__settings-persona-stack">
             <label

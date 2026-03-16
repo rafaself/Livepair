@@ -62,12 +62,14 @@ describe('DesktopSettingsRepository', () => {
     await expect(
       repository.updateSettings({
         themePreference: 'dark',
+        groundingEnabled: false,
         voice: 'Kore',
         systemInstruction: overlongInstruction,
       }),
     ).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
       themePreference: 'dark',
+      groundingEnabled: false,
       voice: 'Kore',
       systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
     });
@@ -76,6 +78,7 @@ describe('DesktopSettingsRepository', () => {
     await expect(reloadedRepository.getSettings()).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
       themePreference: 'dark',
+      groundingEnabled: false,
       voice: 'Kore',
       systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
     });
@@ -84,12 +87,13 @@ describe('DesktopSettingsRepository', () => {
       JSON.stringify(
         {
           version: 1,
-          settings: {
-            ...DEFAULT_DESKTOP_SETTINGS,
-            themePreference: 'dark',
-            voice: 'Kore',
-            systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
-          },
+            settings: {
+              ...DEFAULT_DESKTOP_SETTINGS,
+              themePreference: 'dark',
+              groundingEnabled: false,
+              voice: 'Kore',
+              systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
+            },
         },
         null,
         2,
@@ -109,6 +113,7 @@ describe('DesktopSettingsRepository', () => {
           ...DEFAULT_DESKTOP_SETTINGS,
           backendUrl: 'https://legacy.livepair.dev',
           voice: 'BadVoice',
+          groundingEnabled: 'sometimes',
           systemInstruction: '   ',
         },
       }),
@@ -116,6 +121,7 @@ describe('DesktopSettingsRepository', () => {
 
     await expect(new DesktopSettingsRepository(legacySettingsPath).getSettings()).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
       voice: 'Puck',
       systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
     });

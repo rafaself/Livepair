@@ -193,6 +193,10 @@ export function createSessionLifecycleAssembly({
     updateVoicePlaybackDiagnostics: (patch) => {
       runtimeRef.current!.updateVoicePlaybackDiagnostics(patch);
     },
+    currentGroundingEnabled: () => dependencies.settingsStore.getState().settings.groundingEnabled,
+    setActiveVoiceSessionGroundingEnabled: (enabled) => {
+      dependencies.store.getState().setActiveVoiceSessionGroundingEnabled(enabled);
+    },
     selectedOutputDeviceId,
     setVoiceSessionStatus: (status) => {
       runtimeRef.current!.setVoiceSessionStatus(status);

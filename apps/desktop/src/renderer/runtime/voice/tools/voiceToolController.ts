@@ -32,10 +32,18 @@ export function createVoiceToolController(
   store: VoiceToolStoreApi,
   getTransport: () => DesktopSession | null,
   getSnapshot: SnapshotProvider,
-  onAnswerMetadata?: (answerMetadata: AnswerMetadata) => void,
+  getExecutionOptionsOrOnAnswerMetadata?:
+    | (() => { groundingEnabled?: boolean })
+    | ((answerMetadata: AnswerMetadata) => void),
+  maybeOnAnswerMetadata?: (answerMetadata: AnswerMetadata) => void,
 ): VoiceToolController {
   let voiceToolChain = Promise.resolve();
   let executionVersion = 0;
+  const getExecutionOptions = maybeOnAnswerMetadata
+    ? getExecutionOptionsOrOnAnswerMetadata as (() => { groundingEnabled?: boolean }) | undefined
+    : undefined;
+  const onAnswerMetadata = maybeOnAnswerMetadata
+    ?? getExecutionOptionsOrOnAnswerMetadata as ((answerMetadata: AnswerMetadata) => void) | undefined;
 
   const setState = (patch: Partial<VoiceToolState>): void => {
     store.getState().setVoiceToolState(patch);
@@ -98,7 +106,12 @@ export function createVoiceToolController(
       });
       setDebugEvent('voice.tool.executing', `${call.id}:${call.name}`);
 
-      const response = await executeLocalVoiceTool(call, getSnapshot());
+      const response = await executeLocalVoiceTool(
+        call,
+        getSnapshot(),
+        undefined,
+        getExecutionOptions?.(),
+      );
 
       if (!isActiveExecution(version, transport)) {
         return;

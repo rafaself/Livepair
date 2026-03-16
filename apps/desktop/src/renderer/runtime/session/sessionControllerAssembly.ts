@@ -103,6 +103,11 @@ export function createSessionControllerAssembly(
     dependencies.store,
     () => mutableRuntime.getActiveTransport(),
     () => stateSync.createVoiceToolExecutionSnapshot(),
+    () => ({
+      groundingEnabled:
+        dependencies.store.getState().activeVoiceSessionGroundingEnabled
+        ?? dependencies.settingsStore.getState().settings.groundingEnabled,
+    }),
     (answerMetadata) => {
       setAssistantAnswerMetadata(conversationCtx, answerMetadata);
       logRuntimeDiagnostic('voice-session', 'assistant answer provenance updated', {

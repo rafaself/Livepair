@@ -63,11 +63,13 @@ describe('settingsStore', () => {
   it('hydrates and updates persisted voice preferences through the bridge', async () => {
     window.bridge.getSettings = vi.fn().mockResolvedValue({
       ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: false,
       voice: 'Kore',
       systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
     });
     window.bridge.updateSettings = vi.fn().mockImplementation(async (patch) => ({
       ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: false,
       voice: 'Kore',
       systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
       ...patch,
@@ -75,11 +77,13 @@ describe('settingsStore', () => {
 
     await expect(useSettingsStore.getState().hydrate()).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: false,
       voice: 'Kore',
       systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
     });
     await expect(useSettingsStore.getState().updateSetting('voice', 'Aoede')).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: false,
       voice: 'Aoede',
       systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
     });
@@ -89,6 +93,29 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().settings.systemInstruction).toBe(
       DEFAULT_SYSTEM_INSTRUCTION,
     );
+  });
+
+  it('hydrates and updates grounding preferences through the bridge', async () => {
+    window.bridge.getSettings = vi.fn().mockResolvedValue({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: false,
+    });
+    window.bridge.updateSettings = vi.fn().mockImplementation(async (patch) => ({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: false,
+      ...patch,
+    }));
+
+    await expect(useSettingsStore.getState().hydrate()).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: false,
+    });
+    await expect(
+      useSettingsStore.getState().updateSetting('groundingEnabled', true),
+    ).resolves.toEqual(DEFAULT_DESKTOP_SETTINGS);
+
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ groundingEnabled: true });
+    expect(useSettingsStore.getState().settings.groundingEnabled).toBe(true);
   });
 
   it('normalizes malformed Gemini preferences returned by the bridge before exposing them', async () => {

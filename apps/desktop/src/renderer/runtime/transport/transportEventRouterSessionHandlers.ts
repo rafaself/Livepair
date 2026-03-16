@@ -6,6 +6,8 @@ import type { LiveSessionEvent } from './transport.types';
 import type { TransportEventRouterContext } from './transportEventRouterTypes';
 
 const DEFAULT_UNAVAILABLE_DETAIL = 'Voice session unavailable';
+const GROUNDING_SESSION_RESTART_DETAIL =
+  'Grounding setting changed; start a new session to apply it.';
 
 function getUnavailableDetail(detail?: string): string {
   return detail ?? DEFAULT_UNAVAILABLE_DETAIL;
@@ -148,24 +150,32 @@ function handleSessionResumptionUpdate(
 ): void {
   const { ops, store } = context;
   const updatedAt = new Date().toISOString();
+  const groundingChangedForCurrentSession =
+    store.activeVoiceSessionGroundingEnabled !== null
+    && store.activeVoiceSessionGroundingEnabled !== ops.settingsStore.getState().settings.groundingEnabled;
+  const resumable = groundingChangedForCurrentSession ? false : event.resumable;
+  const detail = groundingChangedForCurrentSession
+    ? GROUNDING_SESSION_RESTART_DETAIL
+    : (event.detail ?? null);
 
   ops.logRuntimeDiagnostic('voice-session', 'resumption handle updated', {
     previousHandle: store.voiceSessionResumption.latestHandle,
     latestHandle: event.handle,
-    resumable: event.resumable,
-    detail: event.detail ?? null,
+    resumable,
+    detail,
+    groundingChangedForCurrentSession,
   });
   ops.setVoiceSessionResumption({
     latestHandle: event.handle,
-    resumable: event.resumable,
-    lastDetail: event.detail ?? null,
+    resumable,
+    lastDetail: detail,
   });
   ops.persistLiveSessionResumption({
     resumptionHandle: event.handle,
     lastResumptionUpdateAt: updatedAt,
-    restorable: event.resumable,
-    invalidatedAt: event.resumable ? null : updatedAt,
-    invalidationReason: event.resumable ? null : (event.detail ?? null),
+    restorable: resumable,
+    invalidatedAt: resumable ? null : updatedAt,
+    invalidationReason: resumable ? null : detail,
   });
 }
 

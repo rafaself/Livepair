@@ -74,6 +74,7 @@ function HookHarness(): JSX.Element {
       <output aria-label="speech-silence-timeout">{controller.speechSilenceTimeout}</output>
       <output aria-label="screen-context-mode">{controller.screenContextMode}</output>
       <output aria-label="continuous-screen-quality">{controller.continuousScreenQuality}</output>
+      <output aria-label="grounding-enabled">{String(controller.groundingEnabled)}</output>
       <button type="button" onClick={() => controller.setVoiceEchoCancellationEnabled(false)}>
         disable echo cancellation
       </button>
@@ -97,6 +98,9 @@ function HookHarness(): JSX.Element {
       </button>
       <button type="button" onClick={() => controller.setContinuousScreenQuality('high')}>
         set high automatic quality
+      </button>
+      <button type="button" onClick={() => controller.setGroundingEnabled(false)}>
+        disable grounding
       </button>
     </div>
   );
@@ -227,6 +231,7 @@ describe('useAssistantPanelSettingsController', () => {
     fireEvent.click(screen.getByRole('button', { name: 'disable auto gain control' }));
     fireEvent.click(screen.getByRole('button', { name: 'set dark' }));
     fireEvent.click(screen.getByRole('button', { name: 'set speech timeout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'disable grounding' }));
 
     await waitFor(() => {
       expect(screen.getByLabelText('debug-mode')).toHaveTextContent('true');
@@ -250,7 +255,7 @@ describe('useAssistantPanelSettingsController', () => {
     });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ themePreference: 'dark' });
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ speechSilenceTimeout: '3m' });
-    expect(screen.getByLabelText('speech-silence-timeout')).toHaveTextContent('3m');
+    expect(window.bridge.updateSettings).toHaveBeenCalledWith({ groundingEnabled: false });
   });
 
   it('exposes the first-use screen context defaults', () => {

@@ -34,6 +34,8 @@ type SessionControllerLifecycleArgs = {
     selectedOutputDeviceId: string;
     lastError: null;
   }) => void;
+  currentGroundingEnabled: () => boolean;
+  setActiveVoiceSessionGroundingEnabled: (enabled: boolean | null) => void;
   selectedOutputDeviceId: () => string;
   setVoiceSessionStatus: (status: 'connecting' | 'recovering') => void;
   resetVoiceSessionResumption: () => void;
@@ -82,6 +84,8 @@ export function createSessionControllerLifecycle({
   setVoiceCaptureDiagnostics,
   setVoicePlaybackState,
   updateVoicePlaybackDiagnostics,
+  currentGroundingEnabled,
+  setActiveVoiceSessionGroundingEnabled,
   selectedOutputDeviceId,
   setVoiceSessionStatus,
   resetVoiceSessionResumption,
@@ -178,6 +182,7 @@ export function createSessionControllerLifecycle({
       selectedOutputDeviceId: selectedOutputDeviceId(),
       lastError: null,
     });
+    setActiveVoiceSessionGroundingEnabled(currentGroundingEnabled());
     setVoiceSessionStatus('connecting');
     resetVoiceSessionResumption();
     resetVoiceSessionDurability();

@@ -52,6 +52,7 @@ export type SessionStoreData = {
   lastDebugEvent: RuntimeDebugEvent | null;
   speechLifecycle: SpeechLifecycle;
   voiceSessionStatus: VoiceSessionStatus;
+  activeVoiceSessionGroundingEnabled: boolean | null;
   voiceSessionLatency: VoiceSessionLatencyState;
   voiceSessionResumption: VoiceSessionResumptionState;
   voiceSessionDurability: VoiceSessionDurabilityState;
@@ -112,6 +113,7 @@ export type SessionStoreActions = {
   setLastDebugEvent: (lastDebugEvent: RuntimeDebugEvent | null) => void;
   setSpeechLifecycle: (speechLifecycle: SpeechLifecycle) => void;
   setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
+  setActiveVoiceSessionGroundingEnabled: (enabled: boolean | null) => void;
   setVoiceSessionLatency: (voiceSessionLatency: VoiceSessionLatencyState) => void;
   setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;

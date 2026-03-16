@@ -56,6 +56,7 @@ type CreateGeminiLiveTransportOptions = {
    * user setting wins without mutating the static LiveConfig.
    */
   mediaResolutionOverride?: LiveMediaResolution;
+  groundingEnabled?: boolean | undefined;
   voice?: DesktopVoice | undefined;
   systemInstruction?: string | undefined;
 };
@@ -69,6 +70,7 @@ export class GeminiLiveTransport implements DesktopSession {
   ) => Promise<GeminiLiveSdkSession>;
   private readonly config: LiveConfig;
   private readonly mediaResolutionOverride: LiveMediaResolution | undefined;
+  private readonly groundingEnabled: boolean | undefined;
   private readonly voice: DesktopVoice | undefined;
   private readonly systemInstruction: string | undefined;
   private readonly state = createGeminiLiveTransportState();
@@ -77,12 +79,14 @@ export class GeminiLiveTransport implements DesktopSession {
     connectSession = connectGeminiLiveSdkSession,
     config = getLiveConfig(),
     mediaResolutionOverride,
+    groundingEnabled,
     voice,
     systemInstruction,
   }: CreateGeminiLiveTransportOptions = {}) {
     this.connectSession = connectSession;
     this.config = config;
     this.mediaResolutionOverride = mediaResolutionOverride;
+    this.groundingEnabled = groundingEnabled;
     this.voice = voice;
     this.systemInstruction = systemInstruction;
   }
@@ -150,6 +154,7 @@ export class GeminiLiveTransport implements DesktopSession {
     try {
       liveConnectConfig = buildGeminiLiveConnectConfig(effectiveConfig, mode, {
         resumeHandle,
+        groundingEnabled: this.groundingEnabled,
         voice: this.voice,
         systemInstruction: this.systemInstruction,
       });

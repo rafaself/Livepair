@@ -29,7 +29,18 @@ export type VoiceToolExecutionSnapshot = {
   voicePlaybackState: VoicePlaybackState;
 };
 
-export const VOICE_TOOL_DECLARATIONS = [
+type VoiceToolDeclaration = {
+  name: VoiceToolName;
+  description: string;
+  parameters: {
+    type: 'object';
+    properties: Record<string, unknown>;
+    required?: string[];
+    additionalProperties: false;
+  };
+};
+
+const BASE_VOICE_TOOL_DECLARATIONS: readonly VoiceToolDeclaration[] = [
   {
     name: 'get_current_mode',
     description: 'Get the current assistant session mode.',
@@ -48,6 +59,9 @@ export const VOICE_TOOL_DECLARATIONS = [
       additionalProperties: false,
     },
   },
+];
+
+const PROJECT_GROUNDING_TOOL_DECLARATIONS: readonly VoiceToolDeclaration[] = [
   {
     name: 'search_project_knowledge',
     description: 'Search curated project documents for project-specific facts, architecture, implementation details, internal docs, and specs. Use this for repository-specific factual questions. Do not use it for current public web facts, runtime app state when a direct tool already exists, or brainstorming and stylistic opinions.',
@@ -63,6 +77,20 @@ export const VOICE_TOOL_DECLARATIONS = [
     },
   },
 ] as const;
+
+export function getVoiceToolDeclarations(
+  options: {
+    groundingEnabled?: boolean;
+  } = {},
+): readonly VoiceToolDeclaration[] {
+  if (options.groundingEnabled === false) {
+    return BASE_VOICE_TOOL_DECLARATIONS;
+  }
+
+  return [...BASE_VOICE_TOOL_DECLARATIONS, ...PROJECT_GROUNDING_TOOL_DECLARATIONS];
+}
+
+export const VOICE_TOOL_DECLARATIONS = getVoiceToolDeclarations();
 
 function createToolErrorResponse(
   call: Pick<VoiceToolCall, 'id' | 'name'>,
@@ -94,6 +122,10 @@ export type VoiceToolDependencies = {
   searchProjectKnowledge: (
     req: ProjectKnowledgeSearchRequest,
   ) => Promise<ProjectKnowledgeSearchResult>;
+};
+
+export type VoiceToolExecutionOptions = {
+  groundingEnabled?: boolean;
 };
 
 function normalizeProjectKnowledgeSearchRequest(
@@ -131,8 +163,11 @@ export async function executeLocalVoiceTool(
   call: VoiceToolCall,
   snapshot: VoiceToolExecutionSnapshot,
   dependencies?: VoiceToolDependencies,
+  options: VoiceToolExecutionOptions = {},
 ): Promise<VoiceToolResponse> {
   try {
+    const groundingEnabled = options.groundingEnabled ?? true;
+
     if (call.name === 'get_current_mode') {
       return {
         id: call.id,
@@ -159,6 +194,14 @@ export async function executeLocalVoiceTool(
     }
 
     if (call.name === 'search_project_knowledge') {
+      if (!groundingEnabled) {
+        return createToolErrorResponse(
+          call,
+          'tool_not_enabled',
+          'Tool "search_project_knowledge" is unavailable when grounding is off',
+        );
+      }
+
       const request = normalizeProjectKnowledgeSearchRequest(call.arguments);
 
       if (!request) {

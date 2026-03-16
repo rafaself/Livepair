@@ -1,5 +1,5 @@
 import type { LiveConnectMode } from '../core/session.types';
-import { VOICE_TOOL_DECLARATIONS } from '../voice/tools/voiceTools';
+import { getVoiceToolDeclarations } from '../voice/tools/voiceTools';
 import {
   resolveDesktopVoicePreference,
   resolveSystemInstructionPreference,
@@ -93,7 +93,7 @@ export type GeminiLiveConnectConfig = {
   tools?:
     | Array<
         | {
-            functionDeclarations: typeof VOICE_TOOL_DECLARATIONS;
+            functionDeclarations: ReturnType<typeof getVoiceToolDeclarations>;
           }
         | {
             googleSearch: Record<string, never>;
@@ -109,8 +109,38 @@ const DEFAULT_VOICE_RESPONSE_MODALITY: LiveResponseModality = 'AUDIO';
 const DEFAULT_MEDIA_RESOLUTION: LiveMediaResolution = 'MEDIA_RESOLUTION_LOW';
 const AUDIO_TRANSCRIPTION_DISABLED = false;
 
-export function composeLiveSystemInstruction(systemInstruction: string): string {
+export function composeLiveSystemInstruction(
+  systemInstruction: string,
+  options: {
+    groundingEnabled?: boolean;
+  } = {},
+): string {
+  if (options.groundingEnabled === false) {
+    return systemInstruction;
+  }
+
   return `${systemInstruction}\n\n${LIVE_GROUNDING_POLICY_INSTRUCTION}`;
+}
+
+export function createVoiceModeTools(
+  options: {
+    groundingEnabled?: boolean;
+  } = {},
+): NonNullable<GeminiLiveConnectConfig['tools']> {
+  const groundingEnabled = options.groundingEnabled ?? true;
+  const tools: NonNullable<GeminiLiveConnectConfig['tools']> = [
+    {
+      functionDeclarations: getVoiceToolDeclarations({ groundingEnabled }),
+    },
+  ];
+
+  if (groundingEnabled) {
+    tools.push({
+      googleSearch: {},
+    });
+  }
+
+  return tools;
 }
 
 function createConfigError(detail: string): Error {
@@ -330,6 +360,7 @@ export function buildGeminiLiveConnectConfig(
     resumeHandle?: string | undefined;
     voice?: DesktopVoice | undefined;
     systemInstruction?: string | undefined;
+    groundingEnabled?: boolean | undefined;
   } = {},
 ): GeminiLiveConnectConfig {
   if (config.apiVersion !== 'v1alpha') {
@@ -379,18 +410,16 @@ export function buildGeminiLiveConnectConfig(
     };
     liveConnectConfig.systemInstruction = composeLiveSystemInstruction(
       resolveSystemInstructionPreference(options.systemInstruction),
+      {
+        groundingEnabled: options.groundingEnabled,
+      },
     );
   }
 
   if (mode === 'voice') {
-    liveConnectConfig.tools = [
-      {
-        functionDeclarations: VOICE_TOOL_DECLARATIONS,
-      },
-      {
-        googleSearch: {},
-      },
-    ];
+    liveConnectConfig.tools = createVoiceModeTools({
+      groundingEnabled: options.groundingEnabled,
+    });
   }
 
   return liveConnectConfig;

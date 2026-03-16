@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { resetDesktopStoresWithDefaults } from '../test/store';
 import * as voiceToolsModule from './voice/tools/voiceTools';
 import {
@@ -190,6 +191,80 @@ describe('createDesktopSessionController – voice tools', () => {
                 text: 'Desktop package verification uses pnpm verify:desktop.',
               },
             ],
+            sources: [{ id: 'doc-1', title: 'README.md', path: 'README.md' }],
+            confidence: 'high',
+            retrievalStatus: 'grounded',
+            answerMetadata: {
+              provenance: 'project_grounded',
+              confidence: 'high',
+              citations: [{ label: 'README.md' }],
+              reason: 'Derived from successful search_project_knowledge retrieval output.',
+            },
+          },
+        },
+        ]);
+      });
+  });
+
+  it('keeps the current session grounding behavior stable after the preference changes', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const searchProjectKnowledge = vi.fn(async () => ({
+      summaryAnswer: 'Desktop verification uses pnpm verify:desktop.',
+      supportingExcerpts: [],
+      sources: [{ id: 'doc-1', title: 'README.md', path: 'README.md' }],
+      confidence: 'high' as const,
+      retrievalStatus: 'grounded' as const,
+    }));
+    window.bridge.searchProjectKnowledge = searchProjectKnowledge;
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'speech' });
+
+    useSettingsStore.setState((state) => ({
+      settings: {
+        ...state.settings,
+        groundingEnabled: false,
+      },
+      isReady: true,
+    }));
+
+    voiceTransport.emit({
+      type: 'tool-call',
+      calls: [
+        {
+          id: 'call-project-stable-1',
+          name: 'search_project_knowledge',
+          arguments: {
+            query: 'How do I verify the desktop package?',
+          },
+        },
+      ],
+    });
+
+    await vi.waitFor(() => {
+      expect(searchProjectKnowledge).toHaveBeenCalledWith({
+        query: 'How do I verify the desktop package?',
+      });
+      expect(voiceTransport.sendToolResponses).toHaveBeenCalledWith([
+        {
+          id: 'call-project-stable-1',
+          name: 'search_project_knowledge',
+          response: {
+            ok: true,
+            summaryAnswer: 'Desktop verification uses pnpm verify:desktop.',
+            supportingExcerpts: [],
             sources: [{ id: 'doc-1', title: 'README.md', path: 'README.md' }],
             confidence: 'high',
             retrievalStatus: 'grounded',

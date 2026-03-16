@@ -51,10 +51,27 @@ describe('AssistantPanelPreferencesView', () => {
         name: 'Instructions',
       }),
     ).toHaveValue('Keep answers short.');
+    expect(screen.getByRole('switch', { name: 'Grounding' })).toHaveAttribute('aria-checked', 'true');
     expect(
       screen.getByText('Agent/system instructions used for future live sessions.'),
     ).toBeVisible();
+    expect(
+      screen.getByText('Uses project knowledge and Google Search for future live sessions.'),
+    ).toBeVisible();
     expect(screen.getByLabelText('Instructions character count')).toHaveTextContent('19/1200');
+  });
+
+  it('persists grounding changes through the settings bridge', async () => {
+    renderPreferences();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', { name: 'Grounding' }));
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({ groundingEnabled: false });
+    });
+    expect(screen.getByRole('switch', { name: 'Grounding' })).toHaveAttribute('aria-checked', 'false');
   });
 
   it('persists voice changes through the settings bridge', async () => {

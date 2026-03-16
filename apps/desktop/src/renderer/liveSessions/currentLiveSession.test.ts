@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  invalidateCurrentLiveSessionResumption,
   resetCurrentLiveSessionForTests,
   restoreCurrentLiveSession,
   startCurrentLiveSession,
@@ -141,6 +142,60 @@ describe('currentLiveSession restore metadata', () => {
       endedAt: expect.any(String),
       status: 'failed',
       endedReason: 'Gemini Live session is not resumable at this point',
+    });
+  });
+
+  it('invalidates the current persisted session when config must apply on a fresh session', async () => {
+    const bridge = {
+      createLiveSession: vi.fn(async (request) => ({
+        id: 'live-session-current',
+        chatId: request.chatId,
+        startedAt: request.startedAt ?? '2026-03-12T09:20:00.000Z',
+        endedAt: null,
+        status: 'active' as const,
+        endedReason: null,
+        resumptionHandle: 'handles/live-session-current',
+        lastResumptionUpdateAt: '2026-03-12T09:21:00.000Z',
+        restorable: true,
+        invalidatedAt: null,
+        invalidationReason: null,
+      })),
+      updateLiveSession: vi.fn(async (request) => ({
+        id: request.id,
+        chatId: 'chat-current',
+        startedAt: '2026-03-12T09:20:00.000Z',
+        endedAt: null,
+        status: 'active' as const,
+        endedReason: null,
+        resumptionHandle: 'handles/live-session-current',
+        lastResumptionUpdateAt: '2026-03-12T09:21:00.000Z',
+        restorable: false,
+        invalidatedAt: request.invalidatedAt ?? null,
+        invalidationReason: request.invalidationReason ?? null,
+      })),
+      endLiveSession: vi.fn(),
+      getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-current' }),
+      listLiveSessions: vi.fn().mockResolvedValue([]),
+    } as unknown as typeof window.bridge;
+
+    await startCurrentLiveSession(bridge);
+
+    await expect(
+      invalidateCurrentLiveSessionResumption(
+        'Grounding setting changed; start a new session to apply it.',
+        bridge,
+      ),
+    ).resolves.toMatchObject({
+      id: 'live-session-current',
+      restorable: false,
+      invalidationReason: 'Grounding setting changed; start a new session to apply it.',
+    });
+    expect(bridge.updateLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-current',
+      kind: 'resumption',
+      restorable: false,
+      invalidatedAt: expect.any(String),
+      invalidationReason: 'Grounding setting changed; start a new session to apply it.',
     });
   });
 });

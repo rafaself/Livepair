@@ -9,6 +9,7 @@ import type {
   ThemePreference,
 } from '../../../../../shared';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../../shared';
+import { invalidateCurrentLiveSessionResumption } from '../../../../liveSessions/currentLiveSession';
 import { useSettingsStore } from '../../../../store/settingsStore';
 import { useSessionStore } from '../../../../store/sessionStore';
 import { useUiStore } from '../../../../store/uiStore';
@@ -21,6 +22,8 @@ const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
   { value: 'unavailable', label: 'Voice output unavailable in text-only release' },
 ];
 const UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE = '';
+const GROUNDING_CHANGE_DETAIL =
+  'Grounding setting changed; start a new session to apply it.';
 
 export type AssistantPanelSettingsController = {
   isDebugMode: boolean;
@@ -36,6 +39,7 @@ export type AssistantPanelSettingsController = {
   screenContextMode: ScreenContextMode;
   continuousScreenQuality: ContinuousScreenQuality;
   chatTimestampVisibility: ChatTimestampVisibility;
+  groundingEnabled: boolean;
   voice: DesktopVoice;
   systemInstruction: string;
   inputDeviceOptions: readonly SelectOptionItem[];
@@ -56,6 +60,7 @@ export type AssistantPanelSettingsController = {
   setScreenContextMode: (mode: Exclude<ScreenContextMode, 'unconfigured'>) => void;
   setContinuousScreenQuality: (quality: ContinuousScreenQuality) => void;
   setChatTimestampVisibility: (visibility: ChatTimestampVisibility) => void;
+  setGroundingEnabled: (enabled: boolean) => void;
   setVoice: (voice: DesktopVoice) => void;
   setSystemInstruction: (systemInstruction: string) => void;
   restoreDefaultVoiceAndInstructions: () => void;
@@ -116,6 +121,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     screenContextMode: settings.screenContextMode,
     continuousScreenQuality: settings.continuousScreenQuality,
     chatTimestampVisibility: settings.chatTimestampVisibility,
+    groundingEnabled: settings.groundingEnabled,
     voice: settings.voice,
     systemInstruction: settings.systemInstruction,
     inputDeviceOptions:
@@ -178,6 +184,31 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     },
     setChatTimestampVisibility: (chatTimestampVisibility) => {
       void updateSetting('chatTimestampVisibility', chatTimestampVisibility);
+    },
+    setGroundingEnabled: (groundingEnabled) => {
+      if (groundingEnabled === settings.groundingEnabled) {
+        return;
+      }
+
+      void updateSetting('groundingEnabled', groundingEnabled)
+        .then(async () => {
+          if (useSessionStore.getState().currentMode !== 'speech') {
+            return;
+          }
+
+          useSessionStore.getState().setVoiceSessionResumption({
+            resumable: false,
+            lastDetail: GROUNDING_CHANGE_DETAIL,
+          });
+          await invalidateCurrentLiveSessionResumption(GROUNDING_CHANGE_DETAIL);
+        })
+        .catch((error: unknown) => {
+          setLastRuntimeError(
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : 'Failed to update grounding preference',
+          );
+        });
     },
     setVoice: (voice) => {
       void updateSetting('voice', voice);

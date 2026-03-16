@@ -115,6 +115,8 @@ describe('ipc validators', () => {
     expect(isProjectKnowledgeSearchRequest({ query: '' })).toBe(false);
     expect(isProjectKnowledgeSearchRequest({ query: 'repo', extra: true })).toBe(false);
     expect(isProjectKnowledgeSearchRequest(undefined)).toBe(false);
+    expect(isDesktopSettingsPatch({ groundingEnabled: true })).toBe(true);
+    expect(isDesktopSettingsPatch({ groundingEnabled: 'yes' })).toBe(false);
   });
 
   it('validates chat memory payloads', () => {

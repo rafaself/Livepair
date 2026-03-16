@@ -23,6 +23,7 @@ export type DesktopSettings = {
   screenContextMode: ScreenContextMode;
   continuousScreenQuality: ContinuousScreenQuality;
   chatTimestampVisibility: ChatTimestampVisibility;
+  groundingEnabled: boolean;
   voice: DesktopVoice;
   systemInstruction: string;
 };
@@ -42,6 +43,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   screenContextMode: 'unconfigured',
   continuousScreenQuality: 'medium',
   chatTimestampVisibility: 'hidden',
+  groundingEnabled: true,
   voice: 'Puck',
   systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
 };
@@ -145,6 +147,7 @@ export function normalizeDesktopSettings(
   const chatTimestampVisibility = normalizeChatTimestampVisibility(
     settings.chatTimestampVisibility ?? DEFAULT_DESKTOP_SETTINGS.chatTimestampVisibility,
   );
+  const groundingEnabled = settings.groundingEnabled ?? DEFAULT_DESKTOP_SETTINGS.groundingEnabled;
   const voice = resolveDesktopVoicePreference(settings.voice);
   const systemInstruction = resolveSystemInstructionPreference(settings.systemInstruction);
 
@@ -160,7 +163,8 @@ export function normalizeDesktopSettings(
     typeof isPanelPinned !== 'boolean' ||
     screenContextMode === null ||
     continuousScreenQuality === null ||
-    chatTimestampVisibility === null
+    chatTimestampVisibility === null ||
+    typeof groundingEnabled !== 'boolean'
   ) {
     return null;
   }
@@ -178,6 +182,7 @@ export function normalizeDesktopSettings(
     screenContextMode,
     continuousScreenQuality,
     chatTimestampVisibility,
+    groundingEnabled,
     voice,
     systemInstruction,
   };
@@ -278,6 +283,13 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.chatTimestampVisibility = chatTimestampVisibility;
+  }
+
+  if ('groundingEnabled' in patch) {
+    if (typeof patch.groundingEnabled !== 'boolean') {
+      return null;
+    }
+    normalizedPatch.groundingEnabled = patch.groundingEnabled;
   }
 
   if ('voice' in patch) {

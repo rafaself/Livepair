@@ -108,6 +108,7 @@ export function buildDefaultSessionState(): SessionStoreData {
     lastDebugEvent: null,
     speechLifecycle: createSpeechSessionLifecycle(),
     voiceSessionStatus: 'disconnected',
+    activeVoiceSessionGroundingEnabled: null,
     voiceSessionLatency: createDefaultVoiceSessionLatencyState(),
     voiceSessionResumption: createDefaultVoiceSessionResumptionState(),
     voiceSessionDurability: createDefaultVoiceSessionDurabilityState(),

@@ -34,6 +34,7 @@ function resolveDesktopSessionControllerDependencies(
         mediaResolutionOverride: continuousScreenQualityToMediaResolution(
           resolveActiveScreenContextQuality(settings),
         ),
+        groundingEnabled: settings.groundingEnabled,
         voice: settings.voice,
         systemInstruction: settings.systemInstruction,
       });

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   deriveCurrentMode,
   executeLocalVoiceTool,
+  getVoiceToolDeclarations,
   VOICE_TOOL_DECLARATIONS,
   type VoiceToolExecutionSnapshot,
 } from './voiceTools';
@@ -95,6 +96,13 @@ describe('voiceTools', () => {
         }),
       ]),
     );
+  });
+
+  it('removes project grounding tools from the declaration surface when grounding is disabled', () => {
+    expect(getVoiceToolDeclarations({ groundingEnabled: false })).toEqual([
+      expect.objectContaining({ name: 'get_current_mode' }),
+      expect.objectContaining({ name: 'get_voice_session_status' }),
+    ]);
   });
 
   it('routes project knowledge searches through the backend bridge and derives grounded metadata', async () => {
@@ -223,6 +231,36 @@ describe('voiceTools', () => {
         error: {
           code: 'invalid_project_knowledge_query',
           message: 'Tool "search_project_knowledge" requires a non-empty query string',
+        },
+      },
+    });
+    expect(searchProjectKnowledge).not.toHaveBeenCalled();
+  });
+
+  it('rejects project knowledge execution when grounding is disabled', async () => {
+    const searchProjectKnowledge = vi.fn();
+
+    await expect(
+      executeLocalVoiceTool(
+        {
+          id: 'call-search-4',
+          name: 'search_project_knowledge',
+          arguments: {
+            query: 'How do I verify the desktop package?',
+          },
+        },
+        createSnapshot(),
+        { searchProjectKnowledge },
+        { groundingEnabled: false },
+      ),
+    ).resolves.toEqual({
+      id: 'call-search-4',
+      name: 'search_project_knowledge',
+      response: {
+        ok: false,
+        error: {
+          code: 'tool_not_enabled',
+          message: 'Tool "search_project_knowledge" is unavailable when grounding is off',
         },
       },
     });

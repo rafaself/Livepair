@@ -72,6 +72,7 @@ function buildResetTextSessionRuntimeState(
     lastDebugEvent: null,
     speechLifecycle: createSpeechSessionLifecycle(),
     voiceSessionStatus: 'disconnected',
+    activeVoiceSessionGroundingEnabled: null,
     voiceSessionLatency: createDefaultVoiceSessionLatencyState(),
     voiceSessionResumption: createDefaultVoiceSessionResumptionState(),
     voiceSessionDurability: createDefaultVoiceSessionDurabilityState(),
@@ -159,6 +160,8 @@ export function createSessionStoreActions(
     setLastDebugEvent: (lastDebugEvent) => set({ lastDebugEvent }),
     setSpeechLifecycle: (speechLifecycle) => set({ speechLifecycle }),
     setVoiceSessionStatus: (voiceSessionStatus) => set({ voiceSessionStatus }),
+    setActiveVoiceSessionGroundingEnabled: (activeVoiceSessionGroundingEnabled) =>
+      set({ activeVoiceSessionGroundingEnabled }),
     setVoiceSessionLatency: (voiceSessionLatency) => set({ voiceSessionLatency }),
     setVoiceSessionResumption: (patch) =>
       set((state) => ({

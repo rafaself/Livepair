@@ -114,12 +114,13 @@ describe('sessionController entry', () => {
 
     resetDesktopStoresWithDefaults();
     useSettingsStore.setState({
-      settings: {
-        ...DEFAULT_DESKTOP_SETTINGS,
-        continuousScreenQuality: 'high',
-        voice: 'Aoede',
-        systemInstruction: 'Answer as a focused pair-programming assistant.',
-      },
+        settings: {
+          ...DEFAULT_DESKTOP_SETTINGS,
+          continuousScreenQuality: 'high',
+          groundingEnabled: false,
+          voice: 'Aoede',
+          systemInstruction: 'Answer as a focused pair-programming assistant.',
+        },
       isReady: true,
     });
 
@@ -137,8 +138,61 @@ describe('sessionController entry', () => {
 
     expect(createGeminiLiveTransport).toHaveBeenCalledWith({
       mediaResolutionOverride: 'MEDIA_RESOLUTION_HIGH',
+      groundingEnabled: false,
       voice: 'Aoede',
       systemInstruction: 'Answer as a focused pair-programming assistant.',
+    });
+  });
+
+  it('reads the latest grounding preference when creating the next transport', async () => {
+    const createSessionControllerAssembly = vi.fn();
+    const createGeminiLiveTransport = vi.fn(() => ({ kind: 'gemini-live' }));
+    const controller = createControllerDouble();
+
+    createSessionControllerAssembly.mockReturnValue(controller);
+    vi.doMock('./session/sessionControllerAssembly', () => ({
+      createSessionControllerAssembly,
+    }));
+    vi.doMock('./transport/geminiLiveTransport', () => ({
+      createGeminiLiveTransport,
+    }));
+
+    const { createDesktopSessionController } = await import('./sessionController');
+    const { useSettingsStore } = await import('../store/settingsStore');
+    const { resetDesktopStoresWithDefaults } = await import('../test/store');
+    const { DEFAULT_DESKTOP_SETTINGS } = await import('../../shared');
+
+    resetDesktopStoresWithDefaults();
+    useSettingsStore.setState({
+      settings: DEFAULT_DESKTOP_SETTINGS,
+      isReady: true,
+    });
+
+    createDesktopSessionController();
+
+    const dependencies = createSessionControllerAssembly.mock.calls[0]?.[0];
+    dependencies.createTransport('voice');
+
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        groundingEnabled: false,
+      },
+      isReady: true,
+    });
+    dependencies.createTransport('voice');
+
+    expect(createGeminiLiveTransport).toHaveBeenNthCalledWith(1, {
+      mediaResolutionOverride: 'MEDIA_RESOLUTION_MEDIUM',
+      groundingEnabled: true,
+      voice: 'Puck',
+      systemInstruction: DEFAULT_DESKTOP_SETTINGS.systemInstruction,
+    });
+    expect(createGeminiLiveTransport).toHaveBeenNthCalledWith(2, {
+      mediaResolutionOverride: 'MEDIA_RESOLUTION_MEDIUM',
+      groundingEnabled: false,
+      voice: 'Puck',
+      systemInstruction: DEFAULT_DESKTOP_SETTINGS.systemInstruction,
     });
   });
 });

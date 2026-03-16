@@ -14,6 +14,7 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
   'screenContextMode',
   'continuousScreenQuality',
   'chatTimestampVisibility',
+  'groundingEnabled',
   'voice',
   'systemInstruction',
 ] as const;
@@ -114,6 +115,10 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
     && value['chatTimestampVisibility'] !== 'hidden'
     && value['chatTimestampVisibility'] !== 'visible'
   ) {
+    return false;
+  }
+
+  if ('groundingEnabled' in value && typeof value['groundingEnabled'] !== 'boolean') {
     return false;
   }
 

@@ -6,6 +6,7 @@ import {
   LIVE_PROVIDER,
   buildGeminiLiveConnectConfig,
   composeLiveSystemInstruction,
+  createVoiceModeTools,
   parseLiveConfig,
   resolveLiveConfigEnv,
 } from './liveConfig';
@@ -296,12 +297,68 @@ describe('liveConfig', () => {
     );
   });
 
+  it('keeps voice-mode system instructions minimal when grounding is disabled', () => {
+    expect(composeLiveSystemInstruction('Stay concise.', { groundingEnabled: false })).toBe(
+      'Stay concise.',
+    );
+  });
+
   it('keeps built-in Google Search grounding off the text connect path', () => {
     const config = parseLiveConfig(createRawLiveConfig());
 
     expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
       responseModalities: ['TEXT'],
     });
+  });
+
+  it('omits Google Search and project retrieval tool exposure when grounding is disabled', () => {
+    const config = parseLiveConfig(createRawLiveConfig());
+
+    expect(
+      buildGeminiLiveConnectConfig(config, 'voice', {
+        groundingEnabled: false,
+      }),
+    ).toEqual({
+      responseModalities: ['AUDIO'],
+      mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: 'Puck',
+          },
+        },
+      },
+      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+      tools: [
+        {
+          functionDeclarations: [
+            expect.objectContaining({ name: 'get_current_mode' }),
+            expect.objectContaining({ name: 'get_voice_session_status' }),
+          ],
+        },
+      ],
+    });
+  });
+
+  it('creates voice-mode tools with project retrieval and Google Search only when grounding is enabled', () => {
+    expect(createVoiceModeTools({ groundingEnabled: true })).toEqual([
+      {
+        functionDeclarations: expect.arrayContaining([
+          expect.objectContaining({ name: 'search_project_knowledge' }),
+        ]),
+      },
+      {
+        googleSearch: {},
+      },
+    ]);
+    expect(createVoiceModeTools({ groundingEnabled: false })).toEqual([
+      {
+        functionDeclarations: [
+          expect.objectContaining({ name: 'get_current_mode' }),
+          expect.objectContaining({ name: 'get_voice_session_status' }),
+        ],
+      },
+    ]);
   });
 
   it('wave 5: visual session quality maps correctly to media resolution values', () => {

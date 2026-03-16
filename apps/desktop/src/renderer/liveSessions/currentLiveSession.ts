@@ -104,6 +104,22 @@ export async function updateCurrentLiveSession(
   return updatedLiveSession;
 }
 
+export async function invalidateCurrentLiveSessionResumption(
+  invalidationReason: string,
+  bridge: CurrentLiveSessionBridge = window.bridge,
+): Promise<LiveSessionRecord | null> {
+  if (!activeLiveSession) {
+    return null;
+  }
+
+  return updateCurrentLiveSession({
+    kind: 'resumption',
+    restorable: false,
+    invalidatedAt: new Date().toISOString(),
+    invalidationReason,
+  }, bridge);
+}
+
 export async function endCurrentLiveSession(
   request: Omit<EndLiveSessionRequest, 'id'>,
   bridge: CurrentLiveSessionBridge = window.bridge,
