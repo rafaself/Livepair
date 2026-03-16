@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { ConversationTurn } from './ConversationTurn';
@@ -409,7 +409,116 @@ describe('ConversationTurn transcript artifact presentation', () => {
 
     expect(article.querySelector('.conversation-turn__copy-btn')).not.toBeNull();
   });
-});
+
+  it('shows a thinking toggle for assistant turns with thinking text', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-thinking-toggle',
+          role: 'assistant',
+          content: 'Canonical assistant reply.',
+          timestamp: '09:58',
+          state: 'complete',
+          answerMetadata: {
+            provenance: 'unverified',
+            thinkingText: 'First pass reasoning',
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Show assistant thinking' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('opens and closes assistant thinking inline', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-thinking-inline',
+          role: 'assistant',
+          content: 'Canonical assistant reply.',
+          timestamp: '09:59',
+          state: 'complete',
+          answerMetadata: {
+            provenance: 'unverified',
+            thinkingText: 'First pass reasoning',
+          },
+        }}
+      />,
+    );
+
+    const toggle = screen.getByRole('button', { name: 'Show assistant thinking' });
+
+    expect(screen.queryByText('First pass reasoning')).toBeNull();
+
+    fireEvent.click(toggle);
+
+    expect(screen.getByText('First pass reasoning')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Hide assistant thinking' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide assistant thinking' }));
+
+    expect(screen.queryByText('First pass reasoning')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show assistant thinking' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('does not show thinking UI for assistant turns without thinking text', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-without-thinking',
+          role: 'assistant',
+          content: 'Canonical assistant reply.',
+          timestamp: '10:00',
+          state: 'complete',
+          answerMetadata: {
+            provenance: 'unverified',
+          },
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /assistant thinking/i })).toBeNull();
+    expect(screen.queryByText('First pass reasoning')).toBeNull();
+  });
+
+  it('keeps the copy action working for assistant turns with thinking text', () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-thinking-copy',
+          role: 'assistant',
+          content: 'Canonical assistant reply.',
+          timestamp: '10:01',
+          state: 'complete',
+          answerMetadata: {
+            provenance: 'unverified',
+            thinkingText: 'First pass reasoning',
+          },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
+
+    expect(writeText).toHaveBeenCalledWith('Canonical assistant reply.');
+  });
+  });
 
 describe('ConversationTurn typed note presentation', () => {
   it('applies the typed-note class and Note badge to a user turn with source text', () => {

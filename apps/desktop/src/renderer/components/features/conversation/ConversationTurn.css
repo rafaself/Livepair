@@ -138,6 +138,12 @@
   flex-wrap: wrap;
 }
 
+.conversation-turn__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .conversation-turn__timestamp {
   color: var(--color-text-secondary);
   font-size: 0.70rem;
@@ -159,6 +165,65 @@
 .conversation-turn__bubble:hover .conversation-turn__copy-btn,
 .conversation-turn__copy-btn:focus-visible {
   opacity: 1;
+}
+
+.conversation-turn__thinking-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 24px;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.70rem;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.conversation-turn__bubble:hover .conversation-turn__thinking-toggle,
+.conversation-turn__thinking-toggle:focus-visible,
+.conversation-turn__thinking-toggle[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.conversation-turn__thinking-toggle[aria-expanded='true'] {
+  color: var(--color-text-primary);
+}
+
+.conversation-turn__thinking {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+}
+
+.conversation-turn__thinking-label,
+.conversation-turn__thinking-content {
+  margin: 0;
+}
+
+.conversation-turn__thinking-label {
+  color: var(--color-text-secondary);
+  font-size: 0.70rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.conversation-turn__thinking-content {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* ── Typed note: user text sent during a Live session, not spoken ────────── */
