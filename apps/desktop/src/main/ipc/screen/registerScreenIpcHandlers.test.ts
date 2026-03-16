@@ -192,6 +192,10 @@ describe('registerScreenIpcHandlers', () => {
         sequence: 0,
         mimeType: 'image/jpeg',
         data: new Uint8Array([1, 2, 3]),
+        savedAt: '2026-03-15T22:41:03.124Z',
+        mode: 'manual',
+        quality: 'high',
+        reason: 'manual',
       }),
     ).rejects.toThrow('Invalid screen frame dump payload');
     expect(screenFrameDumpService.saveFrame).not.toHaveBeenCalled();
@@ -201,6 +205,10 @@ describe('registerScreenIpcHandlers', () => {
         sequence: 2,
         mimeType: 'image/jpeg',
         data: new Uint8Array([4, 5, 6]),
+        savedAt: '2026-03-15T22:41:09.021Z',
+        mode: 'continuous',
+        quality: 'medium',
+        reason: 'base',
       }),
     ).resolves.toBeUndefined();
 
@@ -209,6 +217,10 @@ describe('registerScreenIpcHandlers', () => {
       sequence: 2,
       mimeType: 'image/jpeg',
       data: new Uint8Array([4, 5, 6]),
+      savedAt: '2026-03-15T22:41:09.021Z',
+      mode: 'continuous',
+      quality: 'medium',
+      reason: 'base',
     });
   });
 });

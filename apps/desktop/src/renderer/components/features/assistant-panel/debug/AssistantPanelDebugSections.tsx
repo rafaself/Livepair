@@ -335,10 +335,10 @@ export function AssistantPanelDebugScreenContextSection({
             value: screenCaptureDiagnostics.captureSource ?? 'Unknown',
           },
           {
-            label: 'Save screen frames',
+            label: 'Save outbound frames',
             value: (
               <Switch
-                aria-label="Save screen frames"
+                aria-label="Save outbound frames"
                 checked={saveScreenFramesEnabled}
                 className="assistant-panel__settings-switch"
                 onCheckedChange={() => onToggleSaveScreenFrames()}
@@ -348,7 +348,7 @@ export function AssistantPanelDebugScreenContextSection({
           ...(screenFrameDumpDirectoryPath
             ? [
                 {
-                  label: 'Saved frame dump',
+                  label: 'Saved outbound frames',
                   value: screenFrameDumpDirectoryPath,
                 },
               ]
@@ -398,7 +398,7 @@ export function AssistantPanelDebugScreenContextSection({
             value: screenCaptureDiagnostics.lastError ?? 'None',
           },
           {
-            label: 'Automatic cadence',
+            label: 'Continuous cadence',
             value: `${visualSendDiagnostics.continuousCadenceMs} ms`,
           },
           {
@@ -406,7 +406,7 @@ export function AssistantPanelDebugScreenContextSection({
             value: `${visualSendDiagnostics.burstCadenceMs} ms`,
           },
           {
-            label: 'Last screen event',
+            label: 'Last Share Screen event',
             value: formatVisualTransitionReason(visualSendDiagnostics.lastEvent),
           },
           {
@@ -422,24 +422,24 @@ export function AssistantPanelDebugScreenContextSection({
             value: visualSendDiagnostics.burstUntil ?? 'None',
           },
           {
-            label: 'Change signals',
-            value: String(visualSendDiagnostics.changeSignalCount),
+            label: 'Meaningful changes',
+            value: String(visualSendDiagnostics.meaningfulChangeCount),
           },
           {
-            label: 'Burst triggers',
-            value: String(visualSendDiagnostics.burstTriggeredCount),
+            label: 'Burst activations',
+            value: String(visualSendDiagnostics.burstActivationCount),
           },
           {
-            label: 'Auto frames sent',
-            value: String(visualSendDiagnostics.autoFramesSentCount),
+            label: 'Continuous frames sent',
+            value: String(visualSendDiagnostics.continuousFramesSentCount),
           },
           {
-            label: 'Last auto frame',
-            value: visualSendDiagnostics.lastAutoFrameAt ?? 'None',
+            label: 'Last continuous send',
+            value: visualSendDiagnostics.lastContinuousFrameAt ?? 'None',
           },
           {
-            label: 'Last auto kind',
-            value: visualSendDiagnostics.lastAutoFrameKind ?? 'None',
+            label: 'Last continuous reason',
+            value: visualSendDiagnostics.lastContinuousFrameReason ?? 'None',
           },
           {
             label: 'Manual frames sent',
@@ -462,7 +462,7 @@ export function AssistantPanelDebugScreenContextSection({
             value: visualSendDiagnostics.continuousStoppedAt ?? 'None',
           },
           {
-            label: 'Blocked (gateway)',
+            label: 'Blocked sends (gateway)',
             value: String(visualSendDiagnostics.blockedByGateway),
           },
         ]}

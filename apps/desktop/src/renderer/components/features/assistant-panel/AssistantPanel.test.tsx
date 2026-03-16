@@ -158,7 +158,7 @@ describe('AssistantPanel', () => {
     });
 
     expect(await panelScope.findByRole('heading', { name: 'Developer tools' })).toBeVisible();
-    expect(panelScope.getByRole('switch', { name: 'Save screen frames' })).toBeVisible();
+    expect(panelScope.getByRole('switch', { name: 'Save outbound frames' })).toBeVisible();
   });
 
   it('hides the debug entry point when debug mode is disabled', async () => {

@@ -23,6 +23,7 @@ import type {
   GetTransport,
   ScreenCaptureController,
   ScreenCaptureStoreApi,
+  ScreenFrameDumpMetadata,
   ScreenFrameDumpControls,
   StopScreenCaptureOptions,
 } from './controller/screenCaptureControllerTypes';
@@ -36,7 +37,7 @@ export const BURST_SCREEN_SEND_INTERVAL_MS = 1_000;
 export const BURST_SCREEN_SEND_WINDOW_MS = 1_000;
 export const MANUAL_SEND_DEBOUNCE_MS = 1_000;
 
-type AutoFrameKind = 'baseline' | 'burst';
+type ContinuousFrameReason = 'base' | 'burst';
 
 export type ScreenCaptureControllerOptions = {
   continuousSendIntervalMs?: number;
@@ -107,7 +108,8 @@ export function createScreenCaptureController(
   );
   let manualSendPending = false;
   let lastManualSendRequestedAt = Number.NEGATIVE_INFINITY;
-  const autoFrameKinds = new WeakMap<LocalScreenFrame, AutoFrameKind>();
+  const continuousFrameReasons = new WeakMap<LocalScreenFrame, ContinuousFrameReason>();
+  const frameDumpMetadata = new WeakMap<LocalScreenFrame, ScreenFrameDumpMetadata>();
 
   const setLastEvent = (lastEvent: VisualSendEvent): void => {
     diagnostics = {
@@ -206,13 +208,27 @@ export function createScreenCaptureController(
     }, Math.max(0, dueAtMs - nowMs()));
   };
 
-  const queueAutoFrameSend = async (kind: AutoFrameKind): Promise<void> => {
+  const buildFrameDumpMetadata = (
+    frame: LocalScreenFrame,
+    metadata: ScreenFrameDumpMetadata,
+  ): LocalScreenFrame => {
+    frameDumpMetadata.set(frame, metadata);
+    return frame;
+  };
+
+  const queueAutoFrameSend = async (reason: ContinuousFrameReason): Promise<void> => {
     if (!latestCapturedFrame) {
       return;
     }
 
     const frame = cloneFrameForSend(latestCapturedFrame);
-    autoFrameKinds.set(frame, kind);
+    continuousFrameReasons.set(frame, reason);
+    buildFrameDumpMetadata(frame, {
+      savedAt: toIsoTimestamp(nowMs()),
+      mode: 'continuous',
+      quality: resolveRequestedCaptureQuality(),
+      reason,
+    });
     await frameSendCoordinator.enqueueFrameSend(frame);
   };
 
@@ -264,7 +280,7 @@ export function createScreenCaptureController(
       advanceBurstSchedule(timestampMs);
 
       if (latestCapturedFrame) {
-        await queueAutoFrameSend(burstDue && !baselineDue ? 'burst' : 'baseline');
+        await queueAutoFrameSend(burstDue && !baselineDue ? 'burst' : 'base');
       }
     }
 
@@ -345,8 +361,8 @@ export function createScreenCaptureController(
 
     diagnostics = {
       ...diagnostics,
-      changeSignalCount: diagnostics.changeSignalCount + 1,
-      burstTriggeredCount: diagnostics.burstTriggeredCount + (wasActive ? 0 : 1),
+      meaningfulChangeCount: diagnostics.meaningfulChangeCount + 1,
+      burstActivationCount: diagnostics.burstActivationCount + (wasActive ? 0 : 1),
     };
 
     burstUntilMs = Math.max(burstUntilMs ?? 0, nextBurstUntilMs);
@@ -406,30 +422,60 @@ export function createScreenCaptureController(
     },
     onSendSucceeded: (frame) => {
       const activeCapture = controllerState.getActiveCapture();
-
-      if (activeCapture) {
-        frameDumpCoordinator.persistFrame(activeCapture.capture, activeCapture.generation, frame);
-      }
+      const sentAt = toIsoTimestamp(nowMs());
 
       if (manualSendPending) {
+        if (activeCapture) {
+          frameDumpCoordinator.persistSentFrame(
+            activeCapture.capture,
+            activeCapture.generation,
+            frame,
+            {
+              savedAt: sentAt,
+              mode: 'manual',
+              quality: 'high',
+              reason: 'manual',
+            },
+          );
+        }
+
         manualSendPending = false;
         diagnostics = {
           ...diagnostics,
           manualSendPending: false,
           manualFramesSentCount: diagnostics.manualFramesSentCount + 1,
-          lastManualFrameAt: toIsoTimestamp(nowMs()),
+          lastManualFrameAt: sentAt,
         };
         setLastEvent('manualFrameSent');
         store.getState().setScreenCaptureState('capturing');
       } else {
-        const autoFrameKind = autoFrameKinds.get(frame) ?? 'baseline';
+        const continuousFrameReason = continuousFrameReasons.get(frame) ?? 'base';
+
+        if (activeCapture) {
+          frameDumpCoordinator.persistSentFrame(
+            activeCapture.capture,
+            activeCapture.generation,
+            frame,
+            frameDumpMetadata.get(frame) ?? {
+              savedAt: sentAt,
+              mode: 'continuous',
+              quality: resolveRequestedCaptureQuality(),
+              reason: continuousFrameReason,
+            },
+          );
+        }
+
         diagnostics = {
           ...diagnostics,
-          autoFramesSentCount: diagnostics.autoFramesSentCount + 1,
-          lastAutoFrameAt: toIsoTimestamp(nowMs()),
-          lastAutoFrameKind: autoFrameKind,
+          continuousFramesSentCount: diagnostics.continuousFramesSentCount + 1,
+          lastContinuousFrameAt: sentAt,
+          lastContinuousFrameReason: continuousFrameReason,
         };
-        setLastEvent(autoFrameKind === 'burst' ? 'burstFrameSent' : 'baselineFrameSent');
+        setLastEvent(
+          continuousFrameReason === 'burst'
+            ? 'continuousBurstFrameSent'
+            : 'continuousBaseFrameSent',
+        );
         store.getState().setScreenCaptureState('capturing');
       }
 
@@ -465,7 +511,14 @@ export function createScreenCaptureController(
     if (isManualMode()) {
       stopContinuousSending('continuousStopped', { dropPendingFrame: true });
       if (manualSendPending) {
-        void frameSendCoordinator.enqueueFrameSend(cloneFrameForSend(frame));
+        void frameSendCoordinator.enqueueFrameSend(
+          buildFrameDumpMetadata(cloneFrameForSend(frame), {
+            savedAt: toIsoTimestamp(nowMs()),
+            mode: 'manual',
+            quality: 'high',
+            reason: 'manual',
+          }),
+        );
       }
       return;
     }

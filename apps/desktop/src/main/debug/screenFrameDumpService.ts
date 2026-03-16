@@ -7,6 +7,14 @@ import type {
 
 const CURRENT_DEBUG_SESSION_DIR = 'current-debug-session';
 
+function sanitizeTimestamp(timestamp: string): string {
+  return timestamp.replaceAll(':', '-');
+}
+
+function toFrameDumpSuffix(reason: SaveScreenFrameDumpFrameRequest['reason']): string {
+  return reason === 'manual' ? 'sent' : reason;
+}
+
 export type ScreenFrameDumpService = {
   startSession: () => Promise<ScreenFrameDumpSessionInfo>;
   saveFrame: (request: SaveScreenFrameDumpFrameRequest) => Promise<void>;
@@ -30,12 +38,18 @@ export function createScreenFrameDumpService({
         directoryPath: currentSessionDirectoryPath,
       };
     },
-    saveFrame: async ({ sequence, data }) => {
+    saveFrame: async ({ sequence, data, savedAt, mode, quality, reason }) => {
       if (!hasStartedSession) {
         throw new Error('Screen frame dump session has not been started');
       }
 
-      const fileName = `frame-${String(sequence).padStart(6, '0')}.jpg`;
+      const fileName = [
+        sanitizeTimestamp(savedAt),
+        mode,
+        quality,
+        toFrameDumpSuffix(reason),
+        `seq${String(sequence).padStart(6, '0')}`,
+      ].join('_') + '.jpg';
       await writeFile(join(currentSessionDirectoryPath, fileName), Buffer.from(data));
     },
   };

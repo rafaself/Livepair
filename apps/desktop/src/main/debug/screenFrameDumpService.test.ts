@@ -28,9 +28,20 @@ describe('createScreenFrameDumpService', () => {
       sequence: 1,
       mimeType: 'image/jpeg',
       data: jpegBytes,
+      savedAt: '2026-03-15T22:41:09.021Z',
+      mode: 'continuous',
+      quality: 'medium',
+      reason: 'base',
     });
 
-    await expect(readFile(join(directoryPath, 'frame-000001.jpg'))).resolves.toEqual(
+    await expect(
+      readFile(
+        join(
+          directoryPath,
+          '2026-03-15T22-41-09.021Z_continuous_medium_base_seq000001.jpg',
+        ),
+      ),
+    ).resolves.toEqual(
       Buffer.from(jpegBytes),
     );
 
@@ -47,8 +58,14 @@ describe('createScreenFrameDumpService', () => {
       sequence: 2,
       mimeType: 'image/jpeg',
       data: new Uint8Array([4, 5, 6]),
+      savedAt: '2026-03-15T22:41:03.124Z',
+      mode: 'manual',
+      quality: 'high',
+      reason: 'manual',
     });
 
-    await expect(readdir(directoryPath)).resolves.toEqual(['frame-000002.jpg']);
+    await expect(readdir(directoryPath)).resolves.toEqual([
+      '2026-03-15T22-41-03.124Z_manual_high_sent_seq000002.jpg',
+    ]);
   });
 });

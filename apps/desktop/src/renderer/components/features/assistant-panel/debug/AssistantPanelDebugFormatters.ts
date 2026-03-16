@@ -163,19 +163,19 @@ export function formatVisualTransitionReason(
   }
 
   if (reason === 'continuousStopped') {
-    return 'Continuous sharing stopped';
+    return 'Continuous sending stopped';
   }
 
   if (reason === 'burstActivated') {
     return 'Burst activated';
   }
 
-  if (reason === 'baselineFrameSent') {
-    return 'Baseline frame sent';
+  if (reason === 'continuousBaseFrameSent') {
+    return 'Continuous base frame sent';
   }
 
-  if (reason === 'burstFrameSent') {
-    return 'Burst frame sent';
+  if (reason === 'continuousBurstFrameSent') {
+    return 'Continuous burst frame sent';
   }
 
   return reason;
