@@ -425,6 +425,12 @@ docker run --rm \
 
 The image keeps `NODE_ENV=production`, starts with `node dist/main.js`, honors `PORT`, binds to `0.0.0.0`, and logs to stdout/stderr. The root `.dockerignore` keeps Git metadata, local `node_modules`, logs, and unrelated workspace files out of the Docker build context.
 
+The same final image also carries the SQL migration files and an API-local migration script, so a Cloud Run Job can use the runtime-safe command below instead of any workspace-level `pnpm --filter ...` invocation:
+
+```bash
+npm run migration:up
+```
+
 If you want to mimic Cloud Run's default port locally, override `PORT` when you start the container:
 
 ```bash

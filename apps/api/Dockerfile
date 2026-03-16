@@ -33,6 +33,7 @@ WORKDIR /app
 COPY --from=build --chown=node:node /prod/api/package.json ./package.json
 COPY --from=build --chown=node:node /prod/api/node_modules ./node_modules
 COPY --from=build --chown=node:node /prod/api/dist ./dist
+COPY --from=build --chown=node:node /workspace/apps/api/src/database/migrations ./migrations
 
 USER node
 
