@@ -168,17 +168,27 @@
   border-bottom-right-radius: 10px;
 }
 
-/* ── Transcript artifact: support text, not primary output ───────────────── */
+/* ── Streaming transcript: in-progress speech, muted to signal live state ── */
 
-.conversation-turn--transcript .conversation-turn__bubble {
+.conversation-turn--transcript-streaming .conversation-turn__bubble {
   opacity: 0.65;
 }
 
-.conversation-turn--transcript .conversation-turn__body {
+.conversation-turn--transcript-streaming .conversation-turn__body {
   font-style: italic;
+}
+
+/* ── Completed transcript: primary visible record of spoken content ──────── */
+
+.conversation-turn--transcript-complete .conversation-turn__bubble {
+  opacity: 1;
 }
 
 /* Interrupted/partial transcript: further muted to signal incomplete content */
 .conversation-turn--transcript-interrupted .conversation-turn__bubble {
-  opacity: 0.4;
+  opacity: 0.5;
+}
+
+.conversation-turn--transcript-interrupted .conversation-turn__body {
+  font-style: italic;
 }

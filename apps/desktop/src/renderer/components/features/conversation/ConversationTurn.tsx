@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from 'react';
 import { useState } from 'react';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, Mic } from 'lucide-react';
 import { Badge, IconButton } from '../../primitives';
 import { isTranscriptArtifact, type ConversationTimelineEntry } from '../../../runtime';
 import { TypingIndicator } from '../TypingIndicator';
@@ -31,14 +31,17 @@ export function ConversationTurn({
   const chatTimestampVisibility = useSettingsStore((state) => state.settings.chatTimestampVisibility);
 
   const isTranscript = isTranscriptArtifact(turn);
+  const isStreamingTranscript = isTranscript && turn.state === 'streaming';
   const isInterruptedTranscript = isTranscript && turn.statusLabel === 'Interrupted';
+  const isCompletedTranscript = isTranscript && turn.state === 'complete' && !isInterruptedTranscript;
   const isTypedNote = !isTranscript && turn.role === 'user' && turn.source === 'text';
 
   const classes = [
     'conversation-turn',
     `conversation-turn--${turn.role}`,
     turn.state === 'error' ? 'conversation-turn--error' : '',
-    isTranscript ? 'conversation-turn--transcript' : '',
+    isStreamingTranscript ? 'conversation-turn--transcript-streaming' : '',
+    isCompletedTranscript ? 'conversation-turn--transcript-complete' : '',
     isInterruptedTranscript ? 'conversation-turn--transcript-interrupted' : '',
     isTypedNote ? 'conversation-turn--typed-note' : '',
     className ?? '',
@@ -57,7 +60,7 @@ export function ConversationTurn({
   };
 
   const artifactKind = isTranscript ? 'transcript' : 'turn';
-  const showCopyButton = turn.role === 'assistant' && !isTypingOnly && !isTranscript;
+  const showCopyButton = turn.role === 'assistant' && !isTypingOnly && !isStreamingTranscript;
 
   return (
     <article
@@ -90,6 +93,9 @@ export function ConversationTurn({
             ) : null}
             {isTypedNote ? (
               <Badge variant="default">Note</Badge>
+            ) : null}
+            {isCompletedTranscript ? (
+              <Badge variant="default"><Mic size={10} /> Voice</Badge>
             ) : null}
             {turn.statusLabel ? (
               <Badge variant={getBadgeVariant(turn)}>{turn.statusLabel}</Badge>

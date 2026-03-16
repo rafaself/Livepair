@@ -227,7 +227,7 @@ describe('ConversationTurn', () => {
 });
 
 describe('ConversationTurn transcript artifact presentation', () => {
-  it('applies transcript modifier class to a transcript artifact', () => {
+  it('applies transcript-complete modifier class to a completed transcript artifact', () => {
     render(
       <ConversationTurn
         turn={{
@@ -244,11 +244,33 @@ describe('ConversationTurn transcript artifact presentation', () => {
 
     const article = screen.getByRole('article', { name: 'User transcript at 09:50' });
 
-    expect(article).toHaveClass('conversation-turn--transcript');
+    expect(article).toHaveClass('conversation-turn--transcript-complete');
     expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
+    expect(article).not.toHaveClass('conversation-turn--transcript-streaming');
   });
 
-  it('applies both transcript and interrupted modifier classes to an interrupted transcript', () => {
+  it('applies transcript-streaming modifier class to a streaming transcript artifact', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'user-transcript-1',
+          role: 'user',
+          content: 'What is the capital of',
+          timestamp: '09:50',
+          state: 'streaming',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'User transcript at 09:50' });
+
+    expect(article).toHaveClass('conversation-turn--transcript-streaming');
+    expect(article).not.toHaveClass('conversation-turn--transcript-complete');
+  });
+
+  it('applies transcript-interrupted modifier class to an interrupted transcript', () => {
     render(
       <ConversationTurn
         turn={{
@@ -266,8 +288,8 @@ describe('ConversationTurn transcript artifact presentation', () => {
 
     const article = screen.getByRole('article', { name: 'Assistant transcript at 09:51' });
 
-    expect(article).toHaveClass('conversation-turn--transcript');
     expect(article).toHaveClass('conversation-turn--transcript-interrupted');
+    expect(article).not.toHaveClass('conversation-turn--transcript-complete');
   });
 
   it('does not apply transcript classes to canonical turns', () => {
@@ -285,7 +307,8 @@ describe('ConversationTurn transcript artifact presentation', () => {
 
     const article = screen.getByRole('article', { name: 'Assistant turn at 09:52' });
 
-    expect(article).not.toHaveClass('conversation-turn--transcript');
+    expect(article).not.toHaveClass('conversation-turn--transcript-streaming');
+    expect(article).not.toHaveClass('conversation-turn--transcript-complete');
     expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
   });
 
@@ -305,7 +328,8 @@ describe('ConversationTurn transcript artifact presentation', () => {
 
     const article = screen.getByRole('article', { name: 'Assistant turn at 09:53' });
 
-    expect(article).not.toHaveClass('conversation-turn--transcript');
+    expect(article).not.toHaveClass('conversation-turn--transcript-streaming');
+    expect(article).not.toHaveClass('conversation-turn--transcript-complete');
     expect(article).not.toHaveClass('conversation-turn--transcript-interrupted');
   });
 
@@ -328,12 +352,32 @@ describe('ConversationTurn transcript artifact presentation', () => {
     expect(screen.queryByRole('article', { name: 'Assistant turn at 09:55' })).toBeNull();
   });
 
-  it('does not show a copy button on an assistant transcript artifact', () => {
+  it('does not show a copy button on a streaming assistant transcript artifact', () => {
     render(
       <ConversationTurn
         turn={{
           kind: 'transcript',
           id: 'assistant-transcript-no-copy',
+          role: 'assistant',
+          content: 'Transcribed assistant speech.',
+          timestamp: '09:56',
+          state: 'streaming',
+          source: 'voice',
+        }}
+      />,
+    );
+
+    const article = screen.getByRole('article', { name: 'Assistant transcript at 09:56' });
+
+    expect(article.querySelector('.conversation-turn__copy-btn')).toBeNull();
+  });
+
+  it('shows a copy button on a completed assistant transcript artifact', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'assistant-transcript-with-copy',
           role: 'assistant',
           content: 'Transcribed assistant speech.',
           timestamp: '09:56',
@@ -345,7 +389,7 @@ describe('ConversationTurn transcript artifact presentation', () => {
 
     const article = screen.getByRole('article', { name: 'Assistant transcript at 09:56' });
 
-    expect(article.querySelector('.conversation-turn__copy-btn')).toBeNull();
+    expect(article.querySelector('.conversation-turn__copy-btn')).not.toBeNull();
   });
 
   it('shows a copy button on a canonical assistant turn', () => {
