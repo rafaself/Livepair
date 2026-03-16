@@ -287,6 +287,62 @@ function parseChatListResponse(value: unknown): ChatRecord[] {
   return value.map((item) => parseChatRecord(item, 'Chat list response was invalid'));
 }
 
+function parseAnswerMetadata(
+  value: unknown,
+  errorMessage = 'Chat message response was invalid',
+): ChatMessageRecord['answerMetadata'] {
+  if (typeof value === 'undefined') {
+    return undefined;
+  }
+
+  if (!isPlainRecord(value)) {
+    throw new Error(errorMessage);
+  }
+
+  if (
+    (value['provenance'] !== 'project_grounded'
+      && value['provenance'] !== 'web_grounded'
+      && value['provenance'] !== 'tool_grounded'
+      && value['provenance'] !== 'unverified')
+    || (
+      typeof value['citations'] !== 'undefined'
+      && (
+        !Array.isArray(value['citations'])
+        || value['citations'].some((citation) =>
+          !isPlainRecord(citation)
+          || !isNonEmptyString(citation['label'])
+          || (typeof citation['uri'] !== 'undefined' && !isNonEmptyString(citation['uri']))
+        )
+      )
+    )
+    || (
+      typeof value['confidence'] !== 'undefined'
+      && value['confidence'] !== 'low'
+      && value['confidence'] !== 'medium'
+      && value['confidence'] !== 'high'
+    )
+    || (typeof value['reason'] !== 'undefined' && !isNonEmptyString(value['reason']))
+    || (typeof value['thinkingText'] !== 'undefined' && !isNonEmptyString(value['thinkingText']))
+  ) {
+    throw new Error(errorMessage);
+  }
+
+  return {
+    provenance: value['provenance'],
+    ...(Array.isArray(value['citations'])
+      ? {
+          citations: value['citations'].map((citation) => ({
+            label: citation['label'],
+            ...(typeof citation['uri'] === 'string' ? { uri: citation['uri'] } : {}),
+          })),
+        }
+      : {}),
+    ...(typeof value['confidence'] === 'string' ? { confidence: value['confidence'] } : {}),
+    ...(typeof value['reason'] === 'string' ? { reason: value['reason'] } : {}),
+    ...(typeof value['thinkingText'] === 'string' ? { thinkingText: value['thinkingText'] } : {}),
+  };
+}
+
 function parseChatMessageRecord(
   value: unknown,
   errorMessage = 'Chat message response was invalid',
@@ -306,11 +362,14 @@ function parseChatMessageRecord(
     throw new Error(errorMessage);
   }
 
+  const answerMetadata = parseAnswerMetadata(value['answerMetadata'], errorMessage);
+
   return {
     id: value['id'],
     chatId: value['chatId'],
     role: value['role'],
     contentText: value['contentText'],
+    ...(answerMetadata ? { answerMetadata } : {}),
     createdAt: value['createdAt'],
     sequence: value['sequence'],
   };

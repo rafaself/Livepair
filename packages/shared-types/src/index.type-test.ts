@@ -460,6 +460,7 @@ type _ChatMessageRecordShape = Assert<
         }>;
         confidence?: 'low' | 'medium' | 'high';
         reason?: string;
+        thinkingText?: string;
       };
       createdAt: string;
       sequence: number;
@@ -487,15 +488,16 @@ type _AnswerCitationShape = Assert<
 type _AnswerMetadataShape = Assert<
   IsExact<
     AnswerMetadata,
-    {
-      provenance: 'project_grounded' | 'web_grounded' | 'tool_grounded' | 'unverified';
-      citations?: Array<{
-        label: string;
-        uri?: string;
-      }>;
-      confidence?: 'low' | 'medium' | 'high';
-      reason?: string;
-    }
+      {
+        provenance: 'project_grounded' | 'web_grounded' | 'tool_grounded' | 'unverified';
+        citations?: Array<{
+          label: string;
+          uri?: string;
+        }>;
+        confidence?: 'low' | 'medium' | 'high';
+        reason?: string;
+        thinkingText?: string;
+      }
   >
 >;
 type _AppendChatMessageRequestShape = Assert<
@@ -513,6 +515,7 @@ type _AppendChatMessageRequestShape = Assert<
         }>;
         confidence?: 'low' | 'medium' | 'high';
         reason?: string;
+        thinkingText?: string;
       };
     }
   >

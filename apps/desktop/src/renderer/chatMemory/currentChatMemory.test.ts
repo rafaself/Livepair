@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatId } from '@livepair/shared-types';
 import {
   buildRehydrationPacketFromCurrentChat,
+  hydrateCurrentChat,
   resetCurrentChatMemoryForTests,
   switchToChat,
 } from './currentChatMemory';
@@ -29,6 +30,74 @@ function createWindowSource(id: string, name: string) {
 describe('currentChatMemory rehydration packet sourcing', () => {
   beforeEach(() => {
     resetCurrentChatMemoryForTests();
+  });
+
+  it('hydrates persisted assistant thinking metadata into runtime conversation state', async () => {
+    const bridge = {
+      appendChatMessage: vi.fn(),
+      getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-1' }),
+      listChatMessages: vi.fn().mockResolvedValue([
+        {
+          id: 'message-1',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Visible assistant reply',
+          answerMetadata: {
+            provenance: 'unverified',
+            thinkingText: 'Hidden assistant draft',
+          },
+          createdAt: '2026-03-12T09:01:00.000Z',
+          sequence: 1,
+        },
+      ]),
+    };
+
+    await hydrateCurrentChat(bridge as never);
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Visible assistant reply',
+        answerMetadata: {
+          provenance: 'unverified',
+          thinkingText: 'Hidden assistant draft',
+        },
+      }),
+    ]);
+  });
+
+  it('hydrates older persisted answer metadata records that omit thinking text', async () => {
+    const bridge = {
+      appendChatMessage: vi.fn(),
+      getOrCreateCurrentChat: vi.fn().mockResolvedValue({ id: 'chat-1' }),
+      listChatMessages: vi.fn().mockResolvedValue([
+        {
+          id: 'message-1',
+          chatId: 'chat-1',
+          role: 'assistant',
+          contentText: 'Visible assistant reply',
+          answerMetadata: {
+            provenance: 'tool_grounded',
+            reason: 'Confirmed from stored tool output.',
+          },
+          createdAt: '2026-03-12T09:01:00.000Z',
+          sequence: 1,
+        },
+      ]),
+    };
+
+    await hydrateCurrentChat(bridge as never);
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Visible assistant reply',
+        answerMetadata: {
+          provenance: 'tool_grounded',
+          reason: 'Confirmed from stored tool output.',
+        },
+      }),
+    ]);
   });
 
   it('prefers the persisted chat summary and keeps a boundary anchor plus the newest unsummarized turns', async () => {

@@ -139,27 +139,29 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
         },
          body: JSON.stringify({
            chatId: createdChat.id,
-           role: 'user',
-           contentText: 'First turn',
+           role: 'assistant',
+           contentText: 'Visible assistant reply',
            answerMetadata: {
-             provenance: 'unverified',
-             confidence: 'low',
-             reason: 'No verified evidence was attached to this reply.',
-           },
-         }),
-       },
-     );
+              provenance: 'unverified',
+              confidence: 'low',
+              reason: 'No verified evidence was attached to this reply.',
+              thinkingText: 'Hidden assistant draft',
+            },
+          }),
+        },
+      );
     expect(appendMessageResponse.status).toBe(201);
     const createdMessage = await readJson<ChatMessageRecord>(appendMessageResponse);
     expect(createdMessage).toEqual(
         expect.objectContaining({
           chatId: createdChat.id,
-          role: 'user',
-          contentText: 'First turn',
+          role: 'assistant',
+          contentText: 'Visible assistant reply',
           answerMetadata: {
             provenance: 'unverified',
             confidence: 'low',
             reason: 'No verified evidence was attached to this reply.',
+            thinkingText: 'Hidden assistant draft',
           },
           sequence: 1,
         }),

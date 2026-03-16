@@ -39,6 +39,11 @@ class AnswerMetadataDto {
   @IsString()
   @Matches(/\S/, { message: 'answerMetadata.reason must contain non-whitespace characters' })
   reason?: string | undefined;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/\S/, { message: 'answerMetadata.thinkingText must contain non-whitespace characters' })
+  thinkingText?: string | undefined;
 }
 
 export class AppendMessageDto {

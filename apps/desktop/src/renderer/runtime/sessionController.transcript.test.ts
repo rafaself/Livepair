@@ -316,6 +316,10 @@ describe('createDesktopSessionController – transcript', () => {
       chatId: string;
       role: 'user' | 'assistant';
       contentText: string;
+      answerMetadata?: {
+        provenance: 'project_grounded' | 'web_grounded' | 'tool_grounded' | 'unverified';
+        thinkingText?: string;
+      };
       createdAt: string;
       sequence: number;
     }> = [];
@@ -325,16 +329,22 @@ describe('createDesktopSessionController – transcript', () => {
         chatId,
         role,
         contentText,
+        answerMetadata,
       }: {
         chatId: string;
         role: 'user' | 'assistant';
         contentText: string;
+        answerMetadata?: {
+          provenance: 'project_grounded' | 'web_grounded' | 'tool_grounded' | 'unverified';
+          thinkingText?: string;
+        };
       }) => {
         const nextRecord = {
           id: `${role}-message-${persistedMessages.length + 1}`,
           chatId,
           role,
           contentText,
+          ...(answerMetadata ? { answerMetadata } : {}),
           createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
           sequence: persistedMessages.length + 1,
         };
@@ -356,6 +366,10 @@ describe('createDesktopSessionController – transcript', () => {
         chatId: 'chat-1',
         role: 'assistant',
         contentText: 'Transcript bubble reply',
+        answerMetadata: {
+          provenance: 'unverified',
+          thinkingText: 'Canonical reply',
+        },
       });
     });
 
@@ -366,6 +380,10 @@ describe('createDesktopSessionController – transcript', () => {
         state: 'complete',
         source: 'voice',
         persistedMessageId: 'assistant-message-1',
+        answerMetadata: {
+          provenance: 'unverified',
+          thinkingText: 'Canonical reply',
+        },
       }),
     ]);
     // The transcript artifact remains in the store with attachedTurnId.
@@ -395,6 +413,10 @@ describe('createDesktopSessionController – transcript', () => {
         role: 'assistant',
         content: 'Transcript bubble reply',
         persistedMessageId: 'assistant-message-1',
+        answerMetadata: {
+          provenance: 'unverified',
+          thinkingText: 'Canonical reply',
+        },
       }),
     ]);
   });

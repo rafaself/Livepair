@@ -96,6 +96,9 @@ export class ChatMemoryController {
             : {}),
           ...(dto.answerMetadata.confidence ? { confidence: dto.answerMetadata.confidence } : {}),
           ...(dto.answerMetadata.reason ? { reason: dto.answerMetadata.reason } : {}),
+          ...(dto.answerMetadata.thinkingText
+            ? { thinkingText: dto.answerMetadata.thinkingText }
+            : {}),
         }
       : undefined;
     const request: AppendChatMessageRequest = {

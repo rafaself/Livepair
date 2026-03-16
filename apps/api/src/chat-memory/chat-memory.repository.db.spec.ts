@@ -97,6 +97,7 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
         provenance: 'tool_grounded',
         confidence: 'high',
         reason: 'Confirmed from local runtime tool output.',
+        thinkingText: 'Hidden assistant draft',
         citations: [
           {
             label: 'get_current_mode',
@@ -111,6 +112,7 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
           provenance: 'tool_grounded',
           confidence: 'high',
           reason: 'Confirmed from local runtime tool output.',
+          thinkingText: 'Hidden assistant draft',
           citations: [
             {
               label: 'get_current_mode',
@@ -127,11 +129,37 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
           provenance: 'tool_grounded',
           confidence: 'high',
           reason: 'Confirmed from local runtime tool output.',
+          thinkingText: 'Hidden assistant draft',
           citations: [
             {
               label: 'get_current_mode',
             },
           ],
+        },
+      }),
+    ]);
+  });
+
+  it('keeps older answer metadata records without thinking text compatible', async () => {
+    const chat = await repository.getOrCreateCurrentChat();
+
+    await repository.appendMessage({
+      chatId: chat.id,
+      role: 'assistant',
+      contentText: 'Stored reply',
+      answerMetadata: {
+        provenance: 'unverified',
+        reason: 'No verified evidence was attached to this reply.',
+      },
+    });
+
+    await expect(repository.listMessages(chat.id)).resolves.toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        contentText: 'Stored reply',
+        answerMetadata: {
+          provenance: 'unverified',
+          reason: 'No verified evidence was attached to this reply.',
         },
       }),
     ]);

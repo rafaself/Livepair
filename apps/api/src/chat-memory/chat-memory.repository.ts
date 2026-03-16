@@ -253,6 +253,7 @@ function parsePersistedAnswerMetadata(value: unknown): AnswerMetadata | undefine
   const confidence = 'confidence' in value ? value['confidence'] : undefined;
   const reason = 'reason' in value ? value['reason'] : undefined;
   const citations = 'citations' in value ? value['citations'] : undefined;
+  const thinkingText = 'thinkingText' in value ? value['thinkingText'] : undefined;
 
   if (!isAnswerProvenance(provenance)) {
     return undefined;
@@ -263,6 +264,10 @@ function parsePersistedAnswerMetadata(value: unknown): AnswerMetadata | undefine
   }
 
   if (typeof reason !== 'undefined' && !isNonEmptyString(reason)) {
+    return undefined;
+  }
+
+  if (typeof thinkingText !== 'undefined' && !isNonEmptyString(thinkingText)) {
     return undefined;
   }
 
@@ -283,6 +288,7 @@ function parsePersistedAnswerMetadata(value: unknown): AnswerMetadata | undefine
       : {}),
     ...(typeof confidence === 'string' ? { confidence } : {}),
     ...(typeof reason === 'string' ? { reason: reason.trim() } : {}),
+    ...(typeof thinkingText === 'string' ? { thinkingText: thinkingText.trim() } : {}),
   };
 }
 

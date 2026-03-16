@@ -33,6 +33,7 @@ export interface AnswerMetadata {
   citations?: AnswerCitation[];
   confidence?: AnswerConfidence;
   reason?: string;
+  thinkingText?: string;
 }
 
 export interface ChatMessageRecord {

@@ -162,6 +162,7 @@ export function createSessionTransportAssembly({
         : null;
       const settledAssistantTranscript = settledAssistantArtifact?.content?.trim() ?? '';
       const shouldUseSettledAssistantTranscript = settledAssistantTranscript.length > 0;
+      const completedDraftText = draft?.content?.trim() ?? '';
 
       // Persist the settled spoken transcript when Gemini supplies one.
       // Keep the completed text-delta draft only as a fallback for flows
@@ -169,7 +170,16 @@ export function createSessionTransportAssembly({
       const turnContent = shouldUseSettledAssistantTranscript
         ? settledAssistantTranscript
         : draft?.content ?? null;
-      const answerMetadata = draft?.answerMetadata ?? conversationCtx.pendingAssistantAnswerMetadata ?? undefined;
+      const answerMetadataBase = draft?.answerMetadata ?? conversationCtx.pendingAssistantAnswerMetadata ?? undefined;
+      const answerMetadata = shouldUseSettledAssistantTranscript && completedDraftText.length > 0
+        ? {
+            provenance: answerMetadataBase?.provenance ?? 'unverified',
+            ...(answerMetadataBase?.citations ? { citations: answerMetadataBase.citations } : {}),
+            ...(answerMetadataBase?.confidence ? { confidence: answerMetadataBase.confidence } : {}),
+            ...(answerMetadataBase?.reason ? { reason: answerMetadataBase.reason } : {}),
+            thinkingText: completedDraftText,
+          }
+        : answerMetadataBase;
       const assistantTurnId = turnContent
         ? appendCompletedAssistantTurn(conversationCtx, turnContent, {
             ...(answerMetadata ? { answerMetadata } : {}),

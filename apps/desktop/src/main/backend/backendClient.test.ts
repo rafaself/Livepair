@@ -411,6 +411,10 @@ describe('backendClient', () => {
       chatId: CHAT_ID,
       role: 'assistant',
       contentText: 'Stored',
+      answerMetadata: {
+        provenance: 'unverified',
+        thinkingText: 'Hidden assistant draft',
+      },
     };
     const createLiveSessionRequest: CreateLiveSessionRequest = {
       chatId: CHAT_ID,
@@ -468,7 +472,15 @@ describe('backendClient', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: vi.fn(async () => [createChatMessageRecord()]),
+        json: vi.fn(async () => [
+          createChatMessageRecord({
+            answerMetadata: {
+              provenance: 'tool_grounded',
+              confidence: 'high',
+              thinkingText: 'Stored reasoning trace',
+            },
+          }),
+        ]),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -482,6 +494,10 @@ describe('backendClient', () => {
           createChatMessageRecord({
             role: 'assistant',
             contentText: 'Stored',
+            answerMetadata: {
+              provenance: 'unverified',
+              thinkingText: 'Hidden assistant draft',
+            },
           }),
         ),
       })
@@ -544,7 +560,13 @@ describe('backendClient', () => {
     await expect(client.getOrCreateCurrentChat()).resolves.toEqual(createChatRecord());
     await expect(client.listChats()).resolves.toEqual([createChatRecord()]);
     await expect(client.listChatMessages(CHAT_ID)).resolves.toEqual([
-      createChatMessageRecord(),
+      createChatMessageRecord({
+        answerMetadata: {
+          provenance: 'tool_grounded',
+          confidence: 'high',
+          thinkingText: 'Stored reasoning trace',
+        },
+      }),
     ]);
     await expect(client.getChatSummary(CHAT_ID)).resolves.toEqual(
       createChatSummaryRecord(),
@@ -553,6 +575,10 @@ describe('backendClient', () => {
       createChatMessageRecord({
         role: 'assistant',
         contentText: 'Stored',
+        answerMetadata: {
+          provenance: 'unverified',
+          thinkingText: 'Hidden assistant draft',
+        },
       }),
     );
     await expect(client.createLiveSession(createLiveSessionRequest)).resolves.toEqual(

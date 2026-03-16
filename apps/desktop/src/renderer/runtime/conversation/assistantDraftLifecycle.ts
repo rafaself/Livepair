@@ -88,22 +88,30 @@ function choosePreferredAnswerMetadata(
   const incomingPriority = ANSWER_PROVENANCE_PRIORITY[incoming.provenance];
 
   if (incomingPriority > currentPriority) {
-    return incoming;
+    return {
+      ...incoming,
+      ...(incoming.thinkingText ? {} : current.thinkingText ? { thinkingText: current.thinkingText } : {}),
+    };
   }
 
   if (incomingPriority < currentPriority) {
-    return current;
+    return {
+      ...current,
+      ...(current.thinkingText ? {} : incoming.thinkingText ? { thinkingText: incoming.thinkingText } : {}),
+    };
   }
 
   const citations = incoming.citations ?? current.citations;
   const confidence = chooseHigherConfidence(current.confidence, incoming.confidence);
   const reason = incoming.reason ?? current.reason;
+  const thinkingText = incoming.thinkingText ?? current.thinkingText;
 
   return {
     provenance: current.provenance,
     ...(citations ? { citations } : {}),
     ...(confidence ? { confidence } : {}),
     ...(reason ? { reason } : {}),
+    ...(thinkingText ? { thinkingText } : {}),
   };
 }
 

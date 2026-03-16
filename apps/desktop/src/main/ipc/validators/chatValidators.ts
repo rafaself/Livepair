@@ -40,7 +40,7 @@ function isAnswerCitation(value: unknown): value is NonNullable<AnswerMetadata['
 }
 
 function isAnswerMetadata(value: unknown): value is AnswerMetadata {
-  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['provenance', 'citations', 'confidence', 'reason'])) {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['provenance', 'citations', 'confidence', 'reason', 'thinkingText'])) {
     return false;
   }
 
@@ -55,6 +55,7 @@ function isAnswerMetadata(value: unknown): value is AnswerMetadata {
     )
     && (typeof value['confidence'] === 'undefined' || isAnswerConfidence(value['confidence']))
     && (typeof value['reason'] === 'undefined' || isNonEmptyString(value['reason']))
+    && (typeof value['thinkingText'] === 'undefined' || isNonEmptyString(value['thinkingText']))
   );
 }
 

@@ -183,6 +183,7 @@ describe('ipc validators', () => {
         provenance: 'tool_grounded',
         confidence: 'high',
         reason: 'Confirmed by local runtime tool output.',
+        thinkingText: 'Hidden assistant draft',
       },
     };
     const resumptionUpdateRequest: UpdateLiveSessionRequest = {
@@ -248,6 +249,15 @@ describe('ipc validators', () => {
         answerMetadata: {
           provenance: 'project_grounded',
           citations: [{ label: '' }],
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isAppendChatMessageRequest({
+        ...appendRequest,
+        answerMetadata: {
+          provenance: 'project_grounded',
+          thinkingText: '',
         },
       }),
     ).toBe(false);
