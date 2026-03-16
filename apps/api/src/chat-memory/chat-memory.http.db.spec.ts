@@ -106,23 +106,33 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          chatId: createdChat.id,
-          role: 'user',
-          contentText: 'First turn',
-        }),
-      },
-    );
+         body: JSON.stringify({
+           chatId: createdChat.id,
+           role: 'user',
+           contentText: 'First turn',
+           answerMetadata: {
+             provenance: 'unverified',
+             confidence: 'low',
+             reason: 'No verified evidence was attached to this reply.',
+           },
+         }),
+       },
+     );
     expect(appendMessageResponse.status).toBe(201);
     const createdMessage = await readJson<ChatMessageRecord>(appendMessageResponse);
     expect(createdMessage).toEqual(
-      expect.objectContaining({
-        chatId: createdChat.id,
-        role: 'user',
-        contentText: 'First turn',
-        sequence: 1,
-      }),
-    );
+        expect.objectContaining({
+          chatId: createdChat.id,
+          role: 'user',
+          contentText: 'First turn',
+          answerMetadata: {
+            provenance: 'unverified',
+            confidence: 'low',
+            reason: 'No verified evidence was attached to this reply.',
+          },
+          sequence: 1,
+        }),
+      );
 
     const createLiveSessionResponse = await fetch(
       `${baseUrl}/chat-memory/chats/${createdChat.id}/live-sessions`,

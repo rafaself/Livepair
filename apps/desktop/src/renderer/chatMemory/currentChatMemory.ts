@@ -185,8 +185,8 @@ export async function appendMessageToCurrentChat(
     const chat = await ensureActiveChat(bridge);
 
     return appendPersistedChatMessage({
+      ...request,
       chatId: chat.id,
-      role: request.role,
       contentText,
     }, bridge);
   });

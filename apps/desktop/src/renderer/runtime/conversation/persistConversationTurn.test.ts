@@ -11,6 +11,11 @@ describe('persistConversationTurn', () => {
       content: 'Stored reply',
       timestamp: '9:00 AM',
       state: 'complete',
+      answerMetadata: {
+        provenance: 'tool_grounded',
+        confidence: 'high',
+        reason: 'Confirmed by desktop runtime tool output.',
+      },
     });
 
     await persistConversationTurn(useSessionStore, 'assistant-turn-1');
@@ -19,10 +24,20 @@ describe('persistConversationTurn', () => {
       chatId: 'chat-1',
       role: 'assistant',
       contentText: 'Stored reply',
+      answerMetadata: {
+        provenance: 'tool_grounded',
+        confidence: 'high',
+        reason: 'Confirmed by desktop runtime tool output.',
+      },
     });
     expect(useSessionStore.getState().conversationTurns[0]).toEqual(
       expect.objectContaining({
         persistedMessageId: 'assistant-message-1',
+        answerMetadata: {
+          provenance: 'tool_grounded',
+          confidence: 'high',
+          reason: 'Confirmed by desktop runtime tool output.',
+        },
       }),
     );
   });

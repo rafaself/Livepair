@@ -1,3 +1,4 @@
+import type { AnswerMetadata } from '@livepair/shared-types';
 import { asErrorDetail, createDebugEvent } from '../../core/runtimeUtils';
 import { createDefaultVoiceToolState } from '../../core/defaults';
 import { executeLocalVoiceTool } from './voiceTools';
@@ -31,6 +32,7 @@ export function createVoiceToolController(
   store: VoiceToolStoreApi,
   getTransport: () => DesktopSession | null,
   getSnapshot: SnapshotProvider,
+  onAnswerMetadata?: (answerMetadata: AnswerMetadata) => void,
 ): VoiceToolController {
   let voiceToolChain = Promise.resolve();
   let executionVersion = 0;
@@ -103,6 +105,19 @@ export function createVoiceToolController(
       }
 
       responses.push(response);
+
+      const reportedAnswerMetadata = response.response['answerMetadata'];
+
+      if (
+        onAnswerMetadata
+        && response.response['ok'] === true
+        && reportedAnswerMetadata
+        && typeof reportedAnswerMetadata === 'object'
+        && !Array.isArray(reportedAnswerMetadata)
+        && 'provenance' in reportedAnswerMetadata
+      ) {
+        onAnswerMetadata(reportedAnswerMetadata as AnswerMetadata);
+      }
 
       const errorDetail = response.response['error'];
 

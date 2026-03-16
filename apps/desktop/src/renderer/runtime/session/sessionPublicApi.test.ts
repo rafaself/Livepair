@@ -28,9 +28,6 @@ function createHarness(options: {
     start: vi.fn(async () => undefined),
     stop: vi.fn(async () => undefined),
     analyzeScreenNow: vi.fn(),
-    enableStreaming: vi.fn(),
-    stopStreaming: vi.fn(),
-    onTextSent: vi.fn(),
     isActive: vi.fn(() => false),
   };
 
@@ -172,30 +169,7 @@ describe('createSessionControllerPublicApi', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Wave 3 – public API wiring for enableScreenStreaming / stopScreenStreaming
-// ---------------------------------------------------------------------------
-describe('createSessionControllerPublicApi – Wave 3 screen streaming controls', () => {
-  it('enableScreenStreaming delegates to screenCtrl.enableStreaming', () => {
-    const harness = createHarness();
-    harness.publicApi.enableScreenStreaming();
-    expect(harness.screenCtrl.enableStreaming).toHaveBeenCalledTimes(1);
-  });
-
-  it('stopScreenStreaming delegates to screenCtrl.stopStreaming', () => {
-    const harness = createHarness();
-    harness.publicApi.stopScreenStreaming();
-    expect(harness.screenCtrl.stopStreaming).toHaveBeenCalledTimes(1);
-  });
-
-  it('enableScreenStreaming and stopScreenStreaming are independent calls', () => {
-    const harness = createHarness();
-    harness.publicApi.enableScreenStreaming();
-    harness.publicApi.stopScreenStreaming();
-    expect(harness.screenCtrl.enableStreaming).toHaveBeenCalledTimes(1);
-    expect(harness.screenCtrl.stopStreaming).toHaveBeenCalledTimes(1);
-  });
-
+describe('createSessionControllerPublicApi – screen capture controls', () => {
   it('sets screenShareIntended to true when starting screen capture', async () => {
     const harness = createHarness();
     await harness.publicApi.startScreenCapture();
@@ -224,5 +198,12 @@ describe('createSessionControllerPublicApi – Wave 3 screen streaming controls'
     expect(harness.refreshScreenCaptureSourceSnapshot).toHaveBeenCalledTimes(1);
     expect(harness.setScreenShareIntended).not.toHaveBeenCalled();
     expect(harness.screenCtrl.start).not.toHaveBeenCalled();
+  });
+
+  it('does not expose legacy explicit streaming controls', () => {
+    const harness = createHarness();
+
+    expect('enableScreenStreaming' in harness.publicApi).toBe(false);
+    expect('stopScreenStreaming' in harness.publicApi).toBe(false);
   });
 });

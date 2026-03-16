@@ -1,3 +1,4 @@
+import type { AnswerMetadata } from '@livepair/shared-types';
 import { formatConversationTimestamp } from './conversationTimestamp';
 import type { useSessionStore } from '../../store/sessionStore';
 import type {
@@ -12,6 +13,7 @@ export type AssistantDraftModel = {
   role: 'assistant';
   content: string;
   liveTurnId?: string | undefined;
+  answerMetadata?: AnswerMetadata | undefined;
   status: 'streaming' | 'complete' | 'interrupted';
 };
 
@@ -25,6 +27,7 @@ export type VoiceTurnFenceState = 'idle' | 'open' | 'completed' | 'interrupted';
 export interface ConversationContext {
   pendingAssistantTurnId: string | null;
   assistantDraft: AssistantDraftModel | null;
+  pendingAssistantAnswerMetadata: AnswerMetadata | null;
   hasQueuedMixedModeAssistantReply: boolean;
   currentVoiceTurnId: string | null;
   currentVoiceTurnState: VoiceTurnFenceState;
@@ -43,6 +46,7 @@ export function createConversationContext(store: SessionStoreApi): ConversationC
   return {
     pendingAssistantTurnId: null,
     assistantDraft: null,
+    pendingAssistantAnswerMetadata: null,
     hasQueuedMixedModeAssistantReply: false,
     currentVoiceTurnId: null,
     currentVoiceTurnState: 'idle',

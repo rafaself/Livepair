@@ -154,8 +154,10 @@ export function createSessionTransportAssembly({
       // with audio only (no text-delta events), fall back to the output
       // transcript so the assistant turn is still persisted to chat history.
       const turnContent = draft?.content ?? settledAssistantArtifact?.content?.trim() ?? null;
+      const answerMetadata = draft?.answerMetadata ?? conversationCtx.pendingAssistantAnswerMetadata ?? undefined;
       const assistantTurnId = turnContent
         ? appendCompletedAssistantTurn(conversationCtx, turnContent, {
+            ...(answerMetadata ? { answerMetadata } : {}),
             source: 'voice',
             ...(!draft && settledAssistantArtifact?.transcriptFinal !== undefined
               ? { transcriptFinal: settledAssistantArtifact.transcriptFinal }
@@ -166,7 +168,15 @@ export function createSessionTransportAssembly({
           })
         : null;
 
+      conversationCtx.pendingAssistantAnswerMetadata = null;
+
       if (assistantTurnId) {
+        if (answerMetadata) {
+          logRuntimeDiagnostic('voice-session', 'assistant answer committed', {
+            provenance: answerMetadata.provenance,
+            ...(answerMetadata.confidence ? { confidence: answerMetadata.confidence } : {}),
+          });
+        }
         persistSettledConversationTurn(assistantTurnId);
       }
 

@@ -75,6 +75,7 @@ export type SessionStoreData = {
 export type ConversationTurnPatch = Partial<
   Pick<
     ConversationTurnModel,
+    'answerMetadata' |
     'content' | 'state' | 'statusLabel' | 'source' | 'transcriptFinal' | 'persistedMessageId'
   >
 >;

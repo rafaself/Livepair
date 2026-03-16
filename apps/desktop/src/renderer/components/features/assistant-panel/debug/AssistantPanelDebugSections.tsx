@@ -398,36 +398,44 @@ export function AssistantPanelDebugScreenContextSection({
             value: screenCaptureDiagnostics.lastError ?? 'None',
           },
           {
-            label: 'Visual send state',
-            value: formatScreenCaptureState(screenCaptureState),
+            label: 'Automatic cadence',
+            value: `${visualSendDiagnostics.continuousCadenceMs} ms`,
           },
           {
-            label: 'Last transition',
-            value: formatVisualTransitionReason(visualSendDiagnostics.lastTransitionReason),
+            label: 'Last screen event',
+            value: formatVisualTransitionReason(visualSendDiagnostics.lastEvent),
           },
           {
-            label: 'Manual sends triggered',
-            value: String(visualSendDiagnostics.snapshotCount),
+            label: 'Continuous active',
+            value: visualSendDiagnostics.continuousActive ? 'Yes' : 'No',
+          },
+          {
+            label: 'Manual frames sent',
+            value: String(visualSendDiagnostics.manualFramesSentCount),
+          },
+          {
+            label: 'Manual send pending',
+            value: visualSendDiagnostics.manualSendPending ? 'Yes' : 'No',
+          },
+          {
+            label: 'Last manual frame',
+            value: visualSendDiagnostics.lastManualFrameAt ?? 'None',
           },
           {
             label: 'Continuous sharing started',
-            value: visualSendDiagnostics.streamingEnteredAt ?? 'None',
+            value: visualSendDiagnostics.continuousStartedAt ?? 'None',
           },
           {
             label: 'Continuous sharing stopped',
-            value: visualSendDiagnostics.streamingEndedAt ?? 'None',
+            value: visualSendDiagnostics.continuousStoppedAt ?? 'None',
           },
           {
-            label: 'Sent (manual)',
-            value: String(visualSendDiagnostics.sentByState.snapshot),
+            label: 'Last continuous frame',
+            value: visualSendDiagnostics.lastContinuousFrameAt ?? 'None',
           },
           {
             label: 'Sent (continuous)',
-            value: String(visualSendDiagnostics.sentByState.streaming),
-          },
-          {
-            label: 'Dropped (policy)',
-            value: String(visualSendDiagnostics.droppedByPolicy),
+            value: String(visualSendDiagnostics.continuousFramesSentCount),
           },
           {
             label: 'Blocked (gateway)',

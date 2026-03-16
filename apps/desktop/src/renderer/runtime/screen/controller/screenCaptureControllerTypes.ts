@@ -10,7 +10,7 @@ import type {
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
 } from '../screen.types';
-import type { VisualSendDiagnostics, VisualSendState } from '../visualSendPolicy';
+import type { VisualSendDiagnostics } from '../screenContextDiagnostics';
 import type {
   SaveScreenFrameDumpFrameRequest,
   ScreenFrameDumpSessionInfo,
@@ -35,14 +35,7 @@ export type ScreenCaptureController = {
   enqueueFrameSend: (frame: LocalScreenFrame) => Promise<void>;
   isActive: () => boolean;
   resetSendChain: () => void;
-  getVisualSendState: () => VisualSendState;
   analyzeScreenNow: () => void;
-  enableStreaming: () => void;
-  stopStreaming: () => void;
-  /** Called when the user starts speaking while screen share is active. */
-  onSpeechStart: () => void;
-  /** Called when the user sends a text message while screen share is active. */
-  onTextSent: () => void;
 };
 
 export type ScreenFrameDumpControls = {

@@ -14,6 +14,8 @@ import {
   Res,
 } from '@nestjs/common';
 import type {
+  AppendChatMessageRequest,
+  AnswerMetadata,
   ChatMemoryListOptions,
   ChatMessageRecord,
   ChatRecord,
@@ -78,7 +80,28 @@ export class ChatMemoryController {
     @Body() dto: AppendMessageDto,
   ): Promise<ChatMessageRecord> {
     this.assertMatchingId('chatId', chatId, dto.chatId);
-    return this.chatMemoryService.appendMessage(dto);
+    const answerMetadata: AnswerMetadata | undefined = dto.answerMetadata
+      ? {
+          provenance: dto.answerMetadata.provenance,
+          ...(dto.answerMetadata.citations
+            ? {
+                citations: dto.answerMetadata.citations.map((citation) => ({
+                  label: citation.label,
+                  ...(citation.uri ? { uri: citation.uri } : {}),
+                })),
+              }
+            : {}),
+          ...(dto.answerMetadata.confidence ? { confidence: dto.answerMetadata.confidence } : {}),
+          ...(dto.answerMetadata.reason ? { reason: dto.answerMetadata.reason } : {}),
+        }
+      : undefined;
+    const request: AppendChatMessageRequest = {
+      chatId: dto.chatId,
+      role: dto.role,
+      contentText: dto.contentText,
+      ...(answerMetadata ? { answerMetadata } : {}),
+    };
+    return this.chatMemoryService.appendMessage(request);
   }
 
   @Get('chats/:chatId/summary')

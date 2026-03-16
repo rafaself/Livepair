@@ -1,4 +1,5 @@
 import {
+  logRuntimeDiagnostic,
   logLifecycleTransition,
   logRuntimeError,
 } from '../core/logger';
@@ -18,7 +19,6 @@ import { createSessionTransportAssembly } from './sessionTransportAssembly';
 import { createSessionLifecycleAssembly } from './sessionLifecycleAssembly';
 import { createSessionConversationSupport } from './sessionConversationSupport';
 import { useUiStore } from '../../store/uiStore';
-import { resolveActiveScreenContextQuality } from '../../../shared';
 import type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
@@ -75,7 +75,8 @@ export function createSessionControllerAssembly(
       },
     },
     undefined,
-    () => resolveActiveScreenContextQuality(dependencies.settingsStore.getState().settings),
+    () => dependencies.settingsStore.getState().settings.continuousScreenQuality,
+    () => dependencies.settingsStore.getState().settings.screenContextMode,
   );
   const refreshScreenCaptureSourceSnapshot = async (): Promise<boolean> => {
     try {
@@ -101,6 +102,14 @@ export function createSessionControllerAssembly(
     dependencies.store,
     () => mutableRuntime.getActiveTransport(),
     () => stateSync.createVoiceToolExecutionSnapshot(),
+    (answerMetadata) => {
+      conversationCtx.pendingAssistantAnswerMetadata = answerMetadata;
+      logRuntimeDiagnostic('voice-session', 'assistant answer provenance updated', {
+        provenance: answerMetadata.provenance,
+        ...(answerMetadata.confidence ? { confidence: answerMetadata.confidence } : {}),
+        ...(answerMetadata.reason ? { reason: answerMetadata.reason } : {}),
+      });
+    },
   );
   const interruptionCtrl = createVoiceInterruptionController(
     dependencies.store,
@@ -140,9 +149,6 @@ export function createSessionControllerAssembly(
     settingsStore: dependencies.settingsStore,
     onSpeechLifecycleTransition: (previousStatus, nextStatus, eventType) => {
       logLifecycleTransition(previousStatus, nextStatus, eventType);
-      if (nextStatus === 'userSpeaking' && screenCtrl.isActive()) {
-        screenCtrl.onSpeechStart();
-      }
     },
     handleSpeechLifecycleStatusChange: (status) => {
       silenceCtrl.handleStatusChange(status);

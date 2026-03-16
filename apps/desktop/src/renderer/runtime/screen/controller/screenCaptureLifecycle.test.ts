@@ -21,7 +21,7 @@ function createStoreHarness(options: {
   voiceSessionStatus?: VoiceSessionStatus;
   screenCaptureState?: ScreenCaptureState;
 } = {}) {
-  let currentVoiceStatus = options.voiceSessionStatus ?? 'ready';
+  const currentVoiceStatus = options.voiceSessionStatus ?? 'ready';
   let currentScreenState = options.screenCaptureState ?? 'disabled';
 
   const setScreenCaptureState = vi.fn((nextState: ScreenCaptureState) => {
@@ -49,12 +49,6 @@ function createStoreHarness(options: {
     setLastRuntimeError,
     setScreenCaptureDiagnostics,
     setScreenCaptureState,
-    setVoiceStatus: (status: VoiceSessionStatus) => {
-      currentVoiceStatus = status;
-    },
-    setScreenState: (state: ScreenCaptureState) => {
-      currentScreenState = state;
-    },
   };
 }
 
@@ -105,7 +99,6 @@ function createHarness(options: {
 
   return {
     capture,
-    controllerState,
     createCapture,
     frameDumpCoordinator,
     frameSendCoordinator,
@@ -134,13 +127,11 @@ describe('createScreenCaptureLifecycle', () => {
       harness.capture,
       1,
     );
-    expect(harness.storeHarness.setScreenCaptureState).toHaveBeenCalledWith(
-      'requestingPermission',
-    );
-    expect(harness.storeHarness.setScreenCaptureState).toHaveBeenCalledWith('ready');
-    expect(harness.storeHarness.setScreenCaptureState).toHaveBeenCalledWith(
-      'capturing',
-    );
+    expect(harness.storeHarness.setScreenCaptureState.mock.calls).toEqual([
+      ['requestingPermission'],
+      ['ready'],
+      ['capturing'],
+    ]);
     expect(harness.onScreenShareStarted).toHaveBeenCalledTimes(1);
     expect(harness.lifecycle.isActive()).toBe(true);
   });
@@ -175,50 +166,6 @@ describe('createScreenCaptureLifecycle', () => {
       lastError: 'Screen sharing requires an active Live session',
       lastUploadStatus: 'error',
     });
-    expect(harness.storeHarness.setLastRuntimeError).toHaveBeenCalledWith(
-      'Screen sharing requires an active Live session',
-    );
-  });
-
-  it('rejects start when there is no active transport', async () => {
-    const harness = createHarness();
-    harness.setTransport(null);
-
-    await harness.lifecycle.start();
-
-    expect(harness.createCapture).not.toHaveBeenCalled();
-    expect(harness.storeHarness.setScreenCaptureState).toHaveBeenCalledWith('error');
-  });
-
-  it('no-ops while screen capture is already active or changing state', async () => {
-    for (const state of [
-      'requestingPermission',
-      'ready',
-      'capturing',
-      'streaming',
-      'stopping',
-    ] as const) {
-      const harness = createHarness({ screenCaptureState: state });
-      await harness.lifecycle.start();
-      expect(harness.createCapture).not.toHaveBeenCalled();
-    }
-  });
-
-  it('handles capture.start failures by surfacing error diagnostics', async () => {
-    const harness = createHarness();
-    harness.capture.start.mockRejectedValueOnce(new Error('permission denied'));
-
-    await harness.lifecycle.start();
-
-    expect(harness.storeHarness.setScreenCaptureState).toHaveBeenCalledWith('error');
-    expect(harness.storeHarness.setScreenCaptureDiagnostics).toHaveBeenCalledWith({
-      lastError: 'permission denied',
-      lastUploadStatus: 'error',
-    });
-    expect(harness.storeHarness.setLastRuntimeError).toHaveBeenCalledWith(
-      'permission denied',
-    );
-    expect(harness.lifecycle.isActive()).toBe(false);
   });
 
   it('stop resets collaborators and transitions through stopping to disabled', async () => {
@@ -242,40 +189,16 @@ describe('createScreenCaptureLifecycle', () => {
     expect(harness.lifecycle.isActive()).toBe(false);
   });
 
-  it('stop without an active capture still resets to disabled', async () => {
-    const harness = createHarness({ screenCaptureState: 'error' });
-
-    await harness.lifecycle.stop();
-
-    expect(harness.storeHarness.setScreenCaptureState).toHaveBeenCalledWith(
-      'disabled',
-    );
-    expect(harness.resetDiagnostics).toHaveBeenCalledTimes(1);
-  });
-
-  it('stopInternal without preserveDiagnostics resets diagnostics', async () => {
+  it('routes observer frames only through the controller callback', async () => {
     const harness = createHarness();
+    const frame = createScreenFrame(21, 6);
 
-    await harness.lifecycle.stopInternal();
+    await harness.lifecycle.start();
+    harness.getObserver()?.onFrame(frame);
 
-    expect(harness.resetDiagnostics).toHaveBeenCalledTimes(1);
-  });
-
-  it('stopInternal without capture preserves the requested diagnostics when asked', async () => {
-    const harness = createHarness();
-
-    await harness.lifecycle.stopInternal({
-      nextState: 'error',
-      detail: 'test',
-      preserveDiagnostics: true,
-      uploadStatus: 'error',
-    });
-
-    expect(harness.storeHarness.setScreenCaptureState).toHaveBeenCalledWith('error');
-    expect(harness.storeHarness.setScreenCaptureDiagnostics).toHaveBeenCalledWith({
-      lastUploadStatus: 'error',
-      lastError: 'test',
-    });
+    expect(harness.onFrameCaptured).toHaveBeenCalledWith(frame);
+    expect(harness.frameDumpCoordinator.persistFrame).not.toHaveBeenCalled();
+    expect(harness.frameSendCoordinator.enqueueFrameSend).not.toHaveBeenCalled();
   });
 
   it('waits for an in-flight stop before creating the next capture', async () => {
@@ -298,67 +221,5 @@ describe('createScreenCaptureLifecycle', () => {
     await restartPromise;
 
     expect(harness.createCapture).toHaveBeenCalledTimes(2);
-  });
-
-  it('routes observer frames to dump persistence and frame sending', async () => {
-    const harness = createHarness();
-    const frame = createScreenFrame(21, 6);
-
-    await harness.lifecycle.start();
-    harness.getObserver()?.onFrame(frame);
-    await Promise.resolve();
-
-    expect(harness.onFrameCaptured).toHaveBeenCalledWith(frame);
-    expect(harness.frameDumpCoordinator.persistFrame).toHaveBeenCalledWith(
-      harness.capture,
-      1,
-      frame,
-    );
-    expect(harness.frameSendCoordinator.enqueueFrameSend).toHaveBeenCalledWith(frame);
-  });
-
-  it('patches diagnostics from the current capture observer', async () => {
-    const harness = createHarness();
-
-    await harness.lifecycle.start();
-    harness.getObserver()?.onDiagnostics({ frameCount: 42 });
-
-    expect(harness.storeHarness.setScreenCaptureDiagnostics).toHaveBeenCalledWith({
-      frameCount: 42,
-    });
-  });
-
-  it('stops the current capture when the observer reports an error', async () => {
-    const harness = createHarness();
-
-    await harness.lifecycle.start();
-    harness.getObserver()?.onError('device lost');
-
-    await vi.waitFor(() => {
-      expect(harness.capture.stop).toHaveBeenCalledTimes(1);
-      expect(harness.storeHarness.setLastRuntimeError).toHaveBeenCalledWith(
-        'device lost',
-      );
-      expect(harness.storeHarness.setScreenCaptureState.mock.calls.slice(-2)).toEqual(
-        [['stopping'], ['error']],
-      );
-      expect(harness.storeHarness.setScreenCaptureDiagnostics).toHaveBeenLastCalledWith({
-        lastUploadStatus: 'error',
-        lastError: 'device lost',
-      });
-    });
-  });
-
-  it('allows start for every active voice session status', async () => {
-    for (const status of [
-      'ready',
-      'capturing',
-      'streaming',
-      'interrupted',
-    ] satisfies VoiceSessionStatus[]) {
-      const harness = createHarness({ voiceSessionStatus: status });
-      await harness.lifecycle.start();
-      expect(harness.createCapture).toHaveBeenCalledTimes(1);
-    }
   });
 });

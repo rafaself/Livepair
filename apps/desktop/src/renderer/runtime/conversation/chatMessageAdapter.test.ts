@@ -27,6 +27,14 @@ describe('chatMessageAdapter', () => {
       role: 'user',
       contentText: 'Stored prompt',
       createdAt: '2026-03-12T09:41:00.000Z',
+      answerMetadata: {
+        provenance: 'project_grounded',
+        citations: [
+          {
+            label: 'Visible source file',
+          },
+        ],
+      },
     });
 
     expect(mapChatMessageRecordToConversationTurn(record)).toEqual({
@@ -37,6 +45,14 @@ describe('chatMessageAdapter', () => {
       timelineOrdinal: 2,
       state: 'complete',
       persistedMessageId: 'message-7',
+      answerMetadata: {
+        provenance: 'project_grounded',
+        citations: [
+          {
+            label: 'Visible source file',
+          },
+        ],
+      },
     });
   });
 

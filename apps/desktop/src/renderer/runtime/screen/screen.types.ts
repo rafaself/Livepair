@@ -3,7 +3,6 @@ export type ScreenCaptureState =
   | 'requestingPermission'
   | 'ready'
   | 'capturing'
-  | 'streaming'
   | 'stopping'
   | 'error';
 

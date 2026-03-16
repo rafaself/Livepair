@@ -37,13 +37,13 @@ export function createScreenCaptureLifecycle({
   controllerState,
   createCapture,
   getTransport,
-  resetDiagnostics,
-  frameDumpCoordinator,
-  frameSendCoordinator,
-  onFrameCaptured,
-  getCaptureStartParams,
-  onScreenShareStarted,
-  onScreenShareStopped,
+    resetDiagnostics,
+    frameDumpCoordinator,
+    frameSendCoordinator,
+    onFrameCaptured,
+    getCaptureStartParams,
+    onScreenShareStarted,
+    onScreenShareStopped,
 }: {
   store: ScreenCaptureStoreApi;
   controllerState: ScreenCaptureControllerState;
@@ -161,7 +161,6 @@ export function createScreenCaptureLifecycle({
     if (
       state.screenCaptureState === 'ready'
       || state.screenCaptureState === 'capturing'
-      || state.screenCaptureState === 'streaming'
       || state.screenCaptureState === 'requestingPermission'
       || state.screenCaptureState === 'stopping'
     ) {
@@ -179,8 +178,6 @@ export function createScreenCaptureLifecycle({
         }
 
         onFrameCaptured?.(frame);
-        frameDumpCoordinator.persistFrame(capture, captureGeneration, frame);
-        void frameSendCoordinator.enqueueFrameSend(frame);
       },
       onDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => {
         if (!controllerState.isCurrentCapture(capture, captureGeneration)) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   deriveCurrentMode,
   executeLocalVoiceTool,
+  VOICE_TOOL_DECLARATIONS,
   type VoiceToolExecutionSnapshot,
 } from './voiceTools';
 
@@ -86,18 +87,82 @@ describe('voiceTools', () => {
     });
   });
 
-  it('returns a deterministic error payload for unsupported tools', async () => {
+  it('declares a provenance-reporting tool for grounded factual replies', () => {
+    expect(VOICE_TOOL_DECLARATIONS).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'report_answer_provenance',
+        }),
+      ]),
+    );
+  });
+
+  it('accepts answer provenance reports without leaking them into answer text', async () => {
     await expect(
       executeLocalVoiceTool(
         {
           id: 'call-3',
+          name: 'report_answer_provenance',
+          arguments: {
+            provenance: 'unverified',
+            confidence: 'low',
+            reason: 'No verified evidence was available in the provided context.',
+          },
+        },
+        createSnapshot(),
+      ),
+    ).resolves.toEqual({
+      id: 'call-3',
+      name: 'report_answer_provenance',
+      response: {
+        ok: true,
+        accepted: true,
+        answerMetadata: {
+          provenance: 'unverified',
+          confidence: 'low',
+          reason: 'No verified evidence was available in the provided context.',
+        },
+      },
+    });
+  });
+
+  it('rejects malformed provenance reports deterministically', async () => {
+    await expect(
+      executeLocalVoiceTool(
+        {
+          id: 'call-4',
+          name: 'report_answer_provenance',
+          arguments: {
+            provenance: 'unsupported',
+          },
+        },
+        createSnapshot(),
+      ),
+    ).resolves.toEqual({
+      id: 'call-4',
+      name: 'report_answer_provenance',
+      response: {
+        ok: false,
+        error: {
+          code: 'invalid_answer_metadata',
+          message: 'Tool "report_answer_provenance" requires a valid provenance payload',
+        },
+      },
+    });
+  });
+
+  it('returns a deterministic error payload for unsupported tools', async () => {
+    await expect(
+      executeLocalVoiceTool(
+        {
+          id: 'call-5',
           name: 'unknown_tool',
           arguments: {},
         },
         createSnapshot(),
       ),
     ).resolves.toEqual({
-      id: 'call-3',
+      id: 'call-5',
       name: 'unknown_tool',
       response: {
         ok: false,

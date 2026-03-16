@@ -1,6 +1,10 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type {
+  AnswerCitation,
+  AnswerConfidence,
+  AnswerMetadata,
+  AnswerProvenance,
   AppendChatMessageRequest,
   ChatId,
   ChatMemoryListOptions,
@@ -47,6 +51,7 @@ type MessageRow = {
   chat_id: string;
   role: ChatMessageRecord['role'];
   content_text: string;
+  answer_metadata: unknown;
   created_at: TimestampValue;
   sequence: number;
 };
@@ -57,6 +62,7 @@ type ListedMessageRow = {
   chat_id: string | null;
   role: ChatMessageRecord['role'] | null;
   content_text: string | null;
+  answer_metadata: unknown;
   created_at: TimestampValue | null;
   sequence: number | null;
 };
@@ -182,13 +188,101 @@ function toChatRecord(row: ChatRow): ChatRecord {
 }
 
 function toChatMessageRecord(row: MessageRow): ChatMessageRecord {
+  const answerMetadata = parsePersistedAnswerMetadata(row.answer_metadata);
+
   return {
     id: row.id,
     chatId: row.chat_id,
     role: row.role,
     contentText: row.content_text,
+    ...(answerMetadata ? { answerMetadata } : {}),
     createdAt: toIsoString(row.created_at),
     sequence: row.sequence,
+  };
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isAnswerProvenance(value: unknown): value is AnswerProvenance {
+  return (
+    value === 'project_grounded'
+    || value === 'web_grounded'
+    || value === 'tool_grounded'
+    || value === 'unverified'
+  );
+}
+
+function isAnswerConfidence(value: unknown): value is AnswerConfidence {
+  return value === 'low' || value === 'medium' || value === 'high';
+}
+
+function parsePersistedAnswerCitation(value: unknown): AnswerCitation | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null;
+  }
+
+  const label = 'label' in value ? value['label'] : undefined;
+  const uri = 'uri' in value ? value['uri'] : undefined;
+
+  if (!isNonEmptyString(label)) {
+    return null;
+  }
+
+  if (typeof uri !== 'undefined' && !isNonEmptyString(uri)) {
+    return null;
+  }
+
+  return {
+    label: label.trim(),
+    ...(typeof uri === 'string' ? { uri: uri.trim() } : {}),
+  };
+}
+
+function parsePersistedAnswerMetadata(value: unknown): AnswerMetadata | undefined {
+  if (value === null || typeof value === 'undefined') {
+    return undefined;
+  }
+
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const provenance = 'provenance' in value ? value['provenance'] : undefined;
+  const confidence = 'confidence' in value ? value['confidence'] : undefined;
+  const reason = 'reason' in value ? value['reason'] : undefined;
+  const citations = 'citations' in value ? value['citations'] : undefined;
+
+  if (!isAnswerProvenance(provenance)) {
+    return undefined;
+  }
+
+  if (typeof confidence !== 'undefined' && !isAnswerConfidence(confidence)) {
+    return undefined;
+  }
+
+  if (typeof reason !== 'undefined' && !isNonEmptyString(reason)) {
+    return undefined;
+  }
+
+  if (typeof citations !== 'undefined' && !Array.isArray(citations)) {
+    return undefined;
+  }
+
+  const parsedCitations = citations?.map((citation) => parsePersistedAnswerCitation(citation));
+
+  if (parsedCitations?.some((citation) => citation === null)) {
+    return undefined;
+  }
+
+  return {
+    provenance,
+    ...(parsedCitations && parsedCitations.length > 0
+      ? { citations: parsedCitations as AnswerCitation[] }
+      : {}),
+    ...(typeof confidence === 'string' ? { confidence } : {}),
+    ...(typeof reason === 'string' ? { reason: reason.trim() } : {}),
   };
 }
 
@@ -369,6 +463,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
             messages.chat_id,
             messages.role,
             messages.content_text,
+            messages.answer_metadata,
             messages.created_at,
             messages.sequence
           FROM selected_chat
@@ -385,7 +480,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
             WHERE id = $1
           ),
           limited_messages AS (
-            SELECT id, chat_id, role, content_text, created_at, sequence
+            SELECT id, chat_id, role, content_text, answer_metadata, created_at, sequence
             FROM messages
             WHERE chat_id = $1
             ORDER BY sequence DESC, id DESC
@@ -397,6 +492,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
             limited_messages.chat_id,
             limited_messages.role,
             limited_messages.content_text,
+            limited_messages.answer_metadata,
             limited_messages.created_at,
             limited_messages.sequence
           FROM selected_chat
@@ -420,6 +516,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
         chat_id: row.chat_id!,
         role: row.role!,
         content_text: row.content_text!,
+        answer_metadata: row.answer_metadata,
         created_at: row.created_at!,
         sequence: row.sequence!,
       }));
@@ -492,15 +589,24 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
     const messageId = randomUUID();
     const insertResult = await this.executeQuery<MessageRow>(
       `
-        INSERT INTO messages (id, chat_id, role, content_text, created_at, sequence)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, chat_id, role, content_text, created_at, sequence
+        INSERT INTO messages (
+          id,
+          chat_id,
+          role,
+          content_text,
+          answer_metadata,
+          created_at,
+          sequence
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, chat_id, role, content_text, answer_metadata, created_at, sequence
       `,
       [
         messageId,
         request.chatId,
         request.role,
         normalizedContentText,
+        request.answerMetadata ?? null,
         createdAt,
         sequenceResult.rows[0]!.sequence,
       ],
