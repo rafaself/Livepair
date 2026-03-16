@@ -17,11 +17,12 @@ import type {
   ProjectKnowledgeSearchResult,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
-export type { ChatMemoryListOptions } from '@livepair/shared-types';
 import type {
   DesktopSettings,
   DesktopSettingsPatch,
 } from './settings';
+
+export type { ChatMemoryListOptions };
 
 export type OverlayHitRegion = {
   x: number;

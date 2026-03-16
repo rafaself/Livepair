@@ -59,6 +59,7 @@ describe('overlayWindow', () => {
 
   it('creates the transparent overlay window and tracks it as the current window', async () => {
     vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('ELECTRON_RENDERER_URL', 'http://localhost:5174');
     const overlayWindow = await import('./overlayWindow');
 
     overlayWindow.createWindow();
@@ -83,7 +84,7 @@ describe('overlayWindow', () => {
         }),
       }),
     );
-    expect(mockLoadURL).toHaveBeenCalledWith('http://localhost:5173');
+    expect(mockLoadURL).toHaveBeenCalledWith('http://localhost:5174');
     expect(overlayWindow.getMainWindow()).not.toBeNull();
 
     if (process.platform !== 'linux') {
@@ -133,10 +134,20 @@ describe('overlayWindow', () => {
     vi.clearAllMocks();
     vi.stubEnv('NODE_ENV', 'development');
     vi.stubEnv('OPEN_DEVTOOLS', 'true');
+    vi.stubEnv('ELECTRON_RENDERER_URL', 'http://localhost:5174');
     const devOverlayWindow = await import('./overlayWindow');
 
     devOverlayWindow.createWindow();
     expect(mockOpenDevTools).toHaveBeenCalledWith({ mode: 'detach' });
+  });
+
+  it('falls back to the default dev server URL when electron-vite does not inject one', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const overlayWindow = await import('./overlayWindow');
+
+    overlayWindow.createWindow();
+
+    expect(mockLoadURL).toHaveBeenCalledWith('http://localhost:5173');
   });
 
   it('applies the linux transparent visuals switch only on linux', async () => {

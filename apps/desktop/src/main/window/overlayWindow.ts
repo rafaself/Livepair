@@ -10,6 +10,15 @@ app.commandLine.appendSwitch('disable-features', 'AutofillServerCommunication');
 
 let mainWindow: BrowserWindow | null = null;
 
+const DEFAULT_RENDERER_DEV_URL = 'http://localhost:5173';
+
+function resolveRendererDevUrl(): string {
+  const configuredUrl = process.env['ELECTRON_RENDERER_URL']?.trim();
+  return configuredUrl && configuredUrl.length > 0
+    ? configuredUrl
+    : DEFAULT_RENDERER_DEV_URL;
+}
+
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
 }
@@ -48,7 +57,7 @@ export function createWindow(): void {
   });
 
   if (process.env['NODE_ENV'] === 'development') {
-    win.loadURL('http://localhost:5173');
+    win.loadURL(resolveRendererDevUrl());
     if (process.env['OPEN_DEVTOOLS'] === 'true') {
       win.webContents.openDevTools({ mode: 'detach' });
     }
