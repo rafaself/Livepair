@@ -24,12 +24,7 @@ RUN pnpm --filter @livepair/shared-types build \
   && find /prod/api/dist -type f -name '*.spec.*' -delete
 
 
-FROM build AS migrator
-
-CMD ["pnpm", "--filter", "@livepair/api", "db:migrate"]
-
-
-FROM node:20-bookworm-slim AS runtime
+FROM node:20-bookworm-slim AS app-base
 
 ENV NODE_ENV=production
 
@@ -41,6 +36,14 @@ COPY --from=build --chown=node:node /prod/api/dist ./dist
 COPY --from=build --chown=node:node /workspace/apps/api/src/database/migrations ./migrations
 
 USER node
+
+
+FROM app-base AS migrator
+
+CMD ["npm", "run", "migration:up"]
+
+
+FROM app-base AS runtime
 
 EXPOSE 8080
 

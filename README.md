@@ -175,26 +175,127 @@ The backend deployment path is built for Google Cloud.
 
 For full deployment details, see `infra/terraform/README.md`.
 
-## Architecture diagram
+## Architecture diagrams
+
+### 1) Product architecture overview
+
+This diagram shows the fastest judge-facing story: what runs on the user device, what runs in Google Cloud, and how Gemini fits into the multimodal flow.
 
 ```mermaid
 flowchart LR
-  User((User))
-  Desktop[Desktop App<br/>Electron + React + TypeScript]
-  API[Backend API<br/>NestJS on Cloud Run]
-  Gemini[Gemini Live API]
-  Postgres[(PostgreSQL)]
-  Build[Cloud Build]
-  Registry[Artifact Registry]
+  subgraph Device[User Device]
+    U((User))
+    D[Desktop App<br/>Electron + React<br/>voice • screen • transcript]
+  end
 
-  User --> Desktop
-  Desktop -->|GET /health<br/>POST /session/token<br/>chat-memory| API
-  API -->|ephemeral token| Desktop
-  Desktop -->|realtime audio<br/>screen frames<br/>transcripts<br/>typed turns| Gemini
-  API --> Postgres
-  Build --> Registry
-  Registry --> API
+  subgraph Cloud[Google Cloud]
+    API[Cloud Run API<br/>NestJS]
+    DB[(Cloud SQL<br/>Postgres)]
+  end
+
+  subgraph AI[Gemini / Google AI]
+    AUTH[Gemini auth_tokens]
+    LIVE[Gemini Live API]
+  end
+
+  U -->|voice, text, screen| D
+  D -->|token + memory APIs| API
+  API --> DB
+  API -->|mint ephemeral token| AUTH
+  D -->|live audio, screen, text| LIVE
+  LIVE -->|audio + transcript events| D
 ```
+
+*Note:* the backend is intentionally out of the realtime media path. The desktop connects directly to Gemini Live after the backend mints a short-lived token.
+
+### 2) Runtime interaction flow
+
+This diagram shows what happens during a live multimodal session: token issuance, direct Live connection, multimodal input, assistant response, and durable persistence.
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant D as Desktop App
+  participant API as Backend API
+  participant G as Gemini Live API
+  participant DB as Cloud SQL
+
+  U->>D: Start live session
+  D->>API: POST /session/token
+  API->>G: Mint ephemeral token (auth_tokens)
+  G-->>API: Token + expiry
+  API-->>D: Token + expiry
+
+  D->>G: Open Gemini Live session
+  U->>D: Speak
+  opt Screen context enabled
+    U->>D: Share screen
+  end
+  D->>G: Stream mic audio + screen + typed follow-up
+  G-->>D: Assistant audio + transcript + session events
+  D-->>U: Play reply + render live transcript UI
+
+  D->>API: Persist chat + live-session state
+  API->>DB: Store durable memory
+```
+
+*Note:* typed follow-up turns currently reuse the active Gemini Live session; there is no separate backend text-chat endpoint in the current repo state.
+
+### 3) Google Cloud infrastructure
+
+This diagram makes the deployed Google Cloud footprint obvious while keeping the presentation simple enough for README and Devpost.
+
+```mermaid
+flowchart LR
+  subgraph Client[Client]
+    Desktop[Desktop App<br/>Electron + React]
+  end
+
+  subgraph GCP[Google Cloud]
+    subgraph Delivery[Delivery]
+      Build[Cloud Build]
+      AR[Artifact Registry]
+    end
+
+    subgraph Runtime[Runtime]
+      Run[Cloud Run API<br/>NestJS]
+      Job[Migration Job<br/>Cloud Run]
+      SQL[(Cloud SQL<br/>Postgres)]
+      SM[Secret Manager]
+      Obs[Logs + Alerts]
+    end
+
+    SA[Runtime Service Accounts]
+  end
+
+  subgraph AI[Gemini / Google AI]
+    Auth[Gemini auth_tokens]
+    Live[Gemini Live API]
+  end
+
+  Desktop -->|health, token, memory APIs| Run
+  Desktop -->|audio, screen, typed turns| Live
+
+  Run -->|mint token| Auth
+  Run --> SQL
+  Job --> SQL
+
+  Build --> AR
+  AR --> Run
+  AR --> Job
+  Build -->|deploy| Run
+  Build -->|update + execute| Job
+
+  SM -->|secret env vars| Run
+  SM -->|DATABASE_URL| Job
+  SA -.attached to .-> Run
+  SA -.attached to .-> Job
+
+  Run -->|structured logs| Obs
+  Obs -->|uptime + telemetry alerts| Run
+```
+
+*Note:* this matches the current Terraform and deployment files. I did not include a load balancer, VPC connector, Redis, Pub/Sub, or queues because they are not provisioned in this repo today.
 
 ## Project structure
 

@@ -287,7 +287,7 @@ Cloud Build owns the ordered rollout in `cloudbuild.yaml`:
 1. build the API image from `apps/api/Dockerfile`
 2. build the compatible migration image from the same Dockerfile `migrator` target
 3. push both images with the commit SHA tag
-4. update the existing Cloud Run migration job to that migration image
+4. update the existing Cloud Run migration job to that migration image and the checked-in migration command
 5. execute the migration job and wait for completion
 6. deploy the existing Cloud Run service to the API image
 7. smoke-test the deployed `/health` endpoint
@@ -473,7 +473,9 @@ IMAGE_TAG=replace-with-known-sha
 gcloud run jobs update "$MIGRATION_JOB" \
   --project "$PROJECT_ID" \
   --region "$REGION" \
-  --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api-migrator:${IMAGE_TAG}"
+  --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api-migrator:${IMAGE_TAG}" \
+  --command npm \
+  --args run,migration:up
 
 gcloud run jobs execute "$MIGRATION_JOB" \
   --project "$PROJECT_ID" \
