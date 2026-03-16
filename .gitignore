@@ -8,3 +8,10 @@ release/
 .DS_Store
 coverage/
 apps/desktop/frames/
+
+# Terraform local state
+infra/terraform/**/.terraform/
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/terraform.tfvars
+infra/terraform/**/terraform.tfvars.json

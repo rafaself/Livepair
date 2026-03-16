@@ -1,0 +1,22 @@
+# Copy this file to terraform.tfvars and replace the example values before apply.
+# The placeholder password keeps the example reviewable, but a real environment
+# must supply a unique secret value from outside version control.
+
+project_id       = "your-gcp-project-id"
+region           = "us-central1"
+environment_name = "dev"
+naming_prefix    = "livepair"
+
+database = {
+  version             = "POSTGRES_16"
+  tier                = "db-custom-1-3840"
+  availability_type   = "ZONAL"
+  disk_size_gb        = 10
+  disk_type           = "PD_SSD"
+  backup_enabled      = false
+  ipv4_enabled        = true
+  deletion_protection = false
+  database_name       = "livepair"
+  app_user_name       = "livepair"
+  app_user_password   = "replace-me-before-apply"
+}
