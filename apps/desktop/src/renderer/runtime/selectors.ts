@@ -11,39 +11,38 @@ import type {
 import { isSessionActiveLifecycle, isTextTurnInFlight } from './text/textSessionLifecycle';
 import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
 
-function collectAttachedTurnIds(
-  conversationTurns: readonly ConversationTurnModel[],
-  transcriptArtifacts: readonly TranscriptArtifactModel[],
-): ReadonlySet<string> {
-  const conversationTurnsById = new Map(conversationTurns.map((turn) => [turn.id, turn]));
-  const attachedIds = new Set<string>();
+function getAttachedConversationTurn(
+  artifact: TranscriptArtifactModel,
+  conversationTurnsById: ReadonlyMap<string, ConversationTurnModel>,
+): ConversationTurnModel | null {
+  const attachedTurnId = artifact.attachedTurnId;
 
-  for (const artifact of transcriptArtifacts) {
-    const attachedTurnId = artifact.attachedTurnId;
-
-    if (attachedTurnId === undefined) {
-      continue;
-    }
-
-    const attachedTurn = conversationTurnsById.get(attachedTurnId);
-
-    if (attachedTurn && attachedTurn.content.trim() === artifact.content.trim()) {
-      attachedIds.add(attachedTurnId);
-    }
+  if (attachedTurnId === undefined) {
+    return null;
   }
 
-  return attachedIds;
+  return conversationTurnsById.get(attachedTurnId) ?? null;
 }
 
-function excludeAttachedConversationTurns(
-  conversationTurns: readonly ConversationTurnModel[],
-  attachedTurnIds: ReadonlySet<string>,
-): readonly ConversationTurnModel[] {
-  if (attachedTurnIds.size === 0) {
-    return conversationTurns;
-  }
+function transcriptArtifactCoversConversationTurn(
+  artifact: TranscriptArtifactModel,
+  conversationTurnsById: ReadonlyMap<string, ConversationTurnModel>,
+): boolean {
+  const attachedTurn = getAttachedConversationTurn(artifact, conversationTurnsById);
 
-  return conversationTurns.filter((turn) => !attachedTurnIds.has(turn.id));
+  return attachedTurn !== null && attachedTurn.content.trim() === artifact.content.trim();
+}
+
+function filterVisibleConversationTurns(
+  conversationTurns: readonly ConversationTurnModel[],
+  transcriptArtifacts: readonly TranscriptArtifactModel[],
+): readonly ConversationTurnModel[] {
+  const conversationTurnsById = new Map(conversationTurns.map((turn) => [turn.id, turn]));
+  return conversationTurns.filter((turn) =>
+    !transcriptArtifacts.some((artifact) =>
+      artifact.attachedTurnId === turn.id
+      && transcriptArtifactCoversConversationTurn(artifact, conversationTurnsById),
+    ));
 }
 
 function hasDefinedIncreasingOrdinals(
@@ -76,13 +75,13 @@ function mergeOrderedConversationTimeline(
     const nextTurnOrdinal = nextTurn.timelineOrdinal ?? 0;
     const nextArtifactOrdinal = nextArtifact.timelineOrdinal ?? 0;
 
-    if (
-      nextTurnOrdinal < nextArtifactOrdinal
-      || (
-        nextTurnOrdinal === nextArtifactOrdinal
-        && nextArtifact.attachedTurnId !== nextTurn.id
-      )
-    ) {
+    if (nextTurnOrdinal < nextArtifactOrdinal) {
+      mergedTimeline.push(nextTurn);
+      turnIndex += 1;
+      continue;
+    }
+
+    if (nextTurnOrdinal === nextArtifactOrdinal && nextArtifact.attachedTurnId !== nextTurn.id) {
       mergedTimeline.push(nextTurn);
       turnIndex += 1;
       continue;
@@ -270,8 +269,7 @@ export function selectVisibleConversationTimeline(
   state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
 ): ConversationTimelineEntry[] {
   const { transcriptArtifacts } = state;
-  const attachedTurnIds = collectAttachedTurnIds(state.conversationTurns, transcriptArtifacts);
-  const visibleTurns = excludeAttachedConversationTurns(state.conversationTurns, attachedTurnIds);
+  const visibleTurns = filterVisibleConversationTurns(state.conversationTurns, transcriptArtifacts);
 
   if (visibleTurns.length === 0) {
     return transcriptArtifacts.length > 0

@@ -14,10 +14,7 @@ export type VoiceTranscriptController = {
     isFinal?: boolean,
   ) => void;
   ensureAssistantTurn: () => boolean;
-  finalizeCurrentVoiceTurns: (
-    finalizeReason: 'completed' | 'interrupted',
-    options?: { assistantTurnId?: string | null },
-  ) => void;
+  finalizeCurrentVoiceTurns: (finalizeReason: 'completed' | 'interrupted') => void;
   attachCurrentAssistantTurn: (turnId: string | null) => void;
   queueMixedModeAssistantReply: () => void;
   clearQueuedMixedModeAssistantReply: () => void;

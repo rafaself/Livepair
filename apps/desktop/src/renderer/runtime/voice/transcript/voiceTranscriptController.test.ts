@@ -142,7 +142,7 @@ describe('createVoiceTranscriptController', () => {
     expect(onConversationTurnSettled).toHaveBeenCalledWith('user-turn-1');
   });
 
-  it('links a completed assistant transcript artifact to a canonical assistant turn without making transcript text canonical', () => {
+  it('links a completed assistant transcript artifact after finalization without making transcript text canonical', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
@@ -153,9 +153,8 @@ describe('createVoiceTranscriptController', () => {
       source: 'voice',
     });
 
-    ctrl.finalizeCurrentVoiceTurns('completed', {
-      assistantTurnId: canonicalAssistantTurnId,
-    });
+    ctrl.finalizeCurrentVoiceTurns('completed');
+    ctrl.attachCurrentAssistantTurn(canonicalAssistantTurnId);
 
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({

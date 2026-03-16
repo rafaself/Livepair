@@ -54,10 +54,7 @@ export type TransportEventRouterOps = {
   resetVoiceToolState: () => void;
   resetVoiceTurnTranscriptState: () => void;
   ensureAssistantVoiceTurn: () => boolean;
-  finalizeCurrentVoiceTurns: (
-    finalizeReason: 'completed' | 'interrupted',
-    options?: { assistantTurnId?: string | null },
-  ) => void;
+  finalizeCurrentVoiceTurns: (finalizeReason: 'completed' | 'interrupted') => void;
   attachCurrentAssistantTurn: (turnId: string | null) => void;
   enqueueVoiceToolCalls: (calls: VoiceToolCall[]) => void;
   handleVoiceInterruption: () => void;
