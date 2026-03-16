@@ -1,15 +1,11 @@
 import { MessageSquareText, Palette, PanelRight, Timer } from 'lucide-react';
-import { useEffect, useId, useMemo, useState } from 'react';
-import {
-  DEFAULT_DESKTOP_SETTINGS,
-  MAX_SYSTEM_INSTRUCTION_LENGTH,
-  type DesktopVoice,
-} from '../../../../shared';
+import { useEffect, useId, useState } from 'react';
+import { MAX_SYSTEM_INSTRUCTION_LENGTH, type DesktopVoice } from '../../../../shared';
 import type { AssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
 import { FieldList } from '../../composite';
 import { ViewSection } from '../../layout';
-import { Button, Select, Switch, Tooltip, type SelectOptionItem } from '../../primitives';
+import { Select, Switch, Tooltip, type SelectOptionItem } from '../../primitives';
 import { ThemeToggle } from '../ThemeToggle';
 
 const SILENCE_TIMEOUT_OPTIONS: readonly SelectOptionItem[] = [
@@ -40,7 +36,6 @@ type PreferencesController = Pick<
   | 'setGroundingEnabled'
   | 'setVoice'
   | 'setSystemInstruction'
-  | 'restoreDefaultVoiceAndInstructions'
 >;
 
 export type AssistantPanelPreferencesViewProps = {
@@ -65,7 +60,6 @@ export function AssistantPanelPreferencesView({
     setGroundingEnabled,
     setVoice,
     setSystemInstruction,
-    restoreDefaultVoiceAndInstructions,
   } = controller;
   const instructionsId = useId();
   const [instructionsDraft, setInstructionsDraft] = useState(systemInstruction);
@@ -75,12 +69,6 @@ export function AssistantPanelPreferencesView({
   }, [systemInstruction]);
 
   const instructionsCharacterCount = instructionsDraft.length;
-  const hasDefaultVoiceAndInstructions = useMemo(
-    () =>
-      voice === DEFAULT_DESKTOP_SETTINGS.voice
-      && systemInstruction === DEFAULT_DESKTOP_SETTINGS.systemInstruction,
-    [systemInstruction, voice],
-  );
 
   return (
     <div className="assistant-panel__settings-modal">
@@ -217,7 +205,13 @@ export function AssistantPanelPreferencesView({
               className="assistant-panel__settings-persona-label"
               htmlFor={instructionsId}
             >
-              Instructions
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                Instructions
+                <Tooltip
+                  content="Agent/system instructions used for future live sessions."
+                  label="About instructions"
+                />
+              </span>
             </label>
             <textarea
               id={instructionsId}
@@ -238,29 +232,12 @@ export function AssistantPanelPreferencesView({
             />
             <div className="assistant-panel__settings-field-stack">
               <div className="assistant-panel__settings-persona-meta">
-                <span className="assistant-panel__settings-hint">
-                  Agent/system instructions used for future live sessions.
-                </span>
                 <output
                   aria-label="Instructions character count"
                   className="assistant-panel__settings-counter"
                 >
                   {instructionsCharacterCount}/{MAX_SYSTEM_INSTRUCTION_LENGTH}
                 </output>
-              </div>
-              <div className="assistant-panel__settings-persona-actions">
-                <Button
-                  aria-label="Restore defaults"
-                  disabled={hasDefaultVoiceAndInstructions}
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setInstructionsDraft(DEFAULT_DESKTOP_SETTINGS.systemInstruction);
-                    restoreDefaultVoiceAndInstructions();
-                  }}
-                >
-                  Restore defaults
-                </Button>
               </div>
             </div>
           </div>

@@ -38,7 +38,7 @@ describe('AssistantPanelPreferencesView', () => {
     }));
   });
 
-  it('renders persisted voice and instructions values with a grounding tooltip and a counter', async () => {
+  it('renders persisted voice and instructions values with tooltips and a counter', async () => {
     renderPreferences({
       ...DEFAULT_DESKTOP_SETTINGS,
       voice: 'Kore',
@@ -53,16 +53,23 @@ describe('AssistantPanelPreferencesView', () => {
     ).toHaveValue('Keep answers short.');
     expect(screen.getByRole('switch', { name: 'Grounding' })).toHaveAttribute('aria-checked', 'true');
     expect(
-      screen.getByText('Agent/system instructions used for future live sessions.'),
-    ).toBeVisible();
+      screen.queryByText('Agent/system instructions used for future live sessions.'),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText('Uses project knowledge and Google Search for future live sessions.'),
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Restore defaults' })).not.toBeInTheDocument();
     await act(async () => {
       fireEvent.mouseEnter(screen.getByLabelText('About grounding'));
     });
     expect(
       screen.getByText('Uses project knowledge and Google Search for future live sessions.'),
+    ).toBeVisible();
+    await act(async () => {
+      fireEvent.mouseEnter(screen.getByLabelText('About instructions'));
+    });
+    expect(
+      screen.getByText('Agent/system instructions used for future live sessions.'),
     ).toBeVisible();
     expect(screen.getByLabelText('Instructions character count')).toHaveTextContent('19/1200');
   });
@@ -167,30 +174,4 @@ describe('AssistantPanelPreferencesView', () => {
     });
   });
 
-  it('restores the default voice and instructions', async () => {
-    renderPreferences({
-      ...DEFAULT_DESKTOP_SETTINGS,
-      voice: 'Aoede',
-      systemInstruction: 'Custom instruction',
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Restore defaults' }));
-    });
-
-    await waitFor(() => {
-      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
-        voice: 'Puck',
-        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
-      });
-    });
-
-    expect(screen.getByRole('button', { name: 'Voice' })).toHaveTextContent('Puck');
-    expect(screen.getByRole('textbox', { name: 'Instructions' })).toHaveValue(
-      DEFAULT_SYSTEM_INSTRUCTION,
-    );
-    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent(
-      `${DEFAULT_SYSTEM_INSTRUCTION.length}/1200`,
-    );
-  });
 });
