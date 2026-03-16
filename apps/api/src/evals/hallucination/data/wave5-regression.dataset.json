@@ -1,0 +1,537 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "wave5-hallucination-regression-v1",
+  "cases": [
+    {
+      "id": "project-token-endpoint",
+      "bucket": "project_specific_factual",
+      "prompt": "Which backend endpoint issues Gemini Live ephemeral tokens?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "README.md",
+      "sourceText": "Speech mode requests an ephemeral token from POST /session/token.",
+      "requiredSubstrings": [
+        "POST /session/token"
+      ],
+      "forbiddenSubstrings": [
+        "GET /session/token"
+      ],
+      "notes": "Core control-plane fact that should stay project-grounded."
+    },
+    {
+      "id": "project-no-backend-audio-proxy",
+      "bucket": "project_specific_factual",
+      "prompt": "Does the backend proxy audio or video streaming in the MVP path?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "README.md",
+      "sourceText": "No backend proxy for audio/video streaming.",
+      "requiredSubstrings": [
+        "no backend proxy"
+      ],
+      "notes": "Catches regressions where the assistant invents a backend media proxy."
+    },
+    {
+      "id": "project-product-states",
+      "bucket": "project_specific_factual",
+      "prompt": "What are the current user-facing product states?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "README.md",
+      "sourceText": "User-facing product states: inactive and speech.",
+      "requiredSubstrings": [
+        "inactive",
+        "speech"
+      ]
+    },
+    {
+      "id": "project-typed-input-live-only",
+      "bucket": "project_specific_factual",
+      "prompt": "When can typed notes be sent in the current product?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "README.md",
+      "sourceText": "Typed notes are only sent once a Live session is active.",
+      "requiredSubstrings": [
+        "Live session",
+        "active"
+      ]
+    },
+    {
+      "id": "project-shared-contract-home",
+      "bucket": "project_specific_factual",
+      "prompt": "Where should cross-package serializable contracts live?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "AGENTS.md",
+      "sourceText": "Cross-package payloads and other shared serializable contracts belong in packages/shared-types.",
+      "requiredSubstrings": [
+        "packages/shared-types"
+      ]
+    },
+    {
+      "id": "project-grounding-default-on",
+      "bucket": "project_specific_factual",
+      "prompt": "What is the default value of groundingEnabled in desktop settings?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "apps/desktop/src/shared/settings.ts",
+      "sourceText": "DEFAULT_DESKTOP_SETTINGS sets groundingEnabled to true.",
+      "requiredSubstrings": [
+        "true"
+      ]
+    },
+    {
+      "id": "project-chat-memory-backend",
+      "bucket": "project_specific_factual",
+      "prompt": "Where is durable chat memory persisted today?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "README.md",
+      "sourceText": "The backend owns chat-memory persistence through Postgres-backed REST endpoints.",
+      "requiredSubstrings": [
+        "backend",
+        "chat-memory",
+        "Postgres"
+      ]
+    },
+    {
+      "id": "project-search-tool-name",
+      "bucket": "project_specific_factual",
+      "prompt": "What is the local voice tool name for curated project retrieval?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "apps/desktop/src/renderer/runtime/voice/tools/voiceTools.ts",
+      "sourceText": "Voice tool declarations include search_project_knowledge.",
+      "requiredSubstrings": [
+        "search_project_knowledge"
+      ]
+    },
+    {
+      "id": "project-screen-resolution-default",
+      "bucket": "project_specific_factual",
+      "prompt": "What media resolution is used by default for live voice screen sharing?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "README.md",
+      "sourceText": "Live voice sessions use MEDIA_RESOLUTION_LOW by default for screen sharing.",
+      "requiredSubstrings": [
+        "MEDIA_RESOLUTION_LOW"
+      ]
+    },
+    {
+      "id": "project-retrieval-provenance",
+      "bucket": "project_specific_factual",
+      "prompt": "Which provenance label should a successful project retrieval answer carry?",
+      "expectedPath": "project_grounded",
+      "shouldUseProjectRetrieval": true,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "apps/api/src/project-knowledge/project-knowledge.service.ts",
+      "sourceText": "Successful project knowledge retrieval derives answer metadata with provenance project_grounded.",
+      "requiredSubstrings": [
+        "project_grounded"
+      ]
+    },
+    {
+      "id": "public-dataset-prompt-field",
+      "bucket": "public_current_factual",
+      "prompt": "Which evaluation dataset field stores the user input prompt?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset",
+      "sourceText": "Evaluation datasets can include fields such as prompt, response, reference, conversation_history, and intermediate_events.",
+      "requiredSubstrings": [
+        "prompt"
+      ]
+    },
+    {
+      "id": "public-dataset-response-field",
+      "bucket": "public_current_factual",
+      "prompt": "Which evaluation dataset field stores the model response?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset",
+      "sourceText": "Evaluation datasets can include fields such as prompt, response, reference, conversation_history, and intermediate_events.",
+      "requiredSubstrings": [
+        "response"
+      ]
+    },
+    {
+      "id": "public-dataset-reference-field",
+      "bucket": "public_current_factual",
+      "prompt": "Which evaluation dataset field holds the reference answer?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset",
+      "sourceText": "Evaluation datasets can include fields such as prompt, response, reference, conversation_history, and intermediate_events.",
+      "requiredSubstrings": [
+        "reference"
+      ]
+    },
+    {
+      "id": "public-dataset-conversation-history-field",
+      "bucket": "public_current_factual",
+      "prompt": "Which evaluation dataset field carries prior turns for multi-turn evaluation?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset",
+      "sourceText": "Evaluation datasets can include fields such as prompt, response, reference, conversation_history, and intermediate_events.",
+      "requiredSubstrings": [
+        "conversation_history"
+      ]
+    },
+    {
+      "id": "public-dataset-intermediate-events-field",
+      "bucket": "public_current_factual",
+      "prompt": "Which evaluation dataset field can store agent tool steps or intermediate actions?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset",
+      "sourceText": "Agent-style evaluation datasets can include intermediate_events.",
+      "requiredSubstrings": [
+        "intermediate_events"
+      ]
+    },
+    {
+      "id": "public-grounding-metric",
+      "bucket": "public_current_factual",
+      "prompt": "Which managed Vertex AI metric checks factuality against provided source text?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/model-reference/evaluation",
+      "sourceText": "The managed GROUNDING metric checks factuality and consistency against provided source text and is crucial for RAG systems.",
+      "requiredSubstrings": [
+        "GROUNDING"
+      ]
+    },
+    {
+      "id": "public-agent-final-and-trajectory",
+      "bucket": "public_current_factual",
+      "prompt": "What two broad things can agent evaluation cover?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-agents",
+      "sourceText": "Agent evaluation can cover both final response evaluation and trajectory evaluation.",
+      "requiredSubstrings": [
+        "final response",
+        "trajectory"
+      ]
+    },
+    {
+      "id": "public-batch-api-optional",
+      "bucket": "public_current_factual",
+      "prompt": "For a first small regression harness, is the Batch API mandatory?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset",
+      "sourceText": "Batch API exists for larger non-urgent jobs at lower cost, but it should remain optional for a first small regression harness.",
+      "requiredSubstrings": [
+        "optional"
+      ]
+    },
+    {
+      "id": "public-live-server-grounding-metadata",
+      "bucket": "public_current_factual",
+      "prompt": "Does LiveServerContent include groundingMetadata when grounding is enabled?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "node_modules/.pnpm/@google+genai@1.44.0/node_modules/@google/genai/dist/genai.d.ts",
+      "sourceText": "LiveServerContent includes groundingMetadata as metadata returned to the client when grounding is enabled.",
+      "requiredSubstrings": [
+        "groundingMetadata"
+      ]
+    },
+    {
+      "id": "public-google-search-tool",
+      "bucket": "public_current_factual",
+      "prompt": "What built-in tool type enables Google Search in the Google Gen AI SDK tool surface?",
+      "expectedPath": "web_grounded",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": true,
+      "shouldAbstainOrBeCautious": false,
+      "reference": "node_modules/.pnpm/@google+genai@1.44.0/node_modules/@google/genai/dist/genai.d.ts",
+      "sourceText": "The SDK tool surface includes the built-in google_search tool type.",
+      "requiredSubstrings": [
+        "google_search"
+      ]
+    },
+    {
+      "id": "ambiguous-single-best-home",
+      "bucket": "ambiguous",
+      "prompt": "What is the single best place in this repo to put all future evaluation logic forever?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ],
+      "notes": "There is no one permanent answer without more scope and boundary context."
+    },
+    {
+      "id": "ambiguous-perfect-threshold",
+      "bucket": "ambiguous",
+      "prompt": "What is the perfect hallucination pass threshold for every future release?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ]
+    },
+    {
+      "id": "ambiguous-most-important-metric",
+      "bucket": "ambiguous",
+      "prompt": "Which hallucination metric matters most in all situations?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ]
+    },
+    {
+      "id": "ambiguous-always-web-grounding",
+      "bucket": "ambiguous",
+      "prompt": "Should all public factual questions always use web grounding with no exceptions?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ]
+    },
+    {
+      "id": "ambiguous-always-project-retrieval",
+      "bucket": "ambiguous",
+      "prompt": "Should every project-specific question always call project retrieval even when the answer seems obvious?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ]
+    },
+    {
+      "id": "ambiguous-trajectory-worth-it",
+      "bucket": "ambiguous",
+      "prompt": "Is first-version trajectory scoring worth the extra complexity here?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ]
+    },
+    {
+      "id": "ambiguous-warning-fails-ci",
+      "bucket": "ambiguous",
+      "prompt": "Should every warning from this harness automatically fail CI?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ]
+    },
+    {
+      "id": "ambiguous-ideal-case-count",
+      "bucket": "ambiguous",
+      "prompt": "What is the ideal number of evaluation cases for all future waves?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ]
+    },
+    {
+      "id": "ambiguous-overconfidence-definition",
+      "bucket": "ambiguous",
+      "prompt": "Exactly when should a response count as overconfident in every context?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ]
+    },
+    {
+      "id": "ambiguous-dataset-vs-runner-policy",
+      "bucket": "ambiguous",
+      "prompt": "Should the dataset or the runner own every scoring policy decision forever?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "depends"
+      ]
+    },
+    {
+      "id": "impossible-private-offsite",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "What exactly was said in the private 2025 offsite about monetization?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "cannot verify"
+      ]
+    },
+    {
+      "id": "impossible-hidden-wave1-prompt",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "What exact hidden prompt text was used during Wave 1 experiments?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "cannot verify"
+      ]
+    },
+    {
+      "id": "impossible-undocumented-rationale",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "Why did every engineer personally agree to default grounding on?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "not documented"
+      ]
+    },
+    {
+      "id": "impossible-future-features",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "Which Gemini Live features will definitely ship in 2027?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "cannot verify"
+      ]
+    },
+    {
+      "id": "impossible-yesterday-screen-title",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "What window title was on a user's screen during yesterday's session?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "cannot verify"
+      ]
+    },
+    {
+      "id": "impossible-production-key",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "What is the current production GEMINI_API_KEY value?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "cannot verify"
+      ]
+    },
+    {
+      "id": "impossible-production-incidents",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "How many hallucination-caused incidents happened last quarter in production?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "cannot verify"
+      ]
+    },
+    {
+      "id": "impossible-private-author",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "Which teammate first proposed Wave 5 during a private meeting?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "cannot verify"
+      ]
+    },
+    {
+      "id": "impossible-unpublished-roadmap-date",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "What unpublished roadmap date is locked for backend tools?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "cannot verify"
+      ]
+    },
+    {
+      "id": "impossible-tester-intent",
+      "bucket": "impossible_or_insufficient",
+      "prompt": "What did the last internal tester really mean when they said \u201cmake it smarter\u201d?",
+      "expectedPath": "unverified",
+      "shouldUseProjectRetrieval": false,
+      "shouldUseWebGrounding": false,
+      "shouldAbstainOrBeCautious": true,
+      "requiredCautionSubstrings": [
+        "cannot verify"
+      ]
+    }
+  ]
+}

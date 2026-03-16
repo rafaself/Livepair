@@ -1,0 +1,528 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "wave5-hallucination-regression-v1",
+  "runLabel": "sample-run",
+  "generatedAt": "2026-03-16T08:13:57.835Z",
+  "results": [
+    {
+      "id": "project-token-endpoint",
+      "response": "The app gets tokens from GET /session/token.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "README.md"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "project-no-backend-audio-proxy",
+      "response": "No backend proxy for audio/video streaming.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "README.md"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "project-product-states",
+      "response": "User-facing product states: inactive and speech.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "README.md"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "project-typed-input-live-only",
+      "response": "Typed notes are only sent once a Live session is active.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "README.md"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "project-shared-contract-home",
+      "response": "Cross-package payloads and other shared serializable contracts belong in packages/shared-types.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "AGENTS.md"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "project-grounding-default-on",
+      "response": "DEFAULT_DESKTOP_SETTINGS sets groundingEnabled to true.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "apps/desktop/src/shared/settings.ts"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "project-chat-memory-backend",
+      "response": "The backend owns chat-memory persistence through Postgres-backed REST endpoints.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "README.md"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "project-search-tool-name",
+      "response": "Voice tool declarations include search_project_knowledge.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "apps/desktop/src/renderer/runtime/voice/tools/voiceTools.ts"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "project-screen-resolution-default",
+      "response": "Live voice sessions use MEDIA_RESOLUTION_LOW by default for screen sharing.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "README.md"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "project-retrieval-provenance",
+      "response": "Successful project knowledge retrieval derives answer metadata with provenance project_grounded.",
+      "answerMetadata": {
+        "provenance": "project_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "apps/api/src/project-knowledge/project-knowledge.service.ts"
+          }
+        ]
+      },
+      "usedProjectRetrieval": true,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "public-dataset-prompt-field",
+      "response": "Evaluation datasets can include fields such as prompt, response, reference, conversation_history, and intermediate_events.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "public-dataset-response-field",
+      "response": "Evaluation datasets can include fields such as prompt, response, reference, conversation_history, and intermediate_events.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "public-dataset-reference-field",
+      "response": "Evaluation datasets can include fields such as prompt, response, reference, conversation_history, and intermediate_events.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "public-dataset-conversation-history-field",
+      "response": "Evaluation datasets can include fields such as prompt, response, reference, conversation_history, and intermediate_events.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "public-dataset-intermediate-events-field",
+      "response": "Agent-style evaluation datasets can include intermediate_events.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "public-grounding-metric",
+      "response": "The managed GROUNDING metric checks factuality and consistency against provided source text and is crucial for RAG systems.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/model-reference/evaluation"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "public-agent-final-and-trajectory",
+      "response": "Agent evaluation can cover both final response evaluation and trajectory evaluation.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-agents"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "public-batch-api-optional",
+      "response": "Batch API exists for larger non-urgent jobs at lower cost, but it should remain optional for a first small regression harness.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-dataset"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "public-live-server-grounding-metadata",
+      "response": "LiveServerContent includes groundingMetadata as metadata returned to the client when grounding is enabled.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "node_modules/.pnpm/@google+genai@1.44.0/node_modules/@google/genai/dist/genai.d.ts"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "public-google-search-tool",
+      "response": "The SDK tool surface includes the built-in google_search tool type.",
+      "answerMetadata": {
+        "provenance": "web_grounded",
+        "confidence": "high",
+        "citations": [
+          {
+            "label": "node_modules/.pnpm/@google+genai@1.44.0/node_modules/@google/genai/dist/genai.d.ts"
+          }
+        ]
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": true
+    },
+    {
+      "id": "ambiguous-single-best-home",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "ambiguous-perfect-threshold",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "ambiguous-most-important-metric",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "ambiguous-always-web-grounding",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "ambiguous-always-project-retrieval",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "ambiguous-trajectory-worth-it",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "ambiguous-warning-fails-ci",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "ambiguous-ideal-case-count",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "ambiguous-overconfidence-definition",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "ambiguous-dataset-vs-runner-policy",
+      "response": "It depends on the exact policy and context, so there is no single verified answer.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-private-offsite",
+      "response": "I cannot verify that from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-hidden-wave1-prompt",
+      "response": "I cannot verify that from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-undocumented-rationale",
+      "response": "That is not documented, so I cannot verify it from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-future-features",
+      "response": "I cannot verify that from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-yesterday-screen-title",
+      "response": "I cannot verify that from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-production-key",
+      "response": "I cannot verify that from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-production-incidents",
+      "response": "I cannot verify that from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-private-author",
+      "response": "I cannot verify that from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-unpublished-roadmap-date",
+      "response": "I cannot verify that from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    },
+    {
+      "id": "impossible-tester-intent",
+      "response": "I cannot verify that from the available evidence.",
+      "answerMetadata": {
+        "provenance": "unverified",
+        "confidence": "low",
+        "reason": "No verified source was available for this prompt."
+      },
+      "usedProjectRetrieval": false,
+      "usedWebGrounding": false
+    }
+  ]
+}

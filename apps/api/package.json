@@ -9,6 +9,7 @@
     "db:migrate": "DATABASE_URL=\"${DATABASE_URL:-postgres://livepair:livepair@127.0.0.1:5432/livepair}\" node-pg-migrate up -m src/database/migrations -t schema_migrations --envPath ../../.env",
     "db:migrate:down:all": "DATABASE_URL=\"${DATABASE_URL:-postgres://livepair:livepair@127.0.0.1:5432/livepair}\" node-pg-migrate down --all -m src/database/migrations -t schema_migrations --envPath ../../.env",
     "db:migration:create": "node-pg-migrate create -m src/database/migrations -j sql",
+    "eval:hallucination": "ts-node -r tsconfig-paths/register src/evals/hallucination/cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:chat-memory": "jest --runInBand src/chat-memory/chat-summary.spec.ts src/chat-memory/chat-memory.service.spec.ts src/chat-memory/chat-memory.repository.db.spec.ts src/chat-memory/chat-memory.http.db.spec.ts",

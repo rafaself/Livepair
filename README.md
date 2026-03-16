@@ -445,6 +445,37 @@ pnpm verify:desktop
 pnpm verify:shared-types
 ```
 
+### 🧪 Hallucination regression harness
+
+Wave 5 adds a small internal regression harness under `apps/api/src/evals/hallucination/`. It is local-first: you score a stored response artifact against the versioned dataset rather than running a cloud-only evaluation service.
+
+Run it with the bundled dataset:
+
+```bash
+pnpm --filter @livepair/api eval:hallucination -- \
+  --results src/evals/hallucination/fixtures/sample-run.json \
+  --output src/evals/hallucination/fixtures/sample-run.scored.json
+```
+
+Useful files:
+
+* dataset: `apps/api/src/evals/hallucination/data/wave5-regression.dataset.json`
+* sample input artifact: `apps/api/src/evals/hallucination/fixtures/sample-run.json`
+* sample scored artifact: `apps/api/src/evals/hallucination/fixtures/sample-run.scored.json`
+
+The dataset is split across four buckets: project-specific factual, public/current factual, ambiguous, and impossible/insufficient-evidence prompts. Each case carries routing expectations plus optional source text and lightweight string checks.
+
+The runner reports:
+
+* grounded answer rate
+* unverified rate on unsupported prompts
+* obvious hallucination count
+* incorrect path count
+* corrected-by-dataset expectation count
+* source-support presence rate when reference/source text exists
+
+Use `--baseline-results <path>` to compare before/after runs against the same dataset. Vertex-backed `GROUNDING` evaluation is intentionally deferred for now; the first version stays offline/manual-first and avoids a mandatory cloud dependency.
+
 ## Manual QA
 
 - manual runbook: [docs/QA_RUNBOOK.md](./docs/QA_RUNBOOK.md)
