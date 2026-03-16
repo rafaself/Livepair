@@ -98,21 +98,21 @@ describe('createDesktopSessionController – transcript', () => {
       }),
     ]);
 
-    // After settlement the user transcript artifact is replaced by the
-    // canonical user turn, and the assistant transcript is materialized as
-    // a canonical assistant turn so it persists across navigation.
+    // After settlement the transcript artifacts remain visible as the
+    // primary chat history. Canonical turns are created for persistence
+    // but hidden from the visible timeline when a transcript covers them.
     voiceTransport.emit({ type: 'turn-complete' });
 
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'user-turn-1',
+        id: 'user-transcript-1',
         role: 'user',
         content: 'Hello there',
         state: 'complete',
         source: 'voice',
       }),
       expect.objectContaining({
-        id: 'assistant-turn-1',
+        id: 'assistant-transcript-2',
         role: 'assistant',
         content: 'Hi',
         state: 'complete',
@@ -164,8 +164,8 @@ describe('createDesktopSessionController – transcript', () => {
     voiceTransport.emit({ type: 'output-transcript', text: 'Hi' });
     voiceTransport.emit({ type: 'turn-complete' });
 
-    // Both user and assistant are materialized as canonical conversation turns
-    // so that assistant content persists across navigation.
+    // Canonical turns are created for backend persistence; transcript
+    // artifacts remain in the store with attachedTurnId linking them.
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         id: 'user-turn-1',
@@ -182,14 +182,28 @@ describe('createDesktopSessionController – transcript', () => {
         source: 'voice',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
-    expect(visibleTimeline()).toEqual([
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
       expect.objectContaining({
-        id: 'user-turn-1',
-        content: 'Hello there',
+        id: 'user-transcript-1',
+        state: 'complete',
+        attachedTurnId: 'user-turn-1',
       }),
       expect.objectContaining({
-        id: 'assistant-turn-1',
+        id: 'assistant-transcript-2',
+        state: 'complete',
+        attachedTurnId: 'assistant-turn-1',
+      }),
+    ]);
+    // The visible timeline shows transcript artifacts; canonical turns are
+    // hidden when a transcript artifact covers them.
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        content: 'Hello there',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
         content: 'Hi',
         state: 'complete',
       }),
@@ -204,11 +218,12 @@ describe('createDesktopSessionController – transcript', () => {
     // The next user transcript should be visible immediately as a streaming artifact.
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'user-turn-1',
+        id: 'user-transcript-1',
         content: 'Hello there',
+        state: 'complete',
       }),
       expect.objectContaining({
-        id: 'assistant-turn-1',
+        id: 'assistant-transcript-2',
         content: 'Hi',
         state: 'complete',
       }),
@@ -300,12 +315,21 @@ describe('createDesktopSessionController – transcript', () => {
         persistedMessageId: 'assistant-message-1',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    // The transcript artifact remains in the store with attachedTurnId.
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'assistant-transcript-1',
+        content: 'Transcript bubble reply',
+        state: 'complete',
+        attachedTurnId: 'assistant-turn-1',
+      }),
+    ]);
+    // The visible timeline shows the transcript artifact (what was spoken),
+    // while the canonical turn is hidden (used for backend persistence).
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'assistant-turn-1',
-        content: 'Canonical reply',
-        persistedMessageId: 'assistant-message-1',
+        id: 'assistant-transcript-1',
+        content: 'Transcript bubble reply',
       }),
     ]);
   });
@@ -394,15 +418,26 @@ describe('createDesktopSessionController – transcript', () => {
         source: 'voice',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        state: 'complete',
+        attachedTurnId: 'user-turn-1',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
+        state: 'complete',
+        attachedTurnId: 'assistant-turn-1',
+      }),
+    ]);
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'user-turn-1',
+        id: 'user-transcript-1',
         content: 'Hello there',
       }),
       expect.objectContaining({
-        id: 'assistant-turn-1',
-        content: 'Canonical reply',
+        id: 'assistant-transcript-2',
+        content: 'Transcript bubble reply',
       }),
     ]);
   });
@@ -450,9 +485,12 @@ describe('createDesktopSessionController – transcript', () => {
     voiceTransport.emit({ type: 'text-delta', text: 'typed reply canonical' });
     voiceTransport.emit({ type: 'turn-complete' });
 
+    // The spoken request transcript artifact covers the canonical turn.
+    // The typed follow-up has no transcript, so the canonical turn is shown.
+    // The assistant transcript artifact covers the canonical assistant turn.
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'user-turn-1',
+        id: 'user-transcript-1',
         content: 'spoken request',
         source: 'voice',
       }),
@@ -462,8 +500,8 @@ describe('createDesktopSessionController – transcript', () => {
         source: 'text',
       }),
       expect.objectContaining({
-        id: 'assistant-turn-1',
-        content: 'typed reply canonical',
+        id: 'assistant-transcript-2',
+        content: 'typed reply transcript',
         source: 'voice',
       }),
     ]);
@@ -479,17 +517,16 @@ describe('createDesktopSessionController – transcript', () => {
     voiceTransport.emit({ type: 'output-transcript', text: 'Hi there' });
     voiceTransport.emit({ type: 'turn-complete' });
 
-    // Before ending, verify the assistant turn is visible as a canonical turn
-    // (materialized from transcript since no text-delta was received).
+    // Before ending, verify transcripts remain as visible records.
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'user-turn-1',
+        id: 'user-transcript-1',
         role: 'user',
         content: 'Hello',
         state: 'complete',
       }),
       expect.objectContaining({
-        id: 'assistant-turn-1',
+        id: 'assistant-transcript-2',
         role: 'assistant',
         content: 'Hi there',
         state: 'complete',
@@ -497,18 +534,18 @@ describe('createDesktopSessionController – transcript', () => {
       }),
     ]);
 
-    // End speech mode — assistant turns must NOT disappear.
+    // End speech mode — transcript artifacts must NOT disappear.
     await controller.endSpeechMode();
 
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'user-turn-1',
+        id: 'user-transcript-1',
         role: 'user',
         content: 'Hello',
         state: 'complete',
       }),
       expect.objectContaining({
-        id: 'assistant-turn-1',
+        id: 'assistant-transcript-2',
         role: 'assistant',
         content: 'Hi there',
         state: 'complete',
@@ -527,18 +564,18 @@ describe('createDesktopSessionController – transcript', () => {
     voiceTransport.emit({ type: 'output-transcript', text: 'Partial answer' });
 
     // End speech mode before turn-complete — the in-flight transcript content
-    // should be salvaged as a canonical assistant turn so it persists.
+    // should be salvaged and remain visible as transcript artifacts.
     await controller.endSpeechMode();
 
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
-        id: 'user-turn-1',
+        id: 'user-transcript-1',
         role: 'user',
         content: 'Question',
         state: 'complete',
       }),
       expect.objectContaining({
-        id: 'assistant-turn-1',
+        id: 'assistant-transcript-2',
         role: 'assistant',
         content: 'Partial answer',
         state: 'complete',
