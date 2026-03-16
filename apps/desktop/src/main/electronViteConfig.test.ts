@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 import config from '../../electron.vite.config';
 
 describe('electron-vite config', () => {
-  it('loads renderer env from the repository root', () => {
-    expect((config as UserConfig).renderer?.envDir).toBe(resolve(process.cwd(), '../..'));
+  it('loads renderer env from the desktop app root', () => {
+    expect((config as UserConfig).renderer?.envDir).toBe(process.cwd());
   });
 
   it('aliases shared types to source for renderer ESM consumers', () => {
