@@ -38,7 +38,7 @@ describe('AssistantPanelPreferencesView', () => {
     }));
   });
 
-  it('renders persisted voice and instructions values with helper copy and a counter', () => {
+  it('renders persisted voice and instructions values with a grounding tooltip and a counter', async () => {
     renderPreferences({
       ...DEFAULT_DESKTOP_SETTINGS,
       voice: 'Kore',
@@ -55,6 +55,12 @@ describe('AssistantPanelPreferencesView', () => {
     expect(
       screen.getByText('Agent/system instructions used for future live sessions.'),
     ).toBeVisible();
+    expect(
+      screen.queryByText('Uses project knowledge and Google Search for future live sessions.'),
+    ).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.mouseEnter(screen.getByLabelText('About grounding'));
+    });
     expect(
       screen.getByText('Uses project knowledge and Google Search for future live sessions.'),
     ).toBeVisible();

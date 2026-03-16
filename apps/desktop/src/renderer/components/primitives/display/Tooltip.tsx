@@ -5,16 +5,21 @@ import './Tooltip.css';
 
 export type TooltipProps = {
   content: ReactNode;
+  label?: string;
   size?: number;
 };
 
-export function Tooltip({ content, size = 13 }: TooltipProps): JSX.Element {
+export function Tooltip({
+  content,
+  label = 'More information',
+  size = 13,
+}: TooltipProps): JSX.Element {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [visible, setVisible] = useState(false);
   const triggerRef = useRef<HTMLSpanElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function handleMouseEnter() {
+  function showTooltip() {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
@@ -23,7 +28,7 @@ export function Tooltip({ content, size = 13 }: TooltipProps): JSX.Element {
     setVisible(true);
   }
 
-  function handleMouseLeave() {
+  function hideTooltip() {
     setVisible(false);
     hideTimer.current = setTimeout(() => setPos(null), 150);
   }
@@ -37,8 +42,13 @@ export function Tooltip({ content, size = 13 }: TooltipProps): JSX.Element {
       <span
         ref={triggerRef}
         className="tooltip__trigger"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        aria-label={label}
+        role="button"
+        tabIndex={0}
+        onBlur={hideTooltip}
+        onFocus={showTooltip}
+        onMouseEnter={showTooltip}
+        onMouseLeave={hideTooltip}
       >
         <Info size={size} />
       </span>
