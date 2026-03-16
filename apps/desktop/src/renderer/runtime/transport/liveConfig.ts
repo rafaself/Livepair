@@ -9,7 +9,7 @@ import {
 export const LIVE_PROVIDER = 'gemini' as const;
 export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
 export const LIVE_GROUNDING_POLICY_INSTRUCTION =
-  'Use provided context and tool output as the source of truth for project-specific or current-world facts. For project-specific factual questions about this codebase, architecture, implementation details, or internal docs/specs, call search_project_knowledge. Do not use that tool for public web facts, direct runtime state, or brainstorming. If evidence is missing or ambiguous, say the answer is not verified. Reason from available evidence, keep non-factual replies natural, and call report_answer_provenance once for non-project factual replies.';
+  'Use provided context, built-in Google Search grounding, and explicit tool output as the source of truth for factual claims. For project-specific factual questions about this codebase, architecture, implementation details, or internal docs/specs, call search_project_knowledge. For public or current facts that may have changed, rely on Google Search grounding instead of model memory. For runtime state, user/device/session facts, and actions, use explicit local state or tools rather than web grounding. Do not use search_project_knowledge for public web facts, direct runtime state, brainstorming, or stylistic editing. If grounding or tool evidence is weak or ambiguous, say the answer is not verified. Keep non-factual replies natural and avoid reading out source lists unless the user asks.';
 
 export type LiveApiVersion = 'v1alpha' | 'v1beta';
 export type LiveResponseModality = 'TEXT' | 'AUDIO';
@@ -91,11 +91,14 @@ export type GeminiLiveConnectConfig = {
       }
     | undefined;
   tools?:
-    | [
-        {
-          functionDeclarations: typeof VOICE_TOOL_DECLARATIONS;
-        },
-      ]
+    | Array<
+        | {
+            functionDeclarations: typeof VOICE_TOOL_DECLARATIONS;
+          }
+        | {
+            googleSearch: Record<string, never>;
+          }
+      >
     | undefined;
 };
 
@@ -383,6 +386,9 @@ export function buildGeminiLiveConnectConfig(
     liveConnectConfig.tools = [
       {
         functionDeclarations: VOICE_TOOL_DECLARATIONS,
+      },
+      {
+        googleSearch: {},
       },
     ];
   }

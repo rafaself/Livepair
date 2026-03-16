@@ -217,6 +217,9 @@ describe('liveConfig', () => {
         {
           functionDeclarations: expect.any(Array),
         },
+        {
+          googleSearch: {},
+        },
       ],
     });
   });
@@ -238,6 +241,9 @@ describe('liveConfig', () => {
       tools: [
         {
           functionDeclarations: expect.any(Array),
+        },
+        {
+          googleSearch: {},
         },
       ],
     });
@@ -288,6 +294,14 @@ describe('liveConfig', () => {
     expect(composeLiveSystemInstruction('Stay concise.')).toBe(
       `Stay concise.\n\n${LIVE_GROUNDING_POLICY_INSTRUCTION}`,
     );
+  });
+
+  it('keeps built-in Google Search grounding off the text connect path', () => {
+    const config = parseLiveConfig(createRawLiveConfig());
+
+    expect(buildGeminiLiveConnectConfig(config, 'text')).toEqual({
+      responseModalities: ['TEXT'],
+    });
   });
 
   it('wave 5: visual session quality maps correctly to media resolution values', () => {
