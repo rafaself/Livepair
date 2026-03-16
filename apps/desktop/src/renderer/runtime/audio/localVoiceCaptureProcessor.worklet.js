@@ -1,3 +1,5 @@
+import { StreamingPcm16ChunkEncoder } from './audioProcessing';
+
 // Adaptive noise-floor detector constants (mirror of speechActivityDetector.ts).
 const SAD_MIN_NOISE_FLOOR = 0.0004;
 const SAD_NOISE_ALPHA = 0.02;
@@ -17,6 +19,7 @@ class LivepairLocalVoiceCaptureProcessor extends AudioWorkletProcessor {
     this._attackCount = 0;
     this._releaseCount = 0;
     this._noiseFloor = SAD_MIN_NOISE_FLOOR;
+    this._chunkEncoder = new StreamingPcm16ChunkEncoder(globalThis.sampleRate);
   }
 
   process(inputs) {
@@ -34,9 +37,11 @@ class LivepairLocalVoiceCaptureProcessor extends AudioWorkletProcessor {
     }
     const rms = channel.length > 0 ? Math.sqrt(sumSquares / channel.length) : 0;
 
-    const channels = input.map((ch) => new Float32Array(ch));
-    const transfer = channels.map((ch) => ch.buffer);
-    this.port.postMessage({ channels }, transfer);
+    const chunks = this._chunkEncoder.push(input);
+
+    for (const chunk of chunks) {
+      this.port.postMessage({ type: 'audio-chunk', chunk }, [chunk.buffer]);
+    }
 
     // Step 1: compute adaptive thresholds from current noise floor.
     const enterThreshold = Math.max(this._noiseFloor * SAD_ENTER_MULT, SAD_ENTER_ABS_MIN);
