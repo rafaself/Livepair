@@ -1,339 +1,23 @@
-# <img src="apps/desktop/src/renderer/components/primitives/display/livepair-icon.svg" width="32" height="32" alt="Livepair" /> <img src="apps/desktop/src/renderer/components/primitives/livepair-icon.svg" width="32" height="32" alt="Livepair" />
-## Realtime Multimodal Desktop Assistant
+# Livepair
 
-A real-time multimodal desktop assistant.
+Livepair is a realtime multimodal desktop assistant that uses Gemini Live API to combine voice, screen context, and transcript-aware responses in an Electron app backed by a NestJS API that is designed to run on Google Cloud Run.
 
-This repository currently ships one direct realtime path plus an inactive conversation shell:
+## Quick Start
 
-* `inactive`: no active Live session; preserved conversation stays visible and the primary CTA starts or resumes Live
-* `speech`: direct desktop-to-Gemini Live sessions, with the backend issuing ephemeral tokens via `POST /session/token`
+### Prerequisites
 
-Typed notes are only sent once a Live session is active; they reuse the active Gemini Live session rather than a backend text endpoint.
+- Node.js LTS
+- `pnpm` 9.x
+- Docker Engine with Docker Compose
+- Linux desktop environment with microphone and screen-capture support
 
-The backend stays out of the audio/video hot path and currently serves health checks and Gemini Live token issuance. Backend checkpointing, backend-backed tools, standalone error-report endpoints, and any dedicated backend text-chat path are not implemented today.
-
-## Current Status
-
-### Implemented
-
-* Electron overlay shell with React renderer
-* Typed preload bridge and IPC surface
-* Inactive conversation shell that preserves history and offers start/resume Live-session actions
-* Typed input inside an active Live session
-* Speech mode backed by Gemini Live API via an SDK-backed transport
-* Backend health (`GET /health`), real Gemini Live ephemeral token issuance (`POST /session/token`), and a Postgres-backed chat-memory REST module for chats, messages, live sessions, and durable summaries
-* Desktop chat persistence now flows through the backend chat-memory API while preserving the existing renderer-facing bridge/IPC contract
-* Local microphone capture pipeline and assistant audio playback
-* Interruption / barge-in behavior (local detection + playback stop)
-* Speech transcription event handling and transcript state wiring
-* Manual screen-context capture (explicit start/stop) and frame upload via transport
-* Session resumption + durability state (resume handles, token refresh, explicit failure paths)
-* Mode and lifecycle exclusivity locks (S1 complete, S4 complete)
-* Product state sources of truth: `currentMode` (mode) and `speechLifecycle` (speech-state)
-* Desktop settings persistence and overlay interaction behavior
-* Unit and component tests across shared packages, API, and desktop
-
-### Partially implemented / in progress
-
-* Screen context is live over an active Live session, but only through manual start/stop capture; adaptive capture policy and tuning are not implemented yet
-* Operational hardening exists for token refresh, resumption, and explicit degraded-state handling, but backend error reporting and broader diagnostics are not implemented yet
-* Voice-mode tool handling exists only for narrow local inspection tools (`get_current_mode`, `get_voice_session_status`); backend-backed tool endpoints are still absent
-
-### Planned / not implemented yet
-
-* Session checkpoint persistence + restore (backend + shared contracts)
-* Backend-backed tool endpoints such as `POST /tool/screenshot-hd` and `POST /tool/visual-summary`
-* `POST /session/error` or equivalent backend error-reporting path
-* Adaptive screen-context policy, guardrails, and any HD screenshot flow beyond the current manual frame upload path
-
-## 📚 Source Of Truth Docs
-
-* [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the current architecture and product-mode model
-* [docs/MILESTONE_MATRIX.md](./docs/MILESTONE_MATRIX.md) for milestone-by-milestone implementation status
-* [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) for current gaps and risks
-* [docs/AUDIT.md](./docs/AUDIT.md) for the current documentation guide and canonical doc map
-
-> Historical implementation notes and transient planning material live under [docs/archive/](./docs/archive/). They are not part of the active source-of-truth set.
-
-> **Note on `specs/`:** The `specs/` directory contains historical pre-implementation planning specs (Releases 0–3). They are not the source of truth for the current system. See [specs/README.md](./specs/README.md) for the boundary note and a pointer table.
-
-## 🎯 Goals
-
-* Natural voice interaction with interruption support
-* Full-screen awareness with lightweight adaptive capture
-* Low-latency realtime responses
-* Secure client-to-server auth using ephemeral tokens
-* Simple MVP architecture with room for a future "Thinking mode"
-
-## 🧱 Core Stack
-
-### 🖥️ Desktop
-
-* Electron
-* React
-* TypeScript
-
-### ⚙️ Backend
-
-* NestJS
-* TypeScript
-
-### ☁️ Cloud
-
-* Google Cloud Run
-
-### 🤖 AI
-
-* Gemini Developer API
-* Gemini Live API
-
-## 🏗️ Architecture
-
-### ⚡ Realtime hot path
-
-Speech mode: Desktop client → Gemini Live API
-
-### 🛠️ Backend responsibilities
-
-Implemented today:
-* Issue ephemeral tokens
-* Expose backend health
-* Persist chat-memory state through Postgres-backed REST endpoints consumed by desktop chat persistence flows
-
-Planned:
-* Expose backend-backed tools
-* Store short session checkpoints
-* Receive error reports and logs
-
-### 🚫 Non-goals for MVP
-
-* No backend proxy for audio/video streaming
-* No Vertex AI in the realtime path
-* No ADK in the MVP path
-* No multi-agent orchestration
-* No long-term memory system
-
-## 🧭 Key Product Principles
-
-* Low latency is a first-class requirement
-* Voice interruption must feel immediate
-* Screen capture must stay lightweight and adaptive
-* Security defaults must remain strict
-* Prefer TDD whenever practical
-* Keep the MVP narrow and demo-focused
-
-## 🔄 High-Level Flow
-
-### Product state model
-
-User-facing product states:
-
-* `inactive`: no active Live session; the chat surface remains visible and the primary action starts or resumes Live
-* `speech`: direct Gemini Live session with local audio, interruption, and optional manual screen frames
-
-Internal runtime terminology:
-
-* `voice` is the transport/session term used for the Gemini Live speech-mode path
-* `text` is the Gemini Live session mode used for typed notes once speech mode is active
-* `currentMode` remains the product-level source of truth for `inactive` vs `speech`
-* `speechLifecycle` remains the product-level speech-state source of truth once speech mode is active
-
-Inactive conversation state:
-1. No Live transport is connected.
-2. The desktop keeps conversation history visible and offers `Talk` / `Resume Live Session` entry actions.
-3. Typed input is unavailable until a Live session is active.
-
-Speech mode (direct realtime):
-1. The desktop app requests an ephemeral token from the backend (`POST /session/token`).
-2. The backend returns a short-lived token for Gemini Live usage.
-3. The desktop client opens a realtime session directly with Gemini Live API (SDK transport).
-4. The client starts microphone audio and manual screen frames independently over the active Live session.
-5. The model returns response audio plus transcript/text events; local interruption stops playback promptly.
-6. Typed input can still be sent while speech mode is active, but it travels over the active Live session rather than a backend text endpoint.
-
-## 📁 Repository Layout
-
-```text
-.
-├── AGENTS.md
-├── apps
-│   ├── api
-│   │   └── ...
-│   └── desktop
-│       └── ...
-├── packages
-│   └── shared-types
-└── .agents
-    └── skills
-```
-
-## 🖥️ Desktop App Responsibilities
-
-* Capture microphone input
-* Manage inactive/history and speech-session state
-* Capture screen context only when explicitly started during an active Live session
-* Run local VAD for interruption detection
-* Play model audio output
-* Render transcript and session state
-* Resume eligible Gemini Live speech sessions using stored resumption handles
-* Execute narrow local voice tools when Gemini requests them
-* Connect directly to Gemini Live API
-
-## 🔌 Backend Responsibilities
-
-Implemented:
-* `GET /health`
-* `POST /session/token` (Gemini Live ephemeral token issuance)
-* `GET /chat-memory/chats/current`
-* `PUT /chat-memory/chats/current`
-* `POST /chat-memory/chats`
-* `GET /chat-memory/chats`
-* `GET /chat-memory/chats/:chatId`
-* `GET /chat-memory/chats/:chatId/messages`
-* `POST /chat-memory/chats/:chatId/messages`
-* `GET /chat-memory/chats/:chatId/summary`
-* `GET /chat-memory/chats/:chatId/live-sessions`
-* `POST /chat-memory/chats/:chatId/live-sessions`
-* `PATCH /chat-memory/live-sessions/:id/resumption`
-* `PATCH /chat-memory/live-sessions/:id/snapshot`
-* `POST /chat-memory/live-sessions/:id/end`
-
-Planned:
-* `POST /session/checkpoint`
-* `POST /tool/screenshot-hd`
-* `POST /tool/visual-summary`
-* `POST /session/error`
-
-The backend should remain small, modular, and focused.
-
-## 🧠 Session Strategy
-
-The user experience should feel like one continuous session.
-
-Current implementation:
-
-* the desktop runtime keeps active conversation UI state, runtime diagnostics, token-expiry metadata, and Gemini Live resumption handles in local process state
-* speech-mode resumption refreshes the token when needed and falls back explicitly to safe `inactive`/`off` states on failure
-* durable chats, messages, live sessions, and summaries are persisted through the backend chat-memory API rather than a desktop-local SQLite store
-
-Planned extension:
-
-* backend checkpoint persistence for minimal session state
-* short recent turns, compressed summary, current goal, and last relevant visual context stored outside the desktop process
-
-Product state rules:
-* `currentMode` is the product-level mode source of truth
-* `speechLifecycle` is the product-level speech-state source of truth
-
-## 🖼️ Screen Capture Strategy
-
-Current implementation:
-
-* screen capture requires an active Live session
-* the first Share Screen action requires choosing a persisted `manual` or `continuous` policy
-* manual mode sends only on explicit user action and always uses high-detail capture settings
-* continuous mode keeps a fixed 3000 ms base cadence with bounded 1000 ms bursts after meaningful thumbnail changes
-* continuous mode uses the `continuousScreenQuality` baseline, with `medium` as the default
-* uploaded frames use an explicit conservative policy: 1 FPS capture, compressed JPEG, reduced width, and latest-frame-wins backpressure while a prior upload is in flight
-* Live voice sessions use `MEDIA_RESOLUTION_LOW` by default for screen sharing unless explicitly overridden
-* if reconnect/resume falls through to a replacement Live runtime, screen capture is stopped and must be manually re-enabled on the new runtime
-* durable chat memory may carry at most one compact text-only `screenContextSummary` inside the existing rehydration `contextState`; raw frames, screenshots, and live screen state never persist or auto-restore
-
-Planned follow-up:
-
-* adaptive capture boosts when screen changes merit it
-* tighter guardrails and tuning
-* HD screenshots only if a dedicated backend-backed tool is implemented
-
-## 🔐 Security Rules
-
-* Never embed a permanent API key in the desktop client
-* Use ephemeral tokens for realtime sessions
-* Keep Electron security strict:
-
-  * `contextIsolation: true`
-  * `nodeIntegration: false`
-  * privileged APIs only through `preload`
-
-## 📝 Commit Convention
-
-All commits follow the **Conventional Commits** pattern:
-
-```
-type(scope): message
-```
-
-### Types
-
-| Type | Use when |
-|------|----------|
-| `feat` | Adding a new feature or capability |
-| `fix` | Fixing a bug |
-| `chore` | Maintenance, config, dependencies, CI |
-| `refactor` | Restructuring code without changing behavior |
-| `test` | Adding or updating tests only |
-| `docs` | Documentation-only changes |
-| `style` | Formatting, whitespace, linting (no logic change) |
-| `perf` | Performance improvements |
-| `ci` | CI/CD pipeline changes |
-
-### Scopes
-
-| Scope | Covers |
-|-------|--------|
-| `monorepo` | Root configs, workspace, tooling |
-| `shared` | `packages/shared-types` |
-| `api` | `apps/api` backend |
-| `desktop` | `apps/desktop` Electron app |
-| `docs` | Documentation files |
-
-### Examples
-
-```
-chore(monorepo): scaffold pnpm workspace with root configs
-feat(shared): add shared-types package
-feat(api): add NestJS backend with health and session modules
-feat(desktop): add Electron app with React renderer and IPC bridge
-fix(api): correct token expiry calculation
-test(api): add integration tests for session controller
-refactor(desktop): extract IPC handlers to separate module
-docs(docs): update README with commit conventions
-```
-
-### Rules
-
-* Use imperative mood in the message ("add", not "added" or "adds")
-* Keep the subject line under 72 characters
-* Use the body for details when the subject alone is not enough
-* Group related changes into a single commit by logical scope
-* Do not mix unrelated changes in the same commit
-
-## 🧪 Development Principles
-
-* Prefer TDD whenever practical and cost-effective
-* Keep changes small and reviewable
-* Update shared contracts in the same task
-* Avoid speculative abstractions
-* Protect low-latency behavior from regressions
-
-## 🧰 Local Development
-
-### ✅ Prerequisites
-
-* Node.js (LTS recommended)
-* `pnpm` 9.x (`packageManager` is `pnpm@9.0.0`) — install guide: [pnpm.io/installation](https://pnpm.io/installation)
-* Docker Engine with Docker Compose — install guide: [docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
-* Linux desktop environment with microphone and screen capture support
-
-### 🚀 Quick Start
-
-1. Install workspace dependencies:
+### 1) Install dependencies
 
 ```bash
 pnpm install
 ```
 
-2. Create the app-local config files:
+### 2) Create local environment files
 
 ```bash
 cp apps/api/.env.example apps/api/.env
@@ -341,168 +25,179 @@ cp apps/desktop/.env.example apps/desktop/.env
 cp infra/postgres/.env.example infra/postgres/.env
 ```
 
-Each runtime now owns its own local config file. The API reads `apps/api/.env`, the desktop app reads `apps/desktop/.env`, and the local Postgres helper reads `infra/postgres/.env`.
+### 3) Set required environment values
 
-3. Open `apps/api/.env` and fill in the only value you must personalize for the normal local flow:
+In `apps/api/.env`, set your Gemini API key:
 
 ```bash
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
-> **Required:** `GEMINI_API_KEY` must be set before the API starts. Keep the copied `SESSION_TOKEN_AUTH_SECRET` entry in place as well, because the API now protects both `POST /session/token` and `/chat-memory/*` with that shared secret. The other local values only need changes when you want to override the defaults.
+Keep these values aligned:
 
-Also keep these paired values aligned:
+- `SESSION_TOKEN_AUTH_SECRET` must match in `apps/api/.env` and `apps/desktop/.env`
+- `SESSION_TOKEN_LIVE_MODEL` in the API should match `VITE_LIVE_MODEL` in the desktop app
+- `VITE_LIVE_API_VERSION` should remain `v1alpha` for the current speech flow
 
-* `SESSION_TOKEN_AUTH_SECRET` is shared by the API and desktop main process and protects both `POST /session/token` and `/chat-memory/*`
-* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL` should point to the same Gemini Live model
-* `VITE_LIVE_API_VERSION` should stay `v1alpha` for the current speech flow
-
-4. Start local infrastructure:
+### 4) Start local PostgreSQL
 
 ```bash
 make postgres-up
 ```
 
-The Postgres helper reads overrides from `infra/postgres/.env` and falls back to the defaults shown in `infra/postgres/.env.example`.
+### 5) Run the backend
 
-5. Run the API and desktop app together:
+```bash
+pnpm --filter @livepair/api dev
+```
+
+The API is available at `http://127.0.0.1:3000` by default.
+
+### 6) Run the desktop app
+
+```bash
+pnpm --filter @livepair/desktop dev
+```
+
+If you want to start both apps together instead:
 
 ```bash
 pnpm run dev
 ```
 
-The backend binds to `0.0.0.0` and is still reachable at `http://127.0.0.1:3000` by default. It also honors `PORT` so the same runtime can move to Cloud Run later without code changes. Use `pnpm --filter @livepair/api dev` or `pnpm --filter @livepair/desktop dev` only when you want to debug one app independently.
-
-### 🔧 Quick setup notes
-
-* If `make postgres-up` fails, install or start Docker first, then retry with `make postgres-up`.
-* If the API exits immediately, re-check `GEMINI_API_KEY` in `apps/api/.env`.
-* If speech mode cannot start, confirm `SESSION_TOKEN_AUTH_SECRET` matches on both sides and `VITE_LIVE_API_VERSION=v1alpha`.
-
-### ✅ Local smoke check
-
-Before a longer manual run, use the lightweight preflight:
+Useful checks:
 
 ```bash
-make postgres-up
 make smoke-check
-```
-
-`make smoke-check` reuses the existing API `db:check` flow and fails clearly when:
-
-* dependencies are missing because `pnpm install` has not completed
-* `apps/api/.env` is missing
-* `infra/postgres/.env` is missing
-* `GEMINI_API_KEY` is unset
-* local Docker infra is not up yet
-
-If the preflight passes, start the normal local flow with `pnpm run dev`.
-
-With the API running, you can also confirm backend health directly:
-
-```bash
 curl http://127.0.0.1:3000/health
 ```
 
-### 🐳 API container build
+## What it does
 
-Wave 2 adds the backend-only container build that now feeds the Cloud Run CD pipeline.
+Livepair gives users a desktop assistant that can listen, respond, and use screen context during a live session.
 
-Build the image from the repository root so the Docker build can see both `apps/api` and the workspace dependency in `packages/shared-types`:
+- Starts a speech session by requesting an ephemeral Gemini token from the backend
+- Connects directly from the desktop app to Gemini Live API for low-latency realtime interaction
+- Accepts voice plus typed follow-up turns inside the same active Live session
+- Shows transcript and conversation state in the desktop UI
+- Persists chats, messages, summaries, and live-session metadata through backend chat-memory APIs
 
-```bash
-docker build -f apps/api/Dockerfile -t livepair-api:local .
+## Why it matters
+
+- It makes desktop assistance feel conversational instead of step-by-step and modal
+- It keeps latency low by keeping the backend out of the audio/video hot path
+- It combines voice, screen context, and transcript feedback in one workflow
+- It uses ephemeral tokens and a strict Electron bridge for safer local AI interactions
+
+## Key capabilities
+
+- **Gemini-powered voice interaction:** speech mode is built on Gemini Live API
+- **Realtime transcript handling:** transcript and response state update during the session
+- **Multimodal screen context:** users can share screen context in manual or continuous modes during an active Live session
+- **Interruption support:** local barge-in handling stops playback quickly when the user speaks
+- **Durable memory:** the backend stores chats, messages, summaries, and live-session records in Postgres
+- **Session continuity:** the desktop supports token refresh and session resumption flows
+
+Current MVP boundaries:
+
+- The backend handles control-plane work and persistence, not realtime audio/video proxying
+- Typed input is available once a Live session is active
+- Backend-backed tools, checkpoint restore, and broader error-reporting flows are planned but not fully implemented yet
+
+## Architecture overview
+
+### Desktop app
+
+- Built with Electron, React, and TypeScript
+- Captures microphone input
+- Manages Live session state, transcript UI, playback, interruption, and screen sharing
+- Connects directly to Gemini Live API for realtime speech interactions
+
+### Backend API
+
+- Built with NestJS and TypeScript
+- Exposes `GET /health`, `POST /session/token`, and `/chat-memory/*`
+- Issues short-lived Gemini session tokens
+- Persists durable chat memory in Postgres
+
+### Runtime boundary
+
+**Important:** the backend stays out of the realtime audio/video path. The desktop talks directly to Gemini Live API, while the backend focuses on authentication, health, and persistence.
+
+## Tech stack
+
+- **Desktop:** Electron, React, TypeScript
+- **Backend:** NestJS, TypeScript
+- **AI:** Gemini Developer API, Gemini Live API
+- **Data:** PostgreSQL
+- **Cloud:** Google Cloud Run, Cloud Build, Artifact Registry
+- **Infrastructure:** Terraform modules under `infra/terraform`
+
+## Google Cloud deployment
+
+The backend deployment path is built for Google Cloud.
+
+- **Runtime:** Google Cloud Run
+- **CI/CD:** `cloudbuild.yaml` performs build, push, migration, deploy, and smoke test steps
+- **Images:** Artifact Registry stores the API and migration images
+- **Infrastructure as code:** Terraform modules manage Cloud Run service and job shape, Secret Manager wiring, Cloud SQL attachment, ingress, scaling, and IAM
+
+For full deployment details, see `infra/terraform/README.md`.
+
+## Architecture diagram
+
+```mermaid
+flowchart LR
+  User((User))
+  Desktop[Desktop App<br/>Electron + React + TypeScript]
+  API[Backend API<br/>NestJS on Cloud Run]
+  Gemini[Gemini Live API]
+  Postgres[(PostgreSQL)]
+  Build[Cloud Build]
+  Registry[Artifact Registry]
+
+  User --> Desktop
+  Desktop -->|GET /health<br/>POST /session/token<br/>chat-memory| API
+  API -->|ephemeral token| Desktop
+  Desktop -->|realtime audio<br/>screen frames<br/>transcripts<br/>typed turns| Gemini
+  API --> Postgres
+  Build --> Registry
+  Registry --> API
 ```
 
-Run it locally by passing config at launch time instead of baking env files into the image:
+## Project structure
 
-```bash
-docker run --rm \
-  -p 3000:3000 \
-  --env-file apps/api/.env \
-  livepair-api:local
+```text
+.
+├── apps/
+│   ├── api/                # NestJS backend API
+│   └── desktop/            # Electron + React desktop app
+├── packages/
+│   └── shared-types/       # Shared serializable contracts
+├── infra/                  # Deployment and local infrastructure
+├── docs/                   # Architecture and supporting docs
+├── cloudbuild.yaml         # Google Cloud build/deploy pipeline
+└── THIRD_PARTY_NOTICES.md  # Third-party runtime notices
 ```
 
-The image keeps `NODE_ENV=production`, starts with `node dist/main.js`, honors `PORT`, binds to `0.0.0.0`, and logs to stdout/stderr. The root `.dockerignore` keeps Git metadata, local `node_modules`, logs, and unrelated workspace files out of the Docker build context.
+## Development instructions
 
-If you want to mimic Cloud Run's default port locally, override `PORT` when you start the container:
-
-```bash
-docker run --rm \
-  -p 8080:8080 \
-  --env-file apps/api/.env \
-  -e PORT=8080 \
-  livepair-api:local
-```
-
-`GET /health` should respond without a database connection. Routes backed by durable chat-memory persistence still require a reachable Postgres via `DATABASE_URL`.
-
-### ☁️ API deploy pipeline
-
-Wave 6 turns the API path into a staging-first CD flow:
-
-* GitHub Actions deploys `main` automatically to `staging`
-* production deploys are a separate manual workflow step
-* `cloudbuild.yaml` now performs the full ordered rollout: build, push, migrate, deploy, smoke-test
-* deploys use immutable commit-SHA image tags for both the API image and the migration image
-
-Responsibility stays split on purpose:
-
-* Terraform remains the source of truth for Artifact Registry, Cloud Run service shape, Cloud Run migration job shape, runtime service accounts, Secret Manager wiring, Cloud SQL attachment, scaling, ingress, and public/private access.
-* Cloud Build owns the ordered rollout execution.
-* GitHub Actions owns the staging and production entry points.
-
-The Cloud Run Terraform modules ignore image-only drift so a later `terraform apply` does not roll back a successful release. Keep both `api_service.image` and `api_migration_job.image` in the environment `terraform.tfvars` files pointed at valid bootstrap images for first creation or any future recreate.
-
-Manual fallback:
-
-```bash
-PROJECT_ID=your-gcp-project-id
-REGION=us-central1
-REPOSITORY=livepair-staging-containers
-SERVICE=livepair-staging-api
-MIGRATION_JOB=livepair-staging-api-migrate
-IMAGE_TAG="$(git rev-parse HEAD)"
-
-gcloud builds submit \
-  --project "$PROJECT_ID" \
-  --config cloudbuild.yaml \
-  --substitutions=_DEPLOY_ENV=staging,_REGION="$REGION",_AR_REPOSITORY="$REPOSITORY",_IMAGE_NAME=api,_MIGRATION_IMAGE_NAME=api-migrator,_IMAGE_TAG="$IMAGE_TAG",_SERVICE_NAME="$SERVICE",_MIGRATION_JOB_NAME="$MIGRATION_JOB",_SMOKE_PATH=/health \
-  .
-```
-
-That path keeps secrets out of the image and out of the pipeline config. Runtime secrets still stay in Secret Manager and are injected by the Terraform-managed Cloud Run service/job.
-
-For the full operator flow, including GitHub environment setup, manual migration reruns, and rollback commands, see [infra/terraform/README.md](./infra/terraform/README.md).
-
-### 🐘 Local infrastructure helpers
+### Local infrastructure helpers
 
 ```bash
 make postgres-up
-```
-
-Stop the full local stack when you are done:
-
-```bash
 make postgres-down
-```
-
-Focused Postgres helpers:
-
-```bash
-make postgres-up
 make postgres-reset
-make postgres-down
 ```
 
-Verify connectivity after a reset, or apply migrations when you specifically need the Postgres-backed schema:
+### Database and smoke checks
 
 ```bash
-pnpm --filter @livepair/api db:check
 pnpm migration:up
+make smoke-check
 ```
 
-### 🧹 Run workspace checks
+### Run workspace checks
 
 ```bash
 pnpm lint
@@ -510,7 +205,7 @@ pnpm typecheck
 pnpm test
 ```
 
-Smallest relevant package-level checks:
+Focused package checks:
 
 ```bash
 pnpm verify:api
@@ -518,110 +213,22 @@ pnpm verify:desktop
 pnpm verify:shared-types
 ```
 
-### 🧪 Hallucination regression harness
-
-Wave 5 adds a small internal regression harness under `apps/api/src/evals/hallucination/`. It is local-first: you score a stored response artifact against the versioned dataset rather than running a cloud-only evaluation service.
-
-Run it with the bundled dataset:
+### Optional API container build
 
 ```bash
-pnpm --filter @livepair/api eval:hallucination -- \
-  --results src/evals/hallucination/fixtures/sample-run.json \
-  --output src/evals/hallucination/fixtures/sample-run.scored.json
+docker build -f apps/api/Dockerfile -t livepair-api:local .
+docker run --rm -p 3000:3000 --env-file apps/api/.env livepair-api:local
 ```
 
-Useful files:
+### Helpful docs
 
-* dataset: `apps/api/src/evals/hallucination/data/wave5-regression.dataset.json`
-* sample input artifact: `apps/api/src/evals/hallucination/fixtures/sample-run.json`
-* sample scored artifact: `apps/api/src/evals/hallucination/fixtures/sample-run.scored.json`
+- `docs/ARCHITECTURE.md` for the current architecture and product model
+- `docs/MILESTONE_MATRIX.md` for implementation status
+- `docs/KNOWN_ISSUES.md` for known gaps and risks
 
-The dataset is split across four buckets: project-specific factual, public/current factual, ambiguous, and impossible/insufficient-evidence prompts. Each case carries routing expectations plus optional source text and lightweight string checks.
+## Acknowledgements and notices
 
-The runner reports:
-
-* grounded answer rate
-* unverified rate on unsupported prompts
-* obvious hallucination count
-* incorrect path count
-* corrected-by-dataset expectation count
-* source-support presence rate when reference/source text exists
-
-Use `--baseline-results <path>` to compare before/after runs against the same dataset. Vertex-backed `GROUNDING` evaluation is intentionally deferred for now; the first version stays offline/manual-first and avoids a mandatory cloud dependency.
-
-## Manual QA
-
-- manual runbook: [docs/QA_RUNBOOK.md](./docs/QA_RUNBOOK.md)
-- findings log: [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md)
-
-## 🌍 Environment Variables
-
-* backend: [apps/api/.env.example](./apps/api/.env.example)
-* desktop: [apps/desktop/.env.example](./apps/desktop/.env.example)
-* local Postgres: [infra/postgres/.env.example](./infra/postgres/.env.example)
-
-Key local values:
-
-* `GEMINI_API_KEY` (**required**): backend-only Gemini credential used for `/session/token`
-* `SESSION_TOKEN_AUTH_SECRET` (**secret**): shared secret that must match between the API and desktop main process and now protects both `/session/token` and `/chat-memory/*`
-* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL`: keep them on the same Gemini Live model resource (`models/gemini-2.5-flash-native-audio-preview-12-2025` in the app-local examples)
-* `DATABASE_URL` (**secret** when it includes credentials): local Docker default is `postgres://livepair:livepair@127.0.0.1:5432/livepair`
-* `CORS_ALLOWED_ORIGINS` (**ordinary config**): explicit comma-separated browser origins allowed by the API; leave it empty to deny browser cross-origin access by default
-* `HOST` and `PORT` (**ordinary config**): default to `0.0.0.0` and `3000`; Cloud Run injects `PORT`
-* `VITE_LIVE_API_VERSION`: keep `v1alpha` for the current speech flow
-* `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_PORT`: optional local overrides for `infra/postgres/.env`
-
-For the current cloud deployment path, `GEMINI_API_KEY`, `SESSION_TOKEN_AUTH_SECRET`, and deploy-time `DATABASE_URL` belong in environment-specific Secret Manager secrets referenced by Terraform-managed Cloud Run resources. Keep `HOST`, `PORT`, `CORS_ALLOWED_ORIGINS`, rate limits, TTLs, and model/resource identifiers as ordinary runtime config.
-
-For complete field-by-field documentation, use the app-local `.env.example` files as references. Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed because they come from Node, Electron, or Vite rather than repository configuration.
-
-## ✅ Testing
-
-Before closing a task:
-
-* run lint
-* run typecheck
-* run the smallest relevant test set
-* add or update tests for behavior changes
-* verify the main flow end to end when feasible
-
-## 🎬 Demo Focus
-
-This MVP is optimized for one strong demo scenario, not for breadth.
-
-Recommended focus:
-
-* realtime voice interaction
-* full-screen awareness
-* interruption support
-* step-by-step guidance
-* stable and polished happy path
-
-## 🛣️ Roadmap
-
-Current baseline:
-
-* inactive history shell plus direct-to-Gemini-Live `speech` mode
-* typed notes over the active Live session
-* local interruption handling
-* manual screen-context upload during speech mode
-* token refresh and Live session resumption
-
-Remaining roadmap focus:
-
-* checkpoint persistence and restore
-* backend-backed tools
-* backend error reporting
-* adaptive screen-context policy and demo hardening
-* eventual Thinking mode after the MVP path is stable
-
-## 📌 Status
-
-This repository is currently structured for MVP delivery.
-Architecture choices are intentionally biased toward:
-
-* correctness
-* security
-* low latency
-* simplicity
-* demo readiness
+- Gemini Developer API and Gemini Live API power the assistant experience
+- Google Cloud Run and Cloud Build power the backend deployment path
+- Third-party runtime notices are listed in `THIRD_PARTY_NOTICES.md`
+- This repository does not currently include a standalone `LICENSE` file

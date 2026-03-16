@@ -1,14 +1,15 @@
-import type {
-  AppendChatMessageRequest,
-  AnswerMetadata,
-  ChatMemoryListOptions,
-  CreateChatRequest,
-  CreateLiveSessionRequest,
-  EndLiveSessionRequest,
-  RehydrationPacketContextState,
-  UpdateLiveSessionRequest,
-  UpdateLiveSessionResumptionRequest,
-  UpdateLiveSessionSnapshotRequest,
+import {
+  ASSISTANT_VOICES,
+  type AppendChatMessageRequest,
+  type AnswerMetadata,
+  type ChatMemoryListOptions,
+  type CreateChatRequest,
+  type CreateLiveSessionRequest,
+  type EndLiveSessionRequest,
+  type RehydrationPacketContextState,
+  type UpdateLiveSessionRequest,
+  type UpdateLiveSessionResumptionRequest,
+  type UpdateLiveSessionSnapshotRequest,
 } from '@livepair/shared-types';
 import {
   hasOnlyAllowedKeys,
@@ -211,12 +212,13 @@ export function isChatMemoryListOptions(value: unknown): value is ChatMemoryList
 export function isCreateLiveSessionRequest(
   value: unknown,
 ): value is CreateLiveSessionRequest {
-  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['chatId', 'startedAt'])) {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['chatId', 'voice', 'startedAt'])) {
     return false;
   }
 
   return (
     isChatId(value['chatId'])
+    && ASSISTANT_VOICES.some((voice) => voice === value['voice'])
     && (typeof value['startedAt'] === 'undefined' || typeof value['startedAt'] === 'string')
   );
 }
