@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   selectAssistantRuntimeState,
   selectBackendIndicatorState,
@@ -311,6 +311,47 @@ describe('selectVisibleConversationTimeline', () => {
       ] as never,
     });
 
+    expect(timeline.map((entry) => entry.id)).toEqual([
+      'user-turn-1',
+      'assistant-transcript-1',
+      'assistant-turn-1',
+    ]);
+  });
+
+  it('avoids sorting when conversation and transcript entries are already in timeline order', () => {
+    const sortSpy = vi.spyOn(Array.prototype, 'sort');
+
+    const timeline = selectVisibleConversationTimeline({
+      conversationTurns: [
+        {
+          id: 'user-turn-1',
+          role: 'user',
+          content: 'first',
+          timestamp: '9:59 AM',
+          timelineOrdinal: 1,
+        },
+        {
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'third',
+          timestamp: '10:00 AM',
+          timelineOrdinal: 3,
+        },
+      ] as never,
+      transcriptArtifacts: [
+        {
+          id: 'assistant-transcript-1',
+          kind: 'transcript',
+          role: 'assistant',
+          content: 'second',
+          timestamp: '9:59 AM',
+          source: 'voice',
+          timelineOrdinal: 2,
+        },
+      ] as never,
+    });
+
+    expect(sortSpy).not.toHaveBeenCalled();
     expect(timeline.map((entry) => entry.id)).toEqual([
       'user-turn-1',
       'assistant-transcript-1',

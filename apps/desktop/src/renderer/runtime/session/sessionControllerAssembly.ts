@@ -2,6 +2,7 @@ import {
   logLifecycleTransition,
   logRuntimeError,
 } from '../core/logger';
+import { isRuntimeDebugModeEnabled } from '../core/debugMode';
 import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import { createVoicePlaybackController } from '../voice/media/voicePlaybackController';
 import { createScreenCaptureController } from '../screen/screenCaptureController';
@@ -29,6 +30,7 @@ export function createSessionControllerAssembly(
     onRealtimeOutboundDiagnosticsChanged: (diagnostics) => {
       dependencies.store.getState().setRealtimeOutboundDiagnostics(diagnostics);
     },
+    shouldPublishRealtimeOutboundDiagnostics: isRuntimeDebugModeEnabled,
   });
   const {
     appendTypedUserTurn,

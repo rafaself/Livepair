@@ -41,6 +41,21 @@ describe('renderer main entrypoint', () => {
     expect(renderMock).toHaveBeenCalledTimes(1);
   });
 
+  it('renders App before bootstrap settles', async () => {
+    document.body.innerHTML = '<div id="root"></div>';
+    bootstrapDesktopRendererMock.mockImplementation(
+      () => new Promise<void>(() => undefined),
+    );
+
+    await import('./main');
+
+    expect(bootstrapDesktopRendererMock).toHaveBeenCalledTimes(1);
+    expect(createRootMock).toHaveBeenCalledWith(
+      document.getElementById('root'),
+    );
+    expect(renderMock).toHaveBeenCalledTimes(1);
+  });
+
   it('still mounts the app when bootstrap fails', async () => {
     document.body.innerHTML = '<div id="root"></div>';
     bootstrapDesktopRendererMock.mockRejectedValue(new Error('boom'));

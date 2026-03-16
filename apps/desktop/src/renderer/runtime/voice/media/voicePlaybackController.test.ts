@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVoicePlaybackController } from './voicePlaybackController';
 import type { AssistantAudioPlaybackObserver } from '../../audio/assistantAudioPlayback';
+import { useUiStore } from '../../../store/uiStore';
+import { resetDesktopStores } from '../../../test/store';
 
 function createHarness() {
   const setVoicePlaybackState = vi.fn();
@@ -46,6 +48,10 @@ function createHarness() {
 }
 
 describe('createVoicePlaybackController', () => {
+  beforeEach(() => {
+    resetDesktopStores();
+  });
+
   it('isActive returns false initially', () => {
     const { ctrl } = createHarness();
     expect(ctrl.isActive()).toBe(false);
@@ -194,13 +200,41 @@ describe('createVoicePlaybackController', () => {
     expect(store.setVoicePlaybackState).toHaveBeenCalledWith('playing');
   });
 
-  it('observer onDiagnostics updates diagnostics', () => {
+  it('observer onDiagnostics updates diagnostics when debug mode is enabled', () => {
+    useUiStore.setState({ isDebugMode: true });
     const { ctrl, store, getObserver } = createHarness();
 
     ctrl.getOrCreate();
+    store.setVoicePlaybackDiagnostics.mockClear();
     getObserver()!.onDiagnostics({ chunkCount: 5 });
 
     expect(store.setVoicePlaybackDiagnostics).toHaveBeenCalledWith({ chunkCount: 5 });
+  });
+
+  it('suppresses hot playback diagnostics when debug mode is off', () => {
+    const { ctrl, store, getObserver } = createHarness();
+
+    ctrl.getOrCreate();
+    store.setVoicePlaybackDiagnostics.mockClear();
+
+    getObserver()!.onDiagnostics({ chunkCount: 5, queueDepth: 1 });
+
+    expect(store.setVoicePlaybackDiagnostics).not.toHaveBeenCalled();
+  });
+
+  it('publishes hot playback diagnostics when debug mode is enabled', () => {
+    useUiStore.setState({ isDebugMode: true });
+    const { ctrl, store, getObserver } = createHarness();
+
+    ctrl.getOrCreate();
+    store.setVoicePlaybackDiagnostics.mockClear();
+
+    getObserver()!.onDiagnostics({ chunkCount: 5, queueDepth: 1 });
+
+    expect(store.setVoicePlaybackDiagnostics).toHaveBeenCalledWith({
+      chunkCount: 5,
+      queueDepth: 1,
+    });
   });
 
   it('observer onError sets error state and runtime error', () => {

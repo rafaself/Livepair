@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTransportEventRouter } from './transportEventRouter';
+import { useUiStore } from '../../store/uiStore';
+import { resetDesktopStores } from '../../test/store';
 
 function createVoiceSessionLatencyState() {
   return {
@@ -98,6 +100,10 @@ function createMockOps() {
 }
 
 describe('createTransportEventRouter', () => {
+  beforeEach(() => {
+    resetDesktopStores();
+  });
+
   describe('connection-state-changed', () => {
     it('sets connecting status on connecting state', () => {
       const ops = createMockOps();
@@ -776,13 +782,23 @@ describe('createTransportEventRouter', () => {
   });
 
   describe('logging and debug events', () => {
-    it('logs every transport event and sets debug event', () => {
+    it('logs every transport event without publishing a debug event when debug mode is off', () => {
       const ops = createMockOps();
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
 
       handleTransportEvent({ type: 'interrupted' });
 
       expect(ops.logger.onTransportEvent).toHaveBeenCalledWith({ type: 'interrupted' });
+      expect(ops._storeState.setLastDebugEvent).not.toHaveBeenCalled();
+    });
+
+    it('publishes debug events when debug mode is enabled', () => {
+      useUiStore.setState({ isDebugMode: true });
+      const ops = createMockOps();
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'interrupted' });
+
       expect(ops._storeState.setLastDebugEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           scope: 'transport',

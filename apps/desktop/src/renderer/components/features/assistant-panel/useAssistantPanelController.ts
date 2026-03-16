@@ -15,6 +15,7 @@ import { useUiStore, type PanelView } from '../../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../../store/sessionStore';
 import { useAssistantPanelBackendHealth } from './useAssistantPanelBackendHealth';
 import { useAssistantPanelComposerMediaActions } from './useAssistantPanelComposerMediaActions';
+import { useAssistantPanelConversationState } from './useAssistantPanelConversationState';
 import { useAssistantPanelControlState } from './useAssistantPanelControlState';
 import { useAssistantPanelTextComposer } from './useAssistantPanelTextComposer';
 
@@ -79,9 +80,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     screenCaptureState,
     isVoiceSessionActive,
     canSubmitText,
-    conversationTurns,
     lastRuntimeError,
-    isConversationEmpty,
     handleCheckBackendHealth: onCheckBackendHealth,
     handleStartVoiceSession: onStartVoiceSession,
     handleStartVoiceCapture: onStartVoiceCapture,
@@ -91,6 +90,7 @@ export function useAssistantPanelController(): AssistantPanelController {
     handleEndSpeechMode: onEndSpeechMode,
     handleSubmitTextTurn: onSubmitTextTurn,
   } = useSessionRuntime();
+  const { conversationTurns, isConversationEmpty } = useAssistantPanelConversationState();
   const { controlGatingSnapshot, composerSpeechActionKind } = useAssistantPanelControlState({
     currentMode,
     speechLifecycleStatus,

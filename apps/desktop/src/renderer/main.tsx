@@ -15,10 +15,9 @@ const renderApp = (): void => {
   );
 };
 
+renderApp();
+
 void bootstrapDesktopRenderer()
   .catch((error: unknown) => {
     console.error('Failed to bootstrap desktop renderer', error);
-  })
-  .finally(() => {
-    renderApp();
   });

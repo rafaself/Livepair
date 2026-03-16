@@ -2,6 +2,7 @@ import type {
   LocalVoiceCapture,
   LocalVoiceCaptureObserver,
 } from '../../audio/localVoiceCapture';
+import { isRuntimeDebugModeEnabled } from '../../core/debugMode';
 import type { LocalVoiceChunk } from '../voice.types';
 import type { VoiceChunkPipelineOps } from './voiceChunkPipeline';
 
@@ -39,6 +40,10 @@ export function createVoiceCaptureBinding(
       void enqueueChunkSend(chunk);
     },
     onDiagnostics: (diagnostics) => {
+      if (!isRuntimeDebugModeEnabled()) {
+        return;
+      }
+
       ops.store.getState().setVoiceCaptureDiagnostics(diagnostics);
     },
     onError: (detail) => {

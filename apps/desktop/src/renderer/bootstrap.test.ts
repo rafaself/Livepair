@@ -8,6 +8,7 @@ import { bootstrapDesktopRenderer } from './bootstrap';
 import { resetDesktopStores } from './test/store';
 import { useSettingsStore } from './store/settingsStore';
 import { useSessionStore } from './store/sessionStore';
+import { useUiStore } from './store/uiStore';
 
 function BootstrappedScreenSourceOptions(): JSX.Element {
   const controller = useAssistantPanelSettingsController();
@@ -59,7 +60,7 @@ describe('bootstrapDesktopRenderer', () => {
     });
   });
 
-  it('hydrates settings before render, applies the resolved theme, and seeds drafts from persisted settings', async () => {
+  it('hydrates settings, applies the resolved theme, and seeds drafts from persisted settings', async () => {
     await bootstrapDesktopRenderer();
 
     expect(window.bridge.getSettings).toHaveBeenCalledTimes(1);
@@ -70,7 +71,7 @@ describe('bootstrapDesktopRenderer', () => {
     expect(document.documentElement.dataset['theme']).toBe('light');
   });
 
-  it('hydrates screen capture sources before the first settings consumer render', async () => {
+  it('hydrates screen capture sources by the end of bootstrap', async () => {
     await bootstrapDesktopRenderer();
 
     expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
@@ -102,6 +103,59 @@ describe('bootstrapDesktopRenderer', () => {
 
     expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState().lastRuntimeError).toBe('enumeration failed');
+  });
+
+  it('defers non-critical startup work until after first paint', async () => {
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    const frameQueue: FrameRequestCallback[] = [];
+    const requestAnimationFrameMock = vi.fn().mockImplementation(
+      (callback: FrameRequestCallback): number => {
+        frameQueue.push(callback);
+        return frameQueue.length;
+      },
+    );
+    const initializeDevicePreferences = vi.fn().mockResolvedValue(undefined);
+
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      configurable: true,
+      value: requestAnimationFrameMock,
+    });
+    useUiStore.setState({ initializeDevicePreferences });
+
+    try {
+      const bootstrapPromise = bootstrapDesktopRenderer();
+      await vi.waitFor(() => {
+        expect(requestAnimationFrameMock).toHaveBeenCalledTimes(1);
+      });
+
+      expect(frameQueue).toHaveLength(1);
+      expect(initializeDevicePreferences).not.toHaveBeenCalled();
+      expect(window.bridge.listScreenCaptureSources).not.toHaveBeenCalled();
+      expect(window.bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
+      expect(window.bridge.listChatMessages).not.toHaveBeenCalled();
+
+      frameQueue.shift()?.(16);
+
+      expect(requestAnimationFrameMock).toHaveBeenCalledTimes(2);
+      expect(frameQueue).toHaveLength(1);
+      expect(initializeDevicePreferences).not.toHaveBeenCalled();
+      expect(window.bridge.listScreenCaptureSources).not.toHaveBeenCalled();
+      expect(window.bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
+      expect(window.bridge.listChatMessages).not.toHaveBeenCalled();
+
+      frameQueue.shift()?.(32);
+      await bootstrapPromise;
+
+      expect(initializeDevicePreferences).toHaveBeenCalledTimes(1);
+      expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
+      expect(window.bridge.getOrCreateCurrentChat).toHaveBeenCalledTimes(1);
+      expect(window.bridge.listChatMessages).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, 'requestAnimationFrame', {
+        configurable: true,
+        value: originalRequestAnimationFrame,
+      });
+    }
   });
 
   it('hydrates persisted messages into the visible conversation model on startup', async () => {

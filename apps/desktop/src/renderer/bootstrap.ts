@@ -17,14 +17,38 @@ async function hydrateScreenCaptureSources(): Promise<void> {
   }
 }
 
-export async function bootstrapDesktopRenderer(): Promise<void> {
-  const settings = await useSettingsStore.getState().hydrate();
+function waitForFirstPaint(): Promise<void> {
+  const scheduleAnimationFrame = window.requestAnimationFrame?.bind(window);
+
+  if (!scheduleAnimationFrame) {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, 0);
+    });
+  }
+
+  return new Promise((resolve) => {
+    scheduleAnimationFrame(() => {
+      scheduleAnimationFrame(() => {
+        resolve();
+      });
+    });
+  });
+}
+
+async function hydrateDeferredRendererState(): Promise<void> {
   await Promise.all([
     useUiStore.getState().initializeDevicePreferences(),
     hydrateScreenCaptureSources(),
+    hydrateCurrentChat(),
   ]);
-  await hydrateCurrentChat();
+}
+
+export async function bootstrapDesktopRenderer(): Promise<void> {
+  const settings = await useSettingsStore.getState().hydrate();
 
   const mediaQueryList = window.matchMedia(THEME_MEDIA_QUERY);
   applyResolvedTheme(resolveThemePreference(settings.themePreference, mediaQueryList.matches));
+
+  await waitForFirstPaint();
+  await hydrateDeferredRendererState();
 }

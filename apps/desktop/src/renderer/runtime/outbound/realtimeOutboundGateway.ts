@@ -73,6 +73,10 @@ export function createRealtimeOutboundGateway(
   const outstandingAudioEventsByChannel = new Map<string, number>();
 
   const publishDiagnostics = (): void => {
+    if (!options.shouldPublishDiagnostics?.() && options.shouldPublishDiagnostics !== undefined) {
+      return;
+    }
+
     options.onDiagnosticsChanged?.(cloneDiagnostics(diagnostics));
   };
 
