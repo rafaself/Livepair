@@ -19,6 +19,19 @@ const VOICE_OPTIONS: readonly SelectOptionItem[] = [
   { value: 'Aoede', label: 'Aoede' },
 ];
 
+function renderLabelWithTooltip(
+  text: string,
+  content: string,
+  label: string,
+): JSX.Element {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      {text}
+      <Tooltip content={content} label={label} />
+    </span>
+  );
+}
+
 
 type PreferencesController = Pick<
   AssistantPanelSettingsController,
@@ -112,7 +125,11 @@ export function AssistantPanelPreferencesView({
             className="assistant-panel__settings-field-list field-list--aligned-controls"
             items={[
               {
-                label: 'Lock panel',
+                label: renderLabelWithTooltip(
+                  'Lock panel',
+                  'Keep the panel open when the app window loses focus.',
+                  'About lock panel',
+                ),
                 value: (
                   <Switch
                     aria-label="Lock panel"
@@ -131,7 +148,11 @@ export function AssistantPanelPreferencesView({
             className="assistant-panel__settings-field-list field-list--aligned-controls"
             items={[
               {
-                label: 'Silence timeout',
+                label: renderLabelWithTooltip(
+                  'Silence timeout',
+                  'Automatically end speech mode after this much silence.',
+                  'About silence timeout',
+                ),
                 value: (
                   <Select
                     aria-label="Silence timeout"
@@ -157,14 +178,10 @@ export function AssistantPanelPreferencesView({
             className="assistant-panel__settings-field-list field-list--aligned-controls"
             items={[
               {
-                label: (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    Grounding
-                    <Tooltip
-                      content="Uses project knowledge and Google Search for future live sessions."
-                      label="About grounding"
-                    />
-                  </span>
+                label: renderLabelWithTooltip(
+                  'Grounding',
+                  'Uses project knowledge and Google Search for future live sessions.',
+                  'About grounding',
                 ),
                 value: (
                   <Switch
@@ -176,7 +193,11 @@ export function AssistantPanelPreferencesView({
                 ),
               },
               {
-                label: 'Voice',
+                label: renderLabelWithTooltip(
+                  'Voice',
+                  'Choose the voice used for future live sessions.',
+                  'About voice',
+                ),
                 value: (
                   <Select
                     aria-label="Voice"
@@ -205,13 +226,11 @@ export function AssistantPanelPreferencesView({
               className="assistant-panel__settings-persona-label"
               htmlFor={instructionsId}
             >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                Instructions
-                <Tooltip
-                  content="Agent/system instructions used for future live sessions."
-                  label="About instructions"
-                />
-              </span>
+              {renderLabelWithTooltip(
+                'Instructions',
+                'Agent/system instructions used for future live sessions.',
+                'About instructions',
+              )}
             </label>
             <textarea
               id={instructionsId}
