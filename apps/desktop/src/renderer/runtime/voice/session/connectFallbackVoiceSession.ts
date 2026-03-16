@@ -89,6 +89,27 @@ export async function connectFallbackVoiceSession({
 
   activateVoiceTransport(transport);
   setVoiceResumptionInFlight(false);
+  let transportConnected = false;
+
+  const disconnectConnectedTransport = async (detail: string): Promise<VoiceFallbackAttemptResult> => {
+    try {
+      await transport.disconnect();
+      return {
+        status: 'failed',
+        detail,
+      };
+    } catch (disconnectError) {
+      const disconnectDetail = asErrorDetail(disconnectError, 'Failed to disconnect voice session');
+      logRuntimeDiagnostic('voice-session', 'fallback cleanup failed', {
+        detail,
+        disconnectDetail,
+      });
+      return {
+        status: 'failed',
+        detail: `${detail} Cleanup failed: ${disconnectDetail}`,
+      };
+    }
+  };
 
   try {
     await transport.connect({
@@ -96,18 +117,25 @@ export async function connectFallbackVoiceSession({
       mode: 'voice',
       rehydrationPacket,
     });
+    transportConnected = true;
 
     if (!isCurrentSessionOperation(operationId)) {
-      return {
-        status: 'failed',
-        detail: 'Voice session fallback was superseded',
-      };
+      return disconnectConnectedTransport('Voice session fallback was superseded');
     }
 
-    await createPersistedLiveSession();
+    try {
+      await createPersistedLiveSession();
+    } catch (error) {
+      return disconnectConnectedTransport(asErrorDetail(error, 'Failed to create live session'));
+    }
+
     applySpeechLifecycleEvent({ type: 'session.ready' });
     return { status: 'connected' };
   } catch (error) {
+    if (transportConnected) {
+      return disconnectConnectedTransport(asErrorDetail(error, 'Failed to connect voice session'));
+    }
+
     return {
       status: 'failed',
       detail: asErrorDetail(error, 'Failed to connect voice session'),

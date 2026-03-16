@@ -212,6 +212,7 @@ Implemented:
 
 - `GET /health`
 - `POST /session/token`
+- `GET /chat-memory/chats/current`
 - `PUT /chat-memory/chats/current`
 - `POST /chat-memory/chats`
 - `GET /chat-memory/chats`
