@@ -13,6 +13,12 @@ variable "cloud_run_location" {
   type        = string
 }
 
+variable "telemetry_metric_name_prefix" {
+  description = "Optional prefix applied to Gemini Live telemetry log-based metric names to avoid cross-environment collisions."
+  type        = string
+  default     = ""
+}
+
 variable "target_url" {
   description = "Public base URL to probe with the uptime check."
   type        = string
@@ -80,6 +86,12 @@ variable "telemetry_connect_latency_threshold_ms" {
   description = "P95 Gemini Live connect latency in milliseconds that opens the latency alert."
   type        = number
   default     = 2500
+}
+
+variable "telemetry_metric_propagation_duration" {
+  description = "Wait time after creating telemetry log-based metrics before binding alert policies to them."
+  type        = string
+  default     = "60s"
 }
 
 variable "notification_channel_names" {

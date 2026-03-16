@@ -85,14 +85,25 @@ locals {
     }
   }
 
-  telemetry_metric_types = merge(
+  telemetry_metric_resource_names = merge(
     {
       for name, _ in local.telemetry_counter_metrics :
-      name => "logging.googleapis.com/user/${name}"
+      name => "${var.telemetry_metric_name_prefix}${name}"
     },
     {
       for name, _ in local.telemetry_distribution_metrics :
-      name => "logging.googleapis.com/user/${name}"
+      name => "${var.telemetry_metric_name_prefix}${name}"
+    },
+  )
+
+  telemetry_metric_types = merge(
+    {
+      for name, _ in local.telemetry_counter_metrics :
+      name => "logging.googleapis.com/user/${local.telemetry_metric_resource_names[name]}"
+    },
+    {
+      for name, _ in local.telemetry_distribution_metrics :
+      name => "logging.googleapis.com/user/${local.telemetry_metric_resource_names[name]}"
     },
   )
 
@@ -178,7 +189,7 @@ resource "google_logging_metric" "telemetry_counters" {
   for_each = local.telemetry_counter_metrics
 
   project     = var.project_id
-  name        = each.key
+  name        = local.telemetry_metric_resource_names[each.key]
   description = each.value.description
   filter      = each.value.filter
 
@@ -204,7 +215,7 @@ resource "google_logging_metric" "telemetry_distributions" {
   for_each = local.telemetry_distribution_metrics
 
   project         = var.project_id
-  name            = each.key
+  name            = local.telemetry_metric_resource_names[each.key]
   description     = each.value.description
   filter          = each.value.filter
   value_extractor = each.value.value_extractor
@@ -233,6 +244,19 @@ resource "google_logging_metric" "telemetry_distributions" {
   label_extractors = local.telemetry_metric_label_extractors
 }
 
+resource "time_sleep" "telemetry_metric_propagation" {
+  create_duration = var.telemetry_metric_propagation_duration
+
+  triggers = {
+    telemetry_metric_types = jsonencode(local.telemetry_metric_types)
+  }
+
+  depends_on = [
+    google_logging_metric.telemetry_counters,
+    google_logging_metric.telemetry_distributions,
+  ]
+}
+
 resource "google_monitoring_alert_policy" "live_session_error_spike" {
   project               = var.project_id
   display_name          = "Gemini Live telemetry error spike"
@@ -242,6 +266,8 @@ resource "google_monitoring_alert_policy" "live_session_error_spike" {
   user_labels = merge(var.user_labels, {
     signal = "telemetry"
   })
+
+  depends_on = [time_sleep.telemetry_metric_propagation]
 
   conditions {
     display_name = "Gemini Live session error count is spiking"
@@ -281,6 +307,8 @@ resource "google_monitoring_alert_policy" "live_session_started_absent" {
     signal = "telemetry"
   })
 
+  depends_on = [time_sleep.telemetry_metric_propagation]
+
   conditions {
     display_name = "No Gemini Live session starts observed"
 
@@ -316,6 +344,8 @@ resource "google_monitoring_alert_policy" "live_connect_latency_high" {
   user_labels = merge(var.user_labels, {
     signal = "telemetry"
   })
+
+  depends_on = [time_sleep.telemetry_metric_propagation]
 
   conditions {
     display_name = "Gemini Live connect latency p95 is high"
