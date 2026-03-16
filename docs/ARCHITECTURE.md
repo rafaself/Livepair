@@ -164,12 +164,14 @@ Planned:
 
 Implemented:
 
-- Manual start/stop only
 - Active Live session required
-- Lightweight JPEG frames at explicit conservative settings: 1 FPS, compressed JPEG, reduced width, and latest-frame-wins while an earlier frame send is still in flight
-- The user-selected frame-quality menu is the baseline local capture quality
-- Explicit analyze, speech-trigger, and text-trigger snapshots temporarily promote local capture quality to `High`, then return to baseline after the promoted snapshot dispatches or a short timeout
-- Bootstrap snapshots and passive burst/context frames stay at the baseline quality
+- First use of Share Screen requires choosing a persisted `screenContextMode` of `manual` or `continuous`
+- Manual mode keeps Share Screen start/stop explicit and sends only when the user clicks the manual send control
+- Manual sends always use high-detail capture settings
+- Continuous mode keeps explicit Share Screen start/stop, then sends on a fixed 3000 ms base cadence with temporary 1000 ms bursts after meaningful thumbnail changes
+- Continuous mode uses `continuousScreenQuality` as its baseline quality, with `medium` as the default
+- Lightweight JPEG frames use conservative sizing/backpressure and latest-frame-wins while an earlier send is still in flight
+- Debug frame dumps are written only for actual outbound sends and named by timestamp, mode, quality, and send reason
 - Voice-mode screen sharing uses `MEDIA_RESOLUTION_LOW` by default unless the desktop env overrides it
 - Runtime replacement during reconnect/resume/fallback always stops screen capture; users must manually re-enable it on the replacement Live runtime
 - Durable multimodal carry-over is limited to an optional compact text-only `screenContextSummary` entry in the existing rehydration context snapshot; raw screen media and live screen state remain ephemeral

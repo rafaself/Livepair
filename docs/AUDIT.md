@@ -20,7 +20,7 @@ This file points to the current human-facing documentation for Livepair and sepa
 - There is no backend-mediated `POST /session/chat` path in the current repository; typed input is only sent over an active Live session.
 - `speech` mode requests an ephemeral token from `POST /session/token` and then connects directly from the desktop to Gemini Live.
 - `currentMode` and `speechLifecycle` remain the product-level sources of truth.
-- Screen context is manual-only during an active speech session.
+- Screen context runs only during an active speech session and uses the persisted `manual` or `continuous` Share Screen policy.
 - Backend checkpoint persistence, backend-backed tools, and backend error reporting remain planned rather than implemented.
 
 ## Archived Material

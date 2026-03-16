@@ -3,52 +3,32 @@ stateDiagram-v2
 
     [*] --> ScreenShareOff
 
-    ScreenShareOff --> ScreenShareOn: user enables screen share
-    ScreenShareOn --> ScreenShareOff: user disables screen share
+    ScreenShareOff --> ManualMode: user enables Share Screen\nmode = manual
+    ScreenShareOff --> ContinuousMode: user enables Share Screen\nmode = continuous
+    ManualMode --> ScreenShareOff: user disables Share Screen
+    ContinuousMode --> ScreenShareOff: user disables Share Screen
 
-    state ScreenShareOn {
-        [*] --> Sleep
-
-        Sleep --> Snapshot: explicit visual request\n("analyze screen now",\n"look at this screen")
-        Snapshot --> Sleep: snapshot completed\nor no further visual need
-
-        Snapshot --> Streaming: continuous visual context detected\n("follow along", UX review,\nflow walkthrough)
-        Streaming --> Sleep: cooldown / topic changed /\nvisual context ended / guardrail pause
-
-        Sleep --> Streaming: explicit continuous follow mode
+    state ManualMode {
+        [*] --> WaitingForManualSend
+        WaitingForManualSend --> ManualSend: user clicks Send now
+        ManualSend --> WaitingForManualSend: outbound frame sent
     }
 
-    note right of ScreenShareOn
-      Runtime visual state is automatic:
-      sleep | snapshot | streaming
-      Frames are only sent while screen share is enabled.
+    state ContinuousMode {
+        [*] --> BaseCadence
+        BaseCadence --> BaseCadence: outbound base frame every 3000 ms
+        BaseCadence --> BurstWindow: meaningful thumbnail change
+        BurstWindow --> BurstWindow: outbound burst frame every 1000 ms
+        BurstWindow --> BaseCadence: burst window ends
+    }
+
+    note right of ManualMode
+      Manual mode sends only on explicit user action.
+      Manual sends always use high detail.
     end note
 
-    state "Screen Quality Policy" as QualityPolicy {
-        [*] --> DetectTrack
-        DetectTrack --> CapResolution
-
-        DetectTrack: Detect actual capture size\nfrom stream/track settings
-        CapResolution: Cap local frame size\n(target around 1920px max width,\nnot 640px)
-
-        CapResolution --> EncodeJPEG
-        EncodeJPEG: JPEG quality = 0.92
-
-        EncodeJPEG --> SelectMediaResolution
-
-        SelectMediaResolution --> LowMed: general visual context
-        SelectMediaResolution --> High: text-dense / OCR / IDE /\nterminal / logs / tiny UI details
-
-        LowMed --> SendFrame
-        High --> SendFrame
-
-        SendFrame --> [*]
-    }
-
-    note right of SelectMediaResolution
-      Gemini media resolution trades off
-      detail vs latency/cost:
-      LOW = lower cost/detail
-      MEDIUM = balanced
-      HIGH = more detail, more cost/latency
+    note right of ContinuousMode
+      Continuous mode keeps the 3000 ms base cadence.
+      Meaningful thumbnail changes open a bounded 1000 ms burst window.
+      Continuous mode defaults to medium quality.
     end note
