@@ -5,6 +5,7 @@ import type {
   ChatRecord,
   DurableChatSummaryRecord,
   RehydrationPacket,
+  LiveSessionRecord,
 } from '@livepair/shared-types';
 import { useSessionStore } from '../store/sessionStore';
 import { mapChatMessageRecordsToConversationTurns } from '../runtime/public';
@@ -20,7 +21,7 @@ import {
   type ChatMemoryQueriesBridge,
 } from './queries';
 import {
-  listPersistedLiveSessions,
+  getLatestPersistedLiveSession,
   type LiveSessionsBridge,
 } from '../liveSessions/queries';
 
@@ -76,6 +77,18 @@ export async function getCurrentChat(
   return ensureActiveChat(bridge);
 }
 
+export function getCachedActiveChatRecord(chatId?: ChatId): ChatRecord | null {
+  if (activeChat === null) {
+    return null;
+  }
+
+  if (typeof chatId === 'string' && activeChat.id !== chatId) {
+    return null;
+  }
+
+  return activeChat;
+}
+
 export async function hydrateCurrentChat(
   bridge: CurrentChatMemoryBridge = window.bridge,
 ): Promise<HydratedCurrentChat> {
@@ -115,12 +128,11 @@ export async function buildRehydrationPacketFromCurrentChat(
   bridge: CurrentChatMemoryBridge = window.bridge,
 ): Promise<RehydrationPacket> {
   const chat = await ensureActiveChat(bridge);
-  const [messages, chatSummary, liveSessions] = await Promise.all([
+  const [messages, chatSummary, latestLiveSession] = await Promise.all([
     listPersistedChatMessages(chat.id, bridge),
     getPersistedChatSummary(chat.id, bridge),
-    listPersistedLiveSessions(chat.id, bridge),
+    getLatestPersistedLiveSession(chat.id, bridge),
   ]);
-  const latestLiveSession = liveSessions[0] ?? null;
 
   return buildRehydrationPacket(
     messages,
@@ -131,7 +143,7 @@ export async function buildRehydrationPacketFromCurrentChat(
 function getPersistedSnapshotInputs(
   messages: readonly ChatMessageRecord[],
   chatSummary: DurableChatSummaryRecord | null,
-  liveSession: Awaited<ReturnType<typeof listPersistedLiveSessions>>[number] | null,
+  liveSession: LiveSessionRecord | null,
 ): Parameters<typeof buildRehydrationPacket>[1] {
   const latestMessageSequence = messages[messages.length - 1]?.sequence ?? null;
   const hasValidChatSummary =

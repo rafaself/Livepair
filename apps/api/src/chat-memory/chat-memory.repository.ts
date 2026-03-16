@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   AppendChatMessageRequest,
   ChatId,
+  ChatMemoryListOptions,
   ChatMessageRecord,
   ChatRecord,
   CreateChatRequest,
@@ -50,6 +51,16 @@ type MessageRow = {
   sequence: number;
 };
 
+type ListedMessageRow = {
+  existing_chat_id: string;
+  id: string | null;
+  chat_id: string | null;
+  role: ChatMessageRecord['role'] | null;
+  content_text: string | null;
+  created_at: TimestampValue | null;
+  sequence: number | null;
+};
+
 type LiveSessionRow = {
   id: string;
   chat_id: string;
@@ -66,6 +77,23 @@ type LiveSessionRow = {
   context_state_snapshot: unknown;
 };
 
+type ListedLiveSessionRow = {
+  existing_chat_id: string;
+  id: string | null;
+  chat_id: string | null;
+  started_at: TimestampValue | null;
+  ended_at: TimestampValue | null;
+  status: LiveSessionRecord['status'] | null;
+  ended_reason: string | null;
+  resumption_handle: string | null;
+  last_resumption_update_at: TimestampValue | null;
+  restorable: boolean | null;
+  invalidated_at: TimestampValue | null;
+  invalidation_reason: string | null;
+  summary_snapshot: string | null;
+  context_state_snapshot: unknown;
+};
+
 type ChatSummaryRow = {
   chat_id: string;
   schema_version: number;
@@ -73,6 +101,16 @@ type ChatSummaryRow = {
   summary_text: string;
   covered_through_message_sequence: number;
   updated_at: TimestampValue;
+};
+
+type SelectedChatSummaryRow = {
+  existing_chat_id: string;
+  chat_id: string | null;
+  schema_version: number | null;
+  source: string | null;
+  summary_text: string | null;
+  covered_through_message_sequence: number | null;
+  updated_at: TimestampValue | null;
 };
 
 type SequenceAllocationRow = {
@@ -92,11 +130,17 @@ export type ChatMemoryRepository = {
   getChat(chatId: ChatId): Promise<ChatRecord | null>;
   getOrCreateCurrentChat(): Promise<ChatRecord>;
   listChats(): Promise<ChatRecord[]>;
-  listMessages(chatId: ChatId): Promise<ChatMessageRecord[]>;
+  listMessages(
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ): Promise<ChatMessageRecord[]>;
   getChatSummary(chatId: ChatId): Promise<DurableChatSummaryRecord | null>;
   appendMessage(request: AppendChatMessageRequest): Promise<ChatMessageRecord>;
   createLiveSession(request: CreateLiveSessionRequest): Promise<LiveSessionRecord>;
-  listLiveSessions(chatId: ChatId): Promise<LiveSessionRecord[]>;
+  listLiveSessions(
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ): Promise<LiveSessionRecord[]>;
   upsertChatSummary(summary: DurableChatSummaryRecord): Promise<DurableChatSummaryRecord>;
   updateLiveSession(request: UpdateLiveSessionRequest): Promise<LiveSessionRecord>;
   endLiveSession(request: EndLiveSessionRequest): Promise<LiveSessionRecord>;
@@ -120,6 +164,11 @@ function toIsoString(value: TimestampValue): string {
 
 function toOptionalIsoString(value: TimestampValue | null): string | null {
   return value === null ? null : toIsoString(value);
+}
+
+function normalizeListLimit(options?: ChatMemoryListOptions): number | null {
+  const limit = options?.limit;
+  return typeof limit === 'number' && Number.isInteger(limit) && limit > 0 ? limit : null;
 }
 
 function toChatRecord(row: ChatRow): ChatRecord {
@@ -301,39 +350,120 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
     return queryResult.rows.map((row) => toChatRecord(row));
   }
 
-  async listMessages(chatId: ChatId): Promise<ChatMessageRecord[]> {
-    const queryResult = await this.executeQuery<MessageRow>(
-      `
-        SELECT id, chat_id, role, content_text, created_at, sequence
-        FROM messages
-        WHERE chat_id = $1
-        ORDER BY sequence ASC, id ASC
-      `,
-      [chatId],
-    );
+  async listMessages(
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ): Promise<ChatMessageRecord[]> {
+    const limit = normalizeListLimit(options);
+    const queryResult = limit === null
+      ? await this.executeQuery<ListedMessageRow>(
+        `
+          WITH selected_chat AS (
+            SELECT id
+            FROM chats
+            WHERE id = $1
+          )
+          SELECT
+            selected_chat.id AS existing_chat_id,
+            messages.id,
+            messages.chat_id,
+            messages.role,
+            messages.content_text,
+            messages.created_at,
+            messages.sequence
+          FROM selected_chat
+          LEFT JOIN messages ON messages.chat_id = selected_chat.id
+          ORDER BY messages.sequence ASC NULLS LAST, messages.id ASC NULLS LAST
+        `,
+        [chatId],
+      )
+      : await this.executeQuery<ListedMessageRow>(
+        `
+          WITH selected_chat AS (
+            SELECT id
+            FROM chats
+            WHERE id = $1
+          ),
+          limited_messages AS (
+            SELECT id, chat_id, role, content_text, created_at, sequence
+            FROM messages
+            WHERE chat_id = $1
+            ORDER BY sequence DESC, id DESC
+            LIMIT $2
+          )
+          SELECT
+            selected_chat.id AS existing_chat_id,
+            limited_messages.id,
+            limited_messages.chat_id,
+            limited_messages.role,
+            limited_messages.content_text,
+            limited_messages.created_at,
+            limited_messages.sequence
+          FROM selected_chat
+          LEFT JOIN limited_messages ON true
+          ORDER BY limited_messages.sequence ASC NULLS LAST, limited_messages.id ASC NULLS LAST
+        `,
+        [chatId, limit],
+      );
 
-    return queryResult.rows.map((row) => toChatMessageRecord(row));
+    if (queryResult.rowCount === 0) {
+      throw new ChatMemoryNotFoundError('Chat', chatId);
+    }
+
+    if (queryResult.rows[0]?.id === null) {
+      return [];
+    }
+
+    return queryResult.rows.map((row) =>
+      toChatMessageRecord({
+        id: row.id!,
+        chat_id: row.chat_id!,
+        role: row.role!,
+        content_text: row.content_text!,
+        created_at: row.created_at!,
+        sequence: row.sequence!,
+      }));
   }
 
   async getChatSummary(chatId: ChatId): Promise<DurableChatSummaryRecord | null> {
-    const queryResult = await this.executeQuery<ChatSummaryRow>(
+    const queryResult = await this.executeQuery<SelectedChatSummaryRow>(
       `
+        WITH selected_chat AS (
+          SELECT id
+          FROM chats
+          WHERE id = $1
+        )
         SELECT
-          chat_id,
-          schema_version,
-          source,
-          summary_text,
-          covered_through_message_sequence,
-          updated_at
-        FROM chat_summaries
-        WHERE chat_id = $1
+          selected_chat.id AS existing_chat_id,
+          chat_summaries.chat_id,
+          chat_summaries.schema_version,
+          chat_summaries.source,
+          chat_summaries.summary_text,
+          chat_summaries.covered_through_message_sequence,
+          chat_summaries.updated_at
+        FROM selected_chat
+        LEFT JOIN chat_summaries ON chat_summaries.chat_id = selected_chat.id
       `,
       [chatId],
     );
 
-    return queryResult.rowCount === 0
-      ? null
-      : toDurableChatSummaryRecord(queryResult.rows[0]!);
+    if (queryResult.rowCount === 0) {
+      throw new ChatMemoryNotFoundError('Chat', chatId);
+    }
+
+    const row = queryResult.rows[0]!;
+    if (row.chat_id === null) {
+      return null;
+    }
+
+    return toDurableChatSummaryRecord({
+      chat_id: row.chat_id,
+      schema_version: row.schema_version!,
+      source: row.source!,
+      summary_text: row.summary_text!,
+      covered_through_message_sequence: row.covered_through_message_sequence!,
+      updated_at: row.updated_at!,
+    });
   }
 
   async appendMessage(request: AppendChatMessageRequest): Promise<ChatMessageRecord> {
@@ -425,31 +555,115 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
     return toLiveSessionRecord(insertResult.rows[0]!);
   }
 
-  async listLiveSessions(chatId: ChatId): Promise<LiveSessionRecord[]> {
-    const queryResult = await this.executeQuery<LiveSessionRow>(
-      `
-        SELECT
-          id,
-          chat_id,
-          started_at,
-          ended_at,
-          status,
-          ended_reason,
-          resumption_handle,
-          last_resumption_update_at,
-          restorable,
-          invalidated_at,
-          invalidation_reason,
-          summary_snapshot,
-          context_state_snapshot
-        FROM live_sessions
-        WHERE chat_id = $1
-        ORDER BY started_at DESC, id DESC
-      `,
-      [chatId],
-    );
+  async listLiveSessions(
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ): Promise<LiveSessionRecord[]> {
+    const limit = normalizeListLimit(options);
+    const queryResult = limit === null
+      ? await this.executeQuery<ListedLiveSessionRow>(
+        `
+          WITH selected_chat AS (
+            SELECT id
+            FROM chats
+            WHERE id = $1
+          )
+          SELECT
+            selected_chat.id AS existing_chat_id,
+            live_sessions.id,
+            live_sessions.chat_id,
+            live_sessions.started_at,
+            live_sessions.ended_at,
+            live_sessions.status,
+            live_sessions.ended_reason,
+            live_sessions.resumption_handle,
+            live_sessions.last_resumption_update_at,
+            live_sessions.restorable,
+            live_sessions.invalidated_at,
+            live_sessions.invalidation_reason,
+            live_sessions.summary_snapshot,
+            live_sessions.context_state_snapshot
+          FROM selected_chat
+          LEFT JOIN live_sessions ON live_sessions.chat_id = selected_chat.id
+          ORDER BY live_sessions.started_at DESC NULLS LAST, live_sessions.id DESC NULLS LAST
+        `,
+        [chatId],
+      )
+      : await this.executeQuery<ListedLiveSessionRow>(
+        `
+          WITH selected_chat AS (
+            SELECT id
+            FROM chats
+            WHERE id = $1
+          ),
+          limited_live_sessions AS (
+            SELECT
+              id,
+              chat_id,
+              started_at,
+              ended_at,
+              status,
+              ended_reason,
+              resumption_handle,
+              last_resumption_update_at,
+              restorable,
+              invalidated_at,
+              invalidation_reason,
+              summary_snapshot,
+              context_state_snapshot
+            FROM live_sessions
+            WHERE chat_id = $1
+            ORDER BY started_at DESC, id DESC
+            LIMIT $2
+          )
+          SELECT
+            selected_chat.id AS existing_chat_id,
+            limited_live_sessions.id,
+            limited_live_sessions.chat_id,
+            limited_live_sessions.started_at,
+            limited_live_sessions.ended_at,
+            limited_live_sessions.status,
+            limited_live_sessions.ended_reason,
+            limited_live_sessions.resumption_handle,
+            limited_live_sessions.last_resumption_update_at,
+            limited_live_sessions.restorable,
+            limited_live_sessions.invalidated_at,
+            limited_live_sessions.invalidation_reason,
+            limited_live_sessions.summary_snapshot,
+            limited_live_sessions.context_state_snapshot
+          FROM selected_chat
+          LEFT JOIN limited_live_sessions ON true
+          ORDER BY
+            limited_live_sessions.started_at DESC NULLS LAST,
+            limited_live_sessions.id DESC NULLS LAST
+        `,
+        [chatId, limit],
+      );
 
-    return queryResult.rows.map((row) => toLiveSessionRecord(row));
+    if (queryResult.rowCount === 0) {
+      throw new ChatMemoryNotFoundError('Chat', chatId);
+    }
+
+    if (queryResult.rows[0]?.id === null) {
+      return [];
+    }
+
+    return queryResult.rows.map((row) =>
+      toLiveSessionRecord({
+        id: row.id!,
+        chat_id: row.chat_id!,
+        started_at: row.started_at!,
+        ended_at: row.ended_at,
+        status: row.status!,
+        ended_reason: row.ended_reason,
+        resumption_handle: row.resumption_handle,
+        last_resumption_update_at: row.last_resumption_update_at,
+        restorable: row.restorable!,
+        invalidated_at: row.invalidated_at,
+        invalidation_reason: row.invalidation_reason,
+        summary_snapshot: row.summary_snapshot,
+        context_state_snapshot: row.context_state_snapshot,
+      }));
   }
 
   async upsertChatSummary(summary: DurableChatSummaryRecord): Promise<DurableChatSummaryRecord> {

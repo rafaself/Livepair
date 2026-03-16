@@ -10,9 +10,11 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Res,
 } from '@nestjs/common';
 import type {
+  ChatMemoryListOptions,
   ChatMessageRecord,
   ChatRecord,
   DurableChatSummaryRecord,
@@ -65,8 +67,9 @@ export class ChatMemoryController {
   @Get('chats/:chatId/messages')
   listMessages(
     @Param('chatId', new ParseUUIDPipe()) chatId: string,
+    @Query('limit') limit: unknown,
   ): Promise<ChatMessageRecord[]> {
-    return this.chatMemoryService.listMessages(chatId);
+    return this.chatMemoryService.listMessages(chatId, this.parseListOptions(limit));
   }
 
   @Post('chats/:chatId/messages')
@@ -105,8 +108,9 @@ export class ChatMemoryController {
   @Get('chats/:chatId/live-sessions')
   listLiveSessions(
     @Param('chatId', new ParseUUIDPipe()) chatId: string,
+    @Query('limit') limit: unknown,
   ): Promise<LiveSessionRecord[]> {
-    return this.chatMemoryService.listLiveSessions(chatId);
+    return this.chatMemoryService.listLiveSessions(chatId, this.parseListOptions(limit));
   }
 
   @Patch('live-sessions/:id/resumption')
@@ -149,5 +153,22 @@ export class ChatMemoryController {
         `Path parameter ${pathParamName} must match body id field`,
       );
     }
+  }
+
+  private parseListOptions(limit: unknown): ChatMemoryListOptions | undefined {
+    if (typeof limit === 'undefined') {
+      return undefined;
+    }
+
+    if (Array.isArray(limit)) {
+      throw new BadRequestException('Query parameter limit must be a positive integer');
+    }
+
+    const parsedLimit = Number(limit);
+    if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) {
+      throw new BadRequestException('Query parameter limit must be a positive integer');
+    }
+
+    return { limit: parsedLimit };
   }
 }

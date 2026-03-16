@@ -238,6 +238,99 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
     );
   });
 
+  it('supports bounded latest-item reads for messages and live sessions', async () => {
+    const chat = await fetch(`${baseUrl}/chat-memory/chats/current`, {
+      method: 'PUT',
+    }).then((response) => readJson<ChatRecord>(response));
+
+    const firstMessage = await fetch(`${baseUrl}/chat-memory/chats/${chat.id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chatId: chat.id,
+        role: 'user',
+        contentText: 'First turn',
+      }),
+    }).then((response) => readJson<ChatMessageRecord>(response));
+    const secondMessage = await fetch(`${baseUrl}/chat-memory/chats/${chat.id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chatId: chat.id,
+        role: 'assistant',
+        contentText: 'Second turn',
+      }),
+    }).then((response) => readJson<ChatMessageRecord>(response));
+
+    await fetch(`${baseUrl}/chat-memory/chats/${chat.id}/live-sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chatId: chat.id,
+        startedAt: '2026-03-12T09:00:00.000Z',
+      }),
+    }).then((response) => readJson<LiveSessionRecord>(response));
+    const secondLiveSession = await fetch(`${baseUrl}/chat-memory/chats/${chat.id}/live-sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chatId: chat.id,
+        startedAt: '2026-03-12T10:00:00.000Z',
+      }),
+    }).then((response) => readJson<LiveSessionRecord>(response));
+
+    const boundedMessagesResponse = await fetch(
+      `${baseUrl}/chat-memory/chats/${chat.id}/messages?limit=1`,
+    );
+    expect(boundedMessagesResponse.status).toBe(200);
+    await expect(readJson<ChatMessageRecord[]>(boundedMessagesResponse)).resolves.toEqual([
+      secondMessage,
+    ]);
+
+    const boundedLiveSessionsResponse = await fetch(
+      `${baseUrl}/chat-memory/chats/${chat.id}/live-sessions?limit=1`,
+    );
+    expect(boundedLiveSessionsResponse.status).toBe(200);
+    await expect(readJson<LiveSessionRecord[]>(boundedLiveSessionsResponse)).resolves.toEqual([
+      secondLiveSession,
+    ]);
+
+    const invalidLimitResponse = await fetch(
+      `${baseUrl}/chat-memory/chats/${chat.id}/messages?limit=0`,
+    );
+    expect(invalidLimitResponse.status).toBe(400);
+
+    const fullMessagesResponse = await fetch(`${baseUrl}/chat-memory/chats/${chat.id}/messages`);
+    expect(fullMessagesResponse.status).toBe(200);
+    await expect(readJson<ChatMessageRecord[]>(fullMessagesResponse)).resolves.toEqual([
+      firstMessage,
+      secondMessage,
+    ]);
+  });
+
+  it('returns 404 for missing chat list and summary reads', async () => {
+    const missingChatId = randomUUID();
+
+    const messagesResponse = await fetch(`${baseUrl}/chat-memory/chats/${missingChatId}/messages`);
+    expect(messagesResponse.status).toBe(404);
+
+    const summaryResponse = await fetch(`${baseUrl}/chat-memory/chats/${missingChatId}/summary`);
+    expect(summaryResponse.status).toBe(404);
+
+    const liveSessionsResponse = await fetch(
+      `${baseUrl}/chat-memory/chats/${missingChatId}/live-sessions`,
+    );
+    expect(liveSessionsResponse.status).toBe(404);
+  });
+
   it('rejects invalid payloads and path/body id mismatches', async () => {
     const chat = await fetch(`${baseUrl}/chat-memory/chats/current`, {
       method: 'PUT',

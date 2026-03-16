@@ -14,11 +14,17 @@ export const bridge: DesktopBridge = {
   getChat: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.getChat, chatId),
   getOrCreateCurrentChat: () => ipcRenderer.invoke(IPC_CHANNELS.getOrCreateCurrentChat),
   listChats: () => ipcRenderer.invoke(IPC_CHANNELS.listChats),
-  listChatMessages: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.listChatMessages, chatId),
+  listChatMessages: (chatId, options) =>
+    typeof options === 'undefined'
+      ? ipcRenderer.invoke(IPC_CHANNELS.listChatMessages, chatId)
+      : ipcRenderer.invoke(IPC_CHANNELS.listChatMessages, chatId, options),
   getChatSummary: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.getChatSummary, chatId),
   appendChatMessage: (req) => ipcRenderer.invoke(IPC_CHANNELS.appendChatMessage, req),
   createLiveSession: (req) => ipcRenderer.invoke(IPC_CHANNELS.createLiveSession, req),
-  listLiveSessions: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.listLiveSessions, chatId),
+  listLiveSessions: (chatId, options) =>
+    typeof options === 'undefined'
+      ? ipcRenderer.invoke(IPC_CHANNELS.listLiveSessions, chatId)
+      : ipcRenderer.invoke(IPC_CHANNELS.listLiveSessions, chatId, options),
   updateLiveSession: (req) => ipcRenderer.invoke(IPC_CHANNELS.updateLiveSession, req),
   endLiveSession: (req) => ipcRenderer.invoke(IPC_CHANNELS.endLiveSession, req),
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.getSettings),

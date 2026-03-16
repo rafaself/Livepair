@@ -63,6 +63,10 @@ export interface AppendChatMessageRequest {
   contentText: string;
 }
 
+export interface ChatMemoryListOptions {
+  limit?: number;
+}
+
 export interface DurableChatSummaryRecord {
   chatId: ChatId;
   schemaVersion: number;

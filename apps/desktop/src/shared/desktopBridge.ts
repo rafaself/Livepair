@@ -1,6 +1,7 @@
 import type {
   AppendChatMessageRequest,
   ChatId,
+  ChatMemoryListOptions,
   ChatMessageRecord,
   ChatRecord,
   DurableChatSummaryRecord,
@@ -13,6 +14,7 @@ import type {
   LiveSessionRecord,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
+export type { ChatMemoryListOptions } from '@livepair/shared-types';
 import type {
   DesktopSettings,
   DesktopSettingsPatch,
@@ -92,11 +94,17 @@ export interface DesktopBridge {
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
   listChats: () => Promise<ChatRecord[]>;
-  listChatMessages: (chatId: ChatId) => Promise<ChatMessageRecord[]>;
+  listChatMessages: (
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ) => Promise<ChatMessageRecord[]>;
   getChatSummary: (chatId: ChatId) => Promise<DurableChatSummaryRecord | null>;
   appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
   createLiveSession: (req: CreateLiveSessionRequest) => Promise<LiveSessionRecord>;
-  listLiveSessions: (chatId: ChatId) => Promise<LiveSessionRecord[]>;
+  listLiveSessions: (
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ) => Promise<LiveSessionRecord[]>;
   updateLiveSession: (req: UpdateLiveSessionRequest) => Promise<LiveSessionRecord>;
   endLiveSession: (req: EndLiveSessionRequest) => Promise<LiveSessionRecord>;
   getSettings: () => Promise<DesktopSettings>;
