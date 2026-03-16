@@ -400,6 +400,39 @@ With the API running, you can also confirm backend health directly:
 curl http://127.0.0.1:3000/health
 ```
 
+### 🐳 API container build
+
+Wave 2 adds a backend-only container build that is ready for later Cloud Run deployment without adding deployment manifests yet.
+
+Build the image from the repository root so the Docker build can see both `apps/api` and the workspace dependency in `packages/shared-types`:
+
+```bash
+docker build -f apps/api/Dockerfile -t livepair-api:local .
+```
+
+Run it locally by passing config at launch time instead of baking env files into the image:
+
+```bash
+docker run --rm \
+  -p 3000:3000 \
+  --env-file .env \
+  livepair-api:local
+```
+
+The image keeps `NODE_ENV=production`, starts with `node dist/main.js`, honors `PORT`, binds to `0.0.0.0`, and logs to stdout/stderr. The root `.dockerignore` keeps `.env`, `.git`, local `node_modules`, logs, and unrelated workspace files out of the Docker build context.
+
+If you want to mimic Cloud Run's default port locally, override `PORT` when you start the container:
+
+```bash
+docker run --rm \
+  -p 8080:8080 \
+  --env-file .env \
+  -e PORT=8080 \
+  livepair-api:local
+```
+
+`GET /health` should respond without a database connection. Routes backed by durable chat-memory persistence still require a reachable Postgres via `DATABASE_URL`.
+
 For the shortest evaluator-friendly app check after startup, use the fast flow in [docs/QA_RUNBOOK.md](./docs/QA_RUNBOOK.md).
 
 ### 🐘 Local infrastructure helpers

@@ -1,0 +1,20 @@
+# Default to an allowlist so the API image only gets the workspace files it needs.
+*
+
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!apps/
+!apps/api/
+!apps/api/Dockerfile
+!apps/api/package.json
+!apps/api/tsconfig.json
+!apps/api/src/
+!apps/api/src/**
+!packages/
+!packages/shared-types/
+!packages/shared-types/package.json
+!packages/shared-types/tsconfig.json
+!packages/shared-types/src/
+!packages/shared-types/src/**
