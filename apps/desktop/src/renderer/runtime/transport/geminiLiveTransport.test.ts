@@ -355,7 +355,7 @@ describe('createGeminiLiveTransport', () => {
     await connectPromise;
   });
 
-  it('prefills canonical history from the rehydration packet once after setup completes', async () => {
+  it('prefills summary/context memory before canonical history from the rehydration packet once after setup completes', async () => {
     const sdkHarness = createSdkHarness();
     const transport = createGeminiLiveTransport({
       connectSession: sdkHarness.connectSession,
@@ -372,7 +372,7 @@ describe('createGeminiLiveTransport', () => {
       rehydrationPacket: {
         stableInstruction:
           'Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.',
-        summary: null,
+        summary: 'Persisted summary snapshot',
         recentTurns: [
           {
             role: 'user',
@@ -391,10 +391,10 @@ describe('createGeminiLiveTransport', () => {
         ],
         contextState: {
           task: {
-            entries: [],
+            entries: [{ key: 'taskStatus', value: 'active' }],
           },
           context: {
-            entries: [],
+            entries: [{ key: 'repo', value: 'Livepair' }],
           },
         },
       },
@@ -409,6 +409,21 @@ describe('createGeminiLiveTransport', () => {
     expect(sdkHarness.session.sendClientContent).toHaveBeenCalledTimes(1);
     expect(sdkHarness.session.sendClientContent).toHaveBeenNthCalledWith(1, {
       turns: [
+        {
+          role: 'user',
+          parts: [{
+            text: `Rehydrate this new Live session from the provided saved chat memory only. Prefer the summary and state when present, and use the recent turns as compact fallback context.
+
+Saved summary:
+Persisted summary snapshot
+
+Saved task state:
+- taskStatus: active
+
+Saved context state:
+- repo: Livepair`,
+          }],
+        },
         {
           role: 'user',
           parts: [{ text: 'Persisted question' }],
