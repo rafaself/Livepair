@@ -5,6 +5,7 @@ import type {
   AnswerProvenance,
   AppendChatMessageRequest,
   ChatId,
+  ChatMemoryListOptions,
   ChatMessageRecord,
   ChatMessageRole,
   ChatRecord,
@@ -19,6 +20,7 @@ import type {
   EndLiveSessionRequest,
   GeminiLiveVoiceSessionCapabilities,
   HealthResponse,
+  LiveSessionId,
   LiveSessionRecord,
   LiveSessionStatus,
   ProjectKnowledgeRetrievalStatus,
@@ -32,6 +34,7 @@ import type {
 import {
   buildGeminiLiveConnectCapabilityConfig,
   buildGeminiLiveVoiceModeConfig,
+  buildGeminiLiveVoiceSessionCapabilities,
   GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
   GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
   SESSION_TOKEN_AUTH_HEADER_NAME,
@@ -128,6 +131,12 @@ type _BuildGeminiLiveVoiceModeConfigReturn = Assert<
     GeminiLiveVoiceModeConfig
   >
 >;
+type _BuildGeminiLiveVoiceSessionCapabilitiesReturn = Assert<
+  IsExact<
+    ReturnType<typeof buildGeminiLiveVoiceSessionCapabilities>,
+    GeminiLiveVoiceSessionCapabilities
+  >
+>;
 type _BuildGeminiLiveConnectCapabilityConfigReturn = Assert<
   IsExact<
     ReturnType<typeof buildGeminiLiveConnectCapabilityConfig>,
@@ -184,6 +193,9 @@ type _SessionTokenAuthHeaderName = Assert<
 >;
 type _ChatIdShape = Assert<
   IsExact<ChatId, string>
+>;
+type _ChatMemoryListOptionsShape = Assert<
+  IsExact<ChatMemoryListOptions, { limit?: number }>
 >;
 type _ChatRecordShape = Assert<
   IsExact<
@@ -296,6 +308,9 @@ type _DurableChatSummaryRecordShape = Assert<
 >;
 type _LiveSessionStatusShape = Assert<
   IsExact<LiveSessionStatus, 'active' | 'ended' | 'failed'>
+>;
+type _LiveSessionIdShape = Assert<
+  IsExact<LiveSessionId, string>
 >;
 type _RehydrationPacketShape = Assert<
   IsExact<
