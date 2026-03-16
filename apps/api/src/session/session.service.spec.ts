@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES } from '@livepair/shared-types';
 // Prevent the root env loader from re-reading .env on each jest.resetModules()
 // re-import of env.ts, which would restore deleted process.env vars from disk.
 jest.mock('../config/loadRootEnv', () => ({}));
@@ -15,7 +16,6 @@ describe('SessionService', () => {
       ...originalEnv,
       GEMINI_API_KEY: 'gemini-key',
       SESSION_TOKEN_LIVE_MODEL: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
-      SESSION_TOKEN_LIVE_SESSION_RESUMPTION: 'true',
       EPHEMERAL_TOKEN_TTL_SECONDS: '60',
     };
     consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
@@ -65,7 +65,9 @@ describe('SessionService', () => {
       liveConnectConstraints: {
         model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
-          responseModalities: ['AUDIO'],
+          responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
+          inputAudioTranscription: {},
+          outputAudioTranscription: {},
           sessionResumption: {},
         },
       },

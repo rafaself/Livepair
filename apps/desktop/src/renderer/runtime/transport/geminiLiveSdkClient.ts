@@ -108,6 +108,9 @@ export async function connectGeminiLiveSdkSession({
     model,
     apiVersion,
     responseModalities: config.responseModalities,
+    inputAudioTranscriptionEnabled: Boolean(config.inputAudioTranscription),
+    outputAudioTranscriptionEnabled: Boolean(config.outputAudioTranscription),
+    sessionResumptionEnabled: Boolean(config.sessionResumption),
     tokenLength: apiKey.length,
   });
 

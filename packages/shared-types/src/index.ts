@@ -161,6 +161,20 @@ export interface CreateEphemeralTokenResponse {
   newSessionExpireTime: string;
 }
 
+export interface GeminiLiveVoiceSessionCapabilities {
+  responseModalities: readonly ['AUDIO'];
+  inputAudioTranscriptionEnabled: boolean;
+  outputAudioTranscriptionEnabled: boolean;
+  sessionResumptionEnabled: boolean;
+}
+
+export const GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES = {
+  responseModalities: ['AUDIO'],
+  inputAudioTranscriptionEnabled: true,
+  outputAudioTranscriptionEnabled: true,
+  sessionResumptionEnabled: true,
+} as const satisfies GeminiLiveVoiceSessionCapabilities;
+
 export interface ProjectKnowledgeSearchRequest {
   query: string;
 }
