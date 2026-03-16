@@ -81,12 +81,12 @@
   bottom: var(--space-4);
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
   border-radius: var(--radius-full);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(22, 28, 35, 0.92);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-md);
   cursor: pointer;
@@ -100,8 +100,8 @@
 
 .conversation-list__scroll-to-bottom:hover {
   transform: translateY(-1px);
-  background: rgba(30, 37, 46, 0.96);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-accent) 4%);
+  border-color: color-mix(in srgb, var(--color-accent) 24%, var(--color-border));
 }
 
 .conversation-list__scroll-to-bottom:focus-visible {
