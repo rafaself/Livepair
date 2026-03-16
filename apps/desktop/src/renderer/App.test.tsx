@@ -180,16 +180,17 @@ describe('App', () => {
 
     expect(startScreenCaptureSpy).not.toHaveBeenCalled();
 
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Choose your Share Screen mode',
+    await screen.findByRole('dialog', {
+      name: 'Choose screen share mode',
     });
     const manualRadio = screen.getByRole('radio', { name: /manual/i });
     const confirmButton = screen.getByRole('button', { name: 'Confirm Share Screen mode' });
 
     expect(dialog).toBeVisible();
-    expect(dialog.parentElement).toHaveClass('screen-context-dialog-panel-frame');
+    expect(dialog.parentElement).toHaveClass('panel-dialog__frame');
+    expect(dialog.parentElement).toHaveClass('share-screen-mode-dialog__frame');
     expect(dialog).toHaveAttribute('aria-describedby', 'share-screen-mode-description');
-    expect(screen.getByText(/sends your current screen only when you explicitly click/i)).toBeVisible();
+    expect(screen.getByText('Send only when you choose to share.')).toBeVisible();
     expect(confirmButton).toBeDisabled();
     expect(manualRadio).toHaveFocus();
 
@@ -213,7 +214,41 @@ describe('App', () => {
       expect(startScreenCaptureSpy).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Choose your Share Screen mode' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Choose screen share mode' })).toBeNull();
+      expect(shareScreenButton).toHaveFocus();
+    });
+  });
+
+  it('closes the Share Screen mode dialog without starting capture when canceled', async () => {
+    installMatchMedia(true);
+    const controller = getDesktopSessionController();
+    const startScreenCaptureSpy = vi.spyOn(controller, 'startScreenCapture').mockResolvedValue();
+
+    useSessionStore.setState({
+      currentMode: 'speech',
+      activeTransport: 'gemini-live',
+      speechLifecycle: { status: 'listening' },
+      voiceSessionStatus: 'ready',
+      voiceCaptureState: 'stopped',
+      screenCaptureState: 'disabled',
+    });
+
+    render(<App />);
+
+    const shareScreenButton = screen.getByRole('button', { name: 'Share screen' });
+    shareScreenButton.focus();
+    fireEvent.click(shareScreenButton);
+
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Choose screen share mode',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Share Screen mode' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Choose screen share mode' })).toBeNull();
+      expect(startScreenCaptureSpy).not.toHaveBeenCalled();
+      expect(window.bridge.updateSettings).not.toHaveBeenCalled();
       expect(shareScreenButton).toHaveFocus();
     });
   });
@@ -240,13 +275,14 @@ describe('App', () => {
     expect(startVoiceCaptureSpy).not.toHaveBeenCalled();
 
     const dialog = await screen.findByRole('dialog', {
-      name: 'Choose your Share Screen mode',
+      name: 'Choose screen share mode',
     });
     const manualRadio = screen.getByRole('radio', { name: /manual/i });
     const confirmButton = screen.getByRole('button', { name: 'Confirm Share Screen mode' });
 
     expect(dialog).toBeVisible();
-    expect(dialog.parentElement).toHaveClass('screen-context-dialog-panel-frame');
+    expect(dialog.parentElement).toHaveClass('panel-dialog__frame');
+    expect(dialog.parentElement).toHaveClass('share-screen-mode-dialog__frame');
     expect(confirmButton).toBeDisabled();
 
     fireEvent.click(manualRadio);
