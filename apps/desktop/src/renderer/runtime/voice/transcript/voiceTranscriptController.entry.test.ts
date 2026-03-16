@@ -62,6 +62,7 @@ describe('createVoiceTranscriptController facade', () => {
           assistant: { text: '' },
         },
         setCurrentVoiceTranscriptEntry: vi.fn(),
+        setVoiceSessionRecoveryDiagnostics: vi.fn(),
         clearCurrentVoiceTranscript,
         conversationTurns: [],
         transcriptArtifacts: [],

@@ -139,6 +139,42 @@ describe('sessionStore', () => {
           resumable: false,
           lastDetail: null,
         },
+        effectiveVoiceSessionCapabilities: null,
+        voiceTranscriptDiagnostics: {
+          inputTranscriptCount: 0,
+          lastInputTranscriptAt: null,
+          outputTranscriptCount: 0,
+          lastOutputTranscriptAt: null,
+          assistantTextFallbackCount: 0,
+          lastAssistantTextFallbackAt: null,
+          lastAssistantTextFallbackReason: null,
+        },
+        ignoredAssistantOutputDiagnostics: {
+          totalCount: 0,
+          countsByEventType: {
+            textDelta: 0,
+            outputTranscript: 0,
+            audioChunk: 0,
+            turnComplete: 0,
+          },
+          countsByReason: {
+            turnUnavailable: 0,
+            lifecycleFence: 0,
+            noOpenTurnFence: 0,
+          },
+          lastIgnoredAt: null,
+          lastIgnoredReason: null,
+          lastIgnoredEventType: null,
+          lastIgnoredVoiceSessionStatus: null,
+        },
+        voiceSessionRecoveryDiagnostics: {
+          transitionCount: 0,
+          lastTransition: null,
+          lastTransitionAt: null,
+          lastRecoveryDetail: null,
+          lastTurnResetReason: null,
+          lastTurnResetAt: null,
+        },
         screenShareIntended: false,
         screenCaptureState: 'disabled',
         screenCaptureDiagnostics: {
@@ -191,6 +227,94 @@ describe('sessionStore', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
       lastDetail: 'Refreshing token before resume',
+    });
+  });
+
+  it('tracks compact live speech diagnostics separately from session status state', () => {
+    expect(useSessionStore.getState().effectiveVoiceSessionCapabilities).toBeNull();
+
+    useSessionStore.getState().setEffectiveVoiceSessionCapabilities({
+      responseModality: 'AUDIO',
+      inputAudioTranscriptionEnabled: true,
+      outputAudioTranscriptionEnabled: true,
+      sessionResumptionEnabled: true,
+    });
+    useSessionStore.getState().setVoiceTranscriptDiagnostics({
+      inputTranscriptCount: 2,
+      lastInputTranscriptAt: '2026-03-16T12:10:00.000Z',
+      outputTranscriptCount: 1,
+      lastOutputTranscriptAt: '2026-03-16T12:10:05.000Z',
+      assistantTextFallbackCount: 1,
+      lastAssistantTextFallbackAt: '2026-03-16T12:10:06.000Z',
+      lastAssistantTextFallbackReason: 'missing-output-transcript',
+    });
+    useSessionStore.getState().setIgnoredAssistantOutputDiagnostics({
+      totalCount: 3,
+      countsByEventType: {
+        textDelta: 1,
+        outputTranscript: 1,
+        audioChunk: 1,
+        turnComplete: 0,
+      },
+      countsByReason: {
+        turnUnavailable: 2,
+        lifecycleFence: 1,
+        noOpenTurnFence: 0,
+      },
+      lastIgnoredAt: '2026-03-16T12:10:07.000Z',
+      lastIgnoredReason: 'lifecycle-fence',
+      lastIgnoredEventType: 'audio-chunk',
+      lastIgnoredVoiceSessionStatus: 'recovering',
+    });
+    useSessionStore.getState().setVoiceSessionRecoveryDiagnostics({
+      transitionCount: 4,
+      lastTransition: 'resume-connect-failed',
+      lastTransitionAt: '2026-03-16T12:10:08.000Z',
+      lastRecoveryDetail: 'resume rejected',
+      lastTurnResetReason: 'new-user-transcript',
+      lastTurnResetAt: '2026-03-16T12:10:09.000Z',
+    });
+
+    expect(useSessionStore.getState().effectiveVoiceSessionCapabilities).toEqual({
+      responseModality: 'AUDIO',
+      inputAudioTranscriptionEnabled: true,
+      outputAudioTranscriptionEnabled: true,
+      sessionResumptionEnabled: true,
+    });
+    expect(useSessionStore.getState().voiceTranscriptDiagnostics).toEqual({
+      inputTranscriptCount: 2,
+      lastInputTranscriptAt: '2026-03-16T12:10:00.000Z',
+      outputTranscriptCount: 1,
+      lastOutputTranscriptAt: '2026-03-16T12:10:05.000Z',
+      assistantTextFallbackCount: 1,
+      lastAssistantTextFallbackAt: '2026-03-16T12:10:06.000Z',
+      lastAssistantTextFallbackReason: 'missing-output-transcript',
+    });
+    expect(useSessionStore.getState().ignoredAssistantOutputDiagnostics).toEqual({
+      totalCount: 3,
+      countsByEventType: {
+        textDelta: 1,
+        outputTranscript: 1,
+        audioChunk: 1,
+        turnComplete: 0,
+      },
+      countsByReason: {
+        turnUnavailable: 2,
+        lifecycleFence: 1,
+        noOpenTurnFence: 0,
+      },
+      lastIgnoredAt: '2026-03-16T12:10:07.000Z',
+      lastIgnoredReason: 'lifecycle-fence',
+      lastIgnoredEventType: 'audio-chunk',
+      lastIgnoredVoiceSessionStatus: 'recovering',
+    });
+    expect(useSessionStore.getState().voiceSessionRecoveryDiagnostics).toEqual({
+      transitionCount: 4,
+      lastTransition: 'resume-connect-failed',
+      lastTransitionAt: '2026-03-16T12:10:08.000Z',
+      lastRecoveryDetail: 'resume rejected',
+      lastTurnResetReason: 'new-user-transcript',
+      lastTurnResetAt: '2026-03-16T12:10:09.000Z',
     });
   });
 

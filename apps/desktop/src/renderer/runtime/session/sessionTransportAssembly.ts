@@ -1,6 +1,6 @@
 import { logRuntimeDiagnostic } from '../core/logger';
 import { asErrorDetail } from '../core/runtimeUtils';
-import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
+import { getLiveConfig, LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import { createTransportEventRouter } from '../transport/transportEventRouter';
 import { createVoiceResumeController } from '../voice/session/voiceResumeController';
 import { connectFallbackVoiceSession } from '../voice/session/connectFallbackVoiceSession';
@@ -216,6 +216,23 @@ export function createSessionTransportAssembly({
     setVoiceErrorState: (detail) => setVoiceErrorState(detail),
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     resumeVoiceSession: (detail) => voiceResumeCtrl.resume(detail),
+    updateVoiceLiveSignalDiagnostics: (patch) => {
+      dependencies.store.getState().updateVoiceLiveSignalDiagnostics(patch);
+    },
+    getActiveLiveCapabilities: () => {
+      try {
+        const config = getLiveConfig();
+        const voiceMode = config.sessionModes.voice;
+        return {
+          inputAudioTranscriptionEnabled: voiceMode.inputAudioTranscription,
+          outputAudioTranscriptionEnabled: voiceMode.outputAudioTranscription,
+          responseModality: voiceMode.responseModality,
+          sessionResumptionEnabled: config.sessionResumptionEnabled,
+        };
+      } catch {
+        return null;
+      }
+    },
     restoreScreenCapture: () => {
       void refreshScreenCaptureSourceSnapshot().then((didRefresh) => {
         if (!didRefresh) {

@@ -5,6 +5,7 @@ import type {
   ScreenCaptureSourceSnapshot,
 } from '../../shared';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
+import type { EffectiveVoiceSessionCapabilities } from '../runtime/transport/liveConfig';
 import type {
   AssistantActivityState,
   ConversationTurnModel,
@@ -24,6 +25,7 @@ import type {
   VisualSendDiagnostics,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceLiveSignalDiagnostics,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionLatencyState,
@@ -35,6 +37,68 @@ import type {
 
 export type BackendConnectionState = 'idle' | 'checking' | 'connected' | 'failed';
 export type TokenRequestState = 'idle' | 'loading' | 'success' | 'error';
+
+export type AssistantTextFallbackReason = 'missing-output-transcript';
+export type IgnoredAssistantOutputEventType =
+  | 'text-delta'
+  | 'output-transcript'
+  | 'audio-chunk'
+  | 'turn-complete';
+export type IgnoredAssistantOutputReason =
+  | 'turn-unavailable'
+  | 'lifecycle-fence'
+  | 'no-open-turn-fence';
+export type VoiceSessionRecoveryTransition =
+  | 'resume-requested'
+  | 'resume-skipped'
+  | 'token-refresh-required'
+  | 'resume-aborted'
+  | 'resume-connect-resolved'
+  | 'resume-connect-failed'
+  | 'fallback-connected'
+  | 'fallback-failed'
+  | 'session-resumption-updated';
+export type VoiceTurnResetReason =
+  | 'replayed-user-transcript'
+  | 'new-user-transcript';
+
+export type VoiceTranscriptDiagnostics = {
+  inputTranscriptCount: number;
+  lastInputTranscriptAt: string | null;
+  outputTranscriptCount: number;
+  lastOutputTranscriptAt: string | null;
+  assistantTextFallbackCount: number;
+  lastAssistantTextFallbackAt: string | null;
+  lastAssistantTextFallbackReason: AssistantTextFallbackReason | null;
+};
+
+export type IgnoredAssistantOutputDiagnostics = {
+  totalCount: number;
+  countsByEventType: {
+    textDelta: number;
+    outputTranscript: number;
+    audioChunk: number;
+    turnComplete: number;
+  };
+  countsByReason: {
+    turnUnavailable: number;
+    lifecycleFence: number;
+    noOpenTurnFence: number;
+  };
+  lastIgnoredAt: string | null;
+  lastIgnoredReason: IgnoredAssistantOutputReason | null;
+  lastIgnoredEventType: IgnoredAssistantOutputEventType | null;
+  lastIgnoredVoiceSessionStatus: VoiceSessionStatus | null;
+};
+
+export type VoiceSessionRecoveryDiagnostics = {
+  transitionCount: number;
+  lastTransition: VoiceSessionRecoveryTransition | null;
+  lastTransitionAt: string | null;
+  lastRecoveryDetail: string | null;
+  lastTurnResetReason: VoiceTurnResetReason | null;
+  lastTurnResetAt: string | null;
+};
 
 export type SessionStoreData = {
   activeChatId: ChatId | null;
@@ -53,15 +117,20 @@ export type SessionStoreData = {
   speechLifecycle: SpeechLifecycle;
   voiceSessionStatus: VoiceSessionStatus;
   activeVoiceSessionGroundingEnabled: boolean | null;
+  effectiveVoiceSessionCapabilities: EffectiveVoiceSessionCapabilities | null;
   voiceSessionLatency: VoiceSessionLatencyState;
   voiceSessionResumption: VoiceSessionResumptionState;
   voiceSessionDurability: VoiceSessionDurabilityState;
+  voiceTranscriptDiagnostics: VoiceTranscriptDiagnostics;
+  ignoredAssistantOutputDiagnostics: IgnoredAssistantOutputDiagnostics;
+  voiceSessionRecoveryDiagnostics: VoiceSessionRecoveryDiagnostics;
   voiceCaptureState: VoiceCaptureState;
   voiceCaptureDiagnostics: VoiceCaptureDiagnostics;
   voicePlaybackState: VoicePlaybackState;
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   currentVoiceTranscript: CurrentVoiceTranscript;
   voiceToolState: VoiceToolState;
+  voiceLiveSignalDiagnostics: VoiceLiveSignalDiagnostics;
   realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenShareIntended: boolean;
   screenCaptureState: ScreenCaptureState;
@@ -114,14 +183,25 @@ export type SessionStoreActions = {
   setSpeechLifecycle: (speechLifecycle: SpeechLifecycle) => void;
   setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
   setActiveVoiceSessionGroundingEnabled: (enabled: boolean | null) => void;
+  setEffectiveVoiceSessionCapabilities: (
+    capabilities: EffectiveVoiceSessionCapabilities | null,
+  ) => void;
   setVoiceSessionLatency: (voiceSessionLatency: VoiceSessionLatencyState) => void;
   setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void;
+  setVoiceTranscriptDiagnostics: (patch: Partial<VoiceTranscriptDiagnostics>) => void;
+  setIgnoredAssistantOutputDiagnostics: (
+    patch: Partial<IgnoredAssistantOutputDiagnostics>,
+  ) => void;
+  setVoiceSessionRecoveryDiagnostics: (
+    patch: Partial<VoiceSessionRecoveryDiagnostics>,
+  ) => void;
   setVoiceCaptureState: (voiceCaptureState: VoiceCaptureState) => void;
   setVoiceCaptureDiagnostics: (patch: Partial<VoiceCaptureDiagnostics>) => void;
   setVoicePlaybackState: (voicePlaybackState: VoicePlaybackState) => void;
   setVoicePlaybackDiagnostics: (patch: Partial<VoicePlaybackDiagnostics>) => void;
   setVoiceToolState: (patch: Partial<VoiceToolState>) => void;
+  updateVoiceLiveSignalDiagnostics: (patch: Partial<VoiceLiveSignalDiagnostics>) => void;
   setRealtimeOutboundDiagnostics: (
     diagnostics: RealtimeOutboundDiagnostics,
   ) => void;

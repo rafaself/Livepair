@@ -278,6 +278,12 @@ describe('createVoiceTranscriptController', () => {
         replayedSettledTranscript: true,
       }),
     );
+    expect(useSessionStore.getState().voiceSessionRecoveryDiagnostics).toEqual(
+      expect.objectContaining({
+        lastTurnResetReason: 'replayed-user-transcript',
+        lastTurnResetAt: expect.any(String),
+      }),
+    );
     expect(useSessionStore.getState().currentVoiceTranscript.assistant).toEqual({
       text: 'next assistant reply',
     });

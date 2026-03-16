@@ -1,6 +1,7 @@
 import type { StoreApi } from 'zustand';
 import {
   createDefaultRealtimeOutboundDiagnostics,
+  createDefaultVoiceLiveSignalDiagnostics,
   createDefaultVoiceSessionLatencyState,
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
@@ -11,8 +12,11 @@ import {
 } from '../runtime/public';
 import {
   buildDefaultCurrentVoiceTranscript,
+  buildDefaultIgnoredAssistantOutputDiagnostics,
   buildDefaultScreenCaptureDiagnostics,
   buildDefaultSessionState,
+  buildDefaultVoiceSessionRecoveryDiagnostics,
+  buildDefaultVoiceTranscriptDiagnostics,
   buildDefaultVisualSendDiagnostics,
   getDebugRuntimeState,
   withDerivedLifecycleFields,
@@ -73,15 +77,20 @@ function buildResetTextSessionRuntimeState(
     speechLifecycle: createSpeechSessionLifecycle(),
     voiceSessionStatus: 'disconnected',
     activeVoiceSessionGroundingEnabled: null,
+    effectiveVoiceSessionCapabilities: null,
     voiceSessionLatency: createDefaultVoiceSessionLatencyState(),
     voiceSessionResumption: createDefaultVoiceSessionResumptionState(),
     voiceSessionDurability: createDefaultVoiceSessionDurabilityState(),
+    voiceTranscriptDiagnostics: buildDefaultVoiceTranscriptDiagnostics(),
+    ignoredAssistantOutputDiagnostics: buildDefaultIgnoredAssistantOutputDiagnostics(),
+    voiceSessionRecoveryDiagnostics: buildDefaultVoiceSessionRecoveryDiagnostics(),
     voiceCaptureState: state.voiceCaptureState,
     voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
     voicePlaybackState: state.voicePlaybackState,
     voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
     voiceToolState: createDefaultVoiceToolState(),
+    voiceLiveSignalDiagnostics: createDefaultVoiceLiveSignalDiagnostics(),
     realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
     screenShareIntended: false,
     screenCaptureState: 'disabled',
@@ -162,6 +171,8 @@ export function createSessionStoreActions(
     setVoiceSessionStatus: (voiceSessionStatus) => set({ voiceSessionStatus }),
     setActiveVoiceSessionGroundingEnabled: (activeVoiceSessionGroundingEnabled) =>
       set({ activeVoiceSessionGroundingEnabled }),
+    setEffectiveVoiceSessionCapabilities: (effectiveVoiceSessionCapabilities) =>
+      set({ effectiveVoiceSessionCapabilities }),
     setVoiceSessionLatency: (voiceSessionLatency) => set({ voiceSessionLatency }),
     setVoiceSessionResumption: (patch) =>
       set((state) => ({
@@ -174,6 +185,27 @@ export function createSessionStoreActions(
       set((state) => ({
         voiceSessionDurability: {
           ...state.voiceSessionDurability,
+          ...patch,
+        },
+      })),
+    setVoiceTranscriptDiagnostics: (patch) =>
+      set((state) => ({
+        voiceTranscriptDiagnostics: {
+          ...state.voiceTranscriptDiagnostics,
+          ...patch,
+        },
+      })),
+    setIgnoredAssistantOutputDiagnostics: (patch) =>
+      set((state) => ({
+        ignoredAssistantOutputDiagnostics: {
+          ...state.ignoredAssistantOutputDiagnostics,
+          ...patch,
+        },
+      })),
+    setVoiceSessionRecoveryDiagnostics: (patch) =>
+      set((state) => ({
+        voiceSessionRecoveryDiagnostics: {
+          ...state.voiceSessionRecoveryDiagnostics,
           ...patch,
         },
       })),
@@ -197,6 +229,13 @@ export function createSessionStoreActions(
       set((state) => ({
         voiceToolState: {
           ...state.voiceToolState,
+          ...patch,
+        },
+      })),
+    updateVoiceLiveSignalDiagnostics: (patch) =>
+      set((state) => ({
+        voiceLiveSignalDiagnostics: {
+          ...state.voiceLiveSignalDiagnostics,
           ...patch,
         },
       })),

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
 import { useSessionStore } from '../../../../store/sessionStore';
@@ -94,5 +94,91 @@ describe('AssistantPanelDebugView', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Save outbound frames' }));
 
     expect(onToggleSaveScreenFrames).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders compact speech/chat diagnostics for capability, transcript, ignored-output, and recovery state', () => {
+    useSessionStore.setState({
+      activeVoiceSessionGroundingEnabled: true,
+      effectiveVoiceSessionCapabilities: {
+        responseModality: 'AUDIO',
+        inputAudioTranscriptionEnabled: true,
+        outputAudioTranscriptionEnabled: true,
+        sessionResumptionEnabled: true,
+      },
+      voiceTranscriptDiagnostics: {
+        inputTranscriptCount: 3,
+        lastInputTranscriptAt: '2026-03-16T12:11:00.000Z',
+        outputTranscriptCount: 0,
+        lastOutputTranscriptAt: null,
+        assistantTextFallbackCount: 2,
+        lastAssistantTextFallbackAt: '2026-03-16T12:11:03.000Z',
+        lastAssistantTextFallbackReason: 'missing-output-transcript',
+      },
+      ignoredAssistantOutputDiagnostics: {
+        totalCount: 4,
+        countsByEventType: {
+          textDelta: 1,
+          outputTranscript: 1,
+          audioChunk: 2,
+          turnComplete: 0,
+        },
+        countsByReason: {
+          turnUnavailable: 2,
+          lifecycleFence: 1,
+          noOpenTurnFence: 1,
+        },
+        lastIgnoredAt: '2026-03-16T12:11:04.000Z',
+        lastIgnoredReason: 'lifecycle-fence',
+        lastIgnoredEventType: 'audio-chunk',
+        lastIgnoredVoiceSessionStatus: 'recovering',
+      },
+      voiceSessionRecoveryDiagnostics: {
+        transitionCount: 5,
+        lastTransition: 'resume-connect-failed',
+        lastTransitionAt: '2026-03-16T12:11:05.000Z',
+        lastRecoveryDetail: 'resume rejected',
+        lastTurnResetReason: 'new-user-transcript',
+        lastTurnResetAt: '2026-03-16T12:11:06.000Z',
+      },
+    } as never);
+
+    render(
+      <AssistantPanelDebugView
+        saveScreenFramesEnabled={false}
+        screenFrameDumpDirectoryPath={null}
+        onToggleSaveScreenFrames={() => undefined}
+        onRetryBackendHealth={async () => undefined}
+      />,
+    );
+
+    const speechChatSection = screen.getByRole('region', { name: 'Speech/chat diagnostics' });
+
+    expect(within(speechChatSection).getByText('Response modality')).toBeVisible();
+    expect(within(speechChatSection).getByText('AUDIO')).toBeVisible();
+    expect(within(speechChatSection).getByText('Grounding')).toBeVisible();
+    expect(within(speechChatSection).getByText('Input transcripts')).toBeVisible();
+    expect(
+      within(speechChatSection).getByText('3 (last: 2026-03-16T12:11:00.000Z)'),
+    ).toBeVisible();
+    expect(within(speechChatSection).getByText('Assistant text fallback')).toBeVisible();
+    expect(
+      within(speechChatSection).getByText('2 (last: 2026-03-16T12:11:03.000Z)'),
+    ).toBeVisible();
+    expect(within(speechChatSection).getByText('Ignored output by event')).toBeVisible();
+    expect(
+      within(speechChatSection).getByText('text 1 / transcript 1 / audio 2 / turn 0'),
+    ).toBeVisible();
+    expect(within(speechChatSection).getByText('Last ignored output')).toBeVisible();
+    expect(
+      within(speechChatSection).getByText('lifecycle fence / audio chunk / recovering'),
+    ).toBeVisible();
+    expect(within(speechChatSection).getByText('Last recovery transition')).toBeVisible();
+    expect(
+      within(speechChatSection).getByText('resume connect failed @ 2026-03-16T12:11:05.000Z'),
+    ).toBeVisible();
+    expect(within(speechChatSection).getByText('Last turn reopen/reset')).toBeVisible();
+    expect(
+      within(speechChatSection).getByText('new user transcript @ 2026-03-16T12:11:06.000Z'),
+    ).toBeVisible();
   });
 });

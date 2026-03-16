@@ -2,7 +2,9 @@ import { useShallow } from 'zustand/shallow';
 import {
   AssistantPanelDebugAudioSection,
   AssistantPanelDebugConnectionSection,
+  AssistantPanelDebugLiveSignalsSection,
   AssistantPanelDebugOutboundGuardrailsSection,
+  AssistantPanelDebugSpeechChatDiagnosticsSection,
   AssistantPanelDebugScreenContextSection,
 } from './AssistantPanelDebugSections';
 import { useSessionStore } from '../../../../store/sessionStore';
@@ -28,14 +30,20 @@ export function AssistantPanelDebugView({
   const {
     backendState,
     voiceSessionStatus,
+    activeVoiceSessionGroundingEnabled,
+    effectiveVoiceSessionCapabilities,
     voiceSessionLatency,
     voiceSessionResumption,
     voiceSessionDurability,
+    voiceTranscriptDiagnostics,
+    ignoredAssistantOutputDiagnostics,
+    voiceSessionRecoveryDiagnostics,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,
     voicePlaybackDiagnostics,
     voiceToolState,
+    voiceLiveSignalDiagnostics,
     realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
@@ -44,14 +52,20 @@ export function AssistantPanelDebugView({
     useShallow((state) => ({
       backendState: state.backendState,
       voiceSessionStatus: state.voiceSessionStatus,
+      activeVoiceSessionGroundingEnabled: state.activeVoiceSessionGroundingEnabled,
+      effectiveVoiceSessionCapabilities: state.effectiveVoiceSessionCapabilities,
       voiceSessionLatency: state.voiceSessionLatency,
       voiceSessionResumption: state.voiceSessionResumption,
       voiceSessionDurability: state.voiceSessionDurability,
+      voiceTranscriptDiagnostics: state.voiceTranscriptDiagnostics,
+      ignoredAssistantOutputDiagnostics: state.ignoredAssistantOutputDiagnostics,
+      voiceSessionRecoveryDiagnostics: state.voiceSessionRecoveryDiagnostics,
       voiceCaptureState: state.voiceCaptureState,
       voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
       voicePlaybackState: state.voicePlaybackState,
       voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
       voiceToolState: state.voiceToolState,
+      voiceLiveSignalDiagnostics: state.voiceLiveSignalDiagnostics,
       realtimeOutboundDiagnostics: state.realtimeOutboundDiagnostics,
       screenCaptureState: state.screenCaptureState,
       screenCaptureDiagnostics: state.screenCaptureDiagnostics,
@@ -86,8 +100,20 @@ export function AssistantPanelDebugView({
         voiceToolState={voiceToolState}
       />
 
+      <AssistantPanelDebugLiveSignalsSection
+        voiceLiveSignalDiagnostics={voiceLiveSignalDiagnostics}
+      />
+
       <AssistantPanelDebugOutboundGuardrailsSection
         realtimeOutboundDiagnostics={realtimeOutboundDiagnostics}
+      />
+
+      <AssistantPanelDebugSpeechChatDiagnosticsSection
+        activeVoiceSessionGroundingEnabled={activeVoiceSessionGroundingEnabled}
+        effectiveVoiceSessionCapabilities={effectiveVoiceSessionCapabilities}
+        voiceTranscriptDiagnostics={voiceTranscriptDiagnostics}
+        ignoredAssistantOutputDiagnostics={ignoredAssistantOutputDiagnostics}
+        voiceSessionRecoveryDiagnostics={voiceSessionRecoveryDiagnostics}
       />
 
       <AssistantPanelDebugScreenContextSection

@@ -52,6 +52,18 @@ function handleConnectionStateChanged(
           ? store.voiceSessionResumption.lastDetail
           : null,
     });
+
+    // Snapshot the capability contract so the debug view can answer "what
+    // capabilities were active?" without log scraping.
+    const capabilities = ops.getActiveLiveCapabilities();
+    if (capabilities) {
+      ops.updateVoiceLiveSignalDiagnostics({
+        inputAudioTranscriptionEnabled: capabilities.inputAudioTranscriptionEnabled,
+        outputAudioTranscriptionEnabled: capabilities.outputAudioTranscriptionEnabled,
+        responseModality: capabilities.responseModality,
+        sessionResumptionEnabled: capabilities.sessionResumptionEnabled,
+      });
+    }
     ops.syncVoiceDurabilityState(ops.getToken(), {
       lastDetail: store.voiceSessionDurability.lastDetail,
     });
@@ -169,6 +181,12 @@ function handleSessionResumptionUpdate(
     latestHandle: event.handle,
     resumable,
     lastDetail: detail,
+  });
+  store.setVoiceSessionRecoveryDiagnostics({
+    transitionCount: store.voiceSessionRecoveryDiagnostics.transitionCount + 1,
+    lastTransition: 'session-resumption-updated',
+    lastTransitionAt: updatedAt,
+    lastRecoveryDetail: detail,
   });
   ops.persistLiveSessionResumption({
     resumptionHandle: event.handle,

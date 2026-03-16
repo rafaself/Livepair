@@ -19,12 +19,14 @@ export {
   createRealtimeOutboundGateway,
 } from './outbound/realtimeOutboundGateway';
 export {
+  createDefaultVoiceLiveSignalDiagnostics,
   createDefaultVoiceSessionLatencyState,
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
   createDefaultVoiceToolState,
 } from './core/defaults';
-export { LIVE_ADAPTER_KEY } from './transport/liveConfig';
+export { getEffectiveVoiceSessionCapabilities, LIVE_ADAPTER_KEY } from './transport/liveConfig';
+export type { EffectiveVoiceSessionCapabilities } from './transport/liveConfig';
 export {
   createSpeechSessionLifecycle,
   isSpeechLifecycleActive,
@@ -96,6 +98,7 @@ export type {
   LocalVoiceChunk,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceLiveSignalDiagnostics,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionLatencyMetric,

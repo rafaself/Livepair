@@ -2,6 +2,7 @@ import type { AssistantRuntimeState } from '../state/assistantUiState';
 import {
   LIVE_ADAPTER_KEY,
   createDefaultRealtimeOutboundDiagnostics,
+  createDefaultVoiceLiveSignalDiagnostics,
   createDefaultVoiceSessionLatencyState,
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
@@ -25,7 +26,12 @@ import {
 import {
   createDefaultVisualSendDiagnostics as createDefaultScreenContextDiagnostics,
 } from '../runtime/screen/screenContextDiagnostics';
-import type { SessionStoreData } from './sessionStore.types';
+import type {
+  IgnoredAssistantOutputDiagnostics,
+  SessionStoreData,
+  VoiceSessionRecoveryDiagnostics,
+  VoiceTranscriptDiagnostics,
+} from './sessionStore.types';
 
 export function withDerivedLifecycleFields(
   textSessionLifecycle: TextSessionLifecycle,
@@ -69,6 +75,50 @@ export function buildDefaultCurrentVoiceTranscript(): CurrentVoiceTranscript {
   };
 }
 
+export function buildDefaultVoiceTranscriptDiagnostics(): VoiceTranscriptDiagnostics {
+  return {
+    inputTranscriptCount: 0,
+    lastInputTranscriptAt: null,
+    outputTranscriptCount: 0,
+    lastOutputTranscriptAt: null,
+    assistantTextFallbackCount: 0,
+    lastAssistantTextFallbackAt: null,
+    lastAssistantTextFallbackReason: null,
+  };
+}
+
+export function buildDefaultIgnoredAssistantOutputDiagnostics(): IgnoredAssistantOutputDiagnostics {
+  return {
+    totalCount: 0,
+    countsByEventType: {
+      textDelta: 0,
+      outputTranscript: 0,
+      audioChunk: 0,
+      turnComplete: 0,
+    },
+    countsByReason: {
+      turnUnavailable: 0,
+      lifecycleFence: 0,
+      noOpenTurnFence: 0,
+    },
+    lastIgnoredAt: null,
+    lastIgnoredReason: null,
+    lastIgnoredEventType: null,
+    lastIgnoredVoiceSessionStatus: null,
+  };
+}
+
+export function buildDefaultVoiceSessionRecoveryDiagnostics(): VoiceSessionRecoveryDiagnostics {
+  return {
+    transitionCount: 0,
+    lastTransition: null,
+    lastTransitionAt: null,
+    lastRecoveryDetail: null,
+    lastTurnResetReason: null,
+    lastTurnResetAt: null,
+  };
+}
+
 export function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics {
   return {
     captureSource: null,
@@ -109,15 +159,20 @@ export function buildDefaultSessionState(): SessionStoreData {
     speechLifecycle: createSpeechSessionLifecycle(),
     voiceSessionStatus: 'disconnected',
     activeVoiceSessionGroundingEnabled: null,
+    effectiveVoiceSessionCapabilities: null,
     voiceSessionLatency: createDefaultVoiceSessionLatencyState(),
     voiceSessionResumption: createDefaultVoiceSessionResumptionState(),
     voiceSessionDurability: createDefaultVoiceSessionDurabilityState(),
+    voiceTranscriptDiagnostics: buildDefaultVoiceTranscriptDiagnostics(),
+    ignoredAssistantOutputDiagnostics: buildDefaultIgnoredAssistantOutputDiagnostics(),
+    voiceSessionRecoveryDiagnostics: buildDefaultVoiceSessionRecoveryDiagnostics(),
     voiceCaptureState: 'idle',
     voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
     voicePlaybackState: 'idle',
     voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
     voiceToolState: createDefaultVoiceToolState(),
+    voiceLiveSignalDiagnostics: createDefaultVoiceLiveSignalDiagnostics(),
     realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
     screenShareIntended: false,
     screenCaptureState: 'disabled',

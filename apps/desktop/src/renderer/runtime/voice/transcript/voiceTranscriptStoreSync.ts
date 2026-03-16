@@ -44,6 +44,13 @@ export function createVoiceTranscriptStoreSync({
   hasSettledTurnFence,
   logRuntimeDiagnostic,
 }: VoiceTranscriptStoreSyncArgs) {
+  const recordTurnReset = (reason: 'replayed-user-transcript' | 'new-user-transcript'): void => {
+    store.getState().setVoiceSessionRecoveryDiagnostics({
+      lastTurnResetReason: reason,
+      lastTurnResetAt: new Date().toISOString(),
+    });
+  };
+
   const applyTranscriptUpdate = (
     role: VoiceTranscriptRole,
     text: string,
@@ -58,6 +65,11 @@ export function createVoiceTranscriptStoreSync({
 
       clearTranscript();
       clearCurrentVoiceTurns(conversationCtx);
+      recordTurnReset(
+        replayedSettledTranscript
+          ? 'replayed-user-transcript'
+          : 'new-user-transcript',
+      );
       logRuntimeDiagnostic?.(
         'voice-session',
         replayedSettledTranscript

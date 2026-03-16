@@ -17,6 +17,10 @@ export type SessionStoreApi = {
       role: VoiceTranscriptRole,
       entry: Partial<VoiceTranscriptEntry>,
     ) => void;
+    setVoiceSessionRecoveryDiagnostics: (patch: {
+      lastTurnResetReason?: 'replayed-user-transcript' | 'new-user-transcript' | null;
+      lastTurnResetAt?: string | null;
+    }) => void;
     clearCurrentVoiceTranscript: () => void;
     conversationTurns: ReadonlyArray<{ timelineOrdinal?: number | undefined }>;
     transcriptArtifacts: ReadonlyArray<{ timelineOrdinal?: number | undefined }>;
