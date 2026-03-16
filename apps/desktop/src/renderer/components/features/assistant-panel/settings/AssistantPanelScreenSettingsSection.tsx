@@ -93,7 +93,7 @@ export function AssistantPanelScreenSettingsSection({
                     ? 'Manual mode always sends in High quality when you click Send screen now.'
                     : screenContextMode === 'continuous'
                       ? 'Continuous mode uses the automatic screen quality below.'
-                      : 'Choose how Share Screen should work before you start using it.'}
+                      : null}
                 </span>
               </div>
             ),

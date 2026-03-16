@@ -142,6 +142,9 @@ describe('AssistantPanelSettingsView', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Screen mode' })).toHaveTextContent('Choose mode');
+    expect(
+      screen.queryByText('Choose how Share Screen should work before you start using it.'),
+    ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Automatic screen quality' })).toBeNull();
 
     await act(async () => {
