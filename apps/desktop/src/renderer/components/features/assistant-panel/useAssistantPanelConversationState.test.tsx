@@ -9,7 +9,7 @@ describe('useAssistantPanelConversationState', () => {
     resetDesktopStores();
   });
 
-  it('derives visible conversation turns from canonical turns and unattached transcript artifacts', () => {
+  it('derives visible conversation turns from canonical turns and all transcript artifacts', () => {
     const { result } = renderHook(() => useAssistantPanelConversationState());
 
     act(() => {
@@ -19,6 +19,13 @@ describe('useAssistantPanelConversationState', () => {
         content: 'hello',
         timestamp: '10:00 AM',
         timelineOrdinal: 1,
+      });
+      useSessionStore.getState().appendConversationTurn({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'canonical reply',
+        timestamp: '10:00 AM',
+        timelineOrdinal: 4,
       });
       useSessionStore.getState().appendTranscriptArtifact({
         id: 'assistant-transcript-1',
@@ -41,9 +48,12 @@ describe('useAssistantPanelConversationState', () => {
       });
     });
 
+    // Canonical turns hidden when a transcript artifact covers them.
+    // All transcript artifacts are visible regardless of attachedTurnId.
     expect(result.current.conversationTurns.map((entry) => entry.id)).toEqual([
       'user-turn-1',
       'assistant-transcript-1',
+      'assistant-transcript-2',
     ]);
     expect(result.current.isConversationEmpty).toBe(false);
   });
