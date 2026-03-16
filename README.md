@@ -333,15 +333,17 @@ docs(docs): update README with commit conventions
 pnpm install
 ```
 
-2. Create the main local config file:
+2. Create the app-local config files:
 
 ```bash
-cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+cp apps/desktop/.env.example apps/desktop/.env
+cp infra/postgres/.env.example infra/postgres/.env
 ```
 
-The root `.env` is the primary local config file for the normal evaluation flow. The app-local `.env.example` files are still the detailed field-by-field references, but they are not required for the standard quick-start path.
+Each runtime now owns its own local config file. The API reads `apps/api/.env`, the desktop app reads `apps/desktop/.env`, and the local Postgres helper reads `infra/postgres/.env`.
 
-3. Open `.env` and fill in the only value you must personalize for the normal local flow:
+3. Open `apps/api/.env` and fill in the only value you must personalize for the normal local flow:
 
 ```bash
 GEMINI_API_KEY=your-gemini-api-key
@@ -358,10 +360,10 @@ Also keep these paired values aligned:
 4. Start local infrastructure:
 
 ```bash
-docker compose up -d
+make postgres-up
 ```
 
-`docker compose` reads the local Postgres settings from the same root `.env` file and falls back to the defaults shown in `.env.example`, so the normal local flow does not need a separate Compose env file.
+The Postgres helper reads overrides from `infra/postgres/.env` and falls back to the defaults shown in `infra/postgres/.env.example`.
 
 5. Run the API and desktop app together:
 
@@ -373,8 +375,8 @@ The backend binds to `0.0.0.0` and is still reachable at `http://127.0.0.1:3000`
 
 ### 🔧 Quick setup notes
 
-* If `docker compose up -d` fails, install or start Docker first, then retry with `docker compose ps`.
-* If the API exits immediately, re-check `GEMINI_API_KEY` in the root `.env`.
+* If `make postgres-up` fails, install or start Docker first, then retry with `make postgres-up`.
+* If the API exits immediately, re-check `GEMINI_API_KEY` in `apps/api/.env`.
 * If speech mode cannot start, confirm `SESSION_TOKEN_AUTH_SECRET` matches on both sides and `VITE_LIVE_API_VERSION=v1alpha`.
 
 ### ✅ Local smoke check
@@ -382,14 +384,15 @@ The backend binds to `0.0.0.0` and is still reachable at `http://127.0.0.1:3000`
 Before a longer manual run, use the lightweight preflight:
 
 ```bash
-docker compose up -d
+make postgres-up
 make smoke-check
 ```
 
 `make smoke-check` reuses the existing API `db:check` flow and fails clearly when:
 
 * dependencies are missing because `pnpm install` has not completed
-* the root `.env` file is missing
+* `apps/api/.env` is missing
+* `infra/postgres/.env` is missing
 * `GEMINI_API_KEY` is unset
 * local Docker infra is not up yet
 
@@ -416,18 +419,18 @@ Run it locally by passing config at launch time instead of baking env files into
 ```bash
 docker run --rm \
   -p 3000:3000 \
-  --env-file .env \
+  --env-file apps/api/.env \
   livepair-api:local
 ```
 
-The image keeps `NODE_ENV=production`, starts with `node dist/main.js`, honors `PORT`, binds to `0.0.0.0`, and logs to stdout/stderr. The root `.dockerignore` keeps `.env`, `.git`, local `node_modules`, logs, and unrelated workspace files out of the Docker build context.
+The image keeps `NODE_ENV=production`, starts with `node dist/main.js`, honors `PORT`, binds to `0.0.0.0`, and logs to stdout/stderr. The root `.dockerignore` keeps Git metadata, local `node_modules`, logs, and unrelated workspace files out of the Docker build context.
 
 If you want to mimic Cloud Run's default port locally, override `PORT` when you start the container:
 
 ```bash
 docker run --rm \
   -p 8080:8080 \
-  --env-file .env \
+  --env-file apps/api/.env \
   -e PORT=8080 \
   livepair-api:local
 ```
@@ -480,13 +483,13 @@ For the shortest evaluator-friendly app check after startup, use the fast flow i
 ### 🐘 Local infrastructure helpers
 
 ```bash
-docker compose up -d
+make postgres-up
 ```
 
 Stop the full local stack when you are done:
 
 ```bash
-docker compose down
+make postgres-down
 ```
 
 Focused Postgres helpers:
@@ -558,27 +561,20 @@ Use `--baseline-results <path>` to compare before/after runs against the same da
 
 ## 🌍 Environment Variables
 
-The primary local setup file is the repository root example:
-
-* main setup: [`.env.example`](./.env.example)
-
-App-local env examples remain reference-oriented for each app and should stay aligned with the root defaults:
-
-Detailed per-app references:
-
 * backend: [apps/api/.env.example](./apps/api/.env.example)
 * desktop: [apps/desktop/.env.example](./apps/desktop/.env.example)
+* local Postgres: [infra/postgres/.env.example](./infra/postgres/.env.example)
 
 Key local values:
 
 * `GEMINI_API_KEY` (**required**): backend-only Gemini credential used for `/session/token`
 * `SESSION_TOKEN_AUTH_SECRET` (**secret**): shared secret that must match between the API and desktop main process and now protects both `/session/token` and `/chat-memory/*`
-* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL`: keep them on the same Gemini Live model resource (`models/gemini-2.5-flash-native-audio-preview-12-2025` in the root example)
+* `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL`: keep them on the same Gemini Live model resource (`models/gemini-2.5-flash-native-audio-preview-12-2025` in the app-local examples)
 * `DATABASE_URL` (**secret** when it includes credentials): local Docker default is `postgres://livepair:livepair@127.0.0.1:5432/livepair`
 * `CORS_ALLOWED_ORIGINS` (**ordinary config**): explicit comma-separated browser origins allowed by the API; leave it empty to deny browser cross-origin access by default
 * `HOST` and `PORT` (**ordinary config**): default to `0.0.0.0` and `3000`; Cloud Run injects `PORT`
 * `VITE_LIVE_API_VERSION`: keep `v1alpha` for the current speech flow
-* `VITE_LIVE_VOICE_RESPONSE_MODALITY`: keep `AUDIO` for speech mode
+* `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_PORT`: optional local overrides for `infra/postgres/.env`
 
 For Wave 1 cloud-readiness, plan to move `GEMINI_API_KEY`, `SESSION_TOKEN_AUTH_SECRET`, and deploy-time `DATABASE_URL` values into Secret Manager later. Keep `HOST`, `PORT`, `CORS_ALLOWED_ORIGINS`, rate limits, TTLs, and model/resource identifiers as ordinary runtime config.
 

@@ -1,7 +1,9 @@
 .PHONY: help observability-api observability-up observability-down observability-restart observability-urls postgres-up postgres-down postgres-reset postgres-logs smoke-check
 
 POSTGRES_COMPOSE_FILE := infra/postgres/docker-compose.yml
-SMOKE_ENV_FILE ?= .env
+POSTGRES_ENV_FILE ?= infra/postgres/.env
+API_ENV_FILE ?= apps/api/.env
+POSTGRES_COMPOSE := docker compose --env-file $(POSTGRES_ENV_FILE) -f $(POSTGRES_COMPOSE_FILE)
 
 help:
 	@printf '%s\n' \
@@ -18,25 +20,30 @@ help:
 		'  make observability-urls     Print the local observability URLs and login'
 
 postgres-up:
-	docker compose -f $(POSTGRES_COMPOSE_FILE) up -d
+	@test -f "$(POSTGRES_ENV_FILE)" || { echo "Missing $(POSTGRES_ENV_FILE). Copy infra/postgres/.env.example first."; exit 1; }
+	$(POSTGRES_COMPOSE) up -d
 
 postgres-down:
-	docker compose -f $(POSTGRES_COMPOSE_FILE) down
+	@test -f "$(POSTGRES_ENV_FILE)" || { echo "Missing $(POSTGRES_ENV_FILE). Copy infra/postgres/.env.example first."; exit 1; }
+	$(POSTGRES_COMPOSE) down
 
 postgres-reset:
-	docker compose -f $(POSTGRES_COMPOSE_FILE) down -v
-	docker compose -f $(POSTGRES_COMPOSE_FILE) up -d
+	@test -f "$(POSTGRES_ENV_FILE)" || { echo "Missing $(POSTGRES_ENV_FILE). Copy infra/postgres/.env.example first."; exit 1; }
+	$(POSTGRES_COMPOSE) down -v
+	$(POSTGRES_COMPOSE) up -d
 
 postgres-logs:
-	docker compose -f $(POSTGRES_COMPOSE_FILE) logs -f postgres
+	@test -f "$(POSTGRES_ENV_FILE)" || { echo "Missing $(POSTGRES_ENV_FILE). Copy infra/postgres/.env.example first."; exit 1; }
+	$(POSTGRES_COMPOSE) logs -f postgres
 
 smoke-check:
 	@command -v pnpm >/dev/null 2>&1 || { echo "pnpm is not installed. Install pnpm first."; exit 1; }
 	@test -d node_modules || { echo "Dependencies are missing. Run: pnpm install"; exit 1; }
-	@test -f "$(SMOKE_ENV_FILE)" || { echo "Missing $(SMOKE_ENV_FILE). Copy .env.example first."; exit 1; }
-	@grep -Eq '^GEMINI_API_KEY=.+$$' "$(SMOKE_ENV_FILE)" || { echo "Missing GEMINI_API_KEY in $(SMOKE_ENV_FILE). Set it before local validation."; exit 1; }
-	@docker compose ps --status running --services postgres 2>/dev/null | grep -qx 'postgres' || { echo "Local infra is not up. Start it with: docker compose up -d"; exit 1; }
-	@DOTENV_CONFIG_PATH="$(SMOKE_ENV_FILE)" pnpm --filter @livepair/api db:check
+	@test -f "$(API_ENV_FILE)" || { echo "Missing $(API_ENV_FILE). Copy apps/api/.env.example first."; exit 1; }
+	@test -f "$(POSTGRES_ENV_FILE)" || { echo "Missing $(POSTGRES_ENV_FILE). Copy infra/postgres/.env.example first."; exit 1; }
+	@grep -Eq '^GEMINI_API_KEY=.+$$' "$(API_ENV_FILE)" || { echo "Missing GEMINI_API_KEY in $(API_ENV_FILE). Set it before local validation."; exit 1; }
+	@$(POSTGRES_COMPOSE) ps --status running --services postgres 2>/dev/null | grep -qx 'postgres' || { echo "Local infra is not up. Start it with: make postgres-up"; exit 1; }
+	@DOTENV_CONFIG_PATH="$(API_ENV_FILE)" pnpm --filter @livepair/api db:check
 	@printf '%s\n' 'Smoke preflight passed.' 'Next: pnpm run dev'
 
 observability-api:

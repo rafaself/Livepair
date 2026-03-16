@@ -19,11 +19,11 @@ describe('loadRootEnv', () => {
     process.env['DOTENV_CONFIG_PATH'] = originalDotenvConfigPath;
   });
 
-  it('loads the repository root .env by default', async () => {
+  it('loads the API app-local .env by default', async () => {
     await import('./loadRootEnv');
 
     expect(configMock).toHaveBeenCalledWith({
-      path: resolve(__dirname, '../../../../.env'),
+      path: resolve(__dirname, '../../.env'),
       quiet: true,
     });
   });

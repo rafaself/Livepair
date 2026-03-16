@@ -27,7 +27,7 @@ export default defineConfig({
     },
   },
   renderer: {
-    envDir: repoRoot,
+    envDir: __dirname,
     root: resolve(__dirname, 'src/renderer'),
     resolve: {
       alias: {
