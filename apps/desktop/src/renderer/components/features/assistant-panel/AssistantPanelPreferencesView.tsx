@@ -216,8 +216,11 @@ export function AssistantPanelPreferencesView({
             <textarea
               id={instructionsId}
               aria-label="Instructions"
+              autoCapitalize="off"
+              autoCorrect="off"
               className="assistant-panel__settings-textarea"
               maxLength={MAX_SYSTEM_INSTRUCTION_LENGTH}
+              spellCheck={false}
               value={instructionsDraft}
               onChange={(event) => {
                 setInstructionsDraft(
