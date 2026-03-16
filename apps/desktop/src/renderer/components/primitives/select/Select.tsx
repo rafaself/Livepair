@@ -18,7 +18,7 @@ export type SelectOptionItem = {
 export type SelectProps = {
   options: readonly SelectOptionItem[];
   size?: 'sm' | 'md';
-  placeholder?: string;
+  placeholder?: ReactNode;
   widthMode?: 'anchor' | 'minAnchor';
   maxWidthPx?: number;
   portalTarget?: HTMLElement | null;
