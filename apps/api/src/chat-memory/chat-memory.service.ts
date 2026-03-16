@@ -6,6 +6,7 @@ import {
 import type {
   AppendChatMessageRequest,
   ChatId,
+  ChatMemoryListOptions,
   ChatMessageRecord,
   ChatRecord,
   CreateChatRequest,
@@ -47,18 +48,15 @@ export class ChatMemoryService {
     return this.run(() => this.repository.listChats());
   }
 
-  listMessages(chatId: ChatId): Promise<ChatMessageRecord[]> {
-    return this.run(async () => {
-      await this.ensureChatExists(chatId);
-      return this.repository.listMessages(chatId);
-    });
+  listMessages(
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ): Promise<ChatMessageRecord[]> {
+    return this.run(() => this.repository.listMessages(chatId, options));
   }
 
   getChatSummary(chatId: ChatId): Promise<DurableChatSummaryRecord | null> {
-    return this.run(async () => {
-      await this.ensureChatExists(chatId);
-      return this.repository.getChatSummary(chatId);
-    });
+    return this.run(() => this.repository.getChatSummary(chatId));
   }
 
   appendMessage(request: AppendChatMessageRequest): Promise<ChatMessageRecord> {
@@ -69,11 +67,11 @@ export class ChatMemoryService {
     return this.run(() => this.repository.createLiveSession(request));
   }
 
-  listLiveSessions(chatId: ChatId): Promise<LiveSessionRecord[]> {
-    return this.run(async () => {
-      await this.ensureChatExists(chatId);
-      return this.repository.listLiveSessions(chatId);
-    });
+  listLiveSessions(
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ): Promise<LiveSessionRecord[]> {
+    return this.run(() => this.repository.listLiveSessions(chatId, options));
   }
 
   updateLiveSession(request: UpdateLiveSessionRequest): Promise<LiveSessionRecord> {
@@ -108,16 +106,6 @@ export class ChatMemoryService {
         return endedLiveSession;
       }),
     );
-  }
-
-  private async ensureChatExists(chatId: ChatId): Promise<ChatRecord> {
-    const chat = await this.repository.getChat(chatId);
-
-    if (chat === null) {
-      throw new ChatMemoryNotFoundError('Chat', chatId);
-    }
-
-    return chat;
   }
 
   private async run<TResult>(operation: () => Promise<TResult>): Promise<TResult> {

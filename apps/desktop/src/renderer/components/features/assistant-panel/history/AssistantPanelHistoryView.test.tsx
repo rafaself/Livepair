@@ -156,5 +156,9 @@ describe('AssistantPanelHistoryView', () => {
       within(pastButton as HTMLButtonElement).getByText('Past chat preview with enough detail to identify it quickly.'),
     ).toBeVisible();
     expect(within(pastButton as HTMLButtonElement).getByText('Latest session ended')).toBeVisible();
+    expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-current', { limit: 1 });
+    expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-past', { limit: 1 });
+    expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-current', { limit: 1 });
+    expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-past', { limit: 1 });
   });
 });

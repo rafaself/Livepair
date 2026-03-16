@@ -1,3 +1,4 @@
+import type { ChatMemoryListOptions } from '@livepair/shared-types';
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared';
 import type { BackendClient } from '../../backend/backendClient';
@@ -5,6 +6,7 @@ import { createBackendClient } from '../../backend/backendClient';
 import {
   isAppendChatMessageRequest,
   isChatId,
+  isChatMemoryListOptions,
   isCreateChatRequest,
   isCreateLiveSessionRequest,
   isEndLiveSessionRequest,
@@ -17,6 +19,14 @@ function requireChatId(chatId: unknown): string {
   }
 
   return chatId;
+}
+
+function requireChatListOptions(options: unknown): ChatMemoryListOptions | undefined {
+  if (!isChatMemoryListOptions(options)) {
+    throw new Error('Invalid chat list options');
+  }
+
+  return options;
 }
 
 type ChatBackendClient = Pick<
@@ -71,8 +81,15 @@ export function registerChatIpcHandlers(
     return backendClient.listChats();
   });
 
-  ipcMain.handle(IPC_CHANNELS.listChatMessages, async (_event, chatId: unknown) => {
-    return backendClient.listChatMessages(requireChatId(chatId));
+  ipcMain.handle(IPC_CHANNELS.listChatMessages, async (
+    _event,
+    chatId: unknown,
+    options: unknown,
+  ) => {
+    return backendClient.listChatMessages(
+      requireChatId(chatId),
+      requireChatListOptions(options),
+    );
   });
 
   ipcMain.handle(IPC_CHANNELS.getChatSummary, async (_event, chatId: unknown) => {
@@ -95,8 +112,15 @@ export function registerChatIpcHandlers(
     return backendClient.createLiveSession(req);
   });
 
-  ipcMain.handle(IPC_CHANNELS.listLiveSessions, async (_event, chatId: unknown) => {
-    return backendClient.listLiveSessions(requireChatId(chatId));
+  ipcMain.handle(IPC_CHANNELS.listLiveSessions, async (
+    _event,
+    chatId: unknown,
+    options: unknown,
+  ) => {
+    return backendClient.listLiveSessions(
+      requireChatId(chatId),
+      requireChatListOptions(options),
+    );
   });
 
   ipcMain.handle(IPC_CHANNELS.updateLiveSession, async (_event, req: unknown) => {

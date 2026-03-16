@@ -44,6 +44,14 @@ export function getChatRecord(
   return bridge.getChat(chatId);
 }
 
+export async function getLatestPersistedChatMessage(
+  chatId: ChatId,
+  bridge: Pick<ChatMemoryQueriesBridge, 'listChatMessages'> = window.bridge,
+): Promise<ChatMessageRecord | null> {
+  const messages = await bridge.listChatMessages(chatId, { limit: 1 });
+  return messages[0] ?? null;
+}
+
 export function getOrCreateCurrentChatRecord(
   bridge: ActiveChatQueryBridge = window.bridge,
 ): Promise<ChatRecord> {

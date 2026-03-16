@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
-import { getChatRecord } from '../../../../chatMemory';
+import { getCachedActiveChatRecord, getChatRecord } from '../../../../chatMemory';
 import { getLatestPersistedLiveSession } from '../../../../liveSessions';
 
 type UseAssistantPanelChatSessionDataOptions = {
@@ -33,17 +33,22 @@ export function useAssistantPanelChatSessionData({
       };
     }
 
-    void getChatRecord(activeChatId)
-      .then((chat) => {
-        if (!isCancelled) {
-          setActiveChat(chat);
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) {
-          setActiveChat(null);
-        }
-      });
+    const cachedActiveChat = getCachedActiveChatRecord(activeChatId);
+    if (cachedActiveChat !== null) {
+      setActiveChat(cachedActiveChat);
+    } else {
+      void getChatRecord(activeChatId)
+        .then((chat) => {
+          if (!isCancelled) {
+            setActiveChat(chat);
+          }
+        })
+        .catch(() => {
+          if (!isCancelled) {
+            setActiveChat(null);
+          }
+        });
+    }
 
     void getLatestPersistedLiveSession(activeChatId)
       .then((liveSession) => {

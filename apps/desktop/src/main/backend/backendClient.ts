@@ -1,6 +1,7 @@
 import type {
   AppendChatMessageRequest,
   ChatId,
+  ChatMemoryListOptions,
   ChatMessageRecord,
   ChatRecord,
   CreateChatRequest,
@@ -374,11 +375,17 @@ export type BackendClient = {
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
   listChats: () => Promise<ChatRecord[]>;
-  listChatMessages: (chatId: ChatId) => Promise<ChatMessageRecord[]>;
+  listChatMessages: (
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ) => Promise<ChatMessageRecord[]>;
   getChatSummary: (chatId: ChatId) => Promise<DurableChatSummaryRecord | null>;
   appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
   createLiveSession: (req: CreateLiveSessionRequest) => Promise<LiveSessionRecord>;
-  listLiveSessions: (chatId: ChatId) => Promise<LiveSessionRecord[]>;
+  listLiveSessions: (
+    chatId: ChatId,
+    options?: ChatMemoryListOptions,
+  ) => Promise<LiveSessionRecord[]>;
   updateLiveSession: (req: UpdateLiveSessionRequest) => Promise<LiveSessionRecord>;
   endLiveSession: (req: EndLiveSessionRequest) => Promise<LiveSessionRecord>;
 };
@@ -387,6 +394,20 @@ export function createBackendClient({
   fetchImpl = fetch,
   getBackendUrl,
 }: BackendClientOptions): BackendClient {
+  function appendChatMemoryListOptions(
+    path: string,
+    options?: ChatMemoryListOptions,
+  ): string {
+    if (typeof options?.limit === 'undefined') {
+      return path;
+    }
+
+    const params = new URLSearchParams({
+      limit: String(options.limit),
+    });
+    return `${path}?${params.toString()}`;
+  }
+
   async function resolveBackendUrl(): Promise<string> {
     if (typeof getBackendUrl === 'function') {
       return getBackendUrl();
@@ -551,10 +572,13 @@ export function createBackendClient({
       });
     },
 
-    async listChatMessages(chatId: ChatId): Promise<ChatMessageRecord[]> {
+    async listChatMessages(
+      chatId: ChatId,
+      options?: ChatMemoryListOptions,
+    ): Promise<ChatMessageRecord[]> {
       return requestJson({
         parse: parseChatMessageListResponse,
-        path: `/chat-memory/chats/${chatId}/messages`,
+        path: appendChatMemoryListOptions(`/chat-memory/chats/${chatId}/messages`, options),
         statusLabel: 'List chat messages failed',
       });
     },
@@ -600,10 +624,13 @@ export function createBackendClient({
       });
     },
 
-    async listLiveSessions(chatId: ChatId): Promise<LiveSessionRecord[]> {
+    async listLiveSessions(
+      chatId: ChatId,
+      options?: ChatMemoryListOptions,
+    ): Promise<LiveSessionRecord[]> {
       return requestJson({
         parse: parseLiveSessionListResponse,
-        path: `/chat-memory/chats/${chatId}/live-sessions`,
+        path: appendChatMemoryListOptions(`/chat-memory/chats/${chatId}/live-sessions`, options),
         statusLabel: 'List live sessions failed',
       });
     },

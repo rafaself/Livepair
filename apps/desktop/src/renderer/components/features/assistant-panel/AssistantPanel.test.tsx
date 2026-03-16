@@ -256,7 +256,7 @@ describe('AssistantPanel', () => {
 
     expect(await panelScope.findByText('Latest Live session')).toBeVisible();
     expect(panelScope.getByText('Resume may be available')).toBeVisible();
-    expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-history-4');
+    expect(window.bridge.listLiveSessions).toHaveBeenCalledWith('chat-history-4', { limit: 1 });
   });
 
   it('returns from history view to chat through a Back to chat action', async () => {

@@ -5,6 +5,7 @@ import {
   type DurableChatSummaryRecord,
   type LiveSessionRecord,
 } from '@livepair/shared-types';
+import { randomUUID } from 'node:crypto';
 import {
   buildDurableChatSummary,
   DURABLE_CHAT_SUMMARY_SCHEMA_VERSION,
@@ -108,6 +109,55 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
     expect(storedMessages.map(({ sequence }) => sequence)).toEqual(
       Array.from({ length: 12 }, (_, index) => index + 1),
     );
+  });
+
+  it('supports bounded latest reads and still rejects missing chats', async () => {
+    const chat = await repository.getOrCreateCurrentChat();
+    const firstMessage = await repository.appendMessage({
+      chatId: chat.id,
+      role: 'user',
+      contentText: 'First turn',
+    });
+    const secondMessage = await repository.appendMessage({
+      chatId: chat.id,
+      role: 'assistant',
+      contentText: 'Second turn',
+    });
+    const firstLiveSession = await repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+    const secondLiveSession = await repository.createLiveSession({
+      chatId: chat.id,
+      startedAt: '2026-03-12T10:00:00.000Z',
+    });
+
+    await expect(repository.listMessages(chat.id, { limit: 1 })).resolves.toEqual([
+      secondMessage,
+    ]);
+    await expect(repository.listMessages(chat.id, { limit: 2 })).resolves.toEqual([
+      firstMessage,
+      secondMessage,
+    ]);
+    await expect(repository.listLiveSessions(chat.id, { limit: 1 })).resolves.toEqual([
+      secondLiveSession,
+    ]);
+
+    const missingChatId = randomUUID();
+    await expect(repository.listMessages(missingChatId)).rejects.toThrow(
+      `Chat not found: ${missingChatId}`,
+    );
+    await expect(repository.getChatSummary(missingChatId)).rejects.toThrow(
+      `Chat not found: ${missingChatId}`,
+    );
+    await expect(repository.listLiveSessions(missingChatId)).rejects.toThrow(
+      `Chat not found: ${missingChatId}`,
+    );
+
+    await expect(repository.listLiveSessions(chat.id)).resolves.toEqual([
+      secondLiveSession,
+      firstLiveSession,
+    ]);
   });
 
   it('creates, lists, updates, and ends live sessions while preserving canonical messages', async () => {

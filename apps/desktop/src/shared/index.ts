@@ -6,6 +6,7 @@ export {
 export {
   IPC_CHANNELS,
   getOverlayMode,
+  type ChatMemoryListOptions,
   type DesktopBridge,
   type OverlayHitRegion,
   type OverlayMode,
