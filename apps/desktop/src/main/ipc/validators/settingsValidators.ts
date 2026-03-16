@@ -11,7 +11,8 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
   'voiceNoiseSuppressionEnabled',
   'voiceAutoGainControlEnabled',
   'isPanelPinned',
-  'visualSessionQuality',
+  'screenContextMode',
+  'continuousScreenQuality',
   'chatTimestampVisibility',
   'voice',
   'systemInstruction',
@@ -27,6 +28,14 @@ function isPreferredMode(value: unknown): boolean {
 
 function isSpeechSilenceTimeout(value: unknown): boolean {
   return value === 'never' || value === '30s' || value === '3m';
+}
+
+function isScreenContextMode(value: unknown): boolean {
+  return value === 'unconfigured' || value === 'manual' || value === 'continuous';
+}
+
+function isContinuousScreenQuality(value: unknown): boolean {
+  return value === 'low' || value === 'medium' || value === 'high';
 }
 
 function isDesktopVoice(value: unknown): boolean {
@@ -86,6 +95,17 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
   }
 
   if ('isPanelPinned' in value && typeof value['isPanelPinned'] !== 'boolean') {
+    return false;
+  }
+
+  if ('screenContextMode' in value && !isScreenContextMode(value['screenContextMode'])) {
+    return false;
+  }
+
+  if (
+    'continuousScreenQuality' in value
+    && !isContinuousScreenQuality(value['continuousScreenQuality'])
+  ) {
     return false;
   }
 

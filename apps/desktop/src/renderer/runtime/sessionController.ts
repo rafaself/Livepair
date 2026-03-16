@@ -2,9 +2,10 @@ import { checkBackendHealth, requestSessionToken } from '../api/backend';
 import { useCaptureExclusionRectsStore } from '../store/captureExclusionRectsStore';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { resolveActiveScreenContextQuality } from '../../shared';
 import { defaultRuntimeLogger } from './core/logger';
 import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
-import { visualSessionQualityToMediaResolution } from './transport/visualSessionQuality';
+import { continuousScreenQualityToMediaResolution } from './transport/continuousScreenQuality';
 import { createAssistantAudioPlayback } from './audio/assistantAudioPlayback';
 import { createLocalVoiceCapture } from './audio/localVoiceCapture';
 import { createLocalScreenCapture } from './screen/localScreenCapture';
@@ -30,8 +31,8 @@ function resolveDesktopSessionControllerDependencies(
       const settings = useSettingsStore.getState().settings;
 
       return createGeminiLiveTransport({
-        mediaResolutionOverride: visualSessionQualityToMediaResolution(
-          settings.visualSessionQuality,
+        mediaResolutionOverride: continuousScreenQualityToMediaResolution(
+          resolveActiveScreenContextQuality(settings),
         ),
         voice: settings.voice,
         systemInstruction: settings.systemInstruction,

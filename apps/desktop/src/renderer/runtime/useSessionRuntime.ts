@@ -69,7 +69,7 @@ export function useSessionRuntime() {
     await controller.stopScreenCapture();
   }, [controller]);
 
-  const handleAnalyzeScreenNow = useCallback((): void => {
+  const handleSendScreenNow = useCallback((): void => {
     controller.analyzeScreenNow();
   }, [controller]);
 
@@ -106,7 +106,7 @@ export function useSessionRuntime() {
     handleStopVoiceCapture,
     handleStartScreenCapture,
     handleStopScreenCapture,
-    handleAnalyzeScreenNow,
+    handleSendScreenNow,
     handleSubmitTextTurn,
     handleEndSpeechMode,
     handleEndSession,

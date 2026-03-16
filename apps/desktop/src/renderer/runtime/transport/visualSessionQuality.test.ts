@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
-import { visualSessionQualityToMediaResolution } from './visualSessionQuality';
+import { continuousScreenQualityToMediaResolution } from './continuousScreenQuality';
 
-describe('visualSessionQuality', () => {
-  it('defaults to Low in DesktopSettings', () => {
-    expect(DEFAULT_DESKTOP_SETTINGS.visualSessionQuality).toBe('Low');
+describe('continuousScreenQuality', () => {
+  it('defaults to medium in DesktopSettings', () => {
+    expect(DEFAULT_DESKTOP_SETTINGS.continuousScreenQuality).toBe('medium');
   });
 
   it('maps Low to MEDIA_RESOLUTION_LOW', () => {
-    expect(visualSessionQualityToMediaResolution('Low')).toBe('MEDIA_RESOLUTION_LOW');
+    expect(continuousScreenQualityToMediaResolution('low')).toBe('MEDIA_RESOLUTION_LOW');
   });
 
   it('maps Medium to MEDIA_RESOLUTION_MEDIUM', () => {
-    expect(visualSessionQualityToMediaResolution('Medium')).toBe('MEDIA_RESOLUTION_MEDIUM');
+    expect(continuousScreenQualityToMediaResolution('medium')).toBe('MEDIA_RESOLUTION_MEDIUM');
   });
 
   it('maps High to MEDIA_RESOLUTION_HIGH', () => {
-    expect(visualSessionQualityToMediaResolution('High')).toBe('MEDIA_RESOLUTION_HIGH');
+    expect(continuousScreenQualityToMediaResolution('high')).toBe('MEDIA_RESOLUTION_HIGH');
   });
 });

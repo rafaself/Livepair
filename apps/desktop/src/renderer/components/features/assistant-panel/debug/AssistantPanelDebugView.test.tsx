@@ -205,7 +205,7 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Pending (last: 320 ms)')).toBeVisible();
     expect(screen.getByText('Speech to response')).toBeVisible();
     expect(screen.getByText('Unavailable (last: 180 ms)')).toBeVisible();
-    expect(screen.getByText('Screen context')).toBeVisible();
+    expect(screen.getByText('Share Screen')).toBeVisible();
     expect(screen.getByText('Outbound guardrails')).toBeVisible();
     expect(screen.getByText('Breaker')).toBeVisible();
     expect(screen.getByText('Open')).toBeVisible();
@@ -239,20 +239,20 @@ describe('AssistantPanelDebugView', () => {
     expect(onRetryBackendHealth).toHaveBeenCalledTimes(1);
     expect(onToggleSaveScreenFrames).toHaveBeenCalledTimes(1);
 
-    // Wave 3 – visual send policy diagnostics are rendered in the Screen context section
+    // Wave 3 – visual send policy diagnostics are rendered in the Share Screen section
     expect(screen.getByText('Visual send state')).toBeVisible();
     expect(screen.getByText('Last transition')).toBeVisible();
-    expect(screen.getByText('Enable streaming')).toBeVisible();
-    expect(screen.getByText('Snapshots triggered')).toBeVisible();
+    expect(screen.getByText('Continuous sharing enabled')).toBeVisible();
+    expect(screen.getByText('Manual sends triggered')).toBeVisible();
     expect(
-      within(screen.getByText('Snapshots triggered').closest('.field-list__item')!)
+      within(screen.getByText('Manual sends triggered').closest('.field-list__item')!)
         .getByText('2'),
     ).toBeVisible();
-    expect(screen.getByText('Streaming entered')).toBeVisible();
+    expect(screen.getByText('Continuous sharing started')).toBeVisible();
     expect(screen.getByText('2026-03-10T10:14:00.000Z')).toBeVisible();
-    expect(screen.getByText('Streaming ended')).toBeVisible();
-    expect(screen.getByText('Sent (snapshot)')).toBeVisible();
-    expect(screen.getByText('Sent (streaming)')).toBeVisible();
+    expect(screen.getByText('Continuous sharing stopped')).toBeVisible();
+    expect(screen.getByText('Sent (manual)')).toBeVisible();
+    expect(screen.getByText('Sent (continuous)')).toBeVisible();
     expect(screen.getByText('Overlay mask active')).toBeVisible();
     expect(screen.getByText('Mask reason')).toBeVisible();
     expect(screen.getByText('Panel open')).toBeVisible();
@@ -454,7 +454,7 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
       droppedByPolicy: 0,
       blockedByGateway: 0,
     });
-    expect(screen.getByText('Snapshots triggered')).toBeVisible();
+    expect(screen.getByText('Manual sends triggered')).toBeVisible();
     expect(screen.getByText('5')).toBeVisible();
   });
 
@@ -468,7 +468,7 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
       droppedByPolicy: 0,
       blockedByGateway: 0,
     });
-    expect(screen.getByText('Streaming entered')).toBeVisible();
+    expect(screen.getByText('Continuous sharing started')).toBeVisible();
     expect(screen.getByText('2026-03-14T09:00:00.000Z')).toBeVisible();
   });
 
@@ -482,7 +482,7 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
       droppedByPolicy: 0,
       blockedByGateway: 0,
     });
-    expect(screen.getByText('Streaming ended')).toBeVisible();
+    expect(screen.getAllByText('Continuous sharing stopped')).toHaveLength(2);
     expect(screen.getByText('2026-03-14T09:05:00.000Z')).toBeVisible();
   });
 
@@ -496,10 +496,10 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
       droppedByPolicy: 0,
       blockedByGateway: 0,
     });
-    expect(screen.getByText('Sent (snapshot)')).toBeVisible();
-    expect(screen.getByText('Sent (streaming)')).toBeVisible();
+    expect(screen.getByText('Sent (manual)')).toBeVisible();
+    expect(screen.getByText('Sent (continuous)')).toBeVisible();
     expect(
-      within(screen.getByText('Sent (snapshot)').closest('.field-list__item')!)
+      within(screen.getByText('Sent (manual)').closest('.field-list__item')!)
         .getByText('3'),
     ).toBeVisible();
   });

@@ -25,14 +25,14 @@ export type ScreenCaptureQualityParams = {
 };
 
 export function getScreenCaptureQualityParams(
-  quality: 'Low' | 'Medium' | 'High',
+  quality: 'low' | 'medium' | 'high',
 ): ScreenCaptureQualityParams {
   switch (quality) {
-    case 'Low':
+    case 'low':
       return { maxWidthPx: 768, jpegQuality: 0.70 };
-    case 'Medium':
+    case 'medium':
       return { maxWidthPx: 1280, jpegQuality: 0.85 };
-    case 'High':
+    case 'high':
       return { maxWidthPx: SCREEN_CAPTURE_MAX_WIDTH_PX, jpegQuality: SCREEN_CAPTURE_JPEG_QUALITY };
   }
 }

@@ -172,11 +172,11 @@ describe('createScreenCaptureLifecycle', () => {
     expect(harness.createCapture).not.toHaveBeenCalled();
     expect(harness.storeHarness.setScreenCaptureState).toHaveBeenCalledWith('error');
     expect(harness.storeHarness.setScreenCaptureDiagnostics).toHaveBeenCalledWith({
-      lastError: 'Screen context requires an active Live session',
+      lastError: 'Screen sharing requires an active Live session',
       lastUploadStatus: 'error',
     });
     expect(harness.storeHarness.setLastRuntimeError).toHaveBeenCalledWith(
-      'Screen context requires an active Live session',
+      'Screen sharing requires an active Live session',
     );
   });
 

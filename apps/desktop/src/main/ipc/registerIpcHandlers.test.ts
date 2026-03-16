@@ -7,7 +7,7 @@ import type {
   DurableChatSummaryRecord,
   LiveSessionRecord,
 } from '@livepair/shared-types';
-import type { DesktopSettings } from '../../shared/settings';
+import { DEFAULT_DESKTOP_SETTINGS, type DesktopSettings } from '../../shared/settings';
 import type { DesktopSettingsService } from '../settings/settingsService';
 
 const mockHandle = vi.fn();
@@ -29,19 +29,7 @@ vi.mock('electron', () => ({
   systemPreferences: { getMediaAccessStatus: mockGetMediaAccessStatus },
 }));
 
-const defaultSettings: DesktopSettings = {
-  themePreference: 'system',
-  preferredMode: 'fast',
-  selectedInputDeviceId: 'default',
-  selectedOutputDeviceId: 'default',
-  voiceEchoCancellationEnabled: true,
-  voiceNoiseSuppressionEnabled: true,
-  voiceAutoGainControlEnabled: true,
-  speechSilenceTimeout: 'never',
-  isPanelPinned: false,
-  visualSessionQuality: 'Low',
-  chatTimestampVisibility: 'hidden',
-};
+const defaultSettings: DesktopSettings = DEFAULT_DESKTOP_SETTINGS;
 
 function createSettingsServiceDouble(): DesktopSettingsService {
   return {

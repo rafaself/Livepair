@@ -8,7 +8,7 @@ export type ControlDockSpeechControlsProps = {
   onStartVoiceCapture: () => Promise<void>;
   onStopScreenCapture: () => Promise<void>;
   onStopVoiceCapture: () => Promise<void>;
-  onAnalyzeScreenNow: () => void;
+  onSendScreenNow: () => void;
   uiState: ControlDockUiState;
 };
 
@@ -18,7 +18,7 @@ export function ControlDockSpeechControls({
   onStartVoiceCapture,
   onStopScreenCapture,
   onStopVoiceCapture,
-  onAnalyzeScreenNow,
+  onSendScreenNow,
   uiState,
 }: ControlDockSpeechControlsProps): JSX.Element {
   return (
@@ -80,14 +80,14 @@ export function ControlDockSpeechControls({
       </div>
 
       <div
-        className={`control-dock__item-wrapper ${uiState.canAnalyzeScreen ? 'control-dock__item-wrapper--visible' : ''}`}
-        aria-hidden={!uiState.canAnalyzeScreen}
+        className={`control-dock__item-wrapper ${uiState.showManualSendControl ? 'control-dock__item-wrapper--visible' : ''}`}
+        aria-hidden={!uiState.showManualSendControl}
       >
         <div className="control-dock__item-content">
           <IconButton
-            label="Analyze screen now"
-            onClick={onAnalyzeScreenNow}
-            tabIndex={uiState.canAnalyzeScreen ? 0 : -1}
+            label="Send screen now"
+            onClick={onSendScreenNow}
+            tabIndex={uiState.showManualSendControl ? 0 : -1}
           >
             <ScanEye size={18} />
           </IconButton>

@@ -195,6 +195,8 @@ describe('ipc validators', () => {
       speechSilenceTimeout: '30s',
       voiceNoiseSuppressionEnabled: true,
       isPanelPinned: true,
+      screenContextMode: 'continuous',
+      continuousScreenQuality: 'medium',
       voice: 'Puck',
       systemInstruction: '',
     };
@@ -217,6 +219,8 @@ describe('ipc validators', () => {
     expect(isDesktopSettingsPatch({ voiceEchoCancellationEnabled: 'yes' })).toBe(false);
     expect(isDesktopSettingsPatch({ isPanelPinned: 'yes' })).toBe(false);
     expect(isDesktopSettingsPatch({ speechSilenceTimeout: '5m' })).toBe(false);
+    expect(isDesktopSettingsPatch({ screenContextMode: 'burst' })).toBe(false);
+    expect(isDesktopSettingsPatch({ continuousScreenQuality: 'ultra' })).toBe(false);
     expect(isDesktopSettingsPatch({ voice: 'InvalidVoice' })).toBe(false);
   });
 

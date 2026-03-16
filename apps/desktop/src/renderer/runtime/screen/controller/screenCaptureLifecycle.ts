@@ -148,7 +148,7 @@ export function createScreenCaptureLifecycle({
     const transport = getTransport();
 
     if (transport === null || !isLiveSessionReadyForScreenCapture(voiceStatus)) {
-      const detail = 'Screen context requires an active Live session';
+      const detail = 'Screen sharing requires an active Live session';
       state.setScreenCaptureState('error');
       state.setScreenCaptureDiagnostics({
         lastError: detail,

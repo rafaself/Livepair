@@ -89,7 +89,7 @@ describe('Wave 7 – promotion oscillation guard: repeated cycles', () => {
 
     // End state: not active (last end cleared it, re-begins were no-ops)
     expect(promoter.isPromotionActive()).toBe(false);
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
   });
 
   it('second activation after hold period works normally', () => {
@@ -98,9 +98,9 @@ describe('Wave 7 – promotion oscillation guard: repeated cycles', () => {
 
     // Cycle 1
     promoter.beginFocusedAnalysis('ide_code_analysis');
-    expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(promoter.getEffectiveQuality('low')).toBe(PROMOTED_VISUAL_QUALITY);
     promoter.endFocusedAnalysis();
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
 
     // Wait past hold
     now += 2000;
@@ -108,9 +108,9 @@ describe('Wave 7 – promotion oscillation guard: repeated cycles', () => {
     // Cycle 2 — full promotion again
     promoter.beginFocusedAnalysis('ide_code_analysis');
     expect(promoter.isPromotionActive()).toBe(true);
-    expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(promoter.getEffectiveQuality('low')).toBe(PROMOTED_VISUAL_QUALITY);
     promoter.endFocusedAnalysis();
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
   });
 
   it('10 rapid cycles only promote twice (once at start, once after hold)', () => {
@@ -170,25 +170,25 @@ describe('Wave 7 – promotion oscillation guard: non-regression', () => {
     now += 100; // within hold period
     promoter.beginFocusedAnalysis('generic_screenshot');
     expect(promoter.isPromotionActive()).toBe(false);
-    expect(promoter.getEffectiveQuality('Medium')).toBe('Medium');
+    expect(promoter.getEffectiveQuality('medium')).toBe('medium');
   });
 
   it('Wave 6 baseline-immutability invariant is preserved with oscillation guard', () => {
     const now = 0;
-    const baseline = 'Low' as const;
+    const baseline = 'low' as const;
     const promoter = createVisualQualityPromoter({ nowMs: () => now });
     promoter.beginFocusedAnalysis('ide_code_analysis');
     expect(promoter.getEffectiveQuality(baseline)).toBe(PROMOTED_VISUAL_QUALITY);
     promoter.endFocusedAnalysis();
-    expect(baseline).toBe('Low'); // never mutated
-    expect(promoter.getEffectiveQuality(baseline)).toBe('Low');
+    expect(baseline).toBe('low'); // never mutated
+    expect(promoter.getEffectiveQuality(baseline)).toBe('low');
   });
 
   it('Wave 5 mapping invariant is untouched', async () => {
-    const { visualSessionQualityToMediaResolution } = await import(
-      '../transport/visualSessionQuality'
+    const { continuousScreenQualityToMediaResolution } = await import(
+      '../transport/continuousScreenQuality'
     );
-    expect(visualSessionQualityToMediaResolution('High')).toBe('MEDIA_RESOLUTION_HIGH');
-    expect(visualSessionQualityToMediaResolution('Low')).toBe('MEDIA_RESOLUTION_LOW');
+    expect(continuousScreenQualityToMediaResolution('high')).toBe('MEDIA_RESOLUTION_HIGH');
+    expect(continuousScreenQualityToMediaResolution('low')).toBe('MEDIA_RESOLUTION_LOW');
   });
 });

@@ -33,7 +33,9 @@ export {
   type ChatTimestampVisibility,
   type DesktopVoice,
   type PreferredMode,
+  type ContinuousScreenQuality,
+  type ScreenContextMode,
   type SpeechSilenceTimeout,
   type ThemePreference,
-  type VisualSessionQuality,
+  resolveActiveScreenContextQuality,
 } from './settings';

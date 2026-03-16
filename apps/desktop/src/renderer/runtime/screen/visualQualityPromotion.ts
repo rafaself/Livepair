@@ -28,7 +28,7 @@
  * The clock is injectable via options for deterministic tests.
  */
 
-import type { VisualSessionQuality } from '../../../shared/settings';
+import type { ContinuousScreenQuality } from '../../../shared/settings';
 
 // ---------------------------------------------------------------------------
 // Intent taxonomy
@@ -62,7 +62,7 @@ export type VisualAnalysisIntent = (typeof TEXT_HEAVY_VISUAL_INTENTS)[number] | 
  * Kept as a named constant so it can be asserted in tests and referenced
  * without sprinkling magic strings through call sites.
  */
-export const PROMOTED_VISUAL_QUALITY: VisualSessionQuality = 'High';
+export const PROMOTED_VISUAL_QUALITY: ContinuousScreenQuality = 'high';
 
 /**
  * Wave 7 – Minimum hold-down period between successive beginFocusedAnalysis()
@@ -88,8 +88,8 @@ export function isTextHeavyVisualIntent(intent: VisualAnalysisIntent): boolean {
  */
 export function resolvePromotedQuality(
   intent: VisualAnalysisIntent,
-  baseline: VisualSessionQuality,
-): VisualSessionQuality {
+  baseline: ContinuousScreenQuality,
+): ContinuousScreenQuality {
   return isTextHeavyVisualIntent(intent) ? PROMOTED_VISUAL_QUALITY : baseline;
 }
 
@@ -126,7 +126,7 @@ export type VisualQualityPromoter = {
    * - During an active promotion: PROMOTED_VISUAL_QUALITY
    * - Otherwise: the supplied baseline (never mutated)
    */
-  getEffectiveQuality: (baseline: VisualSessionQuality) => VisualSessionQuality;
+  getEffectiveQuality: (baseline: ContinuousScreenQuality) => ContinuousScreenQuality;
   /** True when a text-heavy promotion is currently in force. */
   isPromotionActive: () => boolean;
   /**
@@ -183,7 +183,7 @@ export function createVisualQualityPromoter(
       activeIntent = null;
     },
 
-    getEffectiveQuality(baseline: VisualSessionQuality): VisualSessionQuality {
+    getEffectiveQuality(baseline: ContinuousScreenQuality): ContinuousScreenQuality {
       return activeIntent !== null ? PROMOTED_VISUAL_QUALITY : baseline;
     },
 

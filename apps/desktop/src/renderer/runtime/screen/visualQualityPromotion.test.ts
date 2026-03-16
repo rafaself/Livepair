@@ -74,19 +74,19 @@ describe('isTextHeavyVisualIntent', () => {
 
 describe('resolvePromotedQuality', () => {
   it('promotes to PROMOTED_VISUAL_QUALITY for a text-heavy intent regardless of baseline', () => {
-    expect(resolvePromotedQuality('ide_code_analysis', 'Low')).toBe(PROMOTED_VISUAL_QUALITY);
-    expect(resolvePromotedQuality('terminal_log_reading', 'Medium')).toBe(PROMOTED_VISUAL_QUALITY);
-    expect(resolvePromotedQuality('ocr_ui_inspection', 'High')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(resolvePromotedQuality('ide_code_analysis', 'low')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(resolvePromotedQuality('terminal_log_reading', 'medium')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(resolvePromotedQuality('ocr_ui_inspection', 'high')).toBe(PROMOTED_VISUAL_QUALITY);
   });
 
   it('returns baseline for a non-text-heavy intent', () => {
-    expect(resolvePromotedQuality('generic_screenshot', 'Low')).toBe('Low');
-    expect(resolvePromotedQuality('generic_screenshot', 'Medium')).toBe('Medium');
-    expect(resolvePromotedQuality('generic_screenshot', 'High')).toBe('High');
+    expect(resolvePromotedQuality('generic_screenshot', 'low')).toBe('low');
+    expect(resolvePromotedQuality('generic_screenshot', 'medium')).toBe('medium');
+    expect(resolvePromotedQuality('generic_screenshot', 'high')).toBe('high');
   });
 
   it('PROMOTED_VISUAL_QUALITY is High', () => {
-    expect(PROMOTED_VISUAL_QUALITY).toBe('High');
+    expect(PROMOTED_VISUAL_QUALITY).toBe('high');
   });
 });
 
@@ -98,9 +98,9 @@ describe('createVisualQualityPromoter – initial state', () => {
 
   it('returns baseline quality when no promotion is active', () => {
     const promoter = createVisualQualityPromoter();
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
-    expect(promoter.getEffectiveQuality('Medium')).toBe('Medium');
-    expect(promoter.getEffectiveQuality('High')).toBe('High');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
+    expect(promoter.getEffectiveQuality('medium')).toBe('medium');
+    expect(promoter.getEffectiveQuality('high')).toBe('high');
   });
 });
 
@@ -114,15 +114,15 @@ describe('createVisualQualityPromoter – text-heavy promotion', () => {
   it('returns promoted quality during active promotion', () => {
     const promoter = createVisualQualityPromoter();
     promoter.beginFocusedAnalysis('ide_code_analysis');
-    expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(promoter.getEffectiveQuality('low')).toBe(PROMOTED_VISUAL_QUALITY);
   });
 
   it('returns promoted quality for all baselines while promotion is active', () => {
     const promoter = createVisualQualityPromoter();
     promoter.beginFocusedAnalysis('terminal_log_reading');
-    expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
-    expect(promoter.getEffectiveQuality('Medium')).toBe(PROMOTED_VISUAL_QUALITY);
-    expect(promoter.getEffectiveQuality('High')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(promoter.getEffectiveQuality('low')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(promoter.getEffectiveQuality('medium')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(promoter.getEffectiveQuality('high')).toBe(PROMOTED_VISUAL_QUALITY);
   });
 
   it('all text-heavy intents trigger promotion', () => {
@@ -130,7 +130,7 @@ describe('createVisualQualityPromoter – text-heavy promotion', () => {
       const promoter = createVisualQualityPromoter();
       promoter.beginFocusedAnalysis(intent);
       expect(promoter.isPromotionActive()).toBe(true);
-      expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
+      expect(promoter.getEffectiveQuality('low')).toBe(PROMOTED_VISUAL_QUALITY);
     }
   });
 });
@@ -145,7 +145,7 @@ describe('createVisualQualityPromoter – non-text-heavy intent', () => {
   it('returns baseline quality for a non-text-heavy intent', () => {
     const promoter = createVisualQualityPromoter();
     promoter.beginFocusedAnalysis('generic_screenshot');
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
   });
 });
 
@@ -161,17 +161,17 @@ describe('createVisualQualityPromoter – reversion after endFocusedAnalysis', (
     const promoter = createVisualQualityPromoter();
     promoter.beginFocusedAnalysis('ide_code_analysis');
     promoter.endFocusedAnalysis();
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
-    expect(promoter.getEffectiveQuality('Medium')).toBe('Medium');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
+    expect(promoter.getEffectiveQuality('medium')).toBe('medium');
   });
 
   it('baseline is unchanged after a promotion cycle', () => {
     // Simulate what would happen: baseline comes from DesktopSettings (never mutated)
-    const baseline = 'Low' as const;
+    const baseline = 'low' as const;
     const promoter = createVisualQualityPromoter();
 
     // Before promotion
-    expect(promoter.getEffectiveQuality(baseline)).toBe('Low');
+    expect(promoter.getEffectiveQuality(baseline)).toBe('low');
 
     // During promotion
     promoter.beginFocusedAnalysis('dense_error_screen');
@@ -179,17 +179,17 @@ describe('createVisualQualityPromoter – reversion after endFocusedAnalysis', (
 
     // After promotion ends
     promoter.endFocusedAnalysis();
-    expect(promoter.getEffectiveQuality(baseline)).toBe('Low');
+    expect(promoter.getEffectiveQuality(baseline)).toBe('low');
 
     // The baseline variable itself is unchanged
-    expect(baseline).toBe('Low');
+    expect(baseline).toBe('low');
   });
 
   it('endFocusedAnalysis is a safe no-op when no promotion is active', () => {
     const promoter = createVisualQualityPromoter();
     expect(() => promoter.endFocusedAnalysis()).not.toThrow();
     expect(promoter.isPromotionActive()).toBe(false);
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
   });
 
   it('supports multiple promotion cycles', () => {
@@ -197,15 +197,15 @@ describe('createVisualQualityPromoter – reversion after endFocusedAnalysis', (
     const promoter = createVisualQualityPromoter({ nowMs: () => now });
 
     promoter.beginFocusedAnalysis('ide_code_analysis');
-    expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(promoter.getEffectiveQuality('low')).toBe(PROMOTED_VISUAL_QUALITY);
     promoter.endFocusedAnalysis();
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
 
     now += 2000; // advance past Wave 7 hold-down period
     promoter.beginFocusedAnalysis('terminal_log_reading');
-    expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(promoter.getEffectiveQuality('low')).toBe(PROMOTED_VISUAL_QUALITY);
     promoter.endFocusedAnalysis();
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
   });
 
   it('a new beginFocusedAnalysis replaces a prior active promotion', () => {
@@ -214,7 +214,7 @@ describe('createVisualQualityPromoter – reversion after endFocusedAnalysis', (
     // overwrite with another text-heavy intent — still promoted
     promoter.beginFocusedAnalysis('ocr_ui_inspection');
     expect(promoter.isPromotionActive()).toBe(true);
-    expect(promoter.getEffectiveQuality('Low')).toBe(PROMOTED_VISUAL_QUALITY);
+    expect(promoter.getEffectiveQuality('low')).toBe(PROMOTED_VISUAL_QUALITY);
     promoter.endFocusedAnalysis();
     expect(promoter.isPromotionActive()).toBe(false);
   });
@@ -226,7 +226,7 @@ describe('createVisualQualityPromoter – reversion after endFocusedAnalysis', (
     // non-text-heavy: should clear promotion
     promoter.beginFocusedAnalysis('generic_screenshot');
     expect(promoter.isPromotionActive()).toBe(false);
-    expect(promoter.getEffectiveQuality('Low')).toBe('Low');
+    expect(promoter.getEffectiveQuality('low')).toBe('low');
   });
 });
 
@@ -272,18 +272,18 @@ describe('Wave 6 – non-regression: existing wave invariants', () => {
     expect(policy.getState()).toBe('inactive');
   });
 
-  it('baseline visualSessionQuality default is Low (Wave 5 invariant)', async () => {
+  it('baseline continuousScreenQuality default is medium (Wave 5 invariant)', async () => {
     const { DEFAULT_DESKTOP_SETTINGS } = await import('../../../shared/settings');
-    expect(DEFAULT_DESKTOP_SETTINGS.visualSessionQuality).toBe('Low');
+    expect(DEFAULT_DESKTOP_SETTINGS.continuousScreenQuality).toBe('medium');
   });
 
-  it('visualSessionQualityToMediaResolution mapping is unchanged (Wave 5 invariant)', async () => {
-    const { visualSessionQualityToMediaResolution } = await import(
-      '../transport/visualSessionQuality'
+  it('continuousScreenQualityToMediaResolution mapping is unchanged (Wave 5 invariant)', async () => {
+    const { continuousScreenQualityToMediaResolution } = await import(
+      '../transport/continuousScreenQuality'
     );
-    expect(visualSessionQualityToMediaResolution('Low')).toBe('MEDIA_RESOLUTION_LOW');
-    expect(visualSessionQualityToMediaResolution('Medium')).toBe('MEDIA_RESOLUTION_MEDIUM');
-    expect(visualSessionQualityToMediaResolution('High')).toBe('MEDIA_RESOLUTION_HIGH');
+    expect(continuousScreenQualityToMediaResolution('low')).toBe('MEDIA_RESOLUTION_LOW');
+    expect(continuousScreenQualityToMediaResolution('medium')).toBe('MEDIA_RESOLUTION_MEDIUM');
+    expect(continuousScreenQualityToMediaResolution('high')).toBe('MEDIA_RESOLUTION_HIGH');
   });
 });
 

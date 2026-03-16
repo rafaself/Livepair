@@ -72,7 +72,8 @@ function HookHarness(): JSX.Element {
       <output aria-label="noise-suppression">{String(controller.voiceNoiseSuppressionEnabled)}</output>
       <output aria-label="auto-gain-control">{String(controller.voiceAutoGainControlEnabled)}</output>
       <output aria-label="speech-silence-timeout">{controller.speechSilenceTimeout}</output>
-      <output aria-label="visual-session-quality">{controller.visualSessionQuality}</output>
+      <output aria-label="screen-context-mode">{controller.screenContextMode}</output>
+      <output aria-label="continuous-screen-quality">{controller.continuousScreenQuality}</output>
       <button type="button" onClick={() => controller.setVoiceEchoCancellationEnabled(false)}>
         disable echo cancellation
       </button>
@@ -88,8 +89,14 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={() => controller.setSpeechSilenceTimeout('3m')}>
         set speech timeout
       </button>
-      <button type="button" onClick={() => controller.setVisualSessionQuality('High')}>
-        set high quality
+      <button type="button" onClick={() => controller.setScreenContextMode('manual')}>
+        set manual mode
+      </button>
+      <button type="button" onClick={() => controller.setScreenContextMode('continuous')}>
+        set continuous mode
+      </button>
+      <button type="button" onClick={() => controller.setContinuousScreenQuality('high')}>
+        set high automatic quality
       </button>
     </div>
   );
@@ -246,23 +253,42 @@ describe('useAssistantPanelSettingsController', () => {
     expect(screen.getByLabelText('speech-silence-timeout')).toHaveTextContent('3m');
   });
 
-  it('wave 5: exposes Low as the default visual session quality', () => {
+  it('exposes the first-use screen context defaults', () => {
     render(<HookHarness />);
 
-    expect(screen.getByLabelText('visual-session-quality')).toHaveTextContent('Low');
+    expect(screen.getByLabelText('screen-context-mode')).toHaveTextContent('unconfigured');
+    expect(screen.getByLabelText('continuous-screen-quality')).toHaveTextContent('medium');
   });
 
-  it('wave 5: persists visual session quality changes through the settings store', async () => {
+  it('persists screen context mode and automatic quality changes through the settings store', async () => {
     render(<HookHarness />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'set high quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set manual mode' }));
 
     await waitFor(() => {
       expect(window.bridge.updateSettings).toHaveBeenCalledWith({
-        visualSessionQuality: 'High',
+        screenContextMode: 'manual',
       });
+      expect(screen.getByLabelText('screen-context-mode')).toHaveTextContent('manual');
     });
-    expect(screen.getByLabelText('visual-session-quality')).toHaveTextContent('High');
+
+    fireEvent.click(screen.getByRole('button', { name: 'set continuous mode' }));
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        screenContextMode: 'continuous',
+      });
+      expect(screen.getByLabelText('screen-context-mode')).toHaveTextContent('continuous');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'set high automatic quality' }));
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        continuousScreenQuality: 'high',
+      });
+      expect(screen.getByLabelText('continuous-screen-quality')).toHaveTextContent('high');
+    });
   });
 });
 

@@ -8,6 +8,7 @@ const baseInput = {
   voiceSessionStatus: 'ready' as const,
   voiceCaptureState: 'idle' as const,
   screenCaptureState: 'disabled' as const,
+  screenContextMode: 'manual' as const,
   isPanelOpen: false,
 };
 
@@ -54,7 +55,7 @@ describe('createControlDockUiState – Live session terminology', () => {
         ...baseInput,
         speechLifecycleStatus: 'starting',
       });
-      expect(state.screenContextLabel).toBe('Screen context unavailable while Live session starts');
+      expect(state.screenContextLabel).toBe('Screen sharing unavailable while Live session starts');
     });
 
     it('uses Live session language when ending', () => {
@@ -62,7 +63,7 @@ describe('createControlDockUiState – Live session terminology', () => {
         ...baseInput,
         speechLifecycleStatus: 'ending',
       });
-      expect(state.screenContextLabel).toBe('Screen context unavailable while Live session ends');
+      expect(state.screenContextLabel).toBe('Screen sharing unavailable while Live session ends');
     });
 
     it('says unavailable outside a Live session when mode is inactive', () => {
@@ -71,7 +72,7 @@ describe('createControlDockUiState – Live session terminology', () => {
         currentMode: 'inactive',
         speechLifecycleStatus: 'off',
       });
-      expect(state.screenContextLabel).toBe('Screen context unavailable outside a Live session');
+      expect(state.screenContextLabel).toBe('Screen sharing unavailable outside a Live session');
     });
 
     it('says unavailable while Live session starts when voice not ready', () => {
@@ -80,7 +81,7 @@ describe('createControlDockUiState – Live session terminology', () => {
         voiceSessionStatus: 'connecting',
         screenCaptureState: 'disabled',
       });
-      expect(state.screenContextLabel).toBe('Screen context unavailable while Live session starts');
+      expect(state.screenContextLabel).toBe('Screen sharing unavailable while Live session starts');
     });
   });
 

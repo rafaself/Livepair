@@ -26,7 +26,7 @@ export type ControlDockProps = {
   onStopVoiceCapture: () => Promise<void>;
   onStartScreenCapture: () => Promise<void>;
   onStopScreenCapture: () => Promise<void>;
-  onAnalyzeScreenNow: () => void;
+  onSendScreenNow: () => void;
   onEndSession: () => Promise<void>;
 };
 
@@ -41,13 +41,14 @@ export function ControlDock({
   onStopVoiceCapture,
   onStartScreenCapture,
   onStopScreenCapture,
-  onAnalyzeScreenNow,
+  onSendScreenNow,
   onEndSession,
 }: ControlDockProps): JSX.Element {
   const isPanelOpen = useUiStore((state) => state.isPanelOpen);
   const togglePanel = useUiStore((state) => state.togglePanel);
   const closePanel = useUiStore((state) => state.closePanel);
   const isPanelPinned = useSettingsStore((state) => state.settings.isPanelPinned);
+  const screenContextMode = useSettingsStore((state) => state.settings.screenContextMode);
   const { isHovered, isWindowFocused, onMouseEnter, onMouseLeave } = useControlDockVisibility({
     closePanel,
     isPanelOpen,
@@ -61,6 +62,7 @@ export function ControlDock({
     voiceSessionStatus,
     voiceCaptureState,
     screenCaptureState,
+    screenContextMode,
     isPanelOpen,
   });
 
@@ -78,7 +80,7 @@ export function ControlDock({
         onStartVoiceCapture={onStartVoiceCapture}
         onStopScreenCapture={onStopScreenCapture}
         onStopVoiceCapture={onStopVoiceCapture}
-        onAnalyzeScreenNow={onAnalyzeScreenNow}
+        onSendScreenNow={onSendScreenNow}
         uiState={uiState}
       />
 

@@ -147,19 +147,19 @@ export function formatVisualTransitionReason(
   }
 
   if (reason === 'analyzeScreenNow') {
-    return 'Analyze screen now';
+    return 'Send screen now';
   }
 
   if (reason === 'snapshotConsumed') {
-    return 'Snapshot consumed';
+    return 'Manual send completed';
   }
 
   if (reason === 'enableStreaming') {
-    return 'Enable streaming';
+    return 'Continuous sharing enabled';
   }
 
   if (reason === 'stopStreaming') {
-    return 'Stop streaming';
+    return 'Continuous sharing stopped';
   }
 
   return reason;

@@ -95,16 +95,16 @@ describe('AssistantPanelSettingsView', () => {
     useUiStore.setState({ isDebugMode: true });
     await renderSettings();
 
-    const videoHeading = screen.getByRole('heading', { name: 'Video' });
+    const shareScreenHeading = screen.getByRole('heading', { name: 'Share Screen' });
     const audioHeading = screen.getByRole('heading', { name: 'Audio' });
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'General' })).toBeVisible();
-    expect(videoHeading).toBeVisible();
+    expect(shareScreenHeading).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Audio' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeVisible();
     expect(
-      videoHeading.compareDocumentPosition(audioHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+      shareScreenHeading.compareDocumentPosition(audioHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
     expect(screen.queryByRole('heading', { name: 'Backend' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /backend url/i })).not.toBeInTheDocument();
@@ -133,6 +133,49 @@ describe('AssistantPanelSettingsView', () => {
     });
 
     expect(window.bridge.selectScreenCaptureSource).toHaveBeenCalledWith('window:42:0');
+  });
+
+  it('shows the screen mode selector and only reveals automatic quality in continuous mode', async () => {
+    await renderSettings({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      screenContextMode: 'unconfigured',
+    });
+
+    expect(screen.getByRole('button', { name: 'Screen mode' })).toHaveTextContent('Choose mode');
+    expect(screen.queryByRole('button', { name: 'Automatic screen quality' })).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Screen mode' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'Manual' }));
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        screenContextMode: 'manual',
+      });
+    });
+    expect(
+      screen.getByText('Manual mode always sends in High quality when you click Send screen now.'),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Automatic screen quality' })).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Screen mode' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'Continuous' }));
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        screenContextMode: 'continuous',
+      });
+    });
+    expect(screen.getByRole('button', { name: 'Automatic screen quality' })).toHaveTextContent(
+      'medium',
+    );
   });
 
   it('keeps preferred mode locked to fast in debug mode', async () => {
