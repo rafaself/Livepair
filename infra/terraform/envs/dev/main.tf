@@ -221,6 +221,7 @@ module "monitoring" {
   project_id                                 = var.project_id
   cloud_run_service_name                     = module.cloud_run.service_name
   cloud_run_location                         = var.region
+  telemetry_metric_name_prefix               = ""
   target_url                                 = module.cloud_run.service_url
   path                                       = var.monitoring.health_check_path
   uptime_check_display_name                  = "${local.api_monitoring_display_prefix} /health uptime"
