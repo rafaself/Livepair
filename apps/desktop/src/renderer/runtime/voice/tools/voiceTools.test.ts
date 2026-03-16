@@ -87,14 +87,11 @@ describe('voiceTools', () => {
     });
   });
 
-  it('declares a provenance-reporting tool for grounded factual replies', () => {
+  it('declares project and runtime voice tools without a self-reported provenance tool', () => {
     expect(VOICE_TOOL_DECLARATIONS).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           name: 'search_project_knowledge',
-        }),
-        expect.objectContaining({
-          name: 'report_answer_provenance',
         }),
       ]),
     );
@@ -232,43 +229,14 @@ describe('voiceTools', () => {
     expect(searchProjectKnowledge).not.toHaveBeenCalled();
   });
 
-  it('accepts answer provenance reports without leaking them into answer text', async () => {
-    await expect(
-      executeLocalVoiceTool(
-        {
-          id: 'call-3',
-          name: 'report_answer_provenance',
-          arguments: {
-            provenance: 'unverified',
-            confidence: 'low',
-            reason: 'No verified evidence was available in the provided context.',
-          },
-        },
-        createSnapshot(),
-      ),
-    ).resolves.toEqual({
-      id: 'call-3',
-      name: 'report_answer_provenance',
-      response: {
-        ok: true,
-        accepted: true,
-        answerMetadata: {
-          provenance: 'unverified',
-          confidence: 'low',
-          reason: 'No verified evidence was available in the provided context.',
-        },
-      },
-    });
-  });
-
-  it('rejects malformed provenance reports deterministically', async () => {
+  it('rejects provenance-report requests so provenance stays execution-derived', async () => {
     await expect(
       executeLocalVoiceTool(
         {
           id: 'call-4',
           name: 'report_answer_provenance',
           arguments: {
-            provenance: 'unsupported',
+            provenance: 'unverified',
           },
         },
         createSnapshot(),
@@ -279,33 +247,8 @@ describe('voiceTools', () => {
       response: {
         ok: false,
         error: {
-          code: 'invalid_answer_metadata',
-          message: 'Tool "report_answer_provenance" requires a valid provenance payload',
-        },
-      },
-    });
-  });
-
-  it('rejects self-reported project_grounded provenance so it stays execution-derived', async () => {
-    await expect(
-      executeLocalVoiceTool(
-        {
-          id: 'call-4b',
-          name: 'report_answer_provenance',
-          arguments: {
-            provenance: 'project_grounded',
-          },
-        },
-        createSnapshot(),
-      ),
-    ).resolves.toEqual({
-      id: 'call-4b',
-      name: 'report_answer_provenance',
-      response: {
-        ok: false,
-        error: {
-          code: 'invalid_answer_metadata',
-          message: 'Tool "report_answer_provenance" requires a valid provenance payload',
+          code: 'tool_not_supported',
+          message: 'Tool "report_answer_provenance" is not supported in voice mode',
         },
       },
     });

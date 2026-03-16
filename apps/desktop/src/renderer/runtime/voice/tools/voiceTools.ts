@@ -1,5 +1,4 @@
 import type {
-  AnswerCitation,
   AnswerMetadata,
   ProjectKnowledgeSearchRequest,
   ProjectKnowledgeSearchResult,
@@ -19,8 +18,7 @@ import type {
 export type VoiceToolName =
   | 'get_current_mode'
   | 'get_voice_session_status'
-  | 'search_project_knowledge'
-  | 'report_answer_provenance';
+  | 'search_project_knowledge';
 
 export type VoiceToolExecutionSnapshot = {
   currentMode: ProductMode;
@@ -64,40 +62,6 @@ export const VOICE_TOOL_DECLARATIONS = [
       additionalProperties: false,
     },
   },
-  {
-    name: 'report_answer_provenance',
-    description: 'Record provenance metadata for a factual assistant reply when the source is not project knowledge retrieved by search_project_knowledge.',
-    parameters: {
-      type: 'object',
-      properties: {
-        provenance: {
-          type: 'string',
-          enum: ['web_grounded', 'tool_grounded', 'unverified'],
-        },
-        citations: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              label: { type: 'string' },
-              uri: { type: 'string' },
-            },
-            required: ['label'],
-            additionalProperties: false,
-          },
-        },
-        confidence: {
-          type: 'string',
-          enum: ['low', 'medium', 'high'],
-        },
-        reason: {
-          type: 'string',
-        },
-      },
-      required: ['provenance'],
-      additionalProperties: false,
-    },
-  },
 ] as const;
 
 function createToolErrorResponse(
@@ -124,78 +88,6 @@ export function deriveCurrentMode(snapshot: VoiceToolExecutionSnapshot): Product
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isAnswerProvenance(value: unknown): value is AnswerMetadata['provenance'] {
-  return (
-    value === 'web_grounded'
-    || value === 'tool_grounded'
-    || value === 'unverified'
-  );
-}
-
-function isAnswerConfidence(value: unknown): value is NonNullable<AnswerMetadata['confidence']> {
-  return value === 'low' || value === 'medium' || value === 'high';
-}
-
-function normalizeAnswerCitation(value: unknown): AnswerCitation | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return null;
-  }
-
-  const label = 'label' in value ? value['label'] : undefined;
-  const uri = 'uri' in value ? value['uri'] : undefined;
-
-  if (!isNonEmptyString(label)) {
-    return null;
-  }
-
-  if (typeof uri !== 'undefined' && !isNonEmptyString(uri)) {
-    return null;
-  }
-
-  return {
-    label: label.trim(),
-    ...(typeof uri === 'string' ? { uri: uri.trim() } : {}),
-  };
-}
-
-function normalizeAnswerMetadata(argumentsValue: Record<string, unknown>): AnswerMetadata | null {
-  const provenance = argumentsValue['provenance'];
-  const confidence = argumentsValue['confidence'];
-  const reason = argumentsValue['reason'];
-  const citations = argumentsValue['citations'];
-
-  if (!isAnswerProvenance(provenance)) {
-    return null;
-  }
-
-  if (typeof confidence !== 'undefined' && !isAnswerConfidence(confidence)) {
-    return null;
-  }
-
-  if (typeof reason !== 'undefined' && !isNonEmptyString(reason)) {
-    return null;
-  }
-
-  if (typeof citations !== 'undefined' && !Array.isArray(citations)) {
-    return null;
-  }
-
-  const normalizedCitations = citations?.map((citation) => normalizeAnswerCitation(citation));
-
-  if (normalizedCitations?.some((citation) => citation === null)) {
-    return null;
-  }
-
-  return {
-    provenance,
-    ...(normalizedCitations && normalizedCitations.length > 0
-      ? { citations: normalizedCitations as AnswerCitation[] }
-      : {}),
-    ...(typeof confidence === 'string' ? { confidence } : {}),
-    ...(typeof reason === 'string' ? { reason: reason.trim() } : {}),
-  };
 }
 
 export type VoiceToolDependencies = {
@@ -289,28 +181,6 @@ export async function executeLocalVoiceTool(
           ok: true,
           ...result,
           ...(answerMetadata ? { answerMetadata } : {}),
-        },
-      };
-    }
-
-    if (call.name === 'report_answer_provenance') {
-      const answerMetadata = normalizeAnswerMetadata(call.arguments);
-
-      if (!answerMetadata) {
-        return createToolErrorResponse(
-          call,
-          'invalid_answer_metadata',
-          'Tool "report_answer_provenance" requires a valid provenance payload',
-        );
-      }
-
-      return {
-        id: call.id,
-        name: call.name,
-        response: {
-          ok: true,
-          accepted: true,
-          answerMetadata,
         },
       };
     }
