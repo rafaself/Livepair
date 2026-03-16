@@ -6,6 +6,7 @@ import {
 } from '../../chatMemory/currentChatMemory';
 import {
   endCurrentLiveSession,
+  resolveCurrentChatLiveSessionVoice,
   restoreCurrentLiveSession,
   startCurrentLiveSession,
   updateCurrentLiveSession,
@@ -255,8 +256,12 @@ export function createSessionLifecycleAssembly({
         ...patch,
       });
     },
-    createPersistedLiveSession: async () => {
-      const liveSession = await startCurrentLiveSession();
+    resolveSessionVoice: () =>
+      resolveCurrentChatLiveSessionVoice(
+        dependencies.settingsStore.getState().settings.voice,
+      ),
+    createPersistedLiveSession: async (voice) => {
+      const liveSession = await startCurrentLiveSession({ voicePreference: voice });
       startTelemetrySession(liveSession);
       telemetryCollector.onSessionConnected();
     },
@@ -275,7 +280,7 @@ export function createSessionLifecycleAssembly({
     setVoiceResumptionInFlight: (value) => {
       runtimeRef.current!.setVoiceResumptionInFlight(value);
     },
-    createTransport: () => dependencies.createTransport(LIVE_ADAPTER_KEY),
+    createTransport: (options) => dependencies.createTransport(LIVE_ADAPTER_KEY, options),
     activateVoiceTransport: (transport) => {
       transportActivation.activateTransport(transport, handleTransportEvent);
     },

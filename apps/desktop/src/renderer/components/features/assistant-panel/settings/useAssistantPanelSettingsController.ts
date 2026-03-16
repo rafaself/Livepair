@@ -23,6 +23,8 @@ const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
 const UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE = '';
 const GROUNDING_CHANGE_DETAIL =
   'Grounding setting changed; start a new session to apply it.';
+const ASSISTANT_INSTRUCTIONS_CHANGE_DETAIL =
+  'Assistant instructions changed; start a new session to apply them.';
 
 export type AssistantPanelSettingsController = {
   isDebugMode: boolean;
@@ -80,6 +82,17 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     (state) => state.setScreenCaptureSourceSnapshot,
   );
   const setLastRuntimeError = useSessionStore((state) => state.setLastRuntimeError);
+  const invalidateActiveSpeechSessionResumption = async (detail: string): Promise<void> => {
+    if (useSessionStore.getState().currentMode !== 'speech') {
+      return;
+    }
+
+    useSessionStore.getState().setVoiceSessionResumption({
+      resumable: false,
+      lastDetail: detail,
+    });
+    await invalidateCurrentLiveSessionResumption(detail);
+  };
   const screenCaptureSourceOptions = useMemo(
     () =>
       screenCaptureSources.map((source) => ({
@@ -185,15 +198,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
 
       void updateSetting('groundingEnabled', groundingEnabled)
         .then(async () => {
-          if (useSessionStore.getState().currentMode !== 'speech') {
-            return;
-          }
-
-          useSessionStore.getState().setVoiceSessionResumption({
-            resumable: false,
-            lastDetail: GROUNDING_CHANGE_DETAIL,
-          });
-          await invalidateCurrentLiveSessionResumption(GROUNDING_CHANGE_DETAIL);
+          await invalidateActiveSpeechSessionResumption(GROUNDING_CHANGE_DETAIL);
         })
         .catch((error: unknown) => {
           setLastRuntimeError(
@@ -204,16 +209,67 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
         });
     },
     setVoice: (voice) => {
-      void updateSetting('voice', voice);
+      if (voice === settings.voice) {
+        return;
+      }
+
+      void updateSetting('voice', voice)
+        .catch((error: unknown) => {
+          setLastRuntimeError(
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : 'Failed to update voice preference',
+          );
+        });
     },
     setSystemInstruction: (systemInstruction) => {
-      void updateSetting('systemInstruction', systemInstruction);
+      void updateSetting('systemInstruction', systemInstruction)
+        .then(async (nextSettings) => {
+          if (nextSettings.systemInstruction === settings.systemInstruction) {
+            return;
+          }
+
+          await invalidateActiveSpeechSessionResumption(ASSISTANT_INSTRUCTIONS_CHANGE_DETAIL);
+        })
+        .catch((error: unknown) => {
+          setLastRuntimeError(
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : 'Failed to update assistant instructions',
+          );
+        });
     },
     restoreDefaultVoiceAndInstructions: () => {
+      if (
+        settings.voice === DEFAULT_DESKTOP_SETTINGS.voice
+        && settings.systemInstruction === DEFAULT_DESKTOP_SETTINGS.systemInstruction
+      ) {
+        return;
+      }
+
       void updateSettings({
         voice: DEFAULT_DESKTOP_SETTINGS.voice,
         systemInstruction: DEFAULT_DESKTOP_SETTINGS.systemInstruction,
-      });
+      })
+        .then(async (nextSettings) => {
+          if (
+            nextSettings.voice === settings.voice
+            && nextSettings.systemInstruction === settings.systemInstruction
+          ) {
+            return;
+          }
+
+          if (nextSettings.systemInstruction !== settings.systemInstruction) {
+            await invalidateActiveSpeechSessionResumption(ASSISTANT_INSTRUCTIONS_CHANGE_DETAIL);
+          }
+        })
+        .catch((error: unknown) => {
+          setLastRuntimeError(
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : 'Failed to restore assistant defaults',
+          );
+        });
     },
   };
 }

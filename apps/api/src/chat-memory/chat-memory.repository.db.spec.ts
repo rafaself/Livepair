@@ -209,10 +209,12 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
     });
     const firstLiveSession = await repository.createLiveSession({
       chatId: chat.id,
+      voice: 'Puck',
       startedAt: '2026-03-12T09:00:00.000Z',
     });
     const secondLiveSession = await repository.createLiveSession({
       chatId: chat.id,
+      voice: 'Kore',
       startedAt: '2026-03-12T10:00:00.000Z',
     });
 
@@ -254,10 +256,12 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
 
     const firstLiveSession: LiveSessionRecord = await repository.createLiveSession({
       chatId: chat.id,
+      voice: 'Puck',
       startedAt: '2026-03-12T09:00:00.000Z',
     });
     const secondLiveSession: LiveSessionRecord = await repository.createLiveSession({
       chatId: chat.id,
+      voice: 'Kore',
       startedAt: '2026-03-12T10:00:00.000Z',
     });
 
@@ -354,6 +358,44 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
         contentText: 'Keep this history intact',
       }),
     ]);
+  });
+
+  it('persists live-session voice so existing chats can keep their assistant voice', async () => {
+    const chat = await repository.getOrCreateCurrentChat();
+
+    const liveSession = await repository.createLiveSession({
+      chatId: chat.id,
+      voice: 'Aoede',
+      startedAt: '2026-03-12T09:00:00.000Z',
+    });
+
+    expect(liveSession).toEqual(
+      expect.objectContaining({
+        chatId: chat.id,
+        voice: 'Aoede',
+      }),
+    );
+
+    await expect(repository.listLiveSessions(chat.id)).resolves.toEqual([
+      expect.objectContaining({
+        id: liveSession.id,
+        voice: 'Aoede',
+      }),
+    ]);
+
+    await expect(
+      repository.endLiveSession({
+        id: liveSession.id,
+        status: 'ended',
+        endedAt: '2026-03-12T09:05:00.000Z',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: liveSession.id,
+        voice: 'Aoede',
+        status: 'ended',
+      }),
+    );
   });
 
   it('gets and upserts durable chat summaries', async () => {

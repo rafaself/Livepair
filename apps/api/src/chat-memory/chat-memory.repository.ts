@@ -1,6 +1,7 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type {
+  AssistantVoice,
   AnswerCitation,
   AnswerConfidence,
   AnswerMetadata,
@@ -74,6 +75,7 @@ type LiveSessionRow = {
   ended_at: TimestampValue | null;
   status: LiveSessionRecord['status'];
   ended_reason: string | null;
+  voice: AssistantVoice | null;
   resumption_handle: string | null;
   last_resumption_update_at: TimestampValue | null;
   restorable: boolean;
@@ -91,6 +93,7 @@ type ListedLiveSessionRow = {
   ended_at: TimestampValue | null;
   status: LiveSessionRecord['status'] | null;
   ended_reason: string | null;
+  voice: AssistantVoice | null;
   resumption_handle: string | null;
   last_resumption_update_at: TimestampValue | null;
   restorable: boolean | null;
@@ -322,6 +325,7 @@ function toLiveSessionRecord(row: LiveSessionRow): LiveSessionRecord {
     endedAt: toOptionalIsoString(row.ended_at),
     status: row.status,
     endedReason: row.ended_reason,
+    voice: row.voice,
     resumptionHandle: row.resumption_handle,
     lastResumptionUpdateAt: toOptionalIsoString(row.last_resumption_update_at),
     restorable: row.restorable,
@@ -655,6 +659,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
           ended_at,
           status,
           ended_reason,
+          voice,
           resumption_handle,
           last_resumption_update_at,
           restorable,
@@ -663,7 +668,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
           summary_snapshot,
           context_state_snapshot
         )
-        VALUES ($1, $2, $3, NULL, 'active', NULL, NULL, NULL, false, NULL, NULL, NULL, NULL)
+        VALUES ($1, $2, $3, NULL, 'active', NULL, $4, NULL, NULL, false, NULL, NULL, NULL, NULL)
         RETURNING
           id,
           chat_id,
@@ -671,6 +676,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
           ended_at,
           status,
           ended_reason,
+          voice,
           resumption_handle,
           last_resumption_update_at,
           restorable,
@@ -679,7 +685,12 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
           summary_snapshot,
           context_state_snapshot
       `,
-      [randomUUID(), request.chatId, request.startedAt ?? new Date().toISOString()],
+      [
+        randomUUID(),
+        request.chatId,
+        request.startedAt ?? new Date().toISOString(),
+        request.voice,
+      ],
     );
 
     return toLiveSessionRecord(insertResult.rows[0]!);
@@ -706,6 +717,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
             live_sessions.ended_at,
             live_sessions.status,
             live_sessions.ended_reason,
+            live_sessions.voice,
             live_sessions.resumption_handle,
             live_sessions.last_resumption_update_at,
             live_sessions.restorable,
@@ -734,6 +746,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
               ended_at,
               status,
               ended_reason,
+              voice,
               resumption_handle,
               last_resumption_update_at,
               restorable,
@@ -754,6 +767,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
             limited_live_sessions.ended_at,
             limited_live_sessions.status,
             limited_live_sessions.ended_reason,
+            limited_live_sessions.voice,
             limited_live_sessions.resumption_handle,
             limited_live_sessions.last_resumption_update_at,
             limited_live_sessions.restorable,
@@ -786,6 +800,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
         ended_at: row.ended_at,
         status: row.status!,
         ended_reason: row.ended_reason,
+        voice: row.voice,
         resumption_handle: row.resumption_handle,
         last_resumption_update_at: row.last_resumption_update_at,
         restorable: row.restorable!,
@@ -861,6 +876,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
           ended_at,
           status,
           ended_reason,
+          voice,
           resumption_handle,
           last_resumption_update_at,
           restorable,
@@ -911,6 +927,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
           ended_at,
           status,
           ended_reason,
+          voice,
           resumption_handle,
           last_resumption_update_at,
           restorable,
@@ -963,6 +980,7 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
           ended_at,
           status,
           ended_reason,
+          voice,
           resumption_handle,
           last_resumption_update_at,
           restorable,

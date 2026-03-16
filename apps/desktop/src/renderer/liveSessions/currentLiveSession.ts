@@ -1,4 +1,5 @@
 import type {
+  AssistantVoice,
   EndLiveSessionRequest,
   LiveSessionRecord,
   UpdateLiveSessionResumptionRequest,
@@ -9,6 +10,7 @@ import type { ActiveChatQueryBridge } from '../chatMemory/queries';
 import {
   createPersistedLiveSession,
   endPersistedLiveSession,
+  getLatestPersistedLiveSession,
   listPersistedLiveSessions,
   type LiveSessionsBridge,
   updatePersistedLiveSession,
@@ -21,6 +23,10 @@ let activeLiveSession: LiveSessionRecord | null = null;
 type UpdateCurrentLiveSessionRequest =
   | Omit<UpdateLiveSessionResumptionRequest, 'id'>
   | Omit<UpdateLiveSessionSnapshotRequest, 'id'>;
+
+type StartCurrentLiveSessionOptions = {
+  voicePreference: AssistantVoice;
+};
 
 function isRestoreCandidate(candidate: LiveSessionRecord): boolean {
   return (
@@ -39,6 +45,7 @@ function isSkippedActiveNonRestorableSession(candidate: LiveSessionRecord): bool
 }
 
 export async function startCurrentLiveSession(
+  options: StartCurrentLiveSessionOptions,
   bridge: CurrentLiveSessionBridge = window.bridge,
 ): Promise<LiveSessionRecord> {
   if (activeLiveSession) {
@@ -46,13 +53,28 @@ export async function startCurrentLiveSession(
   }
 
   const chat = await getCurrentChat(bridge);
+  const latestLiveSession = await getLatestPersistedLiveSession(chat.id, bridge);
   const liveSession = await createPersistedLiveSession({
     chatId: chat.id,
+    voice: latestLiveSession?.voice ?? options.voicePreference,
     startedAt: new Date().toISOString(),
   }, bridge);
 
   activeLiveSession = liveSession;
   return liveSession;
+}
+
+export async function resolveCurrentChatLiveSessionVoice(
+  voicePreference: AssistantVoice,
+  bridge: CurrentLiveSessionBridge = window.bridge,
+): Promise<AssistantVoice> {
+  if (activeLiveSession?.voice) {
+    return activeLiveSession.voice;
+  }
+
+  const chat = await getCurrentChat(bridge);
+  const latestLiveSession = await getLatestPersistedLiveSession(chat.id, bridge);
+  return latestLiveSession?.voice ?? voicePreference;
 }
 
 export async function restoreCurrentLiveSession(

@@ -13,6 +13,7 @@ import {
 } from '../../chatMemory/currentChatMemory';
 import {
   endCurrentLiveSession,
+  resolveCurrentChatLiveSessionVoice,
   startCurrentLiveSession,
   updateCurrentLiveSession,
 } from '../../liveSessions/currentLiveSession';
@@ -336,9 +337,13 @@ export function createSessionTransportAssembly({
         logRuntimeDiagnostic,
         buildRehydrationPacketFromCurrentChat,
         isCurrentSessionOperation: (id) => runtimeRef.current!.isCurrentSessionOperation(id),
-        createTransport: () => dependencies.createTransport(LIVE_ADAPTER_KEY),
-        createPersistedLiveSession: async () => {
-          await startCurrentLiveSession();
+        resolveSessionVoice: () =>
+          resolveCurrentChatLiveSessionVoice(
+            dependencies.settingsStore.getState().settings.voice,
+          ),
+        createTransport: (options) => dependencies.createTransport(LIVE_ADAPTER_KEY, options),
+        createPersistedLiveSession: async (voice) => {
+          await startCurrentLiveSession({ voicePreference: voice });
         },
         activateVoiceTransport: (transport) => {
           transportActivation.activateTransport(transport, handleTransportEvent);

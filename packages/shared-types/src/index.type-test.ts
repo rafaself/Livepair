@@ -9,6 +9,7 @@ import type {
   ChatMessageRecord,
   ChatMessageRole,
   ChatRecord,
+  AssistantVoice,
   CreateChatRequest,
   DurableChatSummaryRecord,
   CreateEphemeralTokenRequest,
@@ -41,6 +42,7 @@ import type {
   UpdateLiveSessionRequest,
 } from './index';
 import {
+  ASSISTANT_VOICES,
   buildGeminiLiveConnectCapabilityConfig,
   buildGeminiLiveVoiceModeConfig,
   buildGeminiLiveVoiceSessionCapabilities,
@@ -68,6 +70,12 @@ type _ResponseExpireTime = Assert<
 >;
 type _ResponseNewSessionExpireTime = Assert<
   IsExact<CreateEphemeralTokenResponse['newSessionExpireTime'], string>
+>;
+type _AssistantVoiceShape = Assert<
+  IsExact<AssistantVoice, 'Puck' | 'Kore' | 'Aoede'>
+>;
+type _AssistantVoicesShape = Assert<
+  IsExact<typeof ASSISTANT_VOICES, readonly ['Puck', 'Kore', 'Aoede']>
 >;
 type _GeminiLiveVoiceSessionCapabilitiesShape = Assert<
   IsExact<
@@ -587,6 +595,7 @@ type _LiveSessionRecordShape = Assert<
       endedAt: string | null;
       status: 'active' | 'ended' | 'failed';
       endedReason: string | null;
+      voice: 'Puck' | 'Kore' | 'Aoede' | null;
       resumptionHandle: string | null;
       lastResumptionUpdateAt: string | null;
       restorable: boolean;
@@ -615,6 +624,7 @@ type _CreateLiveSessionRequestShape = Assert<
     CreateLiveSessionRequest,
     {
       chatId: string;
+      voice: 'Puck' | 'Kore' | 'Aoede';
       startedAt?: string;
     }
   >

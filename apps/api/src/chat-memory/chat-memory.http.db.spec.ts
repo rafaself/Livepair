@@ -176,6 +176,7 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
         },
         body: JSON.stringify({
           chatId: createdChat.id,
+          voice: 'Kore',
           startedAt: '2026-03-12T09:00:00.000Z',
         }),
       },
@@ -267,6 +268,7 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
     await expect(readJson<LiveSessionRecord[]>(liveSessionsResponse)).resolves.toEqual([
       expect.objectContaining({
         id: createdLiveSession.id,
+        voice: 'Kore',
         summarySnapshot: 'Persisted summary snapshot',
       }),
     ]);
@@ -316,6 +318,7 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
       },
       body: JSON.stringify({
         chatId: chat.id,
+        voice: 'Puck',
         startedAt: '2026-03-12T09:00:00.000Z',
       }),
     }).then((response) => readJson<LiveSessionRecord>(response));
@@ -326,6 +329,7 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
       },
       body: JSON.stringify({
         chatId: chat.id,
+        voice: 'Kore',
         startedAt: '2026-03-12T10:00:00.000Z',
       }),
     }).then((response) => readJson<LiveSessionRecord>(response));

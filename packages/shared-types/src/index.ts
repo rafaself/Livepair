@@ -100,6 +100,8 @@ export interface DurableChatSummaryRecord {
 }
 
 export type LiveSessionId = string;
+export const ASSISTANT_VOICES = ['Puck', 'Kore', 'Aoede'] as const;
+export type AssistantVoice = typeof ASSISTANT_VOICES[number];
 
 export type LiveSessionStatus = 'active' | 'ended' | 'failed';
 
@@ -110,6 +112,7 @@ export interface LiveSessionRecord {
   endedAt: string | null;
   status: LiveSessionStatus;
   endedReason: string | null;
+  voice: AssistantVoice | null;
   resumptionHandle: string | null;
   lastResumptionUpdateAt: string | null;
   restorable: boolean;
@@ -121,6 +124,7 @@ export interface LiveSessionRecord {
 
 export interface CreateLiveSessionRequest {
   chatId: ChatId;
+  voice: AssistantVoice;
   startedAt?: string;
 }
 

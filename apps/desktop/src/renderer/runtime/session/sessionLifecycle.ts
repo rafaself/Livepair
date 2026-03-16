@@ -15,6 +15,7 @@ import type {
   VoiceSessionStatus,
 } from '../voice/voice.types';
 import type {
+  AssistantVoice,
   CreateEphemeralTokenResponse,
   LiveSessionRecord,
   RehydrationPacket,
@@ -59,14 +60,15 @@ type SessionControllerLifecycleArgs = {
     invalidatedAt: string;
     invalidationReason: string;
   }) => Promise<void>;
-  createPersistedLiveSession: () => Promise<void>;
+  resolveSessionVoice: () => Promise<AssistantVoice>;
+  createPersistedLiveSession: (voice: AssistantVoice) => Promise<void>;
   endPersistedLiveSession: (liveSessionEnd: {
     status: 'ended' | 'failed';
     endedReason?: string | null;
   }) => Promise<void>;
   onRestoredSessionConnected: () => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
-  createTransport: () => DesktopSession;
+  createTransport: (options?: { voice?: AssistantVoice }) => DesktopSession;
   activateVoiceTransport: (transport: DesktopSession) => void;
   setVoiceErrorState: (detail: string) => Promise<void>;
   checkBackendHealth: () => Promise<boolean>;
@@ -104,6 +106,7 @@ export function createSessionControllerLifecycle({
   syncVoiceDurabilityState,
   restorePersistedLiveSession,
   invalidatePersistedLiveSession,
+  resolveSessionVoice,
   createPersistedLiveSession,
   endPersistedLiveSession,
   onRestoredSessionConnected,
@@ -124,6 +127,7 @@ export function createSessionControllerLifecycle({
     activateVoiceTransport,
     buildRehydrationPacketFromCurrentChat,
     invalidatePersistedLiveSession,
+    resolveSessionVoice,
     createPersistedLiveSession,
     endPersistedLiveSession,
     logRuntimeDiagnostic,

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatId } from '@livepair/shared-types';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../../shared/settings';
+import { startCurrentLiveSession } from '../../../../liveSessions/currentLiveSession';
 import { useSettingsStore } from '../../../../store/settingsStore';
 import { useSessionStore } from '../../../../store/sessionStore';
 import { resetDesktopStores } from '../../../../test/store';
@@ -26,6 +27,10 @@ function createWindowSource(id: string, name: string) {
 function HookHarness(): JSX.Element {
   const controller = useAssistantPanelSettingsController();
   const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
+  const voiceSessionResumable = useSessionStore((state) => state.voiceSessionResumption.resumable);
+  const voiceSessionResumptionDetail = useSessionStore(
+    (state) => state.voiceSessionResumption.lastDetail,
+  );
 
   return (
     <div>
@@ -72,6 +77,12 @@ function HookHarness(): JSX.Element {
       <output aria-label="screen-context-mode">{controller.screenContextMode}</output>
       <output aria-label="continuous-screen-quality">{controller.continuousScreenQuality}</output>
       <output aria-label="grounding-enabled">{String(controller.groundingEnabled)}</output>
+      <output aria-label="voice-setting">{controller.voice}</output>
+      <output aria-label="system-instruction">{controller.systemInstruction}</output>
+      <output aria-label="voice-session-resumable">{String(voiceSessionResumable)}</output>
+      <output aria-label="voice-session-resumption-detail">
+        {voiceSessionResumptionDetail ?? 'none'}
+      </output>
       <button type="button" onClick={() => controller.setVoiceEchoCancellationEnabled(false)}>
         disable echo cancellation
       </button>
@@ -99,8 +110,66 @@ function HookHarness(): JSX.Element {
       <button type="button" onClick={() => controller.setGroundingEnabled(false)}>
         disable grounding
       </button>
+      <button type="button" onClick={() => controller.setVoice('Kore')}>
+        set voice
+      </button>
+      <button
+        type="button"
+        onClick={() => controller.setSystemInstruction('Be concise and direct.')}
+      >
+        set instructions
+      </button>
+      <button type="button" onClick={controller.restoreDefaultVoiceAndInstructions}>
+        restore voice defaults
+      </button>
     </div>
   );
+}
+
+async function seedActiveSpeechSession(): Promise<void> {
+  window.bridge.getOrCreateCurrentChat = vi.fn(async () => ({
+    id: 'chat-current',
+    title: 'Current chat',
+    createdAt: '2026-03-12T09:00:00.000Z',
+    updatedAt: '2026-03-12T09:05:00.000Z',
+    isCurrent: true,
+  }));
+  window.bridge.createLiveSession = vi.fn(async (request) => ({
+    id: 'live-session-current',
+    chatId: request.chatId,
+    startedAt: request.startedAt ?? '2026-03-12T09:20:00.000Z',
+    endedAt: null,
+    status: 'active' as const,
+    endedReason: null,
+    voice: request.voice,
+    resumptionHandle: 'handles/live-session-current',
+    lastResumptionUpdateAt: '2026-03-12T09:21:00.000Z',
+    restorable: true,
+    invalidatedAt: null,
+    invalidationReason: null,
+  }));
+  window.bridge.updateLiveSession = vi.fn(async (request) => ({
+    id: request.id,
+    chatId: 'chat-current',
+    startedAt: '2026-03-12T09:20:00.000Z',
+    endedAt: null,
+    status: 'active' as const,
+    endedReason: null,
+    voice: request.kind === 'resumption' ? ('Puck' as const) : null,
+    resumptionHandle: 'handles/live-session-current',
+    lastResumptionUpdateAt: '2026-03-12T09:21:00.000Z',
+    restorable: false,
+    invalidatedAt: 'invalidatedAt' in request ? request.invalidatedAt ?? null : null,
+    invalidationReason: 'invalidationReason' in request ? request.invalidationReason ?? null : null,
+  }));
+  useSessionStore.getState().setCurrentMode('speech');
+  useSessionStore.getState().setVoiceSessionResumption({
+    status: 'connected',
+    latestHandle: 'handles/live-session-current',
+    resumable: true,
+    lastDetail: null,
+  });
+  await startCurrentLiveSession({ voicePreference: DEFAULT_DESKTOP_SETTINGS.voice });
 }
 
 describe('useAssistantPanelSettingsController', () => {
@@ -295,6 +364,84 @@ describe('useAssistantPanelSettingsController', () => {
         continuousScreenQuality: 'high',
       });
       expect(screen.getByLabelText('continuous-screen-quality')).toHaveTextContent('high');
+    });
+  });
+
+  it('keeps active speech-session resumption intact when only the voice changes', async () => {
+    await seedActiveSpeechSession();
+    render(<HookHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'set voice' }));
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        voice: 'Kore',
+      });
+      expect(window.bridge.updateLiveSession).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('voice-setting')).toHaveTextContent('Kore');
+      expect(screen.getByLabelText('voice-session-resumable')).toHaveTextContent('true');
+      expect(screen.getByLabelText('voice-session-resumption-detail')).toHaveTextContent('none');
+    });
+  });
+
+  it('invalidates active speech-session resumption when instructions change', async () => {
+    await seedActiveSpeechSession();
+    render(<HookHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'set instructions' }));
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        systemInstruction: 'Be concise and direct.',
+      });
+      expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+        id: 'live-session-current',
+        kind: 'resumption',
+        restorable: false,
+        invalidatedAt: expect.any(String),
+        invalidationReason:
+          'Assistant instructions changed; start a new session to apply them.',
+      });
+      expect(screen.getByLabelText('system-instruction')).toHaveTextContent(
+        'Be concise and direct.',
+      );
+      expect(screen.getByLabelText('voice-session-resumable')).toHaveTextContent('false');
+    });
+  });
+
+  it('invalidates active speech-session resumption when restoring default voice and instructions', async () => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        voice: 'Aoede',
+        systemInstruction: 'Custom instruction',
+      },
+      isReady: true,
+    });
+    await seedActiveSpeechSession();
+    render(<HookHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'restore voice defaults' }));
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        voice: DEFAULT_DESKTOP_SETTINGS.voice,
+        systemInstruction: DEFAULT_DESKTOP_SETTINGS.systemInstruction,
+      });
+      expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+        id: 'live-session-current',
+        kind: 'resumption',
+        restorable: false,
+        invalidatedAt: expect.any(String),
+        invalidationReason:
+          'Assistant instructions changed; start a new session to apply them.',
+      });
+      expect(screen.getByLabelText('voice-setting')).toHaveTextContent(
+        DEFAULT_DESKTOP_SETTINGS.voice,
+      );
+      expect(screen.getByLabelText('system-instruction')).toHaveTextContent(
+        DEFAULT_DESKTOP_SETTINGS.systemInstruction,
+      );
     });
   });
 });

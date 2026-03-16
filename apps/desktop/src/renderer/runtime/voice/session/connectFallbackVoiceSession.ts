@@ -1,6 +1,7 @@
 import { asErrorDetail } from '../../core/runtimeUtils';
 import type { DesktopSession } from '../../transport/transport.types';
 import type {
+  AssistantVoice,
   CreateEphemeralTokenResponse,
   RehydrationPacket,
 } from '@livepair/shared-types';
@@ -26,8 +27,9 @@ type ConnectFallbackVoiceSessionArgs = {
   ) => void;
   buildRehydrationPacketFromCurrentChat: () => Promise<RehydrationPacket>;
   isCurrentSessionOperation: (operationId: number) => boolean;
-  createTransport: () => DesktopSession;
-  createPersistedLiveSession: () => Promise<void>;
+  resolveSessionVoice: () => Promise<AssistantVoice>;
+  createTransport: (options?: { voice?: AssistantVoice }) => DesktopSession;
+  createPersistedLiveSession: (voice: AssistantVoice) => Promise<void>;
   activateVoiceTransport: (transport: DesktopSession) => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
   applySpeechLifecycleEvent: (event: { type: 'session.ready' }) => void;
@@ -41,6 +43,7 @@ export async function connectFallbackVoiceSession({
   logRuntimeDiagnostic,
   buildRehydrationPacketFromCurrentChat,
   isCurrentSessionOperation,
+  resolveSessionVoice,
   createTransport,
   createPersistedLiveSession,
   activateVoiceTransport,
@@ -70,9 +73,26 @@ export async function connectFallbackVoiceSession({
     };
   }
 
+  let voice: AssistantVoice;
+  try {
+    voice = await resolveSessionVoice();
+  } catch (error) {
+    return {
+      status: 'failed',
+      detail: asErrorDetail(error, 'Failed to resolve session voice'),
+    };
+  }
+
+  if (!isCurrentSessionOperation(operationId)) {
+    return {
+      status: 'failed',
+      detail: 'Voice session fallback was superseded',
+    };
+  }
+
   let transport: DesktopSession;
   try {
-    transport = createTransport();
+    transport = createTransport({ voice });
   } catch (error) {
     return {
       status: 'failed',
@@ -124,7 +144,7 @@ export async function connectFallbackVoiceSession({
     }
 
     try {
-      await createPersistedLiveSession();
+      await createPersistedLiveSession(voice);
     } catch (error) {
       return disconnectConnectedTransport(asErrorDetail(error, 'Failed to create live session'));
     }

@@ -247,14 +247,18 @@ describe('preload bridge', () => {
       endedAt: null,
       status: 'active',
       endedReason: null,
+      voice: 'Puck',
       resumptionHandle: null,
       lastResumptionUpdateAt: null,
       restorable: false,
       invalidatedAt: null,
       invalidationReason: null,
     });
-    await bridge.createLiveSession({ chatId: 'chat-1' });
-    expect(mockInvoke).toHaveBeenCalledWith('liveSession:create', { chatId: 'chat-1' });
+    await bridge.createLiveSession({ chatId: 'chat-1', voice: 'Puck' });
+    expect(mockInvoke).toHaveBeenCalledWith('liveSession:create', {
+      chatId: 'chat-1',
+      voice: 'Puck',
+    });
 
     mockInvoke.mockResolvedValueOnce([
       {

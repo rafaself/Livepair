@@ -1,9 +1,14 @@
+import {
+  ASSISTANT_VOICES,
+  type AssistantVoice,
+} from '@livepair/shared-types';
+
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type SpeechSilenceTimeout = 'never' | '30s' | '3m';
 export type ScreenContextMode = 'unconfigured' | 'manual' | 'continuous';
 export type ContinuousScreenQuality = 'low' | 'medium' | 'high';
 export type ChatTimestampVisibility = 'hidden' | 'visible';
-export type DesktopVoice = 'Puck' | 'Kore' | 'Aoede';
+export type DesktopVoice = AssistantVoice;
 
 export const DEFAULT_SYSTEM_INSTRUCTION =
   'You are Livepair, a realtime multimodal desktop assistant.';
@@ -69,8 +74,12 @@ function normalizeChatTimestampVisibility(value: unknown): ChatTimestampVisibili
   return value === 'hidden' || value === 'visible' ? value : null;
 }
 
+function isAssistantVoice(value: unknown): value is AssistantVoice {
+  return typeof value === 'string' && ASSISTANT_VOICES.some((voice) => voice === value);
+}
+
 function normalizeDesktopVoice(value: unknown): DesktopVoice | null {
-  return value === 'Puck' || value === 'Kore' || value === 'Aoede' ? value : null;
+  return isAssistantVoice(value) ? value : null;
 }
 
 function normalizeSystemInstructionText(value: string): string {

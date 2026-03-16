@@ -15,18 +15,19 @@ function createMockArgs() {
       isCurrentSessionOperation: vi.fn(() => true),
       applySpeechLifecycleEvent: vi.fn(),
       setVoiceResumptionInFlight: vi.fn(),
+      resolveSessionVoice: vi.fn().mockResolvedValue('Kore'),
       createTransport: vi.fn(),
       activateVoiceTransport: vi.fn(),
       buildRehydrationPacketFromCurrentChat: vi.fn(),
       invalidatePersistedLiveSession: vi.fn().mockResolvedValue(undefined),
       createPersistedLiveSession: vi.fn().mockResolvedValue(undefined),
-    endPersistedLiveSession: vi.fn().mockResolvedValue(undefined),
-    logRuntimeDiagnostic: vi.fn(),
-    _storeState: {
-      setLastRuntimeError,
-      setVoiceSessionResumption,
-    },
-  };
+      endPersistedLiveSession: vi.fn().mockResolvedValue(undefined),
+      logRuntimeDiagnostic: vi.fn(),
+      _storeState: {
+        setLastRuntimeError,
+        setVoiceSessionResumption,
+      },
+    };
 }
 
 describe('createSessionVoiceConnection', () => {
@@ -41,6 +42,7 @@ describe('createSessionVoiceConnection', () => {
         {
           id: 'live-1',
           restorable: true,
+          voice: 'Puck',
           resumptionHandle: null,
           invalidationReason: null,
         } as never,
@@ -78,6 +80,7 @@ describe('createSessionVoiceConnection', () => {
         {
           id: 'live-2',
           restorable: true,
+          voice: 'Aoede',
           resumptionHandle: 'resume-handle',
           invalidationReason: null,
         } as never,
@@ -92,6 +95,7 @@ describe('createSessionVoiceConnection', () => {
       lastDetail: 'Restoring persisted Live session',
     });
     expect(args.setVoiceResumptionInFlight).toHaveBeenCalledWith(true);
+    expect(args.createTransport).toHaveBeenCalledWith({ voice: 'Aoede' });
     expect(args.activateVoiceTransport).toHaveBeenCalledWith(transport);
     expect(transport.connect).toHaveBeenCalledWith({
       token,
@@ -115,13 +119,15 @@ describe('createSessionVoiceConnection', () => {
       connection.connectFallbackSession(9, token, 'no-restore-candidate'),
     ).resolves.toEqual({ status: 'connected' });
 
+    expect(args.resolveSessionVoice).toHaveBeenCalledTimes(1);
+    expect(args.createTransport).toHaveBeenCalledWith({ voice: 'Kore' });
     expect(args.activateVoiceTransport).toHaveBeenCalledWith(transport);
     expect(transport.connect).toHaveBeenCalledWith({
       token,
       mode: 'voice',
       rehydrationPacket: {},
     });
-    expect(args.createPersistedLiveSession).toHaveBeenCalledTimes(1);
+    expect(args.createPersistedLiveSession).toHaveBeenCalledWith('Kore');
     expect(transport.connect.mock.invocationCallOrder[0]).toBeLessThan(
       args.createPersistedLiveSession.mock.invocationCallOrder[0]!,
     );
@@ -146,6 +152,7 @@ describe('createSessionVoiceConnection', () => {
       detail: 'connect failed',
     });
 
+    expect(args.resolveSessionVoice).toHaveBeenCalledTimes(1);
     expect(args.createPersistedLiveSession).not.toHaveBeenCalled();
     expect(args.applySpeechLifecycleEvent).not.toHaveBeenCalled();
   });
@@ -169,7 +176,7 @@ describe('createSessionVoiceConnection', () => {
       detail: 'persist failed',
     });
 
-    expect(args.createPersistedLiveSession).toHaveBeenCalledTimes(1);
+    expect(args.createPersistedLiveSession).toHaveBeenCalledWith('Kore');
     expect(transport.disconnect).toHaveBeenCalledTimes(1);
     expect(args.applySpeechLifecycleEvent).not.toHaveBeenCalled();
   });
@@ -177,6 +184,7 @@ describe('createSessionVoiceConnection', () => {
   it('disconnects the fallback transport when a newer operation supersedes the connect', async () => {
     const args = createMockArgs();
     args.isCurrentSessionOperation
+      .mockReturnValueOnce(true)
       .mockReturnValueOnce(true)
       .mockReturnValueOnce(true)
       .mockReturnValueOnce(false);
