@@ -35,6 +35,18 @@ locals {
       project_roles = ["roles/cloudsql.client"]
     }
   }
+
+  api_environment_variables = {
+    NODE_ENV                              = var.api_runtime.node_env
+    CORS_ALLOWED_ORIGINS                  = join(",", var.api_runtime.cors_allowed_origins)
+    SESSION_TOKEN_LIVE_MODEL              = var.api_runtime.session_token_live_model
+    SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS = tostring(var.api_runtime.session_token_rate_limit_max_requests)
+    SESSION_TOKEN_RATE_LIMIT_WINDOW_MS    = tostring(var.api_runtime.session_token_rate_limit_window_ms)
+    EPHEMERAL_TOKEN_TTL_SECONDS           = tostring(var.api_runtime.ephemeral_token_ttl_seconds)
+    PROJECT_KNOWLEDGE_SEARCH_MODEL        = var.api_runtime.project_knowledge_search_model
+    PROJECT_KNOWLEDGE_FILE_SEARCH_STORE   = var.api_runtime.project_knowledge_file_search_store
+    PROJECT_KNOWLEDGE_FILE_SEARCH_STORE_DISPLAY_NAME = var.api_runtime.project_knowledge_file_search_store_display_name
+  }
 }
 
 module "project_services" {
@@ -114,4 +126,49 @@ module "cloud_sql" {
   labels              = local.common_labels
 
   depends_on = [module.project_services]
+}
+
+module "cloud_run" {
+  source = "../../modules/cloud_run"
+
+  project_id                        = var.project_id
+  location                          = var.region
+  service_name                      = "${local.base_name}-api"
+  service_account_email             = module.service_accounts.service_account_emails["api_runtime"]
+  image                             = var.api_service.image
+  container_port                    = var.api_service.container_port
+  ingress                           = var.api_service.ingress
+  deletion_protection               = var.api_service.deletion_protection
+  allow_unauthenticated             = var.api_service.allow_unauthenticated
+  min_instance_count                = var.api_service.min_instance_count
+  max_instance_count                = var.api_service.max_instance_count
+  timeout                           = var.api_service.timeout
+  cpu                               = var.api_service.cpu
+  memory                            = var.api_service.memory
+  cpu_idle                          = var.api_service.cpu_idle
+  startup_cpu_boost                 = var.api_service.startup_cpu_boost
+  labels                            = local.common_labels
+  environment_variables             = local.api_environment_variables
+  cloud_sql_instance_connection_names = [module.cloud_sql.instance_connection_name]
+  secret_environment_variables = {
+    GEMINI_API_KEY = {
+      secret  = module.secret_manager.secret_ids["gemini_api_key"]
+      version = var.api_secret_versions.gemini_api_key
+    }
+    SESSION_TOKEN_AUTH_SECRET = {
+      secret  = module.secret_manager.secret_ids["session_token_auth_secret"]
+      version = var.api_secret_versions.session_token_auth_secret
+    }
+    DATABASE_URL = {
+      secret  = module.secret_manager.secret_ids["database_url"]
+      version = var.api_secret_versions.database_url
+    }
+  }
+
+  depends_on = [
+    module.project_services,
+    module.service_accounts,
+    module.secret_manager,
+    module.cloud_sql,
+  ]
 }

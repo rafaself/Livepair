@@ -20,3 +20,36 @@ database = {
   app_user_name       = "livepair"
   app_user_password   = "replace-me-before-apply"
 }
+
+api_service = {
+  image                 = "us-central1-docker.pkg.dev/your-gcp-project-id/livepair-dev-containers/api:manual"
+  allow_unauthenticated = true
+  ingress               = "INGRESS_TRAFFIC_ALL"
+  deletion_protection   = false
+  min_instance_count    = 0
+  max_instance_count    = 2
+  timeout               = "300s"
+  container_port        = 8080
+  cpu                   = "1"
+  memory                = "512Mi"
+  cpu_idle              = true
+  startup_cpu_boost     = true
+}
+
+api_runtime = {
+  node_env                              = "production"
+  cors_allowed_origins                  = []
+  session_token_live_model              = "models/gemini-2.5-flash-native-audio-preview-12-2025"
+  session_token_rate_limit_max_requests = 5
+  session_token_rate_limit_window_ms    = 60000
+  ephemeral_token_ttl_seconds           = 60
+  project_knowledge_search_model        = "models/gemini-2.5-flash"
+  project_knowledge_file_search_store   = ""
+  project_knowledge_file_search_store_display_name = "livepair-project-knowledge"
+}
+
+api_secret_versions = {
+  gemini_api_key            = "latest"
+  session_token_auth_secret = "latest"
+  database_url              = "latest"
+}
