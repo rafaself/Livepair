@@ -142,6 +142,7 @@ describe('AssistantPanelSettingsView', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Screen mode' })).toHaveTextContent('Choose mode');
+    expect(screen.getByText('Choose mode')).toHaveClass('assistant-panel__settings-mode-placeholder');
     await act(async () => {
       fireEvent.mouseEnter(screen.getByLabelText('About screen mode'));
     });

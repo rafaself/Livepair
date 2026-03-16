@@ -95,7 +95,9 @@ export function AssistantPanelScreenSettingsSection({
                   className="assistant-panel__settings-select assistant-panel__settings-audio-select assistant-panel__settings-mode-select"
                   options={SCREEN_CONTEXT_MODE_OPTIONS}
                   value={configuredScreenContextMode}
-                  placeholder="Choose mode"
+                  placeholder={
+                    <span className="assistant-panel__settings-mode-placeholder">Choose mode</span>
+                  }
                   onChange={(event) => {
                     const value = event.target.value;
                     if (value === 'manual' || value === 'continuous') {
