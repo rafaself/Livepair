@@ -25,3 +25,4 @@ Repo-wide defaults only. Child `AGENTS.md` files add local deltas for their own 
 ## Local guidance
 - Add local `AGENTS.md` files only at real module boundaries with distinct rules.
 - Check for nearby child guides under `apps/`, `packages/`, and `infra/` before changing a subtree.
+- Search web if necessary.
