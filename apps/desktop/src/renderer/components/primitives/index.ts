@@ -29,3 +29,5 @@ export { Tooltip } from './display';
 export type { TooltipProps } from './display';
 export { GeminiIcon } from './display';
 export type { GeminiIconProps } from './display';
+export { StopIcon } from './display';
+export type { StopIconProps } from './display';
