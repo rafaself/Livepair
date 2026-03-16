@@ -7,6 +7,7 @@ describe('IPC_CHANNELS', () => {
       quitApp: 'app:quit',
       checkHealth: 'health:check',
       requestSessionToken: 'session:requestToken',
+      searchProjectKnowledge: 'projectKnowledge:search',
       createChat: 'chatMemory:createChat',
       getChat: 'chatMemory:getChat',
       getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',

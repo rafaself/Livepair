@@ -129,6 +129,82 @@ describe('createDesktopSessionController – voice tools', () => {
     );
   });
 
+  it('executes project knowledge retrieval tools through the bridge and returns grounded evidence', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const searchProjectKnowledge = vi.fn(async () => ({
+      summaryAnswer: 'Desktop verification uses pnpm verify:desktop.',
+      supportingExcerpts: [
+        {
+          sourceId: 'doc-1',
+          text: 'Desktop package verification uses pnpm verify:desktop.',
+        },
+      ],
+      sources: [{ id: 'doc-1', title: 'README.md', path: 'README.md' }],
+      confidence: 'high' as const,
+      retrievalStatus: 'grounded' as const,
+    }));
+    window.bridge.searchProjectKnowledge = searchProjectKnowledge;
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'speech' });
+
+    voiceTransport.emit({
+      type: 'tool-call',
+      calls: [
+        {
+          id: 'call-project-1',
+          name: 'search_project_knowledge',
+          arguments: {
+            query: 'How do I verify the desktop package?',
+          },
+        },
+      ],
+    });
+
+    await vi.waitFor(() => {
+      expect(searchProjectKnowledge).toHaveBeenCalledWith({
+        query: 'How do I verify the desktop package?',
+      });
+      expect(voiceTransport.sendToolResponses).toHaveBeenCalledWith([
+        {
+          id: 'call-project-1',
+          name: 'search_project_knowledge',
+          response: {
+            ok: true,
+            summaryAnswer: 'Desktop verification uses pnpm verify:desktop.',
+            supportingExcerpts: [
+              {
+                sourceId: 'doc-1',
+                text: 'Desktop package verification uses pnpm verify:desktop.',
+              },
+            ],
+            sources: [{ id: 'doc-1', title: 'README.md', path: 'README.md' }],
+            confidence: 'high',
+            retrievalStatus: 'grounded',
+            answerMetadata: {
+              provenance: 'project_grounded',
+              confidence: 'high',
+              citations: [{ label: 'README.md' }],
+              reason: 'Derived from successful search_project_knowledge retrieval output.',
+            },
+          },
+        },
+      ]);
+    });
+  });
+
   it('cancels in-flight tool calls when the turn is interrupted so stale responses are not sent', async () => {
     const voiceTransport = createVoiceTransportHarness();
     let resolveTool:

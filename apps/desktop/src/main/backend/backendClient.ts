@@ -12,6 +12,10 @@ import type {
   EndLiveSessionRequest,
   HealthResponse,
   LiveSessionRecord,
+  ProjectKnowledgeSearchRequest,
+  ProjectKnowledgeSearchResult,
+  ProjectKnowledgeSourceReference,
+  ProjectKnowledgeSupportingExcerpt,
   RehydrationPacketContextState,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
@@ -135,6 +139,84 @@ function parseCreateEphemeralTokenResponse(
     token: value['token'],
     expireTime: value['expireTime'],
     newSessionExpireTime: value['newSessionExpireTime'],
+  };
+}
+
+function parseProjectKnowledgeSourceReference(
+  value: unknown,
+  errorMessage = 'Project knowledge response was invalid',
+): ProjectKnowledgeSourceReference {
+  if (!isPlainRecord(value)) {
+    throw new Error(errorMessage);
+  }
+
+  if (
+    !isNonEmptyString(value['id'])
+    || !isNonEmptyString(value['title'])
+    || (typeof value['path'] !== 'undefined' && !isNonEmptyString(value['path']))
+  ) {
+    throw new Error(errorMessage);
+  }
+
+  return {
+    id: value['id'],
+    title: value['title'],
+    ...(typeof value['path'] === 'string' ? { path: value['path'] } : {}),
+  };
+}
+
+function parseProjectKnowledgeSupportingExcerpt(
+  value: unknown,
+  errorMessage = 'Project knowledge response was invalid',
+): ProjectKnowledgeSupportingExcerpt {
+  if (!isPlainRecord(value)) {
+    throw new Error(errorMessage);
+  }
+
+  if (!isNonEmptyString(value['sourceId']) || !isNonEmptyString(value['text'])) {
+    throw new Error(errorMessage);
+  }
+
+  return {
+    sourceId: value['sourceId'],
+    text: value['text'],
+  };
+}
+
+function parseProjectKnowledgeSearchResult(
+  value: unknown,
+): ProjectKnowledgeSearchResult {
+  if (!isPlainRecord(value)) {
+    throw new Error('Project knowledge response was invalid');
+  }
+
+  if (
+    !isNonEmptyString(value['summaryAnswer'])
+    || !Array.isArray(value['supportingExcerpts'])
+    || !Array.isArray(value['sources'])
+    || (value['confidence'] !== 'low' && value['confidence'] !== 'medium' && value['confidence'] !== 'high')
+    || (
+      value['retrievalStatus'] !== 'grounded'
+      && value['retrievalStatus'] !== 'no_match'
+      && value['retrievalStatus'] !== 'not_ready'
+      && value['retrievalStatus'] !== 'failed'
+    )
+    || (typeof value['failureReason'] !== 'undefined' && !isNonEmptyString(value['failureReason']))
+  ) {
+    throw new Error('Project knowledge response was invalid');
+  }
+
+  return {
+    summaryAnswer: value['summaryAnswer'],
+    supportingExcerpts: value['supportingExcerpts'].map((item) =>
+      parseProjectKnowledgeSupportingExcerpt(item),
+    ),
+    sources: value['sources'].map((item) => parseProjectKnowledgeSourceReference(item)),
+    confidence: value['confidence'],
+    retrievalStatus: value['retrievalStatus'],
+    ...(typeof value['failureReason'] === 'string'
+      ? { failureReason: value['failureReason'] }
+      : {}),
   };
 }
 
@@ -531,6 +613,21 @@ export function createBackendClient({
       });
 
       return parsedResponse;
+    },
+
+    async searchProjectKnowledge(
+      req: ProjectKnowledgeSearchRequest,
+    ): Promise<ProjectKnowledgeSearchResult> {
+      return requestJson({
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req),
+        },
+        parse: parseProjectKnowledgeSearchResult,
+        path: '/project-knowledge/search',
+        statusLabel: 'Project knowledge search failed',
+      });
     },
 
     async createChat(req?: CreateChatRequest): Promise<ChatRecord> {

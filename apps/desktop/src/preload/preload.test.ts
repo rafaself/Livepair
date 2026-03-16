@@ -35,6 +35,7 @@ describe('preload bridge', () => {
       'quitApp',
       'checkHealth',
       'requestSessionToken',
+      'searchProjectKnowledge',
       'createChat',
       'getChat',
       'getOrCreateCurrentChat',
@@ -61,6 +62,7 @@ describe('preload bridge', () => {
       quitApp: expect.any(Function),
       checkHealth: expect.any(Function),
       requestSessionToken: expect.any(Function),
+      searchProjectKnowledge: expect.any(Function),
       createChat: expect.any(Function),
       getChat: expect.any(Function),
       getOrCreateCurrentChat: expect.any(Function),
@@ -99,6 +101,18 @@ describe('preload bridge', () => {
     await bridge.requestSessionToken({ sessionId: 'session-1' });
     expect(mockInvoke).toHaveBeenCalledWith('session:requestToken', {
       sessionId: 'session-1',
+    });
+
+    mockInvoke.mockResolvedValueOnce({
+      summaryAnswer: 'Use pnpm verify:desktop for the desktop package.',
+      supportingExcerpts: [{ sourceId: 'doc-1', text: 'Desktop package verification uses pnpm verify:desktop.' }],
+      sources: [{ id: 'doc-1', title: 'README.md', path: 'README.md' }],
+      confidence: 'high',
+      retrievalStatus: 'grounded',
+    });
+    await bridge.searchProjectKnowledge({ query: 'How do I verify the desktop package?' });
+    expect(mockInvoke).toHaveBeenCalledWith('projectKnowledge:search', {
+      query: 'How do I verify the desktop package?',
     });
 
     mockInvoke.mockResolvedValueOnce({

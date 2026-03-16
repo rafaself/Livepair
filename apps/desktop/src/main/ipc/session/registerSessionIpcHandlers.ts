@@ -3,16 +3,24 @@ import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   HealthResponse,
+  ProjectKnowledgeSearchRequest,
+  ProjectKnowledgeSearchResult,
 } from '@livepair/shared-types';
 import { IPC_CHANNELS } from '../../../shared';
 import { createBackendClient } from '../../backend/backendClient';
-import { isCreateEphemeralTokenRequest } from '../validators/sessionValidators';
+import {
+  isCreateEphemeralTokenRequest,
+  isProjectKnowledgeSearchRequest,
+} from '../validators/sessionValidators';
 
 type SessionBackendClient = {
   checkHealth: () => Promise<HealthResponse>;
   requestSessionToken: (
     request: CreateEphemeralTokenRequest,
   ) => Promise<CreateEphemeralTokenResponse>;
+  searchProjectKnowledge: (
+    request: ProjectKnowledgeSearchRequest,
+  ) => Promise<ProjectKnowledgeSearchResult>;
 };
 
 type RegisterSessionIpcHandlersOptions = {
@@ -42,5 +50,13 @@ export function registerSessionIpcHandlers(
     }
 
     return backendClient.requestSessionToken(req);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.searchProjectKnowledge, async (_event, req: unknown) => {
+    if (!isProjectKnowledgeSearchRequest(req)) {
+      throw new Error('Invalid project knowledge search payload');
+    }
+
+    return backendClient.searchProjectKnowledge(req);
   });
 }

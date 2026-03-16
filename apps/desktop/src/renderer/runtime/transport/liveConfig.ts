@@ -9,7 +9,7 @@ import {
 export const LIVE_PROVIDER = 'gemini' as const;
 export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
 export const LIVE_GROUNDING_POLICY_INSTRUCTION =
-  'Use provided context and tool output as the source of truth for project-specific or current-world facts. Do not rely on outside knowledge for those claims. If evidence is missing or ambiguous, say the answer is not verified. Reason from available evidence, keep non-factual replies natural, and call report_answer_provenance once for factual replies.';
+  'Use provided context and tool output as the source of truth for project-specific or current-world facts. For project-specific factual questions about this codebase, architecture, implementation details, or internal docs/specs, call search_project_knowledge. Do not use that tool for public web facts, direct runtime state, or brainstorming. If evidence is missing or ambiguous, say the answer is not verified. Reason from available evidence, keep non-factual replies natural, and call report_answer_provenance once for non-project factual replies.';
 
 export type LiveApiVersion = 'v1alpha' | 'v1beta';
 export type LiveResponseModality = 'TEXT' | 'AUDIO';

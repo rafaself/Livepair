@@ -5,6 +5,7 @@ import type { DesktopSettingsPatch } from '../../shared/settings';
 import type {
   AppendChatMessageRequest,
   CreateEphemeralTokenRequest,
+  ProjectKnowledgeSearchRequest,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import {
@@ -12,6 +13,7 @@ import {
   isChatId,
   isCreateChatRequest,
   isCreateEphemeralTokenRequest,
+  isProjectKnowledgeSearchRequest,
   isSaveScreenFrameDumpFrameRequest,
   isUpdateLiveSessionRequest,
   isDesktopSettingsPatch,
@@ -38,6 +40,9 @@ describe('ipc validators', () => {
 
   it('validates token request payloads', () => {
     const valid: CreateEphemeralTokenRequest = { sessionId: 'session-1' };
+    const validProjectKnowledgeRequest: ProjectKnowledgeSearchRequest = {
+      query: 'How does desktop verification work?',
+    };
     class TokenRequestCandidate {
       sessionId = 'session-1';
     }
@@ -53,6 +58,11 @@ describe('ipc validators', () => {
     expect(isCreateEphemeralTokenRequest(new TokenRequestCandidate())).toBe(false);
     expect(isCreateEphemeralTokenRequest(undefined)).toBe(false);
     expect(isCreateEphemeralTokenRequest([])).toBe(false);
+    expect(isProjectKnowledgeSearchRequest(validProjectKnowledgeRequest)).toBe(true);
+    expect(isProjectKnowledgeSearchRequest({ query: '  maintainers  ' })).toBe(true);
+    expect(isProjectKnowledgeSearchRequest({ query: '' })).toBe(false);
+    expect(isProjectKnowledgeSearchRequest({ query: 'repo', extra: true })).toBe(false);
+    expect(isProjectKnowledgeSearchRequest(undefined)).toBe(false);
   });
 
   it('validates chat memory payloads', () => {

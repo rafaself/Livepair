@@ -1,5 +1,12 @@
-import type { CreateEphemeralTokenRequest } from '@livepair/shared-types';
-import { hasOnlyAllowedKeys, isPlainRecord } from './shared';
+import type {
+  CreateEphemeralTokenRequest,
+  ProjectKnowledgeSearchRequest,
+} from '@livepair/shared-types';
+import {
+  hasOnlyAllowedKeys,
+  isNonEmptyString,
+  isPlainRecord,
+} from './shared';
 
 export function isCreateEphemeralTokenRequest(
   req: unknown,
@@ -14,4 +21,14 @@ export function isCreateEphemeralTokenRequest(
 
   const sessionId = req['sessionId'];
   return typeof sessionId === 'string' || typeof sessionId === 'undefined';
+}
+
+export function isProjectKnowledgeSearchRequest(
+  req: unknown,
+): req is ProjectKnowledgeSearchRequest {
+  return (
+    isPlainRecord(req)
+    && hasOnlyAllowedKeys(req, ['query'])
+    && isNonEmptyString(req['query'])
+  );
 }
