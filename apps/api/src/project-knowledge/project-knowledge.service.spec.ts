@@ -19,6 +19,69 @@ describe('ProjectKnowledgeService', () => {
     process.env = originalEnv;
   });
 
+  it('prewarmCorpus starts corpus sync eagerly when config is ready', async () => {
+    const { ProjectKnowledgeService } = await import('./project-knowledge.service');
+
+    const corpusService = {
+      listDocuments: jest.fn(async () => []),
+    };
+    const client = {
+      listFileSearchStores: jest.fn(async () => [
+        {
+          name: 'fileSearchStores/livepair-store',
+          displayName: 'livepair-project-knowledge',
+        },
+      ]),
+      createFileSearchStore: jest.fn(),
+      listDocuments: jest.fn(async () => []),
+      uploadFile: jest.fn(),
+      importFile: jest.fn(),
+      deleteFile: jest.fn(),
+      deleteDocument: jest.fn(),
+      generateGroundedAnswer: jest.fn(),
+    };
+
+    const service = new ProjectKnowledgeService(client as never, corpusService as never);
+    await service.prewarmCorpus();
+
+    // Prewarm resolves the store and lists existing documents.
+    expect(client.listFileSearchStores).toHaveBeenCalledTimes(1);
+    expect(client.listDocuments).toHaveBeenCalledTimes(1);
+    expect(client.generateGroundedAnswer).not.toHaveBeenCalled();
+  });
+
+  it('prewarmCorpus skips sync when config is not ready', async () => {
+    process.env = {
+      ...process.env,
+      GEMINI_API_KEY: '',
+    };
+
+    const { ProjectKnowledgeService } = await import('./project-knowledge.service');
+
+    const corpusService = { listDocuments: jest.fn() };
+    const client = { listFileSearchStores: jest.fn() };
+
+    const service = new ProjectKnowledgeService(client as never, corpusService as never);
+    await service.prewarmCorpus();
+
+    expect(corpusService.listDocuments).not.toHaveBeenCalled();
+    expect(client.listFileSearchStores).not.toHaveBeenCalled();
+  });
+
+  it('prewarmCorpus swallows sync errors so module init is not disrupted', async () => {
+    const { ProjectKnowledgeService } = await import('./project-knowledge.service');
+
+    const corpusService = {
+      listDocuments: jest.fn(async () => {
+        throw new Error('corpus unavailable during prewarm');
+      }),
+    };
+    const client = { listFileSearchStores: jest.fn() };
+
+    const service = new ProjectKnowledgeService(client as never, corpusService as never);
+    await expect(service.prewarmCorpus()).resolves.toBeUndefined();
+  });
+
   it('syncs missing corpus entries and derives compact grounded evidence from File Search output', async () => {
     const { ProjectKnowledgeService } = await import('./project-knowledge.service');
 
