@@ -5,6 +5,7 @@ import {
   MAX_SYSTEM_INSTRUCTION_LENGTH,
   normalizeDesktopSettings,
   normalizeDesktopSettingsPatch,
+  resolveActiveScreenContextQuality,
 } from './settings';
 
 describe('normalizeDesktopSettings', () => {
@@ -108,37 +109,87 @@ describe('voice and system instruction settings', () => {
   });
 });
 
-describe('visualSessionQuality setting', () => {
-  it('defaults to Low', () => {
-    expect(DEFAULT_DESKTOP_SETTINGS.visualSessionQuality).toBe('Low');
+describe('screen context settings', () => {
+  it('defaults to the first-use contract', () => {
+    expect(DEFAULT_DESKTOP_SETTINGS.screenContextMode).toBe('unconfigured');
+    expect(DEFAULT_DESKTOP_SETTINGS.continuousScreenQuality).toBe('medium');
   });
 
-  it('accepts Low, Medium, and High in normalizeDesktopSettings', () => {
-    for (const quality of ['Low', 'Medium', 'High'] as const) {
+  it('accepts all supported screen context modes in normalizeDesktopSettings', () => {
+    for (const mode of ['unconfigured', 'manual', 'continuous'] as const) {
       expect(
-        normalizeDesktopSettings({ visualSessionQuality: quality }),
-      ).toMatchObject({ visualSessionQuality: quality });
+        normalizeDesktopSettings({ screenContextMode: mode }),
+      ).toMatchObject({ screenContextMode: mode });
     }
   });
 
-  it('rejects invalid visualSessionQuality in normalizeDesktopSettings', () => {
+  it('rejects invalid screenContextMode in normalizeDesktopSettings', () => {
     expect(
-      normalizeDesktopSettings({ visualSessionQuality: 'Ultra' as never }),
+      normalizeDesktopSettings({ screenContextMode: 'burst' as never }),
     ).toBeNull();
   });
 
-  it('accepts Low, Medium, and High in normalizeDesktopSettingsPatch', () => {
-    for (const quality of ['Low', 'Medium', 'High'] as const) {
+  it('accepts low, medium, and high in normalizeDesktopSettings', () => {
+    for (const quality of ['low', 'medium', 'high'] as const) {
       expect(
-        normalizeDesktopSettingsPatch({ visualSessionQuality: quality }),
-      ).toEqual({ visualSessionQuality: quality });
+        normalizeDesktopSettings({ continuousScreenQuality: quality }),
+      ).toMatchObject({ continuousScreenQuality: quality });
     }
   });
 
-  it('rejects invalid visualSessionQuality in normalizeDesktopSettingsPatch', () => {
+  it('rejects invalid continuousScreenQuality in normalizeDesktopSettings', () => {
     expect(
-      normalizeDesktopSettingsPatch({ visualSessionQuality: 'Ultra' as never }),
+      normalizeDesktopSettings({ continuousScreenQuality: 'Ultra' as never }),
     ).toBeNull();
+  });
+
+  it('accepts all supported screen context modes in normalizeDesktopSettingsPatch', () => {
+    for (const mode of ['unconfigured', 'manual', 'continuous'] as const) {
+      expect(
+        normalizeDesktopSettingsPatch({ screenContextMode: mode }),
+      ).toEqual({ screenContextMode: mode });
+    }
+  });
+
+  it('accepts low, medium, and high in normalizeDesktopSettingsPatch', () => {
+    for (const quality of ['low', 'medium', 'high'] as const) {
+      expect(
+        normalizeDesktopSettingsPatch({ continuousScreenQuality: quality }),
+      ).toEqual({ continuousScreenQuality: quality });
+    }
+  });
+
+  it('rejects invalid screenContextMode in normalizeDesktopSettingsPatch', () => {
+    expect(
+      normalizeDesktopSettingsPatch({ screenContextMode: 'burst' as never }),
+    ).toBeNull();
+  });
+
+  it('rejects invalid continuousScreenQuality in normalizeDesktopSettingsPatch', () => {
+    expect(
+      normalizeDesktopSettingsPatch({ continuousScreenQuality: 'Ultra' as never }),
+    ).toBeNull();
+  });
+
+  it('uses High quality for manual mode and the configured quality otherwise', () => {
+    expect(
+      resolveActiveScreenContextQuality({
+        screenContextMode: 'manual',
+        continuousScreenQuality: 'low',
+      }),
+    ).toBe('high');
+    expect(
+      resolveActiveScreenContextQuality({
+        screenContextMode: 'continuous',
+        continuousScreenQuality: 'medium',
+      }),
+    ).toBe('medium');
+    expect(
+      resolveActiveScreenContextQuality({
+        screenContextMode: 'unconfigured',
+        continuousScreenQuality: 'medium',
+      }),
+    ).toBe('medium');
   });
 });
 

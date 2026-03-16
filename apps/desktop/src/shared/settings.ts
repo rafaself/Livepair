@@ -1,7 +1,8 @@
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type PreferredMode = 'fast';
 export type SpeechSilenceTimeout = 'never' | '30s' | '3m';
-export type VisualSessionQuality = 'Low' | 'Medium' | 'High';
+export type ScreenContextMode = 'unconfigured' | 'manual' | 'continuous';
+export type ContinuousScreenQuality = 'low' | 'medium' | 'high';
 export type ChatTimestampVisibility = 'hidden' | 'visible';
 export type DesktopVoice = 'Puck' | 'Kore' | 'Aoede';
 
@@ -19,7 +20,8 @@ export type DesktopSettings = {
   voiceNoiseSuppressionEnabled: boolean;
   voiceAutoGainControlEnabled: boolean;
   isPanelPinned: boolean;
-  visualSessionQuality: VisualSessionQuality;
+  screenContextMode: ScreenContextMode;
+  continuousScreenQuality: ContinuousScreenQuality;
   chatTimestampVisibility: ChatTimestampVisibility;
   voice: DesktopVoice;
   systemInstruction: string;
@@ -37,7 +39,8 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   voiceNoiseSuppressionEnabled: true,
   voiceAutoGainControlEnabled: true,
   isPanelPinned: false,
-  visualSessionQuality: 'Low',
+  screenContextMode: 'unconfigured',
+  continuousScreenQuality: 'medium',
   chatTimestampVisibility: 'hidden',
   voice: 'Puck',
   systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
@@ -65,8 +68,12 @@ function normalizeSpeechSilenceTimeout(value: unknown): SpeechSilenceTimeout | n
   return value === 'never' || value === '30s' || value === '3m' ? value : null;
 }
 
-function normalizeVisualSessionQuality(value: unknown): VisualSessionQuality | null {
-  return value === 'Low' || value === 'Medium' || value === 'High' ? value : null;
+function normalizeScreenContextMode(value: unknown): ScreenContextMode | null {
+  return value === 'unconfigured' || value === 'manual' || value === 'continuous' ? value : null;
+}
+
+function normalizeContinuousScreenQuality(value: unknown): ContinuousScreenQuality | null {
+  return value === 'low' || value === 'medium' || value === 'high' ? value : null;
 }
 
 function normalizeChatTimestampVisibility(value: unknown): ChatTimestampVisibility | null {
@@ -91,6 +98,16 @@ export function resolveSystemInstructionPreference(value: unknown): string {
   return typeof value === 'string'
     ? normalizeSystemInstructionText(value)
     : DEFAULT_SYSTEM_INSTRUCTION;
+}
+
+export function resolveActiveScreenContextQuality(
+  settings: Pick<DesktopSettings, 'screenContextMode' | 'continuousScreenQuality'>,
+): ContinuousScreenQuality {
+  if (settings.screenContextMode === 'manual') {
+    return 'high';
+  }
+
+  return settings.continuousScreenQuality;
 }
 
 export function normalizeDesktopSettings(
@@ -119,8 +136,11 @@ export function normalizeDesktopSettings(
     settings.voiceAutoGainControlEnabled
     ?? DEFAULT_DESKTOP_SETTINGS.voiceAutoGainControlEnabled;
   const isPanelPinned = settings.isPanelPinned ?? DEFAULT_DESKTOP_SETTINGS.isPanelPinned;
-  const visualSessionQuality = normalizeVisualSessionQuality(
-    settings.visualSessionQuality ?? DEFAULT_DESKTOP_SETTINGS.visualSessionQuality,
+  const screenContextMode = normalizeScreenContextMode(
+    settings.screenContextMode ?? DEFAULT_DESKTOP_SETTINGS.screenContextMode,
+  );
+  const continuousScreenQuality = normalizeContinuousScreenQuality(
+    settings.continuousScreenQuality ?? DEFAULT_DESKTOP_SETTINGS.continuousScreenQuality,
   );
   const chatTimestampVisibility = normalizeChatTimestampVisibility(
     settings.chatTimestampVisibility ?? DEFAULT_DESKTOP_SETTINGS.chatTimestampVisibility,
@@ -138,7 +158,8 @@ export function normalizeDesktopSettings(
     typeof voiceNoiseSuppressionEnabled !== 'boolean' ||
     typeof voiceAutoGainControlEnabled !== 'boolean' ||
     typeof isPanelPinned !== 'boolean' ||
-    visualSessionQuality === null ||
+    screenContextMode === null ||
+    continuousScreenQuality === null ||
     chatTimestampVisibility === null
   ) {
     return null;
@@ -154,7 +175,8 @@ export function normalizeDesktopSettings(
     voiceNoiseSuppressionEnabled,
     voiceAutoGainControlEnabled,
     isPanelPinned,
-    visualSessionQuality,
+    screenContextMode,
+    continuousScreenQuality,
     chatTimestampVisibility,
     voice,
     systemInstruction,
@@ -232,12 +254,22 @@ export function normalizeDesktopSettingsPatch(
     normalizedPatch.isPanelPinned = patch.isPanelPinned;
   }
 
-  if ('visualSessionQuality' in patch) {
-    const visualSessionQuality = normalizeVisualSessionQuality(patch.visualSessionQuality);
-    if (visualSessionQuality === null) {
+  if ('screenContextMode' in patch) {
+    const screenContextMode = normalizeScreenContextMode(patch.screenContextMode);
+    if (screenContextMode === null) {
       return null;
     }
-    normalizedPatch.visualSessionQuality = visualSessionQuality;
+    normalizedPatch.screenContextMode = screenContextMode;
+  }
+
+  if ('continuousScreenQuality' in patch) {
+    const continuousScreenQuality = normalizeContinuousScreenQuality(
+      patch.continuousScreenQuality,
+    );
+    if (continuousScreenQuality === null) {
+      return null;
+    }
+    normalizedPatch.continuousScreenQuality = continuousScreenQuality;
   }
 
   if ('chatTimestampVisibility' in patch) {
