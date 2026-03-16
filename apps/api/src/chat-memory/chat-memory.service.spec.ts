@@ -1,4 +1,5 @@
 import { ChatMemoryService } from './chat-memory.service';
+import { DURABLE_CHAT_SUMMARY_MAX_TURNS } from './chat-summary';
 
 describe('ChatMemoryService', () => {
   it('forwards bounded list reads without preflight chat lookups', async () => {
@@ -62,6 +63,9 @@ describe('ChatMemoryService', () => {
     });
 
     expect(repository.withTransaction).toHaveBeenCalledTimes(1);
+    expect(transactionalRepository.listMessages).toHaveBeenCalledWith('chat-1', {
+      limit: DURABLE_CHAT_SUMMARY_MAX_TURNS,
+    });
     expect(transactionalRepository.upsertChatSummary).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 'chat-1',

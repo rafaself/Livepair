@@ -25,6 +25,7 @@ import {
 } from './chat-memory.repository';
 import {
   buildDurableChatSummary,
+  DURABLE_CHAT_SUMMARY_MAX_TURNS,
   shouldReplaceDurableChatSummary,
 } from './chat-summary';
 
@@ -84,7 +85,9 @@ export class ChatMemoryService {
         const endedLiveSession = await transactionalRepository.endLiveSession(request);
         const nextSummary = buildDurableChatSummary({
           chatId: endedLiveSession.chatId,
-          messages: await transactionalRepository.listMessages(endedLiveSession.chatId),
+          messages: await transactionalRepository.listMessages(endedLiveSession.chatId, {
+            limit: DURABLE_CHAT_SUMMARY_MAX_TURNS,
+          }),
           updatedAt:
             endedLiveSession.endedAt ??
             endedLiveSession.lastResumptionUpdateAt ??

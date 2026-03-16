@@ -6,7 +6,7 @@ import type {
 
 export const DURABLE_CHAT_SUMMARY_SCHEMA_VERSION = 1 as const;
 export const DURABLE_CHAT_SUMMARY_SOURCE = 'local-recent-history-v1' as const;
-const MAX_DURABLE_CHAT_SUMMARY_TURNS = 6;
+export const DURABLE_CHAT_SUMMARY_MAX_TURNS = 6;
 const MAX_DURABLE_CHAT_SUMMARY_LINE_LENGTH = 240;
 const MAX_DURABLE_CHAT_SUMMARY_TEXT_LENGTH = 1600;
 
@@ -48,7 +48,7 @@ export function buildDurableChatSummary(
   }
 
   const coveredThroughSequence = orderedMessages[orderedMessages.length - 1]!.sequence;
-  const compactMessages = orderedMessages.slice(-MAX_DURABLE_CHAT_SUMMARY_TURNS);
+  const compactMessages = orderedMessages.slice(-DURABLE_CHAT_SUMMARY_MAX_TURNS);
   const summaryLines = compactMessages.map((message) => {
     const speakerLabel = message.role === 'assistant' ? 'Assistant' : 'User';
     return `${speakerLabel}: ${normalizeSummaryLine(message.contentText)}`;
