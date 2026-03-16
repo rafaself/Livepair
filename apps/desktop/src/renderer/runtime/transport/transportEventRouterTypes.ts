@@ -1,4 +1,5 @@
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type { AnswerMetadata } from '@livepair/shared-types';
 import type { AssistantAudioPlayback } from '../audio/audio.types';
 import type { SessionStoreApi, SettingsStoreApi } from '../core/sessionControllerTypes';
 import type { RuntimeLogger } from '../core/session.types';
@@ -59,6 +60,7 @@ export type TransportEventRouterOps = {
   applySpeechLifecycleEvent: (event: SpeechSessionLifecycleEvent) => SpeechLifecycleStatus;
   applyVoiceTranscriptUpdate: (role: 'user' | 'assistant', text: string, isFinal?: boolean) => void;
   appendAssistantDraftTextDelta: (text: string) => void;
+  setAssistantAnswerMetadata: (answerMetadata: AnswerMetadata) => void;
   completeAssistantDraft: () => void;
   interruptAssistantDraft: () => void;
   discardAssistantDraft: () => void;

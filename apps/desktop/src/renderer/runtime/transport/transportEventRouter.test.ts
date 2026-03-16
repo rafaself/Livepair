@@ -82,6 +82,7 @@ function createMockOps() {
     applySpeechLifecycleEvent: vi.fn(),
     applyVoiceTranscriptUpdate: vi.fn(),
     appendAssistantDraftTextDelta: vi.fn(),
+    setAssistantAnswerMetadata: vi.fn(),
     completeAssistantDraft: vi.fn(),
     interruptAssistantDraft: vi.fn(),
     discardAssistantDraft: vi.fn(),
@@ -729,6 +730,32 @@ describe('createTransportEventRouter', () => {
           callCount: 1,
         }),
       );
+    });
+  });
+
+  describe('answer-metadata', () => {
+    it('applies execution-derived answer metadata without changing the turn flow', () => {
+      const ops = createMockOps();
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({
+        type: 'answer-metadata',
+        answerMetadata: {
+          provenance: 'web_grounded',
+          confidence: 'high',
+          citations: [{ label: 'Release notes', uri: 'https://example.com/releases' }],
+          reason: 'Derived from Gemini Live grounding metadata with web support.',
+        },
+      });
+
+      expect(ops.setAssistantAnswerMetadata).toHaveBeenCalledWith({
+        provenance: 'web_grounded',
+        confidence: 'high',
+        citations: [{ label: 'Release notes', uri: 'https://example.com/releases' }],
+        reason: 'Derived from Gemini Live grounding metadata with web support.',
+      });
+      expect(ops.appendAssistantDraftTextDelta).not.toHaveBeenCalled();
+      expect(ops.commitAssistantDraft).not.toHaveBeenCalled();
     });
   });
 

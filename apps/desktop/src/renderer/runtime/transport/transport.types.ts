@@ -1,4 +1,5 @@
 import type {
+  AnswerMetadata,
   CreateEphemeralTokenResponse,
   RehydrationPacket,
 } from '@livepair/shared-types';
@@ -59,6 +60,10 @@ export type LiveSessionEvent =
     }
   | {
       type: 'generation-complete';
+    }
+  | {
+      type: 'answer-metadata';
+      answerMetadata: AnswerMetadata;
     }
   | {
       type: 'turn-complete';

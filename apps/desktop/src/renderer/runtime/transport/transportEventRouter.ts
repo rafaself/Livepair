@@ -35,6 +35,7 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
       case 'output-transcript':
       case 'audio-chunk':
       case 'generation-complete':
+      case 'answer-metadata':
       case 'tool-call':
       case 'turn-complete':
         handleTransportTurnEvent({ ops, store }, event);

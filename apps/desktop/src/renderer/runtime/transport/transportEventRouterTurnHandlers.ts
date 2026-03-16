@@ -157,6 +157,10 @@ export function handleTransportTurnEvent(
     case 'generation-complete':
       return;
 
+    case 'answer-metadata':
+      ops.setAssistantAnswerMetadata(event.answerMetadata);
+      return;
+
     case 'tool-call': {
       const voiceStatus = ops.currentVoiceSessionStatus();
 
