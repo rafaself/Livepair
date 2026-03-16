@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createScreenCaptureController, VISUAL_BURST_DURATION_MS, VISUAL_BURST_STABLE_FRAMES, VISUAL_BURST_SEND_COOLDOWN_MS, VISUAL_BURST_MAX_FRAMES, VISUAL_BURST_MAX_LIFETIME_MS, VISUAL_BURST_REENTRY_COOLDOWN_MS } from './screenCaptureController';
+import { createScreenCaptureController, MANUAL_SEND_DEBOUNCE_MS, VISUAL_BURST_DURATION_MS, VISUAL_BURST_STABLE_FRAMES, VISUAL_BURST_SEND_COOLDOWN_MS, VISUAL_BURST_MAX_FRAMES, VISUAL_BURST_MAX_LIFETIME_MS, VISUAL_BURST_REENTRY_COOLDOWN_MS } from './screenCaptureController';
 import type { VisualSendPolicyOptions } from './visualSendPolicy';
 import { createDefaultRealtimeOutboundDiagnostics } from '../outbound/realtimeOutboundGateway';
 import type { DesktopSession } from '../transport/transport.types';
@@ -19,7 +19,7 @@ import {
   SCREEN_CAPTURE_JPEG_QUALITY,
   SCREEN_CAPTURE_MAX_WIDTH_PX,
 } from './localScreenCapture';
-import type { ContinuousScreenQuality } from '../../../shared/settings';
+import type { ContinuousScreenQuality, ScreenContextMode } from '../../../shared/settings';
 import { getScreenCaptureQualityParams } from './screenCapturePolicy';
 import { QUALITY_PROMOTION_DURATION_MS } from './adaptiveQualityPolicy';
 
@@ -36,6 +36,7 @@ function createHarness(options: {
   burstMaxLifetimeMs?: number;
   burstReentryCooldownMs?: number;
   getBaselineQuality?: () => ContinuousScreenQuality;
+  getScreenContextMode?: () => ScreenContextMode;
   promotionDurationMs?: number;
 } = {}) {
   const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
@@ -137,6 +138,7 @@ function createHarness(options: {
     },
     controllerOptions,
     options.getBaselineQuality,
+    options.getScreenContextMode ?? (() => 'continuous'),
   );
 
   return {
@@ -162,6 +164,144 @@ function createHarness(options: {
   };
 }
 
+describe('createScreenCaptureController – manual mode purity', () => {
+  const mkFrame = (seq: number) => ({
+    data: new Uint8Array([seq]),
+    mimeType: 'image/jpeg' as const,
+    sequence: seq,
+    widthPx: 640,
+    heightPx: 360,
+  });
+
+  it('does not auto-send when manual mode starts screen capture', async () => {
+    const harness = createHarness({
+      getScreenContextMode: () => 'manual',
+    });
+
+    await harness.ctrl.start();
+    harness.getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).not.toHaveBeenCalled();
+    expect(harness.store.setVisualSendDiagnostics).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        lastTransitionReason: 'screenShareStarted',
+        manualFramesSentCount: 0,
+        lastManualFrameAt: null,
+      }),
+    );
+  });
+
+  it('ignores speech and text auto-triggers while manual mode is active', async () => {
+    const harness = createHarness({
+      getScreenContextMode: () => 'manual',
+    });
+
+    await harness.ctrl.start();
+    harness.ctrl.onSpeechStart();
+    harness.ctrl.onTextSent();
+    harness.getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).not.toHaveBeenCalled();
+  });
+
+  it('sends exactly one frame per manual click and debounces rapid repeats', async () => {
+    let now = 0;
+    const harness = createHarness({
+      getScreenContextMode: () => 'manual',
+      visualSendPolicyOptions: { nowMs: () => now },
+      submitDecision: () => ({
+        outcome: 'send',
+        classification: 'replaceable',
+        reason: 'accepted',
+      }),
+    });
+
+    await harness.ctrl.start();
+
+    harness.ctrl.analyzeScreenNow();
+    harness.ctrl.analyzeScreenNow();
+    harness.getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    now += 50;
+    harness.ctrl.analyzeScreenNow();
+    harness.getObserver()!.onFrame(mkFrame(2));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    now += MANUAL_SEND_DEBOUNCE_MS + 1;
+    harness.ctrl.analyzeScreenNow();
+    harness.getObserver()!.onFrame(mkFrame(3));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(harness.store.setVisualSendDiagnostics).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        manualFramesSentCount: 2,
+        lastManualFrameAt: expect.any(String),
+      }),
+    );
+  });
+
+  it('forces High quality in manual mode and only saves actual manual sends', async () => {
+    const harness = createHarness({
+      getScreenContextMode: () => 'manual',
+      getBaselineQuality: () => 'low',
+      saveScreenFramesEnabled: true,
+      submitDecision: () => ({
+        outcome: 'send',
+        classification: 'replaceable',
+        reason: 'accepted',
+      }),
+    });
+
+    await harness.ctrl.start();
+
+    expect(harness.mockCapture.start).toHaveBeenCalledWith(
+      expect.objectContaining(getScreenCaptureQualityParams('high')),
+    );
+
+    harness.getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+    expect(harness.saveScreenFrameDumpFrame).not.toHaveBeenCalled();
+
+    harness.ctrl.analyzeScreenNow();
+    harness.getObserver()!.onFrame(mkFrame(2));
+
+    await vi.waitFor(() => {
+      expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+      expect(harness.saveScreenFrameDumpFrame).toHaveBeenCalledWith(
+        expect.objectContaining({ sequence: 2 }),
+      );
+    });
+  });
+
+  it('does not save blocked manual frames that never reach the transport', async () => {
+    const harness = createHarness({
+      getScreenContextMode: () => 'manual',
+      saveScreenFramesEnabled: true,
+      submitDecision: () => ({
+        outcome: 'block',
+        classification: 'replaceable',
+        reason: 'breaker-open',
+      }),
+    });
+
+    await harness.ctrl.start();
+    harness.ctrl.analyzeScreenNow();
+    harness.getObserver()!.onFrame(mkFrame(1));
+    await Promise.resolve();
+
+    expect(harness.sendVideoFrame).not.toHaveBeenCalled();
+    expect(harness.saveScreenFrameDumpFrame).not.toHaveBeenCalled();
+  });
+});
+
 describe('createScreenCaptureController', () => {
   it('flushes visual diagnostics through start, bootstrap frame send, and stop', async () => {
     const { ctrl, store } = createHarness();
@@ -180,6 +320,8 @@ describe('createScreenCaptureController', () => {
       blockedByGateway: 0,
       triggerSnapshotCount: 0,
       burstCount: 0,
+      manualFramesSentCount: 0,
+      lastManualFrameAt: null,
     });
 
     await ctrl.enqueueFrameSend({
@@ -202,6 +344,8 @@ describe('createScreenCaptureController', () => {
       blockedByGateway: 0,
       triggerSnapshotCount: 0,
       burstCount: 0,
+      manualFramesSentCount: 0,
+      lastManualFrameAt: null,
     });
 
     await ctrl.stop();
@@ -218,6 +362,8 @@ describe('createScreenCaptureController', () => {
       blockedByGateway: 0,
       triggerSnapshotCount: 0,
       burstCount: 0,
+      manualFramesSentCount: 0,
+      lastManualFrameAt: null,
     });
   });
 

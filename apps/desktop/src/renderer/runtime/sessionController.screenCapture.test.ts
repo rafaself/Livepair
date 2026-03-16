@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../shared';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { resetDesktopStoresWithDefaults } from '../test/store';
@@ -27,6 +28,13 @@ function createWindowSource(id: string, name: string) {
 describe('createDesktopSessionController – screen capture', () => {
   beforeEach(() => {
     resetDesktopStoresWithDefaults();
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        screenContextMode: 'continuous',
+      },
+      isReady: true,
+    });
   });
 
   it('starts screen capture in an active voice session and sends frames via transport', async () => {
@@ -575,6 +583,145 @@ describe('createDesktopSessionController – screen capture', () => {
 
     expect(voiceTransport.sendVideoFrame).not.toHaveBeenCalled();
   });
+
+  it('manual mode does not auto-send on capture start and records zero manual sends', async () => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        screenContextMode: 'manual',
+        continuousScreenQuality: 'low',
+      },
+      isReady: true,
+    });
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+    screenCapture.emitFrame({ sequence: 1 });
+    await Promise.resolve();
+
+    expect(voiceTransport.sendVideoFrame).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
+    expect(useSessionStore.getState().visualSendDiagnostics.manualFramesSentCount).toBe(0);
+  });
+
+  it('manual mode ignores speech activity auto-send triggers', async () => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        screenContextMode: 'manual',
+      },
+      isReady: true,
+    });
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+    voiceTransport.emit({ type: 'input-transcript', text: 'hello', isFinal: false });
+    screenCapture.emitFrame({ sequence: 1 });
+    await Promise.resolve();
+
+    expect(voiceTransport.sendVideoFrame).not.toHaveBeenCalled();
+  });
+
+  it('manual mode text submits do not auto-send screen frames', async () => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        screenContextMode: 'manual',
+      },
+      isReady: true,
+    });
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+
+    await expect(controller.submitTextTurn('manual mode text')).resolves.toBe(true);
+    screenCapture.emitFrame({ sequence: 1 });
+    await Promise.resolve();
+
+    expect(voiceTransport.sendText).toHaveBeenCalledWith('manual mode text');
+    expect(voiceTransport.sendVideoFrame).not.toHaveBeenCalled();
+  });
+
+  it('manual mode sends exactly one high-quality frame per explicit click', async () => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        screenContextMode: 'manual',
+        continuousScreenQuality: 'low',
+      },
+      isReady: true,
+    });
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+    controller.analyzeScreenNow();
+    controller.analyzeScreenNow();
+    screenCapture.emitFrame({ sequence: 1 });
+
+    await vi.waitFor(() => {
+      expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(1);
+      expect(useSessionStore.getState().visualSendDiagnostics.manualFramesSentCount).toBe(1);
+      expect(useSessionStore.getState().visualSendDiagnostics.lastManualFrameAt).toEqual(
+        expect.any(String),
+      );
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -587,6 +734,13 @@ describe('createDesktopSessionController – screen capture', () => {
 describe('createDesktopSessionController – screen share visual delivery', () => {
   beforeEach(() => {
     resetDesktopStoresWithDefaults();
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        screenContextMode: 'continuous',
+      },
+      isReady: true,
+    });
   });
 
   function makeController(

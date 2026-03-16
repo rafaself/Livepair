@@ -166,6 +166,8 @@ describe('AssistantPanelDebugView', () => {
         blockedByGateway: 0,
         triggerSnapshotCount: 0,
         burstCount: 0,
+        manualFramesSentCount: 2,
+        lastManualFrameAt: '2026-03-10T10:15:05.000Z',
       },
     } as never);
 
@@ -243,15 +245,16 @@ describe('AssistantPanelDebugView', () => {
     expect(screen.getByText('Visual send state')).toBeVisible();
     expect(screen.getByText('Last transition')).toBeVisible();
     expect(screen.getByText('Continuous sharing enabled')).toBeVisible();
-    expect(screen.getByText('Manual sends triggered')).toBeVisible();
+    expect(screen.getByText('Manual frames sent')).toBeVisible();
     expect(
-      within(screen.getByText('Manual sends triggered').closest('.field-list__item')!)
+      within(screen.getByText('Manual frames sent').closest('.field-list__item')!)
         .getByText('2'),
     ).toBeVisible();
+    expect(screen.getByText('Last manual frame')).toBeVisible();
+    expect(screen.getByText('2026-03-10T10:15:05.000Z')).toBeVisible();
     expect(screen.getByText('Continuous sharing started')).toBeVisible();
     expect(screen.getByText('2026-03-10T10:14:00.000Z')).toBeVisible();
     expect(screen.getByText('Continuous sharing stopped')).toBeVisible();
-    expect(screen.getByText('Sent (manual)')).toBeVisible();
     expect(screen.getByText('Sent (continuous)')).toBeVisible();
     expect(screen.getByText('Overlay mask active')).toBeVisible();
     expect(screen.getByText('Mask reason')).toBeVisible();
@@ -353,6 +356,8 @@ function buildBaseStoreState(visualSendDiagnostics: Partial<VisualSendDiagnostic
       blockedByGateway: 0,
       triggerSnapshotCount: 0,
       burstCount: 0,
+      manualFramesSentCount: 0,
+      lastManualFrameAt: null,
       ...visualSendDiagnostics,
     },
   };
@@ -424,6 +429,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
       sentByState: { snapshot: 0, streaming: 0 },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      manualFramesSentCount: 0,
+      lastManualFrameAt: null,
     });
     expect(screen.getByText('Visual send state')).toBeVisible();
     expect(screen.getByText('Last transition')).toBeVisible();
@@ -439,22 +446,26 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
       sentByState: { snapshot: 0, streaming: 0 },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      manualFramesSentCount: 0,
+      lastManualFrameAt: null,
     });
     expect(screen.getByText('Last transition')).toBeVisible();
     expect(screen.getAllByText('None').length).toBeGreaterThan(0);
   });
 
-  it('shows snapshot count', () => {
+  it('shows manual frame count', () => {
     renderDebugView({
-      lastTransitionReason: 'analyzeScreenNow',
+      lastTransitionReason: 'manualMode',
       snapshotCount: 5,
       streamingEnteredAt: null,
       streamingEndedAt: null,
       sentByState: { snapshot: 4, streaming: 0 },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      manualFramesSentCount: 5,
+      lastManualFrameAt: null,
     });
-    expect(screen.getByText('Manual sends triggered')).toBeVisible();
+    expect(screen.getByText('Manual frames sent')).toBeVisible();
     expect(screen.getByText('5')).toBeVisible();
   });
 
@@ -467,6 +478,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
       sentByState: { snapshot: 0, streaming: 0 },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      manualFramesSentCount: 0,
+      lastManualFrameAt: null,
     });
     expect(screen.getByText('Continuous sharing started')).toBeVisible();
     expect(screen.getByText('2026-03-14T09:00:00.000Z')).toBeVisible();
@@ -481,6 +494,8 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
       sentByState: { snapshot: 0, streaming: 12 },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      manualFramesSentCount: 0,
+      lastManualFrameAt: null,
     });
     expect(screen.getAllByText('Continuous sharing stopped')).toHaveLength(2);
     expect(screen.getByText('2026-03-14T09:05:00.000Z')).toBeVisible();
@@ -495,11 +510,12 @@ describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
       sentByState: { snapshot: 3, streaming: 0 },
       droppedByPolicy: 0,
       blockedByGateway: 0,
+      manualFramesSentCount: 3,
+      lastManualFrameAt: null,
     });
-    expect(screen.getByText('Sent (manual)')).toBeVisible();
     expect(screen.getByText('Sent (continuous)')).toBeVisible();
     expect(
-      within(screen.getByText('Sent (manual)').closest('.field-list__item')!)
+      within(screen.getByText('Manual frames sent').closest('.field-list__item')!)
         .getByText('3'),
     ).toBeVisible();
   });
