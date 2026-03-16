@@ -38,7 +38,6 @@ const SCREEN_STARTABLE_VOICE_STATUSES: VoiceSessionStatus[] = [
 const ACTIVE_SCREEN_CAPTURE_STATES: ScreenCaptureState[] = [
   'ready',
   'capturing',
-  'streaming',
 ];
 
 function isSpeechLifecycleTransitioning(status: SpeechLifecycleStatus): boolean {
