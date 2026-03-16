@@ -18,7 +18,7 @@ database = {
   deletion_protection = false
   database_name       = "livepair"
   app_user_name       = "livepair"
-  app_user_password   = "replace-me-before-apply"
+  app_user_password   = "replace-me-before-apply" # You can run "openssl rand -base64 24"
 }
 
 api_service = {
