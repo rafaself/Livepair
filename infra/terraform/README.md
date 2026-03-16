@@ -1,41 +1,46 @@
 # Terraform base infrastructure
 
-Wave 4 lays the Terraform foundation for Google Cloud under `infra/terraform`, and Wave 5 adds the operational handoff to Cloud Build for API image rollouts.
+Wave 4 lays the Terraform foundation for Google Cloud under `infra/terraform`, Wave 5 adds the operational handoff to Cloud Build for API image rollouts, and Wave 6 hardens that path into a staging-first CD flow.
 The scope is still intentionally narrow:
 
 - enable the required Google APIs
 - create a regional Artifact Registry repository
-- create user-managed service accounts for future runtime and migration flows
+- create user-managed service accounts for runtime and migration flows
 - grant narrow IAM needed for those service accounts today
 - create Secret Manager secret containers only
 - create a Cloud SQL PostgreSQL instance, database, and application user
 - deploy the API baseline onto Cloud Run from a configurable bootstrap image reference
+- create a Cloud Run Job for API database migrations from a configurable bootstrap image reference
 - wire non-secret runtime config, Secret Manager-backed env vars, and Cloud SQL attachment for the API service
 - add a public Cloud Monitoring uptime check against the deployed API `/health` endpoint
 - add a minimal alerting policy for uptime-check failures
 - create Gemini Live telemetry log-based metrics from the API's structured Cloud Run logs
 - add a small set of metric-based alert policies on top of those telemetry metrics
-- check in a Cloud Build pipeline that builds, pushes, and deploys the API image against the existing Cloud Run service
+- check in a Cloud Build pipeline that builds, pushes, migrates, deploys, and smoke-tests the API rollout
+- check in GitHub Actions entry points for automatic staging deploys and controlled production deploys
 
-This repo still does **not** create the Cloud Build trigger itself, migration jobs, secret values, or broader rollout orchestration.
+This repo still does **not** create the Cloud Build trigger itself, populate secret values, rotate secrets through Terraform-managed versions, or provision GitHub-to-Google authentication.
 
 ## Layout
 
 ```text
 infra/terraform/
 ├── envs/
-│   └── dev/
+│   ├── dev/
+│   ├── production/
+│   └── staging/
 └── modules/
     ├── artifact_registry/
     ├── cloud_sql/
     ├── cloud_run/
+    ├── cloud_run_job/
     ├── monitoring/
     ├── project_services/
     ├── secret_manager/
     └── service_accounts/
 ```
 
-The `dev` environment root is the working entry point today. A future `prod` root can reuse the same modules with a different `terraform.tfvars` file and, if needed, a different backend.
+Use `envs/staging` and `envs/production` for the CD path. `envs/dev` remains available for lower-risk experimentation and bootstrap work.
 
 ## Local authentication with ADC
 
@@ -59,10 +64,10 @@ Use an identity that can enable project services and manage Artifact Registry, I
 
 ## Required inputs
 
-Create a local `terraform.tfvars` file from the example in `infra/terraform/envs/dev`:
+Create a local `terraform.tfvars` file from the example in the environment root you are working on:
 
 ```bash
-cp infra/terraform/envs/dev/terraform.tfvars.example infra/terraform/envs/dev/terraform.tfvars
+cp infra/terraform/envs/staging/terraform.tfvars.example infra/terraform/envs/staging/terraform.tfvars
 ```
 
 Required inputs stay intentionally small:
@@ -73,6 +78,7 @@ Required inputs stay intentionally small:
 - `naming_prefix`
 - `database` settings, including sizing, backup/public-IP toggles, and the app user password
 - `api_service` settings, including the container image reference and Cloud Run sizing
+- `api_migration_job` settings, including the migration image reference and Cloud Run Job sizing
 - optional `api_runtime` overrides for non-secret API env vars
 - optional `api_secret_versions` pins if you do not want to use `latest`
 - optional `monitoring` overrides for the uptime-check path, cadence, telemetry alert thresholds, and notification channel resource names
@@ -85,9 +91,9 @@ The committed example file keeps `app_user_password` as a placeholder so `plan` 
 From the repository root:
 
 ```bash
-terraform -chdir=infra/terraform/envs/dev init
-terraform -chdir=infra/terraform/envs/dev validate
-terraform -chdir=infra/terraform/envs/dev plan -var-file=terraform.tfvars
+terraform -chdir=infra/terraform/envs/staging init
+terraform -chdir=infra/terraform/envs/staging validate
+terraform -chdir=infra/terraform/envs/staging plan -var-file=terraform.tfvars
 ```
 
 Optional formatting:
@@ -99,16 +105,16 @@ terraform fmt -recursive infra/terraform
 Apply only after reviewing the plan carefully:
 
 ```bash
-terraform -chdir=infra/terraform/envs/dev apply -var-file=terraform.tfvars
+terraform -chdir=infra/terraform/envs/staging apply -var-file=terraform.tfvars
 ```
 
 ## Managed resources
 
-The `dev` root now manages:
+Each environment root now manages:
 
-- required project services: Artifact Registry, IAM, Cloud Logging, Cloud Monitoring, Cloud Run, Secret Manager, Service Usage, and Cloud SQL Admin
+- required project services: Artifact Registry, Cloud Build, IAM, Cloud Logging, Cloud Monitoring, Cloud Run, Secret Manager, Service Usage, and Cloud SQL Admin
 - one regional Docker Artifact Registry repository
-- two user-managed service accounts: API runtime and future migrator
+- two user-managed service accounts: API runtime and API migrator
 - project-level IAM for `roles/cloudsql.client`
 - secret-level IAM for `roles/secretmanager.secretAccessor`
 - three secret containers reserved for later population:
@@ -117,6 +123,7 @@ The `dev` root now manages:
   - `DATABASE_URL`
 - one PostgreSQL Cloud SQL instance, one application database, and one application user
 - one Cloud Run v2 service for the API, attached to the API runtime service account
+- one Cloud Run v2 job for API database migrations, attached to the API migrator service account
 - optional public `roles/run.invoker` access when `api_service.allow_unauthenticated = true`
 - one public Cloud Monitoring uptime check against the deployed API health endpoint
 - one Cloud Monitoring alert policy that opens when the uptime check stops passing
@@ -266,53 +273,61 @@ Recommended post-wave improvement: create the GCS bucket out of band first and t
 
 ### Ownership split
 
-Terraform owns the infrastructure shape:
+Terraform owns the environment shape:
 
 - Artifact Registry repository
 - Cloud Run service definition
-- runtime service account attachment
+- Cloud Run migration job definition
+- runtime and migrator service account attachment
 - non-secret env vars, Secret Manager-backed env vars, and Cloud SQL attachment
-- scaling, ingress, and public/private access
+- scaling, ingress, public/private access, and monitoring
 
-Cloud Build owns the application rollout path in `cloudbuild.yaml`:
+Cloud Build owns the ordered rollout in `cloudbuild.yaml`:
 
-- build the API image from the repository root with `apps/api/Dockerfile`
-- push it to the Terraform-managed Artifact Registry repository
-- update the existing Cloud Run service to the new image
+1. build the API image from `apps/api/Dockerfile`
+2. build the compatible migration image from the same Dockerfile `migrator` target
+3. push both images with the commit SHA tag
+4. update the existing Cloud Run migration job to that migration image
+5. execute the migration job and wait for completion
+6. deploy the existing Cloud Run service to the API image
+7. smoke-test the deployed `/health` endpoint
 
-The Cloud Run module intentionally ignores image-only drift so later `terraform apply` runs do not roll back a successful deploy. Keep `api_service.image` in `terraform.tfvars` set to a valid bootstrap image in the same repository for first create or future re-create operations.
+GitHub Actions owns the environment entry points:
+
+- `.github/workflows/deploy-staging.yml` automatically deploys `main` to the `staging` GitHub environment
+- `.github/workflows/deploy-production.yml` performs a controlled manual deploy to the `production` GitHub environment from a specified Git ref that already passed staging
+
+Both the Cloud Run service module and the Cloud Run Job module intentionally ignore image-only drift so later `terraform apply` runs do not roll back a successful deploy. Keep `api_service.image` and `api_migration_job.image` in `terraform.tfvars` set to valid bootstrap images in the same repository for first create or future re-create operations.
 
 ### Deploy variables
 
-`cloudbuild.yaml` keeps the deploy interface small:
+`cloudbuild.yaml` keeps the deploy interface explicit:
 
 - project id: Cloud Build built-in `$PROJECT_ID`
+- environment label: `_DEPLOY_ENV`
 - region: `_REGION`
 - Artifact Registry repository: `_AR_REPOSITORY`
-- image name: `_IMAGE_NAME`
-- image tag: `_IMAGE_TAG`
+- API image name: `_IMAGE_NAME`
+- migration image name: `_MIGRATION_IMAGE_NAME`
+- immutable image tag: `_IMAGE_TAG`
 - Cloud Run service: `_SERVICE_NAME`
+- Cloud Run migration job: `_MIGRATION_JOB_NAME`
+- smoke path: `_SMOKE_PATH`
 
-Recommended trigger defaults:
+Recommended values per environment:
 
 - `_REGION` = `terraform output -raw region`
 - `_AR_REPOSITORY` = the `id` field from `terraform output -json artifact_registry`
 - `_IMAGE_NAME` = `api`
-- `_IMAGE_TAG` = `$SHORT_SHA`
+- `_MIGRATION_IMAGE_NAME` = `api-migrator`
+- `_IMAGE_TAG` = full Git commit SHA
 - `_SERVICE_NAME` = `terraform output -raw api_cloud_run_service_name`
+- `_MIGRATION_JOB_NAME` = `terraform output -raw api_migration_job_name`
+- `_SMOKE_PATH` = `/health`
 
-Same-project deployment is the intended Wave 5 path. `cloudbuild.yaml` uses Cloud Build's built-in `$PROJECT_ID`, so the trigger should run in the same Google Cloud project that Terraform manages unless you later add an explicit cross-project setup.
+Same-project deployment is the intended path. `cloudbuild.yaml` uses Cloud Build's built-in `$PROJECT_ID`, so the build should run in the same Google Cloud project that Terraform manages unless you later add an explicit cross-project setup.
 
-Example:
-
-```hcl
-api_service = {
-  image = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/livepair-dev-containers/api:bootstrap"
-}
-```
-
-Cloud Run injects `PORT` automatically and the current API container already binds to that injected port.
-The service remains stateless and continues logging to stdout/stderr.
+Cloud Run injects `PORT` automatically and the current API container already binds to that injected port. The service remains stateless and continues logging to stdout/stderr.
 
 ### Secret Manager wiring
 
@@ -322,32 +337,33 @@ The Cloud Run service reads these environment variables from Secret Manager:
 - `SESSION_TOKEN_AUTH_SECRET`
 - `DATABASE_URL`
 
-Terraform in this wave creates only the secret containers plus accessor IAM.
-You must add secret versions before the first deploy that creates or updates the Cloud Run service.
-By default the service references the `latest` version of each secret, but you can pin versions through `api_secret_versions`.
+The Cloud Run migration job reads:
+
+- `DATABASE_URL`
+
+Terraform creates the secret containers plus accessor IAM, but you must add secret versions before the first deploy that creates or updates either resource. By default both service and job reference the `latest` version of each secret, but you can pin versions through `api_secret_versions`.
 
 Example manual population commands:
 
 ```bash
-# These example secret names assume the default naming_prefix=livepair and environment_name=dev.
-printf '%s' 'replace-with-real-gemini-key' | gcloud secrets versions add livepair-dev-gemini-api-key --data-file=-
-printf '%s' 'replace-with-real-session-secret' | gcloud secrets versions add livepair-dev-session-token-auth-secret --data-file=-
-printf '%s' 'postgres://livepair:APP_PASSWORD@/livepair?host=/cloudsql/PROJECT:REGION:INSTANCE' | gcloud secrets versions add livepair-dev-database-url --data-file=-
+# These example secret names assume the default naming_prefix=livepair and environment_name=staging.
+printf '%s' 'replace-with-real-gemini-key' | gcloud secrets versions add livepair-staging-gemini-api-key --data-file=-
+printf '%s' 'replace-with-real-session-secret' | gcloud secrets versions add livepair-staging-session-token-auth-secret --data-file=-
+printf '%s' 'postgres://livepair:APP_PASSWORD@/livepair?host=/cloudsql/PROJECT:REGION:INSTANCE' | gcloud secrets versions add livepair-staging-database-url --data-file=-
 ```
 
-Construct the `DATABASE_URL` from the Cloud SQL outputs and the app user/password you chose in `terraform.tfvars`.
-The Cloud Run module also mounts `/cloudsql` and attaches the Cloud SQL instance connection name so the Unix socket path is available to the container.
+Construct the `DATABASE_URL` from the Cloud SQL outputs and the app user/password you chose in `terraform.tfvars`. Both the service and migration job mount `/cloudsql` and attach the Cloud SQL instance connection name so the Unix socket path is available to the container.
 
 ### First-time bootstrap
 
-If Wave 4 has already created the Cloud Run service in your environment, you can skip this subsection and move straight to trigger setup.
+If Terraform has already created the Cloud Run service and migration job in your environment, you can skip this subsection and move straight to workflow setup.
 
-If you are bootstrapping a fresh environment, there is one extra wrinkle: Terraform creates both the Artifact Registry repository and the Cloud Run service, but the Cloud Run service needs a valid image reference. The lowest-risk path is a one-time two-phase bootstrap:
+If you are bootstrapping a fresh environment, there is one extra wrinkle: Terraform creates the Artifact Registry repository, Cloud Run service, and Cloud Run Job, but both Cloud Run resources need valid image references. The lowest-risk path is a one-time two-phase bootstrap:
 
-1. Create the prerequisite infrastructure without the Cloud Run service yet:
+1. Create the prerequisite infrastructure without the Cloud Run resources yet:
 
 ```bash
-terraform -chdir=infra/terraform/envs/dev apply -var-file=terraform.tfvars \
+terraform -chdir=infra/terraform/envs/staging apply -var-file=terraform.tfvars \
   -target=module.project_services \
   -target=module.artifact_registry \
   -target=module.service_accounts \
@@ -355,111 +371,174 @@ terraform -chdir=infra/terraform/envs/dev apply -var-file=terraform.tfvars \
   -target=module.cloud_sql
 ```
 
-2. Push a bootstrap image from the repository root:
+2. Push bootstrap images from the repository root:
 
 ```bash
 PROJECT_ID=your-gcp-project-id
 REGION=us-central1
-REPOSITORY=livepair-dev-containers
-IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api:bootstrap"
+REPOSITORY=livepair-staging-containers
+API_IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api:bootstrap"
+MIGRATION_IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api-migrator:bootstrap"
 
 gcloud auth configure-docker "${REGION}-docker.pkg.dev"
-docker build -f apps/api/Dockerfile -t "${IMAGE_URI}" .
-docker push "${IMAGE_URI}"
+docker build -f apps/api/Dockerfile -t "${API_IMAGE_URI}" .
+docker build --target migrator -f apps/api/Dockerfile -t "${MIGRATION_IMAGE_URI}" .
+docker push "${API_IMAGE_URI}"
+docker push "${MIGRATION_IMAGE_URI}"
 ```
 
 3. Populate the required Secret Manager versions.
-4. Keep `api_service.image` in `terraform.tfvars` pointed at that bootstrap image.
+4. Keep `api_service.image` and `api_migration_job.image` in `terraform.tfvars` pointed at those bootstrap images.
 5. Run the normal full apply:
 
 ```bash
-terraform -chdir=infra/terraform/envs/dev apply -var-file=terraform.tfvars
+terraform -chdir=infra/terraform/envs/staging apply -var-file=terraform.tfvars
 ```
 
 Use the targeted apply only for this one-time bootstrap. Routine infrastructure changes should go back to normal `plan` / `apply`.
 
-### Cloud Build trigger setup
+### GitHub Actions environment setup
 
-Recommended console path:
+The checked-in CD workflows use GitHub environments named `staging` and `production`. Configure these per-environment variables before you enable the workflows:
 
-1. Open **Cloud Build → Triggers → Create trigger** in the same project Terraform manages.
-2. Connect the repository/branch you want to deploy from.
-3. Choose **Configuration file (yaml/json)** and point it at `cloudbuild.yaml`.
-4. Set substitutions for `_REGION`, `_AR_REPOSITORY`, `_IMAGE_NAME`, `_IMAGE_TAG`, and `_SERVICE_NAME`.
-5. Prefer a dedicated build service account if your team already uses user-specified build identities; otherwise the project-default Cloud Build service account is acceptable for this same-project Wave 5 path.
+- `GCP_PROJECT_ID`
+- `GCP_REGION`
+- `GCP_ARTIFACT_REPOSITORY`
+- `GCP_API_IMAGE_NAME` (`api`)
+- `GCP_API_MIGRATION_IMAGE_NAME` (`api-migrator`)
+- `GCP_API_SERVICE_NAME`
+- `GCP_API_MIGRATION_JOB_NAME`
+- `GCP_SMOKE_PATH` (`/health`)
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_SERVICE_ACCOUNT`
 
-The human or automation that creates/edits the trigger needs Cloud Build trigger-management permissions such as `roles/cloudbuild.builds.editor`, plus access to the connected source repository. If the trigger uses a user-specified build service account, that operator also needs permission to attach it.
+`GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` are not stored in the repo; set them in the matching GitHub environment. If you are not ready to use GitHub environment variables yet, you can still use the manual `gcloud builds submit` fallback below.
 
-If you prefer the CLI, use the provider-specific `gcloud builds triggers create ...` command for your repository connection type and pass the same `cloudbuild.yaml` path and substitutions above. The exact CLI syntax varies by source connection, so this repo keeps the checked-in build config stable and leaves the trigger resource itself out of scope.
+### IAM for deploy automation
 
-Minimum IAM for the service account that executes the build:
+Minimum IAM for the identity that executes Cloud Build:
 
 - `roles/artifactregistry.writer` on the target repository or project so the build can push images
-- `roles/run.admin` on the project so the build can deploy new Cloud Run revisions
-- `roles/iam.serviceAccountUser` on the API runtime service account so the deploy can keep using Terraform's runtime identity
+- `roles/run.admin` on the project so the build can update the migration job and deploy new Cloud Run revisions
+- `roles/iam.serviceAccountUser` on the API runtime service account so the service deploy keeps using Terraform's runtime identity
+- `roles/iam.serviceAccountUser` on the API migrator service account so the migration job update keeps using Terraform's job identity
+
+Minimum IAM for the identity used by GitHub Actions to submit the build:
+
+- `roles/cloudbuild.builds.editor` on the target project
+- any additional permissions required by your chosen GitHub-to-Google authentication setup
 
 Additional caveats:
 
-- If you use a user-specified build service account, make sure your build logging setup still works; `roles/logging.logWriter` is commonly required when logs go to Cloud Logging.
+- If you use a user-specified Cloud Build service account, make sure your build logging setup still works; `roles/logging.logWriter` is commonly required when logs go to Cloud Logging.
 - Same-project defaults often cover Cloud Run image pulls automatically, but stricter repository IAM or any cross-project image path may require an explicit `roles/artifactregistry.reader` grant for the runtime pull identity.
 - If `api_service.allow_unauthenticated = true`, Terraform grants `roles/run.invoker` to `allUsers`. That can fail under Domain Restricted Sharing or similar org-policy controls. In that case, keep the service private or extend the infrastructure later with the Cloud Run public-access mechanism your organization allows.
 
-### Triggerless manual fallback
+### Manual deploy and migration fallback
 
-If the trigger is not set up yet, or if you want a reproducible manual deploy/debug path, submit the same build config directly:
+If GitHub Actions is not set up yet, or if you want a reproducible manual deploy/debug path, submit the same build config directly:
 
 ```bash
 PROJECT_ID=your-gcp-project-id
 REGION=us-central1
-REPOSITORY=livepair-dev-containers
-SERVICE=livepair-dev-api
+REPOSITORY=livepair-staging-containers
+SERVICE=livepair-staging-api
+MIGRATION_JOB=livepair-staging-api-migrate
+IMAGE_TAG="$(git rev-parse HEAD)"
 
 gcloud builds submit \
   --project "$PROJECT_ID" \
   --config cloudbuild.yaml \
-  --substitutions=_REGION="$REGION",_AR_REPOSITORY="$REPOSITORY",_IMAGE_NAME=api,_IMAGE_TAG="$(git rev-parse --short HEAD)",_SERVICE_NAME="$SERVICE" \
+  --substitutions=_DEPLOY_ENV=staging,_REGION="$REGION",_AR_REPOSITORY="$REPOSITORY",_IMAGE_NAME=api,_MIGRATION_IMAGE_NAME=api-migrator,_IMAGE_TAG="$IMAGE_TAG",_SERVICE_NAME="$SERVICE",_MIGRATION_JOB_NAME="$MIGRATION_JOB",_SMOKE_PATH=/health \
   .
 ```
 
-That command reuses the checked-in pipeline and does not embed secrets into the image or the build config. The Cloud Run service continues to read `GEMINI_API_KEY`, `SESSION_TOKEN_AUTH_SECRET`, and `DATABASE_URL` from Secret Manager at runtime.
-
-Keep these checks in mind before the first live deploy:
-
-- populate all required Secret Manager versions
-- confirm the `DATABASE_URL` secret uses the `/cloudsql/PROJECT:REGION:INSTANCE` host path form expected by Cloud Run socket connections
-- decide whether `api_service.allow_unauthenticated` should stay `true` for dev
-- verify the trigger substitutions still match Terraform outputs after any environment rename
-
-After the first deploy path is working, normal infrastructure changes still go through:
+If you only need to rerun migrations manually with a specific image SHA:
 
 ```bash
-terraform -chdir=infra/terraform/envs/dev plan -var-file=terraform.tfvars
-terraform -chdir=infra/terraform/envs/dev apply -var-file=terraform.tfvars
+PROJECT_ID=your-gcp-project-id
+REGION=us-central1
+REPOSITORY=livepair-staging-containers
+MIGRATION_JOB=livepair-staging-api-migrate
+IMAGE_TAG=replace-with-known-sha
+
+gcloud run jobs update "$MIGRATION_JOB" \
+  --project "$PROJECT_ID" \
+  --region "$REGION" \
+  --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api-migrator:${IMAGE_TAG}"
+
+gcloud run jobs execute "$MIGRATION_JOB" \
+  --project "$PROJECT_ID" \
+  --region "$REGION" \
+  --wait
 ```
 
-Useful outputs after apply:
+Both commands reuse the checked-in pipeline/job definition and do not embed secrets into the image or the build config.
 
+### Rollback
+
+For an application rollback, do **not** rebuild a new image. Use either the previous Cloud Run revision or a previously pushed SHA-tagged image.
+
+Revision-based rollback:
+
+```bash
+gcloud run revisions list \
+  --project "$PROJECT_ID" \
+  --region "$REGION" \
+  --service "$SERVICE"
+
+gcloud run services update-traffic "$SERVICE" \
+  --project "$PROJECT_ID" \
+  --region "$REGION" \
+  --to-revisions REVISION_NAME=100
+```
+
+Image-based rollback:
+
+```bash
+KNOWN_GOOD_SHA=replace-with-known-sha
+
+gcloud run deploy "$SERVICE" \
+  --project "$PROJECT_ID" \
+  --region "$REGION" \
+  --platform=managed \
+  --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api:${KNOWN_GOOD_SHA}" \
+  --quiet
+```
+
+After either rollback path, rerun the smoke check:
+
+```bash
+SERVICE_URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')"
+curl --fail --silent --show-error "${SERVICE_URL}/health"
+```
+
+If a failed deployment already ran a forward-only schema migration that is not backward-compatible, application rollback alone may not be sufficient. In that case, pause traffic changes and use your database restore procedure outside this repo. The happy-path expectation for this CD pipeline is additive or backward-compatible migrations so that a service rollback remains viable.
+
+### Useful outputs after apply
+
+- `artifact_registry`
+- `cloud_sql`
 - `api_cloud_run_service_name`
 - `api_cloud_run_service_url`
 - `api_cloud_run`
+- `api_migration_job_name`
+- `api_migration_job`
 - `api_uptime_check_name`
 - `api_alert_policy_name`
 - `api_telemetry_metric_types`
 - `api_telemetry_alert_policy_names`
 - `api_monitoring`
-- `cloud_sql.instance_connection_name`
-- `artifact_registry.url`
 
 ## Notes for later waves
 
 This foundation intentionally stops short of:
 
-- running migrations with a Cloud Run Job or any other execution flow
-- populating Secret Manager versions
-- rotating or pinning secrets through Terraform-managed secret-version resources
+- provisioning Cloud Build triggers themselves through Terraform or another GitOps layer
+- provisioning GitHub Workload Identity resources
+- populating or rotating Secret Manager versions through Terraform-managed secret-version resources
 - reworking the backend application to use a different database config model
-- provisioning the Cloud Build trigger itself through Terraform or another GitOps layer
 - provisioning notification-channel targets directly in the repo
 - migrating Terraform state to a remote GCS backend
 
-The outputs from `envs/dev` expose the repository URL, service account emails, secret names, Cloud SQL connection identifiers, and Cloud Run service URL for those follow-up waves.
+The environment outputs expose the repository URL, service account emails, secret names, Cloud SQL connection identifiers, Cloud Run service URL, and Cloud Run migration job name for those follow-up steps.

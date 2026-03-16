@@ -4,18 +4,18 @@
 
 project_id       = "your-gcp-project-id"
 region           = "us-central1"
-environment_name = "dev"
+environment_name = "production"
 naming_prefix    = "livepair"
 
 database = {
   version             = "POSTGRES_16"
   tier                = "db-custom-1-3840"
-  availability_type   = "ZONAL"
+  availability_type   = "REGIONAL"
   disk_size_gb        = 10
   disk_type           = "PD_SSD"
-  backup_enabled      = false
+  backup_enabled      = true
   ipv4_enabled        = true
-  deletion_protection = false
+  deletion_protection = true
   database_name       = "livepair"
   app_user_name       = "livepair"
   app_user_password   = "replace-me-before-apply" # You can run "openssl rand -base64 24"
@@ -24,10 +24,10 @@ database = {
 api_service = {
   # Keep this on a valid bootstrap image in Artifact Registry for first create/recreate.
   # Later image rollouts come from cloudbuild.yaml rather than Terraform.
-  image                 = "us-central1-docker.pkg.dev/your-gcp-project-id/livepair-dev-containers/api:bootstrap"
+  image                 = "us-central1-docker.pkg.dev/your-gcp-project-id/livepair-production-containers/api:bootstrap"
   allow_unauthenticated = true
   ingress               = "INGRESS_TRAFFIC_ALL"
-  deletion_protection   = false
+  deletion_protection   = true
   min_instance_count    = 0
   max_instance_count    = 2
   timeout               = "300s"
@@ -41,8 +41,8 @@ api_service = {
 api_migration_job = {
   # Keep this on a valid bootstrap migration image in Artifact Registry for first create/recreate.
   # Later image rollouts come from cloudbuild.yaml rather than Terraform.
-  image               = "us-central1-docker.pkg.dev/your-gcp-project-id/livepair-dev-containers/api-migrator:bootstrap"
-  deletion_protection = false
+  image               = "us-central1-docker.pkg.dev/your-gcp-project-id/livepair-production-containers/api-migrator:bootstrap"
+  deletion_protection = true
   timeout             = "600s"
   task_count          = 1
   parallelism         = 1

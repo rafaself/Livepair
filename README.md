@@ -406,7 +406,7 @@ curl http://127.0.0.1:3000/health
 
 ### 🐳 API container build
 
-Wave 2 adds a backend-only container build that is ready for later Cloud Run deployment without adding deployment manifests yet.
+Wave 2 adds the backend-only container build that now feeds the Cloud Run CD pipeline.
 
 Build the image from the repository root so the Docker build can see both `apps/api` and the workspace dependency in `packages/shared-types`:
 
@@ -439,46 +439,41 @@ docker run --rm \
 
 ### ☁️ API deploy pipeline
 
-Wave 5 adds a minimal `cloudbuild.yaml` that reuses `apps/api/Dockerfile` for the operational API release path:
+Wave 6 turns the API path into a staging-first CD flow:
 
-* build the image from the repository root
-* push it to the Terraform-managed Artifact Registry repository
-* deploy the existing Cloud Run service to the new image
+* GitHub Actions deploys `main` automatically to `staging`
+* production deploys are a separate manual workflow step
+* `cloudbuild.yaml` now performs the full ordered rollout: build, push, migrate, deploy, smoke-test
+* deploys use immutable commit-SHA image tags for both the API image and the migration image
 
 Responsibility stays split on purpose:
 
-* Terraform remains the source of truth for Artifact Registry, Cloud Run service shape, runtime service account, Secret Manager wiring, Cloud SQL attachment, scaling, ingress, and public/private access.
-* Cloud Build owns image build/push plus the image-only Cloud Run rollout.
+* Terraform remains the source of truth for Artifact Registry, Cloud Run service shape, Cloud Run migration job shape, runtime service accounts, Secret Manager wiring, Cloud SQL attachment, scaling, ingress, and public/private access.
+* Cloud Build owns the ordered rollout execution.
+* GitHub Actions owns the staging and production entry points.
 
-The Cloud Run Terraform module now ignores container image drift so a later `terraform apply` will not roll back a successful Cloud Build release. Keep `infra/terraform/envs/dev/terraform.tfvars` `api_service.image` pointed at a valid bootstrap image in the same repository for first creation or any future recreate.
+The Cloud Run Terraform modules ignore image-only drift so a later `terraform apply` does not roll back a successful release. Keep both `api_service.image` and `api_migration_job.image` in the environment `terraform.tfvars` files pointed at valid bootstrap images for first creation or any future recreate.
 
-Deploy inputs:
-
-* project id: Cloud Build built-in `$PROJECT_ID`
-* region: `_REGION`
-* Artifact Registry repository: `_AR_REPOSITORY`
-* image name: `_IMAGE_NAME`
-* image tag: `_IMAGE_TAG` (`$SHORT_SHA` is a good trigger default; manual builds should pass an explicit tag)
-* Cloud Run service name: `_SERVICE_NAME`
-
-Triggerless fallback:
+Manual fallback:
 
 ```bash
 PROJECT_ID=your-gcp-project-id
 REGION=us-central1
-REPOSITORY=livepair-dev-containers
-SERVICE=livepair-dev-api
+REPOSITORY=livepair-staging-containers
+SERVICE=livepair-staging-api
+MIGRATION_JOB=livepair-staging-api-migrate
+IMAGE_TAG="$(git rev-parse HEAD)"
 
 gcloud builds submit \
   --project "$PROJECT_ID" \
   --config cloudbuild.yaml \
-  --substitutions=_REGION="$REGION",_AR_REPOSITORY="$REPOSITORY",_IMAGE_NAME=api,_IMAGE_TAG="$(git rev-parse --short HEAD)",_SERVICE_NAME="$SERVICE" \
+  --substitutions=_DEPLOY_ENV=staging,_REGION="$REGION",_AR_REPOSITORY="$REPOSITORY",_IMAGE_NAME=api,_MIGRATION_IMAGE_NAME=api-migrator,_IMAGE_TAG="$IMAGE_TAG",_SERVICE_NAME="$SERVICE",_MIGRATION_JOB_NAME="$MIGRATION_JOB",_SMOKE_PATH=/health \
   .
 ```
 
-This path keeps secrets out of the image and out of the pipeline config. Runtime secrets still stay in Secret Manager and are injected by the Terraform-managed Cloud Run service.
+That path keeps secrets out of the image and out of the pipeline config. Runtime secrets still stay in Secret Manager and are injected by the Terraform-managed Cloud Run service/job.
 
-For the shortest evaluator-friendly app check after startup, use the fast flow in [docs/QA_RUNBOOK.md](./docs/QA_RUNBOOK.md).
+For the full operator flow, including GitHub environment setup, manual migration reruns, and rollback commands, see [infra/terraform/README.md](./infra/terraform/README.md).
 
 ### 🐘 Local infrastructure helpers
 
@@ -576,7 +571,7 @@ Key local values:
 * `VITE_LIVE_API_VERSION`: keep `v1alpha` for the current speech flow
 * `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_PORT`: optional local overrides for `infra/postgres/.env`
 
-For Wave 1 cloud-readiness, plan to move `GEMINI_API_KEY`, `SESSION_TOKEN_AUTH_SECRET`, and deploy-time `DATABASE_URL` values into Secret Manager later. Keep `HOST`, `PORT`, `CORS_ALLOWED_ORIGINS`, rate limits, TTLs, and model/resource identifiers as ordinary runtime config.
+For the current cloud deployment path, `GEMINI_API_KEY`, `SESSION_TOKEN_AUTH_SECRET`, and deploy-time `DATABASE_URL` belong in environment-specific Secret Manager secrets referenced by Terraform-managed Cloud Run resources. Keep `HOST`, `PORT`, `CORS_ALLOWED_ORIGINS`, rate limits, TTLs, and model/resource identifiers as ordinary runtime config.
 
 For complete field-by-field documentation, use the app-local `.env.example` files as references. Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed because they come from Node, Electron, or Vite rather than repository configuration.
 

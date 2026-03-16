@@ -11,7 +11,7 @@ variable "region" {
 variable "environment_name" {
   description = "Environment name used in naming and labels."
   type        = string
-  default     = "dev"
+  default     = "production"
 }
 
 variable "naming_prefix" {
