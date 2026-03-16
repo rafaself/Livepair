@@ -50,14 +50,14 @@ export type AssistantPanelController = {
   handleSubmitTextTurn: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   handleCheckBackendHealth: () => Promise<void>;
   handleStartSpeechMode: () => Promise<void>;
-  handleStartSpeechModeWithScreen: () => Promise<void>;
+  handleStartSpeechModeWithScreen: () => Promise<boolean | void>;
   handleToggleComposerMicrophone: () => Promise<void>;
   handleToggleComposerScreenShare: () => Promise<void>;
   handleEndSpeechMode: () => Promise<void>;
 };
 
 export type UseAssistantPanelControllerOptions = {
-  screenShareModeGate?: (action: () => Promise<void>) => Promise<void>;
+  screenShareModeGate?: (action: () => Promise<void>) => Promise<boolean | void>;
 };
 
 export function useAssistantPanelController({

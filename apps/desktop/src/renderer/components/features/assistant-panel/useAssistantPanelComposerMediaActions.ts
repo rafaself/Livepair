@@ -12,7 +12,7 @@ type UseAssistantPanelComposerMediaActionsOptions = {
   composerSpeechActionKind: 'start' | 'end';
   getIsComposerMicrophoneEnabled: () => boolean;
   setComposerMicrophoneEnabled: (enabled: boolean) => void;
-  screenShareModeGate?: (action: () => Promise<void>) => Promise<void>;
+  screenShareModeGate?: (action: () => Promise<void>) => Promise<boolean | void>;
   isVoiceSessionActive: boolean;
   voiceCaptureState: VoiceCaptureState;
   screenCaptureState: ScreenCaptureState;
@@ -26,7 +26,7 @@ type UseAssistantPanelComposerMediaActionsOptions = {
 
 export type AssistantPanelComposerMediaActions = {
   handleStartSpeechMode: () => Promise<void>;
-  handleStartSpeechModeWithScreen: () => Promise<void>;
+  handleStartSpeechModeWithScreen: () => Promise<boolean>;
   handleToggleComposerMicrophone: () => Promise<void>;
   handleToggleComposerScreenShare: () => Promise<void>;
   handleEndSpeechMode: () => Promise<void>;
@@ -63,13 +63,13 @@ export function useAssistantPanelComposerMediaActions({
     await onStartVoiceCapture();
   }, [getIsComposerMicrophoneEnabled, onStartVoiceCapture]);
 
-  const runScreenShareAction = useCallback(async (action: () => Promise<void>): Promise<void> => {
+  const runScreenShareAction = useCallback(async (action: () => Promise<void>): Promise<boolean> => {
     if (screenShareModeGate) {
-      await screenShareModeGate(action);
-      return;
+      return (await screenShareModeGate(action)) !== false;
     }
 
     await action();
+    return true;
   }, [screenShareModeGate]);
 
   const handleStartSpeechMode = useCallback(async (): Promise<void> => {
@@ -81,12 +81,12 @@ export function useAssistantPanelComposerMediaActions({
     await startVoiceCaptureIfMicrophoneEnabled();
   }, [composerSpeechActionKind, onStartVoiceSession, startVoiceCaptureIfMicrophoneEnabled]);
 
-  const handleStartSpeechModeWithScreen = useCallback(async (): Promise<void> => {
+  const handleStartSpeechModeWithScreen = useCallback(async (): Promise<boolean> => {
     if (composerSpeechActionKind !== 'start') {
-      return;
+      return false;
     }
 
-    await runScreenShareAction(async () => {
+    return runScreenShareAction(async () => {
       await onStartVoiceSession();
       await onStartScreenCapture();
       await startVoiceCaptureIfMicrophoneEnabled();
