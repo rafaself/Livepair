@@ -516,6 +516,31 @@ describe('ConversationTurn transcript artifact presentation', () => {
     expect(screen.getByRole('button', { name: 'Show assistant thinking' })).toBeVisible();
   });
 
+  it('renders thinking text as markdown when expanded', () => {
+    render(
+      <ConversationTurn
+        turn={{
+          id: 'assistant-thinking-markdown',
+          role: 'assistant',
+          content: 'Canonical assistant reply.',
+          timestamp: '10:00',
+          state: 'complete',
+          answerMetadata: {
+            provenance: 'unverified',
+            thinkingText: 'Use **bold** and `code` here.',
+          },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show assistant thinking' }));
+
+    const thinkingRegion = screen.getByRole('region', { name: 'Assistant thinking' });
+
+    expect(thinkingRegion.querySelector('strong')?.textContent).toBe('bold');
+    expect(thinkingRegion.querySelector('code')?.textContent).toBe('code');
+  });
+
   it('does not show thinking UI for assistant turns without thinking text', () => {
     render(
       <ConversationTurn
