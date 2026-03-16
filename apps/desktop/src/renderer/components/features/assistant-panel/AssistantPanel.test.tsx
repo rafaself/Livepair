@@ -222,6 +222,26 @@ describe('AssistantPanel', () => {
     expect(panelScope.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
   });
 
+  it('animates the global chat button while local user speech is active', async () => {
+    useSessionStore.getState().setCurrentMode('speech');
+    useSessionStore.getState().setSpeechLifecycle({ status: 'userSpeaking' });
+    useSessionStore.getState().setAssistantState('listening');
+    useSessionStore.getState().setLocalUserSpeechActive(true);
+
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+    const chatButton = panelScope.getByRole('button', { name: 'Chat' });
+    const speechIndicator = chatButton.querySelector('.speech-activity-indicator--active');
+
+    expect(speechIndicator).not.toBeNull();
+    expect(speechIndicator?.querySelectorAll('.speech-activity-indicator__bar')).toHaveLength(3);
+  });
+
   it('fetches and shows latest session-history metadata for an opened past chat', async () => {
     useSessionStore.getState().setActiveChatId('chat-history-4');
     window.bridge.getChat = vi.fn(async (chatId: string) => ({

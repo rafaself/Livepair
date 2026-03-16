@@ -1,6 +1,8 @@
+import { isValidElement } from 'react';
 import { describe, expect, it } from 'vitest';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
 import { createControlGatingSnapshot } from '../../../../runtime';
+import { SpeechActivityIndicator } from '../SpeechActivityIndicator';
 
 const inactiveSnapshot = createControlGatingSnapshot({
   currentMode: 'inactive',
@@ -130,9 +132,13 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
         localUserSpeechActive: true,
       });
       expect(action.kind).toBe('endSpeech');
-      // icon contains the indicator span — check the rendered string for the active class
-      const iconStr = JSON.stringify(action.icon);
-      expect(iconStr).toContain('speech-activity-indicator--active');
+      expect(isValidElement(action.icon)).toBe(true);
+      const children = isValidElement(action.icon) ? action.icon.props.children : [];
+      const indicator = Array.isArray(children) ? children[0] : null;
+
+      expect(isValidElement(indicator)).toBe(true);
+      expect(indicator?.type).toBe(SpeechActivityIndicator);
+      expect(indicator?.props.isActive).toBe(true);
     });
 
     it('does not activate the indicator when localUserSpeechActive is false, even if speechLifecycleStatus is userSpeaking', () => {
@@ -151,8 +157,13 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
         localUserSpeechActive: false,
       });
       expect(action.kind).toBe('endSpeech');
-      const iconStr = JSON.stringify(action.icon);
-      expect(iconStr).not.toContain('speech-activity-indicator--active');
+      expect(isValidElement(action.icon)).toBe(true);
+      const children = isValidElement(action.icon) ? action.icon.props.children : [];
+      const indicator = Array.isArray(children) ? children[0] : null;
+
+      expect(isValidElement(indicator)).toBe(true);
+      expect(indicator?.type).toBe(SpeechActivityIndicator);
+      expect(indicator?.props.isActive).toBe(false);
     });
   });
 });

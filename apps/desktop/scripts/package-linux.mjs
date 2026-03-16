@@ -67,6 +67,16 @@ function writeExecutable(targetPath, content) {
   chmodSync(targetPath, 0o755);
 }
 
+function configureSandboxHelper(targetDir) {
+  const chromeSandboxPath = join(targetDir, 'chrome-sandbox');
+
+  if (!existsSync(chromeSandboxPath)) {
+    return;
+  }
+
+  chmodSync(chromeSandboxPath, 0o4755);
+}
+
 function writeDesktopEntry(targetPath, execValue) {
   writeFileSync(
     targetPath,
@@ -90,6 +100,7 @@ function stageElectronApp(targetDir) {
   resetDir(targetDir);
   cpSync(electronDistDir, targetDir, { recursive: true });
   cpSync(deployedAppDir, join(targetDir, 'resources', 'app'), { recursive: true });
+  configureSandboxHelper(targetDir);
 }
 
 function writePortableBundle() {
