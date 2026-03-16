@@ -12,6 +12,10 @@ import {
 } from './screenFrameMasking';
 import type { CaptureExclusionMaskingContext } from './screenFrameMasking';
 import type { CaptureExclusionMaskAnalysis } from './screenFrameMasking';
+import {
+  buildScreenFrameAnalysis,
+  getScreenAnalysisThumbnailSize,
+} from './screenFrameAnalysis';
 
 export {
   SCREEN_CAPTURE_FRAME_RATE_HZ,
@@ -19,6 +23,12 @@ export {
   SCREEN_CAPTURE_MAX_WIDTH_PX,
   SCREEN_CAPTURE_VIDEO_MIME_TYPE,
 } from './screenCapturePolicy';
+
+type ImageDataLike = {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+};
 
 type CanvasLike = {
   width: number;
@@ -28,9 +38,16 @@ type CanvasLike = {
 };
 
 type CanvasRenderingContext2DLike = {
-  drawImage: (image: HTMLVideoElement, sx: number, sy: number, sw: number, sh: number) => void;
+  drawImage: (
+    image: HTMLVideoElement | CanvasLike,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+  ) => void;
   fillStyle: string;
   fillRect: (x: number, y: number, width: number, height: number) => void;
+  getImageData: (x: number, y: number, width: number, height: number) => ImageDataLike;
 };
 
 type VideoElementLike = {
@@ -156,6 +173,41 @@ function shouldClearLastMaskedFrameAt(maskAnalysis: CaptureExclusionMaskAnalysis
     || maskAnalysis.maskReason === 'missing-overlay-display';
 }
 
+function analyzeCanvasFrame(sourceCanvas: CanvasLike, analysisCanvas: CanvasLike): LocalScreenFrame['analysis'] {
+  const analysisSize = getScreenAnalysisThumbnailSize(sourceCanvas.width, sourceCanvas.height);
+
+  if (
+    analysisCanvas.width !== analysisSize.widthPx
+    || analysisCanvas.height !== analysisSize.heightPx
+  ) {
+    analysisCanvas.width = analysisSize.widthPx;
+    analysisCanvas.height = analysisSize.heightPx;
+  }
+
+  const analysisContext = analysisCanvas.getContext('2d');
+
+  if (!analysisContext) {
+    throw new Error('Screen frame analysis failed');
+  }
+
+  analysisContext.drawImage(
+    sourceCanvas,
+    0,
+    0,
+    analysisSize.widthPx,
+    analysisSize.heightPx,
+  );
+
+  return buildScreenFrameAnalysis(
+    analysisContext.getImageData(
+      0,
+      0,
+      analysisSize.widthPx,
+      analysisSize.heightPx,
+    ),
+  );
+}
+
 export function createLocalScreenCapture(
   observer: LocalScreenCaptureObserver,
   {
@@ -174,13 +226,13 @@ export function createLocalScreenCapture(
   let stopInterval: (() => void) | null = null;
   let videoEl: VideoElementLike | null = null;
   let canvas: CanvasLike | null = null;
+  let analysisCanvas: CanvasLike | null = null;
   let trackEndedListener: (() => void) | null = null;
   let activeTrack: TrackLike | null = null;
   let pendingStart: Promise<void> | null = null;
   let stopRequested = false;
   let captureGeneration = 0;
 
-  // Mutable quality parameters — updated by start() and updateQuality().
   let currentJpegQuality = SCREEN_CAPTURE_JPEG_QUALITY;
   let currentMaxWidthPx = SCREEN_CAPTURE_MAX_WIDTH_PX;
 
@@ -202,6 +254,12 @@ export function createLocalScreenCapture(
       canvas = null;
     }
 
+    if (analysisCanvas) {
+      analysisCanvas.width = 0;
+      analysisCanvas.height = 0;
+      analysisCanvas = null;
+    }
+
     if (activeTrack && trackEndedListener) {
       activeTrack.removeEventListener('ended', trackEndedListener);
     }
@@ -220,10 +278,22 @@ export function createLocalScreenCapture(
 
   async function captureFrame(
     cvs: CanvasLike,
+    analysisCvs: CanvasLike,
     jpegQuality: number,
     generation: number,
     maskAnalysis: CaptureExclusionMaskAnalysis,
   ): Promise<void> {
+    let analysis: LocalScreenFrame['analysis'];
+
+    try {
+      analysis = analyzeCanvasFrame(cvs, analysisCvs);
+    } catch {
+      if (isCapturing && generation === captureGeneration) {
+        observer.onError('Screen frame analysis failed');
+      }
+      return;
+    }
+
     let data: Uint8Array;
 
     try {
@@ -246,6 +316,7 @@ export function createLocalScreenCapture(
       sequence,
       widthPx: cvs.width,
       heightPx: cvs.height,
+      analysis,
     };
 
     const frameTimestamp = new Date().toISOString();
@@ -262,7 +333,7 @@ export function createLocalScreenCapture(
         ? { lastMaskedFrameAt: frameTimestamp }
         : shouldClearLastMaskedFrameAt(maskAnalysis)
           ? { lastMaskedFrameAt: null }
-        : {}),
+          : {}),
     });
   }
 
@@ -277,6 +348,7 @@ export function createLocalScreenCapture(
 
     isStarting = true;
     stopRequested = false;
+    sequence = 0;
 
     pendingStart = (async () => {
       const requestedFrameRateHz = options.frameRateHz ?? SCREEN_CAPTURE_FRAME_RATE_HZ;
@@ -323,6 +395,8 @@ export function createLocalScreenCapture(
 
       const cvs = createCanvas();
       canvas = cvs;
+      const analysisCvs = createCanvas();
+      analysisCanvas = analysisCvs;
 
       const tracks = capturedStream.getTracks() as TrackLike[];
       const videoTrack = tracks[0] ?? null;
@@ -406,7 +480,7 @@ export function createLocalScreenCapture(
           canvasHeight: cvs.height,
           ...getCaptureExclusionMaskingContext(),
         });
-        await captureFrame(cvs, currentJpegQuality, sessionGeneration, maskAnalysis);
+        await captureFrame(cvs, analysisCvs, currentJpegQuality, sessionGeneration, maskAnalysis);
       }, intervalMs);
     })();
 
@@ -422,29 +496,26 @@ export function createLocalScreenCapture(
     stopRequested = true;
 
     if (pendingStart) {
-      try {
-        await pendingStart;
-      } catch {
-        // Startup failures have already been reported through the observer.
-      }
+      await pendingStart.catch(() => undefined);
     }
 
     if (!isCapturing) {
-      releaseResources();
-      sequence = 0;
-      stopRequested = false;
       return;
     }
 
     isCapturing = false;
     releaseResources();
-    sequence = 0;
-    stopRequested = false;
+    observer.onDiagnostics({ lastUploadStatus: 'idle' });
   };
 
-  const updateQuality = (params: { jpegQuality?: number; maxWidthPx?: number }): void => {
-    if (params.jpegQuality !== undefined) currentJpegQuality = params.jpegQuality;
-    if (params.maxWidthPx !== undefined) currentMaxWidthPx = params.maxWidthPx;
+  const updateQuality: LocalScreenCapture['updateQuality'] = ({ jpegQuality, maxWidthPx }) => {
+    if (typeof jpegQuality === 'number' && Number.isFinite(jpegQuality)) {
+      currentJpegQuality = jpegQuality;
+    }
+
+    if (typeof maxWidthPx === 'number' && Number.isFinite(maxWidthPx) && maxWidthPx > 0) {
+      currentMaxWidthPx = maxWidthPx;
+    }
   };
 
   return { start, stop, updateQuality };

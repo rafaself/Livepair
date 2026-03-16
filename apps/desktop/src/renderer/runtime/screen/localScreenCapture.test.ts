@@ -75,6 +75,20 @@ function createValidJpegBytes(): Uint8Array {
   ]);
 }
 
+function createUniformImageData(width: number, height: number, value = 96): Uint8ClampedArray {
+  const data = new Uint8ClampedArray(width * height * 4);
+
+  for (let index = 0; index < width * height; index += 1) {
+    const channelIndex = index * 4;
+    data[channelIndex] = value;
+    data[channelIndex + 1] = value;
+    data[channelIndex + 2] = value;
+    data[channelIndex + 3] = 255;
+  }
+
+  return data;
+}
+
 function createHarness(opts: {
   getDisplayMediaImpl?: () => Promise<MediaStream>;
   accessStatus?: ScreenCaptureAccessStatus;
@@ -85,17 +99,26 @@ function createHarness(opts: {
   toDataUrlResult?: string;
   blobBytes?: Uint8Array;
   maskingContext?: CaptureExclusionMaskingContext;
+  analysisImageData?: Uint8ClampedArray;
 } = {}): {
   capture: ReturnType<typeof createLocalScreenCapture>;
   obs: ReturnType<typeof createObserver>;
   deps: CreateLocalScreenCaptureDependencies;
   track: TrackLike;
   canvas: CanvasMock;
+  analysisCanvas: CanvasMock;
   video: VideoMock;
   ctx2d: {
     drawImage: ReturnType<typeof vi.fn>;
     fillRect: ReturnType<typeof vi.fn>;
     fillStyle: string;
+    getImageData: ReturnType<typeof vi.fn>;
+  };
+  analysisCtx2d: {
+    drawImage: ReturnType<typeof vi.fn>;
+    fillRect: ReturnType<typeof vi.fn>;
+    fillStyle: string;
+    getImageData: ReturnType<typeof vi.fn>;
   };
   tickInterval: () => Promise<void>;
   getDisplayMedia: ReturnType<typeof vi.fn>;
@@ -128,6 +151,17 @@ function createHarness(opts: {
     drawImage: vi.fn(),
     fillRect: vi.fn(),
     fillStyle: '',
+    getImageData: vi.fn(),
+  };
+  const analysisCtx2d = {
+    drawImage: vi.fn(),
+    fillRect: vi.fn(),
+    fillStyle: '',
+    getImageData: vi.fn((_x: number, _y: number, width: number, height: number) => ({
+      data: opts.analysisImageData ?? createUniformImageData(width, height),
+      width,
+      height,
+    })),
   };
 
   const canvas: CanvasMock = {
@@ -146,7 +180,15 @@ function createHarness(opts: {
       );
     }),
   };
+  const analysisCanvas: CanvasMock = {
+    width: 0,
+    height: 0,
+    getContext: vi.fn(() => analysisCtx2d),
+    toDataURL: vi.fn(),
+    toBlob: vi.fn(),
+  };
 
+  const canvases = [canvas, analysisCanvas];
   const video: VideoMock = {
     srcObject: null,
     videoWidth: opts.videoWidth ?? 1280,
@@ -155,9 +197,14 @@ function createHarness(opts: {
     pause: vi.fn(),
   };
 
+  let createCanvasCallCount = 0;
   const deps: CreateLocalScreenCaptureDependencies = {
     getDisplayMedia: getDisplayMedia as unknown as () => Promise<MediaStream>,
-    createCanvas: () => canvas as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createCanvas']>>,
+    createCanvas: () => {
+      const nextCanvas = canvases[createCanvasCallCount % canvases.length];
+      createCanvasCallCount += 1;
+      return nextCanvas as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createCanvas']>>;
+    },
     createVideoElement: () => video as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createVideoElement']>>,
     getScreenCaptureAccessStatus:
       getScreenCaptureAccessStatus as unknown as NonNullable<
@@ -183,8 +230,10 @@ function createHarness(opts: {
     deps,
     track,
     canvas,
+    analysisCanvas,
     video,
     ctx2d,
+    analysisCtx2d,
     tickInterval: async () => {
       await intervalCallback?.();
     },
@@ -389,6 +438,25 @@ describe('createLocalScreenCapture', () => {
           sequence: 1,
         }),
       );
+    });
+
+
+    it('attaches a lightweight thumbnail analysis payload to each frame', async () => {
+      const { capture, obs, tickInterval, analysisCtx2d } = createHarness({
+        videoWidth: 1920,
+        videoHeight: 1080,
+      });
+      await capture.start({});
+      await tickInterval();
+
+      const frame = obs.onFrame.mock.calls[0]?.[0];
+      expect(frame.analysis.widthPx).toBeLessThanOrEqual(160);
+      expect(frame.analysis.heightPx).toBeLessThanOrEqual(90);
+      expect(frame.analysis.tileLuminance).toHaveLength(40);
+      expect(frame.analysis.tileEdge).toHaveLength(40);
+      expect(typeof frame.analysis.perceptualHash).toBe('bigint');
+      expect(analysisCtx2d.drawImage).toHaveBeenCalledOnce();
+      expect(analysisCtx2d.getImageData).toHaveBeenCalledOnce();
     });
 
     it('increments sequence on each frame', async () => {

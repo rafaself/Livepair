@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import type { DesktopSession } from '../../transport/transport.types';
 import type { LocalScreenCapture } from '../localScreenCapture';
+import type { ScreenFrameAnalysis } from '../screenFrameAnalysis';
 import type { LocalScreenFrame } from '../screen.types';
 
 export function createDeferred<T = void>() {
@@ -27,9 +28,20 @@ export function createMockScreenCapture() {
   } satisfies LocalScreenCapture;
 }
 
+export function createScreenFrameAnalysis(fill = 0): ScreenFrameAnalysis {
+  return {
+    widthPx: 160,
+    heightPx: 90,
+    tileLuminance: new Array(40).fill(fill),
+    tileEdge: new Array(40).fill(fill),
+    perceptualHash: 0n,
+  };
+}
+
 export function createScreenFrame(
   sequence: number,
   fill = sequence,
+  analysis: ScreenFrameAnalysis = createScreenFrameAnalysis(fill),
 ): LocalScreenFrame {
   return {
     data: new Uint8Array(128).fill(fill),
@@ -37,6 +49,7 @@ export function createScreenFrame(
     sequence,
     widthPx: 640,
     heightPx: 360,
+    analysis,
   };
 }
 

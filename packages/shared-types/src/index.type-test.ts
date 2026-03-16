@@ -17,6 +17,11 @@ import type {
   HealthResponse,
   LiveSessionRecord,
   LiveSessionStatus,
+  ProjectKnowledgeRetrievalStatus,
+  ProjectKnowledgeSearchRequest,
+  ProjectKnowledgeSearchResult,
+  ProjectKnowledgeSourceReference,
+  ProjectKnowledgeSupportingExcerpt,
   RehydrationPacket,
   UpdateLiveSessionRequest,
 } from './index';
@@ -41,6 +46,51 @@ type _ResponseExpireTime = Assert<
 >;
 type _ResponseNewSessionExpireTime = Assert<
   IsExact<CreateEphemeralTokenResponse['newSessionExpireTime'], string>
+>;
+type _ProjectKnowledgeSearchRequestShape = Assert<
+  IsExact<ProjectKnowledgeSearchRequest, { query: string }>
+>;
+type _ProjectKnowledgeRetrievalStatusShape = Assert<
+  IsExact<ProjectKnowledgeRetrievalStatus, 'grounded' | 'no_match' | 'not_ready' | 'failed'>
+>;
+type _ProjectKnowledgeSourceReferenceShape = Assert<
+  IsExact<
+    ProjectKnowledgeSourceReference,
+    {
+      id: string;
+      title: string;
+      path?: string;
+    }
+  >
+>;
+type _ProjectKnowledgeSupportingExcerptShape = Assert<
+  IsExact<
+    ProjectKnowledgeSupportingExcerpt,
+    {
+      sourceId: string;
+      text: string;
+    }
+  >
+>;
+type _ProjectKnowledgeSearchResultShape = Assert<
+  IsExact<
+    ProjectKnowledgeSearchResult,
+    {
+      summaryAnswer: string;
+      supportingExcerpts: Array<{
+        sourceId: string;
+        text: string;
+      }>;
+      sources: Array<{
+        id: string;
+        title: string;
+        path?: string;
+      }>;
+      confidence: 'low' | 'medium' | 'high';
+      retrievalStatus: 'grounded' | 'no_match' | 'not_ready' | 'failed';
+      failureReason?: string;
+    }
+  >
 >;
 type _SessionTokenAuthHeaderName = Assert<
   IsExact<typeof SESSION_TOKEN_AUTH_HEADER_NAME, 'x-livepair-session-token-secret'>

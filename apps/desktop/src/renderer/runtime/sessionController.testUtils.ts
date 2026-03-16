@@ -7,6 +7,7 @@ import type {
   VoicePlaybackState,
   VoiceSessionResumptionState,
 } from './voice/voice.types';
+import type { ScreenFrameAnalysis } from './screen/screenFrameAnalysis';
 
 export function createUnusedTransport(): DesktopSession {
   return {
@@ -146,16 +147,26 @@ export function createVoiceCaptureHarness(): {
   };
 }
 
+function createScreenFrameAnalysis(fill = 32): ScreenFrameAnalysis {
+  return {
+    widthPx: 160,
+    heightPx: 90,
+    tileLuminance: new Array(40).fill(fill),
+    tileEdge: new Array(40).fill(fill),
+    perceptualHash: 0n,
+  };
+}
+
 export function createScreenCaptureHarness(): {
   createScreenCapture: ReturnType<typeof vi.fn>;
-  emitFrame: (frame?: Partial<{ data: Uint8Array; mimeType: 'image/jpeg'; sequence: number; widthPx: number; heightPx: number }>) => void;
+  emitFrame: (frame?: Partial<{ data: Uint8Array; mimeType: 'image/jpeg'; sequence: number; widthPx: number; heightPx: number; analysis: ScreenFrameAnalysis }>) => void;
   emitDiagnostics: (patch: Record<string, unknown>) => void;
   emitError: (detail: string) => void;
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
 } {
   let observer: {
-    onFrame: (frame: { data: Uint8Array; mimeType: 'image/jpeg'; sequence: number; widthPx: number; heightPx: number }) => void;
+    onFrame: (frame: { data: Uint8Array; mimeType: 'image/jpeg'; sequence: number; widthPx: number; heightPx: number; analysis: ScreenFrameAnalysis }) => void;
     onDiagnostics: (patch: Record<string, unknown>) => void;
     onError: (detail: string) => void;
   } | null = null;
@@ -174,6 +185,7 @@ export function createScreenCaptureHarness(): {
         sequence: 1,
         widthPx: 640,
         heightPx: 360,
+        analysis: createScreenFrameAnalysis(),
         ...frame,
       });
     },

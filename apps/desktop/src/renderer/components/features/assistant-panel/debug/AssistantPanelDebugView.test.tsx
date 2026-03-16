@@ -9,7 +9,7 @@ beforeEach(() => {
 });
 
 describe('AssistantPanelDebugView', () => {
-  it('renders the deterministic continuous screen diagnostics', () => {
+  it('renders the deterministic continuous and burst screen diagnostics', () => {
     useSessionStore.setState({
       screenCaptureState: 'capturing',
       screenCaptureDiagnostics: {
@@ -27,13 +27,19 @@ describe('AssistantPanelDebugView', () => {
         lastError: null,
       },
       visualSendDiagnostics: {
-        lastEvent: 'continuousFrameSent',
+        lastEvent: 'burstFrameSent',
         continuousCadenceMs: 3000,
+        burstCadenceMs: 1000,
         continuousActive: true,
         continuousStartedAt: '2026-03-10T10:14:00.000Z',
         continuousStoppedAt: null,
-        continuousFramesSentCount: 7,
-        lastContinuousFrameAt: '2026-03-10T10:15:03.000Z',
+        burstActive: true,
+        burstUntil: '2026-03-10T10:15:04.000Z',
+        changeSignalCount: 5,
+        burstTriggeredCount: 2,
+        autoFramesSentCount: 7,
+        lastAutoFrameAt: '2026-03-10T10:15:03.000Z',
+        lastAutoFrameKind: 'burst',
         manualSendPending: false,
         manualFramesSentCount: 2,
         lastManualFrameAt: '2026-03-10T10:13:00.000Z',
@@ -52,14 +58,23 @@ describe('AssistantPanelDebugView', () => {
 
     expect(screen.getByText('Automatic cadence')).toBeVisible();
     expect(screen.getByText('3000 ms')).toBeVisible();
+    expect(screen.getByText('Burst cadence')).toBeVisible();
+    expect(screen.getByText('1000 ms')).toBeVisible();
     expect(screen.getByText('Last screen event')).toBeVisible();
-    expect(screen.getByText('Continuous frame sent')).toBeVisible();
-    expect(screen.getByText('Continuous active')).toBeVisible();
+    expect(screen.getByText('Burst frame sent')).toBeVisible();
+    expect(screen.getByText('Burst active')).toBeVisible();
     expect(screen.getAllByText('Yes').length).toBeGreaterThan(0);
-    expect(screen.getByText('Last continuous frame')).toBeVisible();
+    expect(screen.getByText('Burst until')).toBeVisible();
+    expect(screen.getByText('2026-03-10T10:15:04.000Z')).toBeVisible();
+    expect(screen.getByText('Change signals')).toBeVisible();
+    expect(screen.getByText('5')).toBeVisible();
+    expect(screen.getByText('Burst triggers')).toBeVisible();
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+    expect(screen.getByText('Auto frames sent')).toBeVisible();
+    expect(screen.getByText('Last auto frame')).toBeVisible();
     expect(screen.getByText('2026-03-10T10:15:03.000Z')).toBeVisible();
-    expect(screen.getByText('Sent (continuous)')).toBeVisible();
-    expect(screen.getByText('7')).toBeVisible();
+    expect(screen.getByText('Last auto kind')).toBeVisible();
+    expect(screen.getByText('burst')).toBeVisible();
     expect(screen.getByText('Blocked (gateway)')).toBeVisible();
     expect(screen.getByText('1')).toBeVisible();
   });

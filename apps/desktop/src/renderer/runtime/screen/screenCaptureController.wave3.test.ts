@@ -15,6 +15,35 @@ import type {
 } from './localScreenCapture';
 import type { ContinuousScreenQuality, ScreenContextMode } from '../../../shared/settings';
 import { getScreenCaptureQualityParams } from './screenCapturePolicy';
+import type { ScreenFrameAnalysis } from './screenFrameAnalysis';
+
+function createAnalysis(fill = 32): ScreenFrameAnalysis {
+  return {
+    widthPx: 160,
+    heightPx: 90,
+    tileLuminance: new Array(40).fill(fill),
+    tileEdge: new Array(40).fill(2),
+    perceptualHash: 0n,
+  };
+}
+
+function createChangedAnalysis(): ScreenFrameAnalysis {
+  const tileLuminance = new Array(40).fill(32);
+  const tileEdge = new Array(40).fill(2);
+
+  tileLuminance[18] = 180;
+  tileLuminance[19] = 150;
+  tileEdge[18] = 120;
+  tileEdge[19] = 96;
+
+  return {
+    widthPx: 160,
+    heightPx: 90,
+    tileLuminance,
+    tileEdge,
+    perceptualHash: 0b1111000011110000n,
+  };
+}
 
 function createHarness(options: {
   voiceSessionStatus?: VoiceSessionStatus;
@@ -22,6 +51,8 @@ function createHarness(options: {
   saveScreenFramesEnabled?: boolean;
   submitDecision?: (callIndex: number) => RealtimeOutboundDecision;
   continuousSendIntervalMs?: number;
+  burstSendIntervalMs?: number;
+  burstWindowMs?: number;
 } = {}) {
   let mode: ScreenContextMode = 'continuous';
   let quality: ContinuousScreenQuality = 'medium';
@@ -86,7 +117,7 @@ function createHarness(options: {
   };
 
   const startScreenFrameDumpSession = vi.fn(async () => ({
-    directoryPath: '/tmp/livepair/screen-frame-dumps/wave3',
+    directoryPath: '/tmp/livepair/screen-frame-dumps/wave4',
   }));
   const saveScreenFrameDumpFrame = vi.fn(async () => undefined);
   const setScreenFrameDumpDirectoryPath = vi.fn();
@@ -104,6 +135,8 @@ function createHarness(options: {
     },
     {
       continuousSendIntervalMs: options.continuousSendIntervalMs ?? 3000,
+      burstSendIntervalMs: options.burstSendIntervalMs ?? 1000,
+      burstWindowMs: options.burstWindowMs ?? 1000,
     },
     () => quality,
     () => mode,
@@ -133,18 +166,23 @@ function createHarness(options: {
 function emitFrame(
   observer: LocalScreenCaptureObserver | null,
   sequence: number,
-  byte: number = sequence,
+  options: {
+    byte?: number;
+    bytes?: Uint8Array;
+    analysis?: ScreenFrameAnalysis;
+  } = {},
 ): void {
   observer?.onFrame({
-    data: new Uint8Array([byte]),
+    data: options.bytes ?? new Uint8Array([options.byte ?? sequence]),
     mimeType: 'image/jpeg',
     sequence,
     widthPx: 640,
     heightPx: 360,
+    analysis: options.analysis ?? createAnalysis(sequence),
   });
 }
 
-describe('createScreenCaptureController – Wave 3 continuous mode', () => {
+describe('createScreenCaptureController – Wave 4 burst mode', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -154,11 +192,11 @@ describe('createScreenCaptureController – Wave 3 continuous mode', () => {
     vi.useRealTimers();
   });
 
-  it('auto-sends on a fixed 3000 ms cadence while screen share is active', async () => {
+  it('auto-sends on a fixed 3000 ms cadence while the screen stays static', async () => {
     const harness = createHarness();
 
     await harness.ctrl.start();
-    emitFrame(harness.getObserver(), 1);
+    emitFrame(harness.getObserver(), 1, { analysis: createAnalysis() });
 
     await vi.advanceTimersByTimeAsync(2999);
     expect(harness.sendVideoFrame).not.toHaveBeenCalled();
@@ -166,7 +204,7 @@ describe('createScreenCaptureController – Wave 3 continuous mode', () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
 
-    emitFrame(harness.getObserver(), 2);
+    emitFrame(harness.getObserver(), 2, { analysis: createAnalysis() });
     await vi.advanceTimersByTimeAsync(3000);
     expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
     expect(harness.sendVideoFrame).toHaveBeenLastCalledWith(
@@ -185,29 +223,109 @@ describe('createScreenCaptureController – Wave 3 continuous mode', () => {
     );
 
     harness.setQuality('low');
-    emitFrame(harness.getObserver(), 1);
+    emitFrame(harness.getObserver(), 1, { analysis: createAnalysis() });
     expect(harness.capture.updateQuality).toHaveBeenCalledWith(
       getScreenCaptureQualityParams('low'),
     );
+  });
+
+  it('accelerates to a temporary 1000 ms burst when the thumbnail signal changes meaningfully', async () => {
+    const harness = createHarness();
+
+    await harness.ctrl.start();
+    emitFrame(harness.getObserver(), 1, { analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    emitFrame(harness.getObserver(), 2, { analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    emitFrame(harness.getObserver(), 3, { analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    emitFrame(harness.getObserver(), 4, {
+      byte: 4,
+      analysis: createChangedAnalysis(),
+    });
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(harness.sendVideoFrame).toHaveBeenLastCalledWith(
+      new Uint8Array([4]),
+      'image/jpeg',
+    );
+  });
+
+  it('returns to the 3000 ms baseline after the burst window expires without suppressing baseline sends', async () => {
+    const harness = createHarness();
+
+    await harness.ctrl.start();
+    emitFrame(harness.getObserver(), 1, { analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    emitFrame(harness.getObserver(), 2, { analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    emitFrame(harness.getObserver(), 3, { analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(500);
+    emitFrame(harness.getObserver(), 4, { byte: 4, analysis: createChangedAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(3);
+    expect(harness.sendVideoFrame).toHaveBeenLastCalledWith(
+      new Uint8Array([4]),
+      'image/jpeg',
+    );
+  });
+
+  it('uses thumbnail analysis instead of JPEG-byte equality to trigger bursts', async () => {
+    const harness = createHarness();
+    const reusedBytes = new Uint8Array([9, 9, 9]);
+
+    await harness.ctrl.start();
+    emitFrame(harness.getObserver(), 1, { bytes: reusedBytes, analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    emitFrame(harness.getObserver(), 2, { bytes: reusedBytes, analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    emitFrame(harness.getObserver(), 3, { bytes: reusedBytes, analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    emitFrame(harness.getObserver(), 4, {
+      bytes: reusedBytes,
+      analysis: createChangedAnalysis(),
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(harness.sendVideoFrame).toHaveBeenLastCalledWith(reusedBytes, 'image/jpeg');
   });
 
   it('starts and stops continuous scheduling when the screen mode changes', async () => {
     const harness = createHarness();
 
     await harness.ctrl.start();
-    emitFrame(harness.getObserver(), 1);
+    emitFrame(harness.getObserver(), 1, { analysis: createAnalysis() });
 
     await vi.advanceTimersByTimeAsync(3000);
     expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
 
     harness.setMode('manual');
-    emitFrame(harness.getObserver(), 2);
+    emitFrame(harness.getObserver(), 2, { analysis: createAnalysis() });
 
     await vi.advanceTimersByTimeAsync(6000);
     expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
 
     harness.setMode('continuous');
-    emitFrame(harness.getObserver(), 3);
+    emitFrame(harness.getObserver(), 3, { analysis: createAnalysis() });
 
     await vi.advanceTimersByTimeAsync(3000);
     expect(harness.sendVideoFrame).toHaveBeenCalledTimes(2);
@@ -217,7 +335,7 @@ describe('createScreenCaptureController – Wave 3 continuous mode', () => {
     );
   });
 
-  it('saves debug frames only for actual outbound continuous sends', async () => {
+  it('saves debug frames only for actual outbound baseline and burst sends', async () => {
     const harness = createHarness({
       saveScreenFramesEnabled: true,
       submitDecision: (callIndex) => ({
@@ -228,20 +346,24 @@ describe('createScreenCaptureController – Wave 3 continuous mode', () => {
     });
 
     await harness.ctrl.start();
-    emitFrame(harness.getObserver(), 1);
+    emitFrame(harness.getObserver(), 1, { analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    emitFrame(harness.getObserver(), 2, { analysis: createAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
+    emitFrame(harness.getObserver(), 3, { analysis: createAnalysis() });
 
     expect(harness.saveScreenFrameDumpFrame).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(harness.sendVideoFrame).not.toHaveBeenCalled();
     expect(harness.saveScreenFrameDumpFrame).not.toHaveBeenCalled();
 
-    emitFrame(harness.getObserver(), 2);
-    await vi.advanceTimersByTimeAsync(3000);
+    emitFrame(harness.getObserver(), 4, { byte: 4, analysis: createChangedAnalysis() });
+    await vi.advanceTimersByTimeAsync(1000);
 
     expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
     expect(harness.saveScreenFrameDumpFrame).toHaveBeenCalledWith(
-      expect.objectContaining({ sequence: 2 }),
+      expect.objectContaining({ sequence: 4 }),
     );
   });
 

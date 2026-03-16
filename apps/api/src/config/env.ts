@@ -8,6 +8,8 @@ const DEFAULT_DATABASE_URL = 'postgres://livepair:livepair@127.0.0.1:5432/livepa
 const DEFAULT_EPHEMERAL_TOKEN_TTL_SECONDS = 60;
 const DEFAULT_SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS = 5;
 const DEFAULT_SESSION_TOKEN_RATE_LIMIT_WINDOW_MS = 60_000;
+const DEFAULT_PROJECT_KNOWLEDGE_SEARCH_MODEL = 'models/gemini-2.5-flash';
+const DEFAULT_PROJECT_KNOWLEDGE_FILE_SEARCH_STORE_DISPLAY_NAME = 'livepair-project-knowledge';
 
 function parsePositiveInteger(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? '', 10);
@@ -44,6 +46,12 @@ export const env = {
     process.env['SESSION_TOKEN_RATE_LIMIT_WINDOW_MS'],
     DEFAULT_SESSION_TOKEN_RATE_LIMIT_WINDOW_MS,
   ),
+  projectKnowledgeSearchModel:
+    process.env['PROJECT_KNOWLEDGE_SEARCH_MODEL'] ?? DEFAULT_PROJECT_KNOWLEDGE_SEARCH_MODEL,
+  projectKnowledgeFileSearchStore: process.env['PROJECT_KNOWLEDGE_FILE_SEARCH_STORE'] ?? '',
+  projectKnowledgeFileSearchStoreDisplayName:
+    process.env['PROJECT_KNOWLEDGE_FILE_SEARCH_STORE_DISPLAY_NAME']
+    ?? DEFAULT_PROJECT_KNOWLEDGE_FILE_SEARCH_STORE_DISPLAY_NAME,
 };
 
 export function validateApiRuntimeEnv(requiredEnv: NodeJS.ProcessEnv = process.env): void {

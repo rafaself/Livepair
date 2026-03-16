@@ -161,4 +161,34 @@ export interface CreateEphemeralTokenResponse {
   newSessionExpireTime: string;
 }
 
+export interface ProjectKnowledgeSearchRequest {
+  query: string;
+}
+
+export type ProjectKnowledgeRetrievalStatus =
+  | 'grounded'
+  | 'no_match'
+  | 'not_ready'
+  | 'failed';
+
+export interface ProjectKnowledgeSourceReference {
+  id: string;
+  title: string;
+  path?: string;
+}
+
+export interface ProjectKnowledgeSupportingExcerpt {
+  sourceId: string;
+  text: string;
+}
+
+export interface ProjectKnowledgeSearchResult {
+  summaryAnswer: string;
+  supportingExcerpts: ProjectKnowledgeSupportingExcerpt[];
+  sources: ProjectKnowledgeSourceReference[];
+  confidence: AnswerConfidence;
+  retrievalStatus: ProjectKnowledgeRetrievalStatus;
+  failureReason?: string;
+}
+
 export const SESSION_TOKEN_AUTH_HEADER_NAME = 'x-livepair-session-token-secret' as const;
