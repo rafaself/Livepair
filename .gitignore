@@ -9,6 +9,8 @@ release/
 .DS_Store
 coverage/
 apps/desktop/frames/
+apps/desktop/.packaging/
+apps/desktop/release/
 
 # Terraform local state
 infra/terraform/**/.terraform/

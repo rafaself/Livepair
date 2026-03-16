@@ -5,6 +5,7 @@
     "dev": "pnpm -r --parallel --filter !livepair dev",
     "desktop": "pnpm --filter @livepair/desktop dev",
     "build": "pnpm -r --filter !livepair build",
+    "dist:desktop:linux": "pnpm --filter @livepair/shared-types build && pnpm --filter @livepair/desktop dist:linux",
     "lint": "pnpm -r --filter !livepair lint",
     "typecheck": "pnpm -r --filter !livepair typecheck",
     "test": "pnpm --filter @livepair/shared-types build && pnpm -r --filter !livepair test",

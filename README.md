@@ -72,6 +72,37 @@ make smoke-check
 curl http://127.0.0.1:3000/health
 ```
 
+### 7) Build Ubuntu desktop artifacts
+
+The repository now includes a Linux packaging flow for the desktop app that uses the Electron runtime already installed in the workspace.
+
+Build the artifacts from the repo root:
+
+```bash
+pnpm dist:desktop:linux
+```
+
+Artifacts are written under `apps/desktop/release/linux/<arch>/`:
+
+- portable Linux bundle directory
+- `.deb` package
+- `.AppDir` staging directory
+- `.AppImage` when `appimagetool` is installed on the host
+
+Production configuration is still provided outside version control. Create a `livepair.env` file from `apps/desktop/.env.example` and set at least:
+
+```bash
+SESSION_TOKEN_AUTH_SECRET=replace-with-your-production-secret
+BACKEND_URL=https://your-production-api.example.com
+```
+
+Use the env file in one of these locations:
+
+- next to the portable launcher or extracted `.AppImage` as `livepair.env`
+- `/etc/livepair/livepair.env` for the installed `.deb`
+
+If you also want the packaging command to emit a real `.AppImage`, install `appimagetool` on the Ubuntu build host before running `pnpm dist:desktop:linux`.
+
 ## What it does
 
 Livepair gives users a desktop assistant that can listen, respond, and use screen context during a live session.
