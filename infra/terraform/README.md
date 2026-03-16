@@ -13,6 +13,8 @@ The scope is still intentionally narrow:
 - wire non-secret runtime config, Secret Manager-backed env vars, and Cloud SQL attachment for the API service
 - add a public Cloud Monitoring uptime check against the deployed API `/health` endpoint
 - add a minimal alerting policy for uptime-check failures
+- create Gemini Live telemetry log-based metrics from the API's structured Cloud Run logs
+- add a small set of metric-based alert policies on top of those telemetry metrics
 - check in a Cloud Build pipeline that builds, pushes, and deploys the API image against the existing Cloud Run service
 
 This repo still does **not** create the Cloud Build trigger itself, migration jobs, secret values, or broader rollout orchestration.
@@ -73,7 +75,7 @@ Required inputs stay intentionally small:
 - `api_service` settings, including the container image reference and Cloud Run sizing
 - optional `api_runtime` overrides for non-secret API env vars
 - optional `api_secret_versions` pins if you do not want to use `latest`
-- optional `monitoring` overrides for the uptime-check path, cadence, alert duration, and notification channel resource names
+- optional `monitoring` overrides for the uptime-check path, cadence, telemetry alert thresholds, and notification channel resource names
 
 Do **not** commit `terraform.tfvars` or any real secret values.
 The committed example file keeps `app_user_password` as a placeholder so `plan` remains reviewable.
@@ -104,7 +106,7 @@ terraform -chdir=infra/terraform/envs/dev apply -var-file=terraform.tfvars
 
 The `dev` root now manages:
 
-- required project services: Artifact Registry, IAM, Cloud Monitoring, Cloud Run, Secret Manager, Service Usage, and Cloud SQL Admin
+- required project services: Artifact Registry, IAM, Cloud Logging, Cloud Monitoring, Cloud Run, Secret Manager, Service Usage, and Cloud SQL Admin
 - one regional Docker Artifact Registry repository
 - two user-managed service accounts: API runtime and future migrator
 - project-level IAM for `roles/cloudsql.client`
@@ -118,32 +120,109 @@ The `dev` root now manages:
 - optional public `roles/run.invoker` access when `api_service.allow_unauthenticated = true`
 - one public Cloud Monitoring uptime check against the deployed API health endpoint
 - one Cloud Monitoring alert policy that opens when the uptime check stops passing
+- seven Gemini Live telemetry log-based metrics scoped to the API Cloud Run service logs
+- three Gemini Live metric-based alert policies for error spikes, missing session starts, and high connect latency
 
 For the current dev foundation, the example settings keep Cloud SQL on public IPv4 and leave backups disabled so the environment stays inexpensive and does not pull VPC/private-service networking into scope.
 Revisit those two knobs before any broader rollout.
 
 ## Monitoring the deployed API
 
-Wave 6 adds a deliberately small monitoring layer for the public API:
+The current stack keeps monitoring intentionally small and demo-friendly:
 
 - Terraform creates a public HTTPS uptime check against the Cloud Run service URL from `terraform output -raw api_cloud_run_service_url`
 - the monitored path defaults to `/health`
 - the uptime check runs every `60s` by default with a `10s` timeout
 - the alert policy opens when the uptime metric reports failures for `120s`
+- Terraform also creates Gemini Live telemetry log-based metrics from structured Cloud Run logs where:
+  - `resource.type="cloud_run_revision"`
+  - `resource.labels.service_name` matches the Terraform-managed API service
+  - `resource.labels.location` matches the environment region
+  - `jsonPayload.component="live-telemetry"`
+  - `jsonPayload.message="Accepted Gemini Live telemetry event"`
 
 This keeps the demo behavior easy to explain: "if the public health endpoint stops passing, Cloud Monitoring opens an incident."
+For Gemini Live, the same accepted telemetry logs now back a small set of charts and alert policies without adding a second telemetry pipeline.
 
 Useful outputs after apply:
 
 - `api_uptime_check_name`
 - `api_alert_policy_name`
+- `api_telemetry_metric_types`
+- `api_telemetry_alert_policy_names`
 - `api_monitoring`
 
-`api_monitoring` includes the monitored URL/path, the uptime check ID/name, the alert policy name, and a `notification_setup_required` flag that is `true` when no notification channels were attached.
+`api_monitoring` includes the monitored URL/path, the uptime check ID/name, the uptime alert policy name, the base telemetry log filter, the telemetry metric types, the telemetry alert policy names, and a `notification_setup_required` flag that is `true` when no notification channels were attached.
+
+### Gemini Live telemetry metrics
+
+Terraform creates these project-scoped user-defined log-based metrics:
+
+- `live_session_started_count`: counter for accepted `live_session_started` events
+- `live_session_error_count`: counter for accepted `live_session_error` events
+- `live_session_resume_count`: counter for accepted `live_session_resumed` events
+- `live_session_duration_ms`: distribution extracted from `jsonPayload.durationMs` on `live_session_ended`
+- `live_session_total_tokens`: distribution extracted from `jsonPayload.usage.totalTokenCount` on `live_usage_reported`
+- `live_connect_latency_ms`: distribution extracted from `jsonPayload.connectLatencyMs` on `live_session_connected` and `live_session_resumed`
+- `live_first_response_latency_ms`: distribution extracted from `jsonPayload.firstResponseLatencyMs` on `live_session_ended`
+
+To keep the first dashboard useful without creating a cardinality problem, each metric only extracts these labels:
+
+- `environment`
+- `platform`
+- `model`
+- `app_version`
+
+This intentionally excludes `sessionId`, `chatId`, `errorMessage`, and other high-cardinality fields.
+
+### Gemini Live telemetry alerts
+
+Terraform creates these metric-based alert policies:
+
+- `Gemini Live telemetry error spike`: opens when the summed `live_session_error_count` exceeds `monitoring.telemetry_error_spike_threshold` within `monitoring.telemetry_error_spike_alignment_period`
+- `Gemini Live telemetry session starts absent`: opens when no `live_session_started_count` samples are observed for `monitoring.telemetry_started_absence_duration`
+- `Gemini Live telemetry connect latency high`: opens when the p95 `live_connect_latency_ms` exceeds `monitoring.telemetry_connect_latency_threshold_ms` over `monitoring.telemetry_connect_latency_alignment_period`
+
+The "session starts absent" policy is the MVP approximation of an abrupt drop in starts. It is intentionally simple and works well for demos or low-volume environments, but you should revisit the thresholding strategy once you have a stable traffic baseline.
+
+### Viewing the telemetry metrics in Cloud Monitoring
+
+In the Google Cloud console:
+
+1. Open **Monitoring** -> **Metrics Explorer**
+2. Select metric type `logging/user/<metric_name>` such as `logging/user/live_session_started_count`
+3. Keep the resource type on `cloud_run_revision`
+4. Filter `resource.label.service_name` to the Terraform-managed API service if the page isn't already scoped
+5. Optionally group by `metric.label.environment`, `metric.label.platform`, `metric.label.model`, or `metric.label.app_version`
+
+You can also inspect the exact metric types and alert policy resource names through:
+
+```bash
+terraform -chdir=infra/terraform/envs/dev output api_telemetry_metric_types
+terraform -chdir=infra/terraform/envs/dev output api_telemetry_alert_policy_names
+terraform -chdir=infra/terraform/envs/dev output api_monitoring
+```
+
+### Initial dashboard layout
+
+This repo intentionally does **not** provision a Cloud Monitoring dashboard in Terraform for this MVP. The dashboard JSON is possible, but it would add more IaC bulk than the current demo-focused scope warrants.
+
+Create one small manual dashboard in Cloud Monitoring with these widgets:
+
+- **Sessions per minute**: chart `live_session_started_count` as a rate or summed count per minute
+- **Error rate**: chart `live_session_error_count` beside `live_session_started_count`, or create a ratio chart in Metrics Explorer if you want a quick error-rate view
+- **Resume rate**: chart `live_session_resume_count` per minute
+- **Session duration**: show average and p95 for `live_session_duration_ms`
+- **Connect latency**: show average and p95 for `live_connect_latency_ms`
+- **First response latency**: show average and p95 for `live_first_response_latency_ms`
+- **Tokens per hour**: chart summed `live_session_total_tokens`
+- **Tokens by model**: duplicate the tokens chart and group by `metric.label.model`
+
+That layout gives the MVP questions you want answered during a demo: "Are sessions starting?", "Are errors spiking?", "Is resume happening?", "Is connection/response latency healthy?", and "How expensive are sessions getting?"
 
 ### Notification channels
 
-This repo intentionally does **not** create email, SMS, PagerDuty, Slack, or webhook notification channels in Terraform. Those targets are team-specific and often contain personal or environment-sensitive routing details, so the lower-risk Wave 6 choice is:
+This repo intentionally does **not** create email, SMS, PagerDuty, Slack, or webhook notification channels in Terraform. Those targets are team-specific and often contain personal or environment-sensitive routing details, so the lower-risk choice is:
 
 1. create the notification channel manually in Cloud Monitoring (or reuse one your team already manages elsewhere)
 2. copy its full resource name in the form `projects/PROJECT_ID/notificationChannels/CHANNEL_ID`
@@ -160,6 +239,11 @@ monitoring = {
   uptime_check_period    = "60s"
   timeout                = "10s"
   alert_failure_duration = "120s"
+  telemetry_error_spike_alignment_period  = "300s"
+  telemetry_error_spike_threshold         = 3
+  telemetry_started_absence_duration      = "900s"
+  telemetry_connect_latency_alignment_period = "300s"
+  telemetry_connect_latency_threshold_ms     = 2500
   notification_channel_names = [
     "projects/YOUR_GCP_PROJECT_ID/notificationChannels/1234567890123456789",
   ]
@@ -360,6 +444,8 @@ Useful outputs after apply:
 - `api_cloud_run`
 - `api_uptime_check_name`
 - `api_alert_policy_name`
+- `api_telemetry_metric_types`
+- `api_telemetry_alert_policy_names`
 - `api_monitoring`
 - `cloud_sql.instance_connection_name`
 - `artifact_registry.url`

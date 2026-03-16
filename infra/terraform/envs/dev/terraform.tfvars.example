@@ -61,6 +61,11 @@ monitoring = {
   uptime_check_period    = "60s"
   timeout                = "10s"
   alert_failure_duration = "120s"
+  telemetry_error_spike_alignment_period  = "300s"
+  telemetry_error_spike_threshold         = 3
+  telemetry_started_absence_duration      = "900s"
+  telemetry_connect_latency_alignment_period = "300s"
+  telemetry_connect_latency_threshold_ms     = 2500
 
   # Create notification channels outside this repo, then attach their full
   # resource names here to keep the alert policy wiring in Terraform.

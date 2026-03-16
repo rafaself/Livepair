@@ -42,3 +42,22 @@ output "notification_channel_names" {
   description = "Notification channel resource names attached to the alert policy."
   value       = var.notification_channel_names
 }
+
+output "telemetry_log_filter" {
+  description = "Base Cloud Logging filter used to scope Gemini Live telemetry metrics to the API Cloud Run service."
+  value       = local.telemetry_log_filter
+}
+
+output "telemetry_metric_types" {
+  description = "Gemini Live telemetry log-based metric types keyed by metric name."
+  value       = local.telemetry_metric_types
+}
+
+output "telemetry_alert_policy_names" {
+  description = "Gemini Live telemetry alert policy resource names keyed by purpose."
+  value = {
+    error_spike          = google_monitoring_alert_policy.live_session_error_spike.name
+    started_absent       = google_monitoring_alert_policy.live_session_started_absent.name
+    connect_latency_high = google_monitoring_alert_policy.live_connect_latency_high.name
+  }
+}

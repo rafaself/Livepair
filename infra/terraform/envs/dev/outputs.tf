@@ -85,8 +85,18 @@ output "api_alert_policy_name" {
   value       = module.monitoring.alert_policy_name
 }
 
+output "api_telemetry_metric_types" {
+  description = "Gemini Live telemetry log-based metric types keyed by metric name."
+  value       = module.monitoring.telemetry_metric_types
+}
+
+output "api_telemetry_alert_policy_names" {
+  description = "Gemini Live telemetry alert policy resource names keyed by purpose."
+  value       = module.monitoring.telemetry_alert_policy_names
+}
+
 output "api_monitoring" {
-  description = "Cloud Monitoring metadata for the public API uptime check and alert policy."
+  description = "Cloud Monitoring metadata for the public API uptime check plus Gemini Live telemetry metrics and alerts."
   value = {
     monitored_url               = module.monitoring.monitored_url
     monitored_host              = module.monitoring.monitored_host
@@ -98,5 +108,8 @@ output "api_monitoring" {
     alert_policy_display_name   = module.monitoring.alert_policy_display_name
     notification_channel_names  = module.monitoring.notification_channel_names
     notification_setup_required = length(module.monitoring.notification_channel_names) == 0
+    telemetry_log_filter        = module.monitoring.telemetry_log_filter
+    telemetry_metric_types      = module.monitoring.telemetry_metric_types
+    telemetry_alert_policy_names = module.monitoring.telemetry_alert_policy_names
   }
 }

@@ -15,6 +15,7 @@ locals {
   required_services = toset([
     "artifactregistry.googleapis.com",
     "iam.googleapis.com",
+    "logging.googleapis.com",
     "monitoring.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
@@ -180,6 +181,8 @@ module "monitoring" {
   source = "../../modules/monitoring"
 
   project_id                 = var.project_id
+  cloud_run_service_name     = module.cloud_run.service_name
+  cloud_run_location         = var.region
   target_url                 = module.cloud_run.service_url
   path                       = var.monitoring.health_check_path
   uptime_check_display_name  = "${local.api_monitoring_display_prefix} /health uptime"
@@ -187,10 +190,14 @@ module "monitoring" {
   period                     = var.monitoring.uptime_check_period
   timeout                    = var.monitoring.timeout
   failure_duration           = var.monitoring.alert_failure_duration
+  telemetry_error_spike_alignment_period  = var.monitoring.telemetry_error_spike_alignment_period
+  telemetry_error_spike_threshold         = var.monitoring.telemetry_error_spike_threshold
+  telemetry_started_absence_duration      = var.monitoring.telemetry_started_absence_duration
+  telemetry_connect_latency_alignment_period = var.monitoring.telemetry_connect_latency_alignment_period
+  telemetry_connect_latency_threshold_ms     = var.monitoring.telemetry_connect_latency_threshold_ms
   notification_channel_names = var.monitoring.notification_channel_names
   user_labels = merge(local.common_labels, {
     component = "api"
-    signal    = "uptime"
   })
 
   depends_on = [
