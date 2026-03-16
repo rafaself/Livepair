@@ -39,6 +39,36 @@
   border-radius: 0;
 }
 
+.conversation-list__top-fade,
+.conversation-list__bottom-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 48px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.conversation-list__top-fade {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--color-chat-bg) 0%,
+    color-mix(in srgb, var(--color-chat-bg) 72%, transparent) 45%,
+    transparent 100%
+  );
+}
+
+.conversation-list__bottom-fade {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    var(--color-chat-bg) 0%,
+    color-mix(in srgb, var(--color-chat-bg) 72%, transparent) 45%,
+    transparent 100%
+  );
+}
+
 .conversation-list__viewport {
   position: relative;
   height: 100%;

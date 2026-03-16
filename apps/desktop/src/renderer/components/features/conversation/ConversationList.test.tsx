@@ -52,7 +52,7 @@ describe('ConversationList', () => {
     expect(screen.queryByRole('list')).toBeNull();
   });
 
-  it('renders conversation turns in order with a non-blocking top fade', () => {
+  it('renders conversation turns in order with non-blocking top and bottom fades', () => {
     render(
       <ConversationList
         turns={MOCK_CONVERSATION_TURNS.slice(0, 3)}
@@ -64,6 +64,7 @@ describe('ConversationList', () => {
 
     expect(screen.getByRole('list')).toHaveClass('conversation-list__items');
     expect(screen.getByTestId('conversation-list-top-fade')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByTestId('conversation-list-bottom-fade')).toHaveAttribute('aria-hidden', 'true');
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveTextContent('Summarize the current screen in one sentence.');
     expect(items[2]).toHaveTextContent('Keep it compact and tell me if anything looks risky.');
