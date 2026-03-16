@@ -237,6 +237,56 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
   });
 
+  it('keeps sequential voice turns progressing when Gemini replays the settled user transcript before the next reply', async () => {
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'speech' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'same phrase', isFinal: true });
+    voiceTransport.emit({ type: 'output-transcript', text: 'First reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'same phrase' });
+    voiceTransport.emit({ type: 'text-delta', text: 'Second reply' });
+    voiceTransport.emit({ type: 'output-transcript', text: 'Second reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'same phrase',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        content: 'First reply',
+        source: 'voice',
+      }),
+      expect.objectContaining({
+        id: 'assistant-turn-2',
+        role: 'assistant',
+        content: 'Second reply',
+        source: 'voice',
+      }),
+    ]);
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        content: 'same phrase',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
+        content: 'First reply',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-3',
+        content: 'Second reply',
+      }),
+    ]);
+  });
+
   it('keeps the same in-progress assistant transcript artifact as transcript corrections arrive', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 

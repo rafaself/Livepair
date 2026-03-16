@@ -2,239 +2,24 @@ import { readFile } from 'fs/promises';
 import { setTimeout as delay } from 'timers/promises';
 import { Injectable } from '@nestjs/common';
 import type { ProjectKnowledgeCorpusDocument } from './project-knowledge-corpus';
+import {
+  type GeminiFileSearchDocument,
+  type GeminiFileSearchStore,
+  type GeminiGroundedAnswer,
+  createCustomMetadata,
+  encodeResourcePath,
+  normalizeDocumentsResponse,
+  normalizeGroundedAnswer,
+  normalizeOperation,
+  normalizeStore,
+  normalizeStoresResponse,
+  normalizeUploadResponse,
+  readErrorDetail,
+} from './project-knowledge-gemini.normalizers';
 
 const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com';
 const FILE_UPLOAD_START_URL = `${GEMINI_API_BASE_URL}/upload/v1beta/files`;
 const FILE_SEARCH_STORES_URL = `${GEMINI_API_BASE_URL}/v1beta/fileSearchStores`;
-
-type GeminiFileSearchStore = {
-  name: string;
-  displayName: string;
-};
-
-type GeminiFileSearchDocument = {
-  name: string;
-  displayName: string;
-  state: string | null;
-  customMetadata: Record<string, string>;
-};
-
-type GeminiGroundedAnswer = {
-  text: string;
-  groundingMetadata?: unknown;
-};
-
-type GeminiLongRunningOperation = {
-  name: string;
-  done?: boolean;
-  error?: {
-    message?: unknown;
-  };
-};
-
-type FileSearchCustomMetadata = Array<{
-  key: string;
-  stringValue: string;
-}>;
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function encodeResourcePath(value: string): string {
-  return value.split('/').map((segment) => encodeURIComponent(segment)).join('/');
-}
-
-async function readErrorDetail(response: Response): Promise<string | null> {
-  try {
-    const text = (await response.text()).trim();
-
-    if (!text) {
-      return null;
-    }
-
-    try {
-      const payload = JSON.parse(text) as {
-        message?: unknown;
-        error?: {
-          message?: unknown;
-        } | unknown;
-      };
-
-      if (typeof payload.message === 'string' && payload.message.length > 0) {
-        return payload.message;
-      }
-
-      if (
-        isPlainRecord(payload.error)
-        && typeof payload.error['message'] === 'string'
-        && payload.error['message'].length > 0
-      ) {
-        return payload.error['message'];
-      }
-    } catch {
-      return text;
-    }
-
-    return text;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeStore(value: unknown): GeminiFileSearchStore {
-  if (!isPlainRecord(value) || !isNonEmptyString(value['name']) || !isNonEmptyString(value['displayName'])) {
-    throw new Error('File Search store payload was invalid');
-  }
-
-  return {
-    name: value['name'],
-    displayName: value['displayName'],
-  };
-}
-
-function normalizeStoresResponse(value: unknown): GeminiFileSearchStore[] {
-  if (!isPlainRecord(value)) {
-    throw new Error('File Search store list payload was invalid');
-  }
-
-  const stores = value['fileSearchStores'];
-  if (typeof stores === 'undefined') {
-    return [];
-  }
-
-  if (!Array.isArray(stores)) {
-    throw new Error('File Search store list payload was invalid');
-  }
-
-  return stores.map((store) => normalizeStore(store));
-}
-
-function normalizeCustomMetadata(value: unknown): Record<string, string> {
-  if (!Array.isArray(value)) {
-    return {};
-  }
-
-  const metadata: Record<string, string> = {};
-
-  for (const entry of value) {
-    if (!isPlainRecord(entry) || !isNonEmptyString(entry['key']) || !isNonEmptyString(entry['stringValue'])) {
-      continue;
-    }
-
-    metadata[entry['key']] = entry['stringValue'];
-  }
-
-  return metadata;
-}
-
-function normalizeDocument(value: unknown): GeminiFileSearchDocument {
-  if (!isPlainRecord(value) || !isNonEmptyString(value['name']) || !isNonEmptyString(value['displayName'])) {
-    throw new Error('File Search document payload was invalid');
-  }
-
-  const state = typeof value['state'] === 'string' ? value['state'] : null;
-
-  return {
-    name: value['name'],
-    displayName: value['displayName'],
-    state,
-    customMetadata: normalizeCustomMetadata(value['customMetadata']),
-  };
-}
-
-function normalizeDocumentsResponse(value: unknown): {
-  documents: GeminiFileSearchDocument[];
-  nextPageToken: string | null;
-} {
-  if (!isPlainRecord(value)) {
-    throw new Error('File Search document list payload was invalid');
-  }
-
-  const documentsValue = value['documents'];
-  if (typeof documentsValue !== 'undefined' && !Array.isArray(documentsValue)) {
-    throw new Error('File Search document list payload was invalid');
-  }
-
-  const nextPageToken = typeof value['nextPageToken'] === 'string' && value['nextPageToken'].length > 0
-    ? value['nextPageToken']
-    : null;
-
-  return {
-    documents: (documentsValue ?? []).map((document) => normalizeDocument(document)),
-    nextPageToken,
-  };
-}
-
-function normalizeOperation(value: unknown): GeminiLongRunningOperation {
-  if (!isPlainRecord(value) || !isNonEmptyString(value['name'])) {
-    throw new Error('Long-running operation payload was invalid');
-  }
-
-  const error = isPlainRecord(value['error']) ? { message: value['error']['message'] } : undefined;
-
-  return {
-    name: value['name'],
-    done: value['done'] === true,
-    ...(error ? { error } : {}),
-  };
-}
-
-function normalizeUploadResponse(value: unknown): { name: string } {
-  if (!isPlainRecord(value) || !isPlainRecord(value['file']) || !isNonEmptyString(value['file']['name'])) {
-    throw new Error('File upload payload was invalid');
-  }
-
-  return {
-    name: value['file']['name'],
-  };
-}
-
-function extractCandidateText(value: unknown): string {
-  if (!isPlainRecord(value) || !isPlainRecord(value['content']) || !Array.isArray(value['content']['parts'])) {
-    return '';
-  }
-
-  return value['content']['parts']
-    .map((part) => (isPlainRecord(part) && typeof part['text'] === 'string' ? part['text'].trim() : ''))
-    .filter((text) => text.length > 0)
-    .join('\n')
-    .trim();
-}
-
-function normalizeGroundedAnswer(value: unknown): GeminiGroundedAnswer {
-  if (!isPlainRecord(value) || !Array.isArray(value['candidates']) || value['candidates'].length === 0) {
-    throw new Error('Grounded answer payload was invalid');
-  }
-
-  const candidate = value['candidates'][0];
-  if (!isPlainRecord(candidate)) {
-    throw new Error('Grounded answer payload was invalid');
-  }
-
-  return {
-    text: extractCandidateText(candidate),
-    groundingMetadata: candidate['groundingMetadata'],
-  };
-}
-
-function createCustomMetadata(document: ProjectKnowledgeCorpusDocument): FileSearchCustomMetadata {
-  return [
-    { key: 'managed_by', stringValue: 'livepair-project-knowledge' },
-    { key: 'source_id', stringValue: document.id },
-    { key: 'source_path', stringValue: document.relativePath },
-    { key: 'content_hash', stringValue: document.contentHash },
-  ];
-}
 
 @Injectable()
 export class ProjectKnowledgeGeminiClient {
@@ -484,7 +269,7 @@ export class ProjectKnowledgeGeminiClient {
       );
 
       if (operation.done) {
-        if (operation.error && isNonEmptyString(operation.error.message)) {
+        if (operation.error && typeof operation.error.message === 'string' && operation.error.message.length > 0) {
           throw new Error(`File Search operation failed: ${operation.error.message}`);
         }
 

@@ -18,6 +18,11 @@ type VoiceTranscriptStoreSyncArgs = {
   clearTranscript: () => void;
   ensureAssistantTurn: () => boolean;
   hasSettledTurnFence: () => boolean;
+  logRuntimeDiagnostic?: (
+    scope: 'voice-session',
+    message: string,
+    detail: Record<string, unknown>,
+  ) => void;
 };
 
 function shouldReuseCompletedUserTurn(previousText: string, incomingText: string): boolean {
@@ -37,6 +42,7 @@ export function createVoiceTranscriptStoreSync({
   clearTranscript,
   ensureAssistantTurn,
   hasSettledTurnFence,
+  logRuntimeDiagnostic,
 }: VoiceTranscriptStoreSyncArgs) {
   const applyTranscriptUpdate = (
     role: VoiceTranscriptRole,
@@ -47,12 +53,27 @@ export function createVoiceTranscriptStoreSync({
     const previousEntry = state.currentVoiceTranscript[role];
 
     if (role === 'user' && hasSettledTurnFence()) {
-      if (shouldReuseCompletedUserTurn(previousEntry.text, text)) {
-        return;
-      }
+      const replayedSettledTranscript = shouldReuseCompletedUserTurn(previousEntry.text, text);
+      const previousTurnState = conversationCtx.currentVoiceTurnState;
 
       clearTranscript();
       clearCurrentVoiceTurns(conversationCtx);
+      logRuntimeDiagnostic?.(
+        'voice-session',
+        replayedSettledTranscript
+          ? 'reopened settled voice turn after user transcript replay'
+          : 'reopened settled voice turn for new user transcript',
+        {
+          previousTurnState,
+          replayedSettledTranscript,
+          previousUserTextLength: previousEntry.text.trim().length,
+          incomingUserTextLength: text.trim().length,
+        },
+      );
+
+      if (replayedSettledTranscript) {
+        return;
+      }
     }
 
     if (role === 'assistant') {

@@ -64,11 +64,7 @@ function inferWebGroundingUsage(result: HallucinationRunResult): boolean {
     return result.usedWebGrounding;
   }
 
-  if (result.answerMetadata?.provenance === 'web_grounded') {
-    return true;
-  }
-
-  return result.answerMetadata?.reason?.includes('Google Search grounding') ?? false;
+  return result.answerMetadata?.provenance === 'web_grounded';
 }
 
 function hasSourceSupport(result: HallucinationRunResult): boolean {

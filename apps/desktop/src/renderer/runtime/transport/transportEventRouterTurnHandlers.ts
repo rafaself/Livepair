@@ -4,14 +4,78 @@ import type { TransportEventRouterContext } from './transportEventRouterTypes';
 
 type CanonicalAssistantOutputEventType = 'text-delta' | 'turn-complete';
 type TranscriptOrAudioEventType = 'audio-chunk' | 'output-transcript';
+type AssistantOutputEventType = CanonicalAssistantOutputEventType | TranscriptOrAudioEventType;
+type AssistantOutputIgnoreReason = 'turn-unavailable' | 'lifecycle-fence' | 'no-open-turn-fence';
+
+type IgnoredAssistantOutputDiagnostics = {
+  counts: Record<AssistantOutputEventType, number>;
+  lastIgnoredReason: AssistantOutputIgnoreReason;
+  lastIgnoredEventType: AssistantOutputEventType;
+  lastIgnoredVoiceStatus: ReturnType<TransportEventRouterContext['ops']['currentVoiceSessionStatus']>;
+};
+
+const ignoredAssistantOutputDiagnostics = new WeakMap<object, IgnoredAssistantOutputDiagnostics>();
+
+function getIgnoredAssistantOutputDiagnostics(
+  context: TransportEventRouterContext,
+): IgnoredAssistantOutputDiagnostics {
+  const existing = ignoredAssistantOutputDiagnostics.get(context.store);
+
+  if (existing) {
+    return existing;
+  }
+
+  const next: IgnoredAssistantOutputDiagnostics = {
+    counts: {
+      'text-delta': 0,
+      'output-transcript': 0,
+      'audio-chunk': 0,
+      'turn-complete': 0,
+    },
+    lastIgnoredReason: 'turn-unavailable',
+    lastIgnoredEventType: 'text-delta',
+    lastIgnoredVoiceStatus: context.ops.currentVoiceSessionStatus(),
+  };
+  ignoredAssistantOutputDiagnostics.set(context.store, next);
+  return next;
+}
+
+function buildIgnoredAssistantOutputDetail(
+  context: TransportEventRouterContext,
+  eventType: AssistantOutputEventType,
+  reason: AssistantOutputIgnoreReason,
+): Record<string, unknown> {
+  const diagnostics = getIgnoredAssistantOutputDiagnostics(context);
+  const voiceStatus = context.ops.currentVoiceSessionStatus();
+
+  diagnostics.counts[eventType] += 1;
+  diagnostics.lastIgnoredReason = reason;
+  diagnostics.lastIgnoredEventType = eventType;
+  diagnostics.lastIgnoredVoiceStatus = voiceStatus;
+
+  return {
+    voiceStatus,
+    eventType,
+    ignoreReason: reason,
+    ignoreCount: diagnostics.counts[eventType],
+    ignoredTextDeltaCount: diagnostics.counts['text-delta'],
+    ignoredOutputTranscriptCount: diagnostics.counts['output-transcript'],
+    ignoredAudioChunkCount: diagnostics.counts['audio-chunk'],
+    ignoredTurnCompleteCount: diagnostics.counts['turn-complete'],
+    lastIgnoredReason: diagnostics.lastIgnoredReason,
+    lastIgnoredEventType: diagnostics.lastIgnoredEventType,
+    lastIgnoredVoiceStatus: diagnostics.lastIgnoredVoiceStatus,
+  };
+}
 
 function logIgnoredUnavailableAssistantOutput(
   context: TransportEventRouterContext,
-  eventType: CanonicalAssistantOutputEventType | TranscriptOrAudioEventType,
+  eventType: AssistantOutputEventType,
+  detail: Record<string, unknown> = {},
 ): void {
   context.ops.logRuntimeDiagnostic('voice-session', 'ignored assistant output while turn is unavailable', {
-    voiceStatus: context.ops.currentVoiceSessionStatus(),
-    eventType,
+    ...buildIgnoredAssistantOutputDetail(context, eventType, 'turn-unavailable'),
+    ...detail,
   });
 }
 
@@ -35,7 +99,11 @@ function shouldIgnoreCanonicalAssistantOutput(
     return false;
   }
 
-  logIgnoredUnavailableAssistantOutput(context, eventType);
+  logIgnoredUnavailableAssistantOutput(context, eventType, {
+    hasQueuedMixedModeAssistantReply: ops.hasQueuedMixedModeAssistantReply(),
+    hasStreamingAssistantVoiceTurn: ops.hasStreamingAssistantVoiceTurn(),
+    hasOpenVoiceTurnFence: ops.hasOpenVoiceTurnFence(),
+  });
   return true;
 }
 
@@ -58,7 +126,11 @@ function shouldIgnoreTranscriptOrAudio(
     return false;
   }
 
-  logIgnoredUnavailableAssistantOutput(context, eventType);
+  logIgnoredUnavailableAssistantOutput(context, eventType, {
+    hasQueuedMixedModeAssistantReply: ops.hasQueuedMixedModeAssistantReply(),
+    hasStreamingAssistantVoiceTurn: ops.hasStreamingAssistantVoiceTurn(),
+    hasOpenVoiceTurnFence: ops.hasOpenVoiceTurnFence(),
+  });
   return true;
 }
 
@@ -71,7 +143,10 @@ function ensureAssistantVoiceTurn(
   }
 
   context.ops.logRuntimeDiagnostic('voice-session', 'ignored assistant output after lifecycle fence', {
-    eventType,
+    ...buildIgnoredAssistantOutputDetail(context, eventType, 'lifecycle-fence'),
+    hasOpenVoiceTurnFence: context.ops.hasOpenVoiceTurnFence(),
+    hasQueuedMixedModeAssistantReply: context.ops.hasQueuedMixedModeAssistantReply(),
+    hasStreamingAssistantVoiceTurn: context.ops.hasStreamingAssistantVoiceTurn(),
   });
   return false;
 }
@@ -178,7 +253,11 @@ export function handleTransportTurnEvent(
 
     case 'turn-complete':
       if (!ops.hasOpenVoiceTurnFence()) {
-        ops.logRuntimeDiagnostic('voice-session', 'ignored turn-complete without an open turn fence', {});
+        ops.logRuntimeDiagnostic('voice-session', 'ignored turn-complete without an open turn fence', {
+          ...buildIgnoredAssistantOutputDetail(context, 'turn-complete', 'no-open-turn-fence'),
+          hasOpenVoiceTurnFence: false,
+          hasPendingVoiceToolCall: ops.hasPendingVoiceToolCall(),
+        });
         return;
       }
 

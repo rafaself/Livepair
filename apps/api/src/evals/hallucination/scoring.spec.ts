@@ -47,6 +47,53 @@ const DATASET: HallucinationDatasetDocument = {
 };
 
 describe('scoreHallucinationRun', () => {
+  it('does not infer web grounding usage from reason text when provenance is unverified', () => {
+    const dataset: HallucinationDatasetDocument = {
+      schemaVersion: 1,
+      datasetId: 'web-grounding-signal-test',
+      cases: [
+        {
+          id: 'public-fact',
+          bucket: 'public_current_factual',
+          prompt: 'What is the latest LTS version of Node.js?',
+          expectedPath: 'web_grounded',
+          shouldUseProjectRetrieval: false,
+          shouldUseWebGrounding: true,
+          shouldAbstainOrBeCautious: false,
+        },
+      ],
+    };
+
+    // Simulate a result where web grounding was attempted but failed:
+    // provenance is 'unverified' and reason mentions "Google Search grounding",
+    // but usedWebGrounding is absent (harness did not set it explicitly).
+    const run: HallucinationRunArtifact = {
+      schemaVersion: 1,
+      datasetId: dataset.datasetId,
+      runLabel: 'candidate',
+      generatedAt: '2026-03-16T00:00:00.000Z',
+      results: [
+        {
+          id: 'public-fact',
+          response: 'I could not verify the current Node.js LTS version.',
+          answerMetadata: {
+            provenance: 'unverified',
+            confidence: 'low',
+            reason: 'Google Search grounding did not return enough supporting evidence.',
+          },
+          // usedWebGrounding intentionally omitted — must not be inferred from reason text
+        },
+      ],
+    };
+
+    const scored = scoreHallucinationRun(dataset, run);
+    const caseResult = scored.caseResults[0]!;
+
+    // Web grounding was NOT successfully used — provenance is unverified, not web_grounded.
+    expect(caseResult.webGroundingCorrect).toBe(false);
+    expect(caseResult.passed).toBe(false);
+  });
+
   it('scores routing, caution, support presence, and dataset-corrected failures', () => {
     const run: HallucinationRunArtifact = {
       schemaVersion: 1,

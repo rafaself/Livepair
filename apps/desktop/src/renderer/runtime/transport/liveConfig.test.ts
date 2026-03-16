@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES } from '@livepair/shared-types';
 import type { LiveConnectMode } from '../core/session.types';
 import {
+  LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION,
   LIVE_GROUNDING_POLICY_INSTRUCTION,
   LIVE_ADAPTER_KEY,
   LIVE_PROVIDER,
@@ -306,10 +307,17 @@ describe('liveConfig', () => {
     );
   });
 
-  it('keeps voice-mode system instructions minimal when grounding is disabled', () => {
+  it('keeps grounding-routing out of system instruction when grounding is disabled', () => {
     expect(composeLiveSystemInstruction('Stay concise.', { groundingEnabled: false })).toBe(
-      'Stay concise.',
+      `Stay concise.\n\n${LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION}`,
     );
+  });
+
+  it('preserves factual caution in system instruction even when grounding is disabled', () => {
+    const result = composeLiveSystemInstruction('Stay concise.', { groundingEnabled: false });
+    expect(result).toContain(LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION);
+    expect(result).not.toContain('search_project_knowledge');
+    expect(result).not.toContain('Google Search grounding');
   });
 
   it('keeps built-in Google Search grounding off the text connect path', () => {
@@ -340,7 +348,7 @@ describe('liveConfig', () => {
           },
         },
       },
-      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+      systemInstruction: composeLiveSystemInstruction(DEFAULT_SYSTEM_INSTRUCTION, { groundingEnabled: false }),
       tools: [
         {
           functionDeclarations: [
