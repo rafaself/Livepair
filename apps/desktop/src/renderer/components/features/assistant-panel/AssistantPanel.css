@@ -185,6 +185,11 @@
   justify-self: end;
 }
 
+.assistant-panel__settings-mode-placeholder {
+  opacity: 0.62;
+  font-style: italic;
+}
+
 .assistant-panel__settings-theme-toggle {
   justify-self: end;
 }
