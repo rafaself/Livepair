@@ -81,6 +81,8 @@ function normalizeGroundingSupports(value: unknown): GroundingSupport[] {
     });
 }
 
+const UNSUPPORTED_RETRIEVAL_ANSWER = 'I could not verify that from the curated project documents.';
+
 function truncateExcerpt(text: string, maxLength = 220): string {
   const trimmed = text.trim();
 
@@ -110,7 +112,7 @@ function buildFailedResult(
   failureReason: string,
 ): ProjectKnowledgeSearchResult {
   return {
-    summaryAnswer: 'I could not verify that from the curated project documents.',
+    summaryAnswer: UNSUPPORTED_RETRIEVAL_ANSWER,
     supportingExcerpts: [],
     sources: [],
     confidence: 'low',
@@ -307,11 +309,10 @@ export class ProjectKnowledgeService {
     groundingMetadata: unknown,
     corpus: readonly ProjectKnowledgeCorpusDocument[],
   ): ProjectKnowledgeSearchResult {
-    const normalizedAnswer = answerText.trim() || 'I could not verify that from the curated project documents.';
     const chunks = normalizeGroundingChunks(groundingMetadata);
 
     if (chunks.length === 0) {
-      return buildNoMatchResult(normalizedAnswer, 'no_grounding_chunks');
+      return buildNoMatchResult(UNSUPPORTED_RETRIEVAL_ANSWER, 'no_grounding_chunks');
     }
 
     const supports = normalizeGroundingSupports(groundingMetadata);
@@ -328,8 +329,10 @@ export class ProjectKnowledgeService {
     }
 
     if (preferredIndices.length === 0) {
-      preferredIndices.push(...chunks.map((_, index) => index));
+      return buildNoMatchResult(UNSUPPORTED_RETRIEVAL_ANSWER, 'no_grounding_supports');
     }
+
+    const normalizedAnswer = answerText.trim() || UNSUPPORTED_RETRIEVAL_ANSWER;
 
     const corpusByTitle = buildCorpusIndex(corpus);
     const sources: ProjectKnowledgeSourceReference[] = [];

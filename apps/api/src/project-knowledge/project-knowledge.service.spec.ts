@@ -141,7 +141,7 @@ describe('ProjectKnowledgeService', () => {
     );
   });
 
-  it('returns a bounded no-match result without invented sources when grounding is absent', async () => {
+  it('returns bounded no-match without leaking model text when grounding chunks are absent', async () => {
     const { ProjectKnowledgeService } = await import('./project-knowledge.service');
 
     const corpusService = {
@@ -161,7 +161,8 @@ describe('ProjectKnowledgeService', () => {
       deleteFile: jest.fn(),
       deleteDocument: jest.fn(),
       generateGroundedAnswer: jest.fn(async () => ({
-        text: 'I could not verify that from the curated project documents.',
+        // Model produced plausible-sounding free text — no grounding chunks back it.
+        text: 'The secret feature is enabled by setting ENABLE_SECRET=true in your .env file.',
         groundingMetadata: {
           groundingChunks: [],
           groundingSupports: [],
@@ -185,6 +186,72 @@ describe('ProjectKnowledgeService', () => {
       confidence: 'low',
       retrievalStatus: 'no_match',
       failureReason: 'no_grounding_chunks',
+    });
+  });
+
+  it('returns bounded no-match without leaking model text when grounding supports are absent', async () => {
+    const { ProjectKnowledgeService } = await import('./project-knowledge.service');
+
+    const corpusService = {
+      listDocuments: jest.fn(async () => [
+        {
+          id: 'architecture',
+          title: 'docs/ARCHITECTURE.md',
+          relativePath: 'docs/ARCHITECTURE.md',
+          absolutePath: '/repo/docs/ARCHITECTURE.md',
+          mimeType: 'text/markdown',
+          contentHash: 'hash-architecture',
+        },
+      ]),
+    };
+    const client = {
+      listFileSearchStores: jest.fn(async () => [
+        {
+          name: 'fileSearchStores/livepair-store',
+          displayName: 'livepair-project-knowledge',
+        },
+      ]),
+      createFileSearchStore: jest.fn(),
+      listDocuments: jest.fn(async () => []),
+      uploadFile: jest.fn(async ({ displayName }: { displayName: string }) => ({
+        name: `files/${displayName}`,
+      })),
+      importFile: jest.fn(async () => undefined),
+      deleteFile: jest.fn(async () => undefined),
+      deleteDocument: jest.fn(async () => undefined),
+      generateGroundedAnswer: jest.fn(async () => ({
+        // Chunks were retrieved but no groundingSupports link them to the answer text.
+        text: 'The architecture uses a monolithic backend with direct DB access.',
+        groundingMetadata: {
+          groundingChunks: [
+            {
+              retrievedContext: {
+                title: 'docs/ARCHITECTURE.md',
+                text: 'Speech mode stays desktop -> Gemini Live; do not add backend audio/video proxying.',
+              },
+            },
+          ],
+          groundingSupports: [],
+        },
+      })),
+    };
+
+    const service = new ProjectKnowledgeService(
+      client as never,
+      corpusService as never,
+    );
+
+    await expect(
+      service.searchProjectKnowledge({
+        query: 'How is the backend structured?',
+      }),
+    ).resolves.toEqual({
+      summaryAnswer: 'I could not verify that from the curated project documents.',
+      supportingExcerpts: [],
+      sources: [],
+      confidence: 'low',
+      retrievalStatus: 'no_match',
+      failureReason: 'no_grounding_supports',
     });
   });
 });
