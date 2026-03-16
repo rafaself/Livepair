@@ -1,8 +1,9 @@
 import type { HTMLAttributes } from 'react';
 import { useId, useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Copy, Mic } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { Badge, IconButton } from '../../primitives';
 import { isTranscriptArtifact, type ConversationTimelineEntry } from '../../../runtime';
+import { useSessionStore } from '../../../store/sessionStore';
 import { TypingIndicator } from '../TypingIndicator';
 import { renderAssistantMarkdown } from '../assistant-panel/chat/renderAssistantMarkdown';
 import { useSettingsStore } from '../../../store/settingsStore';
@@ -37,10 +38,14 @@ export function ConversationTurn({
   const isInterruptedTranscript = isTranscript && turn.statusLabel === 'Interrupted';
   const isCompletedTranscript = isTranscript && turn.state === 'complete' && !isInterruptedTranscript;
   const isTypedNote = !isTranscript && turn.role === 'user' && turn.source === 'text';
+  const attachedAssistantTurn = useSessionStore((state) =>
+    isTranscript && turn.role === 'assistant' && turn.attachedTurnId
+      ? state.conversationTurns.find((entry) => entry.id === turn.attachedTurnId) ?? null
+      : null);
+  const assistantTurnWithMetadata =
+    !isTranscript && turn.role === 'assistant' ? turn : attachedAssistantTurn;
   const thinkingText =
-    !isTranscript && turn.role === 'assistant'
-      ? turn.answerMetadata?.thinkingText?.trim() ?? ''
-      : '';
+    assistantTurnWithMetadata?.answerMetadata?.thinkingText?.trim() ?? '';
   const hasThinkingText = thinkingText.length > 0;
 
   const classes = [
@@ -117,9 +122,6 @@ export function ConversationTurn({
             {isTypedNote ? (
               <Badge variant="default">Note</Badge>
             ) : null}
-            {isCompletedTranscript ? (
-              <Badge variant="default"><Mic size={10} /> Voice</Badge>
-            ) : null}
             {turn.statusLabel ? (
               <Badge variant={getBadgeVariant(turn)}>{turn.statusLabel}</Badge>
             ) : null}
@@ -129,14 +131,21 @@ export function ConversationTurn({
           <div
             id={thinkingSectionId}
             className="conversation-turn__thinking"
-            hidden={!isThinkingExpanded}
+            role="region"
+            aria-label="Assistant thinking"
+            aria-hidden={!isThinkingExpanded}
+            data-expanded={isThinkingExpanded ? 'true' : 'false'}
+            style={{
+              maxHeight: isThinkingExpanded ? '24rem' : '0px',
+              opacity: isThinkingExpanded ? 1 : 0,
+            }}
           >
-            {isThinkingExpanded ? (
+            <div className="conversation-turn__thinking-inner">
               <>
                 <p className="conversation-turn__thinking-label">Assistant thinking</p>
                 <p className="conversation-turn__thinking-content">{thinkingText}</p>
               </>
-            ) : null}
+            </div>
           </div>
         ) : null}
       </div>
