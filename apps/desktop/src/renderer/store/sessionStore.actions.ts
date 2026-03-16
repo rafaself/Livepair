@@ -11,8 +11,11 @@ import {
 } from '../runtime/public';
 import {
   buildDefaultCurrentVoiceTranscript,
+  buildDefaultIgnoredAssistantOutputDiagnostics,
   buildDefaultScreenCaptureDiagnostics,
   buildDefaultSessionState,
+  buildDefaultVoiceSessionRecoveryDiagnostics,
+  buildDefaultVoiceTranscriptDiagnostics,
   buildDefaultVisualSendDiagnostics,
   getDebugRuntimeState,
   withDerivedLifecycleFields,
@@ -73,9 +76,13 @@ function buildResetTextSessionRuntimeState(
     speechLifecycle: createSpeechSessionLifecycle(),
     voiceSessionStatus: 'disconnected',
     activeVoiceSessionGroundingEnabled: null,
+    effectiveVoiceSessionCapabilities: null,
     voiceSessionLatency: createDefaultVoiceSessionLatencyState(),
     voiceSessionResumption: createDefaultVoiceSessionResumptionState(),
     voiceSessionDurability: createDefaultVoiceSessionDurabilityState(),
+    voiceTranscriptDiagnostics: buildDefaultVoiceTranscriptDiagnostics(),
+    ignoredAssistantOutputDiagnostics: buildDefaultIgnoredAssistantOutputDiagnostics(),
+    voiceSessionRecoveryDiagnostics: buildDefaultVoiceSessionRecoveryDiagnostics(),
     voiceCaptureState: state.voiceCaptureState,
     voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
     voicePlaybackState: state.voicePlaybackState,
@@ -162,6 +169,8 @@ export function createSessionStoreActions(
     setVoiceSessionStatus: (voiceSessionStatus) => set({ voiceSessionStatus }),
     setActiveVoiceSessionGroundingEnabled: (activeVoiceSessionGroundingEnabled) =>
       set({ activeVoiceSessionGroundingEnabled }),
+    setEffectiveVoiceSessionCapabilities: (effectiveVoiceSessionCapabilities) =>
+      set({ effectiveVoiceSessionCapabilities }),
     setVoiceSessionLatency: (voiceSessionLatency) => set({ voiceSessionLatency }),
     setVoiceSessionResumption: (patch) =>
       set((state) => ({
@@ -174,6 +183,27 @@ export function createSessionStoreActions(
       set((state) => ({
         voiceSessionDurability: {
           ...state.voiceSessionDurability,
+          ...patch,
+        },
+      })),
+    setVoiceTranscriptDiagnostics: (patch) =>
+      set((state) => ({
+        voiceTranscriptDiagnostics: {
+          ...state.voiceTranscriptDiagnostics,
+          ...patch,
+        },
+      })),
+    setIgnoredAssistantOutputDiagnostics: (patch) =>
+      set((state) => ({
+        ignoredAssistantOutputDiagnostics: {
+          ...state.ignoredAssistantOutputDiagnostics,
+          ...patch,
+        },
+      })),
+    setVoiceSessionRecoveryDiagnostics: (patch) =>
+      set((state) => ({
+        voiceSessionRecoveryDiagnostics: {
+          ...state.voiceSessionRecoveryDiagnostics,
           ...patch,
         },
       })),

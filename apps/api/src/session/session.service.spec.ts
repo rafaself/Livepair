@@ -92,4 +92,27 @@ describe('SessionService', () => {
       }),
     );
   });
+
+  it('logs the issued constrained capability profile in a compact structured diagnostic', async () => {
+    const { service } = await createSessionService();
+
+    await service.createEphemeralToken({});
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '[session:token] issued',
+      expect.objectContaining({
+        constraintModel: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
+        capabilities: {
+          responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
+          inputAudioTranscriptionEnabled:
+            GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
+          outputAudioTranscriptionEnabled:
+            GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
+          sessionResumptionEnabled:
+            GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
+        },
+        sessionIdProvided: false,
+      }),
+    );
+  });
 });

@@ -59,6 +59,26 @@ function describeUnavailableResume(
   return `${detail} (${reason === 'missing-handle' ? 'resume handle unavailable' : 'session marked non-resumable'})`;
 }
 
+function recordRecoveryTransition(
+  ops: VoiceResumeControllerOps,
+  transition:
+    | 'resume-requested'
+    | 'resume-skipped'
+    | 'token-refresh-required'
+    | 'resume-aborted'
+    | 'resume-connect-resolved'
+    | 'resume-connect-failed',
+  detail: string,
+): void {
+  const store = ops.store.getState();
+  store.setVoiceSessionRecoveryDiagnostics({
+    transitionCount: store.voiceSessionRecoveryDiagnostics.transitionCount + 1,
+    lastTransition: transition,
+    lastTransitionAt: new Date().toISOString(),
+    lastRecoveryDetail: detail,
+  });
+}
+
 export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
   const resume = async (detail: string): Promise<void> => {
     const store = ops.store.getState();
@@ -89,6 +109,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
         latestHandle: resumeHandle,
         resumable: store.voiceSessionResumption.resumable,
       });
+      recordRecoveryTransition(ops, 'resume-skipped', resumeUnavailableDetail);
     }
 
     ops.logRuntimeDiagnostic('voice-session', 'resume requested', {
@@ -98,6 +119,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       resumable: store.voiceSessionResumption.resumable,
       tokenValid: isTokenValidForReconnect(tokenToUse),
     });
+    recordRecoveryTransition(ops, 'resume-requested', detail);
 
     ops.setVoiceResumptionInFlight(true);
     ops.setVoiceSessionStatus('recovering');
@@ -120,6 +142,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
         detail,
         latestHandle: resumeHandle,
       });
+      recordRecoveryTransition(ops, 'token-refresh-required', detail);
       tokenToUse = await ops.refreshToken(operationId, detail);
 
       if (!tokenToUse || !ops.isCurrentSessionOperation(operationId)) {
@@ -132,6 +155,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
         if (ops.isCurrentSessionOperation(operationId)) {
           const failureDetail =
             ops.store.getState().voiceSessionDurability.lastDetail ?? detail;
+          recordRecoveryTransition(ops, 'resume-aborted', failureDetail);
           ops.setVoiceSessionResumption({
             status: 'resumeFailed',
             lastDetail: failureDetail,
@@ -170,6 +194,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
         mode: 'voice',
         resumeHandle: activeResumeHandle,
       });
+      recordRecoveryTransition(ops, 'resume-connect-resolved', detail);
       ops.logRuntimeDiagnostic('voice-session', 'resume connect resolved', {
         operationId,
         latestHandle: activeResumeHandle,
@@ -184,6 +209,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       }
 
       const resumeDetail = asErrorDetail(error, 'Failed to resume voice session');
+      recordRecoveryTransition(ops, 'resume-connect-failed', resumeDetail);
       ops.logRuntimeDiagnostic('voice-session', 'resume connect failed', {
         operationId,
         latestHandle: activeResumeHandle,

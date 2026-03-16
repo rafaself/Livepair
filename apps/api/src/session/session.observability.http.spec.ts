@@ -152,7 +152,7 @@ describe('Session token observability', () => {
         '[session:token] issued',
         expect.objectContaining({
           constraintModel: SESSION_TOKEN_LIVE_MODEL,
-          ...GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+          capabilities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
         }),
       );
       expectNoSensitiveValues(infoSpy, ['auth-tokens/ephemeral-token', SESSION_TOKEN_AUTH_SECRET]);

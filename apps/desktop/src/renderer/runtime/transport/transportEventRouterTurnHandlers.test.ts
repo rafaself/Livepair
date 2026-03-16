@@ -4,6 +4,22 @@ import { handleTransportTurnEvent } from './transportEventRouterTurnHandlers';
 function createMockContext() {
   const store = {
     setLastRuntimeError: vi.fn(),
+    voiceTranscriptDiagnostics: {
+      inputTranscriptCount: 0,
+      lastInputTranscriptAt: null,
+      outputTranscriptCount: 0,
+      lastOutputTranscriptAt: null,
+      assistantTextFallbackCount: 0,
+      lastAssistantTextFallbackAt: null,
+      lastAssistantTextFallbackReason: null,
+    },
+    setVoiceTranscriptDiagnostics: vi.fn((patch: Record<string, unknown>) => {
+      store.voiceTranscriptDiagnostics = {
+        ...store.voiceTranscriptDiagnostics,
+        ...patch,
+      };
+    }),
+    setIgnoredAssistantOutputDiagnostics: vi.fn(),
   };
 
   const ops = {
@@ -91,6 +107,62 @@ describe('handleTransportTurnEvent', () => {
         ignoredAudioChunkCount: 2,
         lastIgnoredReason: 'turn-unavailable',
         lastIgnoredEventType: 'audio-chunk',
+      }),
+    );
+    expect(context.store.setIgnoredAssistantOutputDiagnostics).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        totalCount: 2,
+        countsByEventType: {
+          textDelta: 0,
+          outputTranscript: 0,
+          audioChunk: 2,
+          turnComplete: 0,
+        },
+        countsByReason: {
+          turnUnavailable: 2,
+          lifecycleFence: 0,
+          noOpenTurnFence: 0,
+        },
+        lastIgnoredReason: 'turn-unavailable',
+        lastIgnoredEventType: 'audio-chunk',
+        lastIgnoredVoiceSessionStatus: 'recovering',
+        lastIgnoredAt: expect.any(String),
+      }),
+    );
+  });
+
+  it('tracks transcript arrival and only counts assistant text fallback once per turn', () => {
+    const context = createMockContext();
+
+    handleTransportTurnEvent(context as never, { type: 'text-delta', text: 'hello' });
+    handleTransportTurnEvent(context as never, { type: 'text-delta', text: ' again' });
+    handleTransportTurnEvent(context as never, {
+      type: 'input-transcript',
+      text: 'user said hello',
+      isFinal: false,
+    });
+    handleTransportTurnEvent(context as never, {
+      type: 'output-transcript',
+      text: 'assistant replied hello',
+      isFinal: true,
+    });
+
+    expect(context.store.setVoiceTranscriptDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assistantTextFallbackCount: 1,
+        lastAssistantTextFallbackReason: 'missing-output-transcript',
+      }),
+    );
+    expect(context.store.setVoiceTranscriptDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputTranscriptCount: 1,
+        lastInputTranscriptAt: expect.any(String),
+      }),
+    );
+    expect(context.store.setVoiceTranscriptDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outputTranscriptCount: 1,
+        lastOutputTranscriptAt: expect.any(String),
       }),
     );
   });

@@ -24,7 +24,8 @@ export {
   createDefaultVoiceSessionResumptionState,
   createDefaultVoiceToolState,
 } from './core/defaults';
-export { LIVE_ADAPTER_KEY } from './transport/liveConfig';
+export { getEffectiveVoiceSessionCapabilities, LIVE_ADAPTER_KEY } from './transport/liveConfig';
+export type { EffectiveVoiceSessionCapabilities } from './transport/liveConfig';
 export {
   createSpeechSessionLifecycle,
   isSpeechLifecycleActive,

@@ -10,6 +10,10 @@ import type {
   VoiceSessionStatus,
   VoiceToolState,
 } from '../../../../runtime';
+import type {
+  IgnoredAssistantOutputDiagnostics,
+  VoiceSessionRecoveryDiagnostics,
+} from '../../../../store/sessionStore.types';
 
 export function formatCapitalizedState(state: string): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
@@ -217,4 +221,68 @@ export function formatOutboundDecisionReason(
   }
 
   return 'Breaker open';
+}
+
+export function formatDiagnosticToggle(state: boolean | null): string {
+  if (state === null) {
+    return 'Unknown';
+  }
+
+  return state ? 'Enabled' : 'Disabled';
+}
+
+export function formatCountWithLastAt(count: number, at: string | null): string {
+  return `${count} (last: ${at ?? 'None'})`;
+}
+
+export function formatDiagnosticCode(code: string | null): string {
+  if (code === null) {
+    return 'None';
+  }
+
+  return code.replaceAll('-', ' ');
+}
+
+export function formatIgnoredOutputByEvent(
+  diagnostics: IgnoredAssistantOutputDiagnostics,
+): string {
+  return `text ${diagnostics.countsByEventType.textDelta} / transcript ${diagnostics.countsByEventType.outputTranscript} / audio ${diagnostics.countsByEventType.audioChunk} / turn ${diagnostics.countsByEventType.turnComplete}`;
+}
+
+export function formatIgnoredOutputSummary(
+  diagnostics: IgnoredAssistantOutputDiagnostics,
+): string {
+  if (
+    diagnostics.lastIgnoredReason === null
+    || diagnostics.lastIgnoredEventType === null
+    || diagnostics.lastIgnoredVoiceSessionStatus === null
+  ) {
+    return 'None';
+  }
+
+  return `${formatDiagnosticCode(diagnostics.lastIgnoredReason)} / ${formatDiagnosticCode(diagnostics.lastIgnoredEventType)} / ${formatDiagnosticCode(diagnostics.lastIgnoredVoiceSessionStatus)}`;
+}
+
+export function formatRecoveryTransition(
+  diagnostics: VoiceSessionRecoveryDiagnostics,
+): string {
+  if (diagnostics.lastTransition === null) {
+    return 'None';
+  }
+
+  return diagnostics.lastTransitionAt
+    ? `${formatDiagnosticCode(diagnostics.lastTransition)} @ ${diagnostics.lastTransitionAt}`
+    : formatDiagnosticCode(diagnostics.lastTransition);
+}
+
+export function formatTurnResetSummary(
+  diagnostics: VoiceSessionRecoveryDiagnostics,
+): string {
+  if (diagnostics.lastTurnResetReason === null) {
+    return 'None';
+  }
+
+  return diagnostics.lastTurnResetAt
+    ? `${formatDiagnosticCode(diagnostics.lastTurnResetReason)} @ ${diagnostics.lastTurnResetAt}`
+    : formatDiagnosticCode(diagnostics.lastTurnResetReason);
 }

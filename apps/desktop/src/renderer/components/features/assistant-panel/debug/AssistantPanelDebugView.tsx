@@ -3,6 +3,7 @@ import {
   AssistantPanelDebugAudioSection,
   AssistantPanelDebugConnectionSection,
   AssistantPanelDebugOutboundGuardrailsSection,
+  AssistantPanelDebugSpeechChatDiagnosticsSection,
   AssistantPanelDebugScreenContextSection,
 } from './AssistantPanelDebugSections';
 import { useSessionStore } from '../../../../store/sessionStore';
@@ -28,9 +29,14 @@ export function AssistantPanelDebugView({
   const {
     backendState,
     voiceSessionStatus,
+    activeVoiceSessionGroundingEnabled,
+    effectiveVoiceSessionCapabilities,
     voiceSessionLatency,
     voiceSessionResumption,
     voiceSessionDurability,
+    voiceTranscriptDiagnostics,
+    ignoredAssistantOutputDiagnostics,
+    voiceSessionRecoveryDiagnostics,
     voiceCaptureState,
     voiceCaptureDiagnostics,
     voicePlaybackState,
@@ -44,9 +50,14 @@ export function AssistantPanelDebugView({
     useShallow((state) => ({
       backendState: state.backendState,
       voiceSessionStatus: state.voiceSessionStatus,
+      activeVoiceSessionGroundingEnabled: state.activeVoiceSessionGroundingEnabled,
+      effectiveVoiceSessionCapabilities: state.effectiveVoiceSessionCapabilities,
       voiceSessionLatency: state.voiceSessionLatency,
       voiceSessionResumption: state.voiceSessionResumption,
       voiceSessionDurability: state.voiceSessionDurability,
+      voiceTranscriptDiagnostics: state.voiceTranscriptDiagnostics,
+      ignoredAssistantOutputDiagnostics: state.ignoredAssistantOutputDiagnostics,
+      voiceSessionRecoveryDiagnostics: state.voiceSessionRecoveryDiagnostics,
       voiceCaptureState: state.voiceCaptureState,
       voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
       voicePlaybackState: state.voicePlaybackState,
@@ -88,6 +99,14 @@ export function AssistantPanelDebugView({
 
       <AssistantPanelDebugOutboundGuardrailsSection
         realtimeOutboundDiagnostics={realtimeOutboundDiagnostics}
+      />
+
+      <AssistantPanelDebugSpeechChatDiagnosticsSection
+        activeVoiceSessionGroundingEnabled={activeVoiceSessionGroundingEnabled}
+        effectiveVoiceSessionCapabilities={effectiveVoiceSessionCapabilities}
+        voiceTranscriptDiagnostics={voiceTranscriptDiagnostics}
+        ignoredAssistantOutputDiagnostics={ignoredAssistantOutputDiagnostics}
+        voiceSessionRecoveryDiagnostics={voiceSessionRecoveryDiagnostics}
       />
 
       <AssistantPanelDebugScreenContextSection

@@ -58,6 +58,13 @@ export type LiveConfig = {
   contextCompressionEnabled: boolean;
 };
 
+export type EffectiveVoiceSessionCapabilities = {
+  responseModality: LiveResponseModality;
+  inputAudioTranscriptionEnabled: boolean;
+  outputAudioTranscriptionEnabled: boolean;
+  sessionResumptionEnabled: boolean;
+};
+
 type LiveConfigEnv = Partial<Record<
   | 'VITE_LIVE_MODEL'
   | 'VITE_LIVE_API_VERSION'
@@ -411,6 +418,19 @@ export function buildGeminiLiveConnectConfig(
   }
 
   return liveConnectConfig;
+}
+
+export function getEffectiveVoiceSessionCapabilities(
+  config: LiveConfig,
+): EffectiveVoiceSessionCapabilities {
+  const voiceMode = config.sessionModes.voice;
+
+  return {
+    responseModality: voiceMode.responseModality,
+    inputAudioTranscriptionEnabled: voiceMode.inputAudioTranscription,
+    outputAudioTranscriptionEnabled: voiceMode.outputAudioTranscription,
+    sessionResumptionEnabled: config.sessionResumptionEnabled,
+  };
 }
 
 let cachedLiveConfig: LiveConfig | null = null;

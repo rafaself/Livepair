@@ -16,6 +16,20 @@ function createMockOps() {
       lastDetail: 'server draining',
     },
     voiceSessionDurability: { lastDetail: null as string | null },
+    voiceSessionRecoveryDiagnostics: {
+      transitionCount: 0,
+      lastTransition: null as string | null,
+      lastTransitionAt: null as string | null,
+      lastRecoveryDetail: null as string | null,
+      lastTurnResetReason: null as string | null,
+      lastTurnResetAt: null as string | null,
+    },
+    setVoiceSessionRecoveryDiagnostics: vi.fn((patch: Record<string, unknown>) => {
+      storeState.voiceSessionRecoveryDiagnostics = {
+        ...storeState.voiceSessionRecoveryDiagnostics,
+        ...patch,
+      };
+    }),
     setLastRuntimeError: vi.fn(),
     setActiveTransport: vi.fn(),
   };
@@ -117,6 +131,22 @@ describe('createVoiceResumeController', () => {
     expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('recovering');
     expect(ops.setVoiceSessionResumption).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'reconnecting' }),
+    );
+    expect(ops._storeState.setVoiceSessionRecoveryDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transitionCount: 1,
+        lastTransition: 'resume-requested',
+        lastRecoveryDetail: 'server draining',
+        lastTransitionAt: expect.any(String),
+      }),
+    );
+    expect(ops._storeState.setVoiceSessionRecoveryDiagnostics).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        transitionCount: 2,
+        lastTransition: 'resume-connect-resolved',
+        lastRecoveryDetail: 'server draining',
+        lastTransitionAt: expect.any(String),
+      }),
     );
   });
 

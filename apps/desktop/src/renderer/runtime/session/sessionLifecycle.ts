@@ -1,4 +1,8 @@
-import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
+import {
+  getEffectiveVoiceSessionCapabilities,
+  getLiveConfig,
+  LIVE_ADAPTER_KEY,
+} from '../transport/liveConfig';
 import { asErrorDetail } from '../core/runtimeUtils';
 import { createSessionVoiceConnection } from './sessionVoiceConnection';
 import type {
@@ -183,6 +187,8 @@ export function createSessionControllerLifecycle({
       lastError: null,
     });
     setActiveVoiceSessionGroundingEnabled(currentGroundingEnabled());
+    const effectiveVoiceSessionCapabilities = getEffectiveVoiceSessionCapabilities(getLiveConfig());
+    store.getState().setEffectiveVoiceSessionCapabilities(effectiveVoiceSessionCapabilities);
     setVoiceSessionStatus('connecting');
     resetVoiceSessionResumption();
     resetVoiceSessionDurability();
@@ -193,6 +199,7 @@ export function createSessionControllerLifecycle({
     });
     logRuntimeDiagnostic('voice-session', 'start requested', {
       transport: LIVE_ADAPTER_KEY,
+      capabilities: effectiveVoiceSessionCapabilities,
     });
     const token = await requestVoiceSessionToken(operationId);
 

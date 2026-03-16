@@ -1,6 +1,7 @@
 import { Eye, Monitor, ShieldAlert, Wifi } from 'lucide-react';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 import type {
+  EffectiveVoiceSessionCapabilities,
   RealtimeOutboundDiagnostics,
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
@@ -15,18 +16,30 @@ import type {
   VoiceSessionStatus,
   VoiceToolState,
 } from '../../../../runtime';
-import type { BackendConnectionState } from '../../../../store/sessionStore';
+import type {
+  BackendConnectionState,
+  IgnoredAssistantOutputDiagnostics,
+  VoiceSessionRecoveryDiagnostics,
+  VoiceTranscriptDiagnostics,
+} from '../../../../store/sessionStore.types';
 import { FieldList, StatusIndicator } from '../../../composite';
 import { ViewSection } from '../../../layout';
 import { Button, Switch } from '../../../primitives';
 import {
   formatCapitalizedState,
+  formatCountWithLastAt,
+  formatDiagnosticCode,
+  formatDiagnosticToggle,
+  formatIgnoredOutputByEvent,
+  formatIgnoredOutputSummary,
   formatVoiceLatencyMetric,
   formatOutboundBreakerState,
   formatOutboundDecisionOutcome,
   formatOutboundDecisionReason,
+  formatRecoveryTransition,
   formatOverlayMaskReason,
   formatScreenCaptureState,
+  formatTurnResetSummary,
   formatVisualTransitionReason,
   formatVoiceCaptureState,
   formatVoicePlaybackState,
@@ -301,6 +314,114 @@ export function AssistantPanelDebugOutboundGuardrailsSection({
           {
             label: 'Last error',
             value: realtimeOutboundDiagnostics.lastError ?? 'None',
+          },
+        ]}
+      />
+    </ViewSection>
+  );
+}
+
+export type AssistantPanelDebugSpeechChatDiagnosticsSectionProps = {
+  activeVoiceSessionGroundingEnabled: boolean | null;
+  effectiveVoiceSessionCapabilities: EffectiveVoiceSessionCapabilities | null;
+  voiceTranscriptDiagnostics: VoiceTranscriptDiagnostics;
+  ignoredAssistantOutputDiagnostics: IgnoredAssistantOutputDiagnostics;
+  voiceSessionRecoveryDiagnostics: VoiceSessionRecoveryDiagnostics;
+};
+
+export function AssistantPanelDebugSpeechChatDiagnosticsSection({
+  activeVoiceSessionGroundingEnabled,
+  effectiveVoiceSessionCapabilities,
+  voiceTranscriptDiagnostics,
+  ignoredAssistantOutputDiagnostics,
+  voiceSessionRecoveryDiagnostics,
+}: AssistantPanelDebugSpeechChatDiagnosticsSectionProps): JSX.Element {
+  return (
+    <ViewSection icon={Eye} title="Speech/chat diagnostics">
+      <FieldList
+        items={[
+          {
+            label: 'Response modality',
+            value: effectiveVoiceSessionCapabilities?.responseModality ?? 'Unknown',
+          },
+          {
+            label: 'Input transcription',
+            value: formatDiagnosticToggle(
+              effectiveVoiceSessionCapabilities?.inputAudioTranscriptionEnabled ?? null,
+            ),
+          },
+          {
+            label: 'Output transcription',
+            value: formatDiagnosticToggle(
+              effectiveVoiceSessionCapabilities?.outputAudioTranscriptionEnabled ?? null,
+            ),
+          },
+          {
+            label: 'Session resumption',
+            value: formatDiagnosticToggle(
+              effectiveVoiceSessionCapabilities?.sessionResumptionEnabled ?? null,
+            ),
+          },
+          {
+            label: 'Grounding',
+            value: formatDiagnosticToggle(activeVoiceSessionGroundingEnabled),
+          },
+          {
+            label: 'Input transcripts',
+            value: formatCountWithLastAt(
+              voiceTranscriptDiagnostics.inputTranscriptCount,
+              voiceTranscriptDiagnostics.lastInputTranscriptAt,
+            ),
+          },
+          {
+            label: 'Output transcripts',
+            value: formatCountWithLastAt(
+              voiceTranscriptDiagnostics.outputTranscriptCount,
+              voiceTranscriptDiagnostics.lastOutputTranscriptAt,
+            ),
+          },
+          {
+            label: 'Assistant text fallback',
+            value: formatCountWithLastAt(
+              voiceTranscriptDiagnostics.assistantTextFallbackCount,
+              voiceTranscriptDiagnostics.lastAssistantTextFallbackAt,
+            ),
+          },
+          {
+            label: 'Fallback reason',
+            value: formatDiagnosticCode(voiceTranscriptDiagnostics.lastAssistantTextFallbackReason),
+          },
+          {
+            label: 'Ignored output total',
+            value: String(ignoredAssistantOutputDiagnostics.totalCount),
+          },
+          {
+            label: 'Ignored output by event',
+            value: formatIgnoredOutputByEvent(ignoredAssistantOutputDiagnostics),
+          },
+          {
+            label: 'Last ignored output',
+            value: formatIgnoredOutputSummary(ignoredAssistantOutputDiagnostics),
+          },
+          {
+            label: 'Ignored output at',
+            value: ignoredAssistantOutputDiagnostics.lastIgnoredAt ?? 'None',
+          },
+          {
+            label: 'Recovery transitions',
+            value: String(voiceSessionRecoveryDiagnostics.transitionCount),
+          },
+          {
+            label: 'Last recovery transition',
+            value: formatRecoveryTransition(voiceSessionRecoveryDiagnostics),
+          },
+          {
+            label: 'Recovery detail',
+            value: voiceSessionRecoveryDiagnostics.lastRecoveryDetail ?? 'None',
+          },
+          {
+            label: 'Last turn reopen/reset',
+            value: formatTurnResetSummary(voiceSessionRecoveryDiagnostics),
           },
         ]}
       />

@@ -44,7 +44,11 @@ export function createVoiceTranscriptController(
     clearTranscript,
     ensureAssistantTurn: turnState.ensureAssistantTurn,
     hasSettledTurnFence: turnState.hasSettledTurnFence,
-    logRuntimeDiagnostic: options.logRuntimeDiagnostic,
+    ...(options.logRuntimeDiagnostic
+      ? {
+          logRuntimeDiagnostic: options.logRuntimeDiagnostic,
+        }
+      : {}),
   });
   const lifecycle = createVoiceTranscriptLifecycle({
     store,

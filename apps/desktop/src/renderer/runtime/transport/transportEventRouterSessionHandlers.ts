@@ -170,6 +170,12 @@ function handleSessionResumptionUpdate(
     resumable,
     lastDetail: detail,
   });
+  store.setVoiceSessionRecoveryDiagnostics({
+    transitionCount: store.voiceSessionRecoveryDiagnostics.transitionCount + 1,
+    lastTransition: 'session-resumption-updated',
+    lastTransitionAt: updatedAt,
+    lastRecoveryDetail: detail,
+  });
   ops.persistLiveSessionResumption({
     resumptionHandle: event.handle,
     lastResumptionUpdateAt: updatedAt,

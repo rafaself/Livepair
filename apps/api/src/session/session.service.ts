@@ -68,15 +68,24 @@ export class SessionService {
     ).toISOString();
 
     try {
-      const constrainedVoiceConfig = {
+      const issuedCapabilities = {
         responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
-        ...(GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled
+        inputAudioTranscriptionEnabled:
+          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
+        outputAudioTranscriptionEnabled:
+          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
+        sessionResumptionEnabled:
+          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
+      };
+      const constrainedVoiceConfig = {
+        responseModalities: issuedCapabilities.responseModalities,
+        ...(issuedCapabilities.inputAudioTranscriptionEnabled
           ? { inputAudioTranscription: {} }
           : {}),
-        ...(GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled
+        ...(issuedCapabilities.outputAudioTranscriptionEnabled
           ? { outputAudioTranscription: {} }
           : {}),
-        ...(GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled
+        ...(issuedCapabilities.sessionResumptionEnabled
           ? { sessionResumption: {} }
           : {}),
       };
@@ -97,7 +106,7 @@ export class SessionService {
       });
       console.info('[session:token] issued', {
         constraintModel: env.sessionTokenLiveModel,
-        ...GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+        capabilities: issuedCapabilities,
         expireTime,
         newSessionExpireTime,
         sessionIdProvided:

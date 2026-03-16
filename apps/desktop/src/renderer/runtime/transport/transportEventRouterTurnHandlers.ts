@@ -9,9 +9,11 @@ type AssistantOutputIgnoreReason = 'turn-unavailable' | 'lifecycle-fence' | 'no-
 
 type IgnoredAssistantOutputDiagnostics = {
   counts: Record<AssistantOutputEventType, number>;
+  reasons: Record<AssistantOutputIgnoreReason, number>;
   lastIgnoredReason: AssistantOutputIgnoreReason;
   lastIgnoredEventType: AssistantOutputEventType;
   lastIgnoredVoiceStatus: ReturnType<TransportEventRouterContext['ops']['currentVoiceSessionStatus']>;
+  assistantTextFallbackActive: boolean;
 };
 
 const ignoredAssistantOutputDiagnostics = new WeakMap<object, IgnoredAssistantOutputDiagnostics>();
@@ -32,12 +34,60 @@ function getIgnoredAssistantOutputDiagnostics(
       'audio-chunk': 0,
       'turn-complete': 0,
     },
+    reasons: {
+      'turn-unavailable': 0,
+      'lifecycle-fence': 0,
+      'no-open-turn-fence': 0,
+    },
     lastIgnoredReason: 'turn-unavailable',
     lastIgnoredEventType: 'text-delta',
     lastIgnoredVoiceStatus: context.ops.currentVoiceSessionStatus(),
+    assistantTextFallbackActive: false,
   };
   ignoredAssistantOutputDiagnostics.set(context.store, next);
   return next;
+}
+
+function recordTranscriptArrival(
+  context: TransportEventRouterContext,
+  channel: 'input' | 'output',
+): void {
+  const now = new Date().toISOString();
+  const diagnostics = context.store.voiceTranscriptDiagnostics;
+
+  if (channel === 'input') {
+    context.store.setVoiceTranscriptDiagnostics({
+      inputTranscriptCount: diagnostics.inputTranscriptCount + 1,
+      lastInputTranscriptAt: now,
+    });
+    return;
+  }
+
+  context.store.setVoiceTranscriptDiagnostics({
+    outputTranscriptCount: diagnostics.outputTranscriptCount + 1,
+    lastOutputTranscriptAt: now,
+  });
+}
+
+function recordAssistantTextFallback(context: TransportEventRouterContext): void {
+  const diagnostics = getIgnoredAssistantOutputDiagnostics(context);
+
+  if (diagnostics.assistantTextFallbackActive) {
+    return;
+  }
+
+  diagnostics.assistantTextFallbackActive = true;
+  const now = new Date().toISOString();
+  const transcriptDiagnostics = context.store.voiceTranscriptDiagnostics;
+  context.store.setVoiceTranscriptDiagnostics({
+    assistantTextFallbackCount: transcriptDiagnostics.assistantTextFallbackCount + 1,
+    lastAssistantTextFallbackAt: now,
+    lastAssistantTextFallbackReason: 'missing-output-transcript',
+  });
+}
+
+function resetAssistantTextFallback(context: TransportEventRouterContext): void {
+  getIgnoredAssistantOutputDiagnostics(context).assistantTextFallbackActive = false;
 }
 
 function buildIgnoredAssistantOutputDetail(
@@ -47,13 +97,34 @@ function buildIgnoredAssistantOutputDetail(
 ): Record<string, unknown> {
   const diagnostics = getIgnoredAssistantOutputDiagnostics(context);
   const voiceStatus = context.ops.currentVoiceSessionStatus();
+  const ignoredAt = new Date().toISOString();
 
   diagnostics.counts[eventType] += 1;
+  diagnostics.reasons[reason] += 1;
   diagnostics.lastIgnoredReason = reason;
   diagnostics.lastIgnoredEventType = eventType;
   diagnostics.lastIgnoredVoiceStatus = voiceStatus;
+  context.store.setIgnoredAssistantOutputDiagnostics({
+    totalCount: Object.values(diagnostics.counts).reduce((sum, count) => sum + count, 0),
+    countsByEventType: {
+      textDelta: diagnostics.counts['text-delta'],
+      outputTranscript: diagnostics.counts['output-transcript'],
+      audioChunk: diagnostics.counts['audio-chunk'],
+      turnComplete: diagnostics.counts['turn-complete'],
+    },
+    countsByReason: {
+      turnUnavailable: diagnostics.reasons['turn-unavailable'],
+      lifecycleFence: diagnostics.reasons['lifecycle-fence'],
+      noOpenTurnFence: diagnostics.reasons['no-open-turn-fence'],
+    },
+    lastIgnoredAt: ignoredAt,
+    lastIgnoredReason: diagnostics.lastIgnoredReason,
+    lastIgnoredEventType: diagnostics.lastIgnoredEventType,
+    lastIgnoredVoiceSessionStatus: diagnostics.lastIgnoredVoiceStatus,
+  });
 
   return {
+    ignoredAt,
     voiceStatus,
     eventType,
     ignoreReason: reason,
@@ -172,6 +243,7 @@ export function handleTransportTurnEvent(
 
   switch (event.type) {
     case 'interrupted':
+      resetAssistantTextFallback(context);
       if (!ops.hasOpenVoiceTurnFence() && !ops.hasPendingVoiceToolCall()) {
         ops.logRuntimeDiagnostic('voice-session', 'ignored interrupted event without an open turn fence', {});
         return;
@@ -193,15 +265,18 @@ export function handleTransportTurnEvent(
         return;
       }
 
+      recordAssistantTextFallback(context);
       ops.appendAssistantDraftTextDelta(event.text);
       return;
 
     case 'input-transcript':
+      recordTranscriptArrival(context, 'input');
       ops.applySpeechLifecycleEvent({ type: 'user.speech.detected' });
       ops.applyVoiceTranscriptUpdate('user', event.text, event.isFinal);
       return;
 
     case 'output-transcript':
+      recordTranscriptArrival(context, 'output');
       if (shouldIgnoreTranscriptOrAudio(context, 'output-transcript')) {
         return;
       }
@@ -252,6 +327,7 @@ export function handleTransportTurnEvent(
     }
 
     case 'turn-complete':
+      resetAssistantTextFallback(context);
       if (!ops.hasOpenVoiceTurnFence()) {
         ops.logRuntimeDiagnostic('voice-session', 'ignored turn-complete without an open turn fence', {
           ...buildIgnoredAssistantOutputDetail(context, 'turn-complete', 'no-open-turn-fence'),

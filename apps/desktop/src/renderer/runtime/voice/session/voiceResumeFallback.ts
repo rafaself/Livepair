@@ -15,8 +15,22 @@ export function createVoiceResumeFallbackController({
   resumeHandle,
   getTokenToUse,
 }: CreateVoiceResumeFallbackControllerOptions) {
+  const recordRecoveryTransition = (
+    transition: 'fallback-connected' | 'fallback-failed',
+    detail: string,
+  ): void => {
+    const store = ops.store.getState();
+    store.setVoiceSessionRecoveryDiagnostics({
+      transitionCount: store.voiceSessionRecoveryDiagnostics.transitionCount + 1,
+      lastTransition: transition,
+      lastTransitionAt: new Date().toISOString(),
+      lastRecoveryDetail: detail,
+    });
+  };
+
   const finalizeFailedFallback = (failureDetail: string): void => {
     const tokenToUse = getTokenToUse();
+    recordRecoveryTransition('fallback-failed', failureDetail);
     ops.setVoiceSessionResumption({
       status: 'resumeFailed',
       latestHandle: resumeHandle,
@@ -63,6 +77,7 @@ export function createVoiceResumeFallbackController({
     }
 
     if (fallbackResult.status === 'connected') {
+      recordRecoveryTransition('fallback-connected', failureDetail);
       return;
     }
 

@@ -95,4 +95,77 @@ describe('AssistantPanelDebugView', () => {
 
     expect(onToggleSaveScreenFrames).toHaveBeenCalledTimes(1);
   });
+
+  it('renders compact speech/chat diagnostics for capability, transcript, ignored-output, and recovery state', () => {
+    useSessionStore.setState({
+      activeVoiceSessionGroundingEnabled: true,
+      effectiveVoiceSessionCapabilities: {
+        responseModality: 'AUDIO',
+        inputAudioTranscriptionEnabled: true,
+        outputAudioTranscriptionEnabled: true,
+        sessionResumptionEnabled: true,
+      },
+      voiceTranscriptDiagnostics: {
+        inputTranscriptCount: 3,
+        lastInputTranscriptAt: '2026-03-16T12:11:00.000Z',
+        outputTranscriptCount: 0,
+        lastOutputTranscriptAt: null,
+        assistantTextFallbackCount: 2,
+        lastAssistantTextFallbackAt: '2026-03-16T12:11:03.000Z',
+        lastAssistantTextFallbackReason: 'missing-output-transcript',
+      },
+      ignoredAssistantOutputDiagnostics: {
+        totalCount: 4,
+        countsByEventType: {
+          textDelta: 1,
+          outputTranscript: 1,
+          audioChunk: 2,
+          turnComplete: 0,
+        },
+        countsByReason: {
+          turnUnavailable: 2,
+          lifecycleFence: 1,
+          noOpenTurnFence: 1,
+        },
+        lastIgnoredAt: '2026-03-16T12:11:04.000Z',
+        lastIgnoredReason: 'lifecycle-fence',
+        lastIgnoredEventType: 'audio-chunk',
+        lastIgnoredVoiceSessionStatus: 'recovering',
+      },
+      voiceSessionRecoveryDiagnostics: {
+        transitionCount: 5,
+        lastTransition: 'resume-connect-failed',
+        lastTransitionAt: '2026-03-16T12:11:05.000Z',
+        lastRecoveryDetail: 'resume rejected',
+        lastTurnResetReason: 'new-user-transcript',
+        lastTurnResetAt: '2026-03-16T12:11:06.000Z',
+      },
+    } as never);
+
+    render(
+      <AssistantPanelDebugView
+        saveScreenFramesEnabled={false}
+        screenFrameDumpDirectoryPath={null}
+        onToggleSaveScreenFrames={() => undefined}
+        onRetryBackendHealth={async () => undefined}
+      />,
+    );
+
+    expect(screen.getByText('Speech/chat diagnostics')).toBeVisible();
+    expect(screen.getByText('Response modality')).toBeVisible();
+    expect(screen.getByText('AUDIO')).toBeVisible();
+    expect(screen.getByText('Grounding')).toBeVisible();
+    expect(screen.getByText('Input transcripts')).toBeVisible();
+    expect(screen.getByText('3 (last: 2026-03-16T12:11:00.000Z)')).toBeVisible();
+    expect(screen.getByText('Assistant text fallback')).toBeVisible();
+    expect(screen.getByText('2 (last: 2026-03-16T12:11:03.000Z)')).toBeVisible();
+    expect(screen.getByText('Ignored output by event')).toBeVisible();
+    expect(screen.getByText('text 1 / transcript 1 / audio 2 / turn 0')).toBeVisible();
+    expect(screen.getByText('Last ignored output')).toBeVisible();
+    expect(screen.getByText('lifecycle fence / audio chunk / recovering')).toBeVisible();
+    expect(screen.getByText('Last recovery transition')).toBeVisible();
+    expect(screen.getByText('resume connect failed @ 2026-03-16T12:11:05.000Z')).toBeVisible();
+    expect(screen.getByText('Last turn reopen/reset')).toBeVisible();
+    expect(screen.getByText('new user transcript @ 2026-03-16T12:11:06.000Z')).toBeVisible();
+  });
 });
