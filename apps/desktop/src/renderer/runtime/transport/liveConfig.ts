@@ -9,6 +9,10 @@ import {
 
 export const LIVE_PROVIDER = 'gemini' as const;
 export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
+// Always-active baseline: model must not state unverifiable facts confidently.
+export const LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION =
+  'If you cannot verify a factual claim from provided context or tool output, say the answer is not verified.';
+// Appended only when grounding is enabled: routes project and web queries to the right sources.
 export const LIVE_GROUNDING_POLICY_INSTRUCTION =
   'Use provided context, built-in Google Search grounding, and explicit tool output as the source of truth for factual claims. For project-specific factual questions about this codebase, architecture, implementation details, or internal docs/specs, call search_project_knowledge. For public or current facts that may have changed, rely on Google Search grounding instead of model memory. For runtime state, user/device/session facts, and actions, use explicit local state or tools rather than web grounding. Do not use search_project_knowledge for public web facts, direct runtime state, brainstorming, or stylistic editing. If grounding or tool evidence is weak or ambiguous, say the answer is not verified. Keep non-factual replies natural and avoid reading out source lists unless the user asks.';
 
@@ -112,7 +116,8 @@ export function composeLiveSystemInstruction(
   } = {},
 ): string {
   if (options.groundingEnabled === false) {
-    return systemInstruction;
+    // Grounding routing is disabled, but baseline factual caution remains.
+    return `${systemInstruction}\n\n${LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION}`;
   }
 
   return `${systemInstruction}\n\n${LIVE_GROUNDING_POLICY_INSTRUCTION}`;
