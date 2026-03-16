@@ -104,7 +104,7 @@ export function AssistantPanelPreferencesView({
                 ),
               },
               {
-                label: 'Message timestamps',
+                label: 'Show message timestamps',
                 value: (
                   <Switch
                     aria-label="Message timestamps"
