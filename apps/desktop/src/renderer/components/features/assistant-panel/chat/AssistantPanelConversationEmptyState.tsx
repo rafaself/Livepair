@@ -8,7 +8,7 @@ export type AssistantPanelConversationEmptyStateProps = {
   isLiveSessionActive: boolean;
   lastRuntimeError: string | null;
   onStartSpeechMode?: () => Promise<void>;
-  onStartSpeechModeWithScreen?: () => Promise<void>;
+  onStartSpeechModeWithScreen?: () => Promise<boolean | void>;
 };
 
 export function AssistantPanelConversationEmptyState({
@@ -103,9 +103,16 @@ export function AssistantPanelConversationEmptyState({
               onClick={() => {
                 if (!onStartSpeechModeWithScreen) return;
                 setIsStarting(true);
-                void onStartSpeechModeWithScreen().catch(() => {
-                  setIsStarting(false);
-                });
+                void onStartSpeechModeWithScreen().then(
+                  (didStart) => {
+                    if (didStart === false) {
+                      setIsStarting(false);
+                    }
+                  },
+                  () => {
+                    setIsStarting(false);
+                  },
+                );
               }}
             >
               {isStarting ? (
