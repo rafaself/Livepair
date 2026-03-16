@@ -173,6 +173,72 @@ describe('handleGeminiLiveSdkMessage', () => {
     expect(harness.state.hasPendingTextResponse).toBe(false);
   });
 
+  it('derives bounded web-grounded answer metadata from grounding support', () => {
+    const harness = createHarness();
+
+    harness.dispatch({
+      serverContent: {
+        groundingMetadata: {
+          groundingSupports: [
+            {
+              segment: {
+                text: 'Latest stable version is 9.1.',
+              },
+              groundingChunkIndices: [0],
+            },
+          ],
+          groundingChunks: [
+            {
+              web: {
+                title: 'Release notes',
+                uri: 'https://example.com/releases',
+              },
+            },
+          ],
+          webSearchQueries: ['latest stable version'],
+        },
+      },
+    });
+
+    expect(harness.events).toContainEqual({
+      type: 'answer-metadata',
+      answerMetadata: {
+        provenance: 'web_grounded',
+        confidence: 'high',
+        citations: [
+          {
+            label: 'Release notes',
+            uri: 'https://example.com/releases',
+          },
+        ],
+        reason: 'Derived from Gemini Live grounding metadata with web support.',
+      },
+    });
+  });
+
+  it('marks grounded web answers as unverified when grounding metadata has no usable support', () => {
+    const harness = createHarness();
+
+    harness.dispatch({
+      serverContent: {
+        groundingMetadata: {
+          webSearchQueries: ['latest stable version'],
+          groundingChunks: [],
+          groundingSupports: [],
+        },
+      },
+    });
+
+    expect(harness.events).toContainEqual({
+      type: 'answer-metadata',
+      answerMetadata: {
+        provenance: 'unverified',
+        confidence: 'low',
+        reason: 'Google Search grounding did not return enough supporting evidence.',
+      },
+    });
+  });
+
   it('clears transient text-response tracking and short-circuits later handling when Gemini interrupts the turn', () => {
     const harness = createHarness();
     harness.state.hasPendingTextResponse = true;
