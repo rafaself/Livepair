@@ -152,6 +152,7 @@ describe('createGeminiLiveTransport', () => {
       apiVersion: 'v1alpha',
       model: 'models/gemini-2.0-flash-exp',
       config: {
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
         responseModalities: ['TEXT'],
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
@@ -213,7 +214,6 @@ describe('createGeminiLiveTransport', () => {
       model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
       config: {
         responseModalities: ['TEXT'],
-        mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
     });
