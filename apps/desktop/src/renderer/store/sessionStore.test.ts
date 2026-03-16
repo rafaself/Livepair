@@ -113,7 +113,7 @@ describe('sessionStore', () => {
     useSessionStore.getState().setBackendState('failed');
     useSessionStore.getState().setTokenRequestState('success');
     useSessionStore.getState().setActiveTransport('gemini-live');
-    useSessionStore.getState().setScreenCaptureState('streaming');
+    useSessionStore.getState().setScreenCaptureState('capturing');
     useSessionStore.getState().setScreenCaptureDiagnostics({ frameCount: 10 });
 
     useSessionStore.getState().reset();
@@ -563,8 +563,8 @@ describe('sessionStore', () => {
       useSessionStore.getState().setScreenCaptureState('capturing');
       expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
 
-      useSessionStore.getState().setScreenCaptureState('streaming');
-      expect(useSessionStore.getState().screenCaptureState).toBe('streaming');
+      useSessionStore.getState().setScreenCaptureState('capturing');
+      expect(useSessionStore.getState().screenCaptureState).toBe('capturing');
 
       useSessionStore.getState().setScreenCaptureState('error');
       expect(useSessionStore.getState().screenCaptureState).toBe('error');

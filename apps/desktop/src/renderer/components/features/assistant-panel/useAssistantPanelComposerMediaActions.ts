@@ -34,8 +34,7 @@ export type AssistantPanelComposerMediaActions = {
 function isScreenCaptureActive(screenCaptureState: ScreenCaptureState): boolean {
   return (
     screenCaptureState === 'ready' ||
-    screenCaptureState === 'capturing' ||
-    screenCaptureState === 'streaming'
+    screenCaptureState === 'capturing'
   );
 }
 

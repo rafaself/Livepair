@@ -75,9 +75,8 @@ export type {
 } from './screen/screen.types';
 export type {
   VisualSendDiagnostics,
-  VisualSendState,
-  VisualSendTransitionReason,
-} from './screen/visualSendPolicy';
+  VisualSendEvent,
+} from './screen/screenContextDiagnostics';
 export type {
   SpeechLifecycle,
   SpeechLifecycleStatus,

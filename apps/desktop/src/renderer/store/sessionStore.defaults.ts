@@ -18,6 +18,12 @@ import {
   type VoiceCaptureDiagnostics,
   type VoicePlaybackDiagnostics,
 } from '../runtime/public';
+import {
+  CONTINUOUS_SCREEN_SEND_INTERVAL_MS,
+} from '../runtime/screen/screenCaptureController';
+import {
+  createDefaultVisualSendDiagnostics as createDefaultScreenContextDiagnostics,
+} from '../runtime/screen/screenContextDiagnostics';
 import type { SessionStoreData } from './sessionStore.types';
 
 export function withDerivedLifecycleFields(
@@ -80,17 +86,7 @@ export function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics
 }
 
 export function buildDefaultVisualSendDiagnostics(): VisualSendDiagnostics {
-  return {
-    lastTransitionReason: null,
-    snapshotCount: 0,
-    streamingEnteredAt: null,
-    streamingEndedAt: null,
-    sentByState: { snapshot: 0, streaming: 0 },
-    droppedByPolicy: 0,
-    blockedByGateway: 0,
-    triggerSnapshotCount: 0,
-    burstCount: 0,
-  };
+  return createDefaultScreenContextDiagnostics(CONTINUOUS_SCREEN_SEND_INTERVAL_MS);
 }
 
 export function buildDefaultSessionState(): SessionStoreData {

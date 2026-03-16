@@ -132,7 +132,7 @@ export function formatOverlayMaskReason(
 }
 
 export function formatVisualTransitionReason(
-  reason: VisualSendDiagnostics['lastTransitionReason'],
+  reason: VisualSendDiagnostics['lastEvent'],
 ): string {
   if (reason === null) {
     return 'None';
@@ -146,20 +146,28 @@ export function formatVisualTransitionReason(
     return 'Screen share stopped';
   }
 
-  if (reason === 'analyzeScreenNow') {
-    return 'Send screen now';
+  if (reason === 'manualSendRequested') {
+    return 'Manual send requested';
   }
 
-  if (reason === 'snapshotConsumed') {
+  if (reason === 'manualFrameSent') {
     return 'Manual send completed';
   }
 
-  if (reason === 'enableStreaming') {
-    return 'Continuous sharing enabled';
+  if (reason === 'manualSendBlocked') {
+    return 'Manual send blocked';
   }
 
-  if (reason === 'stopStreaming') {
+  if (reason === 'continuousStarted') {
+    return 'Continuous sending started';
+  }
+
+  if (reason === 'continuousStopped') {
     return 'Continuous sharing stopped';
+  }
+
+  if (reason === 'continuousFrameSent') {
+    return 'Continuous frame sent';
   }
 
   return reason;

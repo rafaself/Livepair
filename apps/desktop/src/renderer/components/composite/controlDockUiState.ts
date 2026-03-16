@@ -165,8 +165,7 @@ export function createControlDockUiState({
     screenCaptureState === 'requestingPermission' || screenCaptureState === 'stopping';
   const isScreenContextActive =
     screenCaptureState === 'ready' ||
-    screenCaptureState === 'capturing' ||
-    screenCaptureState === 'streaming';
+    screenCaptureState === 'capturing';
   const isScreenContextAvailable = canToggleScreenContext(controlGatingSnapshot);
   const showSpeechControls = shouldShowSpeechControls(controlGatingSnapshot);
 

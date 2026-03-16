@@ -1,8 +1,4 @@
 import {
-  createVisualSendPolicy,
-} from './visualSendPolicy';
-import type { VisualSendPolicyOptions } from './visualSendPolicy';
-import {
   createScreenCaptureLifecycle,
 } from './controller/screenCaptureLifecycle';
 import {
@@ -16,15 +12,11 @@ import {
   createScreenFrameSendCoordinator,
 } from './controller/screenFrameSendCoordinator';
 import {
-  createVisualChangeDetector,
-  createBurstSendGate,
-} from './visualChangeDetector';
-import type { VisualChangeDetectorOptions, BurstSendGateOptions } from './visualChangeDetector';
-import {
-  createAdaptiveQualityPolicy,
-  QUALITY_PROMOTION_DURATION_MS,
-} from './adaptiveQualityPolicy';
-import type { ContinuousScreenQuality } from '../../../shared/settings';
+  createDefaultVisualSendDiagnostics,
+  type VisualSendEvent,
+} from './screenContextDiagnostics';
+import type { ContinuousScreenQuality, ScreenContextMode } from '../../../shared/settings';
+import { getScreenCaptureQualityParams } from './screenCapturePolicy';
 import type {
   CreateScreenCapture,
   GetRealtimeOutboundGateway,
@@ -34,38 +26,16 @@ import type {
   ScreenFrameDumpControls,
   StopScreenCaptureOptions,
 } from './controller/screenCaptureControllerTypes';
+import type { LocalScreenFrame } from './screen.types';
 
 export type { ScreenCaptureController } from './controller/screenCaptureControllerTypes';
 
-/** Default burst duration in milliseconds. */
-export const VISUAL_BURST_DURATION_MS = 5000;
-
-/** Consecutive non-change frames required to end a burst early (stabilization). */
-export const VISUAL_BURST_STABLE_FRAMES = 3;
-
-/** Minimum interval between burst frame sends in milliseconds. */
-export const VISUAL_BURST_SEND_COOLDOWN_MS = 1000;
-
-/** Hard cap on frames sent per burst (Wave 6). */
-export const VISUAL_BURST_MAX_FRAMES = 5;
-
-/** Absolute maximum burst lifetime in milliseconds, regardless of timer resets (Wave 6). */
-export const VISUAL_BURST_MAX_LIFETIME_MS = 15_000;
-
-/** Minimum interval between consecutive bursts in milliseconds (Wave 6). */
-export const VISUAL_BURST_REENTRY_COOLDOWN_MS = 3_000;
+export const CONTINUOUS_SCREEN_SEND_INTERVAL_MS = 3000;
+export const MANUAL_SEND_DEBOUNCE_MS = 1_000;
 
 export type ScreenCaptureControllerOptions = {
-  visualSendPolicyOptions?: VisualSendPolicyOptions;
-  visualChangeDetectorOptions?: VisualChangeDetectorOptions;
-  burstSendGateOptions?: BurstSendGateOptions;
-  burstDurationMs?: number;
-  burstStableFrames?: number;
-  burstSendCooldownMs?: number;
-  burstMaxFrames?: number;
-  burstMaxLifetimeMs?: number;
-  burstReentryCooldownMs?: number;
-  promotionDurationMs?: number;
+  continuousSendIntervalMs?: number;
+  nowMs?: () => number;
 };
 
 export function createScreenCaptureController(
@@ -76,199 +46,129 @@ export function createScreenCaptureController(
   screenFrameDumpControls?: ScreenFrameDumpControls,
   controllerOptions?: ScreenCaptureControllerOptions,
   getBaselineQuality?: () => ContinuousScreenQuality,
+  getScreenContextMode?: () => ScreenContextMode,
 ): ScreenCaptureController {
-  const burstDurationMs = controllerOptions?.burstDurationMs ?? VISUAL_BURST_DURATION_MS;
-  const burstStableFrames = controllerOptions?.burstStableFrames ?? VISUAL_BURST_STABLE_FRAMES;
-  const burstSendCooldownMs = controllerOptions?.burstSendCooldownMs ?? VISUAL_BURST_SEND_COOLDOWN_MS;
-  const burstMaxFrames = controllerOptions?.burstMaxFrames ?? VISUAL_BURST_MAX_FRAMES;
-  const burstMaxLifetimeMs = controllerOptions?.burstMaxLifetimeMs ?? VISUAL_BURST_MAX_LIFETIME_MS;
-  const burstReentryCooldownMs = controllerOptions?.burstReentryCooldownMs ?? VISUAL_BURST_REENTRY_COOLDOWN_MS;
-  const promotionDurationMs = controllerOptions?.promotionDurationMs ?? QUALITY_PROMOTION_DURATION_MS;
-  const nowMs = controllerOptions?.visualSendPolicyOptions?.nowMs ?? (() => Date.now());
-  const visualPolicy = createVisualSendPolicy({
-    ...controllerOptions?.visualSendPolicyOptions,
-    burstMaxFrames,
-    burstReentryCooldownMs,
-  });
+  const continuousSendIntervalMs = Math.max(
+    1,
+    controllerOptions?.continuousSendIntervalMs ?? CONTINUOUS_SCREEN_SEND_INTERVAL_MS,
+  );
+  const nowMs = controllerOptions?.nowMs ?? (() => Date.now());
   const controllerState = createScreenCaptureControllerState();
-  const visualChangeDetector = createVisualChangeDetector(
-    controllerOptions?.visualChangeDetectorOptions,
-  );
-  const burstSendGate = createBurstSendGate(controllerOptions?.burstSendGateOptions);
 
-  // Passive burst heuristics – the policy owns the active/cooldown state, while
-  // the controller owns change detection, timers, and burst-local send gating.
-  let burstTimer: ReturnType<typeof setTimeout> | null = null;
-  let burstLifetimeTimer: ReturnType<typeof setTimeout> | null = null;
-  let burstStableFrameCount = 0;
-  let lastBurstSendAt = 0;
-  let passiveBurstStartedAt = 0;
+  const resolveRuntimeScreenContextMode = (): 'manual' | 'continuous' => {
+    return getScreenContextMode?.() === 'continuous' ? 'continuous' : 'manual';
+  };
+  const isManualMode = (): boolean => resolveRuntimeScreenContextMode() === 'manual';
+  const resolveRequestedCaptureQuality = (): ContinuousScreenQuality => {
+    return isManualMode() ? 'high' : (getBaselineQuality?.() ?? 'medium');
+  };
+  const toIsoTimestamp = (timestampMs: number): string => new Date(timestampMs).toISOString();
 
-  // ── Adaptive quality ──────────────────────────────────────────────────
-  //
-  // Quality policy is lazily created at start() using the current baseline
-  // from settings.  This ensures we pick up the latest user preference.
-
-  let qualityPolicy = createAdaptiveQualityPolicy(
-    getBaselineQuality?.() ?? 'high',
-  );
-  let promotionTimer: ReturnType<typeof setTimeout> | null = null;
-
-  const clearPromotionTimer = (): void => {
-    if (promotionTimer !== null) {
-      clearTimeout(promotionTimer);
-      promotionTimer = null;
-    }
+  let latestCapturedFrame: LocalScreenFrame | null = null;
+  let continuousTimer: ReturnType<typeof setInterval> | null = null;
+  let resetFrameSendChain: () => void = () => {};
+  let stopInternal: (options?: StopScreenCaptureOptions) => Promise<void> = async () => {
+    throw new Error('stopInternal called before initialization');
   };
 
-  const applyQualityToCapture = (): void => {
-    const capture = controllerState.getActiveCapture();
-    if (capture) {
-      capture.capture.updateQuality(qualityPolicy.getEffectiveParams());
-    }
-  };
+  let diagnostics = createDefaultVisualSendDiagnostics(continuousSendIntervalMs);
+  let manualSendPending = false;
+  let lastManualSendRequestedAt = Number.NEGATIVE_INFINITY;
 
-  const endPromotion = (): void => {
-    clearPromotionTimer();
-    if (!qualityPolicy.isPromoted()) {
-      return;
-    }
-    qualityPolicy.endPromotion();
-    applyQualityToCapture();
-  };
-
-  const promoteQuality = (): void => {
-    const wasPromoted = qualityPolicy.isPromoted();
-    qualityPolicy.promote();
-    if (!qualityPolicy.isPromoted()) return; // no-op (already High baseline)
-    if (!wasPromoted) applyQualityToCapture();
-    clearPromotionTimer();
-    promotionTimer = setTimeout(() => {
-      promotionTimer = null;
-      endPromotion();
-    }, promotionDurationMs);
-  };
-
-  const resetQualityState = (): void => {
-    clearPromotionTimer();
-    qualityPolicy.reset();
-  };
-
-  const armSnapshot = (action: () => void): boolean => {
-    const previousState = visualPolicy.getState();
-    action();
-    return previousState !== 'snapshot' && visualPolicy.getState() === 'snapshot';
+  const setLastEvent = (lastEvent: VisualSendEvent): void => {
+    diagnostics = {
+      ...diagnostics,
+      lastEvent,
+    };
   };
 
   const flushVisualDiagnostics = (): void => {
-    store.getState().setVisualSendDiagnostics(visualPolicy.getDiagnostics());
+    store.getState().setVisualSendDiagnostics(diagnostics);
   };
 
   const resetDiagnostics = (): void => {
     store.getState().setScreenCaptureDiagnostics(createEmptyScreenCaptureDiagnostics());
   };
 
-  let stopInternal: (options?: StopScreenCaptureOptions) => Promise<void> = async () => {
-    throw new Error('stopInternal called before initialization');
-  };
+  const applyCaptureQuality = (): void => {
+    const activeCapture = controllerState.getActiveCapture();
 
-  // ── Burst timer management ───────────────────────────────────────────────
-
-  const clearBurstTimer = (): void => {
-    if (burstTimer !== null) {
-      clearTimeout(burstTimer);
-      burstTimer = null;
-    }
-  };
-
-  const clearBurstLifetimeTimer = (): void => {
-    if (burstLifetimeTimer !== null) {
-      clearTimeout(burstLifetimeTimer);
-      burstLifetimeTimer = null;
-    }
-  };
-
-  let resetFrameSendChain = (): void => {};
-
-  const clearPassiveBurstTracking = (dropPendingFrame = false): void => {
-    burstStableFrameCount = 0;
-    lastBurstSendAt = 0;
-    passiveBurstStartedAt = 0;
-    clearBurstTimer();
-    clearBurstLifetimeTimer();
-    burstSendGate.reset();
-    if (dropPendingFrame) {
-      resetFrameSendChain();
-    }
-  };
-
-  const endBurst = (): void => {
-    if (!visualPolicy.isPassiveBurstActive()) return;
-    clearPassiveBurstTracking();
-    visualPolicy.endBurst();
-    flushVisualDiagnostics();
-  };
-
-  const resetBurstTimer = (): void => {
-    clearBurstTimer();
-    burstTimer = setTimeout(() => {
-      burstTimer = null;
-      endBurst();
-    }, burstDurationMs);
-  };
-
-  const resetBurstLifetimeTimer = (): void => {
-    clearBurstLifetimeTimer();
-    burstLifetimeTimer = setTimeout(() => {
-      burstLifetimeTimer = null;
-      endBurst();
-    }, burstMaxLifetimeMs);
-  };
-
-  const startBurst = (): void => {
-    const wasPassiveBurstActive = visualPolicy.isPassiveBurstActive();
-    visualPolicy.startBurst();
-    if (wasPassiveBurstActive || !visualPolicy.isPassiveBurstActive()) {
+    if (!activeCapture) {
       return;
     }
-    clearPassiveBurstTracking();
-    passiveBurstStartedAt = nowMs();
+
+    activeCapture.capture.updateQuality(
+      getScreenCaptureQualityParams(resolveRequestedCaptureQuality()),
+    );
+  };
+
+  const stopContinuousSending = (
+    reason: VisualSendEvent = 'continuousStopped',
+    options: { dropPendingFrame?: boolean } = {},
+  ): void => {
+    if (continuousTimer !== null) {
+      clearInterval(continuousTimer);
+      continuousTimer = null;
+    }
+
+    if (options.dropPendingFrame) {
+      resetFrameSendChain();
+    }
+
+    if (!diagnostics.continuousActive) {
+      return;
+    }
+
+    diagnostics = {
+      ...diagnostics,
+      continuousActive: false,
+      continuousStoppedAt: toIsoTimestamp(nowMs()),
+    };
+    setLastEvent(reason);
+
     flushVisualDiagnostics();
-    resetBurstTimer();
-    resetBurstLifetimeTimer();
   };
 
-  // ── Visual change detection (called for every captured frame) ────────────
-
-  const handleFrameCaptured = (frame: { data: Uint8Array }): void => {
-    if (
-      visualPolicy.isPassiveBurstActive()
-      && nowMs() - passiveBurstStartedAt >= burstMaxLifetimeMs
-    ) {
-      endBurst();
+  const startContinuousSending = (): void => {
+    if (continuousTimer !== null || !controllerState.isActive() || isManualMode()) {
+      return;
     }
 
-    const changed = visualChangeDetector.onFrame(frame);
+    manualSendPending = false;
+    diagnostics = {
+      ...diagnostics,
+      manualSendPending: false,
+      continuousActive: true,
+      continuousStartedAt: toIsoTimestamp(nowMs()),
+    };
+    setLastEvent('continuousStarted');
+    applyCaptureQuality();
+    flushVisualDiagnostics();
 
-    if (changed) {
-      if (visualPolicy.getState() === 'sleep') {
-        startBurst();
-      } else if (visualPolicy.isPassiveBurstActive()) {
-        // Decay: subtract 1 credit instead of resetting to 0.
-        // This way intermittent noise slows stabilization rather than
-        // preventing it entirely.
-        burstStableFrameCount = Math.max(0, burstStableFrameCount - 1);
-        resetBurstTimer();
+    continuousTimer = setInterval(() => {
+      if (!controllerState.isActive()) {
+        return;
       }
-    } else if (visualPolicy.isPassiveBurstActive()) {
-      burstStableFrameCount += 1;
-      if (burstStableFrameCount >= burstStableFrames) {
-        endBurst();
+
+      if (isManualMode()) {
+        stopContinuousSending('continuousStopped', { dropPendingFrame: true });
+        return;
       }
-    }
+
+      applyCaptureQuality();
+
+      if (latestCapturedFrame) {
+        void frameSendCoordinator.enqueueFrameSend(latestCapturedFrame);
+      }
+    }, continuousSendIntervalMs);
   };
 
-  // ── Frame pipeline coordinators ──────────────────────────────────────────
+  const canArmManualSend = (): boolean => {
+    return (
+      !manualSendPending
+      && nowMs() - lastManualSendRequestedAt >= MANUAL_SEND_DEBOUNCE_MS
+    );
+  };
 
   const frameDumpCoordinator = createScreenFrameDumpCoordinator({
     screenFrameDumpControls,
@@ -283,43 +183,26 @@ export function createScreenCaptureController(
     isCurrentCapture: controllerState.isCurrentCapture,
     getTransport,
     getRealtimeOutboundGateway,
-    allowSend: () => visualPolicy.allowSend(),
-    onFrameDispatched: () => {
-      const wasSnapshot = visualPolicy.getState() === 'snapshot';
-      const wasPassiveBurstActive = visualPolicy.isPassiveBurstActive();
-      visualPolicy.onFrameDispatched();
-      if (wasSnapshot) {
-        endPromotion();
-      }
-      if (wasPassiveBurstActive && !visualPolicy.isPassiveBurstActive()) {
-        clearPassiveBurstTracking();
-      }
+    onFrameAccepted: () => {
       flushVisualDiagnostics();
     },
-    onFrameDroppedByPolicy: () => {
-      visualPolicy.onFrameDroppedByPolicy();
-    },
     onFrameBlockedByGateway: () => {
-      visualPolicy.onFrameBlockedByGateway();
-    },
-    shouldSendFrame: (frame) => {
-      // Only gate burst sends; explicit streaming and snapshots pass through.
-      if (!visualPolicy.isPassiveBurstActive()) return true;
-
-      // Throttle: enforce minimum interval between burst sends.
-      const now = nowMs();
-      if (now - lastBurstSendAt < burstSendCooldownMs) {
-        return false;
+      if (manualSendPending) {
+        manualSendPending = false;
+        diagnostics = {
+          ...diagnostics,
+          manualSendPending: false,
+          blockedByGateway: diagnostics.blockedByGateway + 1,
+        };
+        setLastEvent('manualSendBlocked');
+        flushVisualDiagnostics();
+        return;
       }
 
-      // Visual gate: suppress near-duplicate frames vs last sent.
-      if (!burstSendGate.shouldSend(frame)) {
-        return false;
-      }
-
-      burstSendGate.onFrameSent(frame);
-      lastBurstSendAt = now;
-      return true;
+      diagnostics = {
+        ...diagnostics,
+        blockedByGateway: diagnostics.blockedByGateway + 1,
+      };
     },
     flushVisualDiagnostics,
     onSendStarted: () => {
@@ -328,15 +211,47 @@ export function createScreenCaptureController(
         lastError: null,
       });
     },
-    onSendSucceeded: () => {
-      store.getState().setScreenCaptureState('streaming');
+    onSendSucceeded: (frame) => {
+      const activeCapture = controllerState.getActiveCapture();
+
+      if (activeCapture) {
+        frameDumpCoordinator.persistFrame(activeCapture.capture, activeCapture.generation, frame);
+      }
+
+      if (manualSendPending) {
+        manualSendPending = false;
+        diagnostics = {
+          ...diagnostics,
+          manualSendPending: false,
+          manualFramesSentCount: diagnostics.manualFramesSentCount + 1,
+          lastManualFrameAt: toIsoTimestamp(nowMs()),
+        };
+        setLastEvent('manualFrameSent');
+        store.getState().setScreenCaptureState('capturing');
+      } else {
+        diagnostics = {
+          ...diagnostics,
+          continuousFramesSentCount: diagnostics.continuousFramesSentCount + 1,
+          lastContinuousFrameAt: toIsoTimestamp(nowMs()),
+        };
+        setLastEvent('continuousFrameSent');
+        store.getState().setScreenCaptureState('capturing');
+      }
+
       store.getState().setScreenCaptureDiagnostics({
         lastUploadStatus: 'sent',
         lastError: null,
       });
+      flushVisualDiagnostics();
     },
     onSendFailed: (detail) => {
+      manualSendPending = false;
+      diagnostics = {
+        ...diagnostics,
+        manualSendPending: false,
+      };
       store.getState().setLastRuntimeError(detail);
+      stopContinuousSending('continuousStopped', { dropPendingFrame: true });
       void stopInternal({
         nextState: 'error',
         detail,
@@ -346,7 +261,22 @@ export function createScreenCaptureController(
     },
   });
 
-  // ── Lifecycle ────────────────────────────────────────────────────────────
+  resetFrameSendChain = frameSendCoordinator.reset;
+
+  const handleFrameCaptured = (frame: LocalScreenFrame): void => {
+    latestCapturedFrame = frame;
+    applyCaptureQuality();
+
+    if (isManualMode()) {
+      stopContinuousSending('continuousStopped', { dropPendingFrame: true });
+      if (manualSendPending) {
+        void frameSendCoordinator.enqueueFrameSend(frame);
+      }
+      return;
+    }
+
+    startContinuousSending();
+  };
 
   const lifecycle = createScreenCaptureLifecycle({
     store,
@@ -357,36 +287,39 @@ export function createScreenCaptureController(
     frameDumpCoordinator,
     frameSendCoordinator,
     onFrameCaptured: handleFrameCaptured,
-    getCaptureStartParams: () => qualityPolicy.getEffectiveParams(),
+    getCaptureStartParams: () => getScreenCaptureQualityParams(resolveRequestedCaptureQuality()),
     onScreenShareStarted: () => {
-      visualPolicy.onScreenShareStarted();
-      // Bootstrap: send exactly one initial frame so the model has visual
-      // context, then return to sleep.  Continuous streaming is NOT enabled
-      // by default — the visual send policy remains the authority over
-      // subsequent frame delivery.
-      visualPolicy.armBootstrapSnapshot();
+      latestCapturedFrame = null;
+      diagnostics = {
+        ...diagnostics,
+        manualSendPending: false,
+      };
+      setLastEvent('screenShareStarted');
       flushVisualDiagnostics();
+
+      if (!isManualMode()) {
+        startContinuousSending();
+      }
     },
     onScreenShareStopped: () => {
-      clearBurstTimer();
-      clearBurstLifetimeTimer();
-      clearPassiveBurstTracking();
-      visualChangeDetector.reset();
-      resetQualityState();
-      visualPolicy.onScreenShareStopped();
+      latestCapturedFrame = null;
+      manualSendPending = false;
+      lastManualSendRequestedAt = Number.NEGATIVE_INFINITY;
+      stopContinuousSending('continuousStopped', { dropPendingFrame: true });
+      diagnostics = {
+        ...diagnostics,
+        manualSendPending: false,
+      };
+      setLastEvent('screenShareStopped');
       flushVisualDiagnostics();
     },
   });
+
   stopInternal = lifecycle.stopInternal;
-  resetFrameSendChain = frameSendCoordinator.reset;
 
   return {
     start: () => {
-      // Reinitialize quality policy with fresh baseline on each start so
-      // the latest user preference is picked up.
-      qualityPolicy = createAdaptiveQualityPolicy(
-        getBaselineQuality?.() ?? 'high',
-      );
+      applyCaptureQuality();
       return lifecycle.start();
     },
     stop: lifecycle.stop,
@@ -395,68 +328,20 @@ export function createScreenCaptureController(
     enqueueFrameSend: frameSendCoordinator.enqueueFrameSend,
     isActive: lifecycle.isActive,
     resetSendChain: frameSendCoordinator.reset,
-    getVisualSendState: () => visualPolicy.getState(),
     analyzeScreenNow: () => {
-      if (!lifecycle.isActive()) return;
-      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
-      const didArmSnapshot = armSnapshot(() => {
-        visualPolicy.analyzeScreenNow();
-      });
-      if (didArmSnapshot) {
-        promoteQuality();
+      if (!lifecycle.isActive() || !isManualMode() || !canArmManualSend()) {
+        return;
       }
-      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
-        clearPassiveBurstTracking(true);
-      }
-      flushVisualDiagnostics();
-    },
-    enableStreaming: () => {
-      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
-      visualPolicy.enableStreaming();
-      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
-        clearPassiveBurstTracking(true);
-      }
-      flushVisualDiagnostics();
-    },
-    stopStreaming: () => {
-      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
-      // Return to baseline quality when streaming stops.
-      if (qualityPolicy.isPromoted()) {
-        resetQualityState();
-        applyQualityToCapture();
-      }
-      visualPolicy.stopStreaming();
-      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
-        clearPassiveBurstTracking(true);
-      }
-      flushVisualDiagnostics();
-    },
-    onSpeechStart: () => {
-      if (!lifecycle.isActive()) return;
-      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
-      const didArmSnapshot = armSnapshot(() => {
-        visualPolicy.triggerSnapshot('speechTrigger');
-      });
-      if (didArmSnapshot) {
-        promoteQuality();
-      }
-      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
-        clearPassiveBurstTracking(true);
-      }
-      flushVisualDiagnostics();
-    },
-    onTextSent: () => {
-      if (!lifecycle.isActive()) return;
-      const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
-      const didArmSnapshot = armSnapshot(() => {
-        visualPolicy.triggerSnapshot('textTrigger');
-      });
-      if (didArmSnapshot) {
-        promoteQuality();
-      }
-      if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
-        clearPassiveBurstTracking(true);
-      }
+
+      stopContinuousSending('continuousStopped', { dropPendingFrame: true });
+      applyCaptureQuality();
+      manualSendPending = true;
+      lastManualSendRequestedAt = nowMs();
+      diagnostics = {
+        ...diagnostics,
+        manualSendPending: true,
+      };
+      setLastEvent('manualSendRequested');
       flushVisualDiagnostics();
     },
   };
