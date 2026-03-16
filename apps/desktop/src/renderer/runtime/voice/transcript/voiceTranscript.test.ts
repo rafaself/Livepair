@@ -92,6 +92,11 @@ describe('normalizeTranscriptText', () => {
     expect(text).toBe('primeiro trecho segundo trecho terceiro trecho');
   });
 
+  it('keeps apostrophe contractions attached for user transcript chunks', () => {
+    expect(normalizeTranscriptText('It', "'s working", { role: 'user' })).toBe("It's working");
+    expect(normalizeTranscriptText('we', '’re ready', { role: 'user' })).toBe('we’re ready');
+  });
+
   it('stitches user transcript at an overlapping boundary', () => {
     expect(
       normalizeTranscriptText('hello wo', 'wo there', { role: 'user' }),

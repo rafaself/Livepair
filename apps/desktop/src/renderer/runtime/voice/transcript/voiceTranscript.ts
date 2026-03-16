@@ -30,6 +30,14 @@ function canAppendTranscriptChunk(previous: string, incoming: string): boolean {
   return /^[\s,.;!?)]/.test(incoming) || /[\s(/-]$/.test(previous);
 }
 
+function endsWithWordCharacter(text: string): boolean {
+  return /[\p{L}\p{N}]$/u.test(text);
+}
+
+function startsWithApostropheSuffix(incoming: string): boolean {
+  return /^['’](?:s|re|ve|ll|d|m|t|em|cause)(?=$|[\s,.;!?)])/u.test(incoming);
+}
+
 function shouldTreatAsUserCorrection(
   previous: string,
   incoming: string,
@@ -70,7 +78,7 @@ export function normalizeTranscriptText(
     return incoming;
   }
 
-  const sharedPrefixLength = findSharedPrefixLength(previous, incoming);
+  const sharedPrefixLength = role === 'user' ? findSharedPrefixLength(previous, incoming) : 0;
 
   if (previous.includes(incoming)) {
     if (role === 'user' && isFinal && shouldTreatAsUserCorrection(previous, incoming, sharedPrefixLength)) {
@@ -97,6 +105,10 @@ export function normalizeTranscriptText(
   }
 
   if (role === 'user') {
+    if (endsWithWordCharacter(previous) && startsWithApostropheSuffix(incoming)) {
+      return `${previous}${incoming}`;
+    }
+
     if (shouldTreatAsUserCorrection(previous, incoming, sharedPrefixLength)) {
       return incoming;
     }

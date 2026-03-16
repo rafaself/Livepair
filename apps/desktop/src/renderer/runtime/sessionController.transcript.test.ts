@@ -316,6 +316,31 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
   });
 
+  it('keeps apostrophe contractions intact across successive user transcript windows', async () => {
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'speech' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'It' });
+    voiceTransport.emit({ type: 'input-transcript', text: "'s working", isFinal: true });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: "It's working",
+        source: 'voice',
+      }),
+    ]);
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: "It's working",
+        source: 'voice',
+      }),
+    ]);
+  });
+
   it('keeps the same in-progress assistant transcript artifact as transcript corrections arrive', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
