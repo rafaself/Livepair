@@ -7,11 +7,22 @@ import type {
   DurableChatSummaryRecord,
   LiveSessionRecord,
 } from '@livepair/shared-types';
+import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 import type { AddressInfo } from 'net';
 import { randomUUID } from 'node:crypto';
-import { AppModule } from '../app.module';
 import { DatabaseService } from '../database/database.service';
 import { describeWithDatabase, truncateChatMemoryTables } from './testing/database-test-utils';
+
+const CHAT_MEMORY_AUTH_SECRET = 'desktop-secret';
+
+function withAuthHeaders(init: RequestInit = {}): RequestInit {
+  const headers = new Headers(init.headers);
+  headers.set(SESSION_TOKEN_AUTH_HEADER_NAME, CHAT_MEMORY_AUTH_SECRET);
+  return {
+    ...init,
+    headers,
+  };
+}
 
 async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
@@ -22,11 +33,18 @@ async function readText(response: Response): Promise<string> {
 }
 
 describeWithDatabase('ChatMemory HTTP integration', () => {
+  const originalEnv = process.env;
+  const originalFetch = global.fetch;
   let app: INestApplication;
   let baseUrl: string;
   let databaseService: DatabaseService;
 
   beforeAll(async () => {
+    process.env = {
+      ...originalEnv,
+      SESSION_TOKEN_AUTH_SECRET: CHAT_MEMORY_AUTH_SECRET,
+    };
+    const { AppModule } = await import('../app.module');
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -38,6 +56,17 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
     const address = app.getHttpServer().address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
     databaseService = app.get(DatabaseService);
+    global.fetch = ((
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.startsWith(`${baseUrl}/chat-memory`)) {
+        return originalFetch(input, withAuthHeaders(init));
+      }
+
+      return originalFetch(input, init);
+    }) as typeof fetch;
   });
 
   beforeEach(async () => {
@@ -45,6 +74,8 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
   });
 
   afterAll(async () => {
+    process.env = originalEnv;
+    global.fetch = originalFetch;
     if (typeof app !== 'undefined') {
       await app.close();
     }

@@ -12,6 +12,7 @@ import {
   Put,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type {
   AppendChatMessageRequest,
@@ -28,6 +29,7 @@ import { CreateLiveSessionDto } from './dto/create-live-session.dto';
 import { EndLiveSessionDto } from './dto/end-live-session.dto';
 import { UpdateLiveSessionResumptionDto } from './dto/update-live-session-resumption.dto';
 import { UpdateLiveSessionSnapshotDto } from './dto/update-live-session-snapshot.dto';
+import { ChatMemoryAuthGuard } from './chat-memory-auth.guard';
 import { ChatMemoryService } from './chat-memory.service';
 
 type ResponseLike = {
@@ -35,6 +37,7 @@ type ResponseLike = {
 };
 
 @Controller('chat-memory')
+@UseGuards(ChatMemoryAuthGuard)
 export class ChatMemoryController {
   constructor(private readonly chatMemoryService: ChatMemoryService) {}
 

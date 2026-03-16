@@ -4,27 +4,78 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { env, validateApiRuntimeEnv } from './config/env';
 
-validateApiRuntimeEnv();
+function logStartupValidationFailure(error: unknown): void {
+  console.error('[api:startup] invalid configuration', {
+    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    errorName: error instanceof Error ? error.name : 'Error',
+  });
+}
+
+try {
+  validateApiRuntimeEnv();
+} catch (error) {
+  logStartupValidationFailure(error);
+  throw error;
+}
+
+function isAllowedCorsOrigin(
+  origin: string | undefined,
+  allowedOrigins: readonly string[],
+): boolean {
+  if (typeof origin !== 'string' || origin.trim().length === 0) {
+    return true;
+  }
+
+  return allowedOrigins.includes(origin);
+}
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  app.enableCors({
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    origin: (origin, callback) => {
+      if (isAllowedCorsOrigin(origin, env.corsAllowedOrigins)) {
+        callback(null, true);
+        return;
+      }
 
-  const shouldDisableHttpListen = process.env['DISABLE_HTTP_LISTEN'] === 'true';
-  if (shouldDisableHttpListen) {
-    console.warn('HTTP listen disabled (DISABLE_HTTP_LISTEN=true).');
-    if (process.env['NODE_ENV'] === 'test') {
+      callback(new Error('Origin not allowed by CORS'));
+    },
+  });
+
+  if (env.disableHttpListen) {
+    console.warn('[api:startup] HTTP listen disabled', {
+      disableHttpListen: true,
+      host: env.host,
+      port: env.port,
+    });
+    if (env.nodeEnv === 'test') {
       return;
     }
 
     // Keep dev process alive when network binding is intentionally disabled.
     await new Promise<void>(() => undefined);
+    return;
   }
 
-  const port = env.port;
-  const host = env.host;
-  await app.listen(port, host);
-  console.log(`API listening on ${host}:${port}`);
+  await app.listen(env.port, env.host);
+  console.info('[api:startup] listening', {
+    corsAllowedOrigins: env.corsAllowedOrigins,
+    host: env.host,
+    nodeEnv: env.nodeEnv,
+    port: env.port,
+    trustProxy: 1,
+  });
 }
 
-void bootstrap();
+void bootstrap().catch((error) => {
+  console.error('[api:startup] bootstrap failed', {
+    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    errorName: error instanceof Error ? error.name : 'Error',
+    host: env.host,
+    port: env.port,
+  });
+  process.exitCode = 1;
+});

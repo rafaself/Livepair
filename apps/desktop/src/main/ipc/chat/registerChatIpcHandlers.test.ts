@@ -6,6 +6,7 @@ import type {
   DurableChatSummaryRecord,
   LiveSessionRecord,
 } from '@livepair/shared-types';
+import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 import { IPC_CHANNELS } from '../../../shared';
 
 const CHAT_ID = '11111111-1111-1111-1111-111111111111';
@@ -149,7 +150,7 @@ describe('registerChatIpcHandlers', () => {
     )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatRecord | null>;
     const listMessagesHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.listChatMessages,
-    )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatMessageRecord[]>;
+    )?.[1] as (_event: unknown, chatId: unknown, options?: unknown) => Promise<ChatMessageRecord[]>;
     const getChatSummaryHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.getChatSummary,
     )?.[1] as (_event: unknown, chatId: unknown) => Promise<DurableChatSummaryRecord | null>;
@@ -161,7 +162,7 @@ describe('registerChatIpcHandlers', () => {
     )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
     const listLiveSessionsHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.listLiveSessions,
-    )?.[1] as (_event: unknown, chatId: unknown) => Promise<LiveSessionRecord[]>;
+    )?.[1] as (_event: unknown, chatId: unknown, options?: unknown) => Promise<LiveSessionRecord[]>;
     const updateLiveSessionHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.updateLiveSession,
     )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
@@ -241,10 +242,20 @@ describe('registerChatIpcHandlers', () => {
     expect(fetchImpl).toHaveBeenNthCalledWith(
       1,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages?limit=1`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       2,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions?limit=1`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
   });
 
@@ -470,33 +481,63 @@ describe('registerChatIpcHandlers', () => {
 
     expect(fetchImpl).toHaveBeenNthCalledWith(1, 'http://localhost:3000/chat-memory/chats', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
       body: JSON.stringify({ title: 'New chat' }),
     });
     expect(fetchImpl).toHaveBeenNthCalledWith(
       2,
       `http://localhost:3000/chat-memory/chats/${MISSING_CHAT_ID}`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       3,
       'http://localhost:3000/chat-memory/chats/current',
-      { method: 'PUT' },
+      {
+        method: 'PUT',
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
-    expect(fetchImpl).toHaveBeenNthCalledWith(4, 'http://localhost:3000/chat-memory/chats');
+    expect(fetchImpl).toHaveBeenNthCalledWith(4, 'http://localhost:3000/chat-memory/chats', {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
+    });
     expect(fetchImpl).toHaveBeenNthCalledWith(
       5,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       6,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/summary`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       7,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({
           chatId: CHAT_ID,
           role: 'assistant',
@@ -509,20 +550,31 @@ describe('registerChatIpcHandlers', () => {
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({ chatId: CHAT_ID }),
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       9,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       10,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/resumption`,
       {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({
           kind: 'resumption',
           id: LIVE_SESSION_ID,
@@ -539,7 +591,10 @@ describe('registerChatIpcHandlers', () => {
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/snapshot`,
       {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({
           kind: 'snapshot',
           id: LIVE_SESSION_ID,
@@ -560,7 +615,10 @@ describe('registerChatIpcHandlers', () => {
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/end`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({
           id: LIVE_SESSION_ID,
           status: 'ended',

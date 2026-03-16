@@ -8,6 +8,7 @@ import type {
   LiveSessionRecord,
   ProjectKnowledgeSearchResult,
 } from '@livepair/shared-types';
+import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 import { DEFAULT_DESKTOP_SETTINGS, type DesktopSettings } from '../../shared/settings';
 import type { DesktopSettingsService } from '../settings/settingsService';
 
@@ -564,32 +565,58 @@ describe('registerIpcHandlers', () => {
 
     expect(fetchImpl).toHaveBeenNthCalledWith(1, 'http://localhost:3000/chat-memory/chats', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
       body: JSON.stringify({ title: 'New chat' }),
     });
     expect(fetchImpl).toHaveBeenNthCalledWith(
       2,
       'http://localhost:3000/chat-memory/chats/missing-chat-id',
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       3,
       'http://localhost:3000/chat-memory/chats/current',
-      { method: 'PUT' },
+      {
+        method: 'PUT',
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       4,
       'http://localhost:3000/chat-memory/chats/chat-1/messages',
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       5,
       'http://localhost:3000/chat-memory/chats/chat-1/summary',
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       6,
       'http://localhost:3000/chat-memory/chats/chat-1/messages',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({
           chatId: 'chat-1',
           role: 'assistant',
@@ -602,20 +629,31 @@ describe('registerIpcHandlers', () => {
       'http://localhost:3000/chat-memory/chats/chat-1/live-sessions',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({ chatId: 'chat-1' }),
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       8,
       'http://localhost:3000/chat-memory/chats/chat-1/live-sessions',
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       9,
       'http://localhost:3000/chat-memory/live-sessions/live-session-1/resumption',
       {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({
           kind: 'resumption',
           id: 'live-session-1',
@@ -632,7 +670,10 @@ describe('registerIpcHandlers', () => {
       'http://localhost:3000/chat-memory/live-sessions/live-session-1/end',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({
           id: 'live-session-1',
           status: 'ended',

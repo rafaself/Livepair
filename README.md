@@ -340,17 +340,17 @@ cp .env.example .env
 
 The root `.env` is the primary local config file for the normal evaluation flow. The app-local `.env.example` files are still the detailed field-by-field references, but they are not required for the standard quick-start path.
 
-3. Open `.env` and fill in the only required value:
+3. Open `.env` and fill in the only value you must personalize for the normal local flow:
 
 ```bash
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
-> **Required:** `GEMINI_API_KEY` must be set before the API starts. The other local values have defaults and only need to be added when you want to override them.
+> **Required:** `GEMINI_API_KEY` must be set before the API starts. Keep the copied `SESSION_TOKEN_AUTH_SECRET` entry in place as well, because the API now protects both `POST /session/token` and `/chat-memory/*` with that shared secret. The other local values only need changes when you want to override the defaults.
 
 Also keep these paired values aligned:
 
-* `SESSION_TOKEN_AUTH_SECRET` is shared by the API and desktop main process
+* `SESSION_TOKEN_AUTH_SECRET` is shared by the API and desktop main process and protects both `POST /session/token` and `/chat-memory/*`
 * `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL` should point to the same Gemini Live model
 * `VITE_LIVE_API_VERSION` should stay `v1alpha` for the current speech flow
 
@@ -368,7 +368,7 @@ docker compose up -d
 pnpm run dev
 ```
 
-The backend listens on `http://127.0.0.1:3000` by default. Use `pnpm --filter @livepair/api dev` or `pnpm --filter @livepair/desktop dev` only when you want to debug one app independently.
+The backend binds to `0.0.0.0` and is still reachable at `http://127.0.0.1:3000` by default. It also honors `PORT` so the same runtime can move to Cloud Run later without code changes. Use `pnpm --filter @livepair/api dev` or `pnpm --filter @livepair/desktop dev` only when you want to debug one app independently.
 
 ### 🔧 Quick setup notes
 
@@ -497,11 +497,15 @@ Detailed per-app references:
 Key local values:
 
 * `GEMINI_API_KEY` (**required**): backend-only Gemini credential used for `/session/token`
-* `SESSION_TOKEN_AUTH_SECRET`: shared secret that must match between the API and desktop main process
+* `SESSION_TOKEN_AUTH_SECRET` (**secret**): shared secret that must match between the API and desktop main process and now protects both `/session/token` and `/chat-memory/*`
 * `SESSION_TOKEN_LIVE_MODEL` and `VITE_LIVE_MODEL`: keep them on the same Gemini Live model resource (`models/gemini-2.5-flash-native-audio-preview-12-2025` in the root example)
-* `DATABASE_URL`: local Docker default is `postgres://livepair:livepair@127.0.0.1:5432/livepair`
+* `DATABASE_URL` (**secret** when it includes credentials): local Docker default is `postgres://livepair:livepair@127.0.0.1:5432/livepair`
+* `CORS_ALLOWED_ORIGINS` (**ordinary config**): explicit comma-separated browser origins allowed by the API; leave it empty to deny browser cross-origin access by default
+* `HOST` and `PORT` (**ordinary config**): default to `0.0.0.0` and `3000`; Cloud Run injects `PORT`
 * `VITE_LIVE_API_VERSION`: keep `v1alpha` for the current speech flow
 * `VITE_LIVE_VOICE_RESPONSE_MODALITY`: keep `AUDIO` for speech mode
+
+For Wave 1 cloud-readiness, plan to move `GEMINI_API_KEY`, `SESSION_TOKEN_AUTH_SECRET`, and deploy-time `DATABASE_URL` values into Secret Manager later. Keep `HOST`, `PORT`, `CORS_ALLOWED_ORIGINS`, rate limits, TTLs, and model/resource identifiers as ordinary runtime config.
 
 For complete field-by-field documentation, use the app-local `.env.example` files as references. Tool-provided variables such as `NODE_ENV`, `DEV`, and `MODE` are not listed because they come from Node, Electron, or Vite rather than repository configuration.
 

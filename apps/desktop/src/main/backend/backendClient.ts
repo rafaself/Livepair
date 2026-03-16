@@ -68,6 +68,37 @@ function readSessionTokenAuthSecret(): string | null {
   return value;
 }
 
+function headersToRecord(headers?: RequestInit['headers']): Record<string, string> {
+  if (typeof headers === 'undefined') {
+    return {};
+  }
+
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+
+  return Object.entries(headers).reduce<Record<string, string>>((acc, [key, value]) => {
+    acc[key] = typeof value === "string" ? value : value.join(', ');
+    return acc;
+  }, {});
+}
+
+function withSharedSecretHeaders(headers?: RequestInit['headers']): Record<string, string> {
+  const sessionTokenAuthSecret = readSessionTokenAuthSecret();
+  if (!sessionTokenAuthSecret) {
+    return headersToRecord(headers);
+  }
+
+  return {
+    ...headersToRecord(headers),
+    [SESSION_TOKEN_AUTH_HEADER_NAME]: sessionTokenAuthSecret,
+  };
+}
+
 function readBackendUrlFromEnv(): string {
   return resolveBackendBaseUrl(process.env['BACKEND_URL']);
 }
@@ -443,6 +474,7 @@ type JsonRequestOptions<T> = {
   nullOnStatus?: number;
   parse: (value: unknown) => T;
   path: string;
+  protectedRoute?: boolean;
   statusLabel: string;
 };
 
@@ -453,6 +485,9 @@ export type BackendClient = {
   requestSessionToken: (
     req: CreateEphemeralTokenRequest,
   ) => Promise<CreateEphemeralTokenResponse>;
+  searchProjectKnowledge: (
+    req: ProjectKnowledgeSearchRequest,
+  ) => Promise<ProjectKnowledgeSearchResult>;
   createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
@@ -503,13 +538,20 @@ export function createBackendClient({
     nullOnStatus,
     parse,
     path,
+    protectedRoute = false,
     statusLabel,
   }: JsonRequestOptions<T>): Promise<T> {
     const backendUrl = await resolveBackendUrl();
     const url = `${backendUrl}${path}`;
-    const response = typeof init === 'undefined'
+    const requestInit = protectedRoute
+      ? {
+          ...init,
+          headers: withSharedSecretHeaders(init?.headers),
+        }
+      : init;
+    const response = typeof requestInit === 'undefined'
       ? await fetchImpl(url)
-      : await fetchImpl(url, init);
+      : await fetchImpl(url, requestInit);
 
     if (typeof nullOnStatus !== 'undefined' && response.status === nullOnStatus) {
       return null as T;
@@ -532,13 +574,20 @@ export function createBackendClient({
     nullOnStatus,
     parse,
     path,
+    protectedRoute = false,
     statusLabel,
   }: OptionalJsonRequestOptions<T>): Promise<T | null> {
     const backendUrl = await resolveBackendUrl();
     const url = `${backendUrl}${path}`;
-    const response = typeof init === 'undefined'
+    const requestInit = protectedRoute
+      ? {
+          ...init,
+          headers: withSharedSecretHeaders(init?.headers),
+        }
+      : init;
+    const response = typeof requestInit === 'undefined'
       ? await fetchImpl(url)
-      : await fetchImpl(url, init);
+      : await fetchImpl(url, requestInit);
 
     if (typeof nullOnStatus !== 'undefined' && response.status === nullOnStatus) {
       return null;
@@ -584,12 +633,12 @@ export function createBackendClient({
       const sessionTokenAuthSecret = readSessionTokenAuthSecret();
       const res = await fetchImpl(url, {
         method: 'POST',
-        headers: {
+        headers: withSharedSecretHeaders({
           'Content-Type': 'application/json',
           ...(sessionTokenAuthSecret
             ? { [SESSION_TOKEN_AUTH_HEADER_NAME]: sessionTokenAuthSecret }
             : {}),
-        },
+        }),
         body: JSON.stringify(req),
       });
       if (!res.ok) {
@@ -639,6 +688,7 @@ export function createBackendClient({
         },
         parse: (value) => parseChatRecord(value),
         path: '/chat-memory/chats',
+        protectedRoute: true,
         statusLabel: 'Create chat failed',
       });
     },
@@ -648,6 +698,7 @@ export function createBackendClient({
         nullOnStatus: 404,
         parse: (value) => parseChatRecord(value),
         path: `/chat-memory/chats/${chatId}`,
+        protectedRoute: true,
         statusLabel: 'Get chat failed',
       });
     },
@@ -657,6 +708,7 @@ export function createBackendClient({
         init: { method: 'PUT' },
         parse: (value) => parseChatRecord(value),
         path: '/chat-memory/chats/current',
+        protectedRoute: true,
         statusLabel: 'Get or create current chat failed',
       });
     },
@@ -665,6 +717,7 @@ export function createBackendClient({
       return requestJson({
         parse: parseChatListResponse,
         path: '/chat-memory/chats',
+        protectedRoute: true,
         statusLabel: 'List chats failed',
       });
     },
@@ -676,6 +729,7 @@ export function createBackendClient({
       return requestJson({
         parse: parseChatMessageListResponse,
         path: appendChatMemoryListOptions(`/chat-memory/chats/${chatId}/messages`, options),
+        protectedRoute: true,
         statusLabel: 'List chat messages failed',
       });
     },
@@ -687,6 +741,7 @@ export function createBackendClient({
         nullOnStatus: 204,
         parse: parseChatSummaryResponse,
         path: `/chat-memory/chats/${chatId}/summary`,
+        protectedRoute: true,
         statusLabel: 'Get chat summary failed',
       });
     },
@@ -702,6 +757,7 @@ export function createBackendClient({
         },
         parse: (value) => parseChatMessageRecord(value),
         path: `/chat-memory/chats/${req.chatId}/messages`,
+        protectedRoute: true,
         statusLabel: 'Append chat message failed',
       });
     },
@@ -717,6 +773,7 @@ export function createBackendClient({
         },
         parse: (value) => parseLiveSessionRecord(value),
         path: `/chat-memory/chats/${req.chatId}/live-sessions`,
+        protectedRoute: true,
         statusLabel: 'Create live session failed',
       });
     },
@@ -728,6 +785,7 @@ export function createBackendClient({
       return requestJson({
         parse: parseLiveSessionListResponse,
         path: appendChatMemoryListOptions(`/chat-memory/chats/${chatId}/live-sessions`, options),
+        protectedRoute: true,
         statusLabel: 'List live sessions failed',
       });
     },
@@ -746,6 +804,7 @@ export function createBackendClient({
           req.kind === 'resumption'
             ? `/chat-memory/live-sessions/${req.id}/resumption`
             : `/chat-memory/live-sessions/${req.id}/snapshot`,
+        protectedRoute: true,
         statusLabel: 'Update live session failed',
       });
     },
@@ -759,6 +818,7 @@ export function createBackendClient({
         },
         parse: (value) => parseLiveSessionRecord(value),
         path: `/chat-memory/live-sessions/${req.id}/end`,
+        protectedRoute: true,
         statusLabel: 'End live session failed',
       });
     },

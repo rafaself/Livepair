@@ -571,33 +571,63 @@ describe('backendClient', () => {
 
     expect(fetchImpl).toHaveBeenNthCalledWith(1, 'http://localhost:3000/chat-memory/chats', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
       body: JSON.stringify(createChatRequest),
     });
     expect(fetchImpl).toHaveBeenNthCalledWith(
       2,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       3,
       'http://localhost:3000/chat-memory/chats/current',
-      { method: 'PUT' },
+      {
+        method: 'PUT',
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
-    expect(fetchImpl).toHaveBeenNthCalledWith(4, 'http://localhost:3000/chat-memory/chats');
+    expect(fetchImpl).toHaveBeenNthCalledWith(4, 'http://localhost:3000/chat-memory/chats', {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
+    });
     expect(fetchImpl).toHaveBeenNthCalledWith(
       5,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       6,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/summary`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       7,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify(appendRequest),
       },
     );
@@ -606,20 +636,31 @@ describe('backendClient', () => {
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify(createLiveSessionRequest),
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       9,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       10,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/resumption`,
       {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify(updateResumptionRequest),
       },
     );
@@ -628,7 +669,10 @@ describe('backendClient', () => {
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/snapshot`,
       {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify(updateSnapshotRequest),
       },
     );
@@ -637,7 +681,10 @@ describe('backendClient', () => {
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/end`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify(endLiveSessionRequest),
       },
     );
@@ -655,7 +702,10 @@ describe('backendClient', () => {
     await expect(client.createChat()).resolves.toEqual(createChatRecord());
     expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/chat-memory/chats', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
       body: JSON.stringify({}),
     });
   });
@@ -685,10 +735,20 @@ describe('backendClient', () => {
     expect(fetchImpl).toHaveBeenNthCalledWith(
       1,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages?limit=1`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       2,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions?limit=1`,
+      {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
     );
   });
 
@@ -702,6 +762,11 @@ describe('backendClient', () => {
     const client = createBackendClient({ fetchImpl, getBackendUrl });
 
     await expect(client.getChat(MISSING_CHAT_ID)).resolves.toBeNull();
+    expect(fetchImpl).toHaveBeenCalledWith(`http://localhost:3000/chat-memory/chats/${MISSING_CHAT_ID}`, {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
+    });
   });
 
   it('maps 204 chat summary responses to null for new chats without summaries', async () => {
@@ -719,6 +784,11 @@ describe('backendClient', () => {
 
     await expect(client.getChatSummary(CHAT_ID)).resolves.toBeNull();
     expect(json).not.toHaveBeenCalled();
+    expect(fetchImpl).toHaveBeenCalledWith(`http://localhost:3000/chat-memory/chats/${CHAT_ID}/summary`, {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
+    });
   });
 
   it('treats unexpected empty successful chat summary responses as no summary', async () => {

@@ -14,9 +14,12 @@ describe('HealthController', () => {
   });
 
   it('returns status ok with a timestamp', () => {
-    const result: HealthResponse = controller.check();
-    expect(result.status).toBe('ok');
-    expect(typeof result.timestamp).toBe('string');
-    expect(new Date(result.timestamp).toISOString()).toBe(result.timestamp);
+    const firstResult: HealthResponse = controller.check();
+    const secondResult: HealthResponse = controller.check();
+
+    expect(firstResult.status).toBe('ok');
+    expect(typeof firstResult.timestamp).toBe('string');
+    expect(new Date(firstResult.timestamp).toISOString()).toBe(firstResult.timestamp);
+    expect(secondResult).toEqual(firstResult);
   });
 });
