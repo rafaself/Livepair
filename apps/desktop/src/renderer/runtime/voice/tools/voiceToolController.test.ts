@@ -119,6 +119,8 @@ describe('createVoiceToolController', () => {
       expect(mockedExecute).toHaveBeenCalledWith(
         expect.any(Object),
         getSnapshot(),
+        undefined,
+        undefined,
       );
     });
   });

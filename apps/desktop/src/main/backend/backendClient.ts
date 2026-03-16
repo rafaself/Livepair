@@ -1,4 +1,5 @@
 import type {
+  AssistantVoice,
   AppendChatMessageRequest,
   ChatId,
   ChatMemoryListOptions,
@@ -20,7 +21,7 @@ import type {
   RehydrationPacketContextState,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
-import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
+import { ASSISTANT_VOICES, SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 import { resolveBackendBaseUrl } from '../../shared';
 
 type BackendClientOptions = {
@@ -36,6 +37,10 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isStringOrNull(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
+}
+
+function isAssistantVoice(value: unknown): value is AssistantVoice {
+  return ASSISTANT_VOICES.some((voice) => voice === value);
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -432,6 +437,7 @@ function parseLiveSessionRecord(
     !isStringOrNull(value['endedAt']) ||
     (value['status'] !== 'active' && value['status'] !== 'ended' && value['status'] !== 'failed') ||
     !isStringOrNull(value['endedReason']) ||
+    !(value['voice'] === null || isAssistantVoice(value['voice'])) ||
     !isStringOrNull(value['resumptionHandle']) ||
     !isStringOrNull(value['lastResumptionUpdateAt']) ||
     typeof value['restorable'] !== 'boolean' ||
@@ -448,6 +454,7 @@ function parseLiveSessionRecord(
     endedAt: value['endedAt'],
     status: value['status'],
     endedReason: value['endedReason'],
+    voice: value['voice'],
     resumptionHandle: value['resumptionHandle'],
     lastResumptionUpdateAt: value['lastResumptionUpdateAt'],
     restorable: value['restorable'],

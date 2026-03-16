@@ -6,7 +6,7 @@
     "build": "pnpm -r --filter !livepair build",
     "lint": "pnpm -r --filter !livepair lint",
     "typecheck": "pnpm -r --filter !livepair typecheck",
-    "test": "pnpm -r --filter !livepair test",
+    "test": "pnpm --filter @livepair/shared-types build && pnpm -r --filter !livepair test",
     "test:coverage": "pnpm --filter @livepair/shared-types test && pnpm --filter @livepair/api test:coverage && pnpm --filter @livepair/desktop test:coverage",
     "lint:api": "pnpm --filter @livepair/api lint",
     "lint:desktop": "pnpm --filter @livepair/desktop lint",

@@ -83,6 +83,7 @@ function createLiveSessionRecord(
     endedAt: null,
     status: 'active',
     endedReason: null,
+    voice: null,
     resumptionHandle: null,
     lastResumptionUpdateAt: null,
     restorable: false,
@@ -156,7 +157,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(25);
+    expect(mockHandle).toHaveBeenCalledTimes(26);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'app:quit', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(2, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
@@ -186,91 +187,96 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       8,
-      'chatMemory:getOrCreateCurrentChat',
+      'chatMemory:getCurrentChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       9,
-      'chatMemory:listChats',
+      'chatMemory:getOrCreateCurrentChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       10,
-      'chatMemory:listMessages',
+      'chatMemory:listChats',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       11,
-      'chatMemory:getSummary',
+      'chatMemory:listMessages',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       12,
-      'chatMemory:appendMessage',
+      'chatMemory:getSummary',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       13,
-      'liveSession:create',
+      'chatMemory:appendMessage',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       14,
-      'liveSession:listByChat',
+      'liveSession:create',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       15,
-      'liveSession:update',
+      'liveSession:listByChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       16,
-      'liveSession:end',
+      'liveSession:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       17,
-      'settings:get',
+      'liveSession:end',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       18,
-      'settings:update',
+      'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       19,
-      'overlay:setHitRegions',
+      'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       20,
-      'overlay:setPointerPassthrough',
+      'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       21,
-      'screenCapture:getAccessStatus',
+      'overlay:setPointerPassthrough',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       22,
-      'screenCapture:listSources',
+      'screenCapture:getAccessStatus',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       23,
-      'screenCapture:selectSource',
+      'screenCapture:listSources',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       24,
-      'screenFrameDump:startSession',
+      'screenCapture:selectSource',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       25,
+      'screenFrameDump:startSession',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      26,
       'screenFrameDump:saveFrame',
       expect.any(Function),
     );
@@ -371,6 +377,11 @@ describe('registerIpcHandlers', () => {
         ok: true,
         status: 200,
         json: vi.fn(async () => createProjectKnowledgeSearchResult()),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        text: vi.fn(async () => ''),
       });
     const settingsService = createSettingsServiceDouble();
     vi.mocked(settingsService.updateSettings).mockResolvedValue({
@@ -449,6 +460,29 @@ describe('registerIpcHandlers', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: 'How do I verify the desktop package?' }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      4,
+      'http://localhost:3000/observability/live-telemetry',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-livepair-session-token-secret': 'livepair-local-session-token-secret',
+        },
+        body: JSON.stringify({
+          events: [{
+            eventType: 'live_session_started',
+            occurredAt: '2026-03-16T14:00:00.000Z',
+            sessionId: 'live-session-1',
+            chatId: 'chat-1',
+            environment: 'test',
+            platform: 'linux',
+            appVersion: '0.0.1',
+            model: 'models/gemini',
+          }],
+        }),
       },
     );
     expect(settingsService.getSettings).toHaveBeenCalledTimes(1);
