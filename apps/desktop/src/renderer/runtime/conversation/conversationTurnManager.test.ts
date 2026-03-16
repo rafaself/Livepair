@@ -106,7 +106,13 @@ describe('conversationTurnManager', () => {
 
       finalizeCurrentVoiceUserTranscriptArtifact(ctx, userTurnId);
 
-      expect(getTranscriptArtifact(ctx, 'user-transcript-1')).toBeUndefined();
+      expect(getTranscriptArtifact(ctx, 'user-transcript-1')).toEqual(
+        expect.objectContaining({
+          id: 'user-transcript-1',
+          state: 'complete',
+          attachedTurnId: 'user-turn-1',
+        }),
+      );
       expect(useSessionStore.getState().conversationTurns).toEqual([
         expect.objectContaining({
           id: 'user-turn-1',
@@ -147,7 +153,13 @@ describe('conversationTurnManager', () => {
         assistantTurnId ? { attachedTurnId: assistantTurnId } : {},
       );
 
-      expect(getTranscriptArtifact(ctx, 'assistant-transcript-1')).toBeUndefined();
+      expect(getTranscriptArtifact(ctx, 'assistant-transcript-1')).toEqual(
+        expect.objectContaining({
+          id: 'assistant-transcript-1',
+          state: 'complete',
+          attachedTurnId: 'assistant-turn-1',
+        }),
+      );
       expect(useSessionStore.getState().conversationTurns).toEqual([
         expect.objectContaining({
           id: 'assistant-turn-1',
