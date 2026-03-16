@@ -180,7 +180,7 @@ describe('App', () => {
 
     expect(startScreenCaptureSpy).not.toHaveBeenCalled();
 
-    await screen.findByRole('dialog', {
+    const dialog = await screen.findByRole('dialog', {
       name: 'Choose screen share mode',
     });
     const manualRadio = screen.getByRole('radio', { name: /manual/i });
@@ -239,7 +239,7 @@ describe('App', () => {
     shareScreenButton.focus();
     fireEvent.click(shareScreenButton);
 
-    const dialog = await screen.findByRole('dialog', {
+    await screen.findByRole('dialog', {
       name: 'Choose screen share mode',
     });
 
