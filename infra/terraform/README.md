@@ -431,6 +431,10 @@ Minimum IAM for the identity that executes Cloud Build:
 Minimum IAM for the identity used by GitHub Actions to submit the build:
 
 - `roles/cloudbuild.builds.editor` on the target project
+- `roles/serviceusage.serviceUsageConsumer` on the target project so `gcloud builds submit` can use the Cloud Build API
+- access to the Cloud Build source-staging bucket used by `gcloud builds submit .`
+  - if you rely on the default legacy bucket, grant `roles/storage.objectAdmin` on `gs://<project-id>_cloudbuild`
+  - if you create that bucket manually, also grant the Cloud Build runtime identities `roles/storage.objectViewer` on it (`<project-number>@cloudbuild.gserviceaccount.com` and `service-<project-number>@gcp-sa-cloudbuild.iam.gserviceaccount.com`)
 - any additional permissions required by your chosen GitHub-to-Google authentication setup
 
 Additional caveats:
