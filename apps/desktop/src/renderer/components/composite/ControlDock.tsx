@@ -82,15 +82,19 @@ export function ControlDock({
         uiState={uiState}
       />
 
-      <IconButton
-        label={isPanelOpen ? 'Close panel' : 'Open panel'}
-        className={`control-dock__panel-btn${isPanelOpen ? ' control-dock__btn--active' : ''}`}
-        aria-controls="assistant-panel"
-        aria-expanded={isPanelOpen}
-        onClick={togglePanel}
-      >
-        <ChevronLeft size={18} />
-      </IconButton>
+      <div className="control-dock__item-wrapper control-dock__item-wrapper--visible">
+        <div className="control-dock__item-content">
+          <IconButton
+            label={isPanelOpen ? 'Close panel' : 'Open panel'}
+            className={`control-dock__panel-btn${isPanelOpen ? ' control-dock__btn--active' : ''}`}
+            aria-controls="assistant-panel"
+            aria-expanded={isPanelOpen}
+            onClick={togglePanel}
+          >
+            <ChevronLeft size={18} />
+          </IconButton>
+        </div>
+      </div>
     </div>
   );
 }

@@ -20,80 +20,111 @@ export function ControlDockSpeechControls({
   onStopVoiceCapture,
   onAnalyzeScreenNow,
   uiState,
-}: ControlDockSpeechControlsProps): JSX.Element | null {
-  if (!uiState.showSpeechControls) {
-    return null;
-  }
-
+}: ControlDockSpeechControlsProps): JSX.Element {
   return (
     <>
-      <IconButton
-        label={uiState.microphoneLabel}
-        className={uiState.micButtonClassName}
-        disabled={!uiState.isMicrophoneAvailable || uiState.isVoiceCaptureBusy}
-        onClick={() => {
-          if (!uiState.isMicrophoneAvailable || uiState.isVoiceCaptureBusy) {
-            return;
-          }
-
-          if (uiState.isVoiceCapturing) {
-            void onStopVoiceCapture();
-            return;
-          }
-
-          void onStartVoiceCapture();
-        }}
+      <div
+        className={`control-dock__item-wrapper ${uiState.showSpeechControls ? 'control-dock__item-wrapper--visible' : ''}`}
+        aria-hidden={!uiState.showSpeechControls}
       >
-        {uiState.isVoiceCapturing ? <Mic size={18} /> : <MicOff size={18} />}
-      </IconButton>
+        <div className="control-dock__item-content">
+          <IconButton
+            label={uiState.microphoneLabel}
+            className={uiState.micButtonClassName}
+            disabled={!uiState.isMicrophoneAvailable || uiState.isVoiceCaptureBusy}
+            tabIndex={uiState.showSpeechControls ? 0 : -1}
+            onClick={() => {
+              if (!uiState.isMicrophoneAvailable || uiState.isVoiceCaptureBusy) {
+                return;
+              }
 
-      <IconButton
-        label={uiState.screenContextLabel}
-        className={uiState.screenButtonClassName}
-        disabled={!uiState.isScreenContextAvailable || uiState.isScreenContextBusy}
-        onClick={() => {
-          if (!uiState.isScreenContextAvailable || uiState.isScreenContextBusy) {
-            return;
-          }
+              if (uiState.isVoiceCapturing) {
+                void onStopVoiceCapture();
+                return;
+              }
 
-          if (uiState.isScreenContextActive) {
-            void onStopScreenCapture();
-            return;
-          }
+              void onStartVoiceCapture();
+            }}
+          >
+            {uiState.isVoiceCapturing ? <Mic size={18} /> : <MicOff size={18} />}
+          </IconButton>
+        </div>
+      </div>
 
-          void onStartScreenCapture();
-        }}
+      <div
+        className={`control-dock__item-wrapper ${uiState.showSpeechControls ? 'control-dock__item-wrapper--visible' : ''}`}
+        aria-hidden={!uiState.showSpeechControls}
       >
-        {uiState.isScreenContextActive ? <Monitor size={18} /> : <MonitorOff size={18} />}
-      </IconButton>
+        <div className="control-dock__item-content">
+          <IconButton
+            label={uiState.screenContextLabel}
+            className={uiState.screenButtonClassName}
+            disabled={!uiState.isScreenContextAvailable || uiState.isScreenContextBusy}
+            tabIndex={uiState.showSpeechControls ? 0 : -1}
+            onClick={() => {
+              if (!uiState.isScreenContextAvailable || uiState.isScreenContextBusy) {
+                return;
+              }
 
-      {uiState.canAnalyzeScreen ? (
-        <IconButton
-          label="Analyze screen now"
-          onClick={onAnalyzeScreenNow}
-        >
-          <ScanEye size={18} />
-        </IconButton>
-      ) : null}
+              if (uiState.isScreenContextActive) {
+                void onStopScreenCapture();
+                return;
+              }
 
-      {uiState.showEndSpeechModeControl ? (
-        <IconButton
-          label={uiState.endSpeechModeLabel}
-          className="control-dock__btn--danger"
-          disabled={!uiState.canUseEndSpeechMode}
-          onClick={() => {
-            if (!uiState.canUseEndSpeechMode) {
-              return;
-            }
+              void onStartScreenCapture();
+            }}
+          >
+            {uiState.isScreenContextActive ? <Monitor size={18} /> : <MonitorOff size={18} />}
+          </IconButton>
+        </div>
+      </div>
 
-            void onEndSession();
-          }}
-        >
-          <Square size={18} fill="currentColor" />
-        </IconButton>
-      ) : null}
+      <div
+        className={`control-dock__item-wrapper ${uiState.canAnalyzeScreen ? 'control-dock__item-wrapper--visible' : ''}`}
+        aria-hidden={!uiState.canAnalyzeScreen}
+      >
+        <div className="control-dock__item-content">
+          <IconButton
+            label="Analyze screen now"
+            onClick={onAnalyzeScreenNow}
+            tabIndex={uiState.canAnalyzeScreen ? 0 : -1}
+          >
+            <ScanEye size={18} />
+          </IconButton>
+        </div>
+      </div>
 
-      <Divider orientation="horizontal" />
+      <div
+        className={`control-dock__item-wrapper ${uiState.showEndSpeechModeControl ? 'control-dock__item-wrapper--visible' : ''}`}
+        aria-hidden={!uiState.showEndSpeechModeControl}
+      >
+        <div className="control-dock__item-content">
+          <IconButton
+            label={uiState.endSpeechModeLabel}
+            className="control-dock__btn--danger"
+            disabled={!uiState.canUseEndSpeechMode}
+            tabIndex={uiState.showEndSpeechModeControl ? 0 : -1}
+            onClick={() => {
+              if (!uiState.canUseEndSpeechMode) {
+                return;
+              }
+
+              void onEndSession();
+            }}
+          >
+            <Square size={18} fill="currentColor" />
+          </IconButton>
+        </div>
+      </div>
+
+      <div
+        className={`control-dock__item-wrapper ${uiState.showSpeechControls ? 'control-dock__item-wrapper--visible' : ''}`}
+        aria-hidden={!uiState.showSpeechControls}
+      >
+        <div className="control-dock__item-content">
+          <Divider orientation="horizontal" />
+        </div>
+      </div>
     </>
   );
 }

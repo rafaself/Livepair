@@ -7,18 +7,48 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
+  /* Removed gap to handle it in item wrappers for smoother animation */
   padding: 2px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   background: var(--color-surface-elevated);
   box-shadow: var(--shadow-md);
   opacity: 1;
-  will-change: right, opacity;
+  will-change: right, opacity, transform;
   transition:
     right var(--motion-normal) var(--ease-out),
     box-shadow var(--motion-normal) var(--ease-out),
-    opacity var(--motion-slow) var(--ease-out);
+    opacity var(--motion-slow) var(--ease-out),
+    transform var(--motion-normal) var(--ease-out);
+}
+
+.control-dock__item-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  transition: 
+    grid-template-rows var(--motion-normal) var(--ease-out),
+    opacity var(--motion-normal) var(--ease-out),
+    margin var(--motion-normal) var(--ease-out);
+}
+
+.control-dock__item-wrapper--visible {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  /* Add margin when visible to simulate the gap */
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+/* First visible item shouldn't have top margin, last shouldn't have bottom margin */
+/* Actually, simpler to just use small padding/margin everywhere and let it flex */
+
+.control-dock__item-content {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .control-dock:hover {
