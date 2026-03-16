@@ -21,7 +21,7 @@ import { useUiStore } from '../../../store/uiStore';
 import { useSessionStore } from '../../../store/sessionStore';
 
 export type AssistantPanelProps = {
-  screenShareModeGate?: (action: () => Promise<void>) => Promise<void>;
+  screenShareModeGate?: (action: () => Promise<void>) => Promise<boolean | void>;
 };
 
 export function AssistantPanel({
