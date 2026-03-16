@@ -45,6 +45,7 @@ type SessionControllerLifecycleArgs = {
   resetVoiceSessionResumption: () => void;
   resetVoiceSessionDurability: () => void;
   resetVoiceToolState: () => void;
+  ensureCurrentChatForSpeechStart: () => Promise<void>;
   requestVoiceSessionToken: (operationId: number) => Promise<CreateEphemeralTokenResponse | null>;
   buildRehydrationPacketFromCurrentChat: () => Promise<RehydrationPacket>;
   setCachedVoiceToken: (token: CreateEphemeralTokenResponse) => void;
@@ -96,6 +97,7 @@ export function createSessionControllerLifecycle({
   resetVoiceSessionResumption,
   resetVoiceSessionDurability,
   resetVoiceToolState,
+  ensureCurrentChatForSpeechStart,
   requestVoiceSessionToken,
   buildRehydrationPacketFromCurrentChat,
   setCachedVoiceToken,
@@ -203,6 +205,18 @@ export function createSessionControllerLifecycle({
       transport: LIVE_ADAPTER_KEY,
       capabilities: effectiveVoiceSessionCapabilities,
     });
+
+    try {
+      await ensureCurrentChatForSpeechStart();
+    } catch (error) {
+      await setVoiceErrorState(asErrorDetail(error, 'Failed to create chat'));
+      return;
+    }
+
+    if (!isCurrentSessionOperation(operationId)) {
+      return;
+    }
+
     const token = await requestVoiceSessionToken(operationId);
 
     if (!token || !isCurrentSessionOperation(operationId)) {

@@ -51,6 +51,17 @@ export class ChatMemoryController {
     return this.chatMemoryService.getOrCreateCurrentChat();
   }
 
+  @Get('chats/current')
+  async getCurrentChat(): Promise<ChatRecord> {
+    const chat = await this.chatMemoryService.getCurrentChat();
+
+    if (chat === null) {
+      throw new NotFoundException('Current chat not found');
+    }
+
+    return chat;
+  }
+
   @Get('chats')
   listChats(): Promise<ChatRecord[]> {
     return this.chatMemoryService.listChats();

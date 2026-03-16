@@ -551,6 +551,7 @@ export type BackendClient = {
   reportLiveTelemetry: (events: LiveTelemetryEvent[]) => Promise<void>;
   createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
+  getCurrentChat: () => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
   listChats: () => Promise<ChatRecord[]>;
   listChatMessages: (
@@ -775,6 +776,16 @@ export function createBackendClient({
         path: `/chat-memory/chats/${chatId}`,
         protectedRoute: true,
         statusLabel: 'Get chat failed',
+      });
+    },
+
+    async getCurrentChat(): Promise<ChatRecord | null> {
+      return requestJson({
+        nullOnStatus: 404,
+        parse: (value) => parseChatRecord(value),
+        path: '/chat-memory/chats/current',
+        protectedRoute: true,
+        statusLabel: 'Get current chat failed',
       });
     },
 

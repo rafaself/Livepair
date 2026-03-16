@@ -100,4 +100,52 @@ describe('createSessionVoiceConnection', () => {
     });
     expect(args.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'session.ready' });
   });
+
+  it('persists a fresh live session only after fallback connect succeeds', async () => {
+    const args = createMockArgs();
+    const transport = {
+      connect: vi.fn().mockResolvedValue(undefined),
+    };
+    args.createTransport.mockReturnValue(transport);
+    args.buildRehydrationPacketFromCurrentChat.mockResolvedValue({});
+    const connection = createSessionVoiceConnection(args);
+    const token = { client_secret: { value: 'token' } } as never;
+
+    await expect(
+      connection.connectFallbackSession(9, token, 'no-restore-candidate'),
+    ).resolves.toEqual({ status: 'connected' });
+
+    expect(args.activateVoiceTransport).toHaveBeenCalledWith(transport);
+    expect(transport.connect).toHaveBeenCalledWith({
+      token,
+      mode: 'voice',
+      rehydrationPacket: {},
+    });
+    expect(args.createPersistedLiveSession).toHaveBeenCalledTimes(1);
+    expect(transport.connect.mock.invocationCallOrder[0]).toBeLessThan(
+      args.createPersistedLiveSession.mock.invocationCallOrder[0]!,
+    );
+    expect(args.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'session.ready' });
+  });
+
+  it('does not persist a fresh live session when fallback connect fails', async () => {
+    const args = createMockArgs();
+    const transport = {
+      connect: vi.fn().mockRejectedValue(new Error('connect failed')),
+    };
+    args.createTransport.mockReturnValue(transport);
+    args.buildRehydrationPacketFromCurrentChat.mockResolvedValue({});
+    const connection = createSessionVoiceConnection(args);
+    const token = { client_secret: { value: 'token' } } as never;
+
+    await expect(
+      connection.connectFallbackSession(11, token, 'no-restore-candidate'),
+    ).resolves.toEqual({
+      status: 'failed',
+      detail: 'connect failed',
+    });
+
+    expect(args.createPersistedLiveSession).not.toHaveBeenCalled();
+    expect(args.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+  });
 });

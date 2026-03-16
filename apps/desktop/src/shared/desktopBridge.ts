@@ -107,6 +107,7 @@ export interface DesktopBridge {
   reportLiveTelemetry: (events: LiveTelemetryEvent[]) => Promise<void>;
   createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
+  getCurrentChat: () => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
   listChats: () => Promise<ChatRecord[]>;
   listChatMessages: (
@@ -145,6 +146,7 @@ export const IPC_CHANNELS = {
   reportLiveTelemetry: 'session:reportLiveTelemetry',
   createChat: 'chatMemory:createChat',
   getChat: 'chatMemory:getChat',
+  getCurrentChat: 'chatMemory:getCurrentChat',
   getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',
   listChats: 'chatMemory:listChats',
   listChatMessages: 'chatMemory:listMessages',
