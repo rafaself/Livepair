@@ -536,7 +536,9 @@ describe('ConversationTurn transcript artifact presentation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show assistant thinking' }));
 
     const thinkingRegion = screen.getByRole('region', { name: 'Assistant thinking' });
+    const thinkingContent = thinkingRegion.querySelector('.conversation-turn__thinking-content');
 
+    expect(thinkingContent).toHaveClass('conversation-turn__body');
     expect(thinkingRegion.querySelector('strong')?.textContent).toBe('bold');
     expect(thinkingRegion.querySelector('code')?.textContent).toBe('code');
   });

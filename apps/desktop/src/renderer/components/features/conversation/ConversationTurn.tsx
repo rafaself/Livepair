@@ -143,7 +143,10 @@ export function ConversationTurn({
             <div className="conversation-turn__thinking-inner">
               <>
                 <p className="conversation-turn__thinking-label">Assistant thinking</p>
-                {renderAssistantMarkdown(thinkingText, 'conversation-turn__thinking-content')}
+                {renderAssistantMarkdown(
+                  thinkingText,
+                  'conversation-turn__body conversation-turn__thinking-content',
+                )}
               </>
             </div>
           </div>
