@@ -13,6 +13,7 @@ resource "google_sql_database_instance" "this" {
     disk_size         = var.disk_size_gb
     disk_type         = var.disk_type
     user_labels       = var.labels
+    edition           = "ENTERPRISE"
 
     backup_configuration {
       enabled = var.backup_enabled
