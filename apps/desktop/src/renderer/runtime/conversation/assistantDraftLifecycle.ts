@@ -95,11 +95,15 @@ function choosePreferredAnswerMetadata(
     return current;
   }
 
+  const citations = incoming.citations ?? current.citations;
+  const confidence = chooseHigherConfidence(current.confidence, incoming.confidence);
+  const reason = incoming.reason ?? current.reason;
+
   return {
     provenance: current.provenance,
-    citations: incoming.citations ?? current.citations,
-    confidence: chooseHigherConfidence(current.confidence, incoming.confidence),
-    reason: incoming.reason ?? current.reason,
+    ...(citations ? { citations } : {}),
+    ...(confidence ? { confidence } : {}),
+    ...(reason ? { reason } : {}),
   };
 }
 
