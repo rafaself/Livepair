@@ -66,4 +66,32 @@ describe('handleTransportTurnEvent', () => {
       }),
     );
   });
+
+  it('tracks ignored assistant output counts and reasons in diagnostics', () => {
+    const context = createMockContext();
+    context.ops.currentVoiceSessionStatus.mockReturnValue('recovering');
+
+    handleTransportTurnEvent(context as never, {
+      type: 'audio-chunk',
+      chunk: new Uint8Array([1, 2, 3]),
+    });
+    handleTransportTurnEvent(context as never, {
+      type: 'audio-chunk',
+      chunk: new Uint8Array([4, 5, 6]),
+    });
+
+    expect(context.ops.logRuntimeDiagnostic).toHaveBeenLastCalledWith(
+      'voice-session',
+      'ignored assistant output while turn is unavailable',
+      expect.objectContaining({
+        voiceStatus: 'recovering',
+        eventType: 'audio-chunk',
+        ignoreReason: 'turn-unavailable',
+        ignoreCount: 2,
+        ignoredAudioChunkCount: 2,
+        lastIgnoredReason: 'turn-unavailable',
+        lastIgnoredEventType: 'audio-chunk',
+      }),
+    );
+  });
 });

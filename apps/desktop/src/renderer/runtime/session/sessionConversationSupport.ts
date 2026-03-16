@@ -6,6 +6,7 @@ import {
 import {
   persistConversationTurnInBackground,
 } from '../conversation/persistConversationTurn';
+import { logRuntimeDiagnostic } from '../core/logger';
 import { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
 import type { SessionStoreApi } from '../core/sessionControllerTypes';
 
@@ -16,6 +17,7 @@ export function createSessionConversationSupport(store: SessionStoreApi) {
   };
   const voiceTranscript = createVoiceTranscriptController(store, conversationCtx, {
     onConversationTurnSettled: persistSettledConversationTurn,
+    logRuntimeDiagnostic,
   });
 
   return {

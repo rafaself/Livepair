@@ -251,6 +251,54 @@ describe('createVoiceTranscriptController', () => {
     ]);
   });
 
+  it('allows the next assistant reply to reopen after a duplicate settled user transcript replay', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const logRuntimeDiagnostic = vi.fn();
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx, {
+      logRuntimeDiagnostic,
+    });
+
+    ctrl.applyTranscriptUpdate('user', 'same phrase', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
+
+    // Gemini can replay the settled user transcript before the next assistant
+    // packets arrive. That replay must not leave the prior completed fence in
+    // place and block the next assistant turn from opening.
+    ctrl.applyTranscriptUpdate('user', 'same phrase');
+
+    expect(ctrl.ensureAssistantTurn()).toBe(true);
+
+    ctrl.applyTranscriptUpdate('assistant', 'next assistant reply');
+
+    expect(logRuntimeDiagnostic).toHaveBeenCalledWith(
+      'voice-session',
+      'reopened settled voice turn after user transcript replay',
+      expect.objectContaining({
+        previousTurnState: 'completed',
+        replayedSettledTranscript: true,
+      }),
+    );
+    expect(useSessionStore.getState().currentVoiceTranscript.assistant).toEqual({
+      text: 'next assistant reply',
+    });
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'same phrase',
+        state: 'complete',
+        attachedTurnId: 'user-turn-1',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
+        role: 'assistant',
+        content: 'next assistant reply',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+  });
+
   it('routes a mixed-mode typed follow-up reply onto a fresh assistant transcript artifact below the typed user turn', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
