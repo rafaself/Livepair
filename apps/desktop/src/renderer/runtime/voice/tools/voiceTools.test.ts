@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   deriveCurrentMode,
   executeLocalVoiceTool,
@@ -91,10 +91,145 @@ describe('voiceTools', () => {
     expect(VOICE_TOOL_DECLARATIONS).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          name: 'search_project_knowledge',
+        }),
+        expect.objectContaining({
           name: 'report_answer_provenance',
         }),
       ]),
     );
+  });
+
+  it('routes project knowledge searches through the backend bridge and derives grounded metadata', async () => {
+    const searchProjectKnowledge = vi.fn(async () => ({
+      summaryAnswer: 'Desktop verification uses pnpm verify:desktop.',
+      supportingExcerpts: [
+        {
+          sourceId: 'doc-1',
+          text: 'Desktop package verification uses pnpm verify:desktop.',
+        },
+      ],
+      sources: [
+        {
+          id: 'doc-1',
+          title: 'README.md',
+          path: 'README.md',
+        },
+      ],
+      confidence: 'high' as const,
+      retrievalStatus: 'grounded' as const,
+    }));
+
+    await expect(
+      executeLocalVoiceTool(
+        {
+          id: 'call-search-1',
+          name: 'search_project_knowledge',
+          arguments: {
+            query: 'How do I verify the desktop package?',
+          },
+        },
+        createSnapshot(),
+        { searchProjectKnowledge },
+      ),
+    ).resolves.toEqual({
+      id: 'call-search-1',
+      name: 'search_project_knowledge',
+      response: {
+        ok: true,
+        summaryAnswer: 'Desktop verification uses pnpm verify:desktop.',
+        supportingExcerpts: [
+          {
+            sourceId: 'doc-1',
+            text: 'Desktop package verification uses pnpm verify:desktop.',
+          },
+        ],
+        sources: [
+          {
+            id: 'doc-1',
+            title: 'README.md',
+            path: 'README.md',
+          },
+        ],
+        confidence: 'high',
+        retrievalStatus: 'grounded',
+        answerMetadata: {
+          provenance: 'project_grounded',
+          confidence: 'high',
+          citations: [{ label: 'README.md' }],
+          reason: 'Derived from successful search_project_knowledge retrieval output.',
+        },
+      },
+    });
+    expect(searchProjectKnowledge).toHaveBeenCalledWith({
+      query: 'How do I verify the desktop package?',
+    });
+  });
+
+  it('returns bounded no-match project knowledge results without derived grounded metadata', async () => {
+    const searchProjectKnowledge = vi.fn(async () => ({
+      summaryAnswer: 'I could not find a verified project document answer for that.',
+      supportingExcerpts: [],
+      sources: [],
+      confidence: 'low' as const,
+      retrievalStatus: 'no_match' as const,
+      failureReason: 'no_grounding_chunks',
+    }));
+
+    await expect(
+      executeLocalVoiceTool(
+        {
+          id: 'call-search-2',
+          name: 'search_project_knowledge',
+          arguments: {
+            query: 'What hidden beta feature ships next month?',
+          },
+        },
+        createSnapshot(),
+        { searchProjectKnowledge },
+      ),
+    ).resolves.toEqual({
+      id: 'call-search-2',
+      name: 'search_project_knowledge',
+      response: {
+        ok: true,
+        summaryAnswer: 'I could not find a verified project document answer for that.',
+        supportingExcerpts: [],
+        sources: [],
+        confidence: 'low',
+        retrievalStatus: 'no_match',
+        failureReason: 'no_grounding_chunks',
+      },
+    });
+  });
+
+  it('rejects malformed project knowledge queries deterministically', async () => {
+    const searchProjectKnowledge = vi.fn();
+
+    await expect(
+      executeLocalVoiceTool(
+        {
+          id: 'call-search-3',
+          name: 'search_project_knowledge',
+          arguments: {
+            query: '   ',
+          },
+        },
+        createSnapshot(),
+        { searchProjectKnowledge },
+      ),
+    ).resolves.toEqual({
+      id: 'call-search-3',
+      name: 'search_project_knowledge',
+      response: {
+        ok: false,
+        error: {
+          code: 'invalid_project_knowledge_query',
+          message: 'Tool "search_project_knowledge" requires a non-empty query string',
+        },
+      },
+    });
+    expect(searchProjectKnowledge).not.toHaveBeenCalled();
   });
 
   it('accepts answer provenance reports without leaking them into answer text', async () => {
@@ -140,6 +275,31 @@ describe('voiceTools', () => {
       ),
     ).resolves.toEqual({
       id: 'call-4',
+      name: 'report_answer_provenance',
+      response: {
+        ok: false,
+        error: {
+          code: 'invalid_answer_metadata',
+          message: 'Tool "report_answer_provenance" requires a valid provenance payload',
+        },
+      },
+    });
+  });
+
+  it('rejects self-reported project_grounded provenance so it stays execution-derived', async () => {
+    await expect(
+      executeLocalVoiceTool(
+        {
+          id: 'call-4b',
+          name: 'report_answer_provenance',
+          arguments: {
+            provenance: 'project_grounded',
+          },
+        },
+        createSnapshot(),
+      ),
+    ).resolves.toEqual({
+      id: 'call-4b',
       name: 'report_answer_provenance',
       response: {
         ok: false,

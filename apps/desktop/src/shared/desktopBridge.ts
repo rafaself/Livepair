@@ -12,6 +12,8 @@ import type {
   EndLiveSessionRequest,
   HealthResponse,
   LiveSessionRecord,
+  ProjectKnowledgeSearchRequest,
+  ProjectKnowledgeSearchResult,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 export type { ChatMemoryListOptions } from '@livepair/shared-types';
@@ -90,6 +92,9 @@ export interface DesktopBridge {
   requestSessionToken: (
     req: CreateEphemeralTokenRequest,
   ) => Promise<CreateEphemeralTokenResponse>;
+  searchProjectKnowledge: (
+    req: ProjectKnowledgeSearchRequest,
+  ) => Promise<ProjectKnowledgeSearchResult>;
   createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
@@ -126,6 +131,7 @@ export const IPC_CHANNELS = {
   quitApp: 'app:quit',
   checkHealth: 'health:check',
   requestSessionToken: 'session:requestToken',
+  searchProjectKnowledge: 'projectKnowledge:search',
   createChat: 'chatMemory:createChat',
   getChat: 'chatMemory:getChat',
   getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',

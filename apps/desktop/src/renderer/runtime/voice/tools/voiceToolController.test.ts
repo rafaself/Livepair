@@ -1,3 +1,4 @@
+import type { AnswerMetadata } from '@livepair/shared-types';
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { createVoiceToolController } from './voiceToolController';
 import type { DesktopSession } from '../../transport/transport.types';
@@ -6,7 +7,7 @@ import type { ProductMode } from '../../core/session.types';
 import type { VoiceToolExecutionSnapshot } from './voiceTools';
 import * as voiceToolsModule from './voiceTools';
 
-function createHarness() {
+function createHarness(options: { onAnswerMetadata?: (answerMetadata: AnswerMetadata) => void } = {}) {
   const setVoiceToolState = vi.fn();
   const setLastDebugEvent = vi.fn();
   const store = { getState: () => ({ setVoiceToolState, setLastDebugEvent }) };
@@ -29,6 +30,7 @@ function createHarness() {
     store,
     () => currentTransport,
     getSnapshot,
+    options.onAnswerMetadata,
   );
 
   return {
@@ -193,6 +195,34 @@ describe('createVoiceToolController', () => {
       expect(setVoiceToolState).toHaveBeenCalledWith(
         expect.objectContaining({ status: 'toolError', lastError: 'tool failed' }),
       );
+    });
+  });
+
+  it('forwards derived answer metadata from successful tool responses', async () => {
+    const onAnswerMetadata = vi.fn();
+    const { ctrl } = createHarness({ onAnswerMetadata });
+
+    mockedExecute.mockResolvedValue({
+      id: 'c-project',
+      name: 'search_project_knowledge',
+      response: {
+        ok: true,
+        answerMetadata: {
+          provenance: 'project_grounded',
+          confidence: 'high',
+          citations: [{ label: 'README.md' }],
+        },
+      },
+    });
+
+    ctrl.enqueue([makeCall('c-project', 'search_project_knowledge')]);
+
+    await vi.waitFor(() => {
+      expect(onAnswerMetadata).toHaveBeenCalledWith({
+        provenance: 'project_grounded',
+        confidence: 'high',
+        citations: [{ label: 'README.md' }],
+      });
     });
   });
 

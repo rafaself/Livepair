@@ -6,6 +6,7 @@ import type {
   ChatRecord,
   DurableChatSummaryRecord,
   LiveSessionRecord,
+  ProjectKnowledgeSearchResult,
 } from '@livepair/shared-types';
 import { DEFAULT_DESKTOP_SETTINGS, type DesktopSettings } from '../../shared/settings';
 import type { DesktopSettingsService } from '../settings/settingsService';
@@ -103,6 +104,24 @@ function createChatSummaryRecord(
   };
 }
 
+function createProjectKnowledgeSearchResult(
+  overrides: Partial<ProjectKnowledgeSearchResult> = {},
+): ProjectKnowledgeSearchResult {
+  return {
+    summaryAnswer: 'Desktop verification uses pnpm verify:desktop.',
+    supportingExcerpts: [
+      {
+        sourceId: 'doc-1',
+        text: 'Desktop package verification uses pnpm verify:desktop.',
+      },
+    ],
+    sources: [{ id: 'doc-1', title: 'README.md', path: 'README.md' }],
+    confidence: 'high',
+    retrievalStatus: 'grounded',
+    ...overrides,
+  };
+}
+
 function createScreenFrameDumpServiceDouble(): {
   startSession: ReturnType<typeof vi.fn>;
   saveFrame: ReturnType<typeof vi.fn>;
@@ -135,7 +154,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(23);
+    expect(mockHandle).toHaveBeenCalledTimes(24);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'app:quit', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(2, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
@@ -145,101 +164,106 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       4,
-      'chatMemory:createChat',
+      'projectKnowledge:search',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       5,
-      'chatMemory:getChat',
+      'chatMemory:createChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       6,
-      'chatMemory:getOrCreateCurrentChat',
+      'chatMemory:getChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       7,
-      'chatMemory:listChats',
+      'chatMemory:getOrCreateCurrentChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       8,
-      'chatMemory:listMessages',
+      'chatMemory:listChats',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       9,
-      'chatMemory:getSummary',
+      'chatMemory:listMessages',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       10,
-      'chatMemory:appendMessage',
+      'chatMemory:getSummary',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       11,
-      'liveSession:create',
+      'chatMemory:appendMessage',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       12,
-      'liveSession:listByChat',
+      'liveSession:create',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       13,
-      'liveSession:update',
+      'liveSession:listByChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       14,
-      'liveSession:end',
+      'liveSession:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       15,
-      'settings:get',
+      'liveSession:end',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       16,
-      'settings:update',
+      'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       17,
-      'overlay:setHitRegions',
+      'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       18,
-      'overlay:setPointerPassthrough',
+      'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       19,
-      'screenCapture:getAccessStatus',
+      'overlay:setPointerPassthrough',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       20,
-      'screenCapture:listSources',
+      'screenCapture:getAccessStatus',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       21,
-      'screenCapture:selectSource',
+      'screenCapture:listSources',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       22,
-      'screenFrameDump:startSession',
+      'screenCapture:selectSource',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       23,
+      'screenFrameDump:startSession',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      24,
       'screenFrameDump:saveFrame',
       expect.any(Function),
     );
@@ -267,7 +291,29 @@ describe('registerIpcHandlers', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('delegates health, token, and settings handlers to the backend client and settings service', async () => {
+  it('validates project knowledge payloads before delegating to the backend client', async () => {
+    const fetchImpl = vi.fn();
+    const settingsService = createSettingsServiceDouble();
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      getMainWindow: () => null,
+      screenFrameDumpService: createScreenFrameDumpServiceDouble(),
+      settingsService,
+    });
+
+    const projectKnowledgeHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'projectKnowledge:search',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<unknown>;
+
+    await expect(projectKnowledgeHandler({}, { query: '' })).rejects.toThrow(
+      'Invalid project knowledge search payload',
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('delegates health, token, project knowledge, and settings handlers to the backend client and settings service', async () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
@@ -282,6 +328,11 @@ describe('registerIpcHandlers', () => {
           expireTime: '2099-03-09T12:30:00.000Z',
           newSessionExpireTime: '2099-03-09T12:01:30.000Z',
         })),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => createProjectKnowledgeSearchResult()),
       });
     const settingsService = createSettingsServiceDouble();
     vi.mocked(settingsService.updateSettings).mockResolvedValue({
@@ -302,6 +353,9 @@ describe('registerIpcHandlers', () => {
     const tokenHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'session:requestToken',
     )?.[1] as (_event: unknown, req: { sessionId?: string }) => Promise<unknown>;
+    const projectKnowledgeHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'projectKnowledge:search',
+    )?.[1] as (_event: unknown, req: { query: string }) => Promise<unknown>;
     const getSettingsHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'settings:get',
     )?.[1] as () => Promise<unknown>;
@@ -315,6 +369,9 @@ describe('registerIpcHandlers', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
+    await expect(
+      projectKnowledgeHandler({}, { query: 'How do I verify the desktop package?' }),
+    ).resolves.toEqual(createProjectKnowledgeSearchResult());
     await expect(getSettingsHandler()).resolves.toEqual(defaultSettings);
     await expect(
       updateSettingsHandler({}, { themePreference: 'dark' }),
@@ -332,6 +389,15 @@ describe('registerIpcHandlers', () => {
       },
       body: JSON.stringify({ sessionId: 'session-1' }),
     });
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:3000/project-knowledge/search',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'How do I verify the desktop package?' }),
+      },
+    );
     expect(settingsService.getSettings).toHaveBeenCalledTimes(1);
     expect(settingsService.updateSettings).toHaveBeenCalledWith({
       themePreference: 'dark',

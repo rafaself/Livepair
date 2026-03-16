@@ -12,6 +12,7 @@ import type {
   EndLiveSessionRequest,
   HealthResponse,
   LiveSessionRecord,
+  ProjectKnowledgeSearchResult,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
@@ -75,6 +76,30 @@ function createChatSummaryRecord(
     summaryText: 'Compact continuity summary',
     coveredThroughSequence: 3,
     updatedAt: '2026-03-12T00:05:00.000Z',
+    ...overrides,
+  };
+}
+
+function createProjectKnowledgeSearchResult(
+  overrides: Partial<ProjectKnowledgeSearchResult> = {},
+): ProjectKnowledgeSearchResult {
+  return {
+    summaryAnswer: 'Use pnpm verify:desktop for the desktop package.',
+    supportingExcerpts: [
+      {
+        sourceId: 'doc-1',
+        text: 'Desktop package verification uses pnpm verify:desktop.',
+      },
+    ],
+    sources: [
+      {
+        id: 'doc-1',
+        title: 'README.md',
+        path: 'README.md',
+      },
+    ],
+    confidence: 'high',
+    retrievalStatus: 'grounded',
     ...overrides,
   };
 }
@@ -319,6 +344,45 @@ describe('backendClient', () => {
         detail: 'Gemini token request failed: upstream 400 INVALID_ARGUMENT',
       },
     );
+  });
+
+  it('routes project knowledge retrieval through the backend endpoint', async () => {
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => createProjectKnowledgeSearchResult()),
+    });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(
+      client.searchProjectKnowledge({ query: 'How do I verify the desktop package?' }),
+    ).resolves.toEqual(createProjectKnowledgeSearchResult());
+    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/project-knowledge/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: 'How do I verify the desktop package?' }),
+    });
+  });
+
+  it('rejects malformed project knowledge responses from successful requests', async () => {
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => ({
+        summaryAnswer: '',
+        supportingExcerpts: [],
+        sources: [],
+        confidence: 'high',
+        retrievalStatus: 'grounded',
+      })),
+    });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(
+      client.searchProjectKnowledge({ query: 'How do I verify the desktop package?' }),
+    ).rejects.toThrow('Project knowledge response was invalid');
   });
 
   it('routes chat-memory operations through backend endpoints', async () => {

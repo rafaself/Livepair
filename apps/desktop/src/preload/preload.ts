@@ -10,6 +10,7 @@ export const bridge: DesktopBridge = {
   quitApp: () => ipcRenderer.invoke(IPC_CHANNELS.quitApp),
   checkHealth: () => ipcRenderer.invoke(IPC_CHANNELS.checkHealth),
   requestSessionToken: (req) => ipcRenderer.invoke(IPC_CHANNELS.requestSessionToken, req),
+  searchProjectKnowledge: (req) => ipcRenderer.invoke(IPC_CHANNELS.searchProjectKnowledge, req),
   createChat: (req) => ipcRenderer.invoke(IPC_CHANNELS.createChat, req),
   getChat: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.getChat, chatId),
   getOrCreateCurrentChat: () => ipcRenderer.invoke(IPC_CHANNELS.getOrCreateCurrentChat),

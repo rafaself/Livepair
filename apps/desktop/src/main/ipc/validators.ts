@@ -11,5 +11,8 @@ export {
   isSaveScreenFrameDumpFrameRequest,
   isScreenCaptureSourceId,
 } from './validators/screenValidators';
-export { isCreateEphemeralTokenRequest } from './validators/sessionValidators';
+export {
+  isCreateEphemeralTokenRequest,
+  isProjectKnowledgeSearchRequest,
+} from './validators/sessionValidators';
 export { isDesktopSettingsPatch } from './validators/settingsValidators';

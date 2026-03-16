@@ -1,4 +1,9 @@
-import type { AnswerCitation, AnswerMetadata } from '@livepair/shared-types';
+import type {
+  AnswerCitation,
+  AnswerMetadata,
+  ProjectKnowledgeSearchRequest,
+  ProjectKnowledgeSearchResult,
+} from '@livepair/shared-types';
 import { asErrorDetail } from '../../core/runtimeUtils';
 import type { ProductMode } from '../../core/session.types';
 import type { SpeechLifecycleStatus } from '../../speech/speech.types';
@@ -14,6 +19,7 @@ import type {
 export type VoiceToolName =
   | 'get_current_mode'
   | 'get_voice_session_status'
+  | 'search_project_knowledge'
   | 'report_answer_provenance';
 
 export type VoiceToolExecutionSnapshot = {
@@ -45,14 +51,28 @@ export const VOICE_TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'search_project_knowledge',
+    description: 'Search curated project documents for project-specific facts, architecture, implementation details, internal docs, and specs. Use this for repository-specific factual questions. Do not use it for current public web facts, runtime app state when a direct tool already exists, or brainstorming and stylistic opinions.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+        },
+      },
+      required: ['query'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'report_answer_provenance',
-    description: 'Record provenance metadata for a factual assistant reply.',
+    description: 'Record provenance metadata for a factual assistant reply when the source is not project knowledge retrieved by search_project_knowledge.',
     parameters: {
       type: 'object',
       properties: {
         provenance: {
           type: 'string',
-          enum: ['project_grounded', 'web_grounded', 'tool_grounded', 'unverified'],
+          enum: ['web_grounded', 'tool_grounded', 'unverified'],
         },
         citations: {
           type: 'array',
@@ -108,8 +128,7 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isAnswerProvenance(value: unknown): value is AnswerMetadata['provenance'] {
   return (
-    value === 'project_grounded'
-    || value === 'web_grounded'
+    value === 'web_grounded'
     || value === 'tool_grounded'
     || value === 'unverified'
   );
@@ -179,9 +198,47 @@ function normalizeAnswerMetadata(argumentsValue: Record<string, unknown>): Answe
   };
 }
 
+export type VoiceToolDependencies = {
+  searchProjectKnowledge: (
+    req: ProjectKnowledgeSearchRequest,
+  ) => Promise<ProjectKnowledgeSearchResult>;
+};
+
+function normalizeProjectKnowledgeSearchRequest(
+  argumentsValue: Record<string, unknown>,
+): ProjectKnowledgeSearchRequest | null {
+  const query = argumentsValue['query'];
+
+  if (!isNonEmptyString(query)) {
+    return null;
+  }
+
+  return {
+    query: query.trim(),
+  };
+}
+
+function deriveProjectKnowledgeAnswerMetadata(
+  result: ProjectKnowledgeSearchResult,
+): AnswerMetadata | null {
+  if (result.retrievalStatus !== 'grounded') {
+    return null;
+  }
+
+  return {
+    provenance: 'project_grounded',
+    confidence: result.confidence,
+    citations: result.sources.map((source) => ({
+      label: source.path ?? source.title,
+    })),
+    reason: 'Derived from successful search_project_knowledge retrieval output.',
+  };
+}
+
 export async function executeLocalVoiceTool(
   call: VoiceToolCall,
   snapshot: VoiceToolExecutionSnapshot,
+  dependencies?: VoiceToolDependencies,
 ): Promise<VoiceToolResponse> {
   try {
     if (call.name === 'get_current_mode') {
@@ -205,6 +262,33 @@ export async function executeLocalVoiceTool(
           voiceSessionStatus: snapshot.voiceSessionStatus,
           voiceCaptureState: snapshot.voiceCaptureState,
           voicePlaybackState: snapshot.voicePlaybackState,
+        },
+      };
+    }
+
+    if (call.name === 'search_project_knowledge') {
+      const request = normalizeProjectKnowledgeSearchRequest(call.arguments);
+
+      if (!request) {
+        return createToolErrorResponse(
+          call,
+          'invalid_project_knowledge_query',
+          'Tool "search_project_knowledge" requires a non-empty query string',
+        );
+      }
+
+      const searchProjectKnowledge = dependencies?.searchProjectKnowledge
+        ?? ((req: ProjectKnowledgeSearchRequest) => window.bridge.searchProjectKnowledge(req));
+      const result = await searchProjectKnowledge(request);
+      const answerMetadata = deriveProjectKnowledgeAnswerMetadata(result);
+
+      return {
+        id: call.id,
+        name: call.name,
+        response: {
+          ok: true,
+          ...result,
+          ...(answerMetadata ? { answerMetadata } : {}),
         },
       };
     }
