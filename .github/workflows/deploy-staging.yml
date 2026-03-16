@@ -73,6 +73,16 @@ jobs:
         with:
           project_id: ${{ vars.GCP_PROJECT_ID }}
 
+      - name: Debug GCP auth and Cloud Build bucket
+        run: |
+          set -x
+          gcloud auth list
+          gcloud config get-value account
+          gcloud config get-value project
+          gcloud storage buckets describe "gs://${{ vars.GCP_PROJECT_ID }}_cloudbuild"
+          echo ok > /tmp/probe.txt
+          gcloud storage cp /tmp/probe.txt "gs://${{ vars.GCP_PROJECT_ID }}_cloudbuild/probe-${GITHUB_RUN_ID}.txt"
+
       - name: Submit staging deployment build
         run: |
           image_name="${{ vars.GCP_API_IMAGE_NAME }}"
