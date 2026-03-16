@@ -185,6 +185,7 @@ describe('createDesktopSessionController – lifecycle', () => {
   it('bootstraps a Gemini Live voice session with an ephemeral token', async () => {
     const voiceCapture = createVoiceCaptureHarness();
     const voiceTransport = createVoiceTransportHarness();
+    const reportLiveTelemetry = vi.fn().mockResolvedValue(undefined);
     const requestSessionToken = vi.fn().mockResolvedValue({
       token: 'auth_tokens/test-token',
       expireTime: '2099-03-09T12:30:00.000Z',
@@ -197,6 +198,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       },
       checkBackendHealth: vi.fn(),
       requestSessionToken,
+      reportLiveTelemetry,
       createTransport: vi.fn(() => voiceTransport.transport),
       createVoiceCapture: voiceCapture.createVoiceCapture,
       settingsStore: useSettingsStore,
@@ -258,6 +260,49 @@ describe('createDesktopSessionController – lifecycle', () => {
       chatId: 'chat-1',
       startedAt: expect.any(String),
     });
+    voiceTransport.emit({
+      type: 'usage-metadata',
+      usage: {
+        totalTokenCount: 5,
+        responseTokensDetails: [
+          { modality: 'TEXT', tokenCount: 5 },
+        ],
+      },
+    });
+    voiceTransport.emit({
+      type: 'text-delta',
+      text: 'Telemetry response',
+    });
+
+    await controller.endSession();
+
+    await vi.waitFor(() => {
+      expect(reportLiveTelemetry).toHaveBeenCalledTimes(3);
+    });
+    expect(reportLiveTelemetry.mock.calls[0]?.[0]).toEqual([
+      expect.objectContaining({
+        eventType: 'live_session_started',
+        sessionId: 'live-session-1',
+        chatId: 'chat-1',
+      }),
+    ]);
+    expect(reportLiveTelemetry.mock.calls[1]?.[0]).toEqual([
+      expect.objectContaining({
+        eventType: 'live_session_connected',
+      }),
+    ]);
+    expect(reportLiveTelemetry.mock.calls[2]?.[0]).toEqual([
+      expect.objectContaining({
+        eventType: 'live_usage_reported',
+        usage: expect.objectContaining({
+          totalTokenCount: 5,
+        }),
+      }),
+      expect.objectContaining({
+        eventType: 'live_session_ended',
+        firstResponseLatencyMs: expect.any(Number),
+      }),
+    ]);
     expect(voiceCapture.start).not.toHaveBeenCalled();
   });
 

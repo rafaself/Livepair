@@ -22,6 +22,7 @@ function buildBaseMockDesktopBridge() {
       retrievalStatus: 'no_match' as const,
       failureReason: 'not_stubbed',
     })),
+    reportLiveTelemetry: vi.fn(async () => undefined),
     createChat: vi.fn(),
     getChat: vi.fn(),
     getOrCreateCurrentChat: vi.fn(),

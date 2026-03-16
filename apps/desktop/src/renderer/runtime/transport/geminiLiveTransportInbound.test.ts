@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { MediaModality } from '@google/genai';
 import type { LiveConnectMode } from '../core/session.types';
 import { createGeminiLiveTransportState } from './geminiLiveTransportState';
 import type { GeminiLiveSdkServerMessage } from './geminiLiveSdkClient';
@@ -148,6 +149,42 @@ describe('handleGeminiLiveSdkMessage', () => {
         handle: 'handles/voice-session-3',
         resumable: false,
         detail: 'Gemini Live session is not resumable at this point',
+      },
+    ]);
+  });
+
+  it('converts Gemini usage metadata into a bounded transport usage event', () => {
+    const harness = createHarness();
+
+    harness.dispatch({
+      usageMetadata: {
+        totalTokenCount: 23,
+        promptTokenCount: 11,
+        responseTokenCount: 12,
+        promptTokensDetails: [
+          { modality: MediaModality.AUDIO, tokenCount: 4 },
+        ],
+        responseTokensDetails: [
+          { modality: MediaModality.TEXT, tokenCount: 8 },
+          { modality: MediaModality.AUDIO, tokenCount: 4 },
+        ],
+      },
+    });
+
+    expect(harness.events).toEqual([
+      {
+        type: 'usage-metadata',
+        usage: {
+          totalTokenCount: 23,
+          promptTokenCount: 11,
+          responseTokenCount: 12,
+          inputTokenCount: 4,
+          outputTokenCount: 12,
+          responseTokensDetails: [
+            { modality: 'TEXT', tokenCount: 8 },
+            { modality: 'AUDIO', tokenCount: 4 },
+          ],
+        },
       },
     ]);
   });

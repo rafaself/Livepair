@@ -46,6 +46,7 @@ export type VoiceResumeControllerOps = {
     handler: (e: LiveSessionEvent) => void,
   ) => void;
   handleTransportEvent: (e: LiveSessionEvent) => void;
+  onResumeConnected: () => void;
   getActiveTransport: () => DesktopSession | null;
   setActiveTransport: (t: DesktopSession | null) => void;
   unsubscribePreviousTransport: () => void;
@@ -194,6 +195,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
         mode: 'voice',
         resumeHandle: activeResumeHandle,
       });
+      ops.onResumeConnected();
       recordRecoveryTransition(ops, 'resume-connect-resolved', detail);
       ops.logRuntimeDiagnostic('voice-session', 'resume connect resolved', {
         operationId,

@@ -1,6 +1,7 @@
 import type {
   AnswerMetadata,
   CreateEphemeralTokenResponse,
+  LiveTelemetryUsageReportedEvent,
   RehydrationPacket,
 } from '@livepair/shared-types';
 import type { VoiceToolCall, VoiceToolResponse } from '../voice/voice.types';
@@ -64,6 +65,10 @@ export type LiveSessionEvent =
   | {
       type: 'answer-metadata';
       answerMetadata: AnswerMetadata;
+    }
+  | {
+      type: 'usage-metadata';
+      usage: LiveTelemetryUsageReportedEvent['usage'];
     }
   | {
       type: 'turn-complete';

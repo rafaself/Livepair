@@ -5,6 +5,7 @@ import type { DesktopSettingsPatch } from '../../shared/settings';
 import type {
   AppendChatMessageRequest,
   CreateEphemeralTokenRequest,
+  LiveTelemetryEvent,
   ProjectKnowledgeSearchRequest,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
@@ -13,6 +14,7 @@ import {
   isChatId,
   isCreateChatRequest,
   isCreateEphemeralTokenRequest,
+  isLiveTelemetryBatchRequest,
   isProjectKnowledgeSearchRequest,
   isSaveScreenFrameDumpFrameRequest,
   isUpdateLiveSessionRequest,
@@ -117,6 +119,59 @@ describe('ipc validators', () => {
     expect(isProjectKnowledgeSearchRequest(undefined)).toBe(false);
     expect(isDesktopSettingsPatch({ groundingEnabled: true })).toBe(true);
     expect(isDesktopSettingsPatch({ groundingEnabled: 'yes' })).toBe(false);
+  });
+
+  it('validates bounded live telemetry batches', () => {
+    const validBatch: LiveTelemetryEvent[] = [
+      {
+        eventType: 'live_session_started',
+        occurredAt: '2026-03-16T14:00:00.000Z',
+        sessionId: 'live-session-1',
+        chatId: 'chat-1',
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+      },
+      {
+        eventType: 'live_usage_reported',
+        occurredAt: '2026-03-16T14:00:01.000Z',
+        sessionId: 'live-session-1',
+        chatId: 'chat-1',
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+        usage: {
+          totalTokenCount: 17,
+          responseTokensDetails: [
+            { modality: 'TEXT', tokenCount: 9 },
+          ],
+        },
+      },
+    ];
+
+    expect(isLiveTelemetryBatchRequest(validBatch)).toBe(true);
+    expect(isLiveTelemetryBatchRequest([])).toBe(true);
+    expect(isLiveTelemetryBatchRequest({ events: validBatch })).toBe(false);
+    expect(
+      isLiveTelemetryBatchRequest([
+        {
+          ...validBatch[0],
+          occurredAt: '',
+        },
+      ]),
+    ).toBe(false);
+    expect(
+      isLiveTelemetryBatchRequest([
+        {
+          ...validBatch[1],
+          usage: {
+            responseTokensDetails: [{ modality: '', tokenCount: 3 }],
+          },
+        },
+      ]),
+    ).toBe(false);
   });
 
   it('validates chat memory payloads', () => {

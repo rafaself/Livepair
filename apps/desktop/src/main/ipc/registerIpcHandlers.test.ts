@@ -5,6 +5,7 @@ import type {
   ChatMessageRecord,
   ChatRecord,
   DurableChatSummaryRecord,
+  LiveTelemetryEvent,
   LiveSessionRecord,
   ProjectKnowledgeSearchResult,
 } from '@livepair/shared-types';
@@ -155,7 +156,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(24);
+    expect(mockHandle).toHaveBeenCalledTimes(25);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'app:quit', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(2, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
@@ -170,101 +171,106 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       5,
-      'chatMemory:createChat',
+      'session:reportLiveTelemetry',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       6,
-      'chatMemory:getChat',
+      'chatMemory:createChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       7,
-      'chatMemory:getOrCreateCurrentChat',
+      'chatMemory:getChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       8,
-      'chatMemory:listChats',
+      'chatMemory:getOrCreateCurrentChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       9,
-      'chatMemory:listMessages',
+      'chatMemory:listChats',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       10,
-      'chatMemory:getSummary',
+      'chatMemory:listMessages',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       11,
-      'chatMemory:appendMessage',
+      'chatMemory:getSummary',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       12,
-      'liveSession:create',
+      'chatMemory:appendMessage',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       13,
-      'liveSession:listByChat',
+      'liveSession:create',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       14,
-      'liveSession:update',
+      'liveSession:listByChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       15,
-      'liveSession:end',
+      'liveSession:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       16,
-      'settings:get',
+      'liveSession:end',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       17,
-      'settings:update',
+      'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       18,
-      'overlay:setHitRegions',
+      'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       19,
-      'overlay:setPointerPassthrough',
+      'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       20,
-      'screenCapture:getAccessStatus',
+      'overlay:setPointerPassthrough',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       21,
-      'screenCapture:listSources',
+      'screenCapture:getAccessStatus',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       22,
-      'screenCapture:selectSource',
+      'screenCapture:listSources',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       23,
-      'screenFrameDump:startSession',
+      'screenCapture:selectSource',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       24,
+      'screenFrameDump:startSession',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      25,
       'screenFrameDump:saveFrame',
       expect.any(Function),
     );
@@ -314,6 +320,37 @@ describe('registerIpcHandlers', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it('validates telemetry payloads before delegating to the backend client', async () => {
+    const fetchImpl = vi.fn();
+    const settingsService = createSettingsServiceDouble();
+    const { registerIpcHandlers } = await import('./registerIpcHandlers');
+
+    registerIpcHandlers({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      getMainWindow: () => null,
+      screenFrameDumpService: createScreenFrameDumpServiceDouble(),
+      settingsService,
+    });
+
+    const telemetryHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'session:reportLiveTelemetry',
+    )?.[1] as (_event: unknown, events: unknown) => Promise<unknown>;
+
+    await expect(
+      telemetryHandler({}, [{
+        eventType: 'live_session_started',
+        occurredAt: '',
+        sessionId: 'live-session-1',
+        chatId: 'chat-1',
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+      }]),
+    ).rejects.toThrow('Invalid live telemetry payload');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('delegates health, token, project knowledge, and settings handlers to the backend client and settings service', async () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce({
@@ -357,6 +394,9 @@ describe('registerIpcHandlers', () => {
     const projectKnowledgeHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'projectKnowledge:search',
     )?.[1] as (_event: unknown, req: { query: string }) => Promise<unknown>;
+    const telemetryHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'session:reportLiveTelemetry',
+    )?.[1] as (_event: unknown, events: LiveTelemetryEvent[]) => Promise<unknown>;
     const getSettingsHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'settings:get',
     )?.[1] as () => Promise<unknown>;
@@ -373,6 +413,18 @@ describe('registerIpcHandlers', () => {
     await expect(
       projectKnowledgeHandler({}, { query: 'How do I verify the desktop package?' }),
     ).resolves.toEqual(createProjectKnowledgeSearchResult());
+    await expect(
+      telemetryHandler({}, [{
+        eventType: 'live_session_started',
+        occurredAt: '2026-03-16T14:00:00.000Z',
+        sessionId: 'live-session-1',
+        chatId: 'chat-1',
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+      }]),
+    ).resolves.toBeUndefined();
     await expect(getSettingsHandler()).resolves.toEqual(defaultSettings);
     await expect(
       updateSettingsHandler({}, { themePreference: 'dark' }),
@@ -708,6 +760,10 @@ describe('registerIpcHandlers', () => {
         sequence: 0,
         mimeType: 'image/jpeg',
         data: new Uint8Array([1, 2, 3]),
+        savedAt: '2026-03-15T22:41:03.124Z',
+        mode: 'manual',
+        quality: 'high',
+        reason: 'manual',
       }),
     ).rejects.toThrow('Invalid screen frame dump payload');
     await expect(
@@ -715,6 +771,10 @@ describe('registerIpcHandlers', () => {
         sequence: 2,
         mimeType: 'image/jpeg',
         data: new Uint8Array([4, 5, 6]),
+        savedAt: '2026-03-15T22:41:09.021Z',
+        mode: 'continuous',
+        quality: 'medium',
+        reason: 'base',
       }),
     ).resolves.toBeUndefined();
 
@@ -723,6 +783,10 @@ describe('registerIpcHandlers', () => {
       sequence: 2,
       mimeType: 'image/jpeg',
       data: new Uint8Array([4, 5, 6]),
+      savedAt: '2026-03-15T22:41:09.021Z',
+      mode: 'continuous',
+      quality: 'medium',
+      reason: 'base',
     });
   });
 

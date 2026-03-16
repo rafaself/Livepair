@@ -18,8 +18,10 @@ import { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionTransportAssembly } from './sessionTransportAssembly';
 import { createSessionLifecycleAssembly } from './sessionLifecycleAssembly';
 import { createSessionConversationSupport } from './sessionConversationSupport';
+import { createLiveTelemetryCollector } from './liveTelemetryCollector';
 import { useUiStore } from '../../store/uiStore';
 import { setAssistantAnswerMetadata } from '../conversation/conversationTurnManager';
+import desktopPackageJson from '../../../../package.json';
 import type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
@@ -28,6 +30,24 @@ import type {
 export function createSessionControllerAssembly(
   dependencies: DesktopSessionControllerDependencies,
 ): DesktopSessionController {
+  const telemetryPlatform = (() => {
+    if (typeof navigator === 'undefined') {
+      return 'unknown';
+    }
+
+    const navigatorWithUserAgentData = navigator as Navigator & {
+      userAgentData?: { platform?: string | undefined } | undefined;
+    };
+
+    if (typeof navigatorWithUserAgentData.userAgentData?.platform === 'string') {
+      return navigatorWithUserAgentData.userAgentData.platform;
+    }
+
+    return navigator.platform || 'unknown';
+  })();
+  const telemetryCollector = createLiveTelemetryCollector({
+    emit: (events) => dependencies.reportLiveTelemetry(events),
+  });
   const mutableRuntime = createSessionControllerMutableRuntime({
     onRealtimeOutboundDiagnosticsChanged: (diagnostics) => {
       dependencies.store.getState().setRealtimeOutboundDiagnostics(diagnostics);
@@ -209,6 +229,7 @@ export function createSessionControllerAssembly(
     dependencies,
     conversationCtx,
     mutableRuntime,
+    telemetryCollector,
     refreshScreenCaptureSourceSnapshot,
     runtimeRef,
     voiceToolCtrl,
@@ -228,6 +249,10 @@ export function createSessionControllerAssembly(
     dependencies,
     conversationCtx,
     runtimeRef,
+    telemetryCollector,
+    telemetryEnvironment: import.meta.env.MODE,
+    telemetryPlatform,
+    telemetryAppVersion: desktopPackageJson.version,
     playbackCtrl,
     screenCtrl,
     voiceChunkCtrl,

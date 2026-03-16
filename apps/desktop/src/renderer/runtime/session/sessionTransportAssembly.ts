@@ -43,6 +43,7 @@ import type { createVoiceTranscriptController } from '../voice/transcript/voiceT
 import type { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import type { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionTransportActivation } from './sessionTransportActivation';
+import type { createLiveTelemetryCollector } from './liveTelemetryCollector';
 
 type RuntimeRef = {
   current: ReturnType<typeof createSessionControllerRuntime> | null;
@@ -54,6 +55,7 @@ type SessionTransportAssemblyArgs = {
   dependencies: DesktopSessionControllerDependencies;
   conversationCtx: ConversationContext;
   mutableRuntime: ReturnType<typeof createSessionControllerMutableRuntime>;
+  telemetryCollector: ReturnType<typeof createLiveTelemetryCollector>;
   refreshScreenCaptureSourceSnapshot: () => Promise<boolean>;
   runtimeRef: RuntimeRef;
   voiceToolCtrl: ReturnType<typeof createVoiceToolController>;
@@ -70,6 +72,7 @@ export function createSessionTransportAssembly({
   dependencies,
   conversationCtx,
   mutableRuntime,
+  telemetryCollector,
   refreshScreenCaptureSourceSnapshot,
   runtimeRef,
   voiceToolCtrl,
@@ -240,7 +243,33 @@ export function createSessionTransportAssembly({
       });
     },
   });
-  const { handleTransportEvent } = transportRouter;
+  const { handleTransportEvent: routeTransportEvent } = transportRouter;
+  const handleTransportEvent = (event: TransportEvent): void => {
+    switch (event.type) {
+      case 'connection-state-changed':
+        if (event.state === 'connected') {
+          telemetryCollector.onSessionConnected();
+        }
+        break;
+      case 'usage-metadata':
+        telemetryCollector.onUsageMetadata(event.usage);
+        break;
+      case 'interrupted':
+        telemetryCollector.onInterruption();
+        break;
+      case 'text-delta':
+      case 'audio-chunk':
+      case 'output-transcript':
+      case 'answer-metadata':
+      case 'tool-call':
+        telemetryCollector.onResponseStarted();
+        break;
+      default:
+        break;
+    }
+
+    routeTransportEvent(event);
+  };
 
   const refreshVoiceSessionToken = (
     operationId: number,
@@ -314,6 +343,9 @@ export function createSessionTransportAssembly({
       runtimeRef.current!.subscribeTransport(transport, listener);
     },
     handleTransportEvent: (event) => handleTransportEvent(event),
+    onResumeConnected: () => {
+      telemetryCollector.onSessionResumed();
+    },
     getActiveTransport: () => runtimeRef.current!.getActiveTransport(),
     setActiveTransport: (transport) => {
       runtimeRef.current!.setActiveTransport(transport);

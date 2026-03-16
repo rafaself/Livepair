@@ -11,6 +11,7 @@ import type {
   DurableChatSummaryRecord,
   EndLiveSessionRequest,
   HealthResponse,
+  LiveTelemetryEvent,
   LiveSessionRecord,
   ProjectKnowledgeSearchResult,
   UpdateLiveSessionRequest,
@@ -322,6 +323,25 @@ describe('backendClient', () => {
     );
 
     vi.useRealTimers();
+  });
+
+  it('accepts live telemetry batches without issuing backend requests until ingestion exists', async () => {
+    const telemetryEvents: LiveTelemetryEvent[] = [
+      {
+        eventType: 'live_session_started',
+        occurredAt: '2026-03-16T14:00:00.000Z',
+        sessionId: LIVE_SESSION_ID,
+        chatId: CHAT_ID,
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+      },
+    ];
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(client.reportLiveTelemetry(telemetryEvents)).resolves.toBeUndefined();
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('throws when the token endpoint returns a non-ok response', async () => {

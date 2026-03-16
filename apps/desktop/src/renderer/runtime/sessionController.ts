@@ -1,4 +1,4 @@
-import { checkBackendHealth, requestSessionToken } from '../api/backend';
+import { checkBackendHealth, reportLiveTelemetry, requestSessionToken } from '../api/backend';
 import { useCaptureExclusionRectsStore } from '../store/captureExclusionRectsStore';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -27,6 +27,7 @@ function resolveDesktopSessionControllerDependencies(
     logger: defaultRuntimeLogger,
     checkBackendHealth,
     requestSessionToken,
+    reportLiveTelemetry,
     createTransport: (_kind) => {
       const settings = useSettingsStore.getState().settings;
 

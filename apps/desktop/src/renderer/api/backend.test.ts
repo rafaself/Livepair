@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   checkBackendHealth,
+  reportLiveTelemetry,
   requestSessionToken,
 } from './backend';
 import { createMockDesktopBridge } from '../test/bridgeMocks';
+import type { LiveTelemetryEvent } from '@livepair/shared-types';
 
 describe('renderer backend api helper', () => {
   it('returns true when bridge health responds with status ok', async () => {
@@ -46,5 +48,26 @@ describe('renderer backend api helper', () => {
     window.bridge = bridge;
 
     await expect(requestSessionToken({})).rejects.toThrow('token failed');
+  });
+
+  it('delegates live telemetry batches to the bridge', async () => {
+    const telemetryEvents: LiveTelemetryEvent[] = [
+      {
+        eventType: 'live_session_started',
+        occurredAt: '2026-03-16T14:00:00.000Z',
+        sessionId: 'live-session-1',
+        chatId: 'chat-1',
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+      },
+    ];
+    const bridge = createMockDesktopBridge();
+    bridge.reportLiveTelemetry.mockResolvedValue(undefined);
+    window.bridge = bridge;
+
+    await expect(reportLiveTelemetry(telemetryEvents)).resolves.toBeUndefined();
+    expect(bridge.reportLiveTelemetry).toHaveBeenCalledWith(telemetryEvents);
   });
 });

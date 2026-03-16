@@ -11,6 +11,7 @@ import type {
   DurableChatSummaryRecord,
   EndLiveSessionRequest,
   HealthResponse,
+  LiveTelemetryEvent,
   LiveSessionRecord,
   ProjectKnowledgeSearchRequest,
   ProjectKnowledgeSearchResult,
@@ -488,6 +489,7 @@ export type BackendClient = {
   searchProjectKnowledge: (
     req: ProjectKnowledgeSearchRequest,
   ) => Promise<ProjectKnowledgeSearchResult>;
+  reportLiveTelemetry: (events: LiveTelemetryEvent[]) => Promise<void>;
   createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
@@ -677,6 +679,10 @@ export function createBackendClient({
         path: '/project-knowledge/search',
         statusLabel: 'Project knowledge search failed',
       });
+    },
+
+    async reportLiveTelemetry(_events: LiveTelemetryEvent[]): Promise<void> {
+      return undefined;
     },
 
     async createChat(req?: CreateChatRequest): Promise<ChatRecord> {

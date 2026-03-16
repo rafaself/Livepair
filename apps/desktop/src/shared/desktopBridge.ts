@@ -11,6 +11,7 @@ import type {
   CreateLiveSessionRequest,
   EndLiveSessionRequest,
   HealthResponse,
+  LiveTelemetryEvent,
   LiveSessionRecord,
   ProjectKnowledgeSearchRequest,
   ProjectKnowledgeSearchResult,
@@ -103,6 +104,7 @@ export interface DesktopBridge {
   searchProjectKnowledge: (
     req: ProjectKnowledgeSearchRequest,
   ) => Promise<ProjectKnowledgeSearchResult>;
+  reportLiveTelemetry: (events: LiveTelemetryEvent[]) => Promise<void>;
   createChat: (req?: CreateChatRequest) => Promise<ChatRecord>;
   getChat: (chatId: ChatId) => Promise<ChatRecord | null>;
   getOrCreateCurrentChat: () => Promise<ChatRecord>;
@@ -140,6 +142,7 @@ export const IPC_CHANNELS = {
   checkHealth: 'health:check',
   requestSessionToken: 'session:requestToken',
   searchProjectKnowledge: 'projectKnowledge:search',
+  reportLiveTelemetry: 'session:reportLiveTelemetry',
   createChat: 'chatMemory:createChat',
   getChat: 'chatMemory:getChat',
   getOrCreateCurrentChat: 'chatMemory:getOrCreateCurrentChat',

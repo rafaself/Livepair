@@ -36,6 +36,7 @@ describe('preload bridge', () => {
       'checkHealth',
       'requestSessionToken',
       'searchProjectKnowledge',
+      'reportLiveTelemetry',
       'createChat',
       'getChat',
       'getOrCreateCurrentChat',
@@ -63,6 +64,7 @@ describe('preload bridge', () => {
       checkHealth: expect.any(Function),
       requestSessionToken: expect.any(Function),
       searchProjectKnowledge: expect.any(Function),
+      reportLiveTelemetry: expect.any(Function),
       createChat: expect.any(Function),
       getChat: expect.any(Function),
       getOrCreateCurrentChat: expect.any(Function),
@@ -114,6 +116,32 @@ describe('preload bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith('projectKnowledge:search', {
       query: 'How do I verify the desktop package?',
     });
+
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await bridge.reportLiveTelemetry([
+      {
+        eventType: 'live_session_started',
+        occurredAt: '2026-03-16T14:00:00.000Z',
+        sessionId: 'live-session-1',
+        chatId: 'chat-1',
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+      },
+    ]);
+    expect(mockInvoke).toHaveBeenCalledWith('session:reportLiveTelemetry', [
+      {
+        eventType: 'live_session_started',
+        occurredAt: '2026-03-16T14:00:00.000Z',
+        sessionId: 'live-session-1',
+        chatId: 'chat-1',
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+      },
+    ]);
 
     mockInvoke.mockResolvedValueOnce({
       id: 'chat-1',

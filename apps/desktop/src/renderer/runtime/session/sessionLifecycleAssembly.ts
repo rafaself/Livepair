@@ -1,5 +1,5 @@
 import { logRuntimeDiagnostic, logRuntimeError } from '../core/logger';
-import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
+import { getLiveConfig, LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import {
   buildRehydrationPacketFromCurrentChat,
 } from '../../chatMemory/currentChatMemory';
@@ -19,7 +19,10 @@ import type { ProductMode } from '../core/session.types';
 import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
 import type { TextSessionStatus } from '../text/text.types';
 import type { DesktopSession } from '../transport/transport.types';
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type {
+  CreateEphemeralTokenResponse,
+  LiveSessionRecord,
+} from '@livepair/shared-types';
 import type { createVoicePlaybackController } from '../voice/media/voicePlaybackController';
 import type { createScreenCaptureController } from '../screen/screenCaptureController';
 import type { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
@@ -36,6 +39,7 @@ import { createSessionControllerModeSwitching } from './sessionModeSwitching';
 import { createSessionControllerPublicApi } from './sessionPublicApi';
 import { createSessionControllerTeardown } from './sessionTeardown';
 import { createSessionTransportActivation } from './sessionTransportActivation';
+import type { createLiveTelemetryCollector } from './liveTelemetryCollector';
 
 type RuntimeRef = {
   current: ReturnType<typeof createSessionControllerRuntime> | null;
@@ -47,6 +51,10 @@ type SessionLifecycleAssemblyArgs = {
   dependencies: DesktopSessionControllerDependencies;
   conversationCtx: ConversationContext;
   runtimeRef: RuntimeRef;
+  telemetryCollector: ReturnType<typeof createLiveTelemetryCollector>;
+  telemetryEnvironment: string;
+  telemetryPlatform: string;
+  telemetryAppVersion: string;
   playbackCtrl: ReturnType<typeof createVoicePlaybackController>;
   screenCtrl: ReturnType<typeof createScreenCaptureController>;
   voiceChunkCtrl: ReturnType<typeof createVoiceChunkPipeline>;
@@ -67,6 +75,10 @@ export function createSessionLifecycleAssembly({
   dependencies,
   conversationCtx,
   runtimeRef,
+  telemetryCollector,
+  telemetryEnvironment,
+  telemetryPlatform,
+  telemetryAppVersion,
   playbackCtrl,
   screenCtrl,
   voiceChunkCtrl,
@@ -84,6 +96,17 @@ export function createSessionLifecycleAssembly({
   endSessionInternal: EndSessionInternal;
   voiceErrorHandlers: ReturnType<typeof createSessionControllerErrorHandling>;
 } {
+  const startTelemetrySession = (liveSession: LiveSessionRecord): void => {
+    telemetryCollector.onSessionStarted({
+      sessionId: liveSession.id,
+      chatId: liveSession.chatId,
+      model: getLiveConfig().model,
+      environment: telemetryEnvironment,
+      platform: telemetryPlatform,
+      appVersion: telemetryAppVersion,
+    });
+  };
+
   const teardown = createSessionControllerTeardown({
     store: dependencies.store,
     currentSpeechLifecycleStatus: () => runtimeRef.current!.currentSpeechLifecycleStatus(),
@@ -210,7 +233,18 @@ export function createSessionLifecycleAssembly({
       tokenMgr.set(token);
     },
     syncVoiceDurabilityState: (token, patch) => runtimeRef.current!.syncVoiceDurabilityState(token, patch),
-    restorePersistedLiveSession: () => restoreCurrentLiveSession(),
+    restorePersistedLiveSession: async () => {
+      const liveSession = await restoreCurrentLiveSession();
+
+      if (liveSession) {
+        startTelemetrySession(liveSession);
+      }
+
+      return liveSession;
+    },
+    onRestoredSessionConnected: () => {
+      telemetryCollector.onSessionResumed();
+    },
     invalidatePersistedLiveSession: async (patch) => {
       await updateCurrentLiveSession({
         kind: 'resumption',
@@ -218,9 +252,19 @@ export function createSessionLifecycleAssembly({
       });
     },
     createPersistedLiveSession: async () => {
-      await startCurrentLiveSession();
+      const liveSession = await startCurrentLiveSession();
+      startTelemetrySession(liveSession);
     },
     endPersistedLiveSession: async (liveSessionEnd) => {
+      if (liveSessionEnd.status === 'failed' && liveSessionEnd.endedReason) {
+        telemetryCollector.onSessionError({
+          errorMessage: liveSessionEnd.endedReason,
+        });
+      }
+
+      telemetryCollector.onSessionEnded({
+        closeReason: liveSessionEnd.endedReason ?? null,
+      });
       await endCurrentLiveSession(liveSessionEnd);
     },
     setVoiceResumptionInFlight: (value) => {
@@ -230,7 +274,12 @@ export function createSessionLifecycleAssembly({
     activateVoiceTransport: (transport) => {
       transportActivation.activateTransport(transport, handleTransportEvent);
     },
-    setVoiceErrorState: (detail) => settleVoiceErrorState(detail),
+    setVoiceErrorState: (detail) => {
+      telemetryCollector.onSessionError({
+        errorMessage: detail,
+      });
+      return settleVoiceErrorState(detail);
+    },
     checkBackendHealth: () => dependencies.checkBackendHealth(),
     textRuntimeFailed: () => undefined,
     logRuntimeDiagnostic,
@@ -240,6 +289,15 @@ export function createSessionLifecycleAssembly({
     recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
     teardownActiveRuntime,
     endLiveSession: async (liveSessionEnd) => {
+      if (liveSessionEnd.status === 'failed' && liveSessionEnd.endedReason) {
+        telemetryCollector.onSessionError({
+          errorMessage: liveSessionEnd.endedReason,
+        });
+      }
+
+      telemetryCollector.onSessionEnded({
+        closeReason: liveSessionEnd.endedReason ?? null,
+      });
       await endCurrentLiveSession(liveSessionEnd);
     },
     setCurrentMode: (mode) => runtimeRef.current!.setCurrentMode(mode),

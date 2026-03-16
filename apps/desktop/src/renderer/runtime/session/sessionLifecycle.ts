@@ -63,6 +63,7 @@ type SessionControllerLifecycleArgs = {
     status: 'ended' | 'failed';
     endedReason?: string | null;
   }) => Promise<void>;
+  onRestoredSessionConnected: () => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
   createTransport: () => DesktopSession;
   activateVoiceTransport: (transport: DesktopSession) => void;
@@ -103,6 +104,7 @@ export function createSessionControllerLifecycle({
   invalidatePersistedLiveSession,
   createPersistedLiveSession,
   endPersistedLiveSession,
+  onRestoredSessionConnected,
   setVoiceResumptionInFlight,
   createTransport,
   activateVoiceTransport,
@@ -227,6 +229,9 @@ export function createSessionControllerLifecycle({
         );
 
         if (restoreAttempt.status === 'resumed' || !isCurrentSessionOperation(operationId)) {
+          if (restoreAttempt.status === 'resumed') {
+            onRestoredSessionConnected();
+          }
           return;
         }
 

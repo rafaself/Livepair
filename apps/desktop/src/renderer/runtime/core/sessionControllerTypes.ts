@@ -1,6 +1,10 @@
 import type { useSessionStore } from '../../store/sessionStore';
 import type { useSettingsStore } from '../../store/settingsStore';
-import type { checkBackendHealth, requestSessionToken } from '../../api/backend';
+import type {
+  checkBackendHealth,
+  reportLiveTelemetry,
+  requestSessionToken,
+} from '../../api/backend';
 import type { AssistantAudioPlaybackObserver } from '../audio/assistantAudioPlayback';
 import type { LocalScreenCaptureObserver, LocalScreenCapture } from '../screen/localScreenCapture';
 import type { LocalVoiceCapture } from '../audio/localVoiceCapture';
@@ -45,6 +49,7 @@ export type DesktopSessionControllerDependencies = {
   logger: RuntimeLogger;
   checkBackendHealth: typeof checkBackendHealth;
   requestSessionToken: typeof requestSessionToken;
+  reportLiveTelemetry: typeof reportLiveTelemetry;
   createTransport: (kind: TransportKind) => DesktopSession;
   createVoiceCapture: (
     observer: {

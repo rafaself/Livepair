@@ -13,6 +13,7 @@ export {
 } from './validators/screenValidators';
 export {
   isCreateEphemeralTokenRequest,
+  isLiveTelemetryBatchRequest,
   isProjectKnowledgeSearchRequest,
 } from './validators/sessionValidators';
 export { isDesktopSettingsPatch } from './validators/settingsValidators';

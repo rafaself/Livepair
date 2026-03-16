@@ -39,6 +39,7 @@ describe('createDesktopSessionController – resumption', () => {
   it('stores the latest resumption handle and resumes after go-away with the existing token when still valid', async () => {
     const firstTransport = createVoiceTransportHarness();
     const resumedTransport = createVoiceTransportHarness();
+    const reportLiveTelemetry = vi.fn().mockResolvedValue(undefined);
     const requestSessionToken = vi.fn().mockResolvedValue({
       token: 'auth_tokens/test-token',
       expireTime: '2099-03-09T12:30:00.000Z',
@@ -51,6 +52,7 @@ describe('createDesktopSessionController – resumption', () => {
       },
       checkBackendHealth: vi.fn(),
       requestSessionToken,
+      reportLiveTelemetry,
       createTransport: vi
         .fn()
         .mockReturnValueOnce(firstTransport.transport)
@@ -95,6 +97,12 @@ describe('createDesktopSessionController – resumption', () => {
         tokenRefreshFailed: false,
       }),
     );
+    expect(
+      reportLiveTelemetry.mock.calls.some(([events]) =>
+        Array.isArray(events)
+        && events.some((event) => event.eventType === 'live_session_resumed'),
+      ),
+    ).toBe(true);
   });
 
   it('refreshes the token before resume when the existing token is near expiry', async () => {

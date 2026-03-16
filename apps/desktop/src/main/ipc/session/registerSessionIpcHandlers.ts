@@ -3,6 +3,7 @@ import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   HealthResponse,
+  LiveTelemetryEvent,
   ProjectKnowledgeSearchRequest,
   ProjectKnowledgeSearchResult,
 } from '@livepair/shared-types';
@@ -10,6 +11,7 @@ import { IPC_CHANNELS } from '../../../shared';
 import { createBackendClient } from '../../backend/backendClient';
 import {
   isCreateEphemeralTokenRequest,
+  isLiveTelemetryBatchRequest,
   isProjectKnowledgeSearchRequest,
 } from '../validators/sessionValidators';
 
@@ -21,6 +23,7 @@ type SessionBackendClient = {
   searchProjectKnowledge: (
     request: ProjectKnowledgeSearchRequest,
   ) => Promise<ProjectKnowledgeSearchResult>;
+  reportLiveTelemetry: (events: LiveTelemetryEvent[]) => Promise<void>;
 };
 
 type RegisterSessionIpcHandlersOptions = {
@@ -58,5 +61,13 @@ export function registerSessionIpcHandlers(
     }
 
     return backendClient.searchProjectKnowledge(req);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.reportLiveTelemetry, async (_event, events: unknown) => {
+    if (!isLiveTelemetryBatchRequest(events)) {
+      throw new Error('Invalid live telemetry payload');
+    }
+
+    return backendClient.reportLiveTelemetry(events);
   });
 }

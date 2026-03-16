@@ -1,4 +1,5 @@
 import type { LiveSessionEvent } from './transport.types';
+import type { LiveTelemetryUsageReportedEvent } from '@livepair/shared-types';
 import type { LiveConnectMode } from '../core/session.types';
 import type { GeminiLiveSdkServerMessage } from './geminiLiveSdkClient';
 import type { GeminiLiveTransportState } from './geminiLiveTransportState';
@@ -26,6 +27,7 @@ type GeminiLiveModelTurnPart = NonNullable<NonNullable<GeminiLiveServerContent['
 type GeminiLiveTranscription =
   | NonNullable<GeminiLiveServerContent['inputTranscription']>
   | NonNullable<GeminiLiveServerContent['outputTranscription']>;
+type LiveUsage = LiveTelemetryUsageReportedEvent['usage'];
 
 type ParsedTranscriptUpdate = {
   text: string;
@@ -87,6 +89,96 @@ function emitSessionResumptionUpdate(
     detail: message.sessionResumptionUpdate.resumable === false
       ? 'Gemini Live session is not resumable at this point'
       : undefined,
+  });
+}
+
+function sumTokenCounts(
+  details: readonly { tokenCount?: number | undefined }[] | null | undefined,
+): number | undefined {
+  if (!details || details.length === 0) {
+    return undefined;
+  }
+
+  let total = 0;
+  let hasTokenCount = false;
+
+  for (const detail of details) {
+    if (typeof detail.tokenCount !== 'number' || !Number.isFinite(detail.tokenCount)) {
+      continue;
+    }
+
+    total += detail.tokenCount;
+    hasTokenCount = true;
+  }
+
+  return hasTokenCount ? total : undefined;
+}
+
+function normalizeResponseTokensDetails(
+  details: NonNullable<GeminiLiveSdkServerMessage['usageMetadata']>['responseTokensDetails'],
+): LiveUsage['responseTokensDetails'] | undefined {
+  if (!details || details.length === 0) {
+    return undefined;
+  }
+
+  const normalized = details.flatMap((detail) => {
+    if (
+      typeof detail.modality !== 'string'
+      || detail.modality.length === 0
+      || typeof detail.tokenCount !== 'number'
+      || !Number.isFinite(detail.tokenCount)
+    ) {
+      return [];
+    }
+
+    return [{
+      modality: detail.modality,
+      tokenCount: detail.tokenCount,
+    }];
+  });
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function emitUsageMetadata(
+  emit: (event: LiveSessionEvent) => void,
+  message: GeminiLiveSdkServerMessage,
+): void {
+  const usageMetadata = message.usageMetadata;
+
+  if (!usageMetadata) {
+    return;
+  }
+
+  const responseTokensDetails = normalizeResponseTokensDetails(usageMetadata.responseTokensDetails);
+  const inputTokenCount = sumTokenCounts(usageMetadata.promptTokensDetails);
+  const outputTokenCount = sumTokenCounts(usageMetadata.responseTokensDetails);
+  const usage: LiveUsage = {
+    ...(typeof usageMetadata.totalTokenCount === 'number'
+      ? { totalTokenCount: usageMetadata.totalTokenCount }
+      : {}),
+    ...(typeof usageMetadata.promptTokenCount === 'number'
+      ? { promptTokenCount: usageMetadata.promptTokenCount }
+      : {}),
+    ...(typeof usageMetadata.responseTokenCount === 'number'
+      ? { responseTokenCount: usageMetadata.responseTokenCount }
+      : {}),
+    ...(typeof inputTokenCount === 'number' ? { inputTokenCount } : {}),
+    ...(typeof outputTokenCount === 'number'
+      ? { outputTokenCount }
+      : typeof usageMetadata.responseTokenCount === 'number'
+        ? { outputTokenCount: usageMetadata.responseTokenCount }
+        : {}),
+    ...(responseTokensDetails ? { responseTokensDetails } : {}),
+  };
+
+  if (Object.keys(usage).length === 0) {
+    return;
+  }
+
+  emit({
+    type: 'usage-metadata',
+    usage,
   });
 }
 
@@ -198,6 +290,7 @@ export function handleGeminiLiveSdkMessage({
   }
 
   emitSessionResumptionUpdate(emit, message);
+  emitUsageMetadata(emit, message);
   emitAnswerMetadata(emit, message);
   const parsedMessage = parseGeminiLiveServerMessage(message);
   const textChunk = parsedMessage.assistantTextDelta;

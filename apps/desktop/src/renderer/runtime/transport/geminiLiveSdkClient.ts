@@ -14,6 +14,7 @@ import type { VoiceToolResponse } from '../voice/voice.types';
 export type GeminiLiveSdkServerMessage = {
   setupComplete?: LiveServerMessage['setupComplete'] | undefined;
   serverContent?: LiveServerMessage['serverContent'] | undefined;
+  usageMetadata?: LiveServerMessage['usageMetadata'] | undefined;
   goAway?:
     | (NonNullable<LiveServerMessage['goAway']> & {
         reason?: string | undefined;
@@ -70,6 +71,10 @@ export function normalizeGeminiLiveSdkServerMessage(
 
   if (message.serverContent) {
     normalizedMessage.serverContent = message.serverContent;
+  }
+
+  if (message.usageMetadata) {
+    normalizedMessage.usageMetadata = message.usageMetadata;
   }
 
   if (message.goAway) {
