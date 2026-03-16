@@ -298,6 +298,41 @@ describe('App', () => {
     });
   });
 
+  it('does not open the Share Screen mode dialog from the assistant panel when the mode was already configured', async () => {
+    installMatchMedia(true);
+    const controller = getDesktopSessionController();
+    const startSessionSpy = vi.spyOn(controller, 'startSession').mockResolvedValue();
+    const startScreenCaptureSpy = vi.spyOn(controller, 'startScreenCapture').mockResolvedValue();
+    const startVoiceCaptureSpy = vi.spyOn(controller, 'startVoiceCapture').mockResolvedValue();
+
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        screenContextMode: 'manual',
+      },
+      isReady: true,
+    });
+
+    render(<App />);
+
+    const assistantPanel = screen.getByRole('complementary', {
+      name: 'Assistant Panel',
+      hidden: true,
+    });
+    const shareScreenButton = within(assistantPanel).getByRole('button', { name: 'Share screen' });
+
+    fireEvent.click(shareScreenButton);
+
+    await waitFor(() => {
+      expect(startSessionSpy).toHaveBeenCalledWith({ mode: 'speech' });
+      expect(startScreenCaptureSpy).toHaveBeenCalledTimes(1);
+      expect(startVoiceCaptureSpy).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.queryByRole('dialog', { name: 'Choose screen share mode' })).toBeNull();
+    expect(window.bridge.updateSettings).not.toHaveBeenCalled();
+  });
+
   it('restores the assistant-panel CTA buttons after canceling the Share Screen mode dialog', async () => {
     installMatchMedia(true);
     const controller = getDesktopSessionController();
