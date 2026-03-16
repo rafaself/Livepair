@@ -74,7 +74,7 @@ type LiveConfigEnv = Partial<Record<
 >>;
 
 export type GeminiLiveConnectConfig = {
-  responseModalities: [LiveResponseModality];
+  responseModalities: readonly [LiveResponseModality];
   inputAudioTranscription?: Record<string, never> | undefined;
   outputAudioTranscription?: Record<string, never> | undefined;
   mediaResolution?: LiveMediaResolution | undefined;
