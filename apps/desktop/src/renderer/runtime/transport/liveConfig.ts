@@ -239,12 +239,12 @@ export function resolveLiveConfigEnv(
         inputAudioTranscription: parseBooleanEnv(
           env.VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION,
           'VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION',
-          AUDIO_TRANSCRIPTION_DISABLED,
+          true,
         ),
         outputAudioTranscription: parseBooleanEnv(
           env.VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION,
           'VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION',
-          AUDIO_TRANSCRIPTION_DISABLED,
+          true,
         ),
       },
     },

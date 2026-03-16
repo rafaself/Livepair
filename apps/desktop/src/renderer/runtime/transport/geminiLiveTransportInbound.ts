@@ -183,7 +183,7 @@ export function handleGeminiLiveSdkMessage({
   const parsedMessage = parseGeminiLiveServerMessage(message);
   const textChunk = parsedMessage.assistantTextDelta;
 
-  if (textChunk.length > 0) {
+  if (textChunk.length > 0 && state.activeMode !== 'voice') {
     state.hasPendingTextResponse = true;
     emit({ type: 'text-delta', text: textChunk });
   }
