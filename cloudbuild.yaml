@@ -57,6 +57,8 @@ steps:
       - --project=$PROJECT_ID
       - --region=${_REGION}
       - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_MIGRATION_IMAGE_NAME}:${_IMAGE_TAG}
+      - --command=npm
+      - --args=run,migration:up
       - --quiet
 
   - id: run-migrations

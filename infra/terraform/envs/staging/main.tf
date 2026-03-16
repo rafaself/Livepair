@@ -186,8 +186,8 @@ module "cloud_run_job" {
   job_name              = "${local.base_name}-api-migrate"
   service_account_email = module.service_accounts.service_account_emails["api_migrator"]
   image                 = var.api_migration_job.image
-  command               = ["pnpm"]
-  args                  = ["--filter", "@livepair/api", "db:migrate"]
+  command               = ["npm"]
+  args                  = ["run", "migration:up"]
   timeout               = var.api_migration_job.timeout
   task_count            = var.api_migration_job.task_count
   parallelism           = var.api_migration_job.parallelism
