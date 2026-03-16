@@ -389,6 +389,36 @@ describe('selectVisibleConversationTimeline', () => {
     ]);
   });
 
+  it('hides an attached canonical turn when only surrounding whitespace differs', () => {
+    const timeline = selectVisibleConversationTimeline({
+      conversationTurns: [
+        {
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Same visible reply',
+          timestamp: '10:00 AM',
+          timelineOrdinal: 2,
+        },
+      ] as never,
+      transcriptArtifacts: [
+        {
+          id: 'assistant-transcript-1',
+          kind: 'transcript',
+          role: 'assistant',
+          content: '  Same visible reply  ',
+          timestamp: '10:00 AM',
+          source: 'voice',
+          timelineOrdinal: 2,
+          attachedTurnId: 'assistant-turn-1',
+        },
+      ] as never,
+    });
+
+    expect(timeline.map((entry) => entry.id)).toEqual([
+      'assistant-transcript-1',
+    ]);
+  });
+
   it('keeps both transcript and canonical turn visible when their text differs, with transcript first', () => {
     const timeline = selectVisibleConversationTimeline({
       conversationTurns: [

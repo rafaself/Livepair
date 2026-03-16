@@ -70,10 +70,7 @@ export function createVoiceTranscriptLifecycle({
   currentUserArtifact,
   onConversationTurnSettled,
 }: VoiceTranscriptLifecycleArgs) {
-  const finalizeCurrentVoiceTurns = (
-    finalizeReason: 'completed' | 'interrupted',
-    finalizeOptions: { assistantTurnId?: string | null } = {},
-  ): void => {
+  const finalizeCurrentVoiceTurns = (finalizeReason: 'completed' | 'interrupted'): void => {
     if (!settleVoiceTurnFence(conversationCtx, finalizeReason)) {
       return;
     }
@@ -93,9 +90,6 @@ export function createVoiceTranscriptLifecycle({
 
     finalizeCurrentVoiceAssistantTranscriptArtifact(conversationCtx, {
       interrupted: finalizeReason === 'interrupted',
-      ...(finalizeReason === 'completed' && finalizeOptions.assistantTurnId
-        ? { attachedTurnId: finalizeOptions.assistantTurnId }
-        : {}),
     });
 
     if (finalizedUserTurnId) {

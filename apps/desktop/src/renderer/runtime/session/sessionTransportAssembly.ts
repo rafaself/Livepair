@@ -126,8 +126,8 @@ export function createSessionTransportAssembly({
     ensureAssistantVoiceTurn: () => {
       return voiceTranscript.ensureAssistantTurn();
     },
-    finalizeCurrentVoiceTurns: (finalizeReason, options) => {
-      voiceTranscript.finalizeCurrentVoiceTurns(finalizeReason, options);
+    finalizeCurrentVoiceTurns: (finalizeReason) => {
+      voiceTranscript.finalizeCurrentVoiceTurns(finalizeReason);
     },
     attachCurrentAssistantTurn: (turnId) => {
       voiceTranscript.attachCurrentAssistantTurn(turnId);
