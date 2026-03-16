@@ -44,6 +44,7 @@
   border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  cursor: pointer;
 }
 
 .share-screen-mode-dialog__option--selected {
@@ -53,6 +54,7 @@
 
 .share-screen-mode-dialog__option input {
   margin-top: 2px;
+  cursor: pointer;
 }
 
 .share-screen-mode-dialog__option-copy {
@@ -71,4 +73,8 @@
   gap: 8px;
   align-items: flex-end;
   padding-top: 2px;
+}
+
+.share-screen-mode-dialog__confirm-action:disabled {
+  cursor: default;
 }

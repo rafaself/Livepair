@@ -38,7 +38,7 @@ const MODE_OPTIONS: ReadonlyArray<{
   {
     value: 'continuous',
     title: 'Continuous',
-    description: 'Keep your screen updated automatically every 3 seconds.',
+    description: 'Keep your screen updated automatically.',
   },
 ];
 
@@ -177,6 +177,7 @@ export function ShareScreenModeDialog({
         </Button>
         <Button
           size="sm"
+          className="share-screen-mode-dialog__confirm-action"
           aria-label="Confirm Share Screen mode"
           disabled={selectedMode === null || isSaving}
           onClick={() => {
