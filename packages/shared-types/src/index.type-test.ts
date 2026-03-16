@@ -23,6 +23,15 @@ import type {
   LiveSessionId,
   LiveSessionRecord,
   LiveSessionStatus,
+  LiveTelemetryBaseEvent,
+  LiveTelemetryEvent,
+  LiveTelemetryEventType,
+  LiveTelemetrySessionConnectedEvent,
+  LiveTelemetrySessionEndedEvent,
+  LiveTelemetrySessionErrorEvent,
+  LiveTelemetrySessionResumedEvent,
+  LiveTelemetrySessionStartedEvent,
+  LiveTelemetryUsageReportedEvent,
   ProjectKnowledgeRetrievalStatus,
   ProjectKnowledgeSearchRequest,
   ProjectKnowledgeSearchResult,
@@ -190,6 +199,229 @@ type _ProjectKnowledgeSearchResultShape = Assert<
 >;
 type _SessionTokenAuthHeaderName = Assert<
   IsExact<typeof SESSION_TOKEN_AUTH_HEADER_NAME, 'x-livepair-session-token-secret'>
+>;
+type _LiveTelemetryEventTypeShape = Assert<
+  IsExact<
+    LiveTelemetryEventType,
+    | 'live_session_started'
+    | 'live_session_connected'
+    | 'live_session_resumed'
+    | 'live_session_error'
+    | 'live_usage_reported'
+    | 'live_session_ended'
+  >
+>;
+type _LiveTelemetryBaseEventShape = Assert<
+  IsExact<
+    LiveTelemetryBaseEvent,
+    {
+      eventType: LiveTelemetryEventType;
+      occurredAt: string;
+      sessionId: string;
+      chatId: string;
+      environment: string;
+      platform: string;
+      appVersion: string;
+      model: string;
+    }
+  >
+>;
+type _LiveTelemetrySessionStartedEventShape = Assert<
+  IsExact<
+    LiveTelemetrySessionStartedEvent,
+    {
+      eventType: 'live_session_started';
+      occurredAt: string;
+      sessionId: string;
+      chatId: string;
+      environment: string;
+      platform: string;
+      appVersion: string;
+      model: string;
+    }
+  >
+>;
+type _LiveTelemetrySessionConnectedEventShape = Assert<
+  IsExact<
+    LiveTelemetrySessionConnectedEvent,
+    {
+      eventType: 'live_session_connected';
+      occurredAt: string;
+      sessionId: string;
+      chatId: string;
+      environment: string;
+      platform: string;
+      appVersion: string;
+      model: string;
+      connectLatencyMs?: number;
+    }
+  >
+>;
+type _LiveTelemetrySessionResumedEventShape = Assert<
+  IsExact<
+    LiveTelemetrySessionResumedEvent,
+    {
+      eventType: 'live_session_resumed';
+      occurredAt: string;
+      sessionId: string;
+      chatId: string;
+      environment: string;
+      platform: string;
+      appVersion: string;
+      model: string;
+      connectLatencyMs?: number;
+      resumeCount?: number;
+    }
+  >
+>;
+type _LiveTelemetryUsageReportedEventShape = Assert<
+  IsExact<
+    LiveTelemetryUsageReportedEvent,
+    {
+      eventType: 'live_usage_reported';
+      occurredAt: string;
+      sessionId: string;
+      chatId: string;
+      environment: string;
+      platform: string;
+      appVersion: string;
+      model: string;
+      usage: {
+        totalTokenCount?: number;
+        promptTokenCount?: number;
+        responseTokenCount?: number;
+        inputTokenCount?: number;
+        outputTokenCount?: number;
+        responseTokensDetails?: Array<{
+          modality: string;
+          tokenCount: number;
+        }>;
+      };
+    }
+  >
+>;
+type _LiveTelemetrySessionErrorEventShape = Assert<
+  IsExact<
+    LiveTelemetrySessionErrorEvent,
+    {
+      eventType: 'live_session_error';
+      occurredAt: string;
+      sessionId: string;
+      chatId: string;
+      environment: string;
+      platform: string;
+      appVersion: string;
+      model: string;
+      errorCode?: string;
+      errorMessage?: string;
+    }
+  >
+>;
+type _LiveTelemetrySessionEndedEventShape = Assert<
+  IsExact<
+    LiveTelemetrySessionEndedEvent,
+    {
+      eventType: 'live_session_ended';
+      occurredAt: string;
+      sessionId: string;
+      chatId: string;
+      environment: string;
+      platform: string;
+      appVersion: string;
+      model: string;
+      firstResponseLatencyMs?: number;
+      durationMs?: number;
+      resumeCount?: number;
+      interruptionCount?: number;
+      closeReason?: string;
+    }
+  >
+>;
+type _LiveTelemetryEventShape = Assert<
+  IsExact<
+    LiveTelemetryEvent,
+    | {
+        eventType: 'live_session_started';
+        occurredAt: string;
+        sessionId: string;
+        chatId: string;
+        environment: string;
+        platform: string;
+        appVersion: string;
+        model: string;
+      }
+    | {
+        eventType: 'live_session_connected';
+        occurredAt: string;
+        sessionId: string;
+        chatId: string;
+        environment: string;
+        platform: string;
+        appVersion: string;
+        model: string;
+        connectLatencyMs?: number;
+      }
+    | {
+        eventType: 'live_session_resumed';
+        occurredAt: string;
+        sessionId: string;
+        chatId: string;
+        environment: string;
+        platform: string;
+        appVersion: string;
+        model: string;
+        connectLatencyMs?: number;
+        resumeCount?: number;
+      }
+    | {
+        eventType: 'live_usage_reported';
+        occurredAt: string;
+        sessionId: string;
+        chatId: string;
+        environment: string;
+        platform: string;
+        appVersion: string;
+        model: string;
+        usage: {
+          totalTokenCount?: number;
+          promptTokenCount?: number;
+          responseTokenCount?: number;
+          inputTokenCount?: number;
+          outputTokenCount?: number;
+          responseTokensDetails?: Array<{
+            modality: string;
+            tokenCount: number;
+          }>;
+        };
+      }
+    | {
+        eventType: 'live_session_error';
+        occurredAt: string;
+        sessionId: string;
+        chatId: string;
+        environment: string;
+        platform: string;
+        appVersion: string;
+        model: string;
+        errorCode?: string;
+        errorMessage?: string;
+      }
+    | {
+        eventType: 'live_session_ended';
+        occurredAt: string;
+        sessionId: string;
+        chatId: string;
+        environment: string;
+        platform: string;
+        appVersion: string;
+        model: string;
+        firstResponseLatencyMs?: number;
+        durationMs?: number;
+        resumeCount?: number;
+        interruptionCount?: number;
+        closeReason?: string;
+      }
+  >
 >;
 type _ChatIdShape = Assert<
   IsExact<ChatId, string>

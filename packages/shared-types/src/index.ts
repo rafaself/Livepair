@@ -279,3 +279,5 @@ export interface ProjectKnowledgeSearchResult {
 }
 
 export const SESSION_TOKEN_AUTH_HEADER_NAME = 'x-livepair-session-token-secret' as const;
+
+export * from './liveTelemetry';
