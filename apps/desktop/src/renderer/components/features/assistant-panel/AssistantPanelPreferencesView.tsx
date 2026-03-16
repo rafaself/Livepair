@@ -9,7 +9,7 @@ import type { AssistantPanelSettingsController } from './settings/useAssistantPa
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
 import { FieldList } from '../../composite';
 import { ViewSection } from '../../layout';
-import { Button, Select, Switch, type SelectOptionItem } from '../../primitives';
+import { Button, Select, Switch, Tooltip, type SelectOptionItem } from '../../primitives';
 import { ThemeToggle } from '../ThemeToggle';
 
 const SILENCE_TIMEOUT_OPTIONS: readonly SelectOptionItem[] = [
@@ -169,7 +169,15 @@ export function AssistantPanelPreferencesView({
             className="assistant-panel__settings-field-list field-list--aligned-controls"
             items={[
               {
-                label: 'Grounding',
+                label: (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    Grounding
+                    <Tooltip
+                      content="Uses project knowledge and Google Search for future live sessions."
+                      label="About grounding"
+                    />
+                  </span>
+                ),
                 value: (
                   <Switch
                     aria-label="Grounding"
@@ -203,11 +211,6 @@ export function AssistantPanelPreferencesView({
               },
             ]}
           />
-          <div className="assistant-panel__settings-field-stack">
-            <span className="assistant-panel__settings-hint">
-              Uses project knowledge and Google Search for future live sessions.
-            </span>
-          </div>
 
           <div className="assistant-panel__settings-persona-stack">
             <label
