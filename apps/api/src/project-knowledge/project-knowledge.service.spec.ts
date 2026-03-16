@@ -124,15 +124,21 @@ describe('ProjectKnowledgeService', () => {
       retrievalStatus: 'grounded',
     });
 
-    expect(client.createFileSearchStore).toHaveBeenCalledWith('livepair-project-knowledge');
+    expect(client.createFileSearchStore).toHaveBeenCalledWith(
+      'gemini-key',
+      'livepair-project-knowledge',
+    );
     expect(client.uploadFile).toHaveBeenCalledTimes(2);
     expect(client.importFile).toHaveBeenCalledTimes(2);
     expect(client.deleteFile).toHaveBeenCalledTimes(2);
-    expect(client.generateGroundedAnswer).toHaveBeenCalledWith({
-      model: 'models/gemini-2.5-flash',
-      query: 'How do live sessions connect?',
-      storeName: 'fileSearchStores/livepair-store',
-    });
+    expect(client.generateGroundedAnswer).toHaveBeenCalledWith(
+      'gemini-key',
+      {
+        model: 'models/gemini-2.5-flash',
+        query: 'How do live sessions connect?',
+        storeName: 'fileSearchStores/livepair-store',
+      },
+    );
   });
 
   it('returns a bounded no-match result without invented sources when grounding is absent', async () => {

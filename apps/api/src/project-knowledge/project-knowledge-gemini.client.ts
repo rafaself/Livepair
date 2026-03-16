@@ -238,17 +238,13 @@ function createCustomMetadata(document: ProjectKnowledgeCorpusDocument): FileSea
 
 @Injectable()
 export class ProjectKnowledgeGeminiClient {
-  constructor(
-    private readonly fetchImpl: typeof fetch = fetch,
-  ) {}
-
   private async requestJson<T>(
     url: string,
     errorLabel: string,
     init: RequestInit,
     parse: (value: unknown) => T,
   ): Promise<T> {
-    const response = await this.fetchImpl(url, init);
+    const response = await fetch(url, init);
 
     if (!response.ok) {
       const detail = await readErrorDetail(response);
@@ -323,7 +319,7 @@ export class ProjectKnowledgeGeminiClient {
   }
 
   async deleteDocument(apiKey: string, documentName: string): Promise<void> {
-    const response = await this.fetchImpl(
+    const response = await fetch(
       `${GEMINI_API_BASE_URL}/v1beta/${encodeResourcePath(documentName)}?key=${encodeURIComponent(apiKey)}&force=true`,
       {
         method: 'DELETE',
@@ -341,7 +337,7 @@ export class ProjectKnowledgeGeminiClient {
     document: Pick<ProjectKnowledgeCorpusDocument, 'absolutePath' | 'mimeType' | 'title'>,
   ): Promise<{ name: string }> {
     const fileBuffer = await readFile(document.absolutePath);
-    const startResponse = await this.fetchImpl(
+    const startResponse = await fetch(
       `${FILE_UPLOAD_START_URL}?key=${encodeURIComponent(apiKey)}`,
       {
         method: 'POST',
@@ -387,7 +383,7 @@ export class ProjectKnowledgeGeminiClient {
   }
 
   async deleteFile(apiKey: string, fileName: string): Promise<void> {
-    const response = await this.fetchImpl(
+    const response = await fetch(
       `${GEMINI_API_BASE_URL}/v1beta/${encodeResourcePath(fileName)}?key=${encodeURIComponent(apiKey)}`,
       {
         method: 'DELETE',
