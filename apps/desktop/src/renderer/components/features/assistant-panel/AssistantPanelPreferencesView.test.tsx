@@ -60,10 +60,28 @@ describe('AssistantPanelPreferencesView', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Restore defaults' })).not.toBeInTheDocument();
     await act(async () => {
+      fireEvent.mouseEnter(screen.getByLabelText('About lock panel'));
+    });
+    expect(
+      screen.getByText('Keep the panel open when the app window loses focus.'),
+    ).toBeVisible();
+    await act(async () => {
+      fireEvent.mouseEnter(screen.getByLabelText('About silence timeout'));
+    });
+    expect(
+      screen.getByText('Automatically end speech mode after this much silence.'),
+    ).toBeVisible();
+    await act(async () => {
       fireEvent.mouseEnter(screen.getByLabelText('About grounding'));
     });
     expect(
       screen.getByText('Uses project knowledge and Google Search for future live sessions.'),
+    ).toBeVisible();
+    await act(async () => {
+      fireEvent.mouseEnter(screen.getByLabelText('About voice'));
+    });
+    expect(
+      screen.getByText('Choose the voice used for future live sessions.'),
     ).toBeVisible();
     await act(async () => {
       fireEvent.mouseEnter(screen.getByLabelText('About instructions'));
