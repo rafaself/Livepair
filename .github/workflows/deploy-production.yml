@@ -1,0 +1,76 @@
+name: 🚀 Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: Commit SHA or Git ref that already passed staging
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: 🚀 Production Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+
+    steps:
+      - name: Checkout release ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_ref }}
+
+      - name: Resolve release SHA
+        id: release
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Submit production deployment build
+        run: |
+          image_name="${{ vars.GCP_API_IMAGE_NAME }}"
+          migration_image_name="${{ vars.GCP_API_MIGRATION_IMAGE_NAME }}"
+          smoke_path="${{ vars.GCP_SMOKE_PATH }}"
+
+          if [ -z "$image_name" ]; then
+            image_name=api
+          fi
+
+          if [ -z "$migration_image_name" ]; then
+            migration_image_name=api-migrator
+          fi
+
+          if [ -z "$smoke_path" ]; then
+            smoke_path=/health
+          fi
+
+          gcloud builds submit \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --config cloudbuild.yaml \
+            --substitutions="_DEPLOY_ENV=production,_REGION=${{ vars.GCP_REGION }},_AR_REPOSITORY=${{ vars.GCP_ARTIFACT_REPOSITORY }},_IMAGE_NAME=${image_name},_MIGRATION_IMAGE_NAME=${migration_image_name},_IMAGE_TAG=${{ steps.release.outputs.sha }},_SERVICE_NAME=${{ vars.GCP_API_SERVICE_NAME }},_MIGRATION_JOB_NAME=${{ vars.GCP_API_MIGRATION_JOB_NAME }},_SMOKE_PATH=${smoke_path}" \
+            .
+
+      - name: Show deployed production service URL
+        run: |
+          gcloud run services describe "${{ vars.GCP_API_SERVICE_NAME }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --format='value(status.url)'

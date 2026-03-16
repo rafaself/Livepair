@@ -1,4 +1,4 @@
-name: CI
+name: 🧪 CI
 
 on:
   pull_request:
@@ -14,10 +14,48 @@ permissions:
 
 env:
   NODE_VERSION: "20"
+  PNPM_VERSION: "9.0.0"
 
 jobs:
-  quality:
-    name: Quality
+  shared-types:
+    name: 🧩 Shared Types
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm --filter @livepair/shared-types lint
+
+      - name: Typecheck
+        run: pnpm --filter @livepair/shared-types typecheck
+
+      - name: Test
+        run: pnpm --filter @livepair/shared-types test
+
+      - name: Build
+        run: pnpm --filter @livepair/shared-types build
+
+  api:
+    name: ⚙️ API
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -25,26 +63,138 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Enable corepack
-        run: corepack enable
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Build required shared packages
+      - name: Build shared types dependency
         run: pnpm --filter @livepair/shared-types build
 
+      - name: Lint
+        run: pnpm --filter @livepair/api lint
+
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm --filter @livepair/api typecheck
 
       - name: Test
-        run: pnpm test
+        run: pnpm --filter @livepair/api test
+
+      - name: Build
+        run: pnpm --filter @livepair/api build
+
+  desktop:
+    name: 🖥️ Desktop
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared types dependency
+        run: pnpm --filter @livepair/shared-types build
+
+      - name: Lint
+        run: pnpm --filter @livepair/desktop lint
+
+      - name: Typecheck
+        run: pnpm --filter @livepair/desktop typecheck
+
+      - name: Test
+        run: pnpm --filter @livepair/desktop test
+
+      - name: Build
+        run: pnpm --filter @livepair/desktop build
+
+  api-integration:
+    name: 🗄️ API Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgres://livepair:livepair@127.0.0.1:5432/livepair
+      GEMINI_API_KEY: ci-test-key
+      SESSION_TOKEN_AUTH_SECRET: desktop-secret
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: livepair
+          POSTGRES_USER: livepair
+          POSTGRES_PASSWORD: livepair
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U livepair -d livepair -h 127.0.0.1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 5s
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared types dependency
+        run: pnpm --filter @livepair/shared-types build
+
+      - name: Run migrations
+        run: pnpm --filter @livepair/api db:migrate
+
+      - name: Run integration tests
+        run: pnpm --filter @livepair/api test:chat-memory
+
+  docker-build-api:
+    name: 🐳 API Docker Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build API production image
+        run: docker build -f apps/api/Dockerfile -t livepair-api:ci .

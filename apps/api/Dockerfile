@@ -24,6 +24,11 @@ RUN pnpm --filter @livepair/shared-types build \
   && find /prod/api/dist -type f -name '*.spec.*' -delete
 
 
+FROM build AS migrator
+
+CMD ["pnpm", "--filter", "@livepair/api", "db:migrate"]
+
+
 FROM node:20-bookworm-slim AS runtime
 
 ENV NODE_ENV=production

@@ -2,11 +2,15 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
+  _DEPLOY_ENV: staging
   _REGION: us-central1
-  _AR_REPOSITORY: livepair-dev-containers
+  _AR_REPOSITORY: livepair-staging-containers
   _IMAGE_NAME: api
+  _MIGRATION_IMAGE_NAME: api-migrator
   _IMAGE_TAG: manual
-  _SERVICE_NAME: livepair-dev-api
+  _SERVICE_NAME: livepair-staging-api
+  _MIGRATION_JOB_NAME: livepair-staging-api-migrate
+  _SMOKE_PATH: /health
 
 steps:
   - id: build-api-image
@@ -19,11 +23,55 @@ steps:
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
       - .
 
+  - id: build-api-migration-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --target
+      - migrator
+      - -f
+      - apps/api/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_MIGRATION_IMAGE_NAME}:${_IMAGE_TAG}
+      - .
+
   - id: push-api-image
     name: gcr.io/cloud-builders/docker
     args:
       - push
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
+
+  - id: push-api-migration-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_MIGRATION_IMAGE_NAME}:${_IMAGE_TAG}
+
+  - id: update-migration-job
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - update
+      - ${_MIGRATION_JOB_NAME}
+      - --project=$PROJECT_ID
+      - --region=${_REGION}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_MIGRATION_IMAGE_NAME}:${_IMAGE_TAG}
+      - --quiet
+
+  - id: run-migrations
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - execute
+      - ${_MIGRATION_JOB_NAME}
+      - --project=$PROJECT_ID
+      - --region=${_REGION}
+      - --wait
+      - --quiet
 
   - id: deploy-cloud-run
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -38,5 +86,25 @@ steps:
       - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
       - --quiet
 
+  - id: smoke-test
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        service_url="$(gcloud run services describe "${_SERVICE_NAME}" --project="$PROJECT_ID" --region="${_REGION}" --format='value(status.url)')"
+        smoke_url="${service_url}${_SMOKE_PATH}"
+        echo "Smoke testing ${smoke_url}"
+        SMOKE_URL="${smoke_url}" python3 - <<'PY'
+        import os
+        import urllib.request
+
+        url = os.environ["SMOKE_URL"]
+        with urllib.request.urlopen(url, timeout=30) as response:
+            body = response.read().decode("utf-8")
+            print(body)
+        PY
+
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_MIGRATION_IMAGE_NAME}:${_IMAGE_TAG}
