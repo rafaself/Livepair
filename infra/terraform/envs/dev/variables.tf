@@ -85,12 +85,17 @@ variable "api_secret_versions" {
 }
 
 variable "monitoring" {
-  description = "Minimal Cloud Monitoring settings for the public API uptime check and alert policy."
+  description = "Minimal Cloud Monitoring settings for the public API uptime check plus Gemini Live telemetry metrics and alerts."
   type = object({
     health_check_path          = optional(string, "/health")
     uptime_check_period        = optional(string, "60s")
     timeout                    = optional(string, "10s")
     alert_failure_duration     = optional(string, "120s")
+    telemetry_error_spike_alignment_period = optional(string, "300s")
+    telemetry_error_spike_threshold        = optional(number, 3)
+    telemetry_started_absence_duration     = optional(string, "900s")
+    telemetry_connect_latency_alignment_period = optional(string, "300s")
+    telemetry_connect_latency_threshold_ms     = optional(number, 2500)
     notification_channel_names = optional(list(string), [])
   })
   default = {}

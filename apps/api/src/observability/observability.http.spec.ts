@@ -38,6 +38,9 @@ describe('Observability HTTP integration', () => {
   const originalEnv = process.env;
   let app: INestApplication;
   let baseUrl: string;
+  let infoSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+  let errorSpy: jest.SpyInstance;
 
   beforeEach(async () => {
     jest.resetModules();
@@ -45,6 +48,9 @@ describe('Observability HTTP integration', () => {
       ...originalEnv,
       SESSION_TOKEN_AUTH_SECRET: 'observability-secret',
     };
+    infoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const { ValidationPipe } = await import('@nestjs/common');
     const { Test } = await import('@nestjs/testing');
     const { AppModule } = await import('../app.module');
@@ -64,6 +70,9 @@ describe('Observability HTTP integration', () => {
   afterEach(async () => {
     process.env = originalEnv;
     await app.close();
+    infoSpy.mockRestore();
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it('serves Prometheus text exposition from GET /metrics', async () => {

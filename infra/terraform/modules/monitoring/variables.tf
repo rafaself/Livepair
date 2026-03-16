@@ -3,6 +3,16 @@ variable "project_id" {
   type        = string
 }
 
+variable "cloud_run_service_name" {
+  description = "Cloud Run service name whose logs should back Gemini Live telemetry metrics."
+  type        = string
+}
+
+variable "cloud_run_location" {
+  description = "Cloud Run region for the service whose logs should back Gemini Live telemetry metrics."
+  type        = string
+}
+
 variable "target_url" {
   description = "Public base URL to probe with the uptime check."
   type        = string
@@ -40,6 +50,36 @@ variable "failure_duration" {
   description = "How long the uptime check must fail before the alert opens."
   type        = string
   default     = "120s"
+}
+
+variable "telemetry_error_spike_alignment_period" {
+  description = "Rolling window used to sum Gemini Live session error counts for the spike alert."
+  type        = string
+  default     = "300s"
+}
+
+variable "telemetry_error_spike_threshold" {
+  description = "Total Gemini Live session errors within the rolling window that opens the spike alert."
+  type        = number
+  default     = 3
+}
+
+variable "telemetry_started_absence_duration" {
+  description = "How long no Gemini Live session starts can be observed before the absence alert opens."
+  type        = string
+  default     = "900s"
+}
+
+variable "telemetry_connect_latency_alignment_period" {
+  description = "Rolling window used to evaluate Gemini Live connection latency."
+  type        = string
+  default     = "300s"
+}
+
+variable "telemetry_connect_latency_threshold_ms" {
+  description = "P95 Gemini Live connect latency in milliseconds that opens the latency alert."
+  type        = number
+  default     = 2500
 }
 
 variable "notification_channel_names" {
