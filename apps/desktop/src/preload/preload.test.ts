@@ -391,11 +391,19 @@ describe('preload bridge', () => {
       sequence: 3,
       mimeType: 'image/jpeg',
       data: new Uint8Array([7, 8, 9]),
+      savedAt: '2026-03-15T22:41:09.021Z',
+      mode: 'continuous',
+      quality: 'medium',
+      reason: 'base',
     });
     expect(mockInvoke).toHaveBeenCalledWith('screenFrameDump:saveFrame', {
       sequence: 3,
       mimeType: 'image/jpeg',
       data: new Uint8Array([7, 8, 9]),
+      savedAt: '2026-03-15T22:41:09.021Z',
+      mode: 'continuous',
+      quality: 'medium',
+      reason: 'base',
     });
   });
 

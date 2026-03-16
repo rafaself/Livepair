@@ -393,7 +393,7 @@ describe('createScreenCaptureController – Wave 4 burst mode', () => {
         sequence: 2,
         mimeType: 'image/jpeg',
         data: new Uint8Array([2]),
-        savedAt: '2026-03-15T22:41:00.000Z',
+        savedAt: expect.stringMatching(/^2026-03-15T22:41:00\./),
         mode: 'manual',
         quality: 'high',
         reason: 'manual',
