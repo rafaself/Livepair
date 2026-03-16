@@ -358,6 +358,67 @@ describe('selectVisibleConversationTimeline', () => {
       'assistant-turn-1',
     ]);
   });
+
+  it('hides an attached canonical turn when its visible text matches the transcript artifact', () => {
+    const timeline = selectVisibleConversationTimeline({
+      conversationTurns: [
+        {
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Same visible reply',
+          timestamp: '10:00 AM',
+          timelineOrdinal: 2,
+        },
+      ] as never,
+      transcriptArtifacts: [
+        {
+          id: 'assistant-transcript-1',
+          kind: 'transcript',
+          role: 'assistant',
+          content: 'Same visible reply',
+          timestamp: '10:00 AM',
+          source: 'voice',
+          timelineOrdinal: 2,
+          attachedTurnId: 'assistant-turn-1',
+        },
+      ] as never,
+    });
+
+    expect(timeline.map((entry) => entry.id)).toEqual([
+      'assistant-transcript-1',
+    ]);
+  });
+
+  it('keeps both transcript and canonical turn visible when their text differs, with transcript first', () => {
+    const timeline = selectVisibleConversationTimeline({
+      conversationTurns: [
+        {
+          id: 'assistant-turn-1',
+          role: 'assistant',
+          content: 'Canonical persisted reply',
+          timestamp: '10:00 AM',
+          timelineOrdinal: 2,
+        },
+      ] as never,
+      transcriptArtifacts: [
+        {
+          id: 'assistant-transcript-1',
+          kind: 'transcript',
+          role: 'assistant',
+          content: 'Spoken transcript reply',
+          timestamp: '10:00 AM',
+          source: 'voice',
+          timelineOrdinal: 2,
+          attachedTurnId: 'assistant-turn-1',
+        },
+      ] as never,
+    });
+
+    expect(timeline.map((entry) => entry.id)).toEqual([
+      'assistant-transcript-1',
+      'assistant-turn-1',
+    ]);
+  });
 });
 
 describe('selectIsSessionActive', () => {
