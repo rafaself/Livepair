@@ -143,7 +143,9 @@ export function createVoiceTranscriptLifecycle({
           activeAssistantArtifact.content,
           {
             source: 'voice',
-            transcriptFinal: activeAssistantArtifact.transcriptFinal,
+            ...(activeAssistantArtifact.transcriptFinal !== undefined
+              ? { transcriptFinal: activeAssistantArtifact.transcriptFinal }
+              : {}),
             ...(activeAssistantArtifact.timelineOrdinal !== undefined
               ? { timelineOrdinal: activeAssistantArtifact.timelineOrdinal }
               : {}),

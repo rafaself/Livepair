@@ -20,6 +20,53 @@ type HandleGeminiLiveSdkMessageOptions = {
   rejectSetup: (detail: string) => void;
 };
 
+type GeminiLiveServerContent = NonNullable<GeminiLiveSdkServerMessage['serverContent']>;
+type GeminiLiveModelTurnPart = NonNullable<NonNullable<GeminiLiveServerContent['modelTurn']>['parts']>[number];
+type GeminiLiveTranscription =
+  | NonNullable<GeminiLiveServerContent['inputTranscription']>
+  | NonNullable<GeminiLiveServerContent['outputTranscription']>;
+
+type ParsedTranscriptUpdate = {
+  text: string;
+  isFinal?: boolean;
+};
+
+type ParsedGeminiLiveServerMessage = {
+  assistantTextDelta: string;
+  inputTranscript: ParsedTranscriptUpdate | null;
+  outputTranscript: ParsedTranscriptUpdate | null;
+  modelTurnParts: GeminiLiveModelTurnPart[];
+};
+
+function parseTranscriptUpdate(
+  transcription: GeminiLiveTranscription | null | undefined,
+): ParsedTranscriptUpdate | null {
+  if (!transcription?.text || transcription.text.length === 0) {
+    return null;
+  }
+
+  return {
+    text: transcription.text,
+    ...(transcription.finished != null ? { isFinal: transcription.finished } : {}),
+  };
+}
+
+function parseGeminiLiveServerMessage(
+  message: GeminiLiveSdkServerMessage,
+): ParsedGeminiLiveServerMessage {
+  const modelTurnParts = message.serverContent?.modelTurn?.parts ?? [];
+  const assistantTextDelta = modelTurnParts
+    .map((part) => part.text ?? '')
+    .join('');
+
+  return {
+    assistantTextDelta,
+    inputTranscript: parseTranscriptUpdate(message.serverContent?.inputTranscription),
+    outputTranscript: parseTranscriptUpdate(message.serverContent?.outputTranscription),
+    modelTurnParts,
+  };
+}
+
 function emitSessionResumptionUpdate(
   emit: (event: LiveSessionEvent) => void,
   message: GeminiLiveSdkServerMessage,
@@ -59,15 +106,13 @@ function emitToolCalls(
 function emitAudioEvents(
   emit: (event: LiveSessionEvent) => void,
   activeMode: LiveConnectMode | null,
-  message: GeminiLiveSdkServerMessage,
+  modelTurnParts: GeminiLiveModelTurnPart[],
 ): void {
   if (activeMode !== 'voice') {
     return;
   }
 
-  const parts = message.serverContent?.modelTurn?.parts ?? [];
-
-  for (const part of parts) {
+  for (const part of modelTurnParts) {
     const inlineData = part.inlineData;
 
     if (!inlineData?.data) {
@@ -135,8 +180,8 @@ export function handleGeminiLiveSdkMessage({
   }
 
   emitSessionResumptionUpdate(emit, message);
-
-  const textChunk = message.text ?? '';
+  const parsedMessage = parseGeminiLiveServerMessage(message);
+  const textChunk = parsedMessage.assistantTextDelta;
 
   if (textChunk.length > 0) {
     state.hasPendingTextResponse = true;
@@ -151,27 +196,21 @@ export function handleGeminiLiveSdkMessage({
 
   emitToolCalls(emit, message);
 
-  const inputTranscription = message.serverContent?.inputTranscription;
-
-  if (inputTranscription?.text && inputTranscription.text.length > 0) {
+  if (parsedMessage.inputTranscript) {
     emit({
       type: 'input-transcript',
-      text: inputTranscription.text,
-      ...(inputTranscription.finished != null ? { isFinal: inputTranscription.finished } : {}),
+      ...parsedMessage.inputTranscript,
     });
   }
 
-  const outputTranscription = message.serverContent?.outputTranscription;
-
-  if (outputTranscription?.text && outputTranscription.text.length > 0) {
+  if (parsedMessage.outputTranscript) {
     emit({
       type: 'output-transcript',
-      text: outputTranscription.text,
-      ...(outputTranscription.finished != null ? { isFinal: outputTranscription.finished } : {}),
+      ...parsedMessage.outputTranscript,
     });
   }
 
-  emitAudioEvents(emit, state.activeMode, message);
+  emitAudioEvents(emit, state.activeMode, parsedMessage.modelTurnParts);
 
   if (message.serverContent?.generationComplete) {
     emit({ type: 'generation-complete' });

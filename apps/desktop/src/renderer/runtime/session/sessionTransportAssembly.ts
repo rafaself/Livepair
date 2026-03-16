@@ -157,7 +157,9 @@ export function createSessionTransportAssembly({
       const assistantTurnId = turnContent
         ? appendCompletedAssistantTurn(conversationCtx, turnContent, {
             source: 'voice',
-            transcriptFinal: !draft ? settledAssistantArtifact?.transcriptFinal : undefined,
+            ...(!draft && settledAssistantArtifact?.transcriptFinal !== undefined
+              ? { transcriptFinal: settledAssistantArtifact.transcriptFinal }
+              : {}),
             ...(settledAssistantArtifact?.timelineOrdinal !== undefined
               ? { timelineOrdinal: settledAssistantArtifact.timelineOrdinal }
               : {}),

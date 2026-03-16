@@ -99,6 +99,29 @@ function createSdkHarness(): {
   };
 }
 
+function buildModelTextMessage(
+  text: string,
+  overrides: GeminiLiveSdkServerMessage = {},
+): GeminiLiveSdkServerMessage {
+  const serverContent = overrides.serverContent ?? {};
+  const modelTurn = serverContent.modelTurn ?? { role: 'model' };
+
+  return {
+    ...overrides,
+    serverContent: {
+      ...serverContent,
+      modelTurn: {
+        ...modelTurn,
+        role: modelTurn.role ?? 'model',
+        parts: [
+          ...(modelTurn.parts ?? []),
+          { text },
+        ],
+      },
+    },
+  };
+}
+
 describe('createGeminiLiveTransport', () => {
   it('connects only after the SDK emits setupComplete', async () => {
     const sdkHarness = createSdkHarness();
@@ -539,20 +562,18 @@ describe('createGeminiLiveTransport', () => {
       turnComplete: true,
     });
 
-    sdkHarness.emitMessage({
+    sdkHarness.emitMessage(buildModelTextMessage('Streaming', {
       serverContent: {
         interrupted: false,
         turnComplete: false,
       },
-      text: 'Streaming',
-    });
-    sdkHarness.emitMessage({
+    }));
+    sdkHarness.emitMessage(buildModelTextMessage(' response', {
       serverContent: {
         interrupted: false,
         turnComplete: true,
       },
-      text: ' response',
-    });
+    }));
 
     expect(events).toEqual(
       expect.arrayContaining([
@@ -732,14 +753,13 @@ describe('createGeminiLiveTransport', () => {
     await connectPromise;
     await transport.sendText('Hello from the desktop runtime');
 
-    sdkHarness.emitMessage({
+    sdkHarness.emitMessage(buildModelTextMessage('Done', {
       serverContent: {
         generationComplete: true,
         interrupted: false,
         turnComplete: true,
       },
-      text: 'Done',
-    });
+    }));
 
     expect(events.slice(-3)).toEqual([
       {
@@ -779,13 +799,12 @@ describe('createGeminiLiveTransport', () => {
     await connectPromise;
     await transport.sendText('Hello from the desktop runtime');
 
-    sdkHarness.emitMessage({
+    sdkHarness.emitMessage(buildModelTextMessage('Partial reply', {
       serverContent: {
         interrupted: true,
         turnComplete: false,
       },
-      text: 'Partial reply',
-    });
+    }));
 
     expect(events).toEqual(
       expect.arrayContaining([

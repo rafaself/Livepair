@@ -39,6 +39,43 @@ function createHarness(activeMode: LiveConnectMode | null = 'text') {
   };
 }
 
+function buildModelTextMessage(
+  text: string,
+  overrides: GeminiLiveSdkServerMessage = {},
+): GeminiLiveSdkServerMessage {
+  const serverContent = overrides.serverContent ?? {};
+  const modelTurn = serverContent.modelTurn ?? { role: 'model' };
+
+  return {
+    ...overrides,
+    serverContent: {
+      ...serverContent,
+      modelTurn: {
+        ...modelTurn,
+        role: modelTurn.role ?? 'model',
+        parts: [
+          ...(modelTurn.parts ?? []),
+          { text },
+        ],
+      },
+    },
+  };
+}
+
+function withExplodingTextGetter(message: GeminiLiveSdkServerMessage): GeminiLiveSdkServerMessage {
+  const nextMessage = { ...message } as GeminiLiveSdkServerMessage;
+
+  Object.defineProperty(nextMessage as Record<string, unknown>, 'text', {
+    configurable: true,
+    enumerable: true,
+    get() {
+      throw new Error('LiveServerMessage.text should not be accessed for structured Live messages');
+    },
+  });
+
+  return nextMessage;
+}
+
 describe('handleGeminiLiveSdkMessage', () => {
   it('resolves setup only after setupComplete and emits connected', () => {
     const harness = createHarness();
@@ -115,11 +152,11 @@ describe('handleGeminiLiveSdkMessage', () => {
     ]);
   });
 
-  it('emits text deltas and generation-complete while leaving turn assembly to the runtime draft owner', () => {
+  it('emits text deltas from structured modelTurn text parts and generation-complete while leaving turn assembly to the runtime draft owner', () => {
     const harness = createHarness();
 
-    harness.dispatch({ text: 'Streaming' });
-    harness.dispatch({ text: ' response' });
+    harness.dispatch(withExplodingTextGetter(buildModelTextMessage('Streaming')));
+    harness.dispatch(withExplodingTextGetter(buildModelTextMessage(' response')));
     harness.dispatch({
       serverContent: {
         generationComplete: true,
@@ -140,8 +177,7 @@ describe('handleGeminiLiveSdkMessage', () => {
     const harness = createHarness();
     harness.state.hasPendingTextResponse = true;
 
-    harness.dispatch({
-      text: ' delta',
+    harness.dispatch(withExplodingTextGetter(buildModelTextMessage(' delta', {
       toolCall: {
         functionCalls: [
           {
@@ -162,7 +198,7 @@ describe('handleGeminiLiveSdkMessage', () => {
         generationComplete: true,
         turnComplete: true,
       },
-    });
+    })));
 
     expect(harness.events).toEqual([
       { type: 'text-delta', text: ' delta' },
@@ -225,6 +261,34 @@ describe('handleGeminiLiveSdkMessage', () => {
     expect(harness.events).toEqual([]);
   });
 
+  it('emits assistant audio chunks from inlineData without touching top-level message.text', () => {
+    const harness = createHarness('voice');
+
+    const message = withExplodingTextGetter({
+      serverContent: {
+        modelTurn: {
+          role: 'model',
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'audio/pcm;rate=24000',
+                data: 'AQIDBA==',
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(() => harness.dispatch(message)).not.toThrow();
+    expect(harness.events).toEqual([
+      {
+        type: 'audio-chunk',
+        chunk: new Uint8Array([1, 2, 3, 4]),
+      },
+    ]);
+  });
+
   it('emits transcripts and voice audio events while tolerating partial assistant audio parts', () => {
     const harness = createHarness('voice');
 
@@ -282,6 +346,47 @@ describe('handleGeminiLiveSdkMessage', () => {
       {
         type: 'audio-error',
         detail: 'Unsupported assistant audio format: audio/wav',
+      },
+      {
+        type: 'audio-chunk',
+        chunk: new Uint8Array([1, 2, 3, 4]),
+      },
+    ]);
+  });
+
+  it('emits structured assistant text, transcripts, and audio from multimodal messages without touching top-level message.text', () => {
+    const harness = createHarness('voice');
+
+    const message = withExplodingTextGetter(buildModelTextMessage('Canonical reply', {
+      serverContent: {
+        outputTranscription: {
+          text: 'Spoken reply',
+          finished: false,
+        },
+        modelTurn: {
+          role: 'model',
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'audio/pcm;rate=24000',
+                data: 'AQIDBA==',
+              },
+            },
+          ],
+        },
+      },
+    }));
+
+    expect(() => harness.dispatch(message)).not.toThrow();
+    expect(harness.events).toEqual([
+      {
+        type: 'text-delta',
+        text: 'Canonical reply',
+      },
+      {
+        type: 'output-transcript',
+        text: 'Spoken reply',
+        isFinal: false,
       },
       {
         type: 'audio-chunk',
