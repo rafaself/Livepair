@@ -304,7 +304,6 @@ Both the Cloud Run service module and the Cloud Run Job module intentionally ign
 `cloudbuild.yaml` keeps the deploy interface explicit:
 
 - project id: Cloud Build built-in `$PROJECT_ID`
-- environment label: `_DEPLOY_ENV`
 - region: `_REGION`
 - Artifact Registry repository: `_AR_REPOSITORY`
 - API image name: `_IMAGE_NAME`
@@ -458,7 +457,7 @@ IMAGE_TAG="$(git rev-parse HEAD)"
 gcloud builds submit \
   --project "$PROJECT_ID" \
   --config cloudbuild.yaml \
-  --substitutions=_DEPLOY_ENV=staging,_REGION="$REGION",_AR_REPOSITORY="$REPOSITORY",_IMAGE_NAME=api,_MIGRATION_IMAGE_NAME=api-migrator,_IMAGE_TAG="$IMAGE_TAG",_SERVICE_NAME="$SERVICE",_MIGRATION_JOB_NAME="$MIGRATION_JOB",_SMOKE_PATH=/health \
+  --substitutions=_REGION="$REGION",_AR_REPOSITORY="$REPOSITORY",_IMAGE_NAME=api,_MIGRATION_IMAGE_NAME=api-migrator,_IMAGE_TAG="$IMAGE_TAG",_SERVICE_NAME="$SERVICE",_MIGRATION_JOB_NAME="$MIGRATION_JOB",_SMOKE_PATH=/health \
   .
 ```
 

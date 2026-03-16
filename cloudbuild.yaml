@@ -2,7 +2,6 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  _DEPLOY_ENV: staging
   _REGION: us-central1
   _AR_REPOSITORY: livepair-staging-containers
   _IMAGE_NAME: api
