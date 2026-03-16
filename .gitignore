@@ -4,6 +4,7 @@ out/
 release/
 .env
 .env.local
+.env.production
 *.log
 .DS_Store
 coverage/
