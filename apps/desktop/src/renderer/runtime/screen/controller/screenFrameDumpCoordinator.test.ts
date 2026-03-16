@@ -72,7 +72,7 @@ describe('createScreenFrameDumpCoordinator', () => {
       '/tmp/livepair/screen-frame-dumps/current-debug-session',
     );
 
-    harness.coordinator.persistFrame(harness.capture, harness.generation, frame, {
+    harness.coordinator.persistSentFrame(harness.capture, harness.generation, frame, {
       savedAt: '2026-03-15T22:41:09.021Z',
       mode: 'continuous',
       quality: 'medium',
@@ -100,7 +100,7 @@ describe('createScreenFrameDumpCoordinator', () => {
     harness.setScreenFrameDumpDirectoryPath.mockClear();
 
     harness.coordinator.reset();
-    harness.coordinator.persistFrame(
+    harness.coordinator.persistSentFrame(
       harness.capture,
       harness.generation,
       createScreenFrame(4, 9),
@@ -146,7 +146,7 @@ describe('createScreenFrameDumpCoordinator', () => {
     harness.saveScreenFrameDumpFrame.mockRejectedValueOnce(new Error('dump save failed'));
 
     await harness.coordinator.startSession(harness.capture, harness.generation);
-    harness.coordinator.persistFrame(
+    harness.coordinator.persistSentFrame(
       harness.capture,
       harness.generation,
       createScreenFrame(5, 11),

@@ -426,12 +426,17 @@ export function createScreenCaptureController(
 
       if (manualSendPending) {
         if (activeCapture) {
-          frameDumpCoordinator.persistFrame(activeCapture.capture, activeCapture.generation, frame, {
-            savedAt: sentAt,
-            mode: 'manual',
-            quality: 'high',
-            reason: 'manual',
-          });
+          frameDumpCoordinator.persistSentFrame(
+            activeCapture.capture,
+            activeCapture.generation,
+            frame,
+            {
+              savedAt: sentAt,
+              mode: 'manual',
+              quality: 'high',
+              reason: 'manual',
+            },
+          );
         }
 
         manualSendPending = false;
@@ -447,7 +452,7 @@ export function createScreenCaptureController(
         const continuousFrameReason = continuousFrameReasons.get(frame) ?? 'base';
 
         if (activeCapture) {
-          frameDumpCoordinator.persistFrame(
+          frameDumpCoordinator.persistSentFrame(
             activeCapture.capture,
             activeCapture.generation,
             frame,

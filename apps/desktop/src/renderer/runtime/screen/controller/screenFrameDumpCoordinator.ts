@@ -14,7 +14,7 @@ export type ScreenFrameDumpCoordinator = {
     capture: LocalScreenCapture,
     generation: number,
   ) => Promise<void>;
-  persistFrame: (
+  persistSentFrame: (
     capture: LocalScreenCapture,
     generation: number,
     frame: LocalScreenFrame,
@@ -69,7 +69,7 @@ export function createScreenFrameDumpCoordinator({
         onError(detail);
       }
     },
-    persistFrame: (capture, generation, frame, metadata) => {
+    persistSentFrame: (capture, generation, frame, metadata) => {
       if (
         !screenFrameDumpControls
         || !debugFrameDumpReady
