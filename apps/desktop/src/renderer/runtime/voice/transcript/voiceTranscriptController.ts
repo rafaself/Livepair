@@ -65,6 +65,12 @@ export function createVoiceTranscriptController(
     clearQueuedMixedModeAssistantReply: turnState.clearQueuedMixedModeAssistantReply,
     resetTurnTranscriptState: lifecycle.resetTurnTranscriptState,
     clearTranscript,
-    resetTurnCompletedFlag: turnState.resetTurnCompletedFlag,
+    resetTurnCompletedFlag: () => {
+      turnState.resetTurnCompletedFlag();
+
+      if (conversationCtx.currentVoiceTurnId === null && conversationCtx.currentVoiceTurnState === 'idle') {
+        clearTranscript();
+      }
+    },
   };
 }

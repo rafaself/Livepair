@@ -87,6 +87,12 @@ describe('normalizeTranscriptText', () => {
     ).toBe('hello wo there');
   });
 
+  it('deduplicates overlapping user chunks even when the incoming suffix starts with whitespace', () => {
+    expect(
+      normalizeTranscriptText('hello good', ' good morning', { role: 'user' }),
+    ).toBe('hello good morning');
+  });
+
   it('keeps longer user transcript when a shorter stale partial arrives', () => {
     expect(
       normalizeTranscriptText('hello there', 'hello', { role: 'user' }),
