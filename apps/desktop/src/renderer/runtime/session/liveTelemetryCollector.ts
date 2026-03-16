@@ -25,6 +25,7 @@ type LiveTelemetryCollectorState = {
   interruptionCount: number;
   resumeCount: number;
   usage: CollectorUsage | null;
+  hasEmittedConnected: boolean;
   hasEmittedError: boolean;
 };
 
@@ -134,6 +135,7 @@ export function createLiveTelemetryCollector({
         interruptionCount: 0,
         resumeCount: 0,
         usage: null,
+        hasEmittedConnected: false,
         hasEmittedError: false,
       };
 
@@ -150,10 +152,11 @@ export function createLiveTelemetryCollector({
     },
 
     onSessionConnected(): void {
-      if (!state) {
+      if (!state || state.hasEmittedConnected) {
         return;
       }
 
+      state.hasEmittedConnected = true;
       const timestampMs = now();
       const baseEvent = buildBaseEvent(timestampMs);
 

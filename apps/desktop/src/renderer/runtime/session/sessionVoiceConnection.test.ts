@@ -132,6 +132,7 @@ describe('createSessionVoiceConnection', () => {
     const args = createMockArgs();
     const transport = {
       connect: vi.fn().mockRejectedValue(new Error('connect failed')),
+      disconnect: vi.fn().mockResolvedValue(undefined),
     };
     args.createTransport.mockReturnValue(transport);
     args.buildRehydrationPacketFromCurrentChat.mockResolvedValue({});
@@ -146,6 +147,57 @@ describe('createSessionVoiceConnection', () => {
     });
 
     expect(args.createPersistedLiveSession).not.toHaveBeenCalled();
+    expect(args.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+  });
+
+  it('disconnects the fallback transport when persisting the fresh live session fails', async () => {
+    const args = createMockArgs();
+    const transport = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    };
+    args.createTransport.mockReturnValue(transport);
+    args.buildRehydrationPacketFromCurrentChat.mockResolvedValue({});
+    args.createPersistedLiveSession.mockRejectedValue(new Error('persist failed'));
+    const connection = createSessionVoiceConnection(args);
+    const token = { client_secret: { value: 'token' } } as never;
+
+    await expect(
+      connection.connectFallbackSession(13, token, 'no-restore-candidate'),
+    ).resolves.toEqual({
+      status: 'failed',
+      detail: 'persist failed',
+    });
+
+    expect(args.createPersistedLiveSession).toHaveBeenCalledTimes(1);
+    expect(transport.disconnect).toHaveBeenCalledTimes(1);
+    expect(args.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+  });
+
+  it('disconnects the fallback transport when a newer operation supersedes the connect', async () => {
+    const args = createMockArgs();
+    args.isCurrentSessionOperation
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(false);
+    const transport = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    };
+    args.createTransport.mockReturnValue(transport);
+    args.buildRehydrationPacketFromCurrentChat.mockResolvedValue({});
+    const connection = createSessionVoiceConnection(args);
+    const token = { client_secret: { value: 'token' } } as never;
+
+    await expect(
+      connection.connectFallbackSession(15, token, 'no-restore-candidate'),
+    ).resolves.toEqual({
+      status: 'failed',
+      detail: 'Voice session fallback was superseded',
+    });
+
+    expect(args.createPersistedLiveSession).not.toHaveBeenCalled();
+    expect(transport.disconnect).toHaveBeenCalledTimes(1);
     expect(args.applySpeechLifecycleEvent).not.toHaveBeenCalled();
   });
 });

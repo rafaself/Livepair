@@ -189,4 +189,35 @@ describe('createLiveTelemetryCollector', () => {
 
     expect(emit).toHaveBeenCalled();
   });
+
+  it('emits at most one connected event for a session even if connected is reported twice', () => {
+    const emitted: LiveTelemetryEvent[][] = [];
+    const collector = createLiveTelemetryCollector({
+      emit: vi.fn((events: LiveTelemetryEvent[]) => {
+        emitted.push(events);
+        return Promise.resolve();
+      }),
+      now: () => Date.parse('2026-03-16T16:00:00.000Z'),
+    });
+
+    collector.onSessionStarted({
+      appVersion: '0.0.1',
+      chatId: 'chat-1',
+      environment: 'test',
+      model: 'models/gemini',
+      platform: 'linux',
+      sessionId: 'live-session-3',
+    });
+    collector.onSessionConnected();
+    collector.onSessionConnected();
+
+    expect(flattenEvents(emitted)).toEqual([
+      expect.objectContaining({
+        eventType: 'live_session_started',
+      }),
+      expect.objectContaining({
+        eventType: 'live_session_connected',
+      }),
+    ]);
+  });
 });
