@@ -1,4 +1,4 @@
-<h1><img src="logo.png" alt="Livepair logo" width="40" /> Livepair</h1>
+<h1><img src="apps/desktop/build/icon.svg" alt="Livepair logo" width="40" /> Livepair</h1>
 
 Livepair is a realtime multimodal desktop assistant that uses Gemini Live API to combine voice, screen context, and transcript-aware responses in an Electron app backed by a NestJS API that is designed to run on Google Cloud Run.
 
