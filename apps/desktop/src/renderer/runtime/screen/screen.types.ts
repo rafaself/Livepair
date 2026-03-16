@@ -1,3 +1,5 @@
+import type { ScreenFrameAnalysis } from './screenFrameAnalysis';
+
 export type ScreenCaptureState =
   | 'disabled'
   | 'requestingPermission'
@@ -41,4 +43,5 @@ export type LocalScreenFrame = {
   sequence: number;
   widthPx: number;
   heightPx: number;
+  analysis: ScreenFrameAnalysis;
 };
