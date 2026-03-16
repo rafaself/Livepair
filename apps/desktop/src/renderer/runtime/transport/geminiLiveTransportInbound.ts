@@ -313,7 +313,9 @@ export function handleGeminiLiveSdkMessage({
   const parsedMessage = parseGeminiLiveServerMessage(message);
   const textChunk = parsedMessage.assistantTextDelta;
 
-  if (textChunk.length > 0 && state.activeMode !== 'voice') {
+  // Voice mode still forwards canonical assistant text so the session draft
+  // can fall back when transcript packets are missing, delayed, or partial.
+  if (textChunk.length > 0) {
     state.hasPendingTextResponse = true;
     emit({ type: 'text-delta', text: textChunk });
   }

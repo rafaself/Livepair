@@ -461,6 +461,38 @@ describe('handleGeminiLiveSdkMessage', () => {
     ]);
   });
 
+  it('keeps canonical assistant text as a voice fallback when audio arrives without output transcript events', () => {
+    const harness = createHarness('voice');
+
+    const message = withExplodingTextGetter(buildModelTextMessage('Fallback reply', {
+      serverContent: {
+        modelTurn: {
+          role: 'model',
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'audio/pcm;rate=24000',
+                data: 'AQIDBA==',
+              },
+            },
+          ],
+        },
+      },
+    }));
+
+    expect(() => harness.dispatch(message)).not.toThrow();
+    expect(harness.events).toEqual([
+      {
+        type: 'text-delta',
+        text: 'Fallback reply',
+      },
+      {
+        type: 'audio-chunk',
+        chunk: new Uint8Array([1, 2, 3, 4]),
+      },
+    ]);
+  });
+
   it('forwards the finished flag from Gemini transcription as isFinal on transcript events', () => {
     const harness = createHarness('voice');
 
