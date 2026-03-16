@@ -69,6 +69,11 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
       chatId: firstChat.id,
       role: 'assistant',
       contentText: 'Second turn',
+      answerMetadata: {
+        provenance: 'unverified',
+        confidence: 'low',
+        reason: 'No verified grounding was stored for this reply.',
+      },
     });
 
     await expect(repository.listMessages(firstChat.id)).resolves.toEqual([
@@ -79,6 +84,57 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
     const updatedFirstChat = (await repository.getChat(firstChat.id)) as ChatRecord;
 
     await expect(repository.listChats()).resolves.toEqual([updatedFirstChat, secondChat]);
+  });
+
+  it('round-trips optional answer metadata for persisted assistant messages', async () => {
+    const chat = await repository.getOrCreateCurrentChat();
+
+    const storedMessage = await repository.appendMessage({
+      chatId: chat.id,
+      role: 'assistant',
+      contentText: 'Grounded answer',
+      answerMetadata: {
+        provenance: 'tool_grounded',
+        confidence: 'high',
+        reason: 'Confirmed from local runtime tool output.',
+        citations: [
+          {
+            label: 'get_current_mode',
+          },
+        ],
+      },
+    });
+
+    expect(storedMessage).toEqual(
+      expect.objectContaining({
+        answerMetadata: {
+          provenance: 'tool_grounded',
+          confidence: 'high',
+          reason: 'Confirmed from local runtime tool output.',
+          citations: [
+            {
+              label: 'get_current_mode',
+            },
+          ],
+        },
+      }),
+    );
+
+    await expect(repository.listMessages(chat.id)).resolves.toEqual([
+      expect.objectContaining({
+        id: storedMessage.id,
+        answerMetadata: {
+          provenance: 'tool_grounded',
+          confidence: 'high',
+          reason: 'Confirmed from local runtime tool output.',
+          citations: [
+            {
+              label: 'get_current_mode',
+            },
+          ],
+        },
+      }),
+    ]);
   });
 
   it('allocates deterministic per-chat sequences correctly under concurrent appends', async () => {
