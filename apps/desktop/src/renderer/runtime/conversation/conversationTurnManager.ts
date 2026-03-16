@@ -36,6 +36,7 @@ export {
   consumeCompletedAssistantDraft,
   failPendingAssistantTurn,
   interruptAssistantDraft,
+  setAssistantAnswerMetadata,
   updatePendingAssistantTurn,
 } from './assistantDraftLifecycle';
 

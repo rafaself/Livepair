@@ -15,11 +15,32 @@ export interface ChatRecord {
 
 export type ChatMessageRole = 'user' | 'assistant';
 
+export type AnswerProvenance =
+  | 'project_grounded'
+  | 'web_grounded'
+  | 'tool_grounded'
+  | 'unverified';
+
+export type AnswerConfidence = 'low' | 'medium' | 'high';
+
+export interface AnswerCitation {
+  label: string;
+  uri?: string;
+}
+
+export interface AnswerMetadata {
+  provenance: AnswerProvenance;
+  citations?: AnswerCitation[];
+  confidence?: AnswerConfidence;
+  reason?: string;
+}
+
 export interface ChatMessageRecord {
   id: string;
   chatId: ChatId;
   role: ChatMessageRole;
   contentText: string;
+  answerMetadata?: AnswerMetadata;
   createdAt: string;
   sequence: number;
 }
@@ -61,6 +82,7 @@ export interface AppendChatMessageRequest {
   chatId: ChatId;
   role: ChatMessageRole;
   contentText: string;
+  answerMetadata?: AnswerMetadata;
 }
 
 export interface ChatMemoryListOptions {

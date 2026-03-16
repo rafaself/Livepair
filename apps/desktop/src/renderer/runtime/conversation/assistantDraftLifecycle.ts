@@ -9,6 +9,7 @@ import type {
 import type {
   ConversationTurnModel,
 } from './conversation.types';
+import type { AnswerMetadata } from '@livepair/shared-types';
 
 // ---------------------------------------------------------------------------
 // Assistant draft lifecycle
@@ -21,6 +22,7 @@ function createAssistantDraft(ctx: ConversationContext): AssistantDraftModel {
     role: 'assistant',
     content: '',
     ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
+    ...(ctx.pendingAssistantAnswerMetadata ? { answerMetadata: ctx.pendingAssistantAnswerMetadata } : {}),
     status: 'streaming',
   };
   ctx.assistantDraft = draft;
@@ -29,6 +31,7 @@ function createAssistantDraft(ctx: ConversationContext): AssistantDraftModel {
 
 export function clearAssistantDraft(ctx: ConversationContext): void {
   ctx.assistantDraft = null;
+  ctx.pendingAssistantAnswerMetadata = null;
 }
 
 export function clearPendingAssistantTurn(ctx: ConversationContext): void {
@@ -45,6 +48,17 @@ export function appendAssistantDraftTextDelta(ctx: ConversationContext, text: st
   draft.content = `${draft.content}${text}`;
   draft.status = 'streaming';
   return draft;
+}
+
+export function setAssistantAnswerMetadata(
+  ctx: ConversationContext,
+  answerMetadata: AnswerMetadata,
+): void {
+  ctx.pendingAssistantAnswerMetadata = answerMetadata;
+
+  if (ctx.assistantDraft) {
+    ctx.assistantDraft.answerMetadata = answerMetadata;
+  }
 }
 
 export function completeAssistantDraft(ctx: ConversationContext): AssistantDraftModel | null {
@@ -122,6 +136,7 @@ export function appendCompletedAssistantTurn(
     transcriptFinal?: boolean;
     statusLabel?: string;
     timelineOrdinal?: number;
+    answerMetadata?: AnswerMetadata;
   },
 ): string | null {
   const trimmedContent = content.trim();
@@ -141,6 +156,7 @@ export function appendCompletedAssistantTurn(
     ...(ctx.currentVoiceTurnId ? { liveTurnId: ctx.currentVoiceTurnId } : {}),
     ...(options?.statusLabel ? { statusLabel: options.statusLabel } : {}),
     ...(options?.source ? { source: options.source } : {}),
+    ...(options?.answerMetadata ? { answerMetadata: options.answerMetadata } : {}),
     ...(options?.transcriptFinal !== undefined
       ? { transcriptFinal: options.transcriptFinal }
       : {}),

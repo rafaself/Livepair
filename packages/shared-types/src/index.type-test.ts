@@ -1,4 +1,8 @@
 import type {
+  AnswerCitation,
+  AnswerConfidence,
+  AnswerMetadata,
+  AnswerProvenance,
   AppendChatMessageRequest,
   ChatId,
   ChatMessageRecord,
@@ -67,8 +71,49 @@ type _ChatMessageRecordShape = Assert<
       chatId: string;
       role: 'user' | 'assistant';
       contentText: string;
+      answerMetadata?: {
+        provenance: 'project_grounded' | 'web_grounded' | 'tool_grounded' | 'unverified';
+        citations?: Array<{
+          label: string;
+          uri?: string;
+        }>;
+        confidence?: 'low' | 'medium' | 'high';
+        reason?: string;
+      };
       createdAt: string;
       sequence: number;
+    }
+  >
+>;
+type _AnswerProvenanceShape = Assert<
+  IsExact<
+    AnswerProvenance,
+    'project_grounded' | 'web_grounded' | 'tool_grounded' | 'unverified'
+  >
+>;
+type _AnswerConfidenceShape = Assert<
+  IsExact<AnswerConfidence, 'low' | 'medium' | 'high'>
+>;
+type _AnswerCitationShape = Assert<
+  IsExact<
+    AnswerCitation,
+    {
+      label: string;
+      uri?: string;
+    }
+  >
+>;
+type _AnswerMetadataShape = Assert<
+  IsExact<
+    AnswerMetadata,
+    {
+      provenance: 'project_grounded' | 'web_grounded' | 'tool_grounded' | 'unverified';
+      citations?: Array<{
+        label: string;
+        uri?: string;
+      }>;
+      confidence?: 'low' | 'medium' | 'high';
+      reason?: string;
     }
   >
 >;
@@ -79,6 +124,15 @@ type _AppendChatMessageRequestShape = Assert<
       chatId: string;
       role: 'user' | 'assistant';
       contentText: string;
+      answerMetadata?: {
+        provenance: 'project_grounded' | 'web_grounded' | 'tool_grounded' | 'unverified';
+        citations?: Array<{
+          label: string;
+          uri?: string;
+        }>;
+        confidence?: 'low' | 'medium' | 'high';
+        reason?: string;
+      };
     }
   >
 >;

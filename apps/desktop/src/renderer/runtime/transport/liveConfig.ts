@@ -8,6 +8,8 @@ import {
 
 export const LIVE_PROVIDER = 'gemini' as const;
 export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
+export const LIVE_GROUNDING_POLICY_INSTRUCTION =
+  'Use provided context and tool output as the source of truth for project-specific or current-world facts. Do not rely on outside knowledge for those claims. If evidence is missing or ambiguous, say the answer is not verified. Reason from available evidence, keep non-factual replies natural, and call report_answer_provenance once for factual replies.';
 
 export type LiveApiVersion = 'v1alpha' | 'v1beta';
 export type LiveResponseModality = 'TEXT' | 'AUDIO';
@@ -103,6 +105,10 @@ const DEFAULT_LIVE_API_VERSION = 'v1alpha';
 const DEFAULT_VOICE_RESPONSE_MODALITY: LiveResponseModality = 'AUDIO';
 const DEFAULT_MEDIA_RESOLUTION: LiveMediaResolution = 'MEDIA_RESOLUTION_LOW';
 const AUDIO_TRANSCRIPTION_DISABLED = false;
+
+export function composeLiveSystemInstruction(systemInstruction: string): string {
+  return `${systemInstruction}\n\n${LIVE_GROUNDING_POLICY_INSTRUCTION}`;
+}
 
 function createConfigError(detail: string): Error {
   return new Error(`Invalid Live config: ${detail}`);
@@ -368,8 +374,8 @@ export function buildGeminiLiveConnectConfig(
         },
       },
     };
-    liveConnectConfig.systemInstruction = resolveSystemInstructionPreference(
-      options.systemInstruction,
+    liveConnectConfig.systemInstruction = composeLiveSystemInstruction(
+      resolveSystemInstructionPreference(options.systemInstruction),
     );
   }
 

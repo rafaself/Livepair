@@ -60,6 +60,11 @@ describe('ipc validators', () => {
       chatId: 'chat-1',
       role: 'assistant',
       contentText: 'Stored reply',
+      answerMetadata: {
+        provenance: 'tool_grounded',
+        confidence: 'high',
+        reason: 'Confirmed by local runtime tool output.',
+      },
     };
     const resumptionUpdateRequest: UpdateLiveSessionRequest = {
       kind: 'resumption',
@@ -94,9 +99,39 @@ describe('ipc validators', () => {
     expect(isCreateChatRequest([])).toBe(false);
 
     expect(isAppendChatMessageRequest(appendRequest)).toBe(true);
+    expect(
+      isAppendChatMessageRequest({
+        ...appendRequest,
+        answerMetadata: {
+          provenance: 'unverified',
+          citations: [
+            {
+              label: 'Active file',
+            },
+          ],
+        },
+      }),
+    ).toBe(true);
     expect(isAppendChatMessageRequest({ ...appendRequest, role: 'system' })).toBe(false);
     expect(isAppendChatMessageRequest({ ...appendRequest, chatId: '' })).toBe(false);
     expect(isAppendChatMessageRequest({ ...appendRequest, contentText: '' })).toBe(false);
+    expect(
+      isAppendChatMessageRequest({
+        ...appendRequest,
+        answerMetadata: {
+          provenance: 'made_up',
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isAppendChatMessageRequest({
+        ...appendRequest,
+        answerMetadata: {
+          provenance: 'project_grounded',
+          citations: [{ label: '' }],
+        },
+      }),
+    ).toBe(false);
     expect(isAppendChatMessageRequest(undefined)).toBe(false);
     expect(isUpdateLiveSessionRequest(resumptionUpdateRequest)).toBe(true);
     expect(isUpdateLiveSessionRequest(snapshotUpdateRequest)).toBe(true);

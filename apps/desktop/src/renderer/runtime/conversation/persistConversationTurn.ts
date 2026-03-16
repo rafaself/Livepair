@@ -37,6 +37,7 @@ export async function persistConversationTurn(
     const record = await appendMessageToCurrentChat({
       role,
       contentText: turn.content,
+      ...(turn.answerMetadata ? { answerMetadata: turn.answerMetadata } : {}),
     });
 
     if (!record) {

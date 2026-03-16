@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { LiveConnectMode } from '../core/session.types';
 import {
+  LIVE_GROUNDING_POLICY_INSTRUCTION,
   LIVE_ADAPTER_KEY,
   LIVE_PROVIDER,
   buildGeminiLiveConnectConfig,
+  composeLiveSystemInstruction,
   parseLiveConfig,
   resolveLiveConfigEnv,
 } from './liveConfig';
@@ -153,8 +155,8 @@ describe('liveConfig', () => {
     });
     expect(config.sessionModes.voice).toEqual({
       responseModality: 'AUDIO',
-      inputAudioTranscription: false,
-      outputAudioTranscription: false,
+      inputAudioTranscription: true,
+      outputAudioTranscription: true,
     });
   });
 
@@ -232,7 +234,7 @@ describe('liveConfig', () => {
           },
         },
       },
-      systemInstruction: 'You are Livepair, a realtime multimodal desktop assistant.',
+      systemInstruction: composeLiveSystemInstruction(DEFAULT_SYSTEM_INSTRUCTION),
       tools: [
         {
           functionDeclarations: expect.any(Array),
@@ -257,7 +259,7 @@ describe('liveConfig', () => {
           },
         },
       },
-      systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+      systemInstruction: composeLiveSystemInstruction(DEFAULT_SYSTEM_INSTRUCTION),
     });
   });
 
@@ -278,8 +280,14 @@ describe('liveConfig', () => {
           },
         },
       },
-      systemInstruction: 'c'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
+      systemInstruction: composeLiveSystemInstruction('c'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH)),
     });
+  });
+
+  it('appends the compact grounding policy to voice-mode system instructions', () => {
+    expect(composeLiveSystemInstruction('Stay concise.')).toBe(
+      `Stay concise.\n\n${LIVE_GROUNDING_POLICY_INSTRUCTION}`,
+    );
   });
 
   it('wave 5: visual session quality maps correctly to media resolution values', () => {

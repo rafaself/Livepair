@@ -1,3 +1,5 @@
+import type { AnswerMetadata } from '@livepair/shared-types';
+
 export type ConversationRole = 'user' | 'assistant' | 'system';
 
 export type ConversationTurnState = 'streaming' | 'complete' | 'error';
@@ -14,6 +16,7 @@ export type ConversationTurnModel = {
   statusLabel?: string | undefined;
   source?: 'text' | 'voice' | undefined;
   transcriptFinal?: boolean | undefined;
+  answerMetadata?: AnswerMetadata | undefined;
   persistedMessageId?: string | undefined;
 };
 

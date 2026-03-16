@@ -1,5 +1,6 @@
 import type {
   AppendChatMessageRequest,
+  AnswerMetadata,
   ChatMemoryListOptions,
   CreateChatRequest,
   CreateLiveSessionRequest,
@@ -15,6 +16,47 @@ import {
   isNullableString,
   isPlainRecord,
 } from './shared';
+
+function isAnswerProvenance(value: unknown): value is AnswerMetadata['provenance'] {
+  return (
+    value === 'project_grounded'
+    || value === 'web_grounded'
+    || value === 'tool_grounded'
+    || value === 'unverified'
+  );
+}
+
+function isAnswerConfidence(value: unknown): value is NonNullable<AnswerMetadata['confidence']> {
+  return value === 'low' || value === 'medium' || value === 'high';
+}
+
+function isAnswerCitation(value: unknown): value is NonNullable<AnswerMetadata['citations']>[number] {
+  return (
+    isPlainRecord(value)
+    && hasOnlyAllowedKeys(value, ['label', 'uri'])
+    && isNonEmptyString(value['label'])
+    && (typeof value['uri'] === 'undefined' || isNonEmptyString(value['uri']))
+  );
+}
+
+function isAnswerMetadata(value: unknown): value is AnswerMetadata {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['provenance', 'citations', 'confidence', 'reason'])) {
+    return false;
+  }
+
+  return (
+    isAnswerProvenance(value['provenance'])
+    && (
+      typeof value['citations'] === 'undefined'
+      || (
+        Array.isArray(value['citations'])
+        && value['citations'].every((citation) => isAnswerCitation(citation))
+      )
+    )
+    && (typeof value['confidence'] === 'undefined' || isAnswerConfidence(value['confidence']))
+    && (typeof value['reason'] === 'undefined' || isNonEmptyString(value['reason']))
+  );
+}
 
 function isStateEntry(
   value: unknown,
@@ -141,7 +183,7 @@ export function isCreateChatRequest(value: unknown): value is CreateChatRequest 
 }
 
 export function isAppendChatMessageRequest(value: unknown): value is AppendChatMessageRequest {
-  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['chatId', 'role', 'contentText'])) {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['chatId', 'role', 'contentText', 'answerMetadata'])) {
     return false;
   }
 
@@ -149,6 +191,7 @@ export function isAppendChatMessageRequest(value: unknown): value is AppendChatM
     isChatId(value['chatId'])
     && (value['role'] === 'user' || value['role'] === 'assistant')
     && isNonEmptyString(value['contentText'])
+    && (typeof value['answerMetadata'] === 'undefined' || isAnswerMetadata(value['answerMetadata']))
   );
 }
 
