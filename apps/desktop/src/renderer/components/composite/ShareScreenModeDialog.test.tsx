@@ -63,7 +63,7 @@ describe('ShareScreenModeDialog', () => {
     expect(dialog.parentElement).toHaveClass('share-screen-mode-dialog__frame');
     expect(screen.getByText('Send only when you choose to share.')).toBeVisible();
     expect(
-      screen.getByText('Keep your screen updated automatically every 3 seconds.'),
+      screen.getByText('Keep your screen updated automatically.'),
     ).toBeVisible();
     expect(confirmButton).toBeDisabled();
     expect(cancelButton).toBeEnabled();

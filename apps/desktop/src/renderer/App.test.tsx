@@ -298,6 +298,43 @@ describe('App', () => {
     });
   });
 
+  it('restores the assistant-panel CTA buttons after canceling the Share Screen mode dialog', async () => {
+    installMatchMedia(true);
+    const controller = getDesktopSessionController();
+    const startSessionSpy = vi.spyOn(controller, 'startSession').mockResolvedValue();
+    const startScreenCaptureSpy = vi.spyOn(controller, 'startScreenCapture').mockResolvedValue();
+    const startVoiceCaptureSpy = vi.spyOn(controller, 'startVoiceCapture').mockResolvedValue();
+
+    render(<App />);
+
+    const assistantPanel = screen.getByRole('complementary', {
+      name: 'Assistant Panel',
+      hidden: true,
+    });
+    const talkButton = within(assistantPanel).getByRole('button', { name: 'Talk' });
+    const shareScreenButton = within(assistantPanel).getByRole('button', { name: 'Share screen' });
+
+    fireEvent.click(shareScreenButton);
+
+    await screen.findByRole('dialog', {
+      name: 'Choose screen share mode',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Share Screen mode' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Choose screen share mode' })).toBeNull();
+      expect(within(assistantPanel).getByRole('button', { name: 'Talk' })).toBeEnabled();
+      expect(within(assistantPanel).getByRole('button', { name: 'Share screen' })).toBeEnabled();
+      expect(startSessionSpy).not.toHaveBeenCalled();
+      expect(startScreenCaptureSpy).not.toHaveBeenCalled();
+      expect(startVoiceCaptureSpy).not.toHaveBeenCalled();
+    });
+
+    expect(talkButton).toBeEnabled();
+    expect(shareScreenButton).toBeEnabled();
+  });
+
   it('updates the applied theme when the system preference changes and cleans up listeners', () => {
     const matchMedia = installMatchMedia(true);
     const { unmount } = render(<App />);
