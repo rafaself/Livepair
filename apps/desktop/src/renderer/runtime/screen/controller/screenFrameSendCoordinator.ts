@@ -69,7 +69,7 @@ export function createScreenFrameSendCoordinator({
   shouldSendFrame?: (frame: LocalScreenFrame) => boolean;
   flushVisualDiagnostics: () => void;
   onSendStarted: () => void;
-  onSendSucceeded: () => void;
+  onSendSucceeded: (frame: LocalScreenFrame) => void;
   onSendFailed: (detail: string) => void;
 }): ScreenFrameSendCoordinator {
   let visualOutboundSequence = 0;
@@ -157,7 +157,7 @@ export function createScreenFrameSendCoordinator({
           heightPx: nextFrame.frame.heightPx,
           maxPendingFrames: SCREEN_CAPTURE_MAX_PENDING_FRAMES,
         });
-        onSendSucceeded();
+        onSendSucceeded(nextFrame.frame);
       }
     })().finally(() => {
       if (frameDrainInFlight === drainPromise) {

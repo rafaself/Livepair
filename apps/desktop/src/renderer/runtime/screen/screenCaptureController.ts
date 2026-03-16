@@ -24,7 +24,7 @@ import {
   createAdaptiveQualityPolicy,
   QUALITY_PROMOTION_DURATION_MS,
 } from './adaptiveQualityPolicy';
-import type { ContinuousScreenQuality } from '../../../shared/settings';
+import type { ContinuousScreenQuality, ScreenContextMode } from '../../../shared/settings';
 import type {
   CreateScreenCapture,
   GetRealtimeOutboundGateway,
@@ -55,6 +55,9 @@ export const VISUAL_BURST_MAX_LIFETIME_MS = 15_000;
 /** Minimum interval between consecutive bursts in milliseconds (Wave 6). */
 export const VISUAL_BURST_REENTRY_COOLDOWN_MS = 3_000;
 
+/** Minimum interval between accepted manual-send requests in milliseconds. */
+export const MANUAL_SEND_DEBOUNCE_MS = 1_000;
+
 export type ScreenCaptureControllerOptions = {
   visualSendPolicyOptions?: VisualSendPolicyOptions;
   visualChangeDetectorOptions?: VisualChangeDetectorOptions;
@@ -76,6 +79,7 @@ export function createScreenCaptureController(
   screenFrameDumpControls?: ScreenFrameDumpControls,
   controllerOptions?: ScreenCaptureControllerOptions,
   getBaselineQuality?: () => ContinuousScreenQuality,
+  getScreenContextMode?: () => ScreenContextMode,
 ): ScreenCaptureController {
   const burstDurationMs = controllerOptions?.burstDurationMs ?? VISUAL_BURST_DURATION_MS;
   const burstStableFrames = controllerOptions?.burstStableFrames ?? VISUAL_BURST_STABLE_FRAMES;
@@ -85,6 +89,13 @@ export function createScreenCaptureController(
   const burstReentryCooldownMs = controllerOptions?.burstReentryCooldownMs ?? VISUAL_BURST_REENTRY_COOLDOWN_MS;
   const promotionDurationMs = controllerOptions?.promotionDurationMs ?? QUALITY_PROMOTION_DURATION_MS;
   const nowMs = controllerOptions?.visualSendPolicyOptions?.nowMs ?? (() => Date.now());
+  const resolveRuntimeScreenContextMode = (): 'manual' | 'continuous' => {
+    return getScreenContextMode?.() === 'continuous' ? 'continuous' : 'manual';
+  };
+  const isManualMode = (): boolean => resolveRuntimeScreenContextMode() === 'manual';
+  const resolveRequestedCaptureQuality = (): ContinuousScreenQuality => {
+    return isManualMode() ? 'high' : (getBaselineQuality?.() ?? 'high');
+  };
   const visualPolicy = createVisualSendPolicy({
     ...controllerOptions?.visualSendPolicyOptions,
     burstMaxFrames,
@@ -109,10 +120,13 @@ export function createScreenCaptureController(
   // Quality policy is lazily created at start() using the current baseline
   // from settings.  This ensures we pick up the latest user preference.
 
-  let qualityPolicy = createAdaptiveQualityPolicy(
-    getBaselineQuality?.() ?? 'high',
-  );
+  let qualityPolicyBaseline: ContinuousScreenQuality = resolveRequestedCaptureQuality();
+  let qualityPolicy = createAdaptiveQualityPolicy(qualityPolicyBaseline);
   let promotionTimer: ReturnType<typeof setTimeout> | null = null;
+  let manualSendPending = false;
+  let lastManualSendRequestedAt = Number.NEGATIVE_INFINITY;
+  let manualFramesSentCount = 0;
+  let lastManualFrameAt: string | null = null;
 
   const clearPromotionTimer = (): void => {
     if (promotionTimer !== null) {
@@ -154,6 +168,59 @@ export function createScreenCaptureController(
     qualityPolicy.reset();
   };
 
+  const syncQualityPolicyBaseline = (): void => {
+    const nextBaseline = resolveRequestedCaptureQuality();
+
+    if (qualityPolicyBaseline === nextBaseline) {
+      return;
+    }
+
+    clearPromotionTimer();
+    qualityPolicyBaseline = nextBaseline;
+    qualityPolicy = createAdaptiveQualityPolicy(qualityPolicyBaseline);
+    applyQualityToCapture();
+  };
+
+  const syncAutomaticPolicyForManualMode = (): void => {
+    if (!isManualMode()) {
+      return;
+    }
+
+    syncQualityPolicyBaseline();
+    if (visualPolicy.getState() === 'inactive' || visualPolicy.getState() === 'sleep') {
+      return;
+    }
+
+    clearPassiveBurstTracking(true);
+    visualPolicy.pauseAutomaticSending();
+    flushVisualDiagnostics();
+  };
+
+  const canArmManualSend = (): boolean => {
+    return (
+      !manualSendPending
+      && nowMs() - lastManualSendRequestedAt >= MANUAL_SEND_DEBOUNCE_MS
+    );
+  };
+
+  const armManualSend = (): boolean => {
+    if (!canArmManualSend()) {
+      return false;
+    }
+
+    syncAutomaticPolicyForManualMode();
+    syncQualityPolicyBaseline();
+    manualSendPending = true;
+    lastManualSendRequestedAt = nowMs();
+    applyQualityToCapture();
+    return true;
+  };
+
+  const resetManualSendRuntime = (): void => {
+    manualSendPending = false;
+    lastManualSendRequestedAt = Number.NEGATIVE_INFINITY;
+  };
+
   const armSnapshot = (action: () => void): boolean => {
     const previousState = visualPolicy.getState();
     action();
@@ -161,7 +228,11 @@ export function createScreenCaptureController(
   };
 
   const flushVisualDiagnostics = (): void => {
-    store.getState().setVisualSendDiagnostics(visualPolicy.getDiagnostics());
+    store.getState().setVisualSendDiagnostics({
+      ...visualPolicy.getDiagnostics(),
+      manualFramesSentCount,
+      lastManualFrameAt,
+    });
   };
 
   const resetDiagnostics = (): void => {
@@ -241,6 +312,12 @@ export function createScreenCaptureController(
   // ── Visual change detection (called for every captured frame) ────────────
 
   const handleFrameCaptured = (frame: { data: Uint8Array }): void => {
+    if (isManualMode()) {
+      syncAutomaticPolicyForManualMode();
+      return;
+    }
+
+    syncQualityPolicyBaseline();
     if (
       visualPolicy.isPassiveBurstActive()
       && nowMs() - passiveBurstStartedAt >= burstMaxLifetimeMs
@@ -283,8 +360,20 @@ export function createScreenCaptureController(
     isCurrentCapture: controllerState.isCurrentCapture,
     getTransport,
     getRealtimeOutboundGateway,
-    allowSend: () => visualPolicy.allowSend(),
+    allowSend: () => {
+      if (isManualMode()) {
+        syncAutomaticPolicyForManualMode();
+        return manualSendPending;
+      }
+
+      return visualPolicy.allowSend();
+    },
     onFrameDispatched: () => {
+      if (isManualMode()) {
+        flushVisualDiagnostics();
+        return;
+      }
+
       const wasSnapshot = visualPolicy.getState() === 'snapshot';
       const wasPassiveBurstActive = visualPolicy.isPassiveBurstActive();
       visualPolicy.onFrameDispatched();
@@ -303,6 +392,10 @@ export function createScreenCaptureController(
       visualPolicy.onFrameBlockedByGateway();
     },
     shouldSendFrame: (frame) => {
+      if (isManualMode()) {
+        return true;
+      }
+
       // Only gate burst sends; explicit streaming and snapshots pass through.
       if (!visualPolicy.isPassiveBurstActive()) return true;
 
@@ -328,7 +421,26 @@ export function createScreenCaptureController(
         lastError: null,
       });
     },
-    onSendSucceeded: () => {
+    onSendSucceeded: (frame) => {
+      if (isManualMode()) {
+        manualSendPending = false;
+        manualFramesSentCount += 1;
+        lastManualFrameAt = new Date(nowMs()).toISOString();
+        const activeCapture = controllerState.getActiveCapture();
+
+        if (activeCapture) {
+          frameDumpCoordinator.persistFrame(activeCapture.capture, activeCapture.generation, frame);
+        }
+
+        store.getState().setScreenCaptureState('capturing');
+        store.getState().setScreenCaptureDiagnostics({
+          lastUploadStatus: 'sent',
+          lastError: null,
+        });
+        flushVisualDiagnostics();
+        return;
+      }
+
       store.getState().setScreenCaptureState('streaming');
       store.getState().setScreenCaptureDiagnostics({
         lastUploadStatus: 'sent',
@@ -336,6 +448,7 @@ export function createScreenCaptureController(
       });
     },
     onSendFailed: (detail) => {
+      manualSendPending = false;
       store.getState().setLastRuntimeError(detail);
       void stopInternal({
         nextState: 'error',
@@ -357,9 +470,16 @@ export function createScreenCaptureController(
     frameDumpCoordinator,
     frameSendCoordinator,
     onFrameCaptured: handleFrameCaptured,
+    shouldPersistFrameOnCapture: () => !isManualMode(),
     getCaptureStartParams: () => qualityPolicy.getEffectiveParams(),
     onScreenShareStarted: () => {
       visualPolicy.onScreenShareStarted();
+
+      if (isManualMode()) {
+        flushVisualDiagnostics();
+        return;
+      }
+
       // Bootstrap: send exactly one initial frame so the model has visual
       // context, then return to sleep.  Continuous streaming is NOT enabled
       // by default — the visual send policy remains the authority over
@@ -373,6 +493,7 @@ export function createScreenCaptureController(
       clearPassiveBurstTracking();
       visualChangeDetector.reset();
       resetQualityState();
+      resetManualSendRuntime();
       visualPolicy.onScreenShareStopped();
       flushVisualDiagnostics();
     },
@@ -384,9 +505,8 @@ export function createScreenCaptureController(
     start: () => {
       // Reinitialize quality policy with fresh baseline on each start so
       // the latest user preference is picked up.
-      qualityPolicy = createAdaptiveQualityPolicy(
-        getBaselineQuality?.() ?? 'high',
-      );
+      qualityPolicyBaseline = resolveRequestedCaptureQuality();
+      qualityPolicy = createAdaptiveQualityPolicy(qualityPolicyBaseline);
       return lifecycle.start();
     },
     stop: lifecycle.stop,
@@ -398,6 +518,14 @@ export function createScreenCaptureController(
     getVisualSendState: () => visualPolicy.getState(),
     analyzeScreenNow: () => {
       if (!lifecycle.isActive()) return;
+      if (isManualMode()) {
+        if (armManualSend()) {
+          flushVisualDiagnostics();
+        }
+        return;
+      }
+
+      syncQualityPolicyBaseline();
       const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       const didArmSnapshot = armSnapshot(() => {
         visualPolicy.analyzeScreenNow();
@@ -411,6 +539,12 @@ export function createScreenCaptureController(
       flushVisualDiagnostics();
     },
     enableStreaming: () => {
+      if (isManualMode()) {
+        syncAutomaticPolicyForManualMode();
+        return;
+      }
+
+      syncQualityPolicyBaseline();
       const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       visualPolicy.enableStreaming();
       if (hadPassiveBurst && !visualPolicy.isPassiveBurstActive()) {
@@ -419,6 +553,12 @@ export function createScreenCaptureController(
       flushVisualDiagnostics();
     },
     stopStreaming: () => {
+      if (isManualMode()) {
+        syncAutomaticPolicyForManualMode();
+        return;
+      }
+
+      syncQualityPolicyBaseline();
       const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       // Return to baseline quality when streaming stops.
       if (qualityPolicy.isPromoted()) {
@@ -433,6 +573,12 @@ export function createScreenCaptureController(
     },
     onSpeechStart: () => {
       if (!lifecycle.isActive()) return;
+      if (isManualMode()) {
+        syncAutomaticPolicyForManualMode();
+        return;
+      }
+
+      syncQualityPolicyBaseline();
       const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       const didArmSnapshot = armSnapshot(() => {
         visualPolicy.triggerSnapshot('speechTrigger');
@@ -447,6 +593,12 @@ export function createScreenCaptureController(
     },
     onTextSent: () => {
       if (!lifecycle.isActive()) return;
+      if (isManualMode()) {
+        syncAutomaticPolicyForManualMode();
+        return;
+      }
+
+      syncQualityPolicyBaseline();
       const hadPassiveBurst = visualPolicy.isPassiveBurstActive();
       const didArmSnapshot = armSnapshot(() => {
         visualPolicy.triggerSnapshot('textTrigger');

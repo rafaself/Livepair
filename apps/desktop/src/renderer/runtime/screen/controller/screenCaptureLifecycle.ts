@@ -39,11 +39,12 @@ export function createScreenCaptureLifecycle({
   getTransport,
   resetDiagnostics,
   frameDumpCoordinator,
-  frameSendCoordinator,
-  onFrameCaptured,
-  getCaptureStartParams,
-  onScreenShareStarted,
-  onScreenShareStopped,
+    frameSendCoordinator,
+    onFrameCaptured,
+    shouldPersistFrameOnCapture,
+    getCaptureStartParams,
+    onScreenShareStarted,
+    onScreenShareStopped,
 }: {
   store: ScreenCaptureStoreApi;
   controllerState: ScreenCaptureControllerState;
@@ -53,6 +54,7 @@ export function createScreenCaptureLifecycle({
   frameDumpCoordinator: ScreenFrameDumpCoordinator;
   frameSendCoordinator: ScreenFrameSendCoordinator;
   onFrameCaptured?: (frame: LocalScreenFrame) => void;
+  shouldPersistFrameOnCapture?: (frame: LocalScreenFrame) => boolean;
   getCaptureStartParams?: () => { jpegQuality?: number; maxWidthPx?: number };
   onScreenShareStarted: () => void;
   onScreenShareStopped: () => void;
@@ -179,7 +181,9 @@ export function createScreenCaptureLifecycle({
         }
 
         onFrameCaptured?.(frame);
-        frameDumpCoordinator.persistFrame(capture, captureGeneration, frame);
+        if (shouldPersistFrameOnCapture?.(frame) ?? true) {
+          frameDumpCoordinator.persistFrame(capture, captureGeneration, frame);
+        }
         void frameSendCoordinator.enqueueFrameSend(frame);
       },
       onDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => {
