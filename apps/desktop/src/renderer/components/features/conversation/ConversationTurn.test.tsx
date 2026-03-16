@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
+import { useSessionStore } from '../../../store/sessionStore';
 import { useSettingsStore } from '../../../store/settingsStore';
+import { resetDesktopStores } from '../../../test/store';
 import { ConversationTurn } from './ConversationTurn';
 
 function renderTurn({
@@ -36,6 +38,7 @@ function getBody(article: HTMLElement): HTMLElement | null {
 
 describe('ConversationTurn', () => {
   beforeEach(() => {
+    resetDesktopStores();
     useSettingsStore.setState({
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
@@ -390,6 +393,7 @@ describe('ConversationTurn transcript artifact presentation', () => {
     const article = screen.getByRole('article', { name: 'Assistant transcript at 09:56' });
 
     expect(article.querySelector('.conversation-turn__copy-btn')).not.toBeNull();
+    expect(screen.queryByText('Voice')).toBeNull();
   });
 
   it('shows a copy button on a canonical assistant turn', () => {
@@ -451,8 +455,16 @@ describe('ConversationTurn transcript artifact presentation', () => {
     );
 
     const toggle = screen.getByRole('button', { name: 'Show assistant thinking' });
+    const thinkingRegionId = toggle.getAttribute('aria-controls');
 
-    expect(screen.queryByText('First pass reasoning')).toBeNull();
+    expect(thinkingRegionId).not.toBeNull();
+
+    const thinkingRegion = document.getElementById(thinkingRegionId!);
+
+    expect(thinkingRegion).not.toBeNull();
+
+    expect(screen.getByText('First pass reasoning')).not.toBeVisible();
+    expect(thinkingRegion).toHaveAttribute('aria-hidden', 'true');
 
     fireEvent.click(toggle);
 
@@ -461,14 +473,47 @@ describe('ConversationTurn transcript artifact presentation', () => {
       'aria-expanded',
       'true',
     );
+    expect(thinkingRegion).toHaveAttribute('aria-hidden', 'false');
 
     fireEvent.click(screen.getByRole('button', { name: 'Hide assistant thinking' }));
 
-    expect(screen.queryByText('First pass reasoning')).toBeNull();
+    expect(screen.getByText('First pass reasoning')).not.toBeVisible();
     expect(screen.getByRole('button', { name: 'Show assistant thinking' })).toHaveAttribute(
       'aria-expanded',
       'false',
     );
+    expect(thinkingRegion).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('shows a thinking toggle for a live assistant transcript using its attached turn metadata', () => {
+    useSessionStore.getState().appendConversationTurn({
+      id: 'assistant-turn-linked',
+      role: 'assistant',
+      content: 'Canonical assistant reply.',
+      timestamp: '10:00',
+      state: 'complete',
+      answerMetadata: {
+        provenance: 'unverified',
+        thinkingText: 'Linked canonical reasoning',
+      },
+    });
+
+    render(
+      <ConversationTurn
+        turn={{
+          kind: 'transcript',
+          id: 'assistant-transcript-linked',
+          role: 'assistant',
+          content: 'Canonical assistant reply.',
+          timestamp: '10:00',
+          state: 'complete',
+          source: 'voice',
+          attachedTurnId: 'assistant-turn-linked',
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Show assistant thinking' })).toBeVisible();
   });
 
   it('does not show thinking UI for assistant turns without thinking text', () => {
@@ -518,7 +563,7 @@ describe('ConversationTurn transcript artifact presentation', () => {
 
     expect(writeText).toHaveBeenCalledWith('Canonical assistant reply.');
   });
-  });
+});
 
 describe('ConversationTurn typed note presentation', () => {
   it('applies the typed-note class and Note badge to a user turn with source text', () => {
