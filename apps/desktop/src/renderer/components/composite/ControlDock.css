@@ -49,6 +49,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  transition: transform var(--motion-normal) var(--ease-out);
+  transform: scale(0.92);
+}
+
+.control-dock__item-wrapper--visible .control-dock__item-content {
+  transform: scale(1);
 }
 
 .control-dock:hover {
