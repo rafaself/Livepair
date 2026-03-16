@@ -90,6 +90,8 @@ export function buildDefaultVisualSendDiagnostics(): VisualSendDiagnostics {
     blockedByGateway: 0,
     triggerSnapshotCount: 0,
     burstCount: 0,
+    manualFramesSentCount: 0,
+    lastManualFrameAt: null,
   };
 }
 
