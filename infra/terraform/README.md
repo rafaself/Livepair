@@ -409,10 +409,15 @@ The checked-in CD workflows use GitHub environments named `staging` and `product
 - `GCP_API_SERVICE_NAME`
 - `GCP_API_MIGRATION_JOB_NAME`
 - `GCP_SMOKE_PATH` (`/health`)
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- `GCP_SERVICE_ACCOUNT`
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` when you use Workload Identity Federation
+- `GCP_CREDENTIALS_JSON` secret when you use a service account key JSON instead
 
-`GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` are not stored in the repo; set them in the matching GitHub environment. If you are not ready to use GitHub environment variables yet, you can still use the manual `gcloud builds submit` fallback below.
+Configure exactly one auth mode per GitHub environment:
+
+- Workload Identity Federation: set `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT`
+- Service account key fallback: set the `GCP_CREDENTIALS_JSON` secret
+
+If neither mode is configured, the workflow now fails in a preflight step with a direct setup message before calling `google-github-actions/auth`.
 
 ### IAM for deploy automation
 

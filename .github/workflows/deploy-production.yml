@@ -22,6 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
+    env:
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS_JSON }}
 
     steps:
       - name: Checkout release ref
@@ -33,11 +37,46 @@ jobs:
         id: release
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Authenticate to Google Cloud
+      - name: Validate Google auth configuration
+        run: |
+          has_wif=false
+          has_json=false
+
+          if [ -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]; then
+            has_wif=true
+          fi
+
+          if [ -n "$GCP_CREDENTIALS_JSON" ]; then
+            has_json=true
+          fi
+
+          if $has_wif && $has_json; then
+            echo "Configure exactly one auth mode: either production var GCP_WORKLOAD_IDENTITY_PROVIDER or production secret GCP_CREDENTIALS_JSON." >&2
+            exit 1
+          fi
+
+          if ! $has_wif && ! $has_json; then
+            echo "Missing Google auth config. Set production var GCP_WORKLOAD_IDENTITY_PROVIDER for Workload Identity or production secret GCP_CREDENTIALS_JSON for a service account key." >&2
+            exit 1
+          fi
+
+          if $has_wif && [ -z "$GCP_SERVICE_ACCOUNT" ]; then
+            echo "Missing production var GCP_SERVICE_ACCOUNT. It is required when using Workload Identity." >&2
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud with Workload Identity
+        if: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && env.GCP_CREDENTIALS_JSON == '' }}
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Authenticate to Google Cloud with credentials JSON
+        if: ${{ env.GCP_CREDENTIALS_JSON != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER == '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ env.GCP_CREDENTIALS_JSON }}
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
