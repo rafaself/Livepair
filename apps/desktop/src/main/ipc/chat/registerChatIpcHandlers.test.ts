@@ -88,47 +88,52 @@ describe('registerChatIpcHandlers', () => {
 
     registerChatIpcHandlers({});
 
-    expect(mockHandle).toHaveBeenCalledTimes(11);
+    expect(mockHandle).toHaveBeenCalledTimes(12);
     expect(mockHandle).toHaveBeenNthCalledWith(1, IPC_CHANNELS.createChat, expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(2, IPC_CHANNELS.getChat, expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
       3,
+      IPC_CHANNELS.getCurrentChat,
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      4,
       IPC_CHANNELS.getOrCreateCurrentChat,
       expect.any(Function),
     );
-    expect(mockHandle).toHaveBeenNthCalledWith(4, IPC_CHANNELS.listChats, expect.any(Function));
+    expect(mockHandle).toHaveBeenNthCalledWith(5, IPC_CHANNELS.listChats, expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
-      5,
+      6,
       IPC_CHANNELS.listChatMessages,
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      6,
+      7,
       IPC_CHANNELS.getChatSummary,
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      7,
+      8,
       IPC_CHANNELS.appendChatMessage,
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      8,
+      9,
       IPC_CHANNELS.createLiveSession,
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      9,
+      10,
       IPC_CHANNELS.listLiveSessions,
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      10,
+      11,
       IPC_CHANNELS.updateLiveSession,
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
-      11,
+      12,
       IPC_CHANNELS.endLiveSession,
       expect.any(Function),
     );
@@ -279,6 +284,11 @@ describe('registerChatIpcHandlers', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
+        json: vi.fn(async () => createChatRecord()),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
         json: vi.fn(async () => [createChatRecord()]),
       })
       .mockResolvedValueOnce({
@@ -362,6 +372,9 @@ describe('registerChatIpcHandlers', () => {
     const getChatHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.getChat,
     )?.[1] as (_event: unknown, chatId: unknown) => Promise<ChatRecord | null>;
+    const getCurrentChatHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.getCurrentChat,
+    )?.[1] as () => Promise<ChatRecord | null>;
     const getOrCreateCurrentChatHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.getOrCreateCurrentChat,
     )?.[1] as () => Promise<ChatRecord>;
@@ -394,6 +407,7 @@ describe('registerChatIpcHandlers', () => {
       createChatRecord({ title: 'New chat' }),
     );
     await expect(getChatHandler({}, MISSING_CHAT_ID)).resolves.toBeNull();
+    await expect(getCurrentChatHandler()).resolves.toEqual(createChatRecord());
     await expect(getOrCreateCurrentChatHandler()).resolves.toEqual(createChatRecord());
     await expect(listChatsHandler()).resolves.toEqual([createChatRecord()]);
     await expect(listMessagesHandler({}, CHAT_ID)).resolves.toEqual([
@@ -500,19 +514,28 @@ describe('registerChatIpcHandlers', () => {
       3,
       'http://localhost:3000/chat-memory/chats/current',
       {
+        headers: {
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      4,
+      'http://localhost:3000/chat-memory/chats/current',
+      {
         method: 'PUT',
         headers: {
           [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
         },
       },
     );
-    expect(fetchImpl).toHaveBeenNthCalledWith(4, 'http://localhost:3000/chat-memory/chats', {
+    expect(fetchImpl).toHaveBeenNthCalledWith(5, 'http://localhost:3000/chat-memory/chats', {
       headers: {
         [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
       },
     });
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      5,
+      6,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages`,
       {
         headers: {
@@ -521,7 +544,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      6,
+      7,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/summary`,
       {
         headers: {
@@ -530,7 +553,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      7,
+      8,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages`,
       {
         method: 'POST',
@@ -546,7 +569,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      8,
+      9,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
       {
         method: 'POST',
@@ -558,7 +581,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      9,
+      10,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
       {
         headers: {
@@ -567,7 +590,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      10,
+      11,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/resumption`,
       {
         method: 'PATCH',
@@ -587,7 +610,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      11,
+      12,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/snapshot`,
       {
         method: 'PATCH',
@@ -611,7 +634,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      12,
+      13,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/end`,
       {
         method: 'POST',

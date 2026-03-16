@@ -12,10 +12,16 @@ export type ChatMemoryQueriesBridge = Pick<
   | 'appendChatMessage'
   | 'createChat'
   | 'getChat'
+  | 'getCurrentChat'
   | 'getOrCreateCurrentChat'
   | 'getChatSummary'
   | 'listChatMessages'
   | 'listChats'
+>;
+
+export type CurrentChatQueryBridge = Pick<
+  ChatMemoryQueriesBridge,
+  'getCurrentChat'
 >;
 
 export type ActiveChatQueryBridge = Pick<
@@ -42,6 +48,12 @@ export function getChatRecord(
   bridge: Pick<ChatMemoryQueriesBridge, 'getChat'> = window.bridge,
 ): Promise<ChatRecord | null> {
   return bridge.getChat(chatId);
+}
+
+export function getCurrentChatRecord(
+  bridge: CurrentChatQueryBridge = window.bridge,
+): Promise<ChatRecord | null> {
+  return bridge.getCurrentChat();
 }
 
 export async function getLatestPersistedChatMessage(

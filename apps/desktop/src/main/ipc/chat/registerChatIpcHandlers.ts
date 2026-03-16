@@ -36,6 +36,7 @@ type ChatBackendClient = Pick<
   | 'createLiveSession'
   | 'endLiveSession'
   | 'getChat'
+  | 'getCurrentChat'
   | 'getChatSummary'
   | 'getOrCreateCurrentChat'
   | 'listChatMessages'
@@ -71,6 +72,10 @@ export function registerChatIpcHandlers(
 
   ipcMain.handle(IPC_CHANNELS.getChat, async (_event, chatId: unknown) => {
     return backendClient.getChat(requireChatId(chatId));
+  });
+
+  ipcMain.handle(IPC_CHANNELS.getCurrentChat, async () => {
+    return backendClient.getCurrentChat();
   });
 
   ipcMain.handle(IPC_CHANNELS.getOrCreateCurrentChat, async () => {

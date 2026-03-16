@@ -2,6 +2,7 @@ import { logRuntimeDiagnostic, logRuntimeError } from '../core/logger';
 import { getLiveConfig, LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import {
   buildRehydrationPacketFromCurrentChat,
+  getCurrentChat,
 } from '../../chatMemory/currentChatMemory';
 import {
   endCurrentLiveSession,
@@ -227,6 +228,9 @@ export function createSessionLifecycleAssembly({
     resetVoiceSessionResumption: () => runtimeRef.current!.resetVoiceSessionResumption(),
     resetVoiceSessionDurability: () => runtimeRef.current!.resetVoiceSessionDurability(),
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
+    ensureCurrentChatForSpeechStart: async () => {
+      await getCurrentChat();
+    },
     requestVoiceSessionToken,
     buildRehydrationPacketFromCurrentChat,
     setCachedVoiceToken: (token) => {
@@ -254,6 +258,7 @@ export function createSessionLifecycleAssembly({
     createPersistedLiveSession: async () => {
       const liveSession = await startCurrentLiveSession();
       startTelemetrySession(liveSession);
+      telemetryCollector.onSessionConnected();
     },
     endPersistedLiveSession: async (liveSessionEnd) => {
       if (liveSessionEnd.status === 'failed' && liveSessionEnd.endedReason) {

@@ -37,7 +37,7 @@ describe('bootstrapDesktopRenderer', () => {
     });
     window.bridge.getSettings = vi.fn().mockResolvedValue(DEFAULT_DESKTOP_SETTINGS);
     window.bridge.updateSettings = vi.fn().mockResolvedValue(DEFAULT_DESKTOP_SETTINGS);
-    window.bridge.getOrCreateCurrentChat = vi.fn().mockResolvedValue({
+    window.bridge.getCurrentChat = vi.fn().mockResolvedValue({
       id: 'chat-1',
       title: null,
       createdAt: '2026-03-12T09:00:00.000Z',
@@ -64,7 +64,8 @@ describe('bootstrapDesktopRenderer', () => {
     await bootstrapDesktopRenderer();
 
     expect(window.bridge.getSettings).toHaveBeenCalledTimes(1);
-    expect(window.bridge.getOrCreateCurrentChat).toHaveBeenCalledTimes(1);
+    expect(window.bridge.getCurrentChat).toHaveBeenCalledTimes(1);
+    expect(window.bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
     expect(window.bridge.listChatMessages).toHaveBeenCalledWith('chat-1');
     expect(useSettingsStore.getState().isReady).toBe(true);
     expect(useSessionStore.getState().activeChatId).toBe('chat-1');
@@ -105,6 +106,18 @@ describe('bootstrapDesktopRenderer', () => {
     expect(useSessionStore.getState().lastRuntimeError).toBe('enumeration failed');
   });
 
+  it('keeps the empty state when no current chat exists yet', async () => {
+    window.bridge.getCurrentChat = vi.fn().mockResolvedValue(null);
+
+    await expect(bootstrapDesktopRenderer()).resolves.toBeUndefined();
+
+    expect(window.bridge.getCurrentChat).toHaveBeenCalledTimes(1);
+    expect(window.bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
+    expect(window.bridge.listChatMessages).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().activeChatId).toBeNull();
+    expect(useSessionStore.getState().conversationTurns).toEqual([]);
+  });
+
   it('defers non-critical startup work until after first paint', async () => {
     const originalRequestAnimationFrame = window.requestAnimationFrame;
     const frameQueue: FrameRequestCallback[] = [];
@@ -131,7 +144,7 @@ describe('bootstrapDesktopRenderer', () => {
       expect(frameQueue).toHaveLength(1);
       expect(initializeDevicePreferences).not.toHaveBeenCalled();
       expect(window.bridge.listScreenCaptureSources).not.toHaveBeenCalled();
-      expect(window.bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
+      expect(window.bridge.getCurrentChat).not.toHaveBeenCalled();
       expect(window.bridge.listChatMessages).not.toHaveBeenCalled();
 
       frameQueue.shift()?.(16);
@@ -140,7 +153,7 @@ describe('bootstrapDesktopRenderer', () => {
       expect(frameQueue).toHaveLength(1);
       expect(initializeDevicePreferences).not.toHaveBeenCalled();
       expect(window.bridge.listScreenCaptureSources).not.toHaveBeenCalled();
-      expect(window.bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
+      expect(window.bridge.getCurrentChat).not.toHaveBeenCalled();
       expect(window.bridge.listChatMessages).not.toHaveBeenCalled();
 
       frameQueue.shift()?.(32);
@@ -148,7 +161,8 @@ describe('bootstrapDesktopRenderer', () => {
 
       expect(initializeDevicePreferences).toHaveBeenCalledTimes(1);
       expect(window.bridge.listScreenCaptureSources).toHaveBeenCalledTimes(1);
-      expect(window.bridge.getOrCreateCurrentChat).toHaveBeenCalledTimes(1);
+      expect(window.bridge.getCurrentChat).toHaveBeenCalledTimes(1);
+      expect(window.bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
       expect(window.bridge.listChatMessages).toHaveBeenCalledTimes(1);
     } finally {
       Object.defineProperty(window, 'requestAnimationFrame', {
