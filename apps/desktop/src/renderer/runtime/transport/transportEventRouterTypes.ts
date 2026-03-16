@@ -6,6 +6,7 @@ import type { RuntimeLogger } from '../core/session.types';
 import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
 import type { SpeechLifecycleStatus } from '../speech/speech.types';
 import type {
+  VoiceLiveSignalDiagnostics,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionDurabilityState,
@@ -74,6 +75,13 @@ export type TransportEventRouterOps = {
   cleanupTransport: () => void;
   resumeVoiceSession: (detail: string) => Promise<void>;
   restoreScreenCapture: () => void;
+  updateVoiceLiveSignalDiagnostics: (patch: Partial<VoiceLiveSignalDiagnostics>) => void;
+  getActiveLiveCapabilities: () => {
+    inputAudioTranscriptionEnabled: boolean;
+    outputAudioTranscriptionEnabled: boolean;
+    responseModality: string;
+    sessionResumptionEnabled: boolean;
+  } | null;
 };
 
 export type TransportEventRouterContext = {

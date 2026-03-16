@@ -25,6 +25,7 @@ import type {
   VisualSendDiagnostics,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceLiveSignalDiagnostics,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionLatencyState,
@@ -129,6 +130,7 @@ export type SessionStoreData = {
   voicePlaybackDiagnostics: VoicePlaybackDiagnostics;
   currentVoiceTranscript: CurrentVoiceTranscript;
   voiceToolState: VoiceToolState;
+  voiceLiveSignalDiagnostics: VoiceLiveSignalDiagnostics;
   realtimeOutboundDiagnostics: RealtimeOutboundDiagnostics;
   screenShareIntended: boolean;
   screenCaptureState: ScreenCaptureState;
@@ -199,6 +201,7 @@ export type SessionStoreActions = {
   setVoicePlaybackState: (voicePlaybackState: VoicePlaybackState) => void;
   setVoicePlaybackDiagnostics: (patch: Partial<VoicePlaybackDiagnostics>) => void;
   setVoiceToolState: (patch: Partial<VoiceToolState>) => void;
+  updateVoiceLiveSignalDiagnostics: (patch: Partial<VoiceLiveSignalDiagnostics>) => void;
   setRealtimeOutboundDiagnostics: (
     diagnostics: RealtimeOutboundDiagnostics,
   ) => void;

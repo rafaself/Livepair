@@ -19,6 +19,7 @@ export {
   createRealtimeOutboundGateway,
 } from './outbound/realtimeOutboundGateway';
 export {
+  createDefaultVoiceLiveSignalDiagnostics,
   createDefaultVoiceSessionLatencyState,
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
@@ -97,6 +98,7 @@ export type {
   LocalVoiceChunk,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceLiveSignalDiagnostics,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionLatencyMetric,
