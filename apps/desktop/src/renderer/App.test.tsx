@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
@@ -186,6 +187,7 @@ describe('App', () => {
     const confirmButton = screen.getByRole('button', { name: 'Confirm Share Screen mode' });
 
     expect(dialog).toBeVisible();
+    expect(dialog.parentElement).toHaveClass('screen-context-dialog-panel-frame');
     expect(dialog).toHaveAttribute('aria-describedby', 'share-screen-mode-description');
     expect(screen.getByText(/sends your current screen only when you explicitly click/i)).toBeVisible();
     expect(confirmButton).toBeDisabled();
@@ -213,6 +215,50 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Choose your Share Screen mode' })).toBeNull();
       expect(shareScreenButton).toHaveFocus();
+    });
+  });
+
+  it('opens the Share Screen mode dialog before starting a Live session with screen share from the assistant panel', async () => {
+    installMatchMedia(true);
+    const controller = getDesktopSessionController();
+    const startSessionSpy = vi.spyOn(controller, 'startSession').mockResolvedValue();
+    const startScreenCaptureSpy = vi.spyOn(controller, 'startScreenCapture').mockResolvedValue();
+    const startVoiceCaptureSpy = vi.spyOn(controller, 'startVoiceCapture').mockResolvedValue();
+
+    render(<App />);
+
+    const assistantPanel = screen.getByRole('complementary', {
+      name: 'Assistant Panel',
+      hidden: true,
+    });
+    const shareScreenButton = within(assistantPanel).getByRole('button', { name: 'Share screen' });
+
+    fireEvent.click(shareScreenButton);
+
+    expect(startSessionSpy).not.toHaveBeenCalled();
+    expect(startScreenCaptureSpy).not.toHaveBeenCalled();
+    expect(startVoiceCaptureSpy).not.toHaveBeenCalled();
+
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Choose your Share Screen mode',
+    });
+    const manualRadio = screen.getByRole('radio', { name: /manual/i });
+    const confirmButton = screen.getByRole('button', { name: 'Confirm Share Screen mode' });
+
+    expect(dialog).toBeVisible();
+    expect(dialog.parentElement).toHaveClass('screen-context-dialog-panel-frame');
+    expect(confirmButton).toBeDisabled();
+
+    fireEvent.click(manualRadio);
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        screenContextMode: 'manual',
+      });
+      expect(startSessionSpy).toHaveBeenCalledWith({ mode: 'speech' });
+      expect(startScreenCaptureSpy).toHaveBeenCalledTimes(1);
+      expect(startVoiceCaptureSpy).toHaveBeenCalledTimes(1);
     });
   });
 

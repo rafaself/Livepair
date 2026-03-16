@@ -56,7 +56,13 @@ export type AssistantPanelController = {
   handleEndSpeechMode: () => Promise<void>;
 };
 
-export function useAssistantPanelController(): AssistantPanelController {
+export type UseAssistantPanelControllerOptions = {
+  screenShareModeGate?: (action: () => Promise<void>) => Promise<void>;
+};
+
+export function useAssistantPanelController({
+  screenShareModeGate,
+}: UseAssistantPanelControllerOptions = {}): AssistantPanelController {
   const isPanelOpen = useUiStore((state) => state.isPanelOpen);
   const panelView = useUiStore((state) => state.panelView);
   const isComposerMicrophoneEnabled = useUiStore((state) => state.isComposerMicrophoneEnabled);
@@ -119,21 +125,40 @@ export function useAssistantPanelController(): AssistantPanelController {
     handleToggleComposerMicrophone,
     handleToggleComposerScreenShare,
     handleEndSpeechMode,
-  } = useAssistantPanelComposerMediaActions({
-    controlGatingSnapshot,
-    composerSpeechActionKind,
-    getIsComposerMicrophoneEnabled: () => useUiStore.getState().isComposerMicrophoneEnabled,
-    setComposerMicrophoneEnabled,
-    isVoiceSessionActive,
-    voiceCaptureState,
-    screenCaptureState,
-    onStartVoiceSession,
-    onStartVoiceCapture,
-    onStopVoiceCapture,
-    onStartScreenCapture,
-    onStopScreenCapture,
-    onEndSpeechMode,
-  });
+  } = useAssistantPanelComposerMediaActions(
+    screenShareModeGate
+      ? {
+          controlGatingSnapshot,
+          composerSpeechActionKind,
+          getIsComposerMicrophoneEnabled: () => useUiStore.getState().isComposerMicrophoneEnabled,
+          setComposerMicrophoneEnabled,
+          screenShareModeGate,
+          isVoiceSessionActive,
+          voiceCaptureState,
+          screenCaptureState,
+          onStartVoiceSession,
+          onStartVoiceCapture,
+          onStopVoiceCapture,
+          onStartScreenCapture,
+          onStopScreenCapture,
+          onEndSpeechMode,
+        }
+      : {
+          controlGatingSnapshot,
+          composerSpeechActionKind,
+          getIsComposerMicrophoneEnabled: () => useUiStore.getState().isComposerMicrophoneEnabled,
+          setComposerMicrophoneEnabled,
+          isVoiceSessionActive,
+          voiceCaptureState,
+          screenCaptureState,
+          onStartVoiceSession,
+          onStartVoiceCapture,
+          onStopVoiceCapture,
+          onStartScreenCapture,
+          onStopScreenCapture,
+          onEndSpeechMode,
+        },
+  );
 
   return {
     assistantState,

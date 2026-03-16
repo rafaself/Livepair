@@ -158,77 +158,79 @@ function ShareScreenModeDialog({
 
   return (
     <div className="screen-context-dialog-backdrop">
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="share-screen-mode-title"
-        aria-describedby="share-screen-mode-description"
-        className="screen-context-dialog"
-        tabIndex={-1}
-      >
-        <div className="screen-context-dialog__header">
-          <h2 id="share-screen-mode-title" className="screen-context-dialog__title">
-            Choose your Share Screen mode
-          </h2>
-          <p id="share-screen-mode-description" className="screen-context-dialog__description">
-            Before you start sharing, choose how Livepair should send your screen.
-          </p>
-        </div>
+      <div className="screen-context-dialog-panel-frame">
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="share-screen-mode-title"
+          aria-describedby="share-screen-mode-description"
+          className="screen-context-dialog"
+          tabIndex={-1}
+        >
+          <div className="screen-context-dialog__header">
+            <h2 id="share-screen-mode-title" className="screen-context-dialog__title">
+              Choose your Share Screen mode
+            </h2>
+            <p id="share-screen-mode-description" className="screen-context-dialog__description">
+              Before you start sharing, choose how Livepair should send your screen.
+            </p>
+          </div>
 
-        <div className="screen-context-dialog__options" role="radiogroup" aria-label="Share Screen mode">
-          <label
-            className={`screen-context-dialog__option${selectedMode === 'manual' ? ' screen-context-dialog__option--selected' : ''}`}
-          >
-            <input
-              type="radio"
-              name="share-screen-mode"
-              value="manual"
-              checked={selectedMode === 'manual'}
-              onChange={() => {
-                onSelectMode('manual');
-              }}
-            />
+          <div className="screen-context-dialog__options" role="radiogroup" aria-label="Share Screen mode">
+            <label
+              className={`screen-context-dialog__option${selectedMode === 'manual' ? ' screen-context-dialog__option--selected' : ''}`}
+            >
+              <input
+                type="radio"
+                name="share-screen-mode"
+                value="manual"
+                checked={selectedMode === 'manual'}
+                onChange={() => {
+                  onSelectMode('manual');
+                }}
+              />
+                <span className="screen-context-dialog__option-copy">
+                  <span className="screen-context-dialog__option-title">Manual</span>
+                  <span className="screen-context-dialog__option-description">
+                    Sends your current screen only when you explicitly click the manual send button.
+                  </span>
+                </span>
+              </label>
+
+            <label
+              className={`screen-context-dialog__option${selectedMode === 'continuous' ? ' screen-context-dialog__option--selected' : ''}`}
+            >
+              <input
+                type="radio"
+                name="share-screen-mode"
+                value="continuous"
+                checked={selectedMode === 'continuous'}
+                onChange={() => {
+                  onSelectMode('continuous');
+                }}
+              />
               <span className="screen-context-dialog__option-copy">
-                <span className="screen-context-dialog__option-title">Manual</span>
+                <span className="screen-context-dialog__option-title">Continuous</span>
                 <span className="screen-context-dialog__option-description">
-                  Sends your current screen only when you explicitly click the manual send button.
+                  Sends automatically every 3 seconds, with temporary 1 second bursts on meaningful
+                  changes.
                 </span>
               </span>
             </label>
+          </div>
 
-          <label
-            className={`screen-context-dialog__option${selectedMode === 'continuous' ? ' screen-context-dialog__option--selected' : ''}`}
-          >
-            <input
-              type="radio"
-              name="share-screen-mode"
-              value="continuous"
-              checked={selectedMode === 'continuous'}
-              onChange={() => {
-                onSelectMode('continuous');
+          <div className="screen-context-dialog__actions">
+            <Button
+              aria-label="Confirm Share Screen mode"
+              disabled={selectedMode === null || isSaving}
+              onClick={() => {
+                void onConfirm();
               }}
-            />
-            <span className="screen-context-dialog__option-copy">
-              <span className="screen-context-dialog__option-title">Continuous</span>
-              <span className="screen-context-dialog__option-description">
-                Sends automatically every 3 seconds, with temporary 1 second bursts on meaningful
-                changes.
-              </span>
-            </span>
-          </label>
-        </div>
-
-        <div className="screen-context-dialog__actions">
-          <Button
-            aria-label="Confirm Share Screen mode"
-            disabled={selectedMode === null || isSaving}
-            onClick={() => {
-              void onConfirm();
-            }}
-          >
-            {isSaving ? 'Saving…' : 'Continue'}
-          </Button>
+            >
+              {isSaving ? 'Saving…' : 'Continue'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -260,16 +262,22 @@ function AppShell(): JSX.Element {
     useState<ConfiguredScreenContextMode | null>(null);
   const [isSavingScreenContextMode, setIsSavingScreenContextMode] = useState(false);
 
-  const handleStartScreenCaptureWithGate = useCallback(async (): Promise<void> => {
+  const handleShareActionWithGate = useCallback(async (
+    shareAction: () => Promise<void>,
+  ): Promise<void> => {
     if (screenContextMode === 'unconfigured') {
-      pendingShareActionRef.current = handleStartScreenCapture;
+      pendingShareActionRef.current = shareAction;
       setSelectedScreenContextMode(null);
       setIsShareScreenDialogOpen(true);
       return;
     }
 
-    await handleStartScreenCapture();
-  }, [handleStartScreenCapture, screenContextMode]);
+    await shareAction();
+  }, [screenContextMode]);
+
+  const handleStartScreenCaptureWithGate = useCallback(async (): Promise<void> => {
+    await handleShareActionWithGate(handleStartScreenCapture);
+  }, [handleShareActionWithGate, handleStartScreenCapture]);
 
   const handleConfirmScreenContextMode = useCallback(async (): Promise<void> => {
     if (selectedScreenContextMode === null || isSavingScreenContextMode) {
@@ -316,7 +324,7 @@ function AppShell(): JSX.Element {
         onConfirm={handleConfirmScreenContextMode}
         onSelectMode={setSelectedScreenContextMode}
       />
-      <AssistantPanel />
+      <AssistantPanel screenShareModeGate={handleShareActionWithGate} />
       <ControlDock
         currentMode={currentMode}
         speechLifecycleStatus={speechLifecycleStatus}

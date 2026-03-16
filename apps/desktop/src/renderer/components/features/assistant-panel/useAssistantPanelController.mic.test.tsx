@@ -184,6 +184,43 @@ describe('useAssistantPanelController – composer media controls', () => {
     expect(handleStopVoiceCapture).not.toHaveBeenCalled();
   });
 
+  it('gates starting a Live session with screen sharing until Share Screen mode is configured', async () => {
+    const handleStartVoiceSession = vi.fn(async () => undefined);
+    const handleStartVoiceCapture = vi.fn(async () => undefined);
+    const handleStartScreenCapture = vi.fn(async () => undefined);
+    let pendingStartAction: (() => Promise<void>) | null = null;
+    const screenShareModeGate = vi.fn(async (action: () => Promise<void>) => {
+      pendingStartAction = action;
+    });
+    mockUseSessionRuntime.mockReturnValue(
+      createRuntime({
+        handleStartVoiceSession,
+        handleStartVoiceCapture,
+        handleStartScreenCapture,
+      }),
+    );
+
+    const { result } = renderHook(() => useAssistantPanelController({ screenShareModeGate }));
+
+    await act(async () => {
+      await result.current.handleToggleComposerScreenShare();
+    });
+
+    expect(screenShareModeGate).toHaveBeenCalledTimes(1);
+    expect(handleStartVoiceSession).not.toHaveBeenCalled();
+    expect(handleStartScreenCapture).not.toHaveBeenCalled();
+    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
+    expect(pendingStartAction).not.toBeNull();
+
+    await act(async () => {
+      await pendingStartAction?.();
+    });
+
+    expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
+    expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
+    expect(handleStartVoiceCapture).toHaveBeenCalledTimes(1);
+  });
+
   it('submits trimmed text and only clears the draft after a successful send', async () => {
     const handleSubmitTextTurn = vi
       .fn<(draftText: string) => Promise<boolean>>()

@@ -12,6 +12,7 @@ type UseAssistantPanelComposerMediaActionsOptions = {
   composerSpeechActionKind: 'start' | 'end';
   getIsComposerMicrophoneEnabled: () => boolean;
   setComposerMicrophoneEnabled: (enabled: boolean) => void;
+  screenShareModeGate?: (action: () => Promise<void>) => Promise<void>;
   isVoiceSessionActive: boolean;
   voiceCaptureState: VoiceCaptureState;
   screenCaptureState: ScreenCaptureState;
@@ -43,6 +44,7 @@ export function useAssistantPanelComposerMediaActions({
   composerSpeechActionKind,
   getIsComposerMicrophoneEnabled,
   setComposerMicrophoneEnabled,
+  screenShareModeGate,
   isVoiceSessionActive,
   voiceCaptureState,
   screenCaptureState,
@@ -61,6 +63,15 @@ export function useAssistantPanelComposerMediaActions({
     await onStartVoiceCapture();
   }, [getIsComposerMicrophoneEnabled, onStartVoiceCapture]);
 
+  const runScreenShareAction = useCallback(async (action: () => Promise<void>): Promise<void> => {
+    if (screenShareModeGate) {
+      await screenShareModeGate(action);
+      return;
+    }
+
+    await action();
+  }, [screenShareModeGate]);
+
   const handleStartSpeechMode = useCallback(async (): Promise<void> => {
     if (composerSpeechActionKind !== 'start') {
       return;
@@ -75,13 +86,16 @@ export function useAssistantPanelComposerMediaActions({
       return;
     }
 
-    await onStartVoiceSession();
-    await onStartScreenCapture();
-    await startVoiceCaptureIfMicrophoneEnabled();
+    await runScreenShareAction(async () => {
+      await onStartVoiceSession();
+      await onStartScreenCapture();
+      await startVoiceCaptureIfMicrophoneEnabled();
+    });
   }, [
     composerSpeechActionKind,
     onStartScreenCapture,
     onStartVoiceSession,
+    runScreenShareAction,
     startVoiceCaptureIfMicrophoneEnabled,
   ]);
 
@@ -131,13 +145,14 @@ export function useAssistantPanelComposerMediaActions({
       return;
     }
 
-    await onStartScreenCapture();
+    await runScreenShareAction(onStartScreenCapture);
   }, [
     composerSpeechActionKind,
     controlGatingSnapshot,
     handleStartSpeechModeWithScreen,
     onStartScreenCapture,
     onStopScreenCapture,
+    runScreenShareAction,
     screenCaptureState,
   ]);
 

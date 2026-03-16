@@ -20,7 +20,13 @@ import './AssistantPanel.css';
 import { useUiStore } from '../../../store/uiStore';
 import { useSessionStore } from '../../../store/sessionStore';
 
-export function AssistantPanel(): JSX.Element {
+export type AssistantPanelProps = {
+  screenShareModeGate?: (action: () => Promise<void>) => Promise<void>;
+};
+
+export function AssistantPanel({
+  screenShareModeGate,
+}: AssistantPanelProps = {}): JSX.Element {
   const isDebugMode = useUiStore((state) => state.isDebugMode);
   const saveScreenFramesEnabled = useUiStore((state) => state.saveScreenFramesEnabled);
   const screenFrameDumpDirectoryPath = useUiStore(
@@ -57,7 +63,9 @@ export function AssistantPanel(): JSX.Element {
     handleToggleComposerScreenShare,
     handleEndSpeechMode,
     handleCheckBackendHealth,
-  } = useAssistantPanelController();
+  } = useAssistantPanelController(
+    screenShareModeGate ? { screenShareModeGate } : {},
+  );
   const settingsController = useAssistantPanelSettingsController();
   const isSharedInnerView = panelView === 'chat' || panelView === 'history';
   const historyViewModel = useAssistantPanelHistoryViewModel({
