@@ -135,11 +135,13 @@ export type VoiceToolResponse = {
  *   3. Is the text-delta fallback path being used?
  *   4. Is assistant output being ignored, and why?
  *
- * Counts and timestamps accumulate for the lifetime of the active voice
- * session and reset when the session resets.
+ * Counts and timestamps accumulate for the lifetime of the active Gemini Live
+ * voice session. Resume/reconnect keeps the same session snapshot; only a
+ * fresh or replacement voice session resets these counters.
  */
 export type VoiceLiveSignalDiagnostics = GeminiLiveEffectiveVoiceSessionCapabilities & {
-  // Capability contract — snapshotted from live config on session connect.
+  // Capability contract — snapshotted from live config on fresh session connect.
+  // Resumed connections intentionally preserve the original session snapshot.
   // Transcript arrival.
   inputTranscriptCount: number;
   lastInputTranscriptAt: string | null;
@@ -149,6 +151,7 @@ export type VoiceLiveSignalDiagnostics = GeminiLiveEffectiveVoiceSessionCapabili
   assistantTextFallbackCount: number;
   lastAssistantTextFallbackAt: string | null;
   // Ignored assistant output — promoted from in-memory WeakMap to store.
+  ignoredOutputTotalCount: number;
   ignoredTextDeltaCount: number;
   ignoredOutputTranscriptCount: number;
   ignoredAudioChunkCount: number;

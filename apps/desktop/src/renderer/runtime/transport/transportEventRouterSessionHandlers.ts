@@ -1,6 +1,7 @@
 import { LIVE_ADAPTER_KEY } from './liveConfig';
 import { shouldIgnoreTermination } from './transportEventGating';
 import { invalidateVoiceSessionLatency } from '../session/voiceSessionLatencyState';
+import { createDefaultVoiceLiveSignalDiagnostics } from '../core/defaults';
 import { isTokenValidForReconnect } from '../voice/session/voiceSessionToken';
 import type { LiveSessionEvent } from './transport.types';
 import type { TransportEventRouterContext } from './transportEventRouterTypes';
@@ -33,7 +34,11 @@ function handleConnectionStateChanged(
   const { ops, store } = context;
 
   if (event.state === 'connecting') {
-    ops.setVoiceSessionStatus(ops.isVoiceResumptionInFlight() ? 'recovering' : 'connecting');
+    const resuming = ops.isVoiceResumptionInFlight();
+    ops.setVoiceSessionStatus(resuming ? 'recovering' : 'connecting');
+    if (!resuming) {
+      ops.updateVoiceLiveSignalDiagnostics(createDefaultVoiceLiveSignalDiagnostics());
+    }
     return;
   }
 
@@ -53,16 +58,19 @@ function handleConnectionStateChanged(
           : null,
     });
 
-    // Snapshot the capability contract so the debug view can answer "what
-    // capabilities were active?" without log scraping.
-    const capabilities = ops.getActiveLiveCapabilities();
-    if (capabilities) {
-      ops.updateVoiceLiveSignalDiagnostics({
-        inputAudioTranscriptionEnabled: capabilities.inputAudioTranscriptionEnabled,
-        outputAudioTranscriptionEnabled: capabilities.outputAudioTranscriptionEnabled,
-        responseModality: capabilities.responseModality,
-        sessionResumptionEnabled: capabilities.sessionResumptionEnabled,
-      });
+    // Fresh sessions snapshot capabilities from the connect config. Resumed
+    // sessions intentionally keep the original snapshot because Gemini Live
+    // resumption reuses the existing session rather than renegotiating setup.
+    if (!wasResumption) {
+      const capabilities = ops.getActiveLiveCapabilities();
+      if (capabilities) {
+        ops.updateVoiceLiveSignalDiagnostics({
+          inputAudioTranscriptionEnabled: capabilities.inputAudioTranscriptionEnabled,
+          outputAudioTranscriptionEnabled: capabilities.outputAudioTranscriptionEnabled,
+          responseModality: capabilities.responseModality,
+          sessionResumptionEnabled: capabilities.sessionResumptionEnabled,
+        });
+      }
     }
     ops.syncVoiceDurabilityState(ops.getToken(), {
       lastDetail: store.voiceSessionDurability.lastDetail,

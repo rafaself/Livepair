@@ -127,6 +127,11 @@ function buildIgnoredAssistantOutputDetail(
   // surface them without log scraping. The WeakMap remains as the cheap
   // in-handler accumulator; the store gets the same values for observability.
   context.ops.updateVoiceLiveSignalDiagnostics({
+    ignoredOutputTotalCount:
+      diagnostics.counts['text-delta']
+      + diagnostics.counts['output-transcript']
+      + diagnostics.counts['audio-chunk']
+      + diagnostics.counts['turn-complete'],
     ignoredTextDeltaCount: diagnostics.counts['text-delta'],
     ignoredOutputTranscriptCount: diagnostics.counts['output-transcript'],
     ignoredAudioChunkCount: diagnostics.counts['audio-chunk'],

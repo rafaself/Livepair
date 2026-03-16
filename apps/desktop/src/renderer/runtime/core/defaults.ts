@@ -71,6 +71,7 @@ export function createDefaultVoiceLiveSignalDiagnostics(): VoiceLiveSignalDiagno
     lastOutputTranscriptAt: null,
     assistantTextFallbackCount: 0,
     lastAssistantTextFallbackAt: null,
+    ignoredOutputTotalCount: 0,
     ignoredTextDeltaCount: 0,
     ignoredOutputTranscriptCount: 0,
     ignoredAudioChunkCount: 0,

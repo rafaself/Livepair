@@ -33,9 +33,62 @@ function createMockOps() {
     setActiveTransport: vi.fn(),
     setLastRuntimeError: vi.fn(),
     setVoiceSessionLatency: vi.fn(),
+    setVoiceTranscriptDiagnostics: vi.fn((patch: Record<string, unknown>) => {
+      storeState.voiceTranscriptDiagnostics = {
+        ...storeState.voiceTranscriptDiagnostics,
+        ...patch,
+      };
+    }),
+    setIgnoredAssistantOutputDiagnostics: vi.fn((patch: Record<string, unknown>) => {
+      storeState.ignoredAssistantOutputDiagnostics = {
+        ...storeState.ignoredAssistantOutputDiagnostics,
+        ...patch,
+      };
+    }),
+    setVoiceSessionRecoveryDiagnostics: vi.fn((patch: Record<string, unknown>) => {
+      storeState.voiceSessionRecoveryDiagnostics = {
+        ...storeState.voiceSessionRecoveryDiagnostics,
+        ...patch,
+      };
+    }),
     voiceSessionResumption: { status: 'idle', latestHandle: null as string | null, resumable: false, lastDetail: null as string | null },
     voiceSessionDurability: { lastDetail: null as string | null },
     voiceSessionLatency: createVoiceSessionLatencyState(),
+    voiceTranscriptDiagnostics: {
+      inputTranscriptCount: 0,
+      lastInputTranscriptAt: null,
+      outputTranscriptCount: 0,
+      lastOutputTranscriptAt: null,
+      assistantTextFallbackCount: 0,
+      lastAssistantTextFallbackAt: null,
+      lastAssistantTextFallbackReason: null,
+    },
+    ignoredAssistantOutputDiagnostics: {
+      totalCount: 0,
+      countsByEventType: {
+        textDelta: 0,
+        outputTranscript: 0,
+        audioChunk: 0,
+        turnComplete: 0,
+      },
+      countsByReason: {
+        turnUnavailable: 0,
+        lifecycleFence: 0,
+        noOpenTurnFence: 0,
+      },
+      lastIgnoredAt: null,
+      lastIgnoredReason: null,
+      lastIgnoredEventType: null,
+      lastIgnoredVoiceSessionStatus: null,
+    },
+    voiceSessionRecoveryDiagnostics: {
+      transitionCount: 0,
+      lastTransition: null,
+      lastTransitionAt: null,
+      lastRecoveryDetail: null,
+      lastTurnResetReason: null,
+      lastTurnResetAt: null,
+    },
     voiceLiveSignalDiagnostics: {
       inputAudioTranscriptionEnabled: false,
       outputAudioTranscriptionEnabled: false,
@@ -47,6 +100,7 @@ function createMockOps() {
       lastOutputTranscriptAt: null,
       assistantTextFallbackCount: 0,
       lastAssistantTextFallbackAt: null,
+      ignoredOutputTotalCount: 0,
       ignoredTextDeltaCount: 0,
       ignoredOutputTranscriptCount: 0,
       ignoredAudioChunkCount: 0,
@@ -115,7 +169,12 @@ function createMockOps() {
     cleanupTransport: vi.fn(),
     resumeVoiceSession: vi.fn().mockResolvedValue(undefined),
     restoreScreenCapture: vi.fn(),
-    updateVoiceLiveSignalDiagnostics: vi.fn(),
+    updateVoiceLiveSignalDiagnostics: vi.fn((patch: Record<string, unknown>) => {
+      storeState.voiceLiveSignalDiagnostics = {
+        ...storeState.voiceLiveSignalDiagnostics,
+        ...patch,
+      };
+    }),
     getActiveLiveCapabilities: vi.fn().mockReturnValue({
       inputAudioTranscriptionEnabled: true,
       outputAudioTranscriptionEnabled: true,
@@ -149,6 +208,22 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'connection-state-changed', state: 'connecting' });
 
       expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('recovering');
+    });
+
+    it('resets live signal diagnostics on fresh voice-session connect', () => {
+      const ops = createMockOps();
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'connection-state-changed', state: 'connecting' });
+
+      expect(ops.updateVoiceLiveSignalDiagnostics).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputTranscriptCount: 0,
+          outputTranscriptCount: 0,
+          assistantTextFallbackCount: 0,
+          ignoredOutputTotalCount: 0,
+        }),
+      );
     });
 
     it('initializes all subsystems on connected', () => {
@@ -187,6 +262,23 @@ describe('createTransportEventRouter', () => {
 
       expect(ops.setVoiceSessionResumption).toHaveBeenCalledWith(
         expect.objectContaining({ status: 'resumed' }),
+      );
+    });
+
+    it('preserves the existing live-signal capability snapshot across resumed connects', () => {
+      const ops = createMockOps();
+      ops.isVoiceResumptionInFlight.mockReturnValue(true);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'connection-state-changed', state: 'connected' });
+
+      expect(ops.updateVoiceLiveSignalDiagnostics).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputAudioTranscriptionEnabled: true,
+          outputAudioTranscriptionEnabled: true,
+          responseModality: 'AUDIO',
+          sessionResumptionEnabled: true,
+        }),
       );
     });
 

@@ -183,6 +183,7 @@ describe('handleTransportTurnEvent', () => {
 
     expect(context.ops.updateVoiceLiveSignalDiagnostics).toHaveBeenCalledWith(
       expect.objectContaining({
+        ignoredOutputTotalCount: 1,
         ignoredTextDeltaCount: 1,
         lastIgnoredReason: 'turn-unavailable',
         lastIgnoredEventType: 'text-delta',
