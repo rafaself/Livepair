@@ -417,6 +417,35 @@ describe('createVoiceTranscriptController', () => {
     expect(conversationCtx.currentVoiceAssistantArtifactId).toBeNull();
   });
 
+  it('clears the completed user transcript buffer when transport cleanup resets the turn fence before the next phrase', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.applyTranscriptUpdate('user', 'first phrase', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
+
+    ctrl.resetTurnCompletedFlag();
+    ctrl.applyTranscriptUpdate('user', ' second phrase');
+
+    expect(useSessionStore.getState().currentVoiceTranscript.user).toEqual({
+      text: ' second phrase',
+    });
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        state: 'complete',
+        attachedTurnId: 'user-turn-1',
+      }),
+      expect.objectContaining({
+        id: 'user-transcript-2',
+        role: 'user',
+        content: ' second phrase',
+        state: 'streaming',
+        source: 'voice',
+      }),
+    ]);
+  });
+
   it('creates and updates a single visible user transcript artifact during progressive speech partials', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
