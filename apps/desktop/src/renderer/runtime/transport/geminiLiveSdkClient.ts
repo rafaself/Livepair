@@ -21,7 +21,6 @@ export type GeminiLiveSdkServerMessage = {
     | undefined;
   sessionResumptionUpdate?: LiveServerMessage['sessionResumptionUpdate'] | undefined;
   toolCall?: LiveServerMessage['toolCall'] | undefined;
-  text?: string | undefined;
 };
 
 export type GeminiLiveSdkCallbacks = {
@@ -58,6 +57,34 @@ export function setGeminiLiveSdkSessionConnectorForTests(
     | null,
 ): void {
   testConnector = connector;
+}
+
+export function normalizeGeminiLiveSdkServerMessage(
+  message: LiveServerMessage,
+): GeminiLiveSdkServerMessage {
+  const normalizedMessage: GeminiLiveSdkServerMessage = {};
+
+  if (message.setupComplete) {
+    normalizedMessage.setupComplete = message.setupComplete;
+  }
+
+  if (message.serverContent) {
+    normalizedMessage.serverContent = message.serverContent;
+  }
+
+  if (message.goAway) {
+    normalizedMessage.goAway = message.goAway;
+  }
+
+  if (message.sessionResumptionUpdate) {
+    normalizedMessage.sessionResumptionUpdate = message.sessionResumptionUpdate;
+  }
+
+  if (message.toolCall) {
+    normalizedMessage.toolCall = message.toolCall;
+  }
+
+  return normalizedMessage;
 }
 
 export async function connectGeminiLiveSdkSession({
@@ -134,33 +161,7 @@ export async function connectGeminiLiveSdkSession({
     callbacks: {
       onopen: callbacks.onOpen ?? null,
       onmessage: (message) => {
-        const normalizedMessage: GeminiLiveSdkServerMessage = {};
-
-        if (message.setupComplete) {
-          normalizedMessage.setupComplete = message.setupComplete;
-        }
-
-        if (message.serverContent) {
-          normalizedMessage.serverContent = message.serverContent;
-        }
-
-        if (message.goAway) {
-          normalizedMessage.goAway = message.goAway;
-        }
-
-        if (message.sessionResumptionUpdate) {
-          normalizedMessage.sessionResumptionUpdate = message.sessionResumptionUpdate;
-        }
-
-        if (message.toolCall) {
-          normalizedMessage.toolCall = message.toolCall;
-        }
-
-        if (message.text !== undefined) {
-          normalizedMessage.text = message.text;
-        }
-
-        callbacks.onMessage(normalizedMessage);
+        callbacks.onMessage(normalizeGeminiLiveSdkServerMessage(message));
       },
       onerror: callbacks.onError ?? null,
       onclose: callbacks.onClose ?? null,
