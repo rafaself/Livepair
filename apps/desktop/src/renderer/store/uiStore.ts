@@ -64,7 +64,7 @@ type UiStoreState = {
 };
 
 const defaultUiState = {
-  isPanelOpen: false,
+  isPanelOpen: true,
   panelView: 'chat' as PanelView,
   isDebugMode: false,
   isComposerMicrophoneEnabled: true,

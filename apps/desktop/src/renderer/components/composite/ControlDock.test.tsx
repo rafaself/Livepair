@@ -63,7 +63,7 @@ describe('ControlDock', () => {
   it('renders only the panel toggle when speech mode is inactive', () => {
     renderDock();
 
-    expect(screen.getByRole('button', { name: /open panel/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /close panel/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /start microphone capture/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /share screen/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /end live session/i })).toBeNull();
@@ -93,6 +93,7 @@ describe('ControlDock', () => {
   });
 
   it('shows a compact end speech mode control only when the panel is closed and speech mode is active', () => {
+    useUiStore.setState({ isPanelOpen: false });
     const { props } = renderDock({
       currentMode: 'speech',
       speechLifecycleStatus: 'listening',
@@ -192,6 +193,7 @@ describe('ControlDock', () => {
   });
 
   it('hides starting controls and disables teardown controls while speech mode is starting or ending', () => {
+    useUiStore.setState({ isPanelOpen: false });
     const { rerender } = render(
       <ControlDock
         {...createDockProps({
@@ -228,6 +230,7 @@ describe('ControlDock', () => {
   });
 
   it('keeps speech controls visible but disabled while speech teardown is still in progress', () => {
+    useUiStore.setState({ isPanelOpen: false });
     renderDock({
       currentMode: 'inactive',
       speechLifecycleStatus: 'ending',
@@ -262,12 +265,19 @@ describe('ControlDock', () => {
     ).toBeDisabled();
   });
 
-  it('opens and closes the panel', () => {
+  it('closes and reopens the panel', () => {
     renderDock();
-    const openButton = screen.getByRole('button', { name: /open panel/i });
-    expect(openButton).toHaveAttribute('aria-expanded', 'false');
+    const closeButton = screen.getByRole('button', { name: /close panel/i });
+    expect(closeButton).toHaveAttribute('aria-expanded', 'true');
 
-    fireEvent.click(openButton);
+    fireEvent.click(closeButton);
+    expect(screen.getByLabelText('panel-open')).toHaveTextContent('false');
+    expect(screen.getByRole('button', { name: /open panel/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('true');
     expect(screen.getByRole('button', { name: /close panel/i })).toHaveAttribute(
       'aria-expanded',
@@ -278,7 +288,6 @@ describe('ControlDock', () => {
   it('keeps the panel open on blur when the panel is fixed', async () => {
     renderDock();
 
-    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
     fireEvent.click(screen.getByRole('switch', { name: /lock panel/i }));
     await waitFor(() => {
       expect(screen.getByLabelText('panel-pinned')).toHaveTextContent('true');
@@ -293,11 +302,11 @@ describe('ControlDock', () => {
     renderDock();
 
     const toolbar = screen.getByRole('toolbar', { name: /assistant controls/i });
-    expect(toolbar.className).toContain('control-dock--dimmed');
+    expect(toolbar.className).not.toContain('control-dock--dimmed');
 
-    fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
     fireEvent(window, new Event('blur'));
     expect(screen.getByLabelText('panel-open')).toHaveTextContent('false');
+    expect(toolbar.className).toContain('control-dock--dimmed');
 
     fireEvent(window, new Event('focus'));
     expect(toolbar.className).not.toContain('control-dock--dimmed');

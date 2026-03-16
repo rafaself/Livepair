@@ -144,17 +144,17 @@ describe('App', () => {
     installMatchMedia(true);
     render(<App />);
 
-    const panelToggleOpen = screen.getByRole('button', {
-      name: /open panel/i,
+    const panelToggleButton = screen.getByRole('button', {
+      name: /close panel/i,
     });
     const panel = screen.getByRole('complementary', { hidden: true });
 
-    expect(panelToggleOpen).toHaveAttribute('aria-expanded', 'false');
-    expect(panel).toHaveAttribute('aria-hidden', 'true');
+    expect(panelToggleButton).toHaveAttribute('aria-expanded', 'true');
+    expect(panel).toHaveAttribute('aria-hidden', 'false');
     expect(document.documentElement.dataset['theme']).toBe('dark');
 
-    fireEvent.click(panelToggleOpen);
-    expect(panel).toHaveAttribute('aria-hidden', 'false');
+    fireEvent.click(panelToggleButton);
+    expect(panel).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('gates the first Share Screen attempt, traps focus, and resumes after confirmation', async () => {
@@ -300,10 +300,6 @@ describe('App', () => {
       ).toBe(true);
     });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
-    });
-
     await waitFor(() => {
       expect(useCaptureExclusionRectsStore.getState().rects).toContainEqual({
         x: 1580,
@@ -322,10 +318,6 @@ describe('App', () => {
     });
 
     render(<App />);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
-    });
 
     expect(screen.getByRole('button', { name: 'Talk' })).toBeVisible();
     expect(screen.queryByRole('form', { name: 'Send message to Livepair' })).toBeNull();
@@ -461,10 +453,6 @@ describe('App', () => {
     });
 
     render(<App />);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /open panel/i }));
-    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Talk' }));
 

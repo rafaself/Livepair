@@ -68,6 +68,10 @@ describe('uiStore', () => {
     expect(useUiStore.getState().isDebugMode).toBe(false);
   });
 
+  it('defaults the assistant panel to open on app startup', () => {
+    expect(useUiStore.getState().isPanelOpen).toBe(true);
+  });
+
   it('stores the composer microphone preference independently and resets it to enabled by default', () => {
     expect(useUiStore.getState().isComposerMicrophoneEnabled).toBe(true);
 
@@ -86,8 +90,9 @@ describe('uiStore', () => {
 
   it('toggles the panel and resets the current view when closing', () => {
     useUiStore.getState().togglePanel();
-    expect(useUiStore.getState().isPanelOpen).toBe(true);
+    expect(useUiStore.getState().isPanelOpen).toBe(false);
 
+    useUiStore.getState().togglePanel();
     useUiStore.getState().setPanelView('settings');
     expect(useUiStore.getState().panelView).toBe('settings');
 
@@ -157,7 +162,7 @@ describe('uiStore', () => {
 
     expect(useUiStore.getState()).toEqual(
       expect.objectContaining({
-        isPanelOpen: false,
+        isPanelOpen: true,
         panelView: 'chat',
         isDebugMode: false,
         saveScreenFramesEnabled: false,
