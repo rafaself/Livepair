@@ -142,6 +142,23 @@ describe('AssistantPanelSettingsView', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Screen mode' })).toHaveTextContent('Choose mode');
+    await act(async () => {
+      fireEvent.mouseEnter(screen.getByLabelText('About screen mode'));
+    });
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.textContent
+          === 'Manual: Sends a single high-quality screen capture when you click Send screen now.',
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.textContent
+          === 'Continuous: Continuously shares your screen using the automatic quality setting below.',
+      ),
+    ).toBeVisible();
     expect(
       screen.queryByText('Choose how Share Screen should work before you start using it.'),
     ).toBeNull();
