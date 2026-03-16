@@ -3,9 +3,84 @@ import type { SessionStoreState } from '../store/sessionStore';
 import {
   getTextSessionStatus,
 } from '../store/sessionStore';
-import type { ConversationTimelineEntry } from './conversation/conversation.types';
+import type {
+  ConversationTimelineEntry,
+  ConversationTurnModel,
+  TranscriptArtifactModel,
+} from './conversation/conversation.types';
 import { isSessionActiveLifecycle, isTextTurnInFlight } from './text/textSessionLifecycle';
 import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
+
+function collectVisibleTranscriptArtifacts(
+  transcriptArtifacts: readonly TranscriptArtifactModel[],
+): readonly TranscriptArtifactModel[] {
+  let visibleArtifacts: TranscriptArtifactModel[] | null = null;
+
+  for (const [index, artifact] of transcriptArtifacts.entries()) {
+    if (artifact.attachedTurnId !== undefined) {
+      if (visibleArtifacts === null) {
+        visibleArtifacts = transcriptArtifacts.slice(0, index);
+      }
+
+      continue;
+    }
+
+    if (visibleArtifacts !== null) {
+      visibleArtifacts.push(artifact);
+    }
+  }
+
+  return visibleArtifacts ?? transcriptArtifacts;
+}
+
+function hasDefinedIncreasingOrdinals(
+  entries: readonly Pick<ConversationTimelineEntry, 'timelineOrdinal'>[],
+): boolean {
+  let previousOrdinal = 0;
+
+  for (const entry of entries) {
+    if (entry.timelineOrdinal === undefined || entry.timelineOrdinal < previousOrdinal) {
+      return false;
+    }
+
+    previousOrdinal = entry.timelineOrdinal;
+  }
+
+  return true;
+}
+
+function mergeOrderedConversationTimeline(
+  conversationTurns: readonly ConversationTurnModel[],
+  transcriptArtifacts: readonly TranscriptArtifactModel[],
+): ConversationTimelineEntry[] {
+  const mergedTimeline: ConversationTimelineEntry[] = [];
+  let turnIndex = 0;
+  let artifactIndex = 0;
+
+  while (turnIndex < conversationTurns.length && artifactIndex < transcriptArtifacts.length) {
+    const nextTurn = conversationTurns[turnIndex]!;
+    const nextArtifact = transcriptArtifacts[artifactIndex]!;
+
+    if ((nextTurn.timelineOrdinal ?? 0) <= (nextArtifact.timelineOrdinal ?? 0)) {
+      mergedTimeline.push(nextTurn);
+      turnIndex += 1;
+      continue;
+    }
+
+    mergedTimeline.push(nextArtifact);
+    artifactIndex += 1;
+  }
+
+  if (turnIndex < conversationTurns.length) {
+    mergedTimeline.push(...conversationTurns.slice(turnIndex));
+  }
+
+  if (artifactIndex < transcriptArtifacts.length) {
+    mergedTimeline.push(...transcriptArtifacts.slice(artifactIndex));
+  }
+
+  return mergedTimeline;
+}
 
 export function selectAssistantRuntimeState(
   state: Pick<
@@ -167,15 +242,38 @@ export function selectCanSubmitText(
 export function selectIsConversationEmpty(
   state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
 ): boolean {
-  return selectVisibleConversationTimeline(state).length === 0;
+  if (state.conversationTurns.length > 0) {
+    return false;
+  }
+
+  return !state.transcriptArtifacts.some((artifact) => artifact.attachedTurnId === undefined);
 }
 
 export function selectVisibleConversationTimeline(
   state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
 ): ConversationTimelineEntry[] {
+  const visibleTranscriptArtifacts = collectVisibleTranscriptArtifacts(state.transcriptArtifacts);
+
+  if (state.conversationTurns.length === 0) {
+    return visibleTranscriptArtifacts === state.transcriptArtifacts
+      ? state.transcriptArtifacts
+      : [...visibleTranscriptArtifacts];
+  }
+
+  if (visibleTranscriptArtifacts.length === 0) {
+    return state.conversationTurns;
+  }
+
+  if (
+    hasDefinedIncreasingOrdinals(state.conversationTurns)
+    && hasDefinedIncreasingOrdinals(visibleTranscriptArtifacts)
+  ) {
+    return mergeOrderedConversationTimeline(state.conversationTurns, visibleTranscriptArtifacts);
+  }
+
   return [
     ...state.conversationTurns,
-    ...(state.transcriptArtifacts ?? []).filter((artifact) => artifact.attachedTurnId === undefined),
+    ...visibleTranscriptArtifacts,
   ]
     .map((entry, index) => ({ entry, index }))
     .sort((left, right) => {
