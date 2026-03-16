@@ -157,18 +157,22 @@ export function createSessionTransportAssembly({
       const settledAssistantArtifact = conversationCtx.lastSettledAssistantArtifactId
         ? getTranscriptArtifact(conversationCtx, conversationCtx.lastSettledAssistantArtifactId)
         : null;
+      const settledAssistantTranscript = settledAssistantArtifact?.content?.trim() ?? '';
+      const shouldUseSettledAssistantTranscript = settledAssistantTranscript.length > 0;
 
-      // Prefer the canonical assistant draft (built from text-delta/model
-      // text) when available. Otherwise fall back to the settled assistant
-      // transcript so voice replies still reach chat when transcript events
-      // are the only content we received.
-      const turnContent = draft?.content ?? settledAssistantArtifact?.content?.trim() ?? null;
+      // Persist the settled spoken transcript when Gemini supplies one.
+      // Keep the completed text-delta draft only as a fallback for flows
+      // where no settled assistant transcript arrived.
+      const turnContent = shouldUseSettledAssistantTranscript
+        ? settledAssistantTranscript
+        : draft?.content ?? null;
       const answerMetadata = draft?.answerMetadata ?? conversationCtx.pendingAssistantAnswerMetadata ?? undefined;
       const assistantTurnId = turnContent
         ? appendCompletedAssistantTurn(conversationCtx, turnContent, {
             ...(answerMetadata ? { answerMetadata } : {}),
             source: 'voice',
-            ...(!draft && settledAssistantArtifact?.transcriptFinal !== undefined
+            ...(shouldUseSettledAssistantTranscript
+              && settledAssistantArtifact?.transcriptFinal !== undefined
               ? { transcriptFinal: settledAssistantArtifact.transcriptFinal }
               : {}),
             ...(settledAssistantArtifact?.timelineOrdinal !== undefined
