@@ -180,7 +180,8 @@
 }
 
 .assistant-panel__settings-mode-select {
-  width: 120px;
+  width: min(100%, 11rem);
+  align-self: flex-end;
   justify-self: end;
 }
 

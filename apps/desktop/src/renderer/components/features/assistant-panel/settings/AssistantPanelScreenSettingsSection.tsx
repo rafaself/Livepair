@@ -76,7 +76,7 @@ export function AssistantPanelScreenSettingsSection({
               <div className="assistant-panel__settings-field-stack">
                 <Select
                   aria-label="Screen mode"
-                  className="assistant-panel__settings-select assistant-panel__settings-audio-select"
+                  className="assistant-panel__settings-select assistant-panel__settings-audio-select assistant-panel__settings-mode-select"
                   options={SCREEN_CONTEXT_MODE_OPTIONS}
                   value={configuredScreenContextMode}
                   placeholder="Choose mode"
