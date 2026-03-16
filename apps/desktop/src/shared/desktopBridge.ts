@@ -64,10 +64,18 @@ export type ScreenFrameDumpSessionInfo = {
   directoryPath: string;
 };
 
+export type ScreenFrameDumpMode = 'manual' | 'continuous';
+export type ScreenFrameDumpQuality = 'low' | 'medium' | 'high';
+export type ScreenFrameDumpReason = 'manual' | 'base' | 'burst';
+
 export type SaveScreenFrameDumpFrameRequest = {
   sequence: number;
   mimeType: 'image/jpeg';
   data: Uint8Array;
+  savedAt: string;
+  mode: ScreenFrameDumpMode;
+  quality: ScreenFrameDumpQuality;
+  reason: ScreenFrameDumpReason;
 };
 
 export type ScreenCapturePermissionStatus =
