@@ -643,6 +643,10 @@ export function AssistantPanelDebugLiveSignalsSection({
             value: formatSignalTimestamp(d.lastAssistantTextFallbackAt),
           },
           {
+            label: 'Ignored output total',
+            value: String(d.ignoredOutputTotalCount),
+          },
+          {
             label: 'Ignored text delta',
             value: String(d.ignoredTextDeltaCount),
           },

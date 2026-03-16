@@ -140,6 +140,26 @@ describe('AssistantPanelDebugView', () => {
         lastTurnResetReason: 'new-user-transcript',
         lastTurnResetAt: '2026-03-16T12:11:06.000Z',
       },
+      voiceLiveSignalDiagnostics: {
+        inputAudioTranscriptionEnabled: true,
+        outputAudioTranscriptionEnabled: true,
+        responseModality: 'AUDIO',
+        sessionResumptionEnabled: true,
+        inputTranscriptCount: 3,
+        lastInputTranscriptAt: '2026-03-16T12:11:00.000Z',
+        outputTranscriptCount: 0,
+        lastOutputTranscriptAt: null,
+        assistantTextFallbackCount: 2,
+        lastAssistantTextFallbackAt: '2026-03-16T12:11:03.000Z',
+        ignoredOutputTotalCount: 4,
+        ignoredTextDeltaCount: 1,
+        ignoredOutputTranscriptCount: 1,
+        ignoredAudioChunkCount: 2,
+        ignoredTurnCompleteCount: 0,
+        lastIgnoredReason: 'lifecycle-fence',
+        lastIgnoredEventType: 'audio-chunk',
+        lastIgnoredVoiceStatus: 'recovering',
+      },
     } as never);
 
     render(
@@ -180,5 +200,10 @@ describe('AssistantPanelDebugView', () => {
     expect(
       within(speechChatSection).getByText('new user transcript @ 2026-03-16T12:11:06.000Z'),
     ).toBeVisible();
+
+    const speechSignalsSection = screen.getByRole('region', { name: 'Speech signals' });
+
+    expect(within(speechSignalsSection).getByText('Ignored output total')).toBeVisible();
+    expect(within(speechSignalsSection).getByText('4')).toBeVisible();
   });
 });
