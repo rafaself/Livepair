@@ -1,0 +1,74 @@
+.share-screen-mode-dialog {
+  gap: 12px;
+  padding: 16px;
+}
+
+.share-screen-mode-dialog__header,
+.share-screen-mode-dialog__option-copy,
+.share-screen-mode-dialog__actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.share-screen-mode-dialog__header {
+  gap: 4px;
+}
+
+.share-screen-mode-dialog__title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+  color: var(--color-text-primary);
+}
+
+.share-screen-mode-dialog__description,
+.share-screen-mode-dialog__option-description {
+  margin: 0;
+  color: var(--color-text-muted, currentColor);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.share-screen-mode-dialog__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.share-screen-mode-dialog__option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+}
+
+.share-screen-mode-dialog__option--selected {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 24%, transparent);
+}
+
+.share-screen-mode-dialog__option input {
+  margin-top: 2px;
+}
+
+.share-screen-mode-dialog__option-copy {
+  gap: 2px;
+}
+
+.share-screen-mode-dialog__option-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.share-screen-mode-dialog__actions {
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 8px;
+  align-items: flex-end;
+  padding-top: 2px;
+}
