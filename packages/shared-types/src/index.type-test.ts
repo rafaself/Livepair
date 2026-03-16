@@ -13,6 +13,9 @@ import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   CreateLiveSessionRequest,
+  GeminiLiveConnectCapabilityConfig,
+  GeminiLiveEffectiveVoiceSessionCapabilities,
+  GeminiLiveVoiceModeConfig,
   EndLiveSessionRequest,
   GeminiLiveVoiceSessionCapabilities,
   HealthResponse,
@@ -27,7 +30,10 @@ import type {
   UpdateLiveSessionRequest,
 } from './index';
 import {
+  buildGeminiLiveConnectCapabilityConfig,
+  buildGeminiLiveVoiceModeConfig,
   GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+  GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
   SESSION_TOKEN_AUTH_HEADER_NAME,
 } from './index';
 
@@ -71,6 +77,61 @@ type _ConstrainedGeminiLiveVoiceCapabilities = Assert<
       readonly outputAudioTranscriptionEnabled: true;
       readonly sessionResumptionEnabled: true;
     }
+  >
+>;
+type _GeminiLiveEffectiveVoiceSessionCapabilitiesShape = Assert<
+  IsExact<
+    GeminiLiveEffectiveVoiceSessionCapabilities,
+    {
+      responseModality: 'AUDIO';
+      inputAudioTranscriptionEnabled: boolean;
+      outputAudioTranscriptionEnabled: boolean;
+      sessionResumptionEnabled: boolean;
+    }
+  >
+>;
+type _ConstrainedGeminiLiveEffectiveVoiceSessionCapabilities = Assert<
+  IsExact<
+    typeof GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
+    {
+      readonly responseModality: 'AUDIO';
+      readonly inputAudioTranscriptionEnabled: true;
+      readonly outputAudioTranscriptionEnabled: true;
+      readonly sessionResumptionEnabled: true;
+    }
+  >
+>;
+type _GeminiLiveVoiceModeConfigShape = Assert<
+  IsExact<
+    GeminiLiveVoiceModeConfig,
+    {
+      responseModality: 'AUDIO';
+      inputAudioTranscription: boolean;
+      outputAudioTranscription: boolean;
+    }
+  >
+>;
+type _GeminiLiveConnectCapabilityConfigShape = Assert<
+  IsExact<
+    GeminiLiveConnectCapabilityConfig,
+    {
+      responseModalities: readonly ['AUDIO'];
+      inputAudioTranscription?: Record<string, never>;
+      outputAudioTranscription?: Record<string, never>;
+      sessionResumption?: Record<string, never>;
+    }
+  >
+>;
+type _BuildGeminiLiveVoiceModeConfigReturn = Assert<
+  IsExact<
+    ReturnType<typeof buildGeminiLiveVoiceModeConfig>,
+    GeminiLiveVoiceModeConfig
+  >
+>;
+type _BuildGeminiLiveConnectCapabilityConfigReturn = Assert<
+  IsExact<
+    ReturnType<typeof buildGeminiLiveConnectCapabilityConfig>,
+    GeminiLiveConnectCapabilityConfig
   >
 >;
 type _ProjectKnowledgeSearchRequestShape = Assert<

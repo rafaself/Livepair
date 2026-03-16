@@ -1,3 +1,5 @@
+import type { GeminiLiveEffectiveVoiceSessionCapabilities } from '@livepair/shared-types';
+
 export type VoiceCaptureState =
   | 'idle'
   | 'requestingPermission'
@@ -136,12 +138,8 @@ export type VoiceToolResponse = {
  * Counts and timestamps accumulate for the lifetime of the active voice
  * session and reset when the session resets.
  */
-export type VoiceLiveSignalDiagnostics = {
+export type VoiceLiveSignalDiagnostics = GeminiLiveEffectiveVoiceSessionCapabilities & {
   // Capability contract — snapshotted from live config on session connect.
-  inputAudioTranscriptionEnabled: boolean;
-  outputAudioTranscriptionEnabled: boolean;
-  responseModality: string;
-  sessionResumptionEnabled: boolean;
   // Transcript arrival.
   inputTranscriptCount: number;
   lastInputTranscriptAt: string | null;

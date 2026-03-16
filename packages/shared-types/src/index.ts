@@ -161,18 +161,91 @@ export interface CreateEphemeralTokenResponse {
   newSessionExpireTime: string;
 }
 
-export interface GeminiLiveVoiceSessionCapabilities {
-  responseModalities: readonly ['AUDIO'];
+export interface GeminiLiveEffectiveVoiceSessionCapabilities {
+  responseModality: 'AUDIO';
   inputAudioTranscriptionEnabled: boolean;
   outputAudioTranscriptionEnabled: boolean;
   sessionResumptionEnabled: boolean;
 }
 
-export const GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES = {
-  responseModalities: ['AUDIO'],
+export interface GeminiLiveVoiceSessionCapabilities {
+  responseModalities: readonly [GeminiLiveEffectiveVoiceSessionCapabilities['responseModality']];
+  inputAudioTranscriptionEnabled: boolean;
+  outputAudioTranscriptionEnabled: boolean;
+  sessionResumptionEnabled: boolean;
+}
+
+export interface GeminiLiveVoiceModeConfig {
+  responseModality: GeminiLiveEffectiveVoiceSessionCapabilities['responseModality'];
+  inputAudioTranscription: boolean;
+  outputAudioTranscription: boolean;
+}
+
+export interface GeminiLiveConnectCapabilityConfig {
+  responseModalities: readonly [GeminiLiveEffectiveVoiceSessionCapabilities['responseModality']];
+  inputAudioTranscription?: Record<string, never>;
+  outputAudioTranscription?: Record<string, never>;
+  sessionResumption?: Record<string, never>;
+}
+
+export const GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES = {
+  responseModality: 'AUDIO',
   inputAudioTranscriptionEnabled: true,
   outputAudioTranscriptionEnabled: true,
   sessionResumptionEnabled: true,
+} as const satisfies GeminiLiveEffectiveVoiceSessionCapabilities;
+
+export function buildGeminiLiveVoiceSessionCapabilities(
+  capabilities: GeminiLiveEffectiveVoiceSessionCapabilities =
+    GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
+): GeminiLiveVoiceSessionCapabilities {
+  return {
+    responseModalities: [capabilities.responseModality] as const,
+    inputAudioTranscriptionEnabled: capabilities.inputAudioTranscriptionEnabled,
+    outputAudioTranscriptionEnabled: capabilities.outputAudioTranscriptionEnabled,
+    sessionResumptionEnabled: capabilities.sessionResumptionEnabled,
+  };
+}
+
+export function buildGeminiLiveVoiceModeConfig(
+  capabilities: GeminiLiveEffectiveVoiceSessionCapabilities =
+    GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
+): GeminiLiveVoiceModeConfig {
+  return {
+    responseModality: capabilities.responseModality,
+    inputAudioTranscription: capabilities.inputAudioTranscriptionEnabled,
+    outputAudioTranscription: capabilities.outputAudioTranscriptionEnabled,
+  };
+}
+
+export function buildGeminiLiveConnectCapabilityConfig(
+  capabilities: GeminiLiveEffectiveVoiceSessionCapabilities =
+    GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
+): GeminiLiveConnectCapabilityConfig {
+  return {
+    responseModalities: [capabilities.responseModality] as const,
+    ...(capabilities.inputAudioTranscriptionEnabled
+      ? { inputAudioTranscription: {} }
+      : {}),
+    ...(capabilities.outputAudioTranscriptionEnabled
+      ? { outputAudioTranscription: {} }
+      : {}),
+    ...(capabilities.sessionResumptionEnabled
+      ? { sessionResumption: {} }
+      : {}),
+  };
+}
+
+export const GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES = {
+  responseModalities: [
+    GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.responseModality,
+  ],
+  inputAudioTranscriptionEnabled:
+    GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.inputAudioTranscriptionEnabled,
+  outputAudioTranscriptionEnabled:
+    GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.outputAudioTranscriptionEnabled,
+  sessionResumptionEnabled:
+    GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.sessionResumptionEnabled,
 } as const satisfies GeminiLiveVoiceSessionCapabilities;
 
 export interface ProjectKnowledgeSearchRequest {

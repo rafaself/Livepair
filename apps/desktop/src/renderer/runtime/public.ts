@@ -26,7 +26,9 @@ export {
   createDefaultVoiceToolState,
 } from './core/defaults';
 export { getEffectiveVoiceSessionCapabilities, LIVE_ADAPTER_KEY } from './transport/liveConfig';
-export type { EffectiveVoiceSessionCapabilities } from './transport/liveConfig';
+export type {
+  GeminiLiveEffectiveVoiceSessionCapabilities as EffectiveVoiceSessionCapabilities,
+} from '@livepair/shared-types';
 export {
   createSpeechSessionLifecycle,
   isSpeechLifecycleActive,

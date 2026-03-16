@@ -1,5 +1,5 @@
 import { BadGatewayException } from '@nestjs/common';
-import { GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES } from '@livepair/shared-types';
+import { buildGeminiLiveConnectCapabilityConfig } from '@livepair/shared-types';
 import { ObservabilityService } from '../observability/observability.service';
 import { requestGeminiAuthToken } from './gemini-auth-token.client';
 
@@ -16,12 +16,7 @@ describe('requestGeminiAuthToken', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       liveConnectConstraints: {
         model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
-        config: {
-          responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
-          inputAudioTranscription: {},
-          outputAudioTranscription: {},
-          sessionResumption: {},
-        },
+        config: buildGeminiLiveConnectCapabilityConfig(),
       },
       observabilityService,
     } as Parameters<typeof requestGeminiAuthToken>[0];
@@ -64,7 +59,7 @@ describe('requestGeminiAuthToken', () => {
           bidiGenerateContentSetup: {
             model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
             generationConfig: {
-              responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
+              responseModalities: buildGeminiLiveConnectCapabilityConfig().responseModalities,
             },
             inputAudioTranscription: {},
             outputAudioTranscription: {},

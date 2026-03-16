@@ -1,5 +1,8 @@
 import 'reflect-metadata';
-import { GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES } from '@livepair/shared-types';
+import {
+  buildGeminiLiveConnectCapabilityConfig,
+  GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
+} from '@livepair/shared-types';
 // Prevent the root env loader from re-reading .env on each jest.resetModules()
 // re-import of env.ts, which would restore deleted process.env vars from disk.
 jest.mock('../config/loadRootEnv', () => ({}));
@@ -64,12 +67,7 @@ describe('SessionService', () => {
       expireTime: '2026-03-09T12:30:00.000Z',
       liveConnectConstraints: {
         model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
-        config: {
-          responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
-          inputAudioTranscription: {},
-          outputAudioTranscription: {},
-          sessionResumption: {},
-        },
+        config: buildGeminiLiveConnectCapabilityConfig(),
       },
     });
   });
@@ -102,15 +100,7 @@ describe('SessionService', () => {
       '[session:token] issued',
       expect.objectContaining({
         constraintModel: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
-        capabilities: {
-          responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
-          inputAudioTranscriptionEnabled:
-            GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
-          outputAudioTranscriptionEnabled:
-            GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
-          sessionResumptionEnabled:
-            GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
-        },
+        capabilities: GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
         sessionIdProvided: false,
       }),
     );

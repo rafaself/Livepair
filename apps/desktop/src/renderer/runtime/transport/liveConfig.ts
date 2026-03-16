@@ -1,4 +1,9 @@
-import { GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES } from '@livepair/shared-types';
+import {
+  buildGeminiLiveConnectCapabilityConfig,
+  buildGeminiLiveVoiceModeConfig,
+  type GeminiLiveEffectiveVoiceSessionCapabilities,
+  GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
+} from '@livepair/shared-types';
 import type { LiveConnectMode } from '../core/session.types';
 import { getVoiceToolDeclarations } from '../voice/tools/voiceTools';
 import {
@@ -58,12 +63,7 @@ export type LiveConfig = {
   contextCompressionEnabled: boolean;
 };
 
-export type EffectiveVoiceSessionCapabilities = {
-  responseModality: LiveResponseModality;
-  inputAudioTranscriptionEnabled: boolean;
-  outputAudioTranscriptionEnabled: boolean;
-  sessionResumptionEnabled: boolean;
-};
+export type EffectiveVoiceSessionCapabilities = GeminiLiveEffectiveVoiceSessionCapabilities;
 
 type LiveConfigEnv = Partial<Record<
   | 'VITE_LIVE_MODEL'
@@ -277,17 +277,11 @@ export function resolveLiveConfigEnv(
         inputAudioTranscription: AUDIO_TRANSCRIPTION_DISABLED,
         outputAudioTranscription: AUDIO_TRANSCRIPTION_DISABLED,
       },
-      voice: {
-        responseModality: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities[0],
-        inputAudioTranscription:
-          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
-        outputAudioTranscription:
-          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
-      },
+      voice: buildGeminiLiveVoiceModeConfig(),
     },
     mediaResolution: env.VITE_LIVE_MEDIA_RESOLUTION?.trim() || DEFAULT_MEDIA_RESOLUTION,
     sessionResumptionEnabled:
-      GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
+      GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.sessionResumptionEnabled,
     contextCompressionEnabled: parseBooleanEnv(
       env.VITE_LIVE_CONTEXT_COMPRESSION,
       'VITE_LIVE_CONTEXT_COMPRESSION',
@@ -343,7 +337,9 @@ export function parseLiveConfig(rawConfig: Partial<RawLiveConfig>): LiveConfig {
       voice,
     },
     mediaResolution: parseMediaResolution(rawConfig.mediaResolution ?? ''),
-    sessionResumptionEnabled: rawConfig.sessionResumptionEnabled ?? false,
+    sessionResumptionEnabled:
+      rawConfig.sessionResumptionEnabled ??
+      GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.sessionResumptionEnabled,
     contextCompressionEnabled: rawConfig.contextCompressionEnabled ?? false,
   };
 }
@@ -369,17 +365,12 @@ export function buildGeminiLiveConnectConfig(
     options.groundingEnabled === undefined
       ? {}
       : { groundingEnabled: options.groundingEnabled };
-  const liveConnectConfig: GeminiLiveConnectConfig = {
-    responseModalities: [modeConfig.responseModality],
-  };
-
-  if (modeConfig.inputAudioTranscription) {
-    liveConnectConfig.inputAudioTranscription = {};
-  }
-
-  if (modeConfig.outputAudioTranscription) {
-    liveConnectConfig.outputAudioTranscription = {};
-  }
+  const liveConnectConfig: GeminiLiveConnectConfig =
+    mode === 'voice'
+      ? buildGeminiLiveConnectCapabilityConfig(getEffectiveVoiceSessionCapabilities(config))
+      : {
+          responseModalities: [modeConfig.responseModality],
+        };
 
   if (mode === 'voice' || config.mediaResolution !== DEFAULT_MEDIA_RESOLUTION) {
     liveConnectConfig.mediaResolution = config.mediaResolution;
@@ -426,7 +417,8 @@ export function getEffectiveVoiceSessionCapabilities(
   const voiceMode = config.sessionModes.voice;
 
   return {
-    responseModality: voiceMode.responseModality,
+    responseModality:
+      voiceMode.responseModality as EffectiveVoiceSessionCapabilities['responseModality'],
     inputAudioTranscriptionEnabled: voiceMode.inputAudioTranscription,
     outputAudioTranscriptionEnabled: voiceMode.outputAudioTranscription,
     sessionResumptionEnabled: config.sessionResumptionEnabled,
