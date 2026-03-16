@@ -2,6 +2,8 @@
 
 Livepair is a realtime multimodal desktop assistant that uses Gemini Live API to combine voice, screen context, and transcript-aware responses in an Electron app backed by a NestJS API that is designed to run on Google Cloud Run.
 
+![Livepair Multimodal Chat](docs/screenshots/multimodal_chat.png)
+
 ## Quick Start
 
 ### Prerequisites
@@ -128,6 +130,16 @@ Livepair gives users a desktop assistant that can listen, respond, and use scree
 - **Interruption support:** local barge-in handling stops playback quickly when the user speaks
 - **Durable memory:** the backend stores chats, messages, summaries, and live-session records in Postgres
 - **Session continuity:** the desktop supports token refresh and session resumption flows
+
+## Preview
+
+| Welcome Screen | Active Session | Chat History |
+| :---: | :---: | :---: |
+| ![Welcome Screen](docs/screenshots/welcome_screen.png) | ![Active Session](docs/screenshots/active_session.png) | ![Chat History](docs/screenshots/chat_history.png) |
+
+| Preferences | Settings |
+| :---: | :---: |
+| ![Preferences](docs/screenshots/preferences.png) | ![Settings](docs/screenshots/settings.png) |
 
 Current MVP boundaries:
 
