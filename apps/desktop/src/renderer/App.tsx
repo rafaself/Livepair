@@ -91,15 +91,16 @@ function AppShell(): JSX.Element {
 
   const handleShareActionWithGate = useCallback(async (
     shareAction: () => Promise<void>,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     if (screenContextMode === 'unconfigured') {
       pendingShareActionRef.current = shareAction;
       setSelectedScreenContextMode(null);
       setIsShareScreenDialogOpen(true);
-      return;
+      return false;
     }
 
     await shareAction();
+    return true;
   }, [screenContextMode]);
 
   const handleStartScreenCaptureWithGate = useCallback(async (): Promise<void> => {
