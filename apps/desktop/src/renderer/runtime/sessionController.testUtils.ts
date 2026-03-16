@@ -147,7 +147,7 @@ export function createVoiceCaptureHarness(): {
   };
 }
 
-function createScreenFrameAnalysis(fill = 0): ScreenFrameAnalysis {
+function createScreenFrameAnalysis(fill = 32): ScreenFrameAnalysis {
   return {
     widthPx: 160,
     heightPx: 90,
@@ -185,7 +185,7 @@ export function createScreenCaptureHarness(): {
         sequence: 1,
         widthPx: 640,
         heightPx: 360,
-        analysis: createScreenFrameAnalysis(frame.sequence ?? 1),
+        analysis: createScreenFrameAnalysis(),
         ...frame,
       });
     },

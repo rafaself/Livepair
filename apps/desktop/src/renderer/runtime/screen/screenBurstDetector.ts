@@ -37,9 +37,9 @@ const DEFAULT_OPTIONS = {
   baselineWindowSize: 6,
   scoreWindowSize: 10,
   minimumWarmupFrames: 3,
-  thresholdFloor: 0.06,
+  thresholdFloor: 0.04,
   thresholdStdDevMultiplier: 2.2,
-  minimumSignalDelta: 0.035,
+  minimumSignalDelta: 0.02,
   rearmCooldownMs: 1_000,
   hysteresisMs: 2_000,
   hysteresisBump: 0.02,
@@ -70,7 +70,7 @@ function averageTileMetrics(samples: number[][]): number[] {
 
   for (const sample of samples) {
     for (let index = 0; index < referenceLength; index += 1) {
-      sums[index] += sample[index] ?? 0;
+      sums[index] = (sums[index] ?? 0) + (sample[index] ?? 0);
     }
   }
 
@@ -142,11 +142,16 @@ export function createScreenBurstDetector(
         timestampMs - lastTriggerAt <= config.hysteresisMs ? config.hysteresisBump : 0
       );
       const signalStrongEnough = Math.max(luminanceDelta, edgeDelta, hashDistance) >= config.minimumSignalDelta;
+      const componentTrigger = (
+        hashDistance >= 0.06
+        || (luminanceDelta >= 0.02 && edgeDelta >= 0.015)
+        || edgeDelta >= 0.03
+      );
       const triggered = (
         baselineSamples.length >= config.minimumWarmupFrames
         && signalStrongEnough
         && timestampMs - lastTriggerAt >= config.rearmCooldownMs
-        && score >= threshold
+        && (score >= threshold || componentTrigger)
       );
 
       baselineSamples = [

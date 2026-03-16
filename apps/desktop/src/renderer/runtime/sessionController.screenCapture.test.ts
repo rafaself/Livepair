@@ -8,8 +8,27 @@ import {
   createScreenCaptureHarness,
   createVoiceTransportHarness,
 } from './sessionController.testUtils';
+import type { ScreenFrameAnalysis } from './screen/screenFrameAnalysis';
 
-describe('createDesktopSessionController – Wave 3 screen capture', () => {
+function createChangedAnalysis(): ScreenFrameAnalysis {
+  const tileLuminance = new Array(40).fill(32);
+  const tileEdge = new Array(40).fill(2);
+
+  tileLuminance[18] = 180;
+  tileLuminance[19] = 150;
+  tileEdge[18] = 120;
+  tileEdge[19] = 96;
+
+  return {
+    widthPx: 160,
+    heightPx: 90,
+    tileLuminance,
+    tileEdge,
+    perceptualHash: 0b1111000011110000n,
+  };
+}
+
+describe('createDesktopSessionController – Wave 4 screen capture', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     resetDesktopStoresWithDefaults();
@@ -98,6 +117,52 @@ describe('createDesktopSessionController – Wave 3 screen capture', () => {
     screenCapture.emitFrame({ sequence: 2 });
     await vi.advanceTimersByTimeAsync(3000);
     expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(2);
+  });
+
+  it('bursts to 1 second after meaningful screen changes and then returns to the 3 second baseline', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const screenCapture = createScreenCaptureHarness();
+    const controller = createDesktopSessionController({
+      logger: { onSessionEvent: vi.fn(), onTransportEvent: vi.fn() },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createScreenCapture: screenCapture.createScreenCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+
+    screenCapture.emitFrame({ sequence: 1 });
+    await vi.advanceTimersByTimeAsync(1000);
+    screenCapture.emitFrame({ sequence: 2 });
+    await vi.advanceTimersByTimeAsync(1000);
+    screenCapture.emitFrame({ sequence: 3 });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(500);
+    screenCapture.emitFrame({
+      sequence: 4,
+      analysis: createChangedAnalysis(),
+    });
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(voiceTransport.sendVideoFrame).toHaveBeenCalledTimes(3);
   });
 
   it('continuous sending does not depend on text sends and is not accelerated by them', async () => {

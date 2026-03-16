@@ -348,6 +348,7 @@ export function createLocalScreenCapture(
 
     isStarting = true;
     stopRequested = false;
+    sequence = 0;
 
     pendingStart = (async () => {
       const requestedFrameRateHz = options.frameRateHz ?? SCREEN_CAPTURE_FRAME_RATE_HZ;

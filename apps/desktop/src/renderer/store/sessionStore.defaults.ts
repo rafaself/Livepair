@@ -19,6 +19,7 @@ import {
   type VoicePlaybackDiagnostics,
 } from '../runtime/public';
 import {
+  BURST_SCREEN_SEND_INTERVAL_MS,
   CONTINUOUS_SCREEN_SEND_INTERVAL_MS,
 } from '../runtime/screen/screenCaptureController';
 import {
@@ -86,7 +87,10 @@ export function buildDefaultScreenCaptureDiagnostics(): ScreenCaptureDiagnostics
 }
 
 export function buildDefaultVisualSendDiagnostics(): VisualSendDiagnostics {
-  return createDefaultScreenContextDiagnostics(CONTINUOUS_SCREEN_SEND_INTERVAL_MS);
+  return createDefaultScreenContextDiagnostics(
+    CONTINUOUS_SCREEN_SEND_INTERVAL_MS,
+    BURST_SCREEN_SEND_INTERVAL_MS,
+  );
 }
 
 export function buildDefaultSessionState(): SessionStoreData {

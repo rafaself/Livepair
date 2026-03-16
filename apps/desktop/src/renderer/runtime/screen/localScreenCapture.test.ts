@@ -157,7 +157,7 @@ function createHarness(opts: {
     drawImage: vi.fn(),
     fillRect: vi.fn(),
     fillStyle: '',
-    getImageData: vi.fn((x: number, y: number, width: number, height: number) => ({
+    getImageData: vi.fn((_x: number, _y: number, width: number, height: number) => ({
       data: opts.analysisImageData ?? createUniformImageData(width, height),
       width,
       height,
@@ -197,9 +197,14 @@ function createHarness(opts: {
     pause: vi.fn(),
   };
 
+  let createCanvasCallCount = 0;
   const deps: CreateLocalScreenCaptureDependencies = {
     getDisplayMedia: getDisplayMedia as unknown as () => Promise<MediaStream>,
-    createCanvas: () => canvases.shift() as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createCanvas']>>,
+    createCanvas: () => {
+      const nextCanvas = canvases[createCanvasCallCount % canvases.length];
+      createCanvasCallCount += 1;
+      return nextCanvas as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createCanvas']>>;
+    },
     createVideoElement: () => video as unknown as ReturnType<NonNullable<CreateLocalScreenCaptureDependencies['createVideoElement']>>,
     getScreenCaptureAccessStatus:
       getScreenCaptureAccessStatus as unknown as NonNullable<

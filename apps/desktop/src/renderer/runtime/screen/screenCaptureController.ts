@@ -27,16 +27,34 @@ import type {
   StopScreenCaptureOptions,
 } from './controller/screenCaptureControllerTypes';
 import type { LocalScreenFrame } from './screen.types';
+import { createScreenBurstDetector } from './screenBurstDetector';
 
 export type { ScreenCaptureController } from './controller/screenCaptureControllerTypes';
 
 export const CONTINUOUS_SCREEN_SEND_INTERVAL_MS = 3000;
+export const BURST_SCREEN_SEND_INTERVAL_MS = 1_000;
+export const BURST_SCREEN_SEND_WINDOW_MS = 1_000;
 export const MANUAL_SEND_DEBOUNCE_MS = 1_000;
+
+type AutoFrameKind = 'baseline' | 'burst';
 
 export type ScreenCaptureControllerOptions = {
   continuousSendIntervalMs?: number;
+  burstSendIntervalMs?: number;
+  burstWindowMs?: number;
   nowMs?: () => number;
 };
+
+function cloneFrameForSend(frame: LocalScreenFrame): LocalScreenFrame {
+  return {
+    ...frame,
+    analysis: {
+      ...frame.analysis,
+      tileLuminance: [...frame.analysis.tileLuminance],
+      tileEdge: [...frame.analysis.tileEdge],
+    },
+  };
+}
 
 export function createScreenCaptureController(
   store: ScreenCaptureStoreApi,
@@ -52,8 +70,17 @@ export function createScreenCaptureController(
     1,
     controllerOptions?.continuousSendIntervalMs ?? CONTINUOUS_SCREEN_SEND_INTERVAL_MS,
   );
+  const burstSendIntervalMs = Math.max(
+    1,
+    controllerOptions?.burstSendIntervalMs ?? BURST_SCREEN_SEND_INTERVAL_MS,
+  );
+  const burstWindowMs = Math.max(
+    burstSendIntervalMs,
+    controllerOptions?.burstWindowMs ?? BURST_SCREEN_SEND_WINDOW_MS,
+  );
   const nowMs = controllerOptions?.nowMs ?? (() => Date.now());
   const controllerState = createScreenCaptureControllerState();
+  const burstDetector = createScreenBurstDetector();
 
   const resolveRuntimeScreenContextMode = (): 'manual' | 'continuous' => {
     return getScreenContextMode?.() === 'continuous' ? 'continuous' : 'manual';
@@ -65,15 +92,22 @@ export function createScreenCaptureController(
   const toIsoTimestamp = (timestampMs: number): string => new Date(timestampMs).toISOString();
 
   let latestCapturedFrame: LocalScreenFrame | null = null;
-  let continuousTimer: ReturnType<typeof setInterval> | null = null;
+  let autoSendTimer: ReturnType<typeof setTimeout> | null = null;
+  let nextBaselineSendAtMs = Number.POSITIVE_INFINITY;
+  let nextBurstSendAtMs: number | null = null;
+  let burstUntilMs: number | null = null;
   let resetFrameSendChain: () => void = () => {};
   let stopInternal: (options?: StopScreenCaptureOptions) => Promise<void> = async () => {
     throw new Error('stopInternal called before initialization');
   };
 
-  let diagnostics = createDefaultVisualSendDiagnostics(continuousSendIntervalMs);
+  let diagnostics = createDefaultVisualSendDiagnostics(
+    continuousSendIntervalMs,
+    burstSendIntervalMs,
+  );
   let manualSendPending = false;
   let lastManualSendRequestedAt = Number.NEGATIVE_INFINITY;
+  const autoFrameKinds = new WeakMap<LocalScreenFrame, AutoFrameKind>();
 
   const setLastEvent = (lastEvent: VisualSendEvent): void => {
     diagnostics = {
@@ -102,20 +136,156 @@ export function createScreenCaptureController(
     );
   };
 
+  const syncBurstDiagnostics = (): boolean => {
+    const active = burstUntilMs !== null && nowMs() <= burstUntilMs;
+    const burstUntil = active && burstUntilMs !== null ? toIsoTimestamp(burstUntilMs) : null;
+
+    if (
+      diagnostics.burstActive === active
+      && diagnostics.burstUntil === burstUntil
+    ) {
+      return false;
+    }
+
+    diagnostics = {
+      ...diagnostics,
+      burstActive: active,
+      burstUntil,
+    };
+
+    return true;
+  };
+
+  const clearAutoSendTimer = (): void => {
+    if (autoSendTimer !== null) {
+      clearTimeout(autoSendTimer);
+      autoSendTimer = null;
+    }
+  };
+
+  const resetAutoScheduling = (): void => {
+    clearAutoSendTimer();
+    nextBaselineSendAtMs = Number.POSITIVE_INFINITY;
+    nextBurstSendAtMs = null;
+    burstUntilMs = null;
+    burstDetector.reset();
+    syncBurstDiagnostics();
+  };
+
+  const normalizeBurstWindow = (): boolean => {
+    if (burstUntilMs !== null && nowMs() > burstUntilMs) {
+      burstUntilMs = null;
+      nextBurstSendAtMs = null;
+      return syncBurstDiagnostics();
+    }
+
+    return false;
+  };
+
+  const scheduleNextAutoSend = (): void => {
+    clearAutoSendTimer();
+
+    if (!controllerState.isActive() || isManualMode()) {
+      return;
+    }
+
+    normalizeBurstWindow();
+
+    if (!Number.isFinite(nextBaselineSendAtMs)) {
+      nextBaselineSendAtMs = nowMs() + continuousSendIntervalMs;
+    }
+
+    const candidateTimes = [nextBaselineSendAtMs];
+    if (burstUntilMs !== null && nextBurstSendAtMs !== null && nextBurstSendAtMs <= burstUntilMs) {
+      candidateTimes.push(nextBurstSendAtMs);
+    }
+
+    const dueAtMs = Math.min(...candidateTimes);
+    autoSendTimer = setTimeout(() => {
+      void runAutoSendSchedule();
+    }, Math.max(0, dueAtMs - nowMs()));
+  };
+
+  const queueAutoFrameSend = async (kind: AutoFrameKind): Promise<void> => {
+    if (!latestCapturedFrame) {
+      return;
+    }
+
+    const frame = cloneFrameForSend(latestCapturedFrame);
+    autoFrameKinds.set(frame, kind);
+    await frameSendCoordinator.enqueueFrameSend(frame);
+  };
+
+  const advanceBaselineSchedule = (timestampMs: number): void => {
+    while (nextBaselineSendAtMs <= timestampMs) {
+      nextBaselineSendAtMs += continuousSendIntervalMs;
+    }
+  };
+
+  const advanceBurstSchedule = (timestampMs: number): void => {
+    if (nextBurstSendAtMs === null) {
+      return;
+    }
+
+    while (nextBurstSendAtMs <= timestampMs) {
+      nextBurstSendAtMs += burstSendIntervalMs;
+    }
+
+    if (burstUntilMs === null || nextBurstSendAtMs > burstUntilMs) {
+      nextBurstSendAtMs = null;
+    }
+  };
+
+  async function runAutoSendSchedule(): Promise<void> {
+    autoSendTimer = null;
+
+    if (!controllerState.isActive()) {
+      return;
+    }
+
+    if (isManualMode()) {
+      stopContinuousSending('continuousStopped', { dropPendingFrame: true });
+      return;
+    }
+
+    applyCaptureQuality();
+    const timestampMs = nowMs();
+    const burstNormalized = normalizeBurstWindow();
+    const baselineDue = timestampMs >= nextBaselineSendAtMs;
+    const burstDue = (
+      burstUntilMs !== null
+      && nextBurstSendAtMs !== null
+      && nextBurstSendAtMs <= burstUntilMs
+      && timestampMs >= nextBurstSendAtMs
+    );
+
+    if (baselineDue || burstDue) {
+      advanceBaselineSchedule(timestampMs);
+      advanceBurstSchedule(timestampMs);
+
+      if (latestCapturedFrame) {
+        await queueAutoFrameSend(burstDue && !baselineDue ? 'burst' : 'baseline');
+      }
+    }
+
+    if (burstNormalized) {
+      flushVisualDiagnostics();
+    }
+    scheduleNextAutoSend();
+  }
+
   const stopContinuousSending = (
     reason: VisualSendEvent = 'continuousStopped',
     options: { dropPendingFrame?: boolean } = {},
   ): void => {
-    if (continuousTimer !== null) {
-      clearInterval(continuousTimer);
-      continuousTimer = null;
-    }
-
     if (options.dropPendingFrame) {
       resetFrameSendChain();
     }
 
-    if (!diagnostics.continuousActive) {
+    const hadContinuousActivity = diagnostics.continuousActive || diagnostics.burstActive;
+    resetAutoScheduling();
+
+    if (!hadContinuousActivity) {
       return;
     }
 
@@ -123,6 +293,8 @@ export function createScreenCaptureController(
       ...diagnostics,
       continuousActive: false,
       continuousStoppedAt: toIsoTimestamp(nowMs()),
+      burstActive: false,
+      burstUntil: null,
     };
     setLastEvent(reason);
 
@@ -130,37 +302,34 @@ export function createScreenCaptureController(
   };
 
   const startContinuousSending = (): void => {
-    if (continuousTimer !== null || !controllerState.isActive() || isManualMode()) {
+    if (!controllerState.isActive() || isManualMode()) {
       return;
     }
+
+    const timestampMs = nowMs();
+    const startedFresh = !diagnostics.continuousActive;
 
     manualSendPending = false;
     diagnostics = {
       ...diagnostics,
       manualSendPending: false,
       continuousActive: true,
-      continuousStartedAt: toIsoTimestamp(nowMs()),
+      continuousStartedAt: startedFresh
+        ? toIsoTimestamp(timestampMs)
+        : diagnostics.continuousStartedAt,
     };
-    setLastEvent('continuousStarted');
+
+    if (!Number.isFinite(nextBaselineSendAtMs)) {
+      nextBaselineSendAtMs = timestampMs + continuousSendIntervalMs;
+    }
+
+    if (startedFresh) {
+      setLastEvent('continuousStarted');
+    }
+
     applyCaptureQuality();
     flushVisualDiagnostics();
-
-    continuousTimer = setInterval(() => {
-      if (!controllerState.isActive()) {
-        return;
-      }
-
-      if (isManualMode()) {
-        stopContinuousSending('continuousStopped', { dropPendingFrame: true });
-        return;
-      }
-
-      applyCaptureQuality();
-
-      if (latestCapturedFrame) {
-        void frameSendCoordinator.enqueueFrameSend(latestCapturedFrame);
-      }
-    }, continuousSendIntervalMs);
+    scheduleNextAutoSend();
   };
 
   const canArmManualSend = (): boolean => {
@@ -168,6 +337,30 @@ export function createScreenCaptureController(
       !manualSendPending
       && nowMs() - lastManualSendRequestedAt >= MANUAL_SEND_DEBOUNCE_MS
     );
+  };
+
+  const activateBurstWindow = (timestampMs: number): void => {
+    const wasActive = burstUntilMs !== null && timestampMs < burstUntilMs;
+    const nextBurstUntilMs = timestampMs + burstWindowMs;
+
+    diagnostics = {
+      ...diagnostics,
+      changeSignalCount: diagnostics.changeSignalCount + 1,
+      burstTriggeredCount: diagnostics.burstTriggeredCount + (wasActive ? 0 : 1),
+    };
+
+    burstUntilMs = Math.max(burstUntilMs ?? 0, nextBurstUntilMs);
+    nextBurstSendAtMs = nextBurstSendAtMs === null
+      ? timestampMs + burstSendIntervalMs
+      : Math.min(nextBurstSendAtMs, timestampMs + burstSendIntervalMs);
+    syncBurstDiagnostics();
+
+    if (!wasActive) {
+      setLastEvent('burstActivated');
+    }
+
+    flushVisualDiagnostics();
+    scheduleNextAutoSend();
   };
 
   const frameDumpCoordinator = createScreenFrameDumpCoordinator({
@@ -229,12 +422,14 @@ export function createScreenCaptureController(
         setLastEvent('manualFrameSent');
         store.getState().setScreenCaptureState('capturing');
       } else {
+        const autoFrameKind = autoFrameKinds.get(frame) ?? 'baseline';
         diagnostics = {
           ...diagnostics,
-          continuousFramesSentCount: diagnostics.continuousFramesSentCount + 1,
-          lastContinuousFrameAt: toIsoTimestamp(nowMs()),
+          autoFramesSentCount: diagnostics.autoFramesSentCount + 1,
+          lastAutoFrameAt: toIsoTimestamp(nowMs()),
+          lastAutoFrameKind: autoFrameKind,
         };
-        setLastEvent('continuousFrameSent');
+        setLastEvent(autoFrameKind === 'burst' ? 'burstFrameSent' : 'baselineFrameSent');
         store.getState().setScreenCaptureState('capturing');
       }
 
@@ -270,9 +465,14 @@ export function createScreenCaptureController(
     if (isManualMode()) {
       stopContinuousSending('continuousStopped', { dropPendingFrame: true });
       if (manualSendPending) {
-        void frameSendCoordinator.enqueueFrameSend(frame);
+        void frameSendCoordinator.enqueueFrameSend(cloneFrameForSend(frame));
       }
       return;
+    }
+
+    const burstObservation = burstDetector.observe(frame.analysis, nowMs());
+    if (burstObservation.triggered) {
+      activateBurstWindow(nowMs());
     }
 
     startContinuousSending();
@@ -290,6 +490,8 @@ export function createScreenCaptureController(
     getCaptureStartParams: () => getScreenCaptureQualityParams(resolveRequestedCaptureQuality()),
     onScreenShareStarted: () => {
       latestCapturedFrame = null;
+      manualSendPending = false;
+      resetAutoScheduling();
       diagnostics = {
         ...diagnostics,
         manualSendPending: false,

@@ -128,8 +128,8 @@ export function buildScreenFrameAnalysis(imageData: ImageDataLike): ScreenFrameA
       const tileIndex = toTileIndex(x, y, width, height);
 
       grayscale[pixelIndex] = gray;
-      luminanceSums[tileIndex] += gray;
-      pixelCounts[tileIndex] += 1;
+      luminanceSums[tileIndex] = (luminanceSums[tileIndex] ?? 0) + gray;
+      pixelCounts[tileIndex] = (pixelCounts[tileIndex] ?? 0) + 1;
     }
   }
 
@@ -142,17 +142,17 @@ export function buildScreenFrameAnalysis(imageData: ImageDataLike): ScreenFrameA
       const down = y + 1 < height ? (grayscale[pixelIndex + width] ?? current) : current;
       const edgeStrength = Math.min(255, Math.abs(current - right) + Math.abs(current - down));
 
-      edgeSums[tileIndex] += edgeStrength;
+      edgeSums[tileIndex] = (edgeSums[tileIndex] ?? 0) + edgeStrength;
     }
   }
 
   const tileLuminance = Array.from({ length: tileCount }, (_, index) => {
     const count = pixelCounts[index] || 1;
-    return luminanceSums[index] / count;
+    return (luminanceSums[index] ?? 0) / count;
   });
   const tileEdge = Array.from({ length: tileCount }, (_, index) => {
     const count = pixelCounts[index] || 1;
-    return edgeSums[index] / count;
+    return (edgeSums[index] ?? 0) / count;
   });
 
   return {
