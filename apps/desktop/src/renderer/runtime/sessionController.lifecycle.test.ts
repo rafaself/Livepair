@@ -9,6 +9,7 @@ import { resetDesktopStoresWithDefaults } from '../test/store';
 import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
 import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
 import {
+  composeLiveSystemInstruction,
   parseLiveConfig,
   type GeminiLiveConnectConfig,
 } from './transport/liveConfig';
@@ -315,7 +316,7 @@ describe('createDesktopSessionController – lifecycle', () => {
               },
             },
           },
-          systemInstruction: 'Pair on the active code only.',
+          systemInstruction: composeLiveSystemInstruction('Pair on the active code only.'),
           tools: expect.any(Array),
         } satisfies GeminiLiveConnectConfig,
         callbacks: expect.any(Object),
@@ -380,7 +381,7 @@ describe('createDesktopSessionController – lifecycle', () => {
             },
           },
         },
-        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+        systemInstruction: composeLiveSystemInstruction(DEFAULT_SYSTEM_INSTRUCTION),
         tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),

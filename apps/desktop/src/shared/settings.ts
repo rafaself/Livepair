@@ -1,5 +1,4 @@
 export type ThemePreference = 'system' | 'light' | 'dark';
-export type PreferredMode = 'fast';
 export type SpeechSilenceTimeout = 'never' | '30s' | '3m';
 export type ScreenContextMode = 'unconfigured' | 'manual' | 'continuous';
 export type ContinuousScreenQuality = 'low' | 'medium' | 'high';
@@ -12,7 +11,6 @@ export const MAX_SYSTEM_INSTRUCTION_LENGTH = 1200;
 
 export type DesktopSettings = {
   themePreference: ThemePreference;
-  preferredMode: PreferredMode;
   speechSilenceTimeout: SpeechSilenceTimeout;
   selectedInputDeviceId: string;
   selectedOutputDeviceId: string;
@@ -32,7 +30,6 @@ export type DesktopSettingsPatch = Partial<DesktopSettings>;
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   themePreference: 'system',
-  preferredMode: 'fast',
   speechSilenceTimeout: 'never',
   selectedInputDeviceId: 'default',
   selectedOutputDeviceId: 'default',
@@ -54,16 +51,6 @@ function isNonEmptyString(value: unknown): value is string {
 
 function normalizeThemePreference(value: unknown): ThemePreference | null {
   return value === 'system' || value === 'light' || value === 'dark' ? value : null;
-}
-
-type StoredLegacyPreferredMode = 'thinking';
-
-function normalizeStoredPreferredMode(
-  value: PreferredMode | StoredLegacyPreferredMode | unknown,
-): PreferredMode | null {
-  if (value === 'fast') return value;
-  if (value === 'thinking') return 'fast';
-  return null;
 }
 
 function normalizeSpeechSilenceTimeout(value: unknown): SpeechSilenceTimeout | null {
@@ -118,9 +105,6 @@ export function normalizeDesktopSettings(
   const themePreference = normalizeThemePreference(
     settings.themePreference ?? DEFAULT_DESKTOP_SETTINGS.themePreference,
   );
-  const preferredMode = normalizeStoredPreferredMode(
-    settings.preferredMode ?? DEFAULT_DESKTOP_SETTINGS.preferredMode,
-  );
   const speechSilenceTimeout = normalizeSpeechSilenceTimeout(
     settings.speechSilenceTimeout ?? DEFAULT_DESKTOP_SETTINGS.speechSilenceTimeout,
   );
@@ -153,7 +137,6 @@ export function normalizeDesktopSettings(
 
   if (
     themePreference === null ||
-    preferredMode === null ||
     speechSilenceTimeout === null ||
     !isNonEmptyString(selectedInputDeviceId) ||
     !isNonEmptyString(selectedOutputDeviceId) ||
@@ -171,7 +154,6 @@ export function normalizeDesktopSettings(
 
   return {
     themePreference,
-    preferredMode,
     speechSilenceTimeout,
     selectedInputDeviceId,
     selectedOutputDeviceId,
@@ -199,14 +181,6 @@ export function normalizeDesktopSettingsPatch(
       return null;
     }
     normalizedPatch.themePreference = themePreference;
-  }
-
-  if ('preferredMode' in patch) {
-    const preferredMode = normalizeStoredPreferredMode(patch.preferredMode);
-    if (preferredMode === null) {
-      return null;
-    }
-    normalizedPatch.preferredMode = preferredMode;
   }
 
   if ('speechSilenceTimeout' in patch) {

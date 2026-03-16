@@ -292,7 +292,6 @@ describe('preload bridge', () => {
 
     mockInvoke.mockResolvedValueOnce({
       isPanelPinned: false,
-      preferredMode: 'fast',
       selectedInputDeviceId: 'default',
       selectedOutputDeviceId: 'default',
       themePreference: 'system',
@@ -302,7 +301,6 @@ describe('preload bridge', () => {
 
     mockInvoke.mockResolvedValueOnce({
       isPanelPinned: false,
-      preferredMode: 'fast',
       selectedInputDeviceId: 'default',
       selectedOutputDeviceId: 'default',
       themePreference: 'dark',

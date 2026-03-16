@@ -17,14 +17,12 @@ vi.mock('./settingsRepository', () => ({
     return {
       getSettings: vi.fn(async () => ({
         isPanelPinned: false,
-        preferredMode: 'fast',
         selectedInputDeviceId: 'default',
         selectedOutputDeviceId: 'default',
         themePreference: 'system',
       })),
       updateSettings: vi.fn(async (patch) => ({
         isPanelPinned: patch.isPanelPinned ?? false,
-        preferredMode: patch.preferredMode ?? 'fast',
         selectedInputDeviceId: patch.selectedInputDeviceId ?? 'default',
         selectedOutputDeviceId: patch.selectedOutputDeviceId ?? 'default',
         themePreference: patch.themePreference ?? 'system',
@@ -44,14 +42,12 @@ describe('DesktopSettingsService', () => {
     const repository = {
       getSettings: vi.fn(async () => ({
         isPanelPinned: false,
-        preferredMode: 'fast' as const,
         selectedInputDeviceId: 'default',
         selectedOutputDeviceId: 'default',
         themePreference: 'system' as const,
       })),
       updateSettings: vi.fn(async () => ({
         isPanelPinned: true,
-        preferredMode: 'fast' as const,
         selectedInputDeviceId: 'usb-mic',
         selectedOutputDeviceId: 'desk-speakers',
         themePreference: 'dark' as const,

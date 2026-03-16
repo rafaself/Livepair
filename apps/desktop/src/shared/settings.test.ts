@@ -27,11 +27,6 @@ describe('normalizeDesktopSettings', () => {
   it('rejects invalid full settings values', () => {
     expect(
       normalizeDesktopSettings({
-        preferredMode: 'slow' as never,
-      }),
-    ).toBeNull();
-    expect(
-      normalizeDesktopSettings({
         selectedInputDeviceId: '',
       }),
     ).toBeNull();
@@ -60,6 +55,7 @@ describe('normalizeDesktopSettings', () => {
 
 describe('voice and system instruction settings', () => {
   it('defaults to the documented voice and product instruction', () => {
+    expect(DEFAULT_DESKTOP_SETTINGS).not.toHaveProperty('preferredMode');
     expect(DEFAULT_DESKTOP_SETTINGS.voice).toBe('Puck');
     expect(DEFAULT_DESKTOP_SETTINGS.groundingEnabled).toBe(true);
     expect(DEFAULT_DESKTOP_SETTINGS.systemInstruction).toBe(
@@ -213,7 +209,6 @@ describe('normalizeDesktopSettingsPatch', () => {
   it('normalizes valid patch values without injecting defaults', () => {
     expect(
       normalizeDesktopSettingsPatch({
-        preferredMode: 'fast',
         speechSilenceTimeout: '3m',
         voiceEchoCancellationEnabled: false,
         isPanelPinned: true,
@@ -222,7 +217,6 @@ describe('normalizeDesktopSettingsPatch', () => {
         systemInstruction: '  Stay concise.  ',
       }),
     ).toEqual({
-      preferredMode: 'fast',
       speechSilenceTimeout: '3m',
       voiceEchoCancellationEnabled: false,
       isPanelPinned: true,
@@ -271,11 +265,6 @@ describe('normalizeDesktopSettingsPatch', () => {
         selectedInputDeviceId: '',
       }),
     ).toBeNull();
-    expect(
-      normalizeDesktopSettingsPatch({
-        preferredMode: 'thinking' as never,
-      }),
-    ).toEqual({ preferredMode: 'fast' });
     expect(
       normalizeDesktopSettingsPatch({
         voiceNoiseSuppressionEnabled: 'no' as never,

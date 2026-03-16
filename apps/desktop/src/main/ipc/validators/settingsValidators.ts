@@ -3,7 +3,6 @@ import { hasOnlyAllowedKeys, isNonEmptyString, isPlainRecord } from './shared';
 
 const DESKTOP_SETTINGS_PATCH_KEYS = [
   'themePreference',
-  'preferredMode',
   'speechSilenceTimeout',
   'selectedInputDeviceId',
   'selectedOutputDeviceId',
@@ -21,10 +20,6 @@ const DESKTOP_SETTINGS_PATCH_KEYS = [
 
 function isThemePreference(value: unknown): boolean {
   return value === 'system' || value === 'light' || value === 'dark';
-}
-
-function isPreferredMode(value: unknown): boolean {
-  return value === 'fast';
 }
 
 function isSpeechSilenceTimeout(value: unknown): boolean {
@@ -49,10 +44,6 @@ export function isDesktopSettingsPatch(value: unknown): value is DesktopSettings
   }
 
   if ('themePreference' in value && !isThemePreference(value['themePreference'])) {
-    return false;
-  }
-
-  if ('preferredMode' in value && !isPreferredMode(value['preferredMode'])) {
     return false;
   }
 

@@ -1,6 +1,5 @@
 import { AssistantPanelAdvancedSettingsSection } from './AssistantPanelAdvancedSettingsSection';
 import { AssistantPanelAudioSettingsSection } from './AssistantPanelAudioSettingsSection';
-import { AssistantPanelGeneralSettingsSection } from './AssistantPanelGeneralSettingsSection';
 import { AssistantPanelScreenSettingsSection } from './AssistantPanelScreenSettingsSection';
 import {
   useAssistantPanelSettingsController,
@@ -19,7 +18,6 @@ export function AssistantPanelSettingsContent({
       <h2 className="assistant-panel__settings-title">Settings</h2>
 
       <div className="assistant-panel__settings-body">
-        <AssistantPanelGeneralSettingsSection controller={controller} />
         <AssistantPanelScreenSettingsSection controller={controller} />
         <AssistantPanelAudioSettingsSection controller={controller} />
         <AssistantPanelAdvancedSettingsSection controller={controller} />

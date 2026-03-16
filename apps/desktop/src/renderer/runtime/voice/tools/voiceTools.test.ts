@@ -93,6 +93,7 @@ describe('voiceTools', () => {
       expect.arrayContaining([
         expect.objectContaining({
           name: 'search_project_knowledge',
+          description: expect.not.stringContaining('specs'),
         }),
       ]),
     );
