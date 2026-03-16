@@ -95,6 +95,10 @@ resource "google_cloud_run_v2_service" "this" {
   }
 
   lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image,
+    ]
+
     precondition {
       condition     = var.min_instance_count >= 0 && var.max_instance_count >= var.min_instance_count
       error_message = "Cloud Run scaling requires max_instance_count to be greater than or equal to min_instance_count."

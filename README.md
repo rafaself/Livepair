@@ -433,6 +433,47 @@ docker run --rm \
 
 `GET /health` should respond without a database connection. Routes backed by durable chat-memory persistence still require a reachable Postgres via `DATABASE_URL`.
 
+### ☁️ API deploy pipeline
+
+Wave 5 adds a minimal `cloudbuild.yaml` that reuses `apps/api/Dockerfile` for the operational API release path:
+
+* build the image from the repository root
+* push it to the Terraform-managed Artifact Registry repository
+* deploy the existing Cloud Run service to the new image
+
+Responsibility stays split on purpose:
+
+* Terraform remains the source of truth for Artifact Registry, Cloud Run service shape, runtime service account, Secret Manager wiring, Cloud SQL attachment, scaling, ingress, and public/private access.
+* Cloud Build owns image build/push plus the image-only Cloud Run rollout.
+
+The Cloud Run Terraform module now ignores container image drift so a later `terraform apply` will not roll back a successful Cloud Build release. Keep `infra/terraform/envs/dev/terraform.tfvars` `api_service.image` pointed at a valid bootstrap image in the same repository for first creation or any future recreate.
+
+Deploy inputs:
+
+* project id: Cloud Build built-in `$PROJECT_ID`
+* region: `_REGION`
+* Artifact Registry repository: `_AR_REPOSITORY`
+* image name: `_IMAGE_NAME`
+* image tag: `_IMAGE_TAG` (`$SHORT_SHA` is a good trigger default; manual builds should pass an explicit tag)
+* Cloud Run service name: `_SERVICE_NAME`
+
+Triggerless fallback:
+
+```bash
+PROJECT_ID=your-gcp-project-id
+REGION=us-central1
+REPOSITORY=livepair-dev-containers
+SERVICE=livepair-dev-api
+
+gcloud builds submit \
+  --project "$PROJECT_ID" \
+  --config cloudbuild.yaml \
+  --substitutions=_REGION="$REGION",_AR_REPOSITORY="$REPOSITORY",_IMAGE_NAME=api,_IMAGE_TAG="$(git rev-parse --short HEAD)",_SERVICE_NAME="$SERVICE" \
+  .
+```
+
+This path keeps secrets out of the image and out of the pipeline config. Runtime secrets still stay in Secret Manager and are injected by the Terraform-managed Cloud Run service.
+
 For the shortest evaluator-friendly app check after startup, use the fast flow in [docs/QA_RUNBOOK.md](./docs/QA_RUNBOOK.md).
 
 ### 🐘 Local infrastructure helpers

@@ -1,6 +1,6 @@
 # Terraform base infrastructure
 
-Wave 4 extends the Terraform foundation for Google Cloud under `infra/terraform`.
+Wave 4 lays the Terraform foundation for Google Cloud under `infra/terraform`, and Wave 5 adds the operational handoff to Cloud Build for API image rollouts.
 The scope is still intentionally narrow:
 
 - enable the required Google APIs
@@ -9,10 +9,11 @@ The scope is still intentionally narrow:
 - grant narrow IAM needed for those service accounts today
 - create Secret Manager secret containers only
 - create a Cloud SQL PostgreSQL instance, database, and application user
-- deploy the API baseline onto Cloud Run from a configurable image reference
+- deploy the API baseline onto Cloud Run from a configurable bootstrap image reference
 - wire non-secret runtime config, Secret Manager-backed env vars, and Cloud SQL attachment for the API service
+- check in a Cloud Build pipeline that builds, pushes, and deploys the API image against the existing Cloud Run service
 
-This wave does **not** add Cloud Build, migration jobs, secret values, or production rollout automation.
+This repo still does **not** create the Cloud Build trigger itself, migration jobs, secret values, or broader rollout orchestration.
 
 ## Layout
 
@@ -129,14 +130,50 @@ That remote-state bootstrap is intentionally deferred so this wave stays reviewa
 
 ## Deploying the API service
 
-`api_service.image` is required and must point at an image that already exists.
-Terraform does **not** build or push the image in this wave.
+### Ownership split
+
+Terraform owns the infrastructure shape:
+
+- Artifact Registry repository
+- Cloud Run service definition
+- runtime service account attachment
+- non-secret env vars, Secret Manager-backed env vars, and Cloud SQL attachment
+- scaling, ingress, and public/private access
+
+Cloud Build owns the application rollout path in `cloudbuild.yaml`:
+
+- build the API image from the repository root with `apps/api/Dockerfile`
+- push it to the Terraform-managed Artifact Registry repository
+- update the existing Cloud Run service to the new image
+
+The Cloud Run module intentionally ignores image-only drift so later `terraform apply` runs do not roll back a successful deploy. Keep `api_service.image` in `terraform.tfvars` set to a valid bootstrap image in the same repository for first create or future re-create operations.
+
+### Deploy variables
+
+`cloudbuild.yaml` keeps the deploy interface small:
+
+- project id: Cloud Build built-in `$PROJECT_ID`
+- region: `_REGION`
+- Artifact Registry repository: `_AR_REPOSITORY`
+- image name: `_IMAGE_NAME`
+- image tag: `_IMAGE_TAG`
+- Cloud Run service: `_SERVICE_NAME`
+
+Recommended trigger defaults:
+
+- `_REGION` = `terraform output -raw region`
+- `_AR_REPOSITORY` = the `id` field from `terraform output -json artifact_registry`
+- `_IMAGE_NAME` = `api`
+- `_IMAGE_TAG` = `$SHORT_SHA`
+- `_SERVICE_NAME` = `terraform output -raw api_cloud_run_service_name`
+
+Same-project deployment is the intended Wave 5 path. `cloudbuild.yaml` uses Cloud Build's built-in `$PROJECT_ID`, so the trigger should run in the same Google Cloud project that Terraform manages unless you later add an explicit cross-project setup.
 
 Example:
 
 ```hcl
 api_service = {
-  image = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/livepair-dev-containers/api:manual"
+  image = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/livepair-dev-containers/api:bootstrap"
 }
 ```
 
@@ -167,16 +204,99 @@ printf '%s' 'postgres://livepair:APP_PASSWORD@/livepair?host=/cloudsql/PROJECT:R
 Construct the `DATABASE_URL` from the Cloud SQL outputs and the app user/password you chose in `terraform.tfvars`.
 The Cloud Run module also mounts `/cloudsql` and attaches the Cloud SQL instance connection name so the Unix socket path is available to the container.
 
-### First deployment checklist
+### First-time bootstrap
 
-Before the first `apply` that includes Cloud Run:
+If Wave 4 has already created the Cloud Run service in your environment, you can skip this subsection and move straight to trigger setup.
 
-- build and push the API image to the Artifact Registry repository URL output by Terraform
+If you are bootstrapping a fresh environment, there is one extra wrinkle: Terraform creates both the Artifact Registry repository and the Cloud Run service, but the Cloud Run service needs a valid image reference. The lowest-risk path is a one-time two-phase bootstrap:
+
+1. Create the prerequisite infrastructure without the Cloud Run service yet:
+
+```bash
+terraform -chdir=infra/terraform/envs/dev apply -var-file=terraform.tfvars \
+  -target=module.project_services \
+  -target=module.artifact_registry \
+  -target=module.service_accounts \
+  -target=module.secret_manager \
+  -target=module.cloud_sql
+```
+
+2. Push a bootstrap image from the repository root:
+
+```bash
+PROJECT_ID=your-gcp-project-id
+REGION=us-central1
+REPOSITORY=livepair-dev-containers
+IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api:bootstrap"
+
+gcloud auth configure-docker "${REGION}-docker.pkg.dev"
+docker build -f apps/api/Dockerfile -t "${IMAGE_URI}" .
+docker push "${IMAGE_URI}"
+```
+
+3. Populate the required Secret Manager versions.
+4. Keep `api_service.image` in `terraform.tfvars` pointed at that bootstrap image.
+5. Run the normal full apply:
+
+```bash
+terraform -chdir=infra/terraform/envs/dev apply -var-file=terraform.tfvars
+```
+
+Use the targeted apply only for this one-time bootstrap. Routine infrastructure changes should go back to normal `plan` / `apply`.
+
+### Cloud Build trigger setup
+
+Recommended console path:
+
+1. Open **Cloud Build → Triggers → Create trigger** in the same project Terraform manages.
+2. Connect the repository/branch you want to deploy from.
+3. Choose **Configuration file (yaml/json)** and point it at `cloudbuild.yaml`.
+4. Set substitutions for `_REGION`, `_AR_REPOSITORY`, `_IMAGE_NAME`, `_IMAGE_TAG`, and `_SERVICE_NAME`.
+5. Prefer a dedicated build service account if your team already uses user-specified build identities; otherwise the project-default Cloud Build service account is acceptable for this same-project Wave 5 path.
+
+The human or automation that creates/edits the trigger needs Cloud Build trigger-management permissions such as `roles/cloudbuild.builds.editor`, plus access to the connected source repository. If the trigger uses a user-specified build service account, that operator also needs permission to attach it.
+
+If you prefer the CLI, use the provider-specific `gcloud builds triggers create ...` command for your repository connection type and pass the same `cloudbuild.yaml` path and substitutions above. The exact CLI syntax varies by source connection, so this repo keeps the checked-in build config stable and leaves the trigger resource itself out of scope.
+
+Minimum IAM for the service account that executes the build:
+
+- `roles/artifactregistry.writer` on the target repository or project so the build can push images
+- `roles/run.admin` on the project so the build can deploy new Cloud Run revisions
+- `roles/iam.serviceAccountUser` on the API runtime service account so the deploy can keep using Terraform's runtime identity
+
+Additional caveats:
+
+- If you use a user-specified build service account, make sure your build logging setup still works; `roles/logging.logWriter` is commonly required when logs go to Cloud Logging.
+- Same-project defaults often cover Cloud Run image pulls automatically, but stricter repository IAM or any cross-project image path may require an explicit `roles/artifactregistry.reader` grant for the runtime pull identity.
+- If `api_service.allow_unauthenticated = true`, Terraform grants `roles/run.invoker` to `allUsers`. That can fail under Domain Restricted Sharing or similar org-policy controls. In that case, keep the service private or extend the infrastructure later with the Cloud Run public-access mechanism your organization allows.
+
+### Triggerless manual fallback
+
+If the trigger is not set up yet, or if you want a reproducible manual deploy/debug path, submit the same build config directly:
+
+```bash
+PROJECT_ID=your-gcp-project-id
+REGION=us-central1
+REPOSITORY=livepair-dev-containers
+SERVICE=livepair-dev-api
+
+gcloud builds submit \
+  --project "$PROJECT_ID" \
+  --config cloudbuild.yaml \
+  --substitutions=_REGION="$REGION",_AR_REPOSITORY="$REPOSITORY",_IMAGE_NAME=api,_IMAGE_TAG="$(git rev-parse --short HEAD)",_SERVICE_NAME="$SERVICE" \
+  .
+```
+
+That command reuses the checked-in pipeline and does not embed secrets into the image or the build config. The Cloud Run service continues to read `GEMINI_API_KEY`, `SESSION_TOKEN_AUTH_SECRET`, and `DATABASE_URL` from Secret Manager at runtime.
+
+Keep these checks in mind before the first live deploy:
+
 - populate all required Secret Manager versions
 - confirm the `DATABASE_URL` secret uses the `/cloudsql/PROJECT:REGION:INSTANCE` host path form expected by Cloud Run socket connections
 - decide whether `api_service.allow_unauthenticated` should stay `true` for dev
+- verify the trigger substitutions still match Terraform outputs after any environment rename
 
-After that:
+After the first deploy path is working, normal infrastructure changes still go through:
 
 ```bash
 terraform -chdir=infra/terraform/envs/dev plan -var-file=terraform.tfvars
@@ -195,10 +315,10 @@ Useful outputs after apply:
 
 This foundation intentionally stops short of:
 
-- pushing images or configuring Cloud Build
 - running migrations with a Cloud Run Job or any other execution flow
 - populating Secret Manager versions
 - rotating or pinning secrets through Terraform-managed secret-version resources
 - reworking the backend application to use a different database config model
+- provisioning the Cloud Build trigger itself through Terraform or another GitOps layer
 
 The outputs from `envs/dev` expose the repository URL, service account emails, secret names, Cloud SQL connection identifiers, and Cloud Run service URL for those follow-up waves.

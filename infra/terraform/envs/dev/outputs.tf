@@ -64,11 +64,11 @@ output "api_cloud_run_service_url" {
 }
 
 output "api_cloud_run" {
-  description = "Cloud Run deployment metadata for the API service."
+  description = "Cloud Run deployment metadata for the API service, including the Terraform bootstrap image reference."
   value = {
     service_name                       = module.cloud_run.service_name
     service_url                        = module.cloud_run.service_url
-    image                              = var.api_service.image
+    bootstrap_image                    = var.api_service.image
     service_account_email              = module.service_accounts.service_account_emails["api_runtime"]
     allow_unauthenticated              = var.api_service.allow_unauthenticated
     cloud_sql_instance_connection_name = module.cloud_sql.instance_connection_name

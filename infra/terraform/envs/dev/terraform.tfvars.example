@@ -22,7 +22,9 @@ database = {
 }
 
 api_service = {
-  image                 = "us-central1-docker.pkg.dev/your-gcp-project-id/livepair-dev-containers/api:manual"
+  # Keep this on a valid bootstrap image in Artifact Registry for first create/recreate.
+  # Later image rollouts come from cloudbuild.yaml rather than Terraform.
+  image                 = "us-central1-docker.pkg.dev/your-gcp-project-id/livepair-dev-containers/api:bootstrap"
   allow_unauthenticated = true
   ingress               = "INGRESS_TRAFFIC_ALL"
   deletion_protection   = false
