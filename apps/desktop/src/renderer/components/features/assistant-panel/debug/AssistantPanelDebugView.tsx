@@ -2,6 +2,7 @@ import { useShallow } from 'zustand/shallow';
 import {
   AssistantPanelDebugAudioSection,
   AssistantPanelDebugConnectionSection,
+  AssistantPanelDebugLiveSignalsSection,
   AssistantPanelDebugOutboundGuardrailsSection,
   AssistantPanelDebugScreenContextSection,
 } from './AssistantPanelDebugSections';
@@ -36,6 +37,7 @@ export function AssistantPanelDebugView({
     voicePlaybackState,
     voicePlaybackDiagnostics,
     voiceToolState,
+    voiceLiveSignalDiagnostics,
     realtimeOutboundDiagnostics,
     screenCaptureState,
     screenCaptureDiagnostics,
@@ -52,6 +54,7 @@ export function AssistantPanelDebugView({
       voicePlaybackState: state.voicePlaybackState,
       voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
       voiceToolState: state.voiceToolState,
+      voiceLiveSignalDiagnostics: state.voiceLiveSignalDiagnostics,
       realtimeOutboundDiagnostics: state.realtimeOutboundDiagnostics,
       screenCaptureState: state.screenCaptureState,
       screenCaptureDiagnostics: state.screenCaptureDiagnostics,
@@ -84,6 +87,10 @@ export function AssistantPanelDebugView({
         voicePlaybackState={voicePlaybackState}
         voicePlaybackDiagnostics={voicePlaybackDiagnostics}
         voiceToolState={voiceToolState}
+      />
+
+      <AssistantPanelDebugLiveSignalsSection
+        voiceLiveSignalDiagnostics={voiceLiveSignalDiagnostics}
       />
 
       <AssistantPanelDebugOutboundGuardrailsSection

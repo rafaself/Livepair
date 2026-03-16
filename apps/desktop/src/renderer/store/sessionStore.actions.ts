@@ -1,6 +1,7 @@
 import type { StoreApi } from 'zustand';
 import {
   createDefaultRealtimeOutboundDiagnostics,
+  createDefaultVoiceLiveSignalDiagnostics,
   createDefaultVoiceSessionLatencyState,
   createDefaultVoiceSessionDurabilityState,
   createDefaultVoiceSessionResumptionState,
@@ -82,6 +83,7 @@ function buildResetTextSessionRuntimeState(
     voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
     currentVoiceTranscript: buildDefaultCurrentVoiceTranscript(),
     voiceToolState: createDefaultVoiceToolState(),
+    voiceLiveSignalDiagnostics: createDefaultVoiceLiveSignalDiagnostics(),
     realtimeOutboundDiagnostics: createDefaultRealtimeOutboundDiagnostics(),
     screenShareIntended: false,
     screenCaptureState: 'disabled',
@@ -197,6 +199,13 @@ export function createSessionStoreActions(
       set((state) => ({
         voiceToolState: {
           ...state.voiceToolState,
+          ...patch,
+        },
+      })),
+    updateVoiceLiveSignalDiagnostics: (patch) =>
+      set((state) => ({
+        voiceLiveSignalDiagnostics: {
+          ...state.voiceLiveSignalDiagnostics,
           ...patch,
         },
       })),

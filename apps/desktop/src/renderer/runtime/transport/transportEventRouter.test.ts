@@ -36,6 +36,25 @@ function createMockOps() {
     voiceSessionResumption: { status: 'idle', latestHandle: null as string | null, resumable: false, lastDetail: null as string | null },
     voiceSessionDurability: { lastDetail: null as string | null },
     voiceSessionLatency: createVoiceSessionLatencyState(),
+    voiceLiveSignalDiagnostics: {
+      inputAudioTranscriptionEnabled: false,
+      outputAudioTranscriptionEnabled: false,
+      responseModality: 'AUDIO',
+      sessionResumptionEnabled: false,
+      inputTranscriptCount: 0,
+      lastInputTranscriptAt: null,
+      outputTranscriptCount: 0,
+      lastOutputTranscriptAt: null,
+      assistantTextFallbackCount: 0,
+      lastAssistantTextFallbackAt: null,
+      ignoredTextDeltaCount: 0,
+      ignoredOutputTranscriptCount: 0,
+      ignoredAudioChunkCount: 0,
+      ignoredTurnCompleteCount: 0,
+      lastIgnoredReason: null,
+      lastIgnoredEventType: null,
+      lastIgnoredVoiceStatus: null,
+    },
     screenShareIntended: false,
     screenCaptureState: 'disabled' as string,
   };
@@ -96,6 +115,13 @@ function createMockOps() {
     cleanupTransport: vi.fn(),
     resumeVoiceSession: vi.fn().mockResolvedValue(undefined),
     restoreScreenCapture: vi.fn(),
+    updateVoiceLiveSignalDiagnostics: vi.fn(),
+    getActiveLiveCapabilities: vi.fn().mockReturnValue({
+      inputAudioTranscriptionEnabled: true,
+      outputAudioTranscriptionEnabled: true,
+      responseModality: 'AUDIO',
+      sessionResumptionEnabled: true,
+    }),
     _storeState: storeState,
   };
 }
@@ -177,6 +203,34 @@ describe('createTransportEventRouter', () => {
         lastError: null,
         selectedOutputDeviceId: 'default',
       });
+    });
+
+    it('snapshots live session capabilities into signal diagnostics on connected', () => {
+      const ops = createMockOps();
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'connection-state-changed', state: 'connected' });
+
+      expect(ops.updateVoiceLiveSignalDiagnostics).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputAudioTranscriptionEnabled: true,
+          outputAudioTranscriptionEnabled: true,
+          responseModality: 'AUDIO',
+          sessionResumptionEnabled: true,
+        }),
+      );
+    });
+
+    it('skips capability snapshot when getActiveLiveCapabilities returns null', () => {
+      const ops = createMockOps();
+      ops.getActiveLiveCapabilities.mockReturnValue(null);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'connection-state-changed', state: 'connected' });
+
+      expect(ops.updateVoiceLiveSignalDiagnostics).not.toHaveBeenCalledWith(
+        expect.objectContaining({ inputAudioTranscriptionEnabled: expect.anything() }),
+      );
     });
 
     it('sets recovering on disconnected when resumption is in flight', () => {

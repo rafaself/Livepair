@@ -53,6 +53,19 @@ function buildIgnoredAssistantOutputDetail(
   diagnostics.lastIgnoredEventType = eventType;
   diagnostics.lastIgnoredVoiceStatus = voiceStatus;
 
+  // Promote ignored-output counts to the session store so the debug view can
+  // surface them without log scraping. The WeakMap remains as the cheap
+  // in-handler accumulator; the store gets the same values for observability.
+  context.ops.updateVoiceLiveSignalDiagnostics({
+    ignoredTextDeltaCount: diagnostics.counts['text-delta'],
+    ignoredOutputTranscriptCount: diagnostics.counts['output-transcript'],
+    ignoredAudioChunkCount: diagnostics.counts['audio-chunk'],
+    ignoredTurnCompleteCount: diagnostics.counts['turn-complete'],
+    lastIgnoredReason: reason,
+    lastIgnoredEventType: eventType,
+    lastIgnoredVoiceStatus: voiceStatus,
+  });
+
   return {
     voiceStatus,
     eventType,
@@ -194,12 +207,29 @@ export function handleTransportTurnEvent(
       }
 
       ops.appendAssistantDraftTextDelta(event.text);
+
+      // Track text-delta usage in voice mode as the "text fallback" signal.
+      // Voice status 'disconnected' means text mode — skip counting there.
+      if (ops.currentVoiceSessionStatus() !== 'disconnected') {
+        const now = new Date().toISOString();
+        ops.updateVoiceLiveSignalDiagnostics({
+          assistantTextFallbackCount:
+            context.store.voiceLiveSignalDiagnostics.assistantTextFallbackCount + 1,
+          lastAssistantTextFallbackAt: now,
+        });
+      }
       return;
 
-    case 'input-transcript':
+    case 'input-transcript': {
+      const now = new Date().toISOString();
       ops.applySpeechLifecycleEvent({ type: 'user.speech.detected' });
       ops.applyVoiceTranscriptUpdate('user', event.text, event.isFinal);
+      ops.updateVoiceLiveSignalDiagnostics({
+        inputTranscriptCount: context.store.voiceLiveSignalDiagnostics.inputTranscriptCount + 1,
+        lastInputTranscriptAt: now,
+      });
       return;
+    }
 
     case 'output-transcript':
       if (shouldIgnoreTranscriptOrAudio(context, 'output-transcript')) {
@@ -212,6 +242,14 @@ export function handleTransportTurnEvent(
 
       ops.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
       ops.applyVoiceTranscriptUpdate('assistant', event.text, event.isFinal);
+      {
+        const now = new Date().toISOString();
+        ops.updateVoiceLiveSignalDiagnostics({
+          outputTranscriptCount:
+            context.store.voiceLiveSignalDiagnostics.outputTranscriptCount + 1,
+          lastOutputTranscriptAt: now,
+        });
+      }
       return;
 
     case 'audio-chunk':

@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createDefaultVoiceLiveSignalDiagnostics } from '../core/defaults';
 import { handleTransportTurnEvent } from './transportEventRouterTurnHandlers';
 
 function createMockContext() {
   const store = {
     setLastRuntimeError: vi.fn(),
+    voiceLiveSignalDiagnostics: createDefaultVoiceLiveSignalDiagnostics(),
   };
 
   const ops = {
@@ -30,6 +32,7 @@ function createMockContext() {
     hasPendingVoiceToolCall: vi.fn().mockReturnValue(false),
     hasQueuedMixedModeAssistantReply: vi.fn().mockReturnValue(false),
     hasStreamingAssistantVoiceTurn: vi.fn().mockReturnValue(false),
+    updateVoiceLiveSignalDiagnostics: vi.fn(),
   };
 
   return { ops, store };
@@ -93,5 +96,89 @@ describe('handleTransportTurnEvent', () => {
         lastIgnoredEventType: 'audio-chunk',
       }),
     );
+  });
+
+  it('promotes ignored output counts to store via updateVoiceLiveSignalDiagnostics', () => {
+    const context = createMockContext();
+    context.ops.currentVoiceSessionStatus.mockReturnValue('recovering');
+
+    handleTransportTurnEvent(context as never, { type: 'text-delta', text: 'stale' });
+
+    expect(context.ops.updateVoiceLiveSignalDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ignoredTextDeltaCount: 1,
+        lastIgnoredReason: 'turn-unavailable',
+        lastIgnoredEventType: 'text-delta',
+        lastIgnoredVoiceStatus: 'recovering',
+      }),
+    );
+  });
+
+  it('counts input transcripts and records timestamp', () => {
+    const context = createMockContext();
+
+    handleTransportTurnEvent(context as never, {
+      type: 'input-transcript',
+      text: 'hello',
+      isFinal: true,
+    });
+
+    expect(context.ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('user', 'hello', true);
+    expect(context.ops.updateVoiceLiveSignalDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputTranscriptCount: 1,
+        lastInputTranscriptAt: expect.any(String),
+      }),
+    );
+  });
+
+  it('counts output transcripts and records timestamp', () => {
+    const context = createMockContext();
+
+    handleTransportTurnEvent(context as never, {
+      type: 'output-transcript',
+      text: 'I heard you',
+      isFinal: false,
+    });
+
+    expect(context.ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('assistant', 'I heard you', false);
+    expect(context.ops.updateVoiceLiveSignalDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outputTranscriptCount: 1,
+        lastOutputTranscriptAt: expect.any(String),
+      }),
+    );
+  });
+
+  it('counts text-delta in voice mode as assistant text fallback', () => {
+    const context = createMockContext();
+    // Voice mode: status is 'ready' (not 'disconnected').
+    context.ops.currentVoiceSessionStatus.mockReturnValue('ready');
+
+    handleTransportTurnEvent(context as never, { type: 'text-delta', text: 'voice reply' });
+
+    expect(context.ops.appendAssistantDraftTextDelta).toHaveBeenCalledWith('voice reply');
+    expect(context.ops.updateVoiceLiveSignalDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assistantTextFallbackCount: 1,
+        lastAssistantTextFallbackAt: expect.any(String),
+      }),
+    );
+  });
+
+  it('does not count text-delta as voice fallback when voice is stopping', () => {
+    const context = createMockContext();
+    // 'stopping' is an unavailable status — text-delta is gated and never reaches the fallback counter.
+    context.ops.currentVoiceSessionStatus.mockReturnValue('stopping');
+
+    handleTransportTurnEvent(context as never, { type: 'text-delta', text: 'stale' });
+
+    // Event is gated by shouldIgnoreCanonicalAssistantOutput before fallback counting.
+    expect(context.ops.appendAssistantDraftTextDelta).not.toHaveBeenCalled();
+    const calls = context.ops.updateVoiceLiveSignalDiagnostics.mock.calls;
+    const hasFallbackUpdate = calls.some(
+      (args: unknown[]) => 'assistantTextFallbackCount' in (args[0] as Record<string, unknown>),
+    );
+    expect(hasFallbackUpdate).toBe(false);
   });
 });

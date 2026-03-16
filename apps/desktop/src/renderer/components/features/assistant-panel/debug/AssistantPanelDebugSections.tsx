@@ -1,4 +1,4 @@
-import { Eye, Monitor, ShieldAlert, Wifi } from 'lucide-react';
+import { Activity, Eye, Monitor, ShieldAlert, Wifi } from 'lucide-react';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 import type {
   RealtimeOutboundDiagnostics,
@@ -7,6 +7,7 @@ import type {
   VisualSendDiagnostics,
   VoiceCaptureDiagnostics,
   VoiceCaptureState,
+  VoiceLiveSignalDiagnostics,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
   VoiceSessionLatencyState,
@@ -21,6 +22,7 @@ import { ViewSection } from '../../../layout';
 import { Button, Switch } from '../../../primitives';
 import {
   formatCapitalizedState,
+  formatSignalTimestamp,
   formatVoiceLatencyMetric,
   formatOutboundBreakerState,
   formatOutboundDecisionOutcome,
@@ -464,6 +466,88 @@ export function AssistantPanelDebugScreenContextSection({
           {
             label: 'Blocked sends (gateway)',
             value: String(visualSendDiagnostics.blockedByGateway),
+          },
+        ]}
+      />
+    </ViewSection>
+  );
+}
+
+export type AssistantPanelDebugLiveSignalsSectionProps = {
+  voiceLiveSignalDiagnostics: VoiceLiveSignalDiagnostics;
+};
+
+export function AssistantPanelDebugLiveSignalsSection({
+  voiceLiveSignalDiagnostics: d,
+}: AssistantPanelDebugLiveSignalsSectionProps): JSX.Element {
+  return (
+    <ViewSection icon={Activity} title="Speech signals">
+      <FieldList
+        items={[
+          {
+            label: 'Input transcription',
+            value: d.inputAudioTranscriptionEnabled ? 'Enabled' : 'Disabled',
+          },
+          {
+            label: 'Output transcription',
+            value: d.outputAudioTranscriptionEnabled ? 'Enabled' : 'Disabled',
+          },
+          { label: 'Response modality', value: d.responseModality },
+          {
+            label: 'Session resumption',
+            value: d.sessionResumptionEnabled ? 'Enabled' : 'Disabled',
+          },
+          {
+            label: 'Input transcripts',
+            value: String(d.inputTranscriptCount),
+          },
+          {
+            label: 'Last input transcript',
+            value: formatSignalTimestamp(d.lastInputTranscriptAt),
+          },
+          {
+            label: 'Output transcripts',
+            value: String(d.outputTranscriptCount),
+          },
+          {
+            label: 'Last output transcript',
+            value: formatSignalTimestamp(d.lastOutputTranscriptAt),
+          },
+          {
+            label: 'Text fallback (voice)',
+            value: String(d.assistantTextFallbackCount),
+          },
+          {
+            label: 'Last text fallback',
+            value: formatSignalTimestamp(d.lastAssistantTextFallbackAt),
+          },
+          {
+            label: 'Ignored text delta',
+            value: String(d.ignoredTextDeltaCount),
+          },
+          {
+            label: 'Ignored output transcript',
+            value: String(d.ignoredOutputTranscriptCount),
+          },
+          {
+            label: 'Ignored audio chunks',
+            value: String(d.ignoredAudioChunkCount),
+          },
+          {
+            label: 'Ignored turn complete',
+            value: String(d.ignoredTurnCompleteCount),
+          },
+          {
+            label: 'Last ignored reason',
+            value: d.lastIgnoredReason ?? 'None',
+          },
+          {
+            label: 'Last ignored event',
+            value: d.lastIgnoredEventType ?? 'None',
+          },
+          {
+            label: 'Last ignored status',
+            value: d.lastIgnoredVoiceStatus ?? 'None',
           },
         ]}
       />

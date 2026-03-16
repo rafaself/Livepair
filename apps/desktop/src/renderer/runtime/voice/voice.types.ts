@@ -124,3 +124,38 @@ export type VoiceToolResponse = {
   name: string;
   response: Record<string, unknown>;
 };
+
+/**
+ * Compact per-session signal diagnostics that answer the five key debugging
+ * questions for speech/chat regressions:
+ *   1. What capabilities was the session started with?
+ *   2. Are transcript events actually arriving?
+ *   3. Is the text-delta fallback path being used?
+ *   4. Is assistant output being ignored, and why?
+ *
+ * Counts and timestamps accumulate for the lifetime of the active voice
+ * session and reset when the session resets.
+ */
+export type VoiceLiveSignalDiagnostics = {
+  // Capability contract — snapshotted from live config on session connect.
+  inputAudioTranscriptionEnabled: boolean;
+  outputAudioTranscriptionEnabled: boolean;
+  responseModality: string;
+  sessionResumptionEnabled: boolean;
+  // Transcript arrival.
+  inputTranscriptCount: number;
+  lastInputTranscriptAt: string | null;
+  outputTranscriptCount: number;
+  lastOutputTranscriptAt: string | null;
+  // Text-delta processed in voice mode (fallback when output-transcript is absent).
+  assistantTextFallbackCount: number;
+  lastAssistantTextFallbackAt: string | null;
+  // Ignored assistant output — promoted from in-memory WeakMap to store.
+  ignoredTextDeltaCount: number;
+  ignoredOutputTranscriptCount: number;
+  ignoredAudioChunkCount: number;
+  ignoredTurnCompleteCount: number;
+  lastIgnoredReason: string | null;
+  lastIgnoredEventType: string | null;
+  lastIgnoredVoiceStatus: string | null;
+};

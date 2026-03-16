@@ -1,4 +1,5 @@
 import type {
+  VoiceLiveSignalDiagnostics,
   VoiceSessionLatencyState,
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
@@ -55,5 +56,27 @@ export function createDefaultVoiceToolState(): VoiceToolState {
     toolName: null,
     callId: null,
     lastError: null,
+  };
+}
+
+export function createDefaultVoiceLiveSignalDiagnostics(): VoiceLiveSignalDiagnostics {
+  return {
+    inputAudioTranscriptionEnabled: false,
+    outputAudioTranscriptionEnabled: false,
+    responseModality: 'AUDIO',
+    sessionResumptionEnabled: false,
+    inputTranscriptCount: 0,
+    lastInputTranscriptAt: null,
+    outputTranscriptCount: 0,
+    lastOutputTranscriptAt: null,
+    assistantTextFallbackCount: 0,
+    lastAssistantTextFallbackAt: null,
+    ignoredTextDeltaCount: 0,
+    ignoredOutputTranscriptCount: 0,
+    ignoredAudioChunkCount: 0,
+    ignoredTurnCompleteCount: 0,
+    lastIgnoredReason: null,
+    lastIgnoredEventType: null,
+    lastIgnoredVoiceStatus: null,
   };
 }
