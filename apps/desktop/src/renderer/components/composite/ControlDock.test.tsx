@@ -21,7 +21,7 @@ function createDockProps(
     onStopVoiceCapture: vi.fn(async () => undefined),
     onStartScreenCapture: vi.fn(async () => undefined),
     onStopScreenCapture: vi.fn(async () => undefined),
-    onAnalyzeScreenNow: vi.fn(),
+    onSendScreenNow: vi.fn(),
     onEndSession: vi.fn(async () => undefined),
     ...overrides,
   };
@@ -65,7 +65,7 @@ describe('ControlDock', () => {
 
     expect(screen.getByRole('button', { name: /open panel/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /start microphone capture/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /start screen context/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /share screen/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /end live session/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /switch to speech mode/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /connect voice session/i })).toBeNull();
@@ -84,7 +84,7 @@ describe('ControlDock', () => {
     });
 
     expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /share screen/i })).toBeEnabled();
     expect(screen.queryByRole('button', { name: /end live session/i })).toBeNull();
     expect(screen.getByRole('button', { name: /close panel/i })).toHaveAttribute(
       'aria-expanded',
@@ -103,7 +103,7 @@ describe('ControlDock', () => {
     });
 
     expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /share screen/i })).toBeEnabled();
 
     const endSpeechModeButton = screen.getByRole('button', { name: 'End Live session' });
     expect(endSpeechModeButton).toBeEnabled();
@@ -128,7 +128,7 @@ describe('ControlDock', () => {
     );
 
     expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /share screen/i })).toBeEnabled();
 
     rerender(
       <ControlDock
@@ -144,7 +144,51 @@ describe('ControlDock', () => {
     );
 
     expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /start screen context/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /share screen/i })).toBeEnabled();
+  });
+
+  it('shows Send screen now only while screen sharing is active in manual mode', () => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        screenContextMode: 'manual',
+      },
+      isReady: true,
+    });
+    const { props, rerender } = renderDock({
+      currentMode: 'speech',
+      speechLifecycleStatus: 'listening',
+      activeTransport: 'gemini-live',
+      voiceSessionStatus: 'ready',
+      voiceCaptureState: 'stopped',
+      screenCaptureState: 'capturing',
+    });
+
+    const sendScreenNowButton = screen.getByRole('button', { name: 'Send screen now' });
+    fireEvent.click(sendScreenNowButton);
+    expect(props.onSendScreenNow).toHaveBeenCalledTimes(1);
+
+    useSettingsStore.setState({
+      settings: {
+        ...useSettingsStore.getState().settings,
+        screenContextMode: 'continuous',
+      },
+    });
+
+    rerender(
+      <ControlDock
+        {...createDockProps({
+          currentMode: 'speech',
+          speechLifecycleStatus: 'listening',
+          activeTransport: 'gemini-live',
+          voiceSessionStatus: 'ready',
+          voiceCaptureState: 'stopped',
+          screenCaptureState: 'capturing',
+        })}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Send screen now' })).toBeNull();
   });
 
   it('hides starting controls and disables teardown controls while speech mode is starting or ending', () => {
@@ -161,7 +205,7 @@ describe('ControlDock', () => {
 
     expect(screen.queryByRole('button', { name: /live session is starting/i })).toBeNull();
     expect(
-      screen.queryByRole('button', { name: /screen context unavailable while live session starts/i }),
+      screen.queryByRole('button', { name: /screen sharing unavailable while live session starts/i }),
     ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Starting Live session' })).toBeNull();
 
@@ -178,7 +222,7 @@ describe('ControlDock', () => {
 
     expect(screen.getByRole('button', { name: /live session is ending/i })).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /screen context unavailable while live session ends/i }),
+      screen.getByRole('button', { name: /screen sharing unavailable while live session ends/i }),
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Ending Live session' })).toBeDisabled();
   });
@@ -195,7 +239,7 @@ describe('ControlDock', () => {
 
     expect(screen.getByRole('button', { name: /live session is ending/i })).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /screen context unavailable while live session ends/i }),
+      screen.getByRole('button', { name: /screen sharing unavailable while live session ends/i }),
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Ending Live session' })).toBeDisabled();
   });
@@ -214,7 +258,7 @@ describe('ControlDock', () => {
       screen.getByRole('button', { name: /microphone unavailable while live session starts/i }),
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /screen context unavailable while live session starts/i }),
+      screen.getByRole('button', { name: /screen sharing unavailable while live session starts/i }),
     ).toBeDisabled();
   });
 

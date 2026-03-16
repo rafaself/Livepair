@@ -12,6 +12,7 @@ import {
   type VoiceCaptureState,
   type VoiceSessionStatus,
 } from '../../runtime';
+import type { ScreenContextMode } from '../../../shared';
 
 type ControlDockUiStateInput = {
   currentMode: ProductMode;
@@ -20,6 +21,7 @@ type ControlDockUiStateInput = {
   voiceSessionStatus?: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   screenCaptureState: ScreenCaptureState;
+  screenContextMode: ScreenContextMode;
   isPanelOpen: boolean;
 };
 
@@ -38,8 +40,7 @@ export type ControlDockUiState = {
   screenContextLabel: string;
   showEndSpeechModeControl: boolean;
   showSpeechControls: boolean;
-  /** True when screen capture is running and an explicit snapshot can be requested. */
-  canAnalyzeScreen: boolean;
+  showManualSendControl: boolean;
 };
 
 function getMicrophoneLabel(
@@ -92,23 +93,23 @@ function getScreenContextLabel(
   screenCaptureState: ScreenCaptureState,
 ): string {
   if (speechLifecycleStatus === 'starting') {
-    return 'Screen context unavailable while Live session starts';
+    return 'Screen sharing unavailable while Live session starts';
   }
 
   if (speechLifecycleStatus === 'ending') {
-    return 'Screen context unavailable while Live session ends';
+    return 'Screen sharing unavailable while Live session ends';
   }
 
   if (!showSpeechControls) {
-    return 'Screen context unavailable outside a Live session';
+    return 'Screen sharing unavailable outside a Live session';
   }
 
   if (!isScreenContextAvailable) {
-    return 'Screen context unavailable while Live session starts';
+    return 'Screen sharing unavailable while Live session starts';
   }
 
   if (isScreenContextActive) {
-    return 'Stop screen context';
+    return 'Stop sharing screen';
   }
 
   if (screenCaptureState === 'requestingPermission') {
@@ -116,14 +117,14 @@ function getScreenContextLabel(
   }
 
   if (screenCaptureState === 'stopping') {
-    return 'Stopping screen context';
+    return 'Stopping screen share';
   }
 
   if (screenCaptureState === 'error') {
-    return 'Retry screen context';
+    return 'Retry screen share';
   }
 
-  return 'Start screen context';
+  return 'Share screen';
 }
 
 function getEndSpeechModeLabel(speechLifecycleStatus: SpeechLifecycleStatus): string {
@@ -145,6 +146,7 @@ export function createControlDockUiState({
   voiceSessionStatus = 'disconnected',
   voiceCaptureState,
   screenCaptureState,
+  screenContextMode,
   isPanelOpen,
 }: ControlDockUiStateInput): ControlDockUiState {
   const controlGatingSnapshot = createControlGatingSnapshot({
@@ -201,6 +203,7 @@ export function createControlDockUiState({
     ),
     showEndSpeechModeControl: shouldShowDockEndControl(controlGatingSnapshot, isPanelOpen),
     showSpeechControls,
-    canAnalyzeScreen: isScreenContextActive && !isScreenContextBusy,
+    showManualSendControl:
+      screenContextMode === 'manual' && isScreenContextActive && !isScreenContextBusy,
   };
 }

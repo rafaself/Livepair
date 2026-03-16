@@ -1,14 +1,18 @@
 import { Monitor } from 'lucide-react';
-import type { VisualSessionQuality } from '../../../../../shared';
 import type { AssistantPanelSettingsController } from './useAssistantPanelSettingsController';
 import { FieldList } from '../../../composite';
 import { ViewSection } from '../../../layout';
 import { Select, Tooltip, type SelectOptionItem } from '../../../primitives';
 
-const VISUAL_QUALITY_OPTIONS: readonly SelectOptionItem[] = [
-  { value: 'Low', label: 'Low' },
-  { value: 'Medium', label: 'Medium' },
-  { value: 'High', label: 'High' },
+const SCREEN_CONTEXT_MODE_OPTIONS: readonly SelectOptionItem[] = [
+  { value: 'manual', label: 'Manual' },
+  { value: 'continuous', label: 'Continuous' },
+];
+
+const CONTINUOUS_SCREEN_QUALITY_OPTIONS: readonly SelectOptionItem[] = [
+  { value: 'low', label: 'low' },
+  { value: 'medium', label: 'medium' },
+  { value: 'high', label: 'high' },
 ];
 
 type ScreenSettingsController = Pick<
@@ -16,8 +20,10 @@ type ScreenSettingsController = Pick<
   | 'screenCaptureSourceOptions'
   | 'selectedScreenCaptureSourceId'
   | 'setSelectedScreenCaptureSourceId'
-  | 'visualSessionQuality'
-  | 'setVisualSessionQuality'
+  | 'screenContextMode'
+  | 'setScreenContextMode'
+  | 'continuousScreenQuality'
+  | 'setContinuousScreenQuality'
 >;
 
 export type AssistantPanelScreenSettingsSectionProps = {
@@ -31,12 +37,16 @@ export function AssistantPanelScreenSettingsSection({
     screenCaptureSourceOptions,
     selectedScreenCaptureSourceId,
     setSelectedScreenCaptureSourceId,
-    visualSessionQuality,
-    setVisualSessionQuality,
+    screenContextMode,
+    setScreenContextMode,
+    continuousScreenQuality,
+    setContinuousScreenQuality,
   } = controller;
+  const configuredScreenContextMode =
+    screenContextMode === 'unconfigured' ? '' : screenContextMode;
 
   return (
-    <ViewSection icon={Monitor} title="Video">
+    <ViewSection icon={Monitor} title="Share Screen">
       <FieldList
         className="assistant-panel__settings-field-list field-list--aligned-controls"
         items={[
@@ -58,26 +68,63 @@ export function AssistantPanelScreenSettingsSection({
           {
             label: (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                Frame quality
-                <Tooltip content="Higher quality may increase latency and cost." />
+                Mode
+                <Tooltip content="Choose how Share Screen should send your screen." />
               </span>
             ),
             value: (
-              <Select
-                aria-label="Frame quality"
-                className="assistant-panel__settings-select assistant-panel__settings-audio-select"
-                options={VISUAL_QUALITY_OPTIONS}
-                value={visualSessionQuality}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (value === 'Low' || value === 'Medium' || value === 'High') {
-                    setVisualSessionQuality(value as VisualSessionQuality);
-                  }
-                }}
-                size="sm"
-              />
+              <div className="assistant-panel__settings-field-stack">
+                <Select
+                  aria-label="Screen mode"
+                  className="assistant-panel__settings-select assistant-panel__settings-audio-select"
+                  options={SCREEN_CONTEXT_MODE_OPTIONS}
+                  value={configuredScreenContextMode}
+                  placeholder="Choose mode"
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value === 'manual' || value === 'continuous') {
+                      setScreenContextMode(value);
+                    }
+                  }}
+                  size="sm"
+                />
+                <span className="assistant-panel__settings-hint">
+                  {screenContextMode === 'manual'
+                    ? 'Manual mode always sends in High quality when you click Send screen now.'
+                    : screenContextMode === 'continuous'
+                      ? 'Continuous mode uses the automatic screen quality below.'
+                      : 'Choose how Share Screen should work before you start using it.'}
+                </span>
+              </div>
             ),
           },
+          ...(screenContextMode === 'continuous'
+            ? [
+                {
+                  label: (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      Automatic quality
+                      <Tooltip content="Higher quality may increase latency and cost." />
+                    </span>
+                  ),
+                  value: (
+                    <Select
+                      aria-label="Automatic screen quality"
+                      className="assistant-panel__settings-select assistant-panel__settings-audio-select"
+                      options={CONTINUOUS_SCREEN_QUALITY_OPTIONS}
+                      value={continuousScreenQuality}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (value === 'low' || value === 'medium' || value === 'high') {
+                          setContinuousScreenQuality(value);
+                        }
+                      }}
+                      size="sm"
+                    />
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
     </ViewSection>

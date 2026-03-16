@@ -326,7 +326,7 @@ export function AssistantPanelDebugScreenContextSection({
   onToggleSaveScreenFrames,
 }: AssistantPanelDebugScreenContextSectionProps): JSX.Element {
   return (
-    <ViewSection icon={Monitor} title="Screen context">
+    <ViewSection icon={Monitor} title="Share Screen">
       <FieldList
         items={[
           { label: 'Screen state', value: formatScreenCaptureState(screenCaptureState) },
@@ -406,23 +406,23 @@ export function AssistantPanelDebugScreenContextSection({
             value: formatVisualTransitionReason(visualSendDiagnostics.lastTransitionReason),
           },
           {
-            label: 'Snapshots triggered',
+            label: 'Manual sends triggered',
             value: String(visualSendDiagnostics.snapshotCount),
           },
           {
-            label: 'Streaming entered',
+            label: 'Continuous sharing started',
             value: visualSendDiagnostics.streamingEnteredAt ?? 'None',
           },
           {
-            label: 'Streaming ended',
+            label: 'Continuous sharing stopped',
             value: visualSendDiagnostics.streamingEndedAt ?? 'None',
           },
           {
-            label: 'Sent (snapshot)',
+            label: 'Sent (manual)',
             value: String(visualSendDiagnostics.sentByState.snapshot),
           },
           {
-            label: 'Sent (streaming)',
+            label: 'Sent (continuous)',
             value: String(visualSendDiagnostics.sentByState.streaming),
           },
           {

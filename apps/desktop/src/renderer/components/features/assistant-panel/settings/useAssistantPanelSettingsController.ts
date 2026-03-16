@@ -1,11 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import type {
   ChatTimestampVisibility,
+  ContinuousScreenQuality,
   DesktopVoice,
   PreferredMode,
+  ScreenContextMode,
   SpeechSilenceTimeout,
   ThemePreference,
-  VisualSessionQuality,
 } from '../../../../../shared';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../../shared';
 import { useSettingsStore } from '../../../../store/settingsStore';
@@ -32,7 +33,8 @@ export type AssistantPanelSettingsController = {
   voiceNoiseSuppressionEnabled: boolean;
   voiceAutoGainControlEnabled: boolean;
   themePreference: ThemePreference;
-  visualSessionQuality: VisualSessionQuality;
+  screenContextMode: ScreenContextMode;
+  continuousScreenQuality: ContinuousScreenQuality;
   chatTimestampVisibility: ChatTimestampVisibility;
   voice: DesktopVoice;
   systemInstruction: string;
@@ -51,7 +53,8 @@ export type AssistantPanelSettingsController = {
   setVoiceNoiseSuppressionEnabled: (enabled: boolean) => void;
   setVoiceAutoGainControlEnabled: (enabled: boolean) => void;
   setThemePreference: (themePreference: ThemePreference) => void;
-  setVisualSessionQuality: (quality: VisualSessionQuality) => void;
+  setScreenContextMode: (mode: Exclude<ScreenContextMode, 'unconfigured'>) => void;
+  setContinuousScreenQuality: (quality: ContinuousScreenQuality) => void;
   setChatTimestampVisibility: (visibility: ChatTimestampVisibility) => void;
   setVoice: (voice: DesktopVoice) => void;
   setSystemInstruction: (systemInstruction: string) => void;
@@ -110,7 +113,8 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     voiceNoiseSuppressionEnabled: settings.voiceNoiseSuppressionEnabled,
     voiceAutoGainControlEnabled: settings.voiceAutoGainControlEnabled,
     themePreference: settings.themePreference,
-    visualSessionQuality: settings.visualSessionQuality,
+    screenContextMode: settings.screenContextMode,
+    continuousScreenQuality: settings.continuousScreenQuality,
     chatTimestampVisibility: settings.chatTimestampVisibility,
     voice: settings.voice,
     systemInstruction: settings.systemInstruction,
@@ -166,8 +170,11 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     setThemePreference: (themePreference) => {
       void updateSetting('themePreference', themePreference);
     },
-    setVisualSessionQuality: (visualSessionQuality) => {
-      void updateSetting('visualSessionQuality', visualSessionQuality);
+    setScreenContextMode: (screenContextMode) => {
+      void updateSetting('screenContextMode', screenContextMode);
+    },
+    setContinuousScreenQuality: (continuousScreenQuality) => {
+      void updateSetting('continuousScreenQuality', continuousScreenQuality);
     },
     setChatTimestampVisibility: (chatTimestampVisibility) => {
       void updateSetting('chatTimestampVisibility', chatTimestampVisibility);

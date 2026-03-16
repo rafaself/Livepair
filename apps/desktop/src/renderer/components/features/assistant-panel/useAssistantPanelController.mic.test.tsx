@@ -45,7 +45,7 @@ function createRuntime(overrides: Partial<SessionRuntime> = {}): SessionRuntime 
     handleStopVoiceCapture: vi.fn(async () => undefined),
     handleStartScreenCapture: vi.fn(async () => undefined),
     handleStopScreenCapture: vi.fn(async () => undefined),
-    handleAnalyzeScreenNow: vi.fn(),
+    handleSendScreenNow: vi.fn(),
     handleSubmitTextTurn: vi.fn(async () => false),
     handleEndSpeechMode: vi.fn(async () => undefined),
     handleEndSession: vi.fn(async () => undefined),

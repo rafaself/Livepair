@@ -8,6 +8,10 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../shared/settings';
 import { App } from './App';
+import {
+  getDesktopSessionController,
+  resetDesktopSessionController,
+} from './runtime/sessionController';
 import { useSettingsStore } from './store/settingsStore';
 import { useCaptureExclusionRectsStore } from './store/captureExclusionRectsStore';
 import { resetDesktopStores } from './test/store';
@@ -75,6 +79,7 @@ describe('App', () => {
 
   beforeEach(() => {
     resetDesktopStores();
+    resetDesktopSessionController();
     useSettingsStore.setState({
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
@@ -126,6 +131,10 @@ describe('App', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
+    window.bridge.updateSettings = vi.fn().mockImplementation(async (patch) => ({
+      ...useSettingsStore.getState().settings,
+      ...patch,
+    }));
     document.documentElement.dataset['theme'] = '';
     document.documentElement.style.colorScheme = '';
     window.bridge.overlayMode = 'linux-shape';
@@ -146,6 +155,63 @@ describe('App', () => {
 
     fireEvent.click(panelToggleOpen);
     expect(panel).toHaveAttribute('aria-hidden', 'false');
+  });
+
+  it('gates the first Share Screen attempt, traps focus, and resumes after confirmation', async () => {
+    installMatchMedia(true);
+    const controller = getDesktopSessionController();
+    const startScreenCaptureSpy = vi.spyOn(controller, 'startScreenCapture').mockResolvedValue();
+
+    useSessionStore.setState({
+      currentMode: 'speech',
+      activeTransport: 'gemini-live',
+      speechLifecycle: { status: 'listening' },
+      voiceSessionStatus: 'ready',
+      voiceCaptureState: 'stopped',
+      screenCaptureState: 'disabled',
+    });
+
+    render(<App />);
+
+    const shareScreenButton = screen.getByRole('button', { name: 'Share screen' });
+    shareScreenButton.focus();
+    fireEvent.click(shareScreenButton);
+
+    expect(startScreenCaptureSpy).not.toHaveBeenCalled();
+
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Choose your Share Screen mode',
+    });
+    const manualRadio = screen.getByRole('radio', { name: /manual/i });
+    const confirmButton = screen.getByRole('button', { name: 'Confirm Share Screen mode' });
+
+    expect(dialog).toBeVisible();
+    expect(screen.getByText(/sends your current screen only when you explicitly click/i)).toBeVisible();
+    expect(confirmButton).toBeDisabled();
+    expect(manualRadio).toHaveFocus();
+
+    confirmButton.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(manualRadio).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(dialog).toBeVisible();
+
+    fireEvent.click(manualRadio);
+    expect(confirmButton).toBeEnabled();
+
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        screenContextMode: 'manual',
+      });
+      expect(startScreenCaptureSpy).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Choose your Share Screen mode' })).toBeNull();
+      expect(shareScreenButton).toHaveFocus();
+    });
   });
 
   it('updates the applied theme when the system preference changes and cleans up listeners', () => {
@@ -303,7 +369,7 @@ describe('App', () => {
       expectedMessage: 'Choose a screen to share, then try again.',
     },
     {
-      detail: 'Screen context requires an active Live session',
+      detail: 'Screen sharing requires an active Live session',
       expectedMessage: 'Start Live session before sharing your screen.',
     },
   ])('shows actionable capture guidance for $detail', async ({ detail, expectedMessage }) => {
