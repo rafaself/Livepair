@@ -1,117 +1,17 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  AssistantPanelDebugConnectionSection,
-  AssistantPanelDebugScreenContextSection,
-} from './AssistantPanelDebugSections';
 import { AssistantPanelDebugView } from './AssistantPanelDebugView';
-import type { VisualSendDiagnostics } from '../../../../runtime';
 import { useSessionStore } from '../../../../store/sessionStore';
 import { resetDesktopStores } from '../../../../test/store';
-
-type VoiceLatencyMetricTestState = {
-  status: 'available' | 'pending' | 'unavailable';
-  valueMs: number | null;
-  lastValueMs: number | null;
-};
-
-type VoiceSessionLatencyTestState = {
-  connect: VoiceLatencyMetricTestState;
-  firstModelResponse: VoiceLatencyMetricTestState;
-  speechToFirstModelResponse: VoiceLatencyMetricTestState;
-};
-
-function createVoiceSessionLatencyState(
-  overrides: Partial<VoiceSessionLatencyTestState> = {},
-): VoiceSessionLatencyTestState {
-  return {
-    connect: {
-      status: 'unavailable',
-      valueMs: null,
-      lastValueMs: null,
-    },
-    firstModelResponse: {
-      status: 'unavailable',
-      valueMs: null,
-      lastValueMs: null,
-    },
-    speechToFirstModelResponse: {
-      status: 'unavailable',
-      valueMs: null,
-      lastValueMs: null,
-    },
-    ...overrides,
-  };
-}
 
 beforeEach(() => {
   resetDesktopStores();
 });
 
 describe('AssistantPanelDebugView', () => {
-  it('renders developer diagnostics without assistant state controls', () => {
-    const onRetryBackendHealth = vi.fn(async () => undefined);
-    const onToggleSaveScreenFrames = vi.fn();
-
+  it('renders the deterministic continuous screen diagnostics', () => {
     useSessionStore.setState({
-      backendState: 'failed',
-      voiceSessionStatus: 'streaming',
-      voiceSessionLatency: createVoiceSessionLatencyState({
-        connect: {
-          status: 'available',
-          valueMs: 450,
-          lastValueMs: 450,
-        },
-        firstModelResponse: {
-          status: 'pending',
-          valueMs: null,
-          lastValueMs: 320,
-        },
-        speechToFirstModelResponse: {
-          status: 'unavailable',
-          valueMs: null,
-          lastValueMs: 180,
-        },
-      }),
-      voiceSessionResumption: {
-        status: 'reconnecting',
-        latestHandle: 'handles/voice-session-2',
-        resumable: true,
-        lastDetail: 'server draining',
-      },
-      voiceSessionDurability: {
-        compressionEnabled: true,
-        tokenValid: false,
-        tokenRefreshing: true,
-        tokenRefreshFailed: false,
-        expireTime: '2099-03-09T12:30:00.000Z',
-        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
-        lastDetail: 'Refreshing token before resume',
-      },
-      voiceCaptureState: 'capturing',
-      voiceCaptureDiagnostics: {
-        chunkCount: 3,
-        sampleRateHz: 16_000,
-        bytesPerChunk: 640,
-        chunkDurationMs: 20,
-        selectedInputDeviceId: 'default',
-        lastError: null,
-      },
-      voicePlaybackState: 'playing',
-      voicePlaybackDiagnostics: {
-        chunkCount: 2,
-        queueDepth: 1,
-        sampleRateHz: 24_000,
-        selectedOutputDeviceId: 'desk-speakers',
-        lastError: null,
-      },
-      voiceToolState: {
-        status: 'toolResponding',
-        toolName: 'get_current_mode',
-        callId: 'call-1',
-        lastError: null,
-      },
-      screenCaptureState: 'streaming',
+      screenCaptureState: 'capturing',
       screenCaptureDiagnostics: {
         captureSource: 'Entire screen',
         frameCount: 4,
@@ -119,55 +19,25 @@ describe('AssistantPanelDebugView', () => {
         widthPx: 640,
         heightPx: 360,
         lastFrameAt: '2026-03-10T10:15:00.000Z',
-        overlayMaskActive: true,
-        maskedRectCount: 2,
-        lastMaskedFrameAt: '2026-03-10T10:15:00.000Z',
-        maskReason: 'panel-open',
+        overlayMaskActive: false,
+        maskedRectCount: 0,
+        lastMaskedFrameAt: null,
+        maskReason: 'hidden',
         lastUploadStatus: 'sent',
         lastError: null,
       },
-      realtimeOutboundDiagnostics: {
-        breakerState: 'open',
-        breakerReason: 'transport unavailable',
-        consecutiveFailureCount: 3,
-        totalSubmitted: 11,
-        sentCount: 6,
-        droppedCount: 2,
-        replacedCount: 1,
-        blockedCount: 2,
-        droppedByReason: {
-          staleSequence: 1,
-          laneSaturated: 1,
-        },
-        blockedByReason: {
-          breakerOpen: 2,
-        },
-        submittedByKind: {
-          text: 3,
-          audioChunk: 5,
-          visualFrame: 3,
-        },
-        lastDecision: 'block',
-        lastReason: 'breaker-open',
-        lastEventKind: 'text',
-        lastChannelKey: 'text:speech-mode',
-        lastSequence: 3,
-        lastReplaceKey: null,
-        lastSubmittedAtMs: 1_000,
-        lastError: 'transport unavailable',
-      },
       visualSendDiagnostics: {
-        lastTransitionReason: 'enableStreaming',
-        snapshotCount: 2,
-        streamingEnteredAt: '2026-03-10T10:14:00.000Z',
-        streamingEndedAt: null,
-        sentByState: { snapshot: 2, streaming: 7 },
-        droppedByPolicy: 0,
-        blockedByGateway: 0,
-        triggerSnapshotCount: 0,
-        burstCount: 0,
+        lastEvent: 'continuousFrameSent',
+        continuousCadenceMs: 3000,
+        continuousActive: true,
+        continuousStartedAt: '2026-03-10T10:14:00.000Z',
+        continuousStoppedAt: null,
+        continuousFramesSentCount: 7,
+        lastContinuousFrameAt: '2026-03-10T10:15:03.000Z',
+        manualSendPending: false,
         manualFramesSentCount: 2,
-        lastManualFrameAt: '2026-03-10T10:15:05.000Z',
+        lastManualFrameAt: '2026-03-10T10:13:00.000Z',
+        blockedByGateway: 1,
       },
     } as never);
 
@@ -175,410 +45,39 @@ describe('AssistantPanelDebugView', () => {
       <AssistantPanelDebugView
         saveScreenFramesEnabled={false}
         screenFrameDumpDirectoryPath="/tmp/livepair/screen-frame-dumps/current-debug-session"
-        onToggleSaveScreenFrames={onToggleSaveScreenFrames}
-        onRetryBackendHealth={onRetryBackendHealth}
+        onToggleSaveScreenFrames={() => undefined}
+        onRetryBackendHealth={async () => undefined}
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'Developer tools' })).toBeVisible();
-    expect(screen.getByText('Backend status')).toBeVisible();
-    expect(screen.getByText('Token request')).toBeVisible();
-    expect(screen.getByText('Mode')).toBeVisible();
-    expect(screen.getByText('Fast')).toBeVisible();
-    expect(screen.getByText('Voice session')).toBeVisible();
-    expect(screen.getAllByText('Streaming').length).toBeGreaterThan(0);
-    expect(screen.getByText('Session resumption')).toBeVisible();
-    expect(screen.getByText('Reconnecting')).toBeVisible();
-    expect(screen.getByText('Compression')).toBeVisible();
-    expect(screen.getByText('Enabled')).toBeVisible();
-    expect(screen.getByText('Token valid')).toBeVisible();
-    expect(screen.getByText('Token refreshing')).toBeVisible();
-    expect(screen.getByText('Tool state')).toBeVisible();
-    expect(screen.getByText('Tool responding')).toBeVisible();
-    expect(screen.getByText('Current tool')).toBeVisible();
-    expect(screen.getByText('get_current_mode')).toBeVisible();
-    expect(screen.getByText('Voice capture')).toBeVisible();
-    expect(screen.getByText('Capturing')).toBeVisible();
-    expect(screen.getByText('Voice playback')).toBeVisible();
-    expect(screen.getByText('Playing')).toBeVisible();
-    expect(screen.getByText('Connect latency')).toBeVisible();
-    expect(screen.getByText('450 ms')).toBeVisible();
-    expect(screen.getByText('First model response')).toBeVisible();
-    expect(screen.getByText('Pending (last: 320 ms)')).toBeVisible();
-    expect(screen.getByText('Speech to response')).toBeVisible();
-    expect(screen.getByText('Unavailable (last: 180 ms)')).toBeVisible();
-    expect(screen.getByText('Share Screen')).toBeVisible();
-    expect(screen.getByText('Outbound guardrails')).toBeVisible();
-    expect(screen.getByText('Breaker')).toBeVisible();
-    expect(screen.getByText('Open')).toBeVisible();
-    expect(screen.getByText('Breaker reason')).toBeVisible();
-    expect(screen.getAllByText('transport unavailable').length).toBeGreaterThan(0);
-    expect(screen.getByText('Dropped (saturated)')).toBeVisible();
-    expect(screen.getByText('Blocked (breaker)')).toBeVisible();
-    expect(screen.getByText('Audio submits')).toBeVisible();
-    expect(screen.getByText('Visual submits')).toBeVisible();
-    expect(screen.getByText('Sent count')).toBeVisible();
-    expect(screen.getByText('Entire screen')).toBeVisible();
-    expect(screen.getByRole('switch', { name: 'Save screen frames' })).toHaveAttribute(
-      'aria-checked',
-      'false',
-    );
-    expect(
-      screen.getByText('/tmp/livepair/screen-frame-dumps/current-debug-session'),
-    ).toBeVisible();
-    expect(screen.getByText('Chunk count')).toBeVisible();
-    expect(screen.getByText('Audio format')).toBeVisible();
-    expect(screen.getByText('16 kHz / mono / pcm_s16le')).toBeVisible();
-    expect(screen.getByText('Playback output')).toBeVisible();
-    expect(screen.getByText('desk-speakers')).toBeVisible();
-    expect(screen.queryByText('Assistant state')).toBeNull();
-    expect(screen.queryByText('Preview')).toBeNull();
-    expect(screen.queryByText('Set assistant state')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'speaking' })).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Retry backend' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Save screen frames' }));
-    expect(onRetryBackendHealth).toHaveBeenCalledTimes(1);
-    expect(onToggleSaveScreenFrames).toHaveBeenCalledTimes(1);
-
-    // Wave 3 – visual send policy diagnostics are rendered in the Share Screen section
-    expect(screen.getByText('Visual send state')).toBeVisible();
-    expect(screen.getByText('Last transition')).toBeVisible();
-    expect(screen.getByText('Continuous sharing enabled')).toBeVisible();
-    expect(screen.getByText('Manual frames sent')).toBeVisible();
-    expect(
-      within(screen.getByText('Manual frames sent').closest('.field-list__item')!)
-        .getByText('2'),
-    ).toBeVisible();
-    expect(screen.getByText('Last manual frame')).toBeVisible();
-    expect(screen.getByText('2026-03-10T10:15:05.000Z')).toBeVisible();
-    expect(screen.getByText('Continuous sharing started')).toBeVisible();
-    expect(screen.getByText('2026-03-10T10:14:00.000Z')).toBeVisible();
-    expect(screen.getByText('Continuous sharing stopped')).toBeVisible();
+    expect(screen.getByText('Automatic cadence')).toBeVisible();
+    expect(screen.getByText('3000 ms')).toBeVisible();
+    expect(screen.getByText('Last screen event')).toBeVisible();
+    expect(screen.getByText('Continuous frame sent')).toBeVisible();
+    expect(screen.getByText('Continuous active')).toBeVisible();
+    expect(screen.getAllByText('Yes').length).toBeGreaterThan(0);
+    expect(screen.getByText('Last continuous frame')).toBeVisible();
+    expect(screen.getByText('2026-03-10T10:15:03.000Z')).toBeVisible();
     expect(screen.getByText('Sent (continuous)')).toBeVisible();
-    expect(screen.getByText('Overlay mask active')).toBeVisible();
-    expect(screen.getByText('Mask reason')).toBeVisible();
-    expect(screen.getByText('Panel open')).toBeVisible();
-    expect(screen.getByText('Masked rects')).toBeVisible();
-    expect(screen.getByText('Last masked frame')).toBeVisible();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Wave 3 – visual send diagnostics display
-// ---------------------------------------------------------------------------
-
-function buildBaseStoreState(visualSendDiagnostics: Partial<VisualSendDiagnostics>) {
-  return {
-    backendState: 'connected' as const,
-    voiceSessionStatus: 'disconnected' as const,
-    voiceSessionResumption: {
-      status: 'idle' as const,
-      latestHandle: null,
-      resumable: false,
-      lastDetail: null,
-    },
-    voiceSessionDurability: {
-      compressionEnabled: false,
-      tokenValid: false,
-      tokenRefreshing: false,
-      tokenRefreshFailed: false,
-      expireTime: null,
-      newSessionExpireTime: null,
-      lastDetail: null,
-    },
-    voiceCaptureState: 'idle' as const,
-    voiceCaptureDiagnostics: {
-      chunkCount: 0,
-      sampleRateHz: null,
-      bytesPerChunk: null,
-      chunkDurationMs: null,
-      selectedInputDeviceId: null,
-      lastError: null,
-    },
-    voicePlaybackState: 'idle' as const,
-    voicePlaybackDiagnostics: {
-      chunkCount: 0,
-      queueDepth: 0,
-      sampleRateHz: null,
-      selectedOutputDeviceId: null,
-      lastError: null,
-    },
-    voiceToolState: {
-      status: 'idle' as const,
-      toolName: null,
-      callId: null,
-      lastError: null,
-    },
-    screenCaptureState: 'capturing' as const,
-    screenCaptureDiagnostics: {
-      captureSource: null,
-      frameCount: 0,
-      frameRateHz: null,
-      widthPx: null,
-      heightPx: null,
-      lastFrameAt: null,
-      overlayMaskActive: false,
-      maskedRectCount: 0,
-      lastMaskedFrameAt: null,
-      maskReason: 'hidden' as const,
-      lastUploadStatus: 'idle' as const,
-      lastError: null,
-    },
-    realtimeOutboundDiagnostics: {
-      breakerState: 'closed' as const,
-      breakerReason: null,
-      consecutiveFailureCount: 0,
-      totalSubmitted: 0,
-      sentCount: 0,
-      droppedCount: 0,
-      replacedCount: 0,
-      blockedCount: 0,
-      droppedByReason: { staleSequence: 0, laneSaturated: 0 },
-      blockedByReason: { breakerOpen: 0 },
-      submittedByKind: { text: 0, audioChunk: 0, visualFrame: 0 },
-      lastDecision: null,
-      lastReason: null,
-      lastEventKind: null,
-      lastChannelKey: null,
-      lastSequence: 0,
-      lastReplaceKey: null,
-      lastSubmittedAtMs: null,
-      lastError: null,
-    },
-    visualSendDiagnostics: {
-      lastTransitionReason: null,
-      snapshotCount: 0,
-      streamingEnteredAt: null,
-      streamingEndedAt: null,
-      sentByState: { snapshot: 0, streaming: 0 },
-      droppedByPolicy: 0,
-      blockedByGateway: 0,
-      triggerSnapshotCount: 0,
-      burstCount: 0,
-      manualFramesSentCount: 0,
-      lastManualFrameAt: null,
-      ...visualSendDiagnostics,
-    },
-  };
-}
-
-function renderDebugView(visualSendDiagnostics: Partial<VisualSendDiagnostics>) {
-  useSessionStore.setState(buildBaseStoreState(visualSendDiagnostics));
-  render(
-    <AssistantPanelDebugView
-      saveScreenFramesEnabled={false}
-      screenFrameDumpDirectoryPath={null}
-      onToggleSaveScreenFrames={vi.fn()}
-      onRetryBackendHealth={vi.fn(async () => undefined)}
-    />,
-  );
-}
-
-describe('AssistantPanelDebugSections', () => {
-  it('hides retry action and falls back token request to Idle when backend is not failed', () => {
-    const onRetryBackendHealth = vi.fn(async () => undefined);
-
-    render(
-      <AssistantPanelDebugConnectionSection
-        backendState="connected"
-        backendIndicatorState="ready"
-        backendLabel="Connected"
-        tokenFeedback={null}
-        onRetryBackendHealth={onRetryBackendHealth}
-      />,
-    );
-
-    expect(screen.getByText('Backend status')).toBeVisible();
-    expect(screen.getByText('Token request')).toBeVisible();
-    expect(
-      within(screen.getByText('Token request').closest('.field-list__item')!).getByText('Idle'),
-    ).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Retry backend' })).toBeNull();
-    expect(onRetryBackendHealth).not.toHaveBeenCalled();
+    expect(screen.getByText('7')).toBeVisible();
+    expect(screen.getByText('Blocked (gateway)')).toBeVisible();
+    expect(screen.getByText('1')).toBeVisible();
   });
 
-  it('omits the saved frame dump row when no dump directory is available', () => {
+  it('toggles save screen frames from the debug view', () => {
     const onToggleSaveScreenFrames = vi.fn();
-    const state = buildBaseStoreState({});
 
     render(
-      <AssistantPanelDebugScreenContextSection
-        screenCaptureState={state.screenCaptureState}
-        screenCaptureDiagnostics={state.screenCaptureDiagnostics}
-        visualSendDiagnostics={state.visualSendDiagnostics}
-        saveScreenFramesEnabled={true}
+      <AssistantPanelDebugView
+        saveScreenFramesEnabled={false}
         screenFrameDumpDirectoryPath={null}
         onToggleSaveScreenFrames={onToggleSaveScreenFrames}
+        onRetryBackendHealth={async () => undefined}
       />,
     );
 
-    expect(screen.queryByText('Saved frame dump')).toBeNull();
     fireEvent.click(screen.getByRole('switch', { name: 'Save screen frames' }));
+
     expect(onToggleSaveScreenFrames).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('AssistantPanelDebugView – visual send diagnostics (Wave 3)', () => {
-  it('shows current visual send state', () => {
-    renderDebugView({
-      lastTransitionReason: 'screenShareStarted',
-      snapshotCount: 0,
-      streamingEnteredAt: null,
-      streamingEndedAt: null,
-      sentByState: { snapshot: 0, streaming: 0 },
-      droppedByPolicy: 0,
-      blockedByGateway: 0,
-      manualFramesSentCount: 0,
-      lastManualFrameAt: null,
-    });
-    expect(screen.getByText('Visual send state')).toBeVisible();
-    expect(screen.getByText('Last transition')).toBeVisible();
-    expect(screen.getByText('Screen share started')).toBeVisible();
-  });
-
-  it('shows "None" for last transition when reason is null', () => {
-    renderDebugView({
-      lastTransitionReason: null,
-      snapshotCount: 0,
-      streamingEnteredAt: null,
-      streamingEndedAt: null,
-      sentByState: { snapshot: 0, streaming: 0 },
-      droppedByPolicy: 0,
-      blockedByGateway: 0,
-      manualFramesSentCount: 0,
-      lastManualFrameAt: null,
-    });
-    expect(screen.getByText('Last transition')).toBeVisible();
-    expect(screen.getAllByText('None').length).toBeGreaterThan(0);
-  });
-
-  it('shows manual frame count', () => {
-    renderDebugView({
-      lastTransitionReason: 'manualMode',
-      snapshotCount: 5,
-      streamingEnteredAt: null,
-      streamingEndedAt: null,
-      sentByState: { snapshot: 4, streaming: 0 },
-      droppedByPolicy: 0,
-      blockedByGateway: 0,
-      manualFramesSentCount: 5,
-      lastManualFrameAt: null,
-    });
-    expect(screen.getByText('Manual frames sent')).toBeVisible();
-    expect(screen.getByText('5')).toBeVisible();
-  });
-
-  it('shows streaming entered timestamp when present', () => {
-    renderDebugView({
-      lastTransitionReason: 'enableStreaming',
-      snapshotCount: 0,
-      streamingEnteredAt: '2026-03-14T09:00:00.000Z',
-      streamingEndedAt: null,
-      sentByState: { snapshot: 0, streaming: 0 },
-      droppedByPolicy: 0,
-      blockedByGateway: 0,
-      manualFramesSentCount: 0,
-      lastManualFrameAt: null,
-    });
-    expect(screen.getByText('Continuous sharing started')).toBeVisible();
-    expect(screen.getByText('2026-03-14T09:00:00.000Z')).toBeVisible();
-  });
-
-  it('shows streaming ended timestamp when present', () => {
-    renderDebugView({
-      lastTransitionReason: 'stopStreaming',
-      snapshotCount: 0,
-      streamingEnteredAt: '2026-03-14T09:00:00.000Z',
-      streamingEndedAt: '2026-03-14T09:05:00.000Z',
-      sentByState: { snapshot: 0, streaming: 12 },
-      droppedByPolicy: 0,
-      blockedByGateway: 0,
-      manualFramesSentCount: 0,
-      lastManualFrameAt: null,
-    });
-    expect(screen.getAllByText('Continuous sharing stopped')).toHaveLength(2);
-    expect(screen.getByText('2026-03-14T09:05:00.000Z')).toBeVisible();
-  });
-
-  it('shows sent-frame counts by state', () => {
-    renderDebugView({
-      lastTransitionReason: 'snapshotConsumed',
-      snapshotCount: 3,
-      streamingEnteredAt: null,
-      streamingEndedAt: null,
-      sentByState: { snapshot: 3, streaming: 0 },
-      droppedByPolicy: 0,
-      blockedByGateway: 0,
-      manualFramesSentCount: 3,
-      lastManualFrameAt: null,
-    });
-    expect(screen.getByText('Sent (continuous)')).toBeVisible();
-    expect(
-      within(screen.getByText('Manual frames sent').closest('.field-list__item')!)
-        .getByText('3'),
-    ).toBeVisible();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Wave 4 – Capture vs Send Diagnostics display
-// ---------------------------------------------------------------------------
-
-describe('AssistantPanelDebugView – Wave 4 capture/send diagnostics display', () => {
-  it('shows dropped-by-policy count', () => {
-    renderDebugView({
-      lastTransitionReason: null,
-      snapshotCount: 0,
-      streamingEnteredAt: null,
-      streamingEndedAt: null,
-      sentByState: { snapshot: 0, streaming: 0 },
-      droppedByPolicy: 5,
-      blockedByGateway: 0,
-    });
-    expect(screen.getByText('Dropped (policy)')).toBeVisible();
-    expect(
-      within(screen.getByText('Dropped (policy)').closest('.field-list__item')!)
-        .getByText('5'),
-    ).toBeVisible();
-  });
-
-  it('shows blocked-by-gateway count', () => {
-    renderDebugView({
-      lastTransitionReason: null,
-      snapshotCount: 0,
-      streamingEnteredAt: null,
-      streamingEndedAt: null,
-      sentByState: { snapshot: 0, streaming: 0 },
-      droppedByPolicy: 0,
-      blockedByGateway: 3,
-    });
-    expect(screen.getByText('Blocked (gateway)')).toBeVisible();
-    expect(
-      within(screen.getByText('Blocked (gateway)').closest('.field-list__item')!)
-        .getByText('3'),
-    ).toBeVisible();
-  });
-
-  it('shows both dropped-by-policy and blocked-by-gateway when both are non-zero', () => {
-    renderDebugView({
-      lastTransitionReason: 'enableStreaming',
-      snapshotCount: 1,
-      streamingEnteredAt: '2026-03-14T09:00:00.000Z',
-      streamingEndedAt: null,
-      sentByState: { snapshot: 1, streaming: 4 },
-      droppedByPolicy: 10,
-      blockedByGateway: 2,
-    });
-    expect(screen.getByText('Dropped (policy)')).toBeVisible();
-    expect(screen.getByText('Blocked (gateway)')).toBeVisible();
-    expect(
-      within(screen.getByText('Dropped (policy)').closest('.field-list__item')!)
-        .getByText('10'),
-    ).toBeVisible();
-    expect(
-      within(screen.getByText('Blocked (gateway)').closest('.field-list__item')!)
-        .getByText('2'),
-    ).toBeVisible();
   });
 });

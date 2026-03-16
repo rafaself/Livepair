@@ -29,11 +29,8 @@ export function createScreenFrameSendCoordinator({
   isCurrentCapture,
   getTransport,
   getRealtimeOutboundGateway,
-  allowSend,
-  onFrameDispatched,
-  onFrameDroppedByPolicy,
+  onFrameAccepted,
   onFrameBlockedByGateway,
-  shouldSendFrame,
   flushVisualDiagnostics,
   onSendStarted,
   onSendSucceeded,
@@ -43,30 +40,8 @@ export function createScreenFrameSendCoordinator({
   isCurrentCapture: IsCurrentCapture;
   getTransport: GetTransport;
   getRealtimeOutboundGateway: GetRealtimeOutboundGateway;
-  allowSend: () => boolean;
-  /**
-   * Wave 3 – called immediately after the gateway accepts a frame for dispatch.
-   * Triggers the consuming side-effects in the visual policy (snapshot → sleep
-   * transition, counter increments) so they only occur when the frame will
-   * actually reach the transport.
-   */
-  onFrameDispatched: () => void;
-  /**
-   * Wave 4 – called when a frame is dropped because allowSend() returned false.
-   * Records the drop in policy diagnostics for capture-vs-send distinction.
-   */
-  onFrameDroppedByPolicy: () => void;
-  /**
-   * Wave 4 – called when a frame passed allowSend() but the outbound gateway
-   * returned block or drop. Records the outcome in policy diagnostics.
-   */
+  onFrameAccepted: (frame: LocalScreenFrame) => void;
   onFrameBlockedByGateway: () => void;
-  /**
-   * Wave 3 – optional per-frame relevance check.  Called after allowSend()
-   * passes but before gateway submission.  If it returns false the frame is
-   * treated as dropped-by-policy (e.g. burst send gate / throttle).
-   */
-  shouldSendFrame?: (frame: LocalScreenFrame) => boolean;
   flushVisualDiagnostics: () => void;
   onSendStarted: () => void;
   onSendSucceeded: (frame: LocalScreenFrame) => void;
@@ -182,20 +157,6 @@ export function createScreenFrameSendCoordinator({
         return Promise.resolve();
       }
 
-      if (!allowSend()) {
-        // Wave 4: frame was captured but policy (inactive/sleep) prevented send.
-        onFrameDroppedByPolicy();
-        flushVisualDiagnostics();
-        return Promise.resolve();
-      }
-
-      // Wave 3: per-frame relevance check (burst send gate / throttle).
-      if (shouldSendFrame && !shouldSendFrame(frame)) {
-        onFrameDroppedByPolicy();
-        flushVisualDiagnostics();
-        return Promise.resolve();
-      }
-
       visualOutboundSequence += 1;
       const decision = getRealtimeOutboundGateway().submit({
         kind: 'visual_frame',
@@ -213,10 +174,7 @@ export function createScreenFrameSendCoordinator({
         return Promise.resolve();
       }
 
-      // Wave 3: consume the snapshot (or increment streaming counter) only now
-      // that the gateway has accepted the frame for dispatch.  This prevents
-      // snapshot state from being silently consumed when the gateway blocks.
-      onFrameDispatched();
+      onFrameAccepted(frame);
       flushVisualDiagnostics();
 
       pendingFrame = {

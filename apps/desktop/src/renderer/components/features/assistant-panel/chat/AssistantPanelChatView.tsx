@@ -113,8 +113,7 @@ export function AssistantPanelChatView({
   });
   const isComposerScreenShareActive =
     screenCaptureState === 'ready' ||
-    screenCaptureState === 'capturing' ||
-    screenCaptureState === 'streaming';
+    screenCaptureState === 'capturing';
   const isComposerScreenShareDisabled =
     composerAction.kind === 'startSpeech'
       ? composerAction.disabled || composerAction.isLoading

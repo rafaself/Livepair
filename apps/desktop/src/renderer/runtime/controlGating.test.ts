@@ -161,7 +161,7 @@ describe('controlGating', () => {
           speechLifecycleStatus: 'assistantSpeaking',
           voiceSessionStatus: 'streaming',
           activeTransport: 'gemini-live',
-          screenCaptureState: 'streaming',
+          screenCaptureState: 'capturing',
         }),
       ),
     ).toBe(true);

@@ -10,8 +10,6 @@ function createControllerDouble(): DesktopSessionController {
     startScreenCapture: vi.fn(async () => undefined),
     stopScreenCapture: vi.fn(async () => undefined),
     analyzeScreenNow: vi.fn(),
-    enableScreenStreaming: vi.fn(),
-    stopScreenStreaming: vi.fn(),
     subscribeToVoiceChunks: vi.fn(() => vi.fn()),
     submitTextTurn: vi.fn(async () => false),
     endSpeechMode: vi.fn(async () => undefined),

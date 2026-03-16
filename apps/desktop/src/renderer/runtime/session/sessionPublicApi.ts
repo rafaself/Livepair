@@ -33,9 +33,6 @@ type SessionControllerPublicApiArgs = {
     start: () => Promise<void>;
     stop: () => Promise<void>;
     analyzeScreenNow: () => void;
-    enableStreaming: () => void;
-    stopStreaming: () => void;
-    onTextSent: () => void;
     isActive: () => boolean;
   };
   refreshScreenCaptureSourceSnapshot: () => Promise<boolean>;
@@ -116,12 +113,6 @@ export function createSessionControllerPublicApi({
     analyzeScreenNow: () => {
       screenCtrl.analyzeScreenNow();
     },
-    enableScreenStreaming: () => {
-      screenCtrl.enableStreaming();
-    },
-    stopScreenStreaming: () => {
-      screenCtrl.stopStreaming();
-    },
     startSession: async ({ mode }) => {
       await startSessionInternal({ mode });
     },
@@ -198,9 +189,6 @@ export function createSessionControllerPublicApi({
           await activeTransport.sendText(trimmedText);
           outboundGateway.recordSuccess();
           runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());
-          if (screenCtrl.isActive()) {
-            screenCtrl.onTextSent();
-          }
           return true;
         } catch (error) {
           voiceTranscriptCtrl.clearQueuedMixedModeAssistantReply();
