@@ -10,3 +10,5 @@ export { Tooltip } from './Tooltip';
 export type { TooltipProps } from './Tooltip';
 export { GeminiIcon } from './GeminiIcon';
 export type { GeminiIconProps } from './GeminiIcon';
+export { StopIcon } from './StopIcon';
+export type { StopIconProps } from './StopIcon';
