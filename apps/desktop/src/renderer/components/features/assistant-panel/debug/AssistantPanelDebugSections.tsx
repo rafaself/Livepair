@@ -406,8 +406,12 @@ export function AssistantPanelDebugScreenContextSection({
             value: formatVisualTransitionReason(visualSendDiagnostics.lastTransitionReason),
           },
           {
-            label: 'Manual sends triggered',
-            value: String(visualSendDiagnostics.snapshotCount),
+            label: 'Manual frames sent',
+            value: String(visualSendDiagnostics.manualFramesSentCount),
+          },
+          {
+            label: 'Last manual frame',
+            value: visualSendDiagnostics.lastManualFrameAt ?? 'None',
           },
           {
             label: 'Continuous sharing started',
@@ -416,10 +420,6 @@ export function AssistantPanelDebugScreenContextSection({
           {
             label: 'Continuous sharing stopped',
             value: visualSendDiagnostics.streamingEndedAt ?? 'None',
-          },
-          {
-            label: 'Sent (manual)',
-            value: String(visualSendDiagnostics.sentByState.snapshot),
           },
           {
             label: 'Sent (continuous)',

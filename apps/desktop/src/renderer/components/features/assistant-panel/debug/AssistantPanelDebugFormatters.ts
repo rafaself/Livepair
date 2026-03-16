@@ -150,6 +150,10 @@ export function formatVisualTransitionReason(
     return 'Send screen now';
   }
 
+  if (reason === 'manualMode') {
+    return 'Manual mode active';
+  }
+
   if (reason === 'snapshotConsumed') {
     return 'Manual send completed';
   }
