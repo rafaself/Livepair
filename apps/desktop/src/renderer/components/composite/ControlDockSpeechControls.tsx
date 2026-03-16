@@ -112,7 +112,7 @@ export function ControlDockSpeechControls({
               void onEndSession();
             }}
           >
-            <StopIcon size={24} />
+            <StopIcon size={18} />
           </IconButton>
         </div>
       </div>

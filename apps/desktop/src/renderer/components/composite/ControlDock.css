@@ -86,12 +86,12 @@
 }
 
 .control-dock__btn--danger {
-  color: #D66262 !important;
+  color: var(--color-error) !important;
 }
 
 .control-dock__btn--danger:hover:not(:disabled) {
-  background: rgba(214, 98, 98, 0.15) !important;
-  color: #D66262 !important;
+  background: color-mix(in srgb, var(--color-error) 15%, transparent) !important;
+  color: var(--color-error) !important;
 }
 
 .control-dock__panel-btn svg {
