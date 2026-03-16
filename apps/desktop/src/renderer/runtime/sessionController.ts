@@ -28,7 +28,7 @@ function resolveDesktopSessionControllerDependencies(
     checkBackendHealth,
     requestSessionToken,
     reportLiveTelemetry,
-    createTransport: (_kind) => {
+    createTransport: (_kind, options) => {
       const settings = useSettingsStore.getState().settings;
 
       return createGeminiLiveTransport({
@@ -36,7 +36,7 @@ function resolveDesktopSessionControllerDependencies(
           resolveActiveScreenContextQuality(settings),
         ),
         groundingEnabled: settings.groundingEnabled,
-        voice: settings.voice,
+        voice: options?.voice ?? settings.voice,
         systemInstruction: settings.systemInstruction,
       });
     },

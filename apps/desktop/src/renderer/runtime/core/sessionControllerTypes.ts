@@ -1,5 +1,6 @@
 import type { useSessionStore } from '../../store/sessionStore';
 import type { useSettingsStore } from '../../store/settingsStore';
+import type { AssistantVoice } from '@livepair/shared-types';
 import type {
   checkBackendHealth,
   reportLiveTelemetry,
@@ -50,7 +51,10 @@ export type DesktopSessionControllerDependencies = {
   checkBackendHealth: typeof checkBackendHealth;
   requestSessionToken: typeof requestSessionToken;
   reportLiveTelemetry: typeof reportLiveTelemetry;
-  createTransport: (kind: TransportKind) => DesktopSession;
+  createTransport: (
+    kind: TransportKind,
+    options?: { voice?: AssistantVoice },
+  ) => DesktopSession;
   createVoiceCapture: (
     observer: {
       onChunk: (chunk: LocalVoiceChunk) => void;

@@ -3,6 +3,7 @@ import { connectFallbackVoiceSession } from '../voice/session/connectFallbackVoi
 import type { SessionStoreApi } from '../core/sessionControllerTypes';
 import type { DesktopSession } from '../transport/transport.types';
 import type {
+  AssistantVoice,
   CreateEphemeralTokenResponse,
   LiveSessionRecord,
   RehydrationPacket,
@@ -21,7 +22,8 @@ type SessionVoiceConnectionArgs = {
   isCurrentSessionOperation: (operationId: number) => boolean;
   applySpeechLifecycleEvent: (event: { type: string }) => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
-  createTransport: () => DesktopSession;
+  resolveSessionVoice: () => Promise<AssistantVoice>;
+  createTransport: (options?: { voice?: AssistantVoice }) => DesktopSession;
   activateVoiceTransport: (transport: DesktopSession) => void;
   buildRehydrationPacketFromCurrentChat: () => Promise<RehydrationPacket>;
   invalidatePersistedLiveSession: (patch: {
@@ -29,7 +31,7 @@ type SessionVoiceConnectionArgs = {
     invalidatedAt: string;
     invalidationReason: string;
   }) => Promise<void>;
-  createPersistedLiveSession: () => Promise<void>;
+  createPersistedLiveSession: (voice: AssistantVoice) => Promise<void>;
   endPersistedLiveSession: (liveSessionEnd: {
     status: 'ended' | 'failed';
     endedReason?: string | null;
@@ -46,6 +48,7 @@ export function createSessionVoiceConnection({
   isCurrentSessionOperation,
   applySpeechLifecycleEvent,
   setVoiceResumptionInFlight,
+  resolveSessionVoice,
   createTransport,
   activateVoiceTransport,
   buildRehydrationPacketFromCurrentChat,
@@ -86,7 +89,9 @@ export function createSessionVoiceConnection({
 
     let transport: DesktopSession;
     try {
-      transport = createTransport();
+      transport = createTransport({
+        ...(liveSession.voice ? { voice: liveSession.voice } : {}),
+      });
     } catch (error) {
       const detail = asErrorDetail(error, 'Failed to prepare voice session');
       await invalidatePersistedLiveSession({
@@ -155,10 +160,11 @@ export function createSessionVoiceConnection({
       reason,
       previousDetail,
       logRuntimeDiagnostic,
-      buildRehydrationPacketFromCurrentChat,
-      isCurrentSessionOperation,
-      createTransport,
-      createPersistedLiveSession,
+        buildRehydrationPacketFromCurrentChat,
+        isCurrentSessionOperation,
+        resolveSessionVoice,
+        createTransport,
+        createPersistedLiveSession,
       activateVoiceTransport,
       setVoiceResumptionInFlight,
       applySpeechLifecycleEvent: (event) => {
