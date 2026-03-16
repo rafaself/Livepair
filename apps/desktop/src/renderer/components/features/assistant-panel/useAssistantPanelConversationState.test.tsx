@@ -9,7 +9,7 @@ describe('useAssistantPanelConversationState', () => {
     resetDesktopStores();
   });
 
-  it('derives visible conversation turns from canonical turns and all transcript artifacts', () => {
+  it('keeps non-redundant canonical turns visible alongside transcript artifacts', () => {
     const { result } = renderHook(() => useAssistantPanelConversationState());
 
     act(() => {
@@ -48,12 +48,13 @@ describe('useAssistantPanelConversationState', () => {
       });
     });
 
-    // Canonical turns hidden when a transcript artifact covers them.
-    // All transcript artifacts are visible regardless of attachedTurnId.
+    // The attached assistant transcript stays visible. Because its text differs
+    // from the canonical assistant reply, the canonical turn stays visible too.
     expect(result.current.conversationTurns.map((entry) => entry.id)).toEqual([
       'user-turn-1',
       'assistant-transcript-1',
       'assistant-transcript-2',
+      'assistant-turn-1',
     ]);
     expect(result.current.isConversationEmpty).toBe(false);
   });
