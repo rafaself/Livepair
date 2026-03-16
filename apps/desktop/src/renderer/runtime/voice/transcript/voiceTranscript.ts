@@ -3,6 +3,12 @@ type NormalizeTranscriptTextOptions = {
   isFinal?: boolean | undefined;
 };
 
+const COMMON_SHORT_WORDS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'da', 'de', 'do', 'e', 'em', 'eu', 'for',
+  'go', 'he', 'i', 'if', 'in', 'is', 'it', 'me', 'my', 'no', 'o', 'of', 'on', 'or', 'os',
+  'pra', 'pro', 'que', 'so', 'the', 'to', 'um', 'uma', 'up', 'us', 'we', 'you',
+]);
+
 function findSharedPrefixLength(left: string, right: string): number {
   const limit = Math.min(left.length, right.length);
   let index = 0;
@@ -36,6 +42,46 @@ function endsWithWordCharacter(text: string): boolean {
 
 function startsWithApostropheSuffix(incoming: string): boolean {
   return /^['’](?:s|re|ve|ll|d|m|t|em|cause)(?=$|[\s,.;!?)])/u.test(incoming);
+}
+
+function trailingWordFragment(text: string): string | null {
+  const match = text.match(/([\p{L}]+)$/u);
+  return match?.[1] ?? null;
+}
+
+function leadingWordFragment(text: string): string | null {
+  const match = text.match(/^([\p{L}]+)/u);
+  return match?.[1] ?? null;
+}
+
+function startsWithLikelyWordContinuation(fragment: string): boolean {
+  return /^(?:[a-z]?ing|[a-z]?ed|[a-z]?er|[a-z]?ers|[a-z]?est|[a-z]?ly|[a-z]{0,2}(?:ment|ness|tion|sion|able|ible))$/i.test(fragment);
+}
+
+function shouldAttachUserWordContinuation(previous: string, incoming: string): boolean {
+  if (!endsWithWordCharacter(previous) || /^\s/u.test(incoming)) {
+    return false;
+  }
+
+  const previousFragment = trailingWordFragment(previous);
+  const incomingFragment = leadingWordFragment(incoming);
+
+  if (!previousFragment || !incomingFragment) {
+    return false;
+  }
+
+  const previousLower = previousFragment.toLowerCase();
+
+  if (
+    previousFragment !== previousLower
+    || incomingFragment !== incomingFragment.toLowerCase()
+    || previousFragment.length > 4
+    || COMMON_SHORT_WORDS.has(previousLower)
+  ) {
+    return false;
+  }
+
+  return startsWithLikelyWordContinuation(incomingFragment);
 }
 
 function shouldTreatAsUserCorrection(
@@ -106,6 +152,10 @@ export function normalizeTranscriptText(
 
   if (role === 'user') {
     if (endsWithWordCharacter(previous) && startsWithApostropheSuffix(incoming)) {
+      return `${previous}${incoming}`;
+    }
+
+    if (shouldAttachUserWordContinuation(previous, incoming)) {
       return `${previous}${incoming}`;
     }
 

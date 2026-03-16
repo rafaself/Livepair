@@ -341,6 +341,28 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
   });
 
+  it('keeps likely mid-word user continuations attached across transcript windows', async () => {
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'speech' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: "Yeah, it's very good tal" });
+    voiceTransport.emit({
+      type: 'input-transcript',
+      text: "king to this app. It's going good.",
+      isFinal: true,
+    });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: "Yeah, it's very good talking to this app. It's going good.",
+        source: 'voice',
+      }),
+    ]);
+  });
+
   it('keeps the same in-progress assistant transcript artifact as transcript corrections arrive', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 

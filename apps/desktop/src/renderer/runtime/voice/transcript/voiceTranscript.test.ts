@@ -97,6 +97,15 @@ describe('normalizeTranscriptText', () => {
     expect(normalizeTranscriptText('we', '’re ready', { role: 'user' })).toBe('we’re ready');
   });
 
+  it('keeps likely mid-word user continuations attached instead of inserting a space', () => {
+    expect(
+      normalizeTranscriptText("Yeah, it's very good tal", 'king to this app. It\'s going good.', {
+        role: 'user',
+        isFinal: true,
+      }),
+    ).toBe("Yeah, it's very good talking to this app. It's going good.");
+  });
+
   it('stitches user transcript at an overlapping boundary', () => {
     expect(
       normalizeTranscriptText('hello wo', 'wo there', { role: 'user' }),
