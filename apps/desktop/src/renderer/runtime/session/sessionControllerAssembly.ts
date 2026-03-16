@@ -19,6 +19,7 @@ import { createSessionTransportAssembly } from './sessionTransportAssembly';
 import { createSessionLifecycleAssembly } from './sessionLifecycleAssembly';
 import { createSessionConversationSupport } from './sessionConversationSupport';
 import { useUiStore } from '../../store/uiStore';
+import { setAssistantAnswerMetadata } from '../conversation/conversationTurnManager';
 import type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
@@ -103,7 +104,7 @@ export function createSessionControllerAssembly(
     () => mutableRuntime.getActiveTransport(),
     () => stateSync.createVoiceToolExecutionSnapshot(),
     (answerMetadata) => {
-      conversationCtx.pendingAssistantAnswerMetadata = answerMetadata;
+      setAssistantAnswerMetadata(conversationCtx, answerMetadata);
       logRuntimeDiagnostic('voice-session', 'assistant answer provenance updated', {
         provenance: answerMetadata.provenance,
         ...(answerMetadata.confidence ? { confidence: answerMetadata.confidence } : {}),

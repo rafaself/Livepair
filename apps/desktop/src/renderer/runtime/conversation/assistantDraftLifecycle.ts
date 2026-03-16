@@ -11,6 +11,19 @@ import type {
 } from './conversation.types';
 import type { AnswerMetadata } from '@livepair/shared-types';
 
+const ANSWER_PROVENANCE_PRIORITY: Record<AnswerMetadata['provenance'], number> = {
+  unverified: 0,
+  tool_grounded: 1,
+  web_grounded: 2,
+  project_grounded: 3,
+};
+
+const ANSWER_CONFIDENCE_PRIORITY: Record<NonNullable<AnswerMetadata['confidence']>, number> = {
+  low: 0,
+  medium: 1,
+  high: 2,
+};
+
 // ---------------------------------------------------------------------------
 // Assistant draft lifecycle
 // ---------------------------------------------------------------------------
@@ -54,11 +67,57 @@ export function setAssistantAnswerMetadata(
   ctx: ConversationContext,
   answerMetadata: AnswerMetadata,
 ): void {
-  ctx.pendingAssistantAnswerMetadata = answerMetadata;
+  const currentMetadata = ctx.assistantDraft?.answerMetadata ?? ctx.pendingAssistantAnswerMetadata;
+  const nextMetadata = choosePreferredAnswerMetadata(currentMetadata, answerMetadata);
+  ctx.pendingAssistantAnswerMetadata = nextMetadata;
 
   if (ctx.assistantDraft) {
-    ctx.assistantDraft.answerMetadata = answerMetadata;
+    ctx.assistantDraft.answerMetadata = nextMetadata;
   }
+}
+
+function choosePreferredAnswerMetadata(
+  current: AnswerMetadata | null | undefined,
+  incoming: AnswerMetadata,
+): AnswerMetadata {
+  if (!current) {
+    return incoming;
+  }
+
+  const currentPriority = ANSWER_PROVENANCE_PRIORITY[current.provenance];
+  const incomingPriority = ANSWER_PROVENANCE_PRIORITY[incoming.provenance];
+
+  if (incomingPriority > currentPriority) {
+    return incoming;
+  }
+
+  if (incomingPriority < currentPriority) {
+    return current;
+  }
+
+  return {
+    provenance: current.provenance,
+    citations: incoming.citations ?? current.citations,
+    confidence: chooseHigherConfidence(current.confidence, incoming.confidence),
+    reason: incoming.reason ?? current.reason,
+  };
+}
+
+function chooseHigherConfidence(
+  current: AnswerMetadata['confidence'],
+  incoming: AnswerMetadata['confidence'],
+): AnswerMetadata['confidence'] {
+  if (!current) {
+    return incoming;
+  }
+
+  if (!incoming) {
+    return current;
+  }
+
+  return ANSWER_CONFIDENCE_PRIORITY[incoming] >= ANSWER_CONFIDENCE_PRIORITY[current]
+    ? incoming
+    : current;
 }
 
 export function completeAssistantDraft(ctx: ConversationContext): AssistantDraftModel | null {

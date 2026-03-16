@@ -22,6 +22,7 @@ import {
   getTranscriptArtifact,
   hasOpenVoiceTurnFence,
   interruptAssistantDraft,
+  setAssistantAnswerMetadata,
 } from '../conversation/conversationTurnManager';
 import type { ConversationContext } from '../conversation/conversationTurnManager';
 import type {
@@ -134,6 +135,9 @@ export function createSessionTransportAssembly({
       runtimeRef.current!.applyVoiceTranscriptUpdate(role, text, isFinal),
     appendAssistantDraftTextDelta: (text) => {
       appendAssistantDraftTextDelta(conversationCtx, text);
+    },
+    setAssistantAnswerMetadata: (answerMetadata) => {
+      setAssistantAnswerMetadata(conversationCtx, answerMetadata);
     },
     completeAssistantDraft: () => {
       completeAssistantDraft(conversationCtx);
