@@ -2,16 +2,13 @@ import type { LocalVoiceCaptureObserver } from './localVoiceCapture';
 import {
   PCM16_CHUNK_BYTE_SIZE,
   PCM16_CHUNK_DURATION_MS,
-  Pcm16Chunker,
-  StreamingFloat32Resampler,
   TARGET_VOICE_SAMPLE_RATE,
-  encodePcm16Le,
-  mixToMono,
 } from './audioProcessing';
 import type { LocalVoiceChunk, VoiceCaptureDiagnostics } from '../voice/voice.types';
 
-type AudioFrameMessage = {
-  channels?: Float32Array[] | undefined;
+type AudioChunkMessage = {
+  type: 'audio-chunk';
+  chunk?: Uint8Array | undefined;
 };
 
 type SpeechActivityMessage = {
@@ -19,7 +16,7 @@ type SpeechActivityMessage = {
   active: boolean;
 };
 
-type WorkletMessage = AudioFrameMessage | SpeechActivityMessage;
+type WorkletMessage = AudioChunkMessage | SpeechActivityMessage;
 
 type TrackLike = {
   stop: () => void;
@@ -69,8 +66,6 @@ export function createLocalVoiceCaptureRuntime(
   let endedTrackListener: (() => void) | null = null;
   let nextChunkSequence = 0;
   let emittedChunkCount = 0;
-  let resampler: StreamingFloat32Resampler | null = null;
-  let chunker = new Pcm16Chunker();
   let currentInputDeviceId: string | null = null;
 
   const emitDiagnostics = (
@@ -112,40 +107,31 @@ export function createLocalVoiceCaptureRuntime(
       await context.close();
     }
 
-    resampler = null;
-    chunker.reset();
     nextChunkSequence = 0;
     emittedChunkCount = 0;
   };
 
-  const handleAudioFrame = (payload: AudioFrameMessage): void => {
-    if (!resampler || !payload.channels || payload.channels.length === 0) {
+  const handleAudioChunk = (payload: AudioChunkMessage): void => {
+    if (!(payload.chunk instanceof Uint8Array)) {
       return;
     }
 
-    const mono = mixToMono(payload.channels);
-    const normalized = resampler.push(mono);
-    const encoded = encodePcm16Le(normalized);
-    const chunks = chunker.push(encoded);
+    emittedChunkCount += 1;
+    const chunk: LocalVoiceChunk = {
+      data: payload.chunk,
+      sampleRateHz: TARGET_VOICE_SAMPLE_RATE,
+      channels: 1,
+      encoding: 'pcm_s16le',
+      durationMs: PCM16_CHUNK_DURATION_MS,
+      sequence: ++nextChunkSequence,
+    };
 
-    for (const data of chunks) {
-      emittedChunkCount += 1;
-      const chunk: LocalVoiceChunk = {
-        data,
-        sampleRateHz: TARGET_VOICE_SAMPLE_RATE,
-        channels: 1,
-        encoding: 'pcm_s16le',
-        durationMs: PCM16_CHUNK_DURATION_MS,
-        sequence: ++nextChunkSequence,
-      };
-
-      observer.onChunk(chunk);
-      emitDiagnostics({
-        chunkCount: emittedChunkCount,
-        selectedInputDeviceId: currentInputDeviceId,
-        lastError: null,
-      });
-    }
+    observer.onChunk(chunk);
+    emitDiagnostics({
+      chunkCount: emittedChunkCount,
+      selectedInputDeviceId: currentInputDeviceId,
+      lastError: null,
+    });
   };
 
   const activate = ({
@@ -156,11 +142,6 @@ export function createLocalVoiceCaptureRuntime(
     workletNode,
   }: ActivateCaptureOptions): void => {
     currentInputDeviceId = selectedInputDeviceId;
-    resampler = new StreamingFloat32Resampler(
-      audioContext.sampleRate,
-      TARGET_VOICE_SAMPLE_RATE,
-    );
-    chunker = new Pcm16Chunker();
     nextChunkSequence = 0;
     emittedChunkCount = 0;
     activeStream = stream;
@@ -176,7 +157,10 @@ export function createLocalVoiceCaptureRuntime(
         observer.onSpeechActivity?.(message.active);
         return;
       }
-      handleAudioFrame(message as AudioFrameMessage);
+
+      if ('type' in message && message.type === 'audio-chunk') {
+        handleAudioChunk(message);
+      }
     };
     workletNode.port.onmessageerror = () => {
       const detail = 'Microphone capture failed while receiving audio frames';

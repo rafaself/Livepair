@@ -5,6 +5,7 @@ import {
   PCM16_CHUNK_DURATION_MS,
   TARGET_VOICE_SAMPLE_RATE,
   Pcm16Chunker,
+  StreamingPcm16ChunkEncoder,
   StreamingFloat32Resampler,
   encodePcm16Le,
   mixToMono,
@@ -82,5 +83,31 @@ describe('Pcm16Chunker', () => {
     expect(Array.from(firstChunk!.slice(400))).toEqual(new Array(240).fill(2));
     expect(chunker.getPendingByteLength()).toBe(360);
     expect(PCM16_CHUNK_DURATION_MS).toBe(20);
+  });
+});
+
+describe('StreamingPcm16ChunkEncoder', () => {
+  it('mixes, resamples, encodes, and chunks streaming audio across pushes', () => {
+    const encoder = new StreamingPcm16ChunkEncoder(48_000);
+
+    const first = encoder.push([
+      Float32Array.from({ length: 480 }, () => 0.25),
+    ]);
+    const second = encoder.push([
+      Float32Array.from({ length: 480 }, () => 0.25),
+    ]);
+
+    expect(first).toEqual([]);
+    expect(second).toHaveLength(1);
+    expect(second[0]).toHaveLength(PCM16_CHUNK_BYTE_SIZE);
+
+    const view = new DataView(
+      second[0]!.buffer,
+      second[0]!.byteOffset,
+      second[0]!.byteLength,
+    );
+
+    expect(view.getInt16(0, true)).toBe(8192);
+    expect(view.getInt16(2, true)).toBe(8192);
   });
 });

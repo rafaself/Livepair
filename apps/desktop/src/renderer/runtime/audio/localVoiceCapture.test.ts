@@ -129,8 +129,9 @@ describe('createLocalVoiceCapture', () => {
     vi.clearAllMocks();
   });
 
-  it('starts local capture, normalizes chunks, and emits diagnostics', async () => {
+  it('starts local capture, forwards worklet PCM chunks, and emits diagnostics', async () => {
     const harness = createHarness();
+    const emittedPcmChunk = new Uint8Array(PCM16_CHUNK_BYTE_SIZE).fill(7);
 
     await harness.capture.start({
       selectedInputDeviceId: 'default',
@@ -140,12 +141,8 @@ describe('createLocalVoiceCapture', () => {
     });
     harness.workletNode.port.onmessage?.({
       data: {
-        channels: [
-          Float32Array.from(
-            { length: 960 },
-            (_value, index) => (index % 2 === 0 ? 0.25 : -0.25),
-          ),
-        ],
+        type: 'audio-chunk',
+        chunk: emittedPcmChunk,
       },
     } as MessageEvent);
 
@@ -166,7 +163,7 @@ describe('createLocalVoiceCapture', () => {
         encoding: 'pcm_s16le',
         durationMs: 20,
         sequence: 1,
-        data: expect.any(Uint8Array),
+        data: emittedPcmChunk,
       }),
     );
     const emittedChunk = harness.observer.onChunk.mock.calls[0]?.[0];
@@ -181,6 +178,27 @@ describe('createLocalVoiceCapture', () => {
         lastError: null,
       }),
     );
+  });
+
+  it('ignores legacy raw channel frame messages because PCM chunking happens inside the worklet', async () => {
+    const harness = createHarness();
+
+    await harness.capture.start({
+      selectedInputDeviceId: 'default',
+      echoCancellationEnabled: true,
+      noiseSuppressionEnabled: true,
+      autoGainControlEnabled: true,
+    });
+    harness.workletNode.port.onmessage?.({
+      data: {
+        channels: [
+          Float32Array.from({ length: 960 }, () => 0.25),
+        ],
+      },
+    } as MessageEvent);
+
+    expect(harness.observer.onChunk).not.toHaveBeenCalled();
+    expect(harness.observer.onDiagnostics).toHaveBeenCalledTimes(1);
   });
 
   it('uses an exact device constraint when a non-default microphone is selected', async () => {

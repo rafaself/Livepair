@@ -166,3 +166,34 @@ export class Pcm16Chunker {
     this.pendingBytes = new Uint8Array();
   }
 }
+
+export class StreamingPcm16ChunkEncoder {
+  private readonly resampler: StreamingFloat32Resampler;
+  private readonly chunker: Pcm16Chunker;
+
+  constructor(
+    inputSampleRate: number,
+    outputSampleRate = TARGET_VOICE_SAMPLE_RATE,
+    chunkByteSize = PCM16_CHUNK_BYTE_SIZE,
+  ) {
+    this.resampler = new StreamingFloat32Resampler(inputSampleRate, outputSampleRate);
+    this.chunker = new Pcm16Chunker(chunkByteSize);
+  }
+
+  push(channels: readonly Float32Array<ArrayBufferLike>[]): Uint8Array[] {
+    if (channels.length === 0) {
+      return [];
+    }
+
+    const mono = mixToMono(channels);
+    const normalized = this.resampler.push(mono);
+    const encoded = encodePcm16Le(normalized);
+
+    return this.chunker.push(encoded);
+  }
+
+  reset(): void {
+    this.resampler.reset();
+    this.chunker.reset();
+  }
+}
