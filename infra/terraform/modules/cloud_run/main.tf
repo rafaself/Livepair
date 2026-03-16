@@ -18,13 +18,16 @@ resource "google_cloud_run_v2_service" "this" {
 
   scaling {
     min_instance_count = var.min_instance_count
-    max_instance_count = var.max_instance_count
   }
 
   template {
     timeout         = var.timeout
     service_account = var.service_account_email
     labels          = var.labels
+
+    scaling {
+      max_instance_count = var.max_instance_count
+    }
 
     dynamic "volumes" {
       for_each = length(var.cloud_sql_instance_connection_names) > 0 ? [1] : []
