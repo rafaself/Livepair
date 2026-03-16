@@ -3,6 +3,7 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
 const repoRoot = resolve(__dirname, '../..');
+const sharedTypesSourceEntry = resolve(repoRoot, 'packages/shared-types/src/index.ts');
 
 export default defineConfig({
   main: {
@@ -28,6 +29,11 @@ export default defineConfig({
   renderer: {
     envDir: repoRoot,
     root: resolve(__dirname, 'src/renderer'),
+    resolve: {
+      alias: {
+        '@livepair/shared-types': sharedTypesSourceEntry,
+      },
+    },
     build: {
       rollupOptions: {
         input: {
