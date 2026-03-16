@@ -25,6 +25,7 @@ function buildBaseMockDesktopBridge() {
     reportLiveTelemetry: vi.fn(async () => undefined),
     createChat: vi.fn(),
     getChat: vi.fn(),
+    getCurrentChat: vi.fn(),
     getOrCreateCurrentChat: vi.fn(),
     listChats: vi.fn(),
     listChatMessages: vi.fn(),

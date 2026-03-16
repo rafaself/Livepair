@@ -14,6 +14,7 @@ describe('Chat memory HTTP auth', () => {
   let consoleErrorSpy: jest.SpyInstance;
   let app: INestApplication | undefined;
   let baseUrl = '';
+  let getCurrentChat: jest.Mock<Promise<ChatRecord | null>, []>;
   let getOrCreateCurrentChat: jest.Mock<Promise<ChatRecord>, []>;
 
   beforeAll(async () => {
@@ -27,6 +28,13 @@ describe('Chat memory HTTP auth', () => {
     const { Test } = await import('@nestjs/testing');
     const { AppModule } = await import('../app.module');
     const { ChatMemoryService } = await import('./chat-memory.service');
+    getCurrentChat = jest.fn().mockResolvedValue({
+      id: '11111111-1111-1111-1111-111111111111',
+      title: null,
+      createdAt: '2026-03-16T11:00:00.000Z',
+      updatedAt: '2026-03-16T11:00:00.000Z',
+      isCurrent: true,
+    });
     getOrCreateCurrentChat = jest.fn().mockResolvedValue({
       id: '11111111-1111-1111-1111-111111111111',
       title: null,
@@ -40,6 +48,7 @@ describe('Chat memory HTTP auth', () => {
     })
       .overrideProvider(ChatMemoryService)
       .useValue({
+        getCurrentChat,
         getOrCreateCurrentChat,
       })
       .compile();
@@ -55,6 +64,7 @@ describe('Chat memory HTTP auth', () => {
   beforeEach(() => {
     consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    getCurrentChat.mockClear();
     getOrCreateCurrentChat.mockClear();
   });
 
@@ -120,5 +130,43 @@ describe('Chat memory HTTP auth', () => {
       isCurrent: true,
     });
     expect(getOrCreateCurrentChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads the current chat without creating it', async () => {
+    const response = await fetch(`${baseUrl}/chat-memory/chats/current`, {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: CHAT_MEMORY_AUTH_SECRET,
+      },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      id: '11111111-1111-1111-1111-111111111111',
+      title: null,
+      createdAt: '2026-03-16T11:00:00.000Z',
+      updatedAt: '2026-03-16T11:00:00.000Z',
+      isCurrent: true,
+    });
+    expect(getCurrentChat).toHaveBeenCalledTimes(1);
+    expect(getOrCreateCurrentChat).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when no current chat exists yet', async () => {
+    getCurrentChat.mockResolvedValueOnce(null);
+
+    const response = await fetch(`${baseUrl}/chat-memory/chats/current`, {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: CHAT_MEMORY_AUTH_SECRET,
+      },
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      statusCode: 404,
+      message: 'Current chat not found',
+      error: 'Not Found',
+    });
+    expect(getCurrentChat).toHaveBeenCalledTimes(1);
+    expect(getOrCreateCurrentChat).not.toHaveBeenCalled();
   });
 });

@@ -14,6 +14,7 @@ export const bridge: DesktopBridge = {
   reportLiveTelemetry: (events) => ipcRenderer.invoke(IPC_CHANNELS.reportLiveTelemetry, events),
   createChat: (req) => ipcRenderer.invoke(IPC_CHANNELS.createChat, req),
   getChat: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.getChat, chatId),
+  getCurrentChat: () => ipcRenderer.invoke(IPC_CHANNELS.getCurrentChat),
   getOrCreateCurrentChat: () => ipcRenderer.invoke(IPC_CHANNELS.getOrCreateCurrentChat),
   listChats: () => ipcRenderer.invoke(IPC_CHANNELS.listChats),
   listChatMessages: (chatId, options) =>

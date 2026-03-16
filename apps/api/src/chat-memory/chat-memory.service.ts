@@ -37,6 +37,10 @@ export class ChatMemoryService {
     return this.run(() => this.repository.createChat(request));
   }
 
+  getCurrentChat(): Promise<ChatRecord | null> {
+    return this.run(() => this.repository.getCurrentChat());
+  }
+
   getChat(chatId: ChatId): Promise<ChatRecord | null> {
     return this.run(() => this.repository.getChat(chatId));
   }

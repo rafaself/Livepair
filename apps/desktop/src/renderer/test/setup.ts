@@ -101,6 +101,13 @@ beforeEach(async () => {
       updatedAt: '2026-03-12T09:00:00.000Z',
       isCurrent: true,
     })),
+    getCurrentChat: vi.fn(async () => ({
+      id: 'chat-1',
+      title: null,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      updatedAt: '2026-03-12T09:00:00.000Z',
+      isCurrent: true,
+    })),
     listChats: vi.fn(async () => []),
     listChatMessages: vi.fn(async () => []),
     getChatSummary: vi.fn(async () => null),

@@ -133,6 +133,7 @@ export type ChatMemoryRepository = {
     operation: (repository: ChatMemoryRepository) => Promise<TResult>,
   ): Promise<TResult>;
   createChat(request?: CreateChatRequest): Promise<ChatRecord>;
+  getCurrentChat(): Promise<ChatRecord | null>;
   getChat(chatId: ChatId): Promise<ChatRecord | null>;
   getOrCreateCurrentChat(): Promise<ChatRecord>;
   listChats(): Promise<ChatRecord[]>;
@@ -430,6 +431,23 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
     }
 
     return this.createChat();
+  }
+
+  async getCurrentChat(): Promise<ChatRecord | null> {
+    if (this.client === null) {
+      return this.withTransaction((repository) => repository.getCurrentChat());
+    }
+
+    const currentChat = await this.executeQuery<ChatRow>(
+      `
+        SELECT id, title, created_at, updated_at, is_current
+        FROM chats
+        WHERE is_current
+        LIMIT 1
+      `,
+    );
+
+    return currentChat.rowCount === 0 ? null : toChatRecord(currentChat.rows[0]!);
   }
 
   async listChats(): Promise<ChatRecord[]> {

@@ -1,5 +1,5 @@
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
-import { hydrateCurrentChat } from './chatMemory';
+import { hydrateCurrentChatIfPresent } from './chatMemory';
 import { useSessionStore } from './store/sessionStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useUiStore } from './store/uiStore';
@@ -39,7 +39,7 @@ async function hydrateDeferredRendererState(): Promise<void> {
   await Promise.all([
     useUiStore.getState().initializeDevicePreferences(),
     hydrateScreenCaptureSources(),
-    hydrateCurrentChat(),
+    hydrateCurrentChatIfPresent(),
   ]);
 }
 

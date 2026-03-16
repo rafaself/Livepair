@@ -87,7 +87,6 @@ export async function connectFallbackVoiceSession({
     };
   }
 
-  await createPersistedLiveSession();
   activateVoiceTransport(transport);
   setVoiceResumptionInFlight(false);
 
@@ -105,6 +104,7 @@ export async function connectFallbackVoiceSession({
       };
     }
 
+    await createPersistedLiveSession();
     applySpeechLifecycleEvent({ type: 'session.ready' });
     return { status: 'connected' };
   } catch (error) {

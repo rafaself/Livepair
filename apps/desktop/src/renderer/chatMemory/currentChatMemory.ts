@@ -14,11 +14,13 @@ import {
   appendPersistedChatMessage,
   createChatRecord,
   getChatRecord,
+  getCurrentChatRecord,
   getOrCreateCurrentChatRecord,
   getPersistedChatSummary,
   listPersistedChatMessages,
   type ActiveChatQueryBridge,
   type ChatMemoryQueriesBridge,
+  type CurrentChatQueryBridge,
 } from './queries';
 import {
   getLatestPersistedLiveSession,
@@ -115,6 +117,29 @@ export async function hydrateCurrentChat(
   } finally {
     pendingHydration = null;
   }
+}
+
+export async function hydrateCurrentChatIfPresent(
+  bridge: CurrentChatMemoryBridge & CurrentChatQueryBridge = window.bridge,
+): Promise<HydratedCurrentChat | null> {
+  const chat = activeChat ?? await getCurrentChatRecord(bridge);
+
+  if (chat === null) {
+    return null;
+  }
+
+  activeChat = chat;
+  useSessionStore.getState().setActiveChatId(chat.id);
+  const messages = await listPersistedChatMessages(chat.id, bridge);
+
+  useSessionStore
+    .getState()
+    .replaceConversationTurns(mapChatMessageRecordsToConversationTurns(messages));
+
+  return {
+    chat,
+    messages,
+  };
 }
 
 export async function listCurrentChatMessages(

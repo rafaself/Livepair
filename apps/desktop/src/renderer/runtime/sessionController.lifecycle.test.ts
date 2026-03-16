@@ -1002,8 +1002,10 @@ describe('createDesktopSessionController – lifecycle', () => {
 
     await controller.startSession({ mode: 'speech' });
 
+    expect(window.bridge.getOrCreateCurrentChat).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
+        activeChatId: 'chat-1',
         currentMode: 'inactive',
         speechLifecycle: expect.objectContaining({
           status: 'off',

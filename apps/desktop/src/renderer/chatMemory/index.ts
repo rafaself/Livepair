@@ -15,6 +15,7 @@ export {
   getCachedActiveChatRecord,
   getCurrentChat,
   hydrateCurrentChat,
+  hydrateCurrentChatIfPresent,
   listCurrentChatMessages,
   resetCurrentChatMemoryForTests,
   switchToChat,

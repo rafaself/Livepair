@@ -789,6 +789,40 @@ describe('backendClient', () => {
     });
   });
 
+  it('reads the current chat without creating it', async () => {
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => createChatRecord()),
+    });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(client.getCurrentChat()).resolves.toEqual(createChatRecord());
+    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/chat-memory/chats/current', {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
+    });
+  });
+
+  it('maps missing current chat responses to null to preserve lazy startup', async () => {
+    fetchImpl.mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: vi.fn(async () => '{"message":"Current chat not found"}'),
+    });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(client.getCurrentChat()).resolves.toBeNull();
+    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/chat-memory/chats/current', {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
+    });
+  });
+
   it('maps 204 chat summary responses to null for new chats without summaries', async () => {
     const json = vi.fn(async () => {
       throw new Error('getChatSummary should not parse a 204 response body');
