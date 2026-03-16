@@ -681,8 +681,18 @@ export function createBackendClient({
       });
     },
 
-    async reportLiveTelemetry(_events: LiveTelemetryEvent[]): Promise<void> {
-      return undefined;
+    async reportLiveTelemetry(events: LiveTelemetryEvent[]): Promise<void> {
+      await requestOptionalJson<undefined>({
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ events }),
+        },
+        parse: () => undefined,
+        path: '/observability/live-telemetry',
+        protectedRoute: true,
+        statusLabel: 'Live telemetry report failed',
+      });
     },
 
     async createChat(req?: CreateChatRequest): Promise<ChatRecord> {

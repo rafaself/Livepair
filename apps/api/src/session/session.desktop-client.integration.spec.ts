@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import {
   buildGeminiLiveConnectCapabilityConfig,
   type CreateEphemeralTokenResponse,
+  type LiveTelemetryEvent,
 } from '@livepair/shared-types';
 import type { AddressInfo } from 'net';
 import { createRequire } from 'module';
@@ -23,6 +24,7 @@ type TokenAppOptions = {
 
 type DesktopBackendClient = {
   requestSessionToken: (request: { sessionId?: string }) => Promise<CreateEphemeralTokenResponse>;
+  reportLiveTelemetry: (events: LiveTelemetryEvent[]) => Promise<void>;
 };
 
 const requireFromHere = createRequire(__filename);
@@ -330,6 +332,48 @@ describe('desktop client protected token flow', () => {
       );
     } finally {
       jest.useRealTimers();
+      await harness.app.close();
+    }
+  });
+
+  it('reports live telemetry batches end-to-end through the protected backend route', async () => {
+    const harness = await createTokenApp();
+    const telemetryEvents: LiveTelemetryEvent[] = [
+      {
+        eventType: 'live_session_started',
+        occurredAt: '2026-03-16T14:00:00.000Z',
+        sessionId: 'session-1',
+        chatId: 'chat-1',
+        environment: 'desktop',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+      },
+      {
+        eventType: 'live_usage_reported',
+        occurredAt: '2026-03-16T14:01:00.000Z',
+        sessionId: 'session-1',
+        chatId: 'chat-1',
+        environment: 'desktop',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+        usage: {
+          totalTokenCount: 42,
+          promptTokenCount: 21,
+          responseTokenCount: 21,
+        },
+      },
+    ];
+
+    try {
+      const client = await createDesktopBackendClient(
+        harness.baseUrl,
+        createDesktopFetch(originalFetch),
+      );
+
+      await expect(client.reportLiveTelemetry(telemetryEvents)).resolves.toBeUndefined();
+    } finally {
       await harness.app.close();
     }
   });

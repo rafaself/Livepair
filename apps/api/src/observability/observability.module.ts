@@ -5,12 +5,19 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { HttpMetricsMiddleware } from './http-metrics.middleware';
+import { LiveTelemetryAuthGuard } from './live-telemetry-auth.guard';
+import { LiveTelemetryService } from './live-telemetry.service';
 import { ObservabilityController } from './observability.controller';
 import { ObservabilityService } from './observability.service';
 
 @Module({
   controllers: [ObservabilityController],
-  providers: [ObservabilityService, HttpMetricsMiddleware],
+  providers: [
+    ObservabilityService,
+    HttpMetricsMiddleware,
+    LiveTelemetryAuthGuard,
+    LiveTelemetryService,
+  ],
   exports: [ObservabilityService],
 })
 export class ObservabilityModule implements NestModule {
