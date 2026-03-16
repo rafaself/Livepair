@@ -15,10 +15,6 @@ import {
 
 const settingsService = getDesktopSettingsService();
 const captureSourceRegistry = createCaptureSourceRegistry();
-const getExcludedCaptureSourceIds = (): ReadonlySet<string> => {
-  const win = getMainWindow();
-  return win ? new Set([win.getMediaSourceId()]) : new Set();
-};
 const screenFrameDumpService = createScreenFrameDumpService({
   rootDir: resolveScreenFrameDumpRootDir({
     appPath: app.getAppPath(),
@@ -27,14 +23,13 @@ const screenFrameDumpService = createScreenFrameDumpService({
 });
 registerIpcHandlers({
   captureSourceRegistry,
-  getExcludedSourceIds: getExcludedCaptureSourceIds,
   getMainWindow,
   screenFrameDumpService,
   settingsService,
 });
 
 app.whenReady().then(() => {
-  registerDisplayMediaHandler(captureSourceRegistry, getExcludedCaptureSourceIds);
+  registerDisplayMediaHandler(captureSourceRegistry);
   createWindow();
   app.on('activate', () => {
     handleAppActivate();

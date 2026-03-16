@@ -89,7 +89,6 @@ describe('registerScreenIpcHandlers', () => {
 
     registerScreenIpcHandlers({
       captureSourceRegistry: createCaptureSourceRegistry(),
-      getExcludedSourceIds: () => new Set(['window:99:0']),
       platform: 'linux',
       screenFrameDumpService: createScreenFrameDumpServiceDouble(),
     });
@@ -105,6 +104,7 @@ describe('registerScreenIpcHandlers', () => {
       sources: [
         { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
         { id: 'window:42:0', name: 'VSCode', kind: 'window' },
+        { id: 'window:99:0', name: 'Livepair', kind: 'window' },
       ],
       selectedSourceId: 'screen:1:0',
       overlayDisplay: {
@@ -118,6 +118,7 @@ describe('registerScreenIpcHandlers', () => {
       sources: [
         { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
         { id: 'window:42:0', name: 'VSCode', kind: 'window' },
+        { id: 'window:99:0', name: 'Livepair', kind: 'window' },
       ],
       selectedSourceId: 'window:42:0',
       overlayDisplay: {
@@ -131,6 +132,7 @@ describe('registerScreenIpcHandlers', () => {
       sources: [
         { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
         { id: 'window:42:0', name: 'VSCode', kind: 'window' },
+        { id: 'window:99:0', name: 'Livepair', kind: 'window' },
       ],
       selectedSourceId: null,
       overlayDisplay: {
@@ -147,9 +149,20 @@ describe('registerScreenIpcHandlers', () => {
     await expect(selectSourceHandler({}, 'window:missing:0')).rejects.toThrow(
       'Unknown screen capture source id',
     );
-    await expect(selectSourceHandler({}, 'window:99:0')).rejects.toThrow(
-      'Unknown screen capture source id',
-    );
+    await expect(selectSourceHandler({}, 'window:99:0')).resolves.toEqual({
+      sources: [
+        { id: 'screen:1:0', name: 'Entire Screen', kind: 'screen', displayId: '1' },
+        { id: 'window:42:0', name: 'VSCode', kind: 'window' },
+        { id: 'window:99:0', name: 'Livepair', kind: 'window' },
+      ],
+      selectedSourceId: 'window:99:0',
+      overlayDisplay: {
+        displayId: '1',
+        bounds: { x: 0, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 0, y: 23, width: 2560, height: 1417 },
+        scaleFactor: 2,
+      },
+    });
 
     expect(mockGetSources).toHaveBeenNthCalledWith(1, CAPTURE_SOURCE_LIST_OPTIONS);
     expect(mockGetSources).toHaveBeenNthCalledWith(2, CAPTURE_SOURCE_LIST_OPTIONS);

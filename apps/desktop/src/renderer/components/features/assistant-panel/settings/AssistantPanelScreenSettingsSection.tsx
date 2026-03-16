@@ -89,31 +89,22 @@ export function AssistantPanelScreenSettingsSection({
               </span>
             ),
             value: (
-              <div className="assistant-panel__settings-field-stack">
-                <Select
-                  aria-label="Screen mode"
-                  className="assistant-panel__settings-select assistant-panel__settings-audio-select assistant-panel__settings-mode-select"
-                  options={SCREEN_CONTEXT_MODE_OPTIONS}
-                  value={configuredScreenContextMode}
-                  placeholder={
-                    <span className="assistant-panel__settings-mode-placeholder">Choose mode</span>
+              <Select
+                aria-label="Screen mode"
+                className="assistant-panel__settings-select assistant-panel__settings-audio-select assistant-panel__settings-mode-select"
+                options={SCREEN_CONTEXT_MODE_OPTIONS}
+                value={configuredScreenContextMode}
+                placeholder={
+                  <span className="assistant-panel__settings-mode-placeholder">Choose mode</span>
+                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === 'manual' || value === 'continuous') {
+                    setScreenContextMode(value);
                   }
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    if (value === 'manual' || value === 'continuous') {
-                      setScreenContextMode(value);
-                    }
-                  }}
-                  size="sm"
-                />
-                <span className="assistant-panel__settings-hint">
-                  {screenContextMode === 'manual'
-                    ? 'Manual mode always sends in High quality when you click Send screen now.'
-                    : screenContextMode === 'continuous'
-                      ? 'Continuous mode uses the automatic screen quality below.'
-                      : null}
-                </span>
-              </div>
+                }}
+                size="sm"
+              />
             ),
           },
           ...(screenContextMode === 'continuous'

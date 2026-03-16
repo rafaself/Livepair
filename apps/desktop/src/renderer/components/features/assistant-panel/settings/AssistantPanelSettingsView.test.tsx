@@ -182,8 +182,8 @@ describe('AssistantPanelSettingsView', () => {
       });
     });
     expect(
-      screen.getByText('Manual mode always sends in High quality when you click Send screen now.'),
-    ).toBeVisible();
+      screen.queryByText('Manual mode always sends in High quality when you click Send screen now.'),
+    ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Automatic screen quality' })).toBeNull();
 
     await act(async () => {
@@ -198,9 +198,39 @@ describe('AssistantPanelSettingsView', () => {
         screenContextMode: 'continuous',
       });
     });
+    expect(
+      screen.queryByText('Continuous mode uses the automatic screen quality below.'),
+    ).toBeNull();
     expect(screen.getByRole('button', { name: 'Automatic screen quality' })).toHaveTextContent(
       'medium',
     );
+  });
+
+  it('does not render inline hint text below the screen mode select', async () => {
+    await renderSettings({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      screenContextMode: 'manual',
+    });
+
+    expect(
+      screen.queryByText('Manual mode always sends in High quality when you click Send screen now.'),
+    ).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Screen mode' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: 'Continuous' }));
+    });
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        screenContextMode: 'continuous',
+      });
+    });
+    expect(
+      screen.queryByText('Continuous mode uses the automatic screen quality below.'),
+    ).toBeNull();
   });
 
   it('does not render the removed preferred mode control in debug mode', async () => {

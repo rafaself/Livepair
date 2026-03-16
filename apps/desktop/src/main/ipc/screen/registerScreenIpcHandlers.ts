@@ -3,7 +3,6 @@ import type { ScreenFrameDumpService } from '../../debug/screenFrameDumpService'
 import {
   CAPTURE_SOURCE_LIST_OPTIONS,
   type CaptureSourceRegistry,
-  filterEligibleCaptureSources,
   toScreenCaptureOverlayDisplay,
   toCaptureSources,
 } from '../../desktopCapture/captureSourceRegistry';
@@ -16,22 +15,19 @@ import {
 
 type RegisterScreenIpcHandlersOptions = {
   captureSourceRegistry: CaptureSourceRegistry;
-  getExcludedSourceIds?: () => ReadonlySet<string>;
   platform: NodeJS.Platform;
   screenFrameDumpService: ScreenFrameDumpService;
 };
 
 export function registerScreenIpcHandlers({
   captureSourceRegistry,
-  getExcludedSourceIds = () => new Set(),
   platform,
   screenFrameDumpService,
-  }: RegisterScreenIpcHandlersOptions): void {
+}: RegisterScreenIpcHandlersOptions): void {
   const loadScreenCaptureSourceSnapshot = async () => {
-    const sources = toCaptureSources(filterEligibleCaptureSources(
+    const sources = toCaptureSources(
       await desktopCapturer.getSources(CAPTURE_SOURCE_LIST_OPTIONS),
-      getExcludedSourceIds(),
-    ));
+    );
     const overlayDisplay = toScreenCaptureOverlayDisplay(screen.getPrimaryDisplay());
     captureSourceRegistry.setSources(sources);
 

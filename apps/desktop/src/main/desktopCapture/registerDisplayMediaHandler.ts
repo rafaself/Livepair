@@ -2,7 +2,6 @@ import { desktopCapturer, session } from 'electron';
 import type { CaptureSourceRegistry } from './captureSourceRegistry';
 import {
   CAPTURE_SOURCE_LIST_OPTIONS,
-  filterEligibleCaptureSources,
   toCaptureSources,
 } from './captureSourceRegistry';
 import { selectAutoSource } from './selectAutoSource';
@@ -19,7 +18,6 @@ import { selectAutoSource } from './selectAutoSource';
  */
 export function registerDisplayMediaHandler(
   captureSourceRegistry: CaptureSourceRegistry,
-  getExcludedSourceIds: () => ReadonlySet<string> = () => new Set(),
 ): void {
   session.defaultSession.setDisplayMediaRequestHandler(
     async (_request, callback) => {
@@ -38,21 +36,17 @@ export function registerDisplayMediaHandler(
 
       try {
         const sources = await desktopCapturer.getSources(CAPTURE_SOURCE_LIST_OPTIONS);
-        const eligibleSources = filterEligibleCaptureSources(
-          sources,
-          getExcludedSourceIds(),
-        );
-        captureSourceRegistry.setSources(toCaptureSources(eligibleSources));
+        captureSourceRegistry.setSources(toCaptureSources(sources));
         const selectedSourceId = captureSourceRegistry.getSelectedSourceId();
         const selectedSource = selectedSourceId === null
           ? null
-          : eligibleSources.find((source) => source.id === selectedSourceId) ?? null;
+          : sources.find((source) => source.id === selectedSourceId) ?? null;
         const source = selectedSource
-          ?? selectAutoSource(toCaptureSources(eligibleSources));
+          ?? selectAutoSource(toCaptureSources(sources));
 
         if (source) {
           respondOnce({
-            video: eligibleSources.find((eligibleSource) => eligibleSource.id === source.id) ?? source,
+            video: sources.find((availableSource) => availableSource.id === source.id) ?? source,
           });
         } else {
           respondOnce({});

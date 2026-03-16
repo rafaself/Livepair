@@ -15,7 +15,6 @@ import { registerSettingsIpcHandlers } from './settings/registerSettingsIpcHandl
 type RegisterIpcHandlersOptions = {
   captureSourceRegistry?: CaptureSourceRegistry;
   fetchImpl?: typeof fetch;
-  getExcludedSourceIds?: () => ReadonlySet<string>;
   getMainWindow: () => BrowserWindow | null;
   platform?: NodeJS.Platform;
   screenFrameDumpService?: ScreenFrameDumpService;
@@ -25,7 +24,6 @@ type RegisterIpcHandlersOptions = {
 export function registerIpcHandlers({
   captureSourceRegistry = createCaptureSourceRegistry(),
   fetchImpl,
-  getExcludedSourceIds,
   getMainWindow,
   platform = process.platform,
   screenFrameDumpService = {
@@ -52,6 +50,5 @@ export function registerIpcHandlers({
     captureSourceRegistry,
     platform,
     screenFrameDumpService,
-    ...(getExcludedSourceIds ? { getExcludedSourceIds } : {}),
   });
 }
