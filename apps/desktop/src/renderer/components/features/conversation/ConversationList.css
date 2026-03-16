@@ -44,7 +44,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  height: 48px;
+  height: 40px;
   pointer-events: none;
   z-index: 1;
 }
@@ -54,7 +54,7 @@
   background: linear-gradient(
     to bottom,
     var(--color-chat-bg) 0%,
-    color-mix(in srgb, var(--color-chat-bg) 72%, transparent) 45%,
+    color-mix(in srgb, var(--color-chat-bg) 42%, transparent) 28%,
     transparent 100%
   );
 }
@@ -64,7 +64,7 @@
   background: linear-gradient(
     to top,
     var(--color-chat-bg) 0%,
-    color-mix(in srgb, var(--color-chat-bg) 72%, transparent) 45%,
+    color-mix(in srgb, var(--color-chat-bg) 42%, transparent) 28%,
     transparent 100%
   );
 }
