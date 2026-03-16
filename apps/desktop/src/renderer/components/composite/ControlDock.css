@@ -23,31 +23,37 @@
 }
 
 .control-dock__item-wrapper {
-  display: grid;
-  grid-template-rows: 0fr;
+  height: 0;
+  width: 100%;
   opacity: 0;
   overflow: hidden;
   transition: 
-    grid-template-rows var(--motion-normal) var(--ease-out),
+    height var(--motion-normal) var(--ease-out),
     opacity var(--motion-normal) var(--ease-out),
-    margin var(--motion-normal) var(--ease-out);
+    margin-top var(--motion-normal) var(--ease-out);
+  margin-top: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .control-dock__item-wrapper--visible {
-  grid-template-rows: 1fr;
+  height: 36px;
   opacity: 1;
-  /* Add margin when visible to simulate the gap */
-  margin-top: var(--space-1);
-  margin-bottom: var(--space-1);
 }
 
-/* First visible item shouldn't have top margin, last shouldn't have bottom margin */
-/* Actually, simpler to just use small padding/margin everywhere and let it flex */
+.control-dock__item-wrapper--visible.control-dock__item-wrapper--divider {
+  height: 1px;
+}
+
+.control-dock__item-wrapper--visible ~ .control-dock__item-wrapper--visible {
+  margin-top: var(--space-2);
+}
 
 .control-dock__item-content {
-  min-height: 0;
+  width: 100%;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
   transition: transform var(--motion-normal) var(--ease-out);
   transform: scale(0.92);

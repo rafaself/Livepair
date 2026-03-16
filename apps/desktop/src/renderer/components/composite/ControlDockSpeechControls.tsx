@@ -118,7 +118,7 @@ export function ControlDockSpeechControls({
       </div>
 
       <div
-        className={`control-dock__item-wrapper ${uiState.showSpeechControls ? 'control-dock__item-wrapper--visible' : ''}`}
+        className={`control-dock__item-wrapper control-dock__item-wrapper--divider ${uiState.showSpeechControls ? 'control-dock__item-wrapper--visible' : ''}`}
         aria-hidden={!uiState.showSpeechControls}
       >
         <div className="control-dock__item-content">
