@@ -132,7 +132,13 @@ describe('createVoiceTranscriptController', () => {
         source: 'voice',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        state: 'complete',
+        attachedTurnId: 'user-turn-1',
+      }),
+    ]);
     expect(onConversationTurnSettled).toHaveBeenCalledWith('user-turn-1');
   });
 
@@ -159,7 +165,13 @@ describe('createVoiceTranscriptController', () => {
         source: 'voice',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'assistant-transcript-1',
+        state: 'complete',
+        attachedTurnId: 'assistant-turn-1',
+      }),
+    ]);
   });
 
   it('keeps interrupted assistant transcript output visible as an artifact without creating a canonical assistant turn', () => {
@@ -221,8 +233,14 @@ describe('createVoiceTranscriptController', () => {
         state: 'complete',
       }),
     ]);
-    // The new user transcript is visible immediately as a streaming artifact.
+    // The first turn's artifact remains with attachedTurnId; the new user
+    // transcript is visible immediately as a streaming artifact.
     expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        state: 'complete',
+        attachedTurnId: 'user-turn-1',
+      }),
       expect.objectContaining({
         id: 'user-transcript-2',
         role: 'user',
@@ -260,6 +278,11 @@ describe('createVoiceTranscriptController', () => {
     ]);
     expect(useSessionStore.getState().transcriptArtifacts).toEqual([
       expect.objectContaining({
+        id: 'user-transcript-1',
+        state: 'complete',
+        attachedTurnId: 'user-turn-1',
+      }),
+      expect.objectContaining({
         id: 'assistant-transcript-2',
         content: 'typed reply',
         state: 'streaming',
@@ -267,7 +290,7 @@ describe('createVoiceTranscriptController', () => {
     ]);
   });
 
-  it('removes linked completed assistant transcript artifacts and ignores late transcript updates for the settled turn', () => {
+  it('retains linked completed assistant transcript artifacts and ignores late transcript updates for the settled turn', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
 
@@ -288,7 +311,13 @@ describe('createVoiceTranscriptController', () => {
         content: 'Canonical reply',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'assistant-transcript-1',
+        state: 'complete',
+        attachedTurnId: 'assistant-turn-1',
+      }),
+    ]);
   });
 
   it('treats duplicate completed finalization as idempotent for user turns', () => {
@@ -308,7 +337,13 @@ describe('createVoiceTranscriptController', () => {
         content: 'Only the user spoke',
       }),
     ]);
-    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        state: 'complete',
+        attachedTurnId: 'user-turn-1',
+      }),
+    ]);
     expect(onConversationTurnSettled).toHaveBeenCalledTimes(1);
   });
 

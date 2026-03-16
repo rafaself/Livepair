@@ -161,7 +161,6 @@ export function finalizeCurrentVoiceUserTranscriptArtifact(
       statusLabel: undefined,
       attachedTurnId,
     });
-    ctx.store.getState().removeTranscriptArtifact(artifact.id);
     ctx.currentVoiceUserArtifactId = null;
     return artifact.id;
   }
@@ -216,7 +215,6 @@ export function finalizeCurrentVoiceAssistantTranscriptArtifact(
       statusLabel: options.interrupted ? 'Interrupted' : undefined,
       attachedTurnId: options.attachedTurnId,
     });
-    ctx.store.getState().removeTranscriptArtifact(artifact.id);
     ctx.currentVoiceAssistantArtifactId = null;
     ctx.lastSettledAssistantArtifactId = null;
     return artifact.id;
@@ -258,7 +256,6 @@ export function attachSettledVoiceAssistantTranscriptArtifact(
   updateTranscriptArtifact(ctx, artifact.id, {
     attachedTurnId: turnId,
   });
-  ctx.store.getState().removeTranscriptArtifact(artifact.id);
   ctx.lastSettledAssistantArtifactId = null;
   return artifact.id;
 }
