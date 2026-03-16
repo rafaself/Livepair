@@ -23,8 +23,17 @@ export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
 }
 
+function resolveWindowIconPath(): string | undefined {
+  if (process.platform !== 'linux') {
+    return undefined;
+  }
+
+  return join(app.getAppPath(), 'build/icon.png');
+}
+
 export function createWindow(): void {
   const { workArea } = screen.getPrimaryDisplay();
+  const icon = resolveWindowIconPath();
 
   const win = new BrowserWindow({
     x: workArea.x,
@@ -37,6 +46,7 @@ export function createWindow(): void {
     resizable: false,
     skipTaskbar: true,
     hasShadow: false,
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

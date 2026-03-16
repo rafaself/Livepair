@@ -17,6 +17,7 @@ const mockGetAllWindows = vi.fn((): unknown[] => []);
 const mockAppendSwitch = vi.fn();
 const mockWebContentsOn = vi.fn();
 const mockGetPath = vi.fn(() => join(tmpdir(), 'livepair-overlay-window-tests'));
+const mockGetAppPath = vi.fn(() => join(tmpdir(), 'livepair-overlay-window-tests'));
 
 const browserWindowCtor = vi.fn(() => ({
   loadURL: mockLoadURL,
@@ -41,6 +42,7 @@ vi.mock('electron', () => ({
   app: {
     quit: mockQuit,
     getPath: mockGetPath,
+    getAppPath: mockGetAppPath,
     commandLine: { appendSwitch: mockAppendSwitch },
   },
   BrowserWindow: Object.assign(browserWindowCtor, {
@@ -77,6 +79,9 @@ describe('overlayWindow', () => {
         resizable: false,
         skipTaskbar: true,
         hasShadow: false,
+        ...(process.platform === 'linux'
+          ? { icon: join(tmpdir(), 'livepair-overlay-window-tests', 'build/icon.png') }
+          : {}),
         webPreferences: expect.objectContaining({
           contextIsolation: true,
           nodeIntegration: false,
