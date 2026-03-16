@@ -7,6 +7,7 @@ import {
   type ControlGatingSnapshot,
   type SpeechLifecycleStatus,
 } from '../../../../runtime';
+import { SpeechActivityIndicator } from '../SpeechActivityIndicator';
 
 export type ComposerActionVariant = 'default' | 'speechCircle' | 'speechPill';
 
@@ -71,20 +72,7 @@ export function createAssistantPanelComposerAction({
         <Loader2 size={18} aria-hidden="true" />
       ) : (
         <>
-          <span
-            className={[
-              'speech-activity-indicator',
-              localUserSpeechActive &&
-                'speech-activity-indicator--active',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            aria-hidden="true"
-          >
-            <span className="speech-activity-indicator__bar" />
-            <span className="speech-activity-indicator__bar" />
-            <span className="speech-activity-indicator__bar" />
-          </span>
+          <SpeechActivityIndicator isActive={localUserSpeechActive} />
           <span aria-hidden="true">End</span>
         </>
       ),

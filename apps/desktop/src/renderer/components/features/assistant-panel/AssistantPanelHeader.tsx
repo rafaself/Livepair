@@ -2,11 +2,13 @@ import { Bug, MessageCircle, Settings, Settings2, X } from 'lucide-react';
 import { type PanelView } from '../../../store/uiStore';
 import { PanelHeader } from '../../layout';
 import { Button, LivepairIcon } from '../../primitives';
+import { SpeechActivityIndicator } from './SpeechActivityIndicator';
 
 export type AssistantPanelHeaderProps = {
   panelView: PanelView;
   setPanelView: (view: PanelView) => void;
   isDebugMode?: boolean;
+  localUserSpeechActive?: boolean;
 };
 
 function getButtonClassName(panelView: PanelView, targetView: PanelView): string | undefined {
@@ -21,6 +23,7 @@ export function AssistantPanelHeader({
   panelView,
   setPanelView,
   isDebugMode = false,
+  localUserSpeechActive = false,
 }: AssistantPanelHeaderProps): JSX.Element {
   return (
     <PanelHeader title="Livepair" icon={<LivepairIcon size={28} />}>
@@ -64,7 +67,14 @@ export function AssistantPanelHeader({
         aria-pressed={isChatSectionActive(panelView)}
         className={isChatSectionActive(panelView) ? 'assistant-panel__header-btn--active' : undefined}
       >
-        <MessageCircle size={16} />
+        {localUserSpeechActive ? (
+          <SpeechActivityIndicator
+            isActive={true}
+            className="assistant-panel__header-speech-indicator"
+          />
+        ) : (
+          <MessageCircle size={16} />
+        )}
       </Button>
       <span className="panel-header__actions-divider" aria-hidden="true" />
       <Button

@@ -88,4 +88,21 @@ describe('AssistantPanelHeader', () => {
     expect(screen.getByRole('button', { name: 'Chat' })).toHaveClass('assistant-panel__header-btn--active');
     expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-pressed', 'false');
   });
+
+  it('shows the animated speech indicator in the chat button while local user speech is active', () => {
+    render(
+      <AssistantPanelHeader
+        panelView="settings"
+        setPanelView={vi.fn()}
+        isDebugMode={false}
+        localUserSpeechActive={true}
+      />,
+    );
+
+    const chatButton = screen.getByRole('button', { name: 'Chat' });
+    const speechIndicator = chatButton.querySelector('.speech-activity-indicator--active');
+
+    expect(speechIndicator).not.toBeNull();
+    expect(speechIndicator?.querySelectorAll('.speech-activity-indicator__bar')).toHaveLength(3);
+  });
 });

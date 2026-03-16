@@ -114,6 +114,7 @@ export function AssistantPanel({
           panelView={panelView}
           setPanelView={setPanelView}
           isDebugMode={isDebugMode}
+          localUserSpeechActive={localUserSpeechActive}
         />
         <div className="assistant-panel__view">
           {isSharedInnerView ? (
