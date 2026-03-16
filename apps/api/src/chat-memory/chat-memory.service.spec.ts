@@ -1,6 +1,28 @@
 import { ChatMemoryService } from './chat-memory.service';
+import { DURABLE_CHAT_SUMMARY_MAX_TURNS } from './chat-summary';
 
 describe('ChatMemoryService', () => {
+  it('forwards bounded list reads without preflight chat lookups', async () => {
+    const repository = {
+      getChat: jest.fn(),
+      listMessages: jest.fn(async () => []),
+      getChatSummary: jest.fn(async () => null),
+      listLiveSessions: jest.fn(async () => []),
+      withTransaction: jest.fn(),
+    };
+
+    const service = new ChatMemoryService(repository as never);
+
+    await expect(service.listMessages('chat-1', { limit: 1 })).resolves.toEqual([]);
+    await expect(service.getChatSummary('chat-1')).resolves.toBeNull();
+    await expect(service.listLiveSessions('chat-1', { limit: 1 })).resolves.toEqual([]);
+
+    expect(repository.getChat).not.toHaveBeenCalled();
+    expect(repository.listMessages).toHaveBeenCalledWith('chat-1', { limit: 1 });
+    expect(repository.getChatSummary).toHaveBeenCalledWith('chat-1');
+    expect(repository.listLiveSessions).toHaveBeenCalledWith('chat-1', { limit: 1 });
+  });
+
   it('upserts a durable summary when ending a live session advances coverage', async () => {
     const transactionalRepository = {
       endLiveSession: jest.fn(async () => ({
@@ -41,6 +63,9 @@ describe('ChatMemoryService', () => {
     });
 
     expect(repository.withTransaction).toHaveBeenCalledTimes(1);
+    expect(transactionalRepository.listMessages).toHaveBeenCalledWith('chat-1', {
+      limit: DURABLE_CHAT_SUMMARY_MAX_TURNS,
+    });
     expect(transactionalRepository.upsertChatSummary).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 'chat-1',

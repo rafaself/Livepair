@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessageRecord, ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import {
-  listPersistedChatMessages,
+  getLatestPersistedChatMessage,
   listPersistedChats,
 } from '../../../../chatMemory';
-import { listPersistedLiveSessions } from '../../../../liveSessions';
+import { getLatestPersistedLiveSession } from '../../../../liveSessions';
 import './AssistantPanelHistoryView.css';
 
 export type AssistantPanelHistoryViewProps = {
@@ -77,9 +77,7 @@ function formatChatDate(isoString: string): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function formatPreview(messages: readonly ChatMessageRecord[]): string {
-  const latestMessage = messages[messages.length - 1] ?? null;
-
+function formatPreview(latestMessage: ChatMessageRecord | null): string {
   if (latestMessage === null) {
     return 'No saved turns yet.';
   }
@@ -231,15 +229,14 @@ export function useAssistantPanelHistoryViewModel({
       const chats = await listPersistedChats();
       const result = await Promise.all(
         chats.map(async (chat) => {
-          const [messages, liveSessions] = await Promise.all([
-            listPersistedChatMessages(chat.id),
-            listPersistedLiveSessions(chat.id),
+          const [latestMessage, latestLiveSession] = await Promise.all([
+            getLatestPersistedChatMessage(chat.id),
+            getLatestPersistedLiveSession(chat.id),
           ]);
-          const latestLiveSession = liveSessions[0] ?? null;
 
           return {
             chat,
-            preview: formatPreview(messages),
+            preview: formatPreview(latestMessage),
             latestSessionLabel: getLatestSessionLabel(latestLiveSession),
             resumeLabel: getResumeLabel(latestLiveSession),
           } satisfies ChatHistoryListItem;

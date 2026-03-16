@@ -1,5 +1,6 @@
 export {
   appendPersistedChatMessage,
+  getLatestPersistedChatMessage,
   getChatRecord,
   getOrCreateCurrentChatRecord,
   getPersistedChatSummary,
@@ -11,6 +12,7 @@ export {
 export {
   buildRehydrationPacketFromCurrentChat,
   createAndSwitchToNewChat,
+  getCachedActiveChatRecord,
   getCurrentChat,
   hydrateCurrentChat,
   listCurrentChatMessages,

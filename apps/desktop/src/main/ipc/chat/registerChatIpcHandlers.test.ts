@@ -174,6 +174,9 @@ describe('registerChatIpcHandlers', () => {
     );
     await expect(getChatHandler({}, '')).rejects.toThrow('Invalid chat id');
     await expect(listMessagesHandler({}, '')).rejects.toThrow('Invalid chat id');
+    await expect(listMessagesHandler({}, CHAT_ID, { limit: 0 })).rejects.toThrow(
+      'Invalid chat list options',
+    );
     await expect(getChatSummaryHandler({}, '')).rejects.toThrow('Invalid chat id');
     await expect(
       appendMessageHandler({}, { chatId: CHAT_ID, role: 'system', contentText: 'bad' }),
@@ -182,6 +185,9 @@ describe('registerChatIpcHandlers', () => {
       'Invalid create live session payload',
     );
     await expect(listLiveSessionsHandler({}, '')).rejects.toThrow('Invalid chat id');
+    await expect(listLiveSessionsHandler({}, CHAT_ID, { limit: 0 })).rejects.toThrow(
+      'Invalid chat list options',
+    );
     await expect(
       updateLiveSessionHandler({}, { kind: 'resumption', id: '', restorable: true }),
     ).rejects.toThrow('Invalid update live session payload');
@@ -190,6 +196,56 @@ describe('registerChatIpcHandlers', () => {
     );
 
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('forwards bounded chat-memory list options through IPC', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => [createChatMessageRecord()]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => [createLiveSessionRecord()]),
+      });
+    const { registerChatIpcHandlers } = await import('./registerChatIpcHandlers');
+
+    registerChatIpcHandlers({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const listMessagesHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.listChatMessages,
+    )?.[1] as (
+      _event: unknown,
+      chatId: unknown,
+      options: unknown,
+    ) => Promise<ChatMessageRecord[]>;
+    const listLiveSessionsHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.listLiveSessions,
+    )?.[1] as (
+      _event: unknown,
+      chatId: unknown,
+      options: unknown,
+    ) => Promise<LiveSessionRecord[]>;
+
+    await expect(listMessagesHandler({}, CHAT_ID, { limit: 1 })).resolves.toEqual([
+      createChatMessageRecord(),
+    ]);
+    await expect(listLiveSessionsHandler({}, CHAT_ID, { limit: 1 })).resolves.toEqual([
+      createLiveSessionRecord(),
+    ]);
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages?limit=1`,
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions?limit=1`,
+    );
   });
 
   it('delegates chat memory requests through the backend client', async () => {

@@ -596,6 +596,38 @@ describe('backendClient', () => {
     });
   });
 
+  it('appends limit query params for bounded chat-memory list reads', async () => {
+    fetchImpl
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => [createChatMessageRecord()]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => [createLiveSessionRecord()]),
+      });
+
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(client.listChatMessages(CHAT_ID, { limit: 1 })).resolves.toEqual([
+      createChatMessageRecord(),
+    ]);
+    await expect(client.listLiveSessions(CHAT_ID, { limit: 1 })).resolves.toEqual([
+      createLiveSessionRecord(),
+    ]);
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages?limit=1`,
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions?limit=1`,
+    );
+  });
+
   it('maps missing chat responses to null to preserve the bridge contract', async () => {
     fetchImpl.mockResolvedValue({
       ok: false,

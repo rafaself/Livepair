@@ -29,7 +29,7 @@ export async function getLatestPersistedLiveSession(
   chatId: ChatId,
   bridge: Pick<LiveSessionsBridge, 'listLiveSessions'> = window.bridge,
 ): Promise<LiveSessionRecord | null> {
-  const liveSessions = await bridge.listLiveSessions(chatId);
+  const liveSessions = await bridge.listLiveSessions(chatId, { limit: 1 });
   return liveSessions[0] ?? null;
 }
 

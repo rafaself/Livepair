@@ -1,11 +1,12 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
-import { getChatRecord } from '../../../../chatMemory';
+import { getCachedActiveChatRecord, getChatRecord } from '../../../../chatMemory';
 import { getLatestPersistedLiveSession } from '../../../../liveSessions';
 import { useAssistantPanelChatSessionData } from './useAssistantPanelChatSessionData';
 
 vi.mock('../../../../chatMemory', () => ({
+  getCachedActiveChatRecord: vi.fn(),
   getChatRecord: vi.fn(),
 }));
 
@@ -52,11 +53,13 @@ function createDeferred<T>(): {
 }
 
 describe('useAssistantPanelChatSessionData', () => {
+  const mockGetCachedActiveChatRecord = vi.mocked(getCachedActiveChatRecord);
   const mockGetChatRecord = vi.mocked(getChatRecord);
   const mockGetLatestPersistedLiveSession = vi.mocked(getLatestPersistedLiveSession);
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetCachedActiveChatRecord.mockReturnValue(null);
   });
 
   it('loads the active chat and latest live session for the selected chat id', async () => {
@@ -76,6 +79,26 @@ describe('useAssistantPanelChatSessionData', () => {
 
     expect(mockGetChatRecord).toHaveBeenCalledWith('chat-1');
     expect(mockGetLatestPersistedLiveSession).toHaveBeenCalledWith('chat-1');
+  });
+
+  it('reuses the cached active chat record when the selected chat is already loaded', async () => {
+    mockGetCachedActiveChatRecord.mockReturnValue(createChatRecord('chat-current'));
+    mockGetLatestPersistedLiveSession.mockResolvedValue(createLiveSessionRecord('chat-current'));
+
+    const { result } = renderHook(() =>
+      useAssistantPanelChatSessionData({
+        activeChatId: 'chat-current',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.activeChat).toEqual(createChatRecord('chat-current'));
+      expect(result.current.latestLiveSession).toEqual(createLiveSessionRecord('chat-current'));
+    });
+
+    expect(mockGetCachedActiveChatRecord).toHaveBeenCalledWith('chat-current');
+    expect(mockGetChatRecord).not.toHaveBeenCalled();
+    expect(mockGetLatestPersistedLiveSession).toHaveBeenCalledWith('chat-current');
   });
 
   it('ignores stale async results and clears the chat session data when chat selection resets', async () => {

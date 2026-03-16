@@ -1,5 +1,6 @@
 import type {
   AppendChatMessageRequest,
+  ChatMemoryListOptions,
   CreateChatRequest,
   CreateLiveSessionRequest,
   EndLiveSessionRequest,
@@ -111,6 +112,10 @@ function isUpdateLiveSessionSnapshotRequest(
   );
 }
 
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
 export function isChatId(value: unknown): value is string {
   return isNonEmptyString(value);
 }
@@ -145,6 +150,18 @@ export function isAppendChatMessageRequest(value: unknown): value is AppendChatM
     && (value['role'] === 'user' || value['role'] === 'assistant')
     && isNonEmptyString(value['contentText'])
   );
+}
+
+export function isChatMemoryListOptions(value: unknown): value is ChatMemoryListOptions | undefined {
+  if (typeof value === 'undefined') {
+    return true;
+  }
+
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['limit'])) {
+    return false;
+  }
+
+  return typeof value['limit'] === 'undefined' || isPositiveInteger(value['limit']);
 }
 
 export function isCreateLiveSessionRequest(

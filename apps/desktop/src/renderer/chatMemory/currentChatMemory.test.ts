@@ -193,7 +193,7 @@ describe('currentChatMemory rehydration packet sourcing', () => {
       },
     });
     expect(bridge.getChatSummary).toHaveBeenCalledWith('chat-1');
-    expect(bridge.listLiveSessions).toHaveBeenCalledWith('chat-1');
+    expect(bridge.listLiveSessions).toHaveBeenCalledWith('chat-1', { limit: 1 });
   });
 
   it('falls back from a stale chat summary to the live-session snapshot summary when coverage exceeds canonical history', async () => {
