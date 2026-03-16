@@ -58,6 +58,7 @@ function createMockOps() {
     stopVoicePlayback: vi.fn().mockResolvedValue(undefined),
     subscribeTransport: vi.fn(),
     handleTransportEvent: vi.fn(),
+    onResumeConnected: vi.fn(),
     getActiveTransport: vi.fn().mockReturnValue(null),
     setActiveTransport: vi.fn(),
     unsubscribePreviousTransport: vi.fn(),

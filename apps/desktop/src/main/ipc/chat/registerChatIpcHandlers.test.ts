@@ -54,6 +54,7 @@ function createLiveSessionRecord(
     endedAt: null,
     status: 'active',
     endedReason: null,
+    voice: null,
     resumptionHandle: null,
     lastResumptionUpdateAt: null,
     restorable: false,

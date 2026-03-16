@@ -261,6 +261,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
       chatId: 'chat-1',
       startedAt: expect.any(String),
+      voice: 'Puck',
     });
     voiceTransport.emit({
       type: 'usage-metadata',
@@ -571,6 +572,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
       chatId: 'chat-1',
       startedAt: expect.any(String),
+      voice: 'Puck',
     });
     expect(freshTransport.connect).toHaveBeenCalledWith({
       token: {
@@ -720,6 +722,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
       chatId: 'chat-1',
       startedAt: expect.any(String),
+      voice: 'Kore',
     });
     expect(freshTransport.connect).toHaveBeenCalledWith({
       token: {

@@ -75,7 +75,7 @@ describe('main process runtime', () => {
     await import('./main');
 
     expect(mockWhenReady).toHaveBeenCalledTimes(1);
-    expect(mockHandle).toHaveBeenCalledTimes(23);
+    expect(mockHandle).toHaveBeenCalledTimes(26);
     expect(mockGetPath).toHaveBeenCalledWith('userData');
     expect(mockGetAppPath).toHaveBeenCalled();
     expect(mockAppOn).toHaveBeenCalledWith('window-all-closed', expect.any(Function));

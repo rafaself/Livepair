@@ -650,7 +650,7 @@ describe('App', () => {
     });
 
     expect(await screen.findByText('Speech request')).toBeVisible();
-    expect(await screen.findByText('Speech reply')).toBeVisible();
+    expect((await screen.findAllByText('Speech reply'))[0]).toBeVisible();
     await waitFor(() => {
       expect(persistedMessages).toHaveLength(2);
     });
@@ -663,7 +663,7 @@ describe('App', () => {
     });
 
     expect(screen.getByText('Speech request')).toBeVisible();
-    expect(screen.getByText('Speech reply')).toBeVisible();
+    expect(screen.getAllByText('Speech reply')[0]).toBeVisible();
     expect(screen.queryByRole('form', { name: 'Send message to Livepair' })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
   });

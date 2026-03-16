@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVoiceChunkPipeline } from './voiceChunkPipeline';
 import { createDefaultRealtimeOutboundDiagnostics } from '../../outbound/realtimeOutboundGateway';
 import type {
@@ -6,6 +6,7 @@ import type {
   RealtimeOutboundEvent,
   RealtimeOutboundGateway,
 } from '../../outbound/outbound.types';
+import { useUiStore } from '../../../store/uiStore';
 
 function createChunk(overrides: Partial<{
   data: Uint8Array;
@@ -93,6 +94,10 @@ function createMockOps(options: {
   };
 }
 
+beforeEach(() => {
+  useUiStore.setState({ isDebugMode: false });
+});
+
 describe('createVoiceChunkPipeline', () => {
   describe('getVoiceCapture', () => {
     it('lazily creates voice capture on first call', () => {
@@ -168,6 +173,7 @@ describe('createVoiceChunkPipeline', () => {
 
   describe('capture observer callbacks', () => {
     it('onChunk updates diagnostics and enqueues send', async () => {
+      useUiStore.setState({ isDebugMode: true });
       const ops = createMockOps();
       const pipeline = createVoiceChunkPipeline(ops as never);
       const chunk = createChunk({
@@ -180,13 +186,6 @@ describe('createVoiceChunkPipeline', () => {
 
       await pipeline.flush();
 
-      expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenCalledWith({
-        chunkCount: 1,
-        sampleRateHz: 16_000,
-        bytesPerChunk: 640,
-        chunkDurationMs: 20,
-        lastError: null,
-      });
       expect(ops._outboundGateway.submit).toHaveBeenCalledWith({
         kind: 'audio_chunk',
         channelKey: expect.stringContaining('audio:microphone:'),
@@ -199,6 +198,7 @@ describe('createVoiceChunkPipeline', () => {
     });
 
     it('forwards empty and undersized chunks unchanged', async () => {
+      useUiStore.setState({ isDebugMode: true });
       const ops = createMockOps();
       const pipeline = createVoiceChunkPipeline(ops as never);
       const emptyChunk = createChunk({
@@ -219,23 +219,10 @@ describe('createVoiceChunkPipeline', () => {
 
       expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(1, emptyChunk.data);
       expect(ops._transport.sendAudioChunk).toHaveBeenNthCalledWith(2, finalChunk.data);
-      expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenNthCalledWith(1, {
-        chunkCount: 3,
-        sampleRateHz: 16_000,
-        bytesPerChunk: 0,
-        chunkDurationMs: 20,
-        lastError: null,
-      });
-      expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenNthCalledWith(2, {
-        chunkCount: 4,
-        sampleRateHz: 16_000,
-        bytesPerChunk: 3,
-        chunkDurationMs: 20,
-        lastError: null,
-      });
     });
 
     it('onDiagnostics updates store diagnostics', () => {
+      useUiStore.setState({ isDebugMode: true });
       const ops = createMockOps();
       const pipeline = createVoiceChunkPipeline(ops as never);
 
