@@ -49,6 +49,7 @@ export type VisualSendTransitionReason =
   | 'screenShareStopped'
   | 'bootstrap'
   | 'analyzeScreenNow'
+  | 'manualMode'
   | 'snapshotConsumed'
   | 'enableStreaming'
   | 'stopStreaming'
@@ -86,6 +87,10 @@ export type VisualSendDiagnostics = {
   triggerSnapshotCount: number;
   /** Number of burst periods started. */
   burstCount: number;
+  /** Number of manual frames that actually reached the transport. */
+  manualFramesSentCount: number;
+  /** ISO timestamp for the most recent manual frame that actually reached the transport. */
+  lastManualFrameAt: string | null;
 };
 
 export type VisualSendPolicyOptions = {
@@ -115,6 +120,12 @@ export type VisualSendPolicy = {
    * Resets all cooldowns.
    */
   onScreenShareStopped: () => void;
+
+  /**
+   * Clears any pending automatic snapshot/streaming state and returns to sleep.
+   * Used when manual mode takes control while capture stays active.
+   */
+  pauseAutomaticSending: () => void;
 
   /**
    * Arms a bootstrap snapshot WITHOUT setting any cooldown timer.
@@ -263,6 +274,20 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
       lastPassiveBurstEndedAt = null;
     },
 
+    pauseAutomaticSending: () => {
+      if (state === 'inactive' || state === 'sleep') {
+        return;
+      }
+
+      if (state === 'streaming') {
+        streamingEndedAt = toIsoTimestamp(nowMs());
+      }
+
+      state = 'sleep';
+      clearPassiveBurst(false);
+      lastTransitionReason = 'manualMode';
+    },
+
     armBootstrapSnapshot: () => {
       if (state !== 'sleep') {
         return;
@@ -399,6 +424,8 @@ export function createVisualSendPolicy(options?: VisualSendPolicyOptions): Visua
       blockedByGateway,
       triggerSnapshotCount,
       burstCount,
+      manualFramesSentCount: 0,
+      lastManualFrameAt: null,
     }),
   };
 }
