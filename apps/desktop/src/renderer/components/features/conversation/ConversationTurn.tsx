@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from 'react';
-import { useState } from 'react';
-import { Check, Copy, Mic } from 'lucide-react';
+import { useId, useState } from 'react';
+import { Check, ChevronDown, ChevronUp, Copy, Mic } from 'lucide-react';
 import { Badge, IconButton } from '../../primitives';
 import { isTranscriptArtifact, type ConversationTimelineEntry } from '../../../runtime';
 import { TypingIndicator } from '../TypingIndicator';
@@ -28,13 +28,20 @@ export function ConversationTurn({
   ...rest
 }: ConversationTurnProps): JSX.Element {
   const [copied, setCopied] = useState(false);
+  const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
   const chatTimestampVisibility = useSettingsStore((state) => state.settings.chatTimestampVisibility);
+  const thinkingSectionId = useId();
 
   const isTranscript = isTranscriptArtifact(turn);
   const isStreamingTranscript = isTranscript && turn.state === 'streaming';
   const isInterruptedTranscript = isTranscript && turn.statusLabel === 'Interrupted';
   const isCompletedTranscript = isTranscript && turn.state === 'complete' && !isInterruptedTranscript;
   const isTypedNote = !isTranscript && turn.role === 'user' && turn.source === 'text';
+  const thinkingText =
+    !isTranscript && turn.role === 'assistant'
+      ? turn.answerMetadata?.thinkingText?.trim() ?? ''
+      : '';
+  const hasThinkingText = thinkingText.length > 0;
 
   const classes = [
     'conversation-turn',
@@ -61,6 +68,7 @@ export function ConversationTurn({
 
   const artifactKind = isTranscript ? 'transcript' : 'turn';
   const showCopyButton = turn.role === 'assistant' && !isTypingOnly && !isStreamingTranscript;
+  const showThinkingToggle = showCopyButton && hasThinkingText;
 
   return (
     <article
@@ -80,14 +88,29 @@ export function ConversationTurn({
         <div className="conversation-turn__meta">
           <div className="conversation-turn__meta-main">
             {showCopyButton ? (
-              <IconButton
-                label={copied ? 'Copied' : 'Copy message'}
-                size="sm"
-                className="conversation-turn__copy-btn"
-                onClick={handleCopy}
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-              </IconButton>
+              <div className="conversation-turn__actions">
+                <IconButton
+                  label={copied ? 'Copied' : 'Copy message'}
+                  size="sm"
+                  className="conversation-turn__copy-btn"
+                  onClick={handleCopy}
+                >
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                </IconButton>
+                {showThinkingToggle ? (
+                  <button
+                    type="button"
+                    className="conversation-turn__thinking-toggle"
+                    aria-label={isThinkingExpanded ? 'Hide assistant thinking' : 'Show assistant thinking'}
+                    aria-expanded={isThinkingExpanded}
+                    aria-controls={thinkingSectionId}
+                    onClick={() => setIsThinkingExpanded((expanded) => !expanded)}
+                  >
+                    <span>Thinking</span>
+                    {isThinkingExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                ) : null}
+              </div>
             ) : chatTimestampVisibility === 'visible' ? (
               <time className="conversation-turn__timestamp">{turn.timestamp}</time>
             ) : null}
@@ -102,6 +125,20 @@ export function ConversationTurn({
             ) : null}
           </div>
         </div>
+        {showThinkingToggle ? (
+          <div
+            id={thinkingSectionId}
+            className="conversation-turn__thinking"
+            hidden={!isThinkingExpanded}
+          >
+            {isThinkingExpanded ? (
+              <>
+                <p className="conversation-turn__thinking-label">Assistant thinking</p>
+                <p className="conversation-turn__thinking-content">{thinkingText}</p>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </article>
   );
