@@ -18,6 +18,7 @@ export function mapChatMessageRecordToConversationTurn(
     timestamp: formatConversationTimestamp(new Date(record.createdAt)),
     timelineOrdinal: record.sequence,
     state: 'complete',
+    ...(record.answerMetadata ? { answerMetadata: record.answerMetadata } : {}),
     persistedMessageId: record.id,
   };
 }
