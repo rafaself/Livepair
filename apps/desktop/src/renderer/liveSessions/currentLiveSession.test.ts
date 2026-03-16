@@ -22,6 +22,7 @@ describe('currentLiveSession restore metadata', () => {
         endedAt: null,
         status: 'active' as const,
         endedReason: null,
+        voice: request.voice,
         resumptionHandle: null,
         lastResumptionUpdateAt: null,
         restorable: false,
@@ -49,14 +50,30 @@ describe('currentLiveSession restore metadata', () => {
         isCurrent: true,
       }),
       listChatMessages: vi.fn().mockResolvedValue([]),
-      listLiveSessions: vi.fn().mockResolvedValue([]),
+      listLiveSessions: vi.fn().mockResolvedValue([
+        {
+          id: 'live-session-history',
+          chatId: 'chat-history-1',
+          startedAt: '2026-03-10T09:20:00.000Z',
+          endedAt: '2026-03-10T09:25:00.000Z',
+          status: 'ended',
+          endedReason: 'user-ended',
+          voice: 'Kore',
+          resumptionHandle: null,
+          lastResumptionUpdateAt: '2026-03-10T09:25:00.000Z',
+          restorable: false,
+          invalidatedAt: '2026-03-10T09:25:00.000Z',
+          invalidationReason: 'user-ended',
+        },
+      ]),
     } as unknown as typeof window.bridge;
 
     await switchToChat('chat-history-1', bridge as never);
-    await startCurrentLiveSession(bridge);
+    await startCurrentLiveSession({ voicePreference: 'Aoede' }, bridge);
 
     expect(bridge.createLiveSession).toHaveBeenCalledWith({
       chatId: 'chat-history-1',
+      voice: 'Kore',
       startedAt: expect.any(String),
     });
     expect(bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
@@ -76,6 +93,7 @@ describe('currentLiveSession restore metadata', () => {
           endedAt: null,
           status: 'active',
           endedReason: null,
+          voice: 'Aoede',
           resumptionHandle: null,
           lastResumptionUpdateAt: null,
           restorable: false,
@@ -89,6 +107,7 @@ describe('currentLiveSession restore metadata', () => {
           endedAt: null,
           status: 'active',
           endedReason: null,
+          voice: 'Kore',
           resumptionHandle: 'handles/live-session-restorable',
           lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
           restorable: true,
@@ -105,6 +124,7 @@ describe('currentLiveSession restore metadata', () => {
       endedAt: null,
       status: 'active',
       endedReason: null,
+      voice: 'Kore',
       resumptionHandle: 'handles/live-session-restorable',
       lastResumptionUpdateAt: '2026-03-12T09:01:00.000Z',
       restorable: true,
@@ -127,6 +147,7 @@ describe('currentLiveSession restore metadata', () => {
           endedAt: null,
           status: 'active',
           endedReason: null,
+          voice: 'Aoede',
           resumptionHandle: null,
           lastResumptionUpdateAt: '2026-03-12T09:11:00.000Z',
           restorable: false,
@@ -154,6 +175,7 @@ describe('currentLiveSession restore metadata', () => {
         endedAt: null,
         status: 'active' as const,
         endedReason: null,
+        voice: request.voice,
         resumptionHandle: 'handles/live-session-current',
         lastResumptionUpdateAt: '2026-03-12T09:21:00.000Z',
         restorable: true,
@@ -167,6 +189,7 @@ describe('currentLiveSession restore metadata', () => {
         endedAt: null,
         status: 'active' as const,
         endedReason: null,
+        voice: 'Puck',
         resumptionHandle: 'handles/live-session-current',
         lastResumptionUpdateAt: '2026-03-12T09:21:00.000Z',
         restorable: false,
@@ -178,7 +201,7 @@ describe('currentLiveSession restore metadata', () => {
       listLiveSessions: vi.fn().mockResolvedValue([]),
     } as unknown as typeof window.bridge;
 
-    await startCurrentLiveSession(bridge);
+    await startCurrentLiveSession({ voicePreference: 'Puck' }, bridge);
 
     await expect(
       invalidateCurrentLiveSessionResumption(

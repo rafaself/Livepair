@@ -117,13 +117,14 @@ describe('createDesktopSessionController – lifecycle', () => {
         return nextRecord;
       },
     );
-    window.bridge.createLiveSession = vi.fn(async ({ chatId, startedAt }) => ({
+    window.bridge.createLiveSession = vi.fn(async ({ chatId, voice, startedAt }) => ({
       id: 'live-session-1',
       chatId,
       startedAt: startedAt ?? '2026-03-12T09:00:00.000Z',
       endedAt: null,
       status: 'active' as const,
       endedReason: null,
+      voice,
       resumptionHandle: null,
       lastResumptionUpdateAt: null,
       restorable: false,
@@ -138,6 +139,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       endedAt: endedAt ?? '2026-03-12T09:05:00.000Z',
       status,
       endedReason: endedReason ?? null,
+      voice: 'Puck' as const,
       resumptionHandle: null,
       lastResumptionUpdateAt: null,
       restorable: false,
@@ -516,6 +518,7 @@ describe('createDesktopSessionController – lifecycle', () => {
         endedAt: null,
         status: 'active',
         endedReason: null,
+        voice: 'Puck',
         resumptionHandle: null,
         lastResumptionUpdateAt: '2026-03-12T08:56:00.000Z',
         restorable: false,
@@ -523,13 +526,14 @@ describe('createDesktopSessionController – lifecycle', () => {
         invalidationReason: 'Gemini Live session is not resumable at this point',
       },
     ]);
-    window.bridge.createLiveSession = vi.fn(async ({ chatId, startedAt }) => ({
+    window.bridge.createLiveSession = vi.fn(async ({ chatId, voice, startedAt }) => ({
       id: 'live-session-2',
       chatId,
       startedAt: startedAt ?? '2026-03-12T09:10:00.000Z',
       endedAt: null,
       status: 'active' as const,
       endedReason: null,
+      voice,
       resumptionHandle: null,
       lastResumptionUpdateAt: null,
       restorable: false,
@@ -643,6 +647,7 @@ describe('createDesktopSessionController – lifecycle', () => {
         endedAt: null,
         status: 'active',
         endedReason: null,
+        voice: 'Kore',
         resumptionHandle: 'handles/persisted-live-session-1',
         lastResumptionUpdateAt: '2026-03-12T08:56:00.000Z',
         restorable: true,
@@ -650,13 +655,14 @@ describe('createDesktopSessionController – lifecycle', () => {
         invalidationReason: null,
       },
     ]);
-    window.bridge.createLiveSession = vi.fn(async ({ chatId, startedAt }) => ({
+    window.bridge.createLiveSession = vi.fn(async ({ chatId, voice, startedAt }) => ({
       id: 'live-session-2',
       chatId,
       startedAt: startedAt ?? '2026-03-12T09:10:00.000Z',
       endedAt: null,
       status: 'active' as const,
       endedReason: null,
+      voice,
       resumptionHandle: null,
       lastResumptionUpdateAt: null,
       restorable: false,
