@@ -11,6 +11,8 @@ The scope is still intentionally narrow:
 - create a Cloud SQL PostgreSQL instance, database, and application user
 - deploy the API baseline onto Cloud Run from a configurable bootstrap image reference
 - wire non-secret runtime config, Secret Manager-backed env vars, and Cloud SQL attachment for the API service
+- add a public Cloud Monitoring uptime check against the deployed API `/health` endpoint
+- add a minimal alerting policy for uptime-check failures
 - check in a Cloud Build pipeline that builds, pushes, and deploys the API image against the existing Cloud Run service
 
 This repo still does **not** create the Cloud Build trigger itself, migration jobs, secret values, or broader rollout orchestration.
@@ -25,6 +27,7 @@ infra/terraform/
     ├── artifact_registry/
     ├── cloud_sql/
     ├── cloud_run/
+    ├── monitoring/
     ├── project_services/
     ├── secret_manager/
     └── service_accounts/
@@ -70,6 +73,7 @@ Required inputs stay intentionally small:
 - `api_service` settings, including the container image reference and Cloud Run sizing
 - optional `api_runtime` overrides for non-secret API env vars
 - optional `api_secret_versions` pins if you do not want to use `latest`
+- optional `monitoring` overrides for the uptime-check path, cadence, alert duration, and notification channel resource names
 
 Do **not** commit `terraform.tfvars` or any real secret values.
 The committed example file keeps `app_user_password` as a placeholder so `plan` remains reviewable.
@@ -100,7 +104,7 @@ terraform -chdir=infra/terraform/envs/dev apply -var-file=terraform.tfvars
 
 The `dev` root now manages:
 
-- required project services: Artifact Registry, IAM, Cloud Run, Secret Manager, Service Usage, and Cloud SQL Admin
+- required project services: Artifact Registry, IAM, Cloud Monitoring, Cloud Run, Secret Manager, Service Usage, and Cloud SQL Admin
 - one regional Docker Artifact Registry repository
 - two user-managed service accounts: API runtime and future migrator
 - project-level IAM for `roles/cloudsql.client`
@@ -112,9 +116,55 @@ The `dev` root now manages:
 - one PostgreSQL Cloud SQL instance, one application database, and one application user
 - one Cloud Run v2 service for the API, attached to the API runtime service account
 - optional public `roles/run.invoker` access when `api_service.allow_unauthenticated = true`
+- one public Cloud Monitoring uptime check against the deployed API health endpoint
+- one Cloud Monitoring alert policy that opens when the uptime check stops passing
 
 For the current dev foundation, the example settings keep Cloud SQL on public IPv4 and leave backups disabled so the environment stays inexpensive and does not pull VPC/private-service networking into scope.
 Revisit those two knobs before any broader rollout.
+
+## Monitoring the deployed API
+
+Wave 6 adds a deliberately small monitoring layer for the public API:
+
+- Terraform creates a public HTTPS uptime check against the Cloud Run service URL from `terraform output -raw api_cloud_run_service_url`
+- the monitored path defaults to `/health`
+- the uptime check runs every `60s` by default with a `10s` timeout
+- the alert policy opens when the uptime metric reports failures for `120s`
+
+This keeps the demo behavior easy to explain: "if the public health endpoint stops passing, Cloud Monitoring opens an incident."
+
+Useful outputs after apply:
+
+- `api_uptime_check_name`
+- `api_alert_policy_name`
+- `api_monitoring`
+
+`api_monitoring` includes the monitored URL/path, the uptime check ID/name, the alert policy name, and a `notification_setup_required` flag that is `true` when no notification channels were attached.
+
+### Notification channels
+
+This repo intentionally does **not** create email, SMS, PagerDuty, Slack, or webhook notification channels in Terraform. Those targets are team-specific and often contain personal or environment-sensitive routing details, so the lower-risk Wave 6 choice is:
+
+1. create the notification channel manually in Cloud Monitoring (or reuse one your team already manages elsewhere)
+2. copy its full resource name in the form `projects/PROJECT_ID/notificationChannels/CHANNEL_ID`
+3. add that value to `monitoring.notification_channel_names` in `infra/terraform/envs/dev/terraform.tfvars`
+4. run `terraform apply` so the alert policy attachment stays managed in code
+
+If `notification_channel_names` is left empty, Terraform still creates the alert policy and incidents still appear in Cloud Monitoring, but no notification is delivered until channels are attached later.
+
+Example:
+
+```hcl
+monitoring = {
+  health_check_path      = "/health"
+  uptime_check_period    = "60s"
+  timeout                = "10s"
+  alert_failure_duration = "120s"
+  notification_channel_names = [
+    "projects/YOUR_GCP_PROJECT_ID/notificationChannels/1234567890123456789",
+  ]
+}
+```
 
 ## Bootstrap assumptions and deferred state work
 
@@ -125,8 +175,8 @@ This stack assumes the following already exist outside Terraform:
 - a caller with permission to enable services and create the managed resources
 
 Terraform state stays local on purpose so `terraform init` works without extra bootstrap.
-If you later want remote state, create the GCS bucket out of band first and then add a backend block to the environment root.
-That remote-state bootstrap is intentionally deferred so this wave stays reviewable and does not depend on one Terraform stack creating its own backend.
+Wave 6 keeps that choice: remote Terraform state is still deferred rather than introducing backend migration risk into the monitoring polish work.
+Recommended post-wave improvement: create the GCS bucket out of band first and then add a standard `backend "gcs"` block to the environment root when the team is ready to manage state migration explicitly.
 
 ## Deploying the API service
 
@@ -308,6 +358,9 @@ Useful outputs after apply:
 - `api_cloud_run_service_name`
 - `api_cloud_run_service_url`
 - `api_cloud_run`
+- `api_uptime_check_name`
+- `api_alert_policy_name`
+- `api_monitoring`
 - `cloud_sql.instance_connection_name`
 - `artifact_registry.url`
 
@@ -320,5 +373,7 @@ This foundation intentionally stops short of:
 - rotating or pinning secrets through Terraform-managed secret-version resources
 - reworking the backend application to use a different database config model
 - provisioning the Cloud Build trigger itself through Terraform or another GitOps layer
+- provisioning notification-channel targets directly in the repo
+- migrating Terraform state to a remote GCS backend
 
 The outputs from `envs/dev` expose the repository URL, service account emails, secret names, Cloud SQL connection identifiers, and Cloud Run service URL for those follow-up waves.

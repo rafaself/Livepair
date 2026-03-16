@@ -46,10 +46,10 @@ output "secret_names" {
 output "cloud_sql" {
   description = "Cloud SQL identifiers needed by later deployment and secret-population work."
   value = {
-    instance_name             = module.cloud_sql.instance_name
-    instance_connection_name  = module.cloud_sql.instance_connection_name
-    database_name             = module.cloud_sql.database_name
-    app_user_name             = module.cloud_sql.app_user_name
+    instance_name            = module.cloud_sql.instance_name
+    instance_connection_name = module.cloud_sql.instance_connection_name
+    database_name            = module.cloud_sql.database_name
+    app_user_name            = module.cloud_sql.app_user_name
   }
 }
 
@@ -72,5 +72,31 @@ output "api_cloud_run" {
     service_account_email              = module.service_accounts.service_account_emails["api_runtime"]
     allow_unauthenticated              = var.api_service.allow_unauthenticated
     cloud_sql_instance_connection_name = module.cloud_sql.instance_connection_name
+  }
+}
+
+output "api_uptime_check_name" {
+  description = "Fully qualified Cloud Monitoring uptime check resource name for the public API."
+  value       = module.monitoring.uptime_check_name
+}
+
+output "api_alert_policy_name" {
+  description = "Fully qualified Cloud Monitoring alert policy resource name for the public API."
+  value       = module.monitoring.alert_policy_name
+}
+
+output "api_monitoring" {
+  description = "Cloud Monitoring metadata for the public API uptime check and alert policy."
+  value = {
+    monitored_url               = module.monitoring.monitored_url
+    monitored_host              = module.monitoring.monitored_host
+    monitored_path              = module.monitoring.monitored_path
+    uptime_check_id             = module.monitoring.uptime_check_id
+    uptime_check_name           = module.monitoring.uptime_check_name
+    uptime_check_display_name   = module.monitoring.uptime_check_display_name
+    alert_policy_name           = module.monitoring.alert_policy_name
+    alert_policy_display_name   = module.monitoring.alert_policy_display_name
+    notification_channel_names  = module.monitoring.notification_channel_names
+    notification_setup_required = length(module.monitoring.notification_channel_names) == 0
   }
 }

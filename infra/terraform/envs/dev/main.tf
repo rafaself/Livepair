@@ -15,11 +15,14 @@ locals {
   required_services = toset([
     "artifactregistry.googleapis.com",
     "iam.googleapis.com",
+    "monitoring.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "serviceusage.googleapis.com",
     "sqladmin.googleapis.com",
   ])
+
+  api_monitoring_display_prefix = "Livepair ${upper(var.environment_name)} API"
 
   service_account_configs = {
     api_runtime = {
@@ -37,14 +40,14 @@ locals {
   }
 
   api_environment_variables = {
-    NODE_ENV                              = var.api_runtime.node_env
-    CORS_ALLOWED_ORIGINS                  = join(",", var.api_runtime.cors_allowed_origins)
-    SESSION_TOKEN_LIVE_MODEL              = var.api_runtime.session_token_live_model
-    SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS = tostring(var.api_runtime.session_token_rate_limit_max_requests)
-    SESSION_TOKEN_RATE_LIMIT_WINDOW_MS    = tostring(var.api_runtime.session_token_rate_limit_window_ms)
-    EPHEMERAL_TOKEN_TTL_SECONDS           = tostring(var.api_runtime.ephemeral_token_ttl_seconds)
-    PROJECT_KNOWLEDGE_SEARCH_MODEL        = var.api_runtime.project_knowledge_search_model
-    PROJECT_KNOWLEDGE_FILE_SEARCH_STORE   = var.api_runtime.project_knowledge_file_search_store
+    NODE_ENV                                         = var.api_runtime.node_env
+    CORS_ALLOWED_ORIGINS                             = join(",", var.api_runtime.cors_allowed_origins)
+    SESSION_TOKEN_LIVE_MODEL                         = var.api_runtime.session_token_live_model
+    SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS            = tostring(var.api_runtime.session_token_rate_limit_max_requests)
+    SESSION_TOKEN_RATE_LIMIT_WINDOW_MS               = tostring(var.api_runtime.session_token_rate_limit_window_ms)
+    EPHEMERAL_TOKEN_TTL_SECONDS                      = tostring(var.api_runtime.ephemeral_token_ttl_seconds)
+    PROJECT_KNOWLEDGE_SEARCH_MODEL                   = var.api_runtime.project_knowledge_search_model
+    PROJECT_KNOWLEDGE_FILE_SEARCH_STORE              = var.api_runtime.project_knowledge_file_search_store
     PROJECT_KNOWLEDGE_FILE_SEARCH_STORE_DISPLAY_NAME = var.api_runtime.project_knowledge_file_search_store_display_name
   }
 }
@@ -71,8 +74,8 @@ module "artifact_registry" {
 module "service_accounts" {
   source = "../../modules/service_accounts"
 
-  project_id        = var.project_id
-  service_accounts  = local.service_account_configs
+  project_id       = var.project_id
+  service_accounts = local.service_account_configs
 
   depends_on = [module.project_services]
 }
@@ -131,24 +134,24 @@ module "cloud_sql" {
 module "cloud_run" {
   source = "../../modules/cloud_run"
 
-  project_id                        = var.project_id
-  location                          = var.region
-  service_name                      = "${local.base_name}-api"
-  service_account_email             = module.service_accounts.service_account_emails["api_runtime"]
-  image                             = var.api_service.image
-  container_port                    = var.api_service.container_port
-  ingress                           = var.api_service.ingress
-  deletion_protection               = var.api_service.deletion_protection
-  allow_unauthenticated             = var.api_service.allow_unauthenticated
-  min_instance_count                = var.api_service.min_instance_count
-  max_instance_count                = var.api_service.max_instance_count
-  timeout                           = var.api_service.timeout
-  cpu                               = var.api_service.cpu
-  memory                            = var.api_service.memory
-  cpu_idle                          = var.api_service.cpu_idle
-  startup_cpu_boost                 = var.api_service.startup_cpu_boost
-  labels                            = local.common_labels
-  environment_variables             = local.api_environment_variables
+  project_id                          = var.project_id
+  location                            = var.region
+  service_name                        = "${local.base_name}-api"
+  service_account_email               = module.service_accounts.service_account_emails["api_runtime"]
+  image                               = var.api_service.image
+  container_port                      = var.api_service.container_port
+  ingress                             = var.api_service.ingress
+  deletion_protection                 = var.api_service.deletion_protection
+  allow_unauthenticated               = var.api_service.allow_unauthenticated
+  min_instance_count                  = var.api_service.min_instance_count
+  max_instance_count                  = var.api_service.max_instance_count
+  timeout                             = var.api_service.timeout
+  cpu                                 = var.api_service.cpu
+  memory                              = var.api_service.memory
+  cpu_idle                            = var.api_service.cpu_idle
+  startup_cpu_boost                   = var.api_service.startup_cpu_boost
+  labels                              = local.common_labels
+  environment_variables               = local.api_environment_variables
   cloud_sql_instance_connection_names = [module.cloud_sql.instance_connection_name]
   secret_environment_variables = {
     GEMINI_API_KEY = {
@@ -170,5 +173,28 @@ module "cloud_run" {
     module.service_accounts,
     module.secret_manager,
     module.cloud_sql,
+  ]
+}
+
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  project_id                 = var.project_id
+  target_url                 = module.cloud_run.service_url
+  path                       = var.monitoring.health_check_path
+  uptime_check_display_name  = "${local.api_monitoring_display_prefix} /health uptime"
+  alert_policy_display_name  = "${local.api_monitoring_display_prefix} health check failed"
+  period                     = var.monitoring.uptime_check_period
+  timeout                    = var.monitoring.timeout
+  failure_duration           = var.monitoring.alert_failure_duration
+  notification_channel_names = var.monitoring.notification_channel_names
+  user_labels = merge(local.common_labels, {
+    component = "api"
+    signal    = "uptime"
+  })
+
+  depends_on = [
+    module.project_services,
+    module.cloud_run,
   ]
 }

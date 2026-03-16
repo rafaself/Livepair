@@ -55,3 +55,18 @@ api_secret_versions = {
   session_token_auth_secret = "latest"
   database_url              = "latest"
 }
+
+monitoring = {
+  health_check_path      = "/health"
+  uptime_check_period    = "60s"
+  timeout                = "10s"
+  alert_failure_duration = "120s"
+
+  # Create notification channels outside this repo, then attach their full
+  # resource names here to keep the alert policy wiring in Terraform.
+  # Example:
+  # notification_channel_names = [
+  #   "projects/your-gcp-project-id/notificationChannels/1234567890123456789",
+  # ]
+  notification_channel_names = []
+}

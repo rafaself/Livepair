@@ -23,17 +23,17 @@ variable "naming_prefix" {
 variable "database" {
   description = "Cloud SQL settings for the current environment."
   type = object({
-    version               = string
-    tier                  = string
-    availability_type     = string
-    disk_size_gb          = number
-    disk_type             = string
-    backup_enabled        = bool
-    ipv4_enabled          = bool
-    deletion_protection   = bool
-    database_name         = string
-    app_user_name         = string
-    app_user_password     = string
+    version             = string
+    tier                = string
+    availability_type   = string
+    disk_size_gb        = number
+    disk_type           = string
+    backup_enabled      = bool
+    ipv4_enabled        = bool
+    deletion_protection = bool
+    database_name       = string
+    app_user_name       = string
+    app_user_password   = string
   })
 }
 
@@ -58,17 +58,17 @@ variable "api_service" {
 variable "api_runtime" {
   description = "Non-secret runtime configuration injected into the API service."
   type = object({
-    node_env                              = optional(string, "production")
-    cors_allowed_origins                  = optional(list(string), [])
-    session_token_live_model              = optional(
+    node_env             = optional(string, "production")
+    cors_allowed_origins = optional(list(string), [])
+    session_token_live_model = optional(
       string,
       "models/gemini-2.5-flash-native-audio-preview-12-2025",
     )
-    session_token_rate_limit_max_requests = optional(number, 5)
-    session_token_rate_limit_window_ms    = optional(number, 60000)
-    ephemeral_token_ttl_seconds           = optional(number, 60)
-    project_knowledge_search_model        = optional(string, "models/gemini-2.5-flash")
-    project_knowledge_file_search_store   = optional(string, "")
+    session_token_rate_limit_max_requests            = optional(number, 5)
+    session_token_rate_limit_window_ms               = optional(number, 60000)
+    ephemeral_token_ttl_seconds                      = optional(number, 60)
+    project_knowledge_search_model                   = optional(string, "models/gemini-2.5-flash")
+    project_knowledge_file_search_store              = optional(string, "")
     project_knowledge_file_search_store_display_name = optional(string, "livepair-project-knowledge")
   })
   default = {}
@@ -80,6 +80,18 @@ variable "api_secret_versions" {
     gemini_api_key            = optional(string, "latest")
     session_token_auth_secret = optional(string, "latest")
     database_url              = optional(string, "latest")
+  })
+  default = {}
+}
+
+variable "monitoring" {
+  description = "Minimal Cloud Monitoring settings for the public API uptime check and alert policy."
+  type = object({
+    health_check_path          = optional(string, "/health")
+    uptime_check_period        = optional(string, "60s")
+    timeout                    = optional(string, "10s")
+    alert_failure_duration     = optional(string, "120s")
+    notification_channel_names = optional(list(string), [])
   })
   default = {}
 }
