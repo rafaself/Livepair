@@ -228,8 +228,11 @@ Product state rules:
 
 Current implementation:
 
-* screen capture is manual-only
 * screen capture requires an active Live session
+* the first Share Screen action requires choosing a persisted `manual` or `continuous` policy
+* manual mode sends only on explicit user action and always uses high-detail capture settings
+* continuous mode keeps a fixed 3000 ms base cadence with bounded 1000 ms bursts after meaningful thumbnail changes
+* continuous mode uses the `continuousScreenQuality` baseline, with `medium` as the default
 * uploaded frames use an explicit conservative policy: 1 FPS capture, compressed JPEG, reduced width, and latest-frame-wins backpressure while a prior upload is in flight
 * Live voice sessions use `MEDIA_RESOLUTION_LOW` by default for screen sharing unless explicitly overridden
 * if reconnect/resume falls through to a replacement Live runtime, screen capture is stopped and must be manually re-enabled on the new runtime
