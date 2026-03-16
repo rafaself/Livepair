@@ -4,6 +4,7 @@ import {
 } from '../../../shared';
 import { createGeminiLiveTransport } from './geminiLiveTransport';
 import {
+  composeLiveSystemInstruction,
   parseLiveConfig,
   type GeminiLiveConnectConfig,
 } from './liveConfig';
@@ -253,7 +254,7 @@ describe('createGeminiLiveTransport', () => {
             },
           },
         },
-        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+        systemInstruction: composeLiveSystemInstruction(DEFAULT_SYSTEM_INSTRUCTION),
         tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
@@ -299,7 +300,7 @@ describe('createGeminiLiveTransport', () => {
               },
             },
           },
-          systemInstruction: 'Keep answers brief and action-oriented.',
+          systemInstruction: composeLiveSystemInstruction('Keep answers brief and action-oriented.'),
           tools: expect.any(Array),
         } satisfies GeminiLiveConnectConfig,
         callbacks: expect.any(Object),
@@ -344,7 +345,7 @@ describe('createGeminiLiveTransport', () => {
             },
           },
         },
-        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+        systemInstruction: composeLiveSystemInstruction(DEFAULT_SYSTEM_INSTRUCTION),
         tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),
@@ -1316,7 +1317,7 @@ describe('createGeminiLiveTransport', () => {
             },
           },
         },
-        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+        systemInstruction: composeLiveSystemInstruction(DEFAULT_SYSTEM_INSTRUCTION),
         tools: expect.any(Array),
       } satisfies GeminiLiveConnectConfig,
       callbacks: expect.any(Object),

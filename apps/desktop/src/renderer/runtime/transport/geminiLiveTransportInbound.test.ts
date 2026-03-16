@@ -204,7 +204,7 @@ describe('handleGeminiLiveSdkMessage', () => {
       type: 'answer-metadata',
       answerMetadata: {
         provenance: 'web_grounded',
-        confidence: 'high',
+        confidence: 'medium',
         citations: [
           {
             label: 'Release notes',
