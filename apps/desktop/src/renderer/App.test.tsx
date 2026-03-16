@@ -426,9 +426,16 @@ describe('App', () => {
           outputTranscription: {
             text: 'Speech reply',
           },
+          modelTurn: {
+            role: 'model',
+            parts: [
+              {
+                text: 'Speech reply',
+              },
+            ],
+          },
         },
       });
-      __emitGeminiLiveSdkMessage({ text: 'Speech reply' });
       __emitGeminiLiveSdkMessage({ serverContent: { turnComplete: true } });
     });
 
