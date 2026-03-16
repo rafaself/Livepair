@@ -2,6 +2,38 @@ import type { INestApplication } from '@nestjs/common';
 import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 import type { AddressInfo } from 'net';
 
+function createLiveTelemetryBatchBody(): Record<string, unknown> {
+  return {
+    events: [
+      {
+        eventType: 'live_session_started',
+        occurredAt: '2026-03-16T14:00:00.000Z',
+        sessionId: 'session-1',
+        chatId: 'chat-1',
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+      },
+      {
+        eventType: 'live_session_ended',
+        occurredAt: '2026-03-16T14:02:00.000Z',
+        sessionId: 'session-1',
+        chatId: 'chat-1',
+        environment: 'test',
+        platform: 'linux',
+        appVersion: '0.0.1',
+        model: 'models/gemini',
+        durationMs: 120000,
+        firstResponseLatencyMs: 800,
+        resumeCount: 1,
+        interruptionCount: 2,
+        closeReason: 'user_stop',
+      },
+    ],
+  };
+}
+
 describe('Observability HTTP integration', () => {
   const originalEnv = process.env;
   let app: INestApplication;
@@ -84,5 +116,70 @@ describe('Observability HTTP integration', () => {
     expect(metrics).toMatch(
       /livepair_api_http_request_errors_total\{method="GET",route="unmatched",status_code="404"\} 1/,
     );
+  });
+
+  it('accepts a protected live telemetry batch', async () => {
+    const response = await fetch(`${baseUrl}/observability/live-telemetry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'observability-secret',
+      },
+      body: JSON.stringify(createLiveTelemetryBatchBody()),
+    });
+
+    expect(response.status).toBe(202);
+    await expect(response.text()).resolves.toBe('');
+  });
+
+  it('rejects live telemetry batches without the desktop auth header', async () => {
+    const response = await fetch(`${baseUrl}/observability/live-telemetry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(createLiveTelemetryBatchBody()),
+    });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects live telemetry batches with an invalid desktop auth header', async () => {
+    const response = await fetch(`${baseUrl}/observability/live-telemetry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'wrong-secret',
+      },
+      body: JSON.stringify(createLiveTelemetryBatchBody()),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  it('rejects malformed live telemetry batches', async () => {
+    const response = await fetch(`${baseUrl}/observability/live-telemetry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'observability-secret',
+      },
+      body: JSON.stringify({
+        events: [
+          {
+            eventType: 'live_usage_reported',
+            occurredAt: '2026-03-16T14:01:00.000Z',
+            sessionId: 'session-1',
+            chatId: 'chat-1',
+            environment: 'test',
+            platform: 'linux',
+            appVersion: '0.0.1',
+            model: 'models/gemini',
+          },
+        ],
+      }),
+    });
+
+    expect(response.status).toBe(400);
   });
 });

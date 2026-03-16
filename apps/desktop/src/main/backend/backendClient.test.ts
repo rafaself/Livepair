@@ -325,7 +325,7 @@ describe('backendClient', () => {
     vi.useRealTimers();
   });
 
-  it('accepts live telemetry batches without issuing backend requests until ingestion exists', async () => {
+  it('posts live telemetry batches through the protected backend observability route', async () => {
     const telemetryEvents: LiveTelemetryEvent[] = [
       {
         eventType: 'live_session_started',
@@ -338,10 +338,22 @@ describe('backendClient', () => {
         model: 'models/gemini',
       },
     ];
+    fetchImpl.mockResolvedValue({
+      ok: true,
+      status: 202,
+      text: vi.fn(async () => ''),
+    });
     const client = createBackendClient({ fetchImpl, getBackendUrl });
 
     await expect(client.reportLiveTelemetry(telemetryEvents)).resolves.toBeUndefined();
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/observability/live-telemetry', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+      },
+      body: JSON.stringify({ events: telemetryEvents }),
+    });
   });
 
   it('throws when the token endpoint returns a non-ok response', async () => {
