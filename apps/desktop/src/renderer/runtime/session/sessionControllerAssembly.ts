@@ -1,4 +1,5 @@
 import {
+  logRuntimeDiagnostic,
   logLifecycleTransition,
   logRuntimeError,
 } from '../core/logger';
@@ -101,6 +102,14 @@ export function createSessionControllerAssembly(
     dependencies.store,
     () => mutableRuntime.getActiveTransport(),
     () => stateSync.createVoiceToolExecutionSnapshot(),
+    (answerMetadata) => {
+      conversationCtx.pendingAssistantAnswerMetadata = answerMetadata;
+      logRuntimeDiagnostic('voice-session', 'assistant answer provenance updated', {
+        provenance: answerMetadata.provenance,
+        ...(answerMetadata.confidence ? { confidence: answerMetadata.confidence } : {}),
+        ...(answerMetadata.reason ? { reason: answerMetadata.reason } : {}),
+      });
+    },
   );
   const interruptionCtrl = createVoiceInterruptionController(
     dependencies.store,
