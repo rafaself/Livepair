@@ -40,7 +40,7 @@ sequenceDiagram
         par Realtime microphone
             CAP->>UI: Audio chunks from microphone
             UI->>GL: realtimeInput(audio)
-        and Optional screen streaming
+        and Optional Share Screen context
             CAP->>UI: Screen frames/chunks
             UI->>GL: realtimeInput(video/screen)
         and Typed input during live mode

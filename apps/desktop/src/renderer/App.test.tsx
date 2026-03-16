@@ -186,6 +186,7 @@ describe('App', () => {
     const confirmButton = screen.getByRole('button', { name: 'Confirm Share Screen mode' });
 
     expect(dialog).toBeVisible();
+    expect(dialog).toHaveAttribute('aria-describedby', 'share-screen-mode-description');
     expect(screen.getByText(/sends your current screen only when you explicitly click/i)).toBeVisible();
     expect(confirmButton).toBeDisabled();
     expect(manualRadio).toHaveFocus();
@@ -193,6 +194,7 @@ describe('App', () => {
     confirmButton.focus();
     fireEvent.keyDown(document, { key: 'Tab' });
     expect(manualRadio).toHaveFocus();
+    expect(shareScreenButton).not.toHaveFocus();
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(dialog).toBeVisible();

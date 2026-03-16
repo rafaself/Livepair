@@ -21,6 +21,58 @@ import {
 } from './validators';
 
 describe('ipc validators', () => {
+  it('validates sent screen frame dump payloads', () => {
+    expect(isSaveScreenFrameDumpFrameRequest({
+      sequence: 2,
+      mimeType: 'image/jpeg',
+      data: new Uint8Array([4, 5, 6]),
+      savedAt: '2026-03-15T22:41:03.124Z',
+      mode: 'manual',
+      quality: 'high',
+      reason: 'manual',
+    })).toBe(true);
+
+    expect(isSaveScreenFrameDumpFrameRequest({
+      sequence: 2,
+      mimeType: 'image/jpeg',
+      data: new Uint8Array([4, 5, 6]),
+      savedAt: '2026-03-15T22:41:09.021Z',
+      mode: 'continuous',
+      quality: 'medium',
+      reason: 'base',
+    })).toBe(true);
+
+    expect(isSaveScreenFrameDumpFrameRequest({
+      sequence: 0,
+      mimeType: 'image/jpeg',
+      data: new Uint8Array([1, 2, 3]),
+      savedAt: '2026-03-15T22:41:03.124Z',
+      mode: 'manual',
+      quality: 'high',
+      reason: 'manual',
+    })).toBe(false);
+
+    expect(isSaveScreenFrameDumpFrameRequest({
+      sequence: 1,
+      mimeType: 'image/jpeg',
+      data: new Uint8Array([1, 2, 3]),
+      savedAt: '',
+      mode: 'manual',
+      quality: 'high',
+      reason: 'manual',
+    })).toBe(false);
+
+    expect(isSaveScreenFrameDumpFrameRequest({
+      sequence: 1,
+      mimeType: 'image/jpeg',
+      data: new Uint8Array([1, 2, 3]),
+      savedAt: '2026-03-15T22:41:03.124Z',
+      mode: 'manual',
+      quality: 'high',
+      reason: 'sent',
+    })).toBe(false);
+  });
+
   it('normalizes overlay rectangles and rejects invalid shapes', () => {
     const rectangles: Rectangle[] = toOverlayRectangles([
       { x: 1.2, y: 2.6, width: 5.4, height: 7.8 },
@@ -275,6 +327,10 @@ describe('ipc validators', () => {
         sequence: 1,
         mimeType: 'image/jpeg',
         data: new Uint8Array([1, 2, 3]),
+        savedAt: '2026-03-15T22:41:03.124Z',
+        mode: 'manual',
+        quality: 'high',
+        reason: 'manual',
       }),
     ).toBe(true);
     expect(
@@ -282,6 +338,10 @@ describe('ipc validators', () => {
         sequence: 0,
         mimeType: 'image/jpeg',
         data: new Uint8Array([1, 2, 3]),
+        savedAt: '2026-03-15T22:41:03.124Z',
+        mode: 'manual',
+        quality: 'high',
+        reason: 'manual',
       }),
     ).toBe(false);
     expect(
@@ -289,6 +349,10 @@ describe('ipc validators', () => {
         sequence: 1,
         mimeType: 'image/png',
         data: new Uint8Array([1, 2, 3]),
+        savedAt: '2026-03-15T22:41:03.124Z',
+        mode: 'manual',
+        quality: 'high',
+        reason: 'manual',
       }),
     ).toBe(false);
     expect(
@@ -296,6 +360,10 @@ describe('ipc validators', () => {
         sequence: 1,
         mimeType: 'image/jpeg',
         data: [],
+        savedAt: '2026-03-15T22:41:03.124Z',
+        mode: 'manual',
+        quality: 'high',
+        reason: 'manual',
       }),
     ).toBe(false);
   });

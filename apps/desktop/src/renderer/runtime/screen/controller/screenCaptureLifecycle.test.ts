@@ -71,7 +71,7 @@ function createHarness(options: {
   const frameDumpCoordinator = {
     reset: vi.fn(),
     startSession: vi.fn(async () => undefined),
-    persistFrame: vi.fn(),
+    persistSentFrame: vi.fn(),
   };
   const frameSendCoordinator = {
     reset: vi.fn(),
@@ -197,7 +197,7 @@ describe('createScreenCaptureLifecycle', () => {
     harness.getObserver()?.onFrame(frame);
 
     expect(harness.onFrameCaptured).toHaveBeenCalledWith(frame);
-    expect(harness.frameDumpCoordinator.persistFrame).not.toHaveBeenCalled();
+    expect(harness.frameDumpCoordinator.persistSentFrame).not.toHaveBeenCalled();
     expect(harness.frameSendCoordinator.enqueueFrameSend).not.toHaveBeenCalled();
   });
 

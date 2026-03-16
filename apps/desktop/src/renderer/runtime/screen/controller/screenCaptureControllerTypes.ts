@@ -12,6 +12,9 @@ import type {
 } from '../screen.types';
 import type { VisualSendDiagnostics } from '../screenContextDiagnostics';
 import type {
+  ScreenFrameDumpMode,
+  ScreenFrameDumpQuality,
+  ScreenFrameDumpReason,
   SaveScreenFrameDumpFrameRequest,
   ScreenFrameDumpSessionInfo,
 } from '../../../../shared';
@@ -43,6 +46,13 @@ export type ScreenFrameDumpControls = {
   startScreenFrameDumpSession: () => Promise<ScreenFrameDumpSessionInfo>;
   saveScreenFrameDumpFrame: (request: SaveScreenFrameDumpFrameRequest) => Promise<void>;
   setScreenFrameDumpDirectoryPath: (directoryPath: string | null) => void;
+};
+
+export type ScreenFrameDumpMetadata = {
+  savedAt: string;
+  mode: ScreenFrameDumpMode;
+  quality: ScreenFrameDumpQuality;
+  reason: ScreenFrameDumpReason;
 };
 
 export type ActiveScreenCapture = {

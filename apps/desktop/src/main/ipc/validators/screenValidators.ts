@@ -10,12 +10,24 @@ export function isSaveScreenFrameDumpFrameRequest(
 ): value is SaveScreenFrameDumpFrameRequest {
   return (
     isPlainRecord(value)
-    && hasOnlyAllowedKeys(value, ['sequence', 'mimeType', 'data'])
+    && hasOnlyAllowedKeys(value, [
+      'sequence',
+      'mimeType',
+      'data',
+      'savedAt',
+      'mode',
+      'quality',
+      'reason',
+    ])
     && typeof value['sequence'] === 'number'
     && Number.isInteger(value['sequence'])
     && value['sequence'] > 0
     && value['mimeType'] === 'image/jpeg'
     && value['data'] instanceof Uint8Array
     && value['data'].byteLength > 0
+    && isNonEmptyString(value['savedAt'])
+    && (value['mode'] === 'manual' || value['mode'] === 'continuous')
+    && (value['quality'] === 'low' || value['quality'] === 'medium' || value['quality'] === 'high')
+    && (value['reason'] === 'manual' || value['reason'] === 'base' || value['reason'] === 'burst')
   );
 }

@@ -7,8 +7,8 @@ export type VisualSendEvent =
   | 'continuousStarted'
   | 'continuousStopped'
   | 'burstActivated'
-  | 'baselineFrameSent'
-  | 'burstFrameSent';
+  | 'continuousBaseFrameSent'
+  | 'continuousBurstFrameSent';
 
 export type VisualSendDiagnostics = {
   lastEvent: VisualSendEvent | null;
@@ -19,11 +19,11 @@ export type VisualSendDiagnostics = {
   continuousStoppedAt: string | null;
   burstActive: boolean;
   burstUntil: string | null;
-  changeSignalCount: number;
-  burstTriggeredCount: number;
-  autoFramesSentCount: number;
-  lastAutoFrameAt: string | null;
-  lastAutoFrameKind: 'baseline' | 'burst' | null;
+  meaningfulChangeCount: number;
+  burstActivationCount: number;
+  continuousFramesSentCount: number;
+  lastContinuousFrameAt: string | null;
+  lastContinuousFrameReason: 'base' | 'burst' | null;
   manualSendPending: boolean;
   manualFramesSentCount: number;
   lastManualFrameAt: string | null;
@@ -43,11 +43,11 @@ export function createDefaultVisualSendDiagnostics(
     continuousStoppedAt: null,
     burstActive: false,
     burstUntil: null,
-    changeSignalCount: 0,
-    burstTriggeredCount: 0,
-    autoFramesSentCount: 0,
-    lastAutoFrameAt: null,
-    lastAutoFrameKind: null,
+    meaningfulChangeCount: 0,
+    burstActivationCount: 0,
+    continuousFramesSentCount: 0,
+    lastContinuousFrameAt: null,
+    lastContinuousFrameReason: null,
     manualSendPending: false,
     manualFramesSentCount: 0,
     lastManualFrameAt: null,
