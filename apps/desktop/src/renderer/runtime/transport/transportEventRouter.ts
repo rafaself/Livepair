@@ -1,4 +1,5 @@
 import { createDebugEvent } from '../core/runtimeUtils';
+import { isRuntimeDebugModeEnabled } from '../core/debugMode';
 import type { LiveSessionEvent } from './transport.types';
 import { handleTransportSessionEvent } from './transportEventRouterSessionHandlers';
 import { handleTransportTurnEvent } from './transportEventRouterTurnHandlers';
@@ -9,13 +10,15 @@ export function createTransportEventRouter(ops: TransportEventRouterOps) {
     const store = ops.store.getState();
 
     ops.logger.onTransportEvent(event);
-    store.setLastDebugEvent(
-      createDebugEvent(
-        'transport',
-        event.type,
-        'detail' in event ? event.detail : undefined,
+    if (isRuntimeDebugModeEnabled()) {
+      store.setLastDebugEvent(
+        createDebugEvent(
+          'transport',
+          event.type,
+          'detail' in event ? event.detail : undefined,
         ),
       );
+    }
 
     switch (event.type) {
       case 'connection-state-changed':

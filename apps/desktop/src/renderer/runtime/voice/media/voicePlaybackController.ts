@@ -4,6 +4,7 @@ import type {
   VoicePlaybackState,
 } from '../voice.types';
 import type { AssistantAudioPlaybackObserver } from '../../audio/assistantAudioPlayback';
+import { isRuntimeDebugModeEnabled } from '../../core/debugMode';
 
 type PlaybackStoreApi = {
   getState: () => {
@@ -68,6 +69,9 @@ export function createVoicePlaybackController(
             setState(state);
           },
           onDiagnostics: (diagnostics) => {
+            if (!isRuntimeDebugModeEnabled()) {
+              return;
+            }
             updateDiagnostics(diagnostics);
           },
           onError: (detail) => {

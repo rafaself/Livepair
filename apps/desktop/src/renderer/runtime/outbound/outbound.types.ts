@@ -82,6 +82,7 @@ export type RealtimeOutboundDiagnostics = {
 export type RealtimeOutboundGatewayOptions = {
   maxConsecutiveFailures?: number;
   onDiagnosticsChanged?: (diagnostics: RealtimeOutboundDiagnostics) => void;
+  shouldPublishDiagnostics?: () => boolean;
 };
 
 export type RealtimeOutboundGateway = {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useUiStore } from '../store/uiStore';
 import { resetDesktopStoresWithDefaults } from '../test/store';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import {
@@ -18,6 +19,7 @@ describe('createDesktopSessionController – voice capture', () => {
   it('starts local voice capture, publishes chunks, and updates diagnostics without affecting text mode', async () => {
     const voiceCapture = createVoiceCaptureHarness();
     const voiceTransport = createVoiceTransportHarness();
+    useUiStore.setState({ isDebugMode: true });
     useSettingsStore.setState({
       settings: {
         ...DEFAULT_DESKTOP_SETTINGS,

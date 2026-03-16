@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createRealtimeOutboundGateway } from './realtimeOutboundGateway';
 import type { RealtimeOutboundEvent } from './outbound.types';
 
@@ -187,5 +187,41 @@ describe('realtimeOutboundGateway', () => {
       lastError: null,
     });
     expect(gateway.submit(createTextEvent()).outcome).toBe('send');
+  });
+
+  it('keeps collecting diagnostics locally without publishing them when store publication is disabled', () => {
+    const onDiagnosticsChanged = vi.fn();
+    const gateway = createRealtimeOutboundGateway({
+      onDiagnosticsChanged,
+      shouldPublishDiagnostics: () => false,
+    });
+
+    gateway.submit(createTextEvent());
+
+    expect(onDiagnosticsChanged).not.toHaveBeenCalled();
+    expect(gateway.getDiagnostics()).toMatchObject({
+      totalSubmitted: 1,
+      sentCount: 1,
+      lastDecision: 'send',
+      lastEventKind: 'text',
+    });
+  });
+
+  it('publishes diagnostics when store publication is enabled', () => {
+    const onDiagnosticsChanged = vi.fn();
+    const gateway = createRealtimeOutboundGateway({
+      onDiagnosticsChanged,
+      shouldPublishDiagnostics: () => true,
+    });
+
+    gateway.submit(createTextEvent());
+
+    expect(onDiagnosticsChanged).toHaveBeenCalledWith(
+      expect.objectContaining({
+        totalSubmitted: 1,
+        sentCount: 1,
+        lastDecision: 'send',
+      }),
+    );
   });
 });

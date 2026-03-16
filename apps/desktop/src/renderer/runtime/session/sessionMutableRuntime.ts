@@ -9,6 +9,7 @@ type SessionControllerMutableRuntimeOptions = {
   onRealtimeOutboundDiagnosticsChanged?: (
     diagnostics: RealtimeOutboundDiagnostics,
   ) => void;
+  shouldPublishRealtimeOutboundDiagnostics?: () => boolean;
 };
 
 export function createSessionControllerMutableRuntime(
@@ -19,6 +20,11 @@ export function createSessionControllerMutableRuntime(
     options.onRealtimeOutboundDiagnosticsChanged
       ? {
           onDiagnosticsChanged: options.onRealtimeOutboundDiagnosticsChanged,
+          ...(options.shouldPublishRealtimeOutboundDiagnostics
+            ? {
+                shouldPublishDiagnostics: options.shouldPublishRealtimeOutboundDiagnostics,
+              }
+            : {}),
         }
       : {},
   );
