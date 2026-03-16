@@ -69,7 +69,23 @@ export function AssistantPanelScreenSettingsSection({
             label: (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                 Mode
-                <Tooltip content="Choose how Share Screen should send your screen." />
+                <Tooltip
+                  content={
+                    <div style={{ textAlign: 'left' }}>
+                      <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                        <li>
+                          <strong>Manual</strong>: Sends a single high-quality screen capture when
+                          you click Send screen now.
+                        </li>
+                        <li>
+                          <strong>Continuous</strong>: Continuously shares your screen using the
+                          automatic quality setting below.
+                        </li>
+                      </ul>
+                    </div>
+                  }
+                  label="About screen mode"
+                />
               </span>
             ),
             value: (
