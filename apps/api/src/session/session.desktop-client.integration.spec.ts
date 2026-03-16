@@ -1,6 +1,9 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import {
+  GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+  type CreateEphemeralTokenResponse,
+} from '@livepair/shared-types';
 import type { AddressInfo } from 'net';
 import { createRequire } from 'module';
 
@@ -179,8 +182,10 @@ describe('desktop client protected token flow', () => {
           bidiGenerateContentSetup: {
             model: SESSION_TOKEN_LIVE_MODEL,
             generationConfig: {
-              responseModalities: ['AUDIO'],
+              responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
             },
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
             sessionResumption: {},
           },
         },

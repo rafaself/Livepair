@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES } from '@livepair/shared-types';
 import type { LiveConnectMode } from '../core/session.types';
 import {
   LIVE_GROUNDING_POLICY_INSTRUCTION,
@@ -29,9 +30,11 @@ function createRawLiveConfig(overrides: Partial<Parameters<typeof parseLiveConfi
         outputAudioTranscription: false,
       },
       voice: {
-        responseModality: 'AUDIO',
-        inputAudioTranscription: false,
-        outputAudioTranscription: false,
+        responseModality: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities[0],
+        inputAudioTranscription:
+          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
+        outputAudioTranscription:
+          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
       },
     } satisfies Record<LiveConnectMode, {
       responseModality: 'TEXT' | 'AUDIO';
@@ -39,7 +42,8 @@ function createRawLiveConfig(overrides: Partial<Parameters<typeof parseLiveConfi
       outputAudioTranscription: boolean;
     }>,
     mediaResolution: 'MEDIA_RESOLUTION_LOW',
-    sessionResumptionEnabled: false,
+    sessionResumptionEnabled:
+      GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
     contextCompressionEnabled: false,
     ...overrides,
   };
@@ -51,11 +55,7 @@ describe('liveConfig', () => {
       resolveLiveConfigEnv({
         VITE_LIVE_MODEL: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         VITE_LIVE_API_VERSION: 'v1alpha',
-        VITE_LIVE_VOICE_RESPONSE_MODALITY: 'AUDIO',
-        VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION: 'true',
-        VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION: 'true',
         VITE_LIVE_MEDIA_RESOLUTION: 'MEDIA_RESOLUTION_MEDIUM',
-        VITE_LIVE_SESSION_RESUMPTION: 'true',
         VITE_LIVE_CONTEXT_COMPRESSION: 'true',
       }),
     );
@@ -68,13 +68,16 @@ describe('liveConfig', () => {
       url:
         'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained',
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
-      sessionResumptionEnabled: true,
+      sessionResumptionEnabled:
+        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
       contextCompressionEnabled: true,
     });
     expect(config.sessionModes.voice).toEqual({
-      responseModality: 'AUDIO',
-      inputAudioTranscription: true,
-      outputAudioTranscription: true,
+      responseModality: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities[0],
+      inputAudioTranscription:
+        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
+      outputAudioTranscription:
+        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
     });
   });
 
@@ -155,9 +158,11 @@ describe('liveConfig', () => {
       apiVersion: 'v1alpha',
     });
     expect(config.sessionModes.voice).toEqual({
-      responseModality: 'AUDIO',
-      inputAudioTranscription: true,
-      outputAudioTranscription: true,
+      responseModality: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities[0],
+      inputAudioTranscription:
+        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
+      outputAudioTranscription:
+        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
     });
   });
 
@@ -166,7 +171,6 @@ describe('liveConfig', () => {
       resolveLiveConfigEnv({
         VITE_LIVE_MODEL: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         VITE_LIVE_API_VERSION: 'v1alpha',
-        VITE_LIVE_VOICE_RESPONSE_MODALITY: 'AUDIO',
       }),
     );
 
@@ -207,6 +211,8 @@ describe('liveConfig', () => {
       }),
     ).toEqual({
       responseModalities: ['AUDIO'],
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
       sessionResumption: {
         handle: 'handles/latest-voice-handle',
@@ -230,7 +236,10 @@ describe('liveConfig', () => {
 
     expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
       responseModalities: ['AUDIO'],
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      sessionResumption: {},
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: {
@@ -320,7 +329,10 @@ describe('liveConfig', () => {
       }),
     ).toEqual({
       responseModalities: ['AUDIO'],
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      sessionResumption: {},
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: {
@@ -408,7 +420,6 @@ describe('liveConfig', () => {
         resolveLiveConfigEnv({
           VITE_LIVE_MODEL: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
           VITE_LIVE_API_VERSION: 'v1beta',
-          VITE_LIVE_VOICE_RESPONSE_MODALITY: 'AUDIO',
         }),
       ),
     ).toThrow(

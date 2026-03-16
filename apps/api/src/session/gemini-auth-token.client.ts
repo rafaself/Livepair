@@ -26,8 +26,10 @@ export type GeminiAuthTokenRequest = {
   liveConnectConstraints: {
     model: string;
     config: {
-      responseModalities: ['AUDIO'];
-      sessionResumption: Record<string, never>;
+      responseModalities: readonly ['AUDIO'];
+      inputAudioTranscription?: Record<string, never>;
+      outputAudioTranscription?: Record<string, never>;
+      sessionResumption?: Record<string, never>;
     };
   };
 };
@@ -93,6 +95,27 @@ export async function requestGeminiAuthToken({
   const startTime = process.hrtime.bigint();
   let outcome: GeminiAuthTokenRequestOutcome | null = null;
   try {
+    const bidiGenerateContentSetup = {
+      model: liveConnectConstraints.model,
+      generationConfig: {
+        responseModalities: liveConnectConstraints.config.responseModalities,
+      },
+      ...(liveConnectConstraints.config.inputAudioTranscription
+        ? {
+            inputAudioTranscription: liveConnectConstraints.config.inputAudioTranscription,
+          }
+        : {}),
+      ...(liveConnectConstraints.config.outputAudioTranscription
+        ? {
+            outputAudioTranscription: liveConnectConstraints.config.outputAudioTranscription,
+          }
+        : {}),
+      ...(liveConnectConstraints.config.sessionResumption
+        ? {
+            sessionResumption: liveConnectConstraints.config.sessionResumption,
+          }
+        : {}),
+    };
     let response: Response;
     try {
       response = await fetchImpl(GEMINI_AUTH_TOKEN_URL, {
@@ -109,13 +132,7 @@ export async function requestGeminiAuthToken({
           // liveConnectConstraints). Mirrors the mapping the @google/genai SDK
           // performs internally via liveConnectConstraintsToMldev +
           // convertBidiSetupToTokenSetup.
-          bidiGenerateContentSetup: {
-            model: liveConnectConstraints.model,
-            generationConfig: {
-              responseModalities: liveConnectConstraints.config.responseModalities,
-            },
-            sessionResumption: liveConnectConstraints.config.sessionResumption,
-          },
+          bidiGenerateContentSetup,
         }),
       });
     } catch (error) {

@@ -3,9 +3,10 @@ import {
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type {
-  CreateEphemeralTokenRequest,
-  CreateEphemeralTokenResponse,
+import {
+  GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+  type CreateEphemeralTokenRequest,
+  type CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
 import { env } from '../config/env';
 import { ObservabilityService } from '../observability/observability.service';
@@ -67,18 +68,27 @@ export class SessionService {
     ).toISOString();
 
     try {
+      const constrainedVoiceConfig = {
+        responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
+        ...(GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled
+          ? { inputAudioTranscription: {} }
+          : {}),
+        ...(GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled
+          ? { outputAudioTranscription: {} }
+          : {}),
+        ...(GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled
+          ? { sessionResumption: {} }
+          : {}),
+      };
       const token = await this.geminiAuthTokenClient.createToken({
         apiKey: env.geminiApiKey,
         newSessionExpireTime,
         expireTime,
         liveConnectConstraints: {
           model: env.sessionTokenLiveModel,
-          // Lock only the stable voice-session subset so renderer quality/transcription/tool
-          // choices remain compatible with the current MVP runtime.
-          config: {
-            responseModalities: ['AUDIO'],
-            sessionResumption: {},
-          },
+          // Lock the constrained voice-session capability profile so the desktop runtime
+          // and token-issuance boundary share one source of truth.
+          config: constrainedVoiceConfig,
         },
       });
 
@@ -87,8 +97,7 @@ export class SessionService {
       });
       console.info('[session:token] issued', {
         constraintModel: env.sessionTokenLiveModel,
-        responseModalities: ['AUDIO'],
-        sessionResumption: true,
+        ...GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
         expireTime,
         newSessionExpireTime,
         sessionIdProvided:

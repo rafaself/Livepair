@@ -14,6 +14,7 @@ import type {
   CreateEphemeralTokenResponse,
   CreateLiveSessionRequest,
   EndLiveSessionRequest,
+  GeminiLiveVoiceSessionCapabilities,
   HealthResponse,
   LiveSessionRecord,
   LiveSessionStatus,
@@ -25,7 +26,10 @@ import type {
   RehydrationPacket,
   UpdateLiveSessionRequest,
 } from './index';
-import { SESSION_TOKEN_AUTH_HEADER_NAME } from './index';
+import {
+  GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+  SESSION_TOKEN_AUTH_HEADER_NAME,
+} from './index';
 
 type Assert<T extends true> = T;
 type IsExact<T, U> =
@@ -46,6 +50,28 @@ type _ResponseExpireTime = Assert<
 >;
 type _ResponseNewSessionExpireTime = Assert<
   IsExact<CreateEphemeralTokenResponse['newSessionExpireTime'], string>
+>;
+type _GeminiLiveVoiceSessionCapabilitiesShape = Assert<
+  IsExact<
+    GeminiLiveVoiceSessionCapabilities,
+    {
+      responseModalities: readonly ['AUDIO'];
+      inputAudioTranscriptionEnabled: boolean;
+      outputAudioTranscriptionEnabled: boolean;
+      sessionResumptionEnabled: boolean;
+    }
+  >
+>;
+type _ConstrainedGeminiLiveVoiceCapabilities = Assert<
+  IsExact<
+    typeof GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+    {
+      readonly responseModalities: readonly ['AUDIO'];
+      readonly inputAudioTranscriptionEnabled: true;
+      readonly outputAudioTranscriptionEnabled: true;
+      readonly sessionResumptionEnabled: true;
+    }
+  >
 >;
 type _ProjectKnowledgeSearchRequestShape = Assert<
   IsExact<ProjectKnowledgeSearchRequest, { query: string }>

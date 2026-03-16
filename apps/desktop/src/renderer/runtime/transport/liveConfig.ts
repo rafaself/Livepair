@@ -1,3 +1,4 @@
+import { GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES } from '@livepair/shared-types';
 import type { LiveConnectMode } from '../core/session.types';
 import { getVoiceToolDeclarations } from '../voice/tools/voiceTools';
 import {
@@ -56,11 +57,7 @@ export type LiveConfig = {
 type LiveConfigEnv = Partial<Record<
   | 'VITE_LIVE_MODEL'
   | 'VITE_LIVE_API_VERSION'
-  | 'VITE_LIVE_VOICE_RESPONSE_MODALITY'
-  | 'VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION'
-  | 'VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION'
   | 'VITE_LIVE_MEDIA_RESOLUTION'
-  | 'VITE_LIVE_SESSION_RESUMPTION'
   | 'VITE_LIVE_CONTEXT_COMPRESSION',
   string
 >>;
@@ -105,7 +102,6 @@ export type GeminiLiveConnectConfig = {
 // Conservative default for speech-mode screen sharing: optimize for latency/cost first.
 const DEFAULT_LIVE_MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
 const DEFAULT_LIVE_API_VERSION = 'v1alpha';
-const DEFAULT_VOICE_RESPONSE_MODALITY: LiveResponseModality = 'AUDIO';
 const DEFAULT_MEDIA_RESOLUTION: LiveMediaResolution = 'MEDIA_RESOLUTION_LOW';
 const AUDIO_TRANSCRIPTION_DISABLED = false;
 
@@ -270,29 +266,16 @@ export function resolveLiveConfigEnv(
         outputAudioTranscription: AUDIO_TRANSCRIPTION_DISABLED,
       },
       voice: {
-        responseModality: requireEnvValue(
-          env.VITE_LIVE_VOICE_RESPONSE_MODALITY ?? DEFAULT_VOICE_RESPONSE_MODALITY,
-          'VITE_LIVE_VOICE_RESPONSE_MODALITY',
-          'speech mode',
-        ),
-        inputAudioTranscription: parseBooleanEnv(
-          env.VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION,
-          'VITE_LIVE_INPUT_AUDIO_TRANSCRIPTION',
-          true,
-        ),
-        outputAudioTranscription: parseBooleanEnv(
-          env.VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION,
-          'VITE_LIVE_OUTPUT_AUDIO_TRANSCRIPTION',
-          true,
-        ),
+        responseModality: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities[0],
+        inputAudioTranscription:
+          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
+        outputAudioTranscription:
+          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
       },
     },
     mediaResolution: env.VITE_LIVE_MEDIA_RESOLUTION?.trim() || DEFAULT_MEDIA_RESOLUTION,
-    sessionResumptionEnabled: parseBooleanEnv(
-      env.VITE_LIVE_SESSION_RESUMPTION,
-      'VITE_LIVE_SESSION_RESUMPTION',
-      true,
-    ),
+    sessionResumptionEnabled:
+      GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
     contextCompressionEnabled: parseBooleanEnv(
       env.VITE_LIVE_CONTEXT_COMPRESSION,
       'VITE_LIVE_CONTEXT_COMPRESSION',
@@ -370,6 +353,10 @@ export function buildGeminiLiveConnectConfig(
   }
 
   const modeConfig = config.sessionModes[mode];
+  const groundingOptions =
+    options.groundingEnabled === undefined
+      ? {}
+      : { groundingEnabled: options.groundingEnabled };
   const liveConnectConfig: GeminiLiveConnectConfig = {
     responseModalities: [modeConfig.responseModality],
   };
@@ -410,16 +397,12 @@ export function buildGeminiLiveConnectConfig(
     };
     liveConnectConfig.systemInstruction = composeLiveSystemInstruction(
       resolveSystemInstructionPreference(options.systemInstruction),
-      {
-        groundingEnabled: options.groundingEnabled,
-      },
+      groundingOptions,
     );
   }
 
   if (mode === 'voice') {
-    liveConnectConfig.tools = createVoiceModeTools({
-      groundingEnabled: options.groundingEnabled,
-    });
+    liveConnectConfig.tools = createVoiceModeTools(groundingOptions);
   }
 
   return liveConnectConfig;
