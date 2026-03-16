@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDesktopSessionController } from './sessionController';
-import { resetCurrentChatMemoryForTests } from '../chatMemory/currentChatMemory';
+import {
+  hydrateCurrentChat,
+  resetCurrentChatMemoryForTests,
+} from '../chatMemory/currentChatMemory';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { resetDesktopStoresWithDefaults } from '../test/store';
@@ -307,7 +310,7 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
   });
 
-  it('persists the explicit assistant draft on turn-complete instead of the transcript artifact text', async () => {
+  it('persists the settled assistant transcript on turn-complete when transcript and draft both exist', async () => {
     const persistedMessages: Array<{
       id: string;
       chatId: string;
@@ -352,14 +355,14 @@ describe('createDesktopSessionController – transcript', () => {
       expect(window.bridge.appendChatMessage).toHaveBeenCalledWith({
         chatId: 'chat-1',
         role: 'assistant',
-        contentText: 'Canonical reply',
+        contentText: 'Transcript bubble reply',
       });
     });
 
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         id: 'assistant-turn-1',
-        content: 'Canonical reply',
+        content: 'Transcript bubble reply',
         state: 'complete',
         source: 'voice',
         persistedMessageId: 'assistant-message-1',
@@ -374,16 +377,90 @@ describe('createDesktopSessionController – transcript', () => {
         attachedTurnId: 'assistant-turn-1',
       }),
     ]);
-    // The visible timeline keeps the spoken transcript first, but also keeps
-    // the canonical persisted assistant turn visible when its text differs.
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
         id: 'assistant-transcript-1',
         content: 'Transcript bubble reply',
       }),
+    ]);
+
+    resetDesktopStoresWithDefaults();
+    resetCurrentChatMemoryForTests();
+
+    await hydrateCurrentChat();
+
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'persisted-message-assistant-message-1',
+        role: 'assistant',
+        content: 'Transcript bubble reply',
+        persistedMessageId: 'assistant-message-1',
+      }),
+    ]);
+  });
+
+  it('falls back to the completed assistant draft when no settled assistant transcript exists', async () => {
+    const persistedMessages: Array<{
+      id: string;
+      chatId: string;
+      role: 'user' | 'assistant';
+      contentText: string;
+      createdAt: string;
+      sequence: number;
+    }> = [];
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({
+        chatId,
+        role,
+        contentText,
+      }: {
+        chatId: string;
+        role: 'user' | 'assistant';
+        contentText: string;
+      }) => {
+        const nextRecord = {
+          id: `${role}-message-${persistedMessages.length + 1}`,
+          chatId,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'speech' });
+
+    voiceTransport.emit({ type: 'text-delta', text: 'Draft only' });
+    voiceTransport.emit({ type: 'text-delta', text: ' reply' });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await vi.waitFor(() => {
+      expect(window.bridge.appendChatMessage).toHaveBeenCalledWith({
+        chatId: 'chat-1',
+        role: 'assistant',
+        contentText: 'Draft only reply',
+      });
+    });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         id: 'assistant-turn-1',
-        content: 'Canonical reply',
+        content: 'Draft only reply',
+        state: 'complete',
+        source: 'voice',
+        persistedMessageId: 'assistant-message-1',
+      }),
+    ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([]);
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'assistant-turn-1',
+        content: 'Draft only reply',
       }),
     ]);
   });
@@ -468,7 +545,7 @@ describe('createDesktopSessionController – transcript', () => {
       }),
       expect.objectContaining({
         id: 'assistant-turn-1',
-        content: 'Canonical reply',
+        content: 'Transcript bubble reply',
         source: 'voice',
       }),
     ]);
@@ -492,10 +569,6 @@ describe('createDesktopSessionController – transcript', () => {
       expect.objectContaining({
         id: 'assistant-transcript-2',
         content: 'Transcript bubble reply',
-      }),
-      expect.objectContaining({
-        id: 'assistant-turn-1',
-        content: 'Canonical reply',
       }),
     ]);
   });
@@ -523,7 +596,7 @@ describe('createDesktopSessionController – transcript', () => {
     expect(useSessionStore.getState().conversationTurns).toEqual([
       expect.objectContaining({
         id: 'assistant-turn-1',
-        content: 'Canonical preview',
+        content: 'Preview reply',
         state: 'complete',
       }),
     ]);
@@ -545,8 +618,8 @@ describe('createDesktopSessionController – transcript', () => {
 
     // The spoken request transcript artifact covers the canonical turn.
     // The typed follow-up has no transcript, so the canonical turn is shown.
-    // The assistant transcript stays first, while the canonical assistant turn
-    // remains visible because its persisted text differs from the transcript.
+    // The assistant transcript also covers its canonical persisted turn once
+    // the final spoken transcript becomes canonical history.
     expect(visibleTimeline()).toEqual([
       expect.objectContaining({
         id: 'user-transcript-1',
@@ -561,11 +634,6 @@ describe('createDesktopSessionController – transcript', () => {
       expect.objectContaining({
         id: 'assistant-transcript-2',
         content: 'typed reply transcript',
-        source: 'voice',
-      }),
-      expect.objectContaining({
-        id: 'assistant-turn-1',
-        content: 'typed reply canonical',
         source: 'voice',
       }),
     ]);
