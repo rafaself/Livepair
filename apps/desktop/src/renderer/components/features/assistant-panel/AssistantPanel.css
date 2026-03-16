@@ -231,6 +231,7 @@
 }
 
 .assistant-panel__settings-textarea {
+  box-sizing: border-box;
   width: 100%;
   min-height: 7.5rem;
   resize: vertical;
@@ -241,25 +242,33 @@
   padding: 10px 12px;
   font: inherit;
   line-height: 1.45;
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
 }
 
 .assistant-panel__settings-textarea:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-accent) 65%, transparent);
-  outline-offset: 1px;
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-accent) 72%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 72%, transparent);
 }
 
 .assistant-panel__settings-persona-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: -2px;
+  padding-right: 12px;
 }
 
 .assistant-panel__settings-counter {
+  display: block;
   font-size: 0.75rem;
   color: var(--color-text-muted, currentColor);
   opacity: 0.75;
   white-space: nowrap;
+  text-align: right;
 }
 
 .assistant-panel__settings-persona-actions {
