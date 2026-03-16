@@ -431,6 +431,7 @@ describe('backendClient', () => {
     };
     const createLiveSessionRequest: CreateLiveSessionRequest = {
       chatId: CHAT_ID,
+      voice: 'Puck',
       startedAt: '2026-03-12T09:00:00.000Z',
     };
     const updateResumptionRequest: UpdateLiveSessionRequest = {

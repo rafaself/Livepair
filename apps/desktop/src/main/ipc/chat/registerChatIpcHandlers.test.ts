@@ -191,6 +191,9 @@ describe('registerChatIpcHandlers', () => {
     await expect(createLiveSessionHandler({}, { chatId: '' })).rejects.toThrow(
       'Invalid create live session payload',
     );
+    await expect(createLiveSessionHandler({}, { chatId: CHAT_ID })).rejects.toThrow(
+      'Invalid create live session payload',
+    );
     await expect(listLiveSessionsHandler({}, '')).rejects.toThrow('Invalid chat id');
     await expect(listLiveSessionsHandler({}, CHAT_ID, { limit: 0 })).rejects.toThrow(
       'Invalid chat list options',
@@ -429,7 +432,7 @@ describe('registerChatIpcHandlers', () => {
         contentText: 'Stored',
       }),
     );
-    await expect(createLiveSessionHandler({}, { chatId: CHAT_ID })).resolves.toEqual(
+    await expect(createLiveSessionHandler({}, { chatId: CHAT_ID, voice: 'Puck' })).resolves.toEqual(
       createLiveSessionRecord(),
     );
     await expect(listLiveSessionsHandler({}, CHAT_ID)).resolves.toEqual([
@@ -578,7 +581,7 @@ describe('registerChatIpcHandlers', () => {
           'Content-Type': 'application/json',
           [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
         },
-        body: JSON.stringify({ chatId: CHAT_ID }),
+        body: JSON.stringify({ chatId: CHAT_ID, voice: 'Puck' }),
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(

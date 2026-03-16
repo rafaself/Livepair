@@ -13,6 +13,7 @@ import {
   isAppendChatMessageRequest,
   isChatId,
   isCreateChatRequest,
+  isCreateLiveSessionRequest,
   isCreateEphemeralTokenRequest,
   isLiveTelemetryBatchRequest,
   isProjectKnowledgeSearchRequest,
@@ -262,6 +263,10 @@ describe('ipc validators', () => {
       }),
     ).toBe(false);
     expect(isAppendChatMessageRequest(undefined)).toBe(false);
+    expect(isCreateLiveSessionRequest({ chatId: 'chat-1', voice: 'Puck' })).toBe(true);
+    expect(isCreateLiveSessionRequest({ chatId: 'chat-1' })).toBe(false);
+    expect(isCreateLiveSessionRequest({ chatId: 'chat-1', voice: 'BadVoice' })).toBe(false);
+    expect(isCreateLiveSessionRequest({ chatId: '', voice: 'Puck' })).toBe(false);
     expect(isUpdateLiveSessionRequest(resumptionUpdateRequest)).toBe(true);
     expect(isUpdateLiveSessionRequest(snapshotUpdateRequest)).toBe(true);
     expect(
