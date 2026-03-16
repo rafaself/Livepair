@@ -2,6 +2,7 @@ import {
   BadGatewayException,
   Injectable,
 } from '@nestjs/common';
+import type { GeminiLiveConnectCapabilityConfig } from '@livepair/shared-types';
 import { ObservabilityService } from '../observability/observability.service';
 
 const GEMINI_AUTH_TOKEN_URL =
@@ -25,12 +26,7 @@ export type GeminiAuthTokenRequest = {
   expireTime: string;
   liveConnectConstraints: {
     model: string;
-    config: {
-      responseModalities: readonly ['AUDIO'];
-      inputAudioTranscription?: Record<string, never>;
-      outputAudioTranscription?: Record<string, never>;
-      sessionResumption?: Record<string, never>;
-    };
+    config: GeminiLiveConnectCapabilityConfig;
   };
 };
 

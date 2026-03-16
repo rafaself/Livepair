@@ -1,11 +1,13 @@
-import type { ChatId } from '@livepair/shared-types';
+import type {
+  ChatId,
+  GeminiLiveEffectiveVoiceSessionCapabilities,
+} from '@livepair/shared-types';
 import type {
   ScreenCaptureOverlayDisplay,
   ScreenCaptureSource,
   ScreenCaptureSourceSnapshot,
 } from '../../shared';
 import type { AssistantRuntimeState } from '../state/assistantUiState';
-import type { EffectiveVoiceSessionCapabilities } from '../runtime/transport/liveConfig';
 import type {
   AssistantActivityState,
   ConversationTurnModel,
@@ -117,7 +119,7 @@ export type SessionStoreData = {
   speechLifecycle: SpeechLifecycle;
   voiceSessionStatus: VoiceSessionStatus;
   activeVoiceSessionGroundingEnabled: boolean | null;
-  effectiveVoiceSessionCapabilities: EffectiveVoiceSessionCapabilities | null;
+  effectiveVoiceSessionCapabilities: GeminiLiveEffectiveVoiceSessionCapabilities | null;
   voiceSessionLatency: VoiceSessionLatencyState;
   voiceSessionResumption: VoiceSessionResumptionState;
   voiceSessionDurability: VoiceSessionDurabilityState;
@@ -184,7 +186,7 @@ export type SessionStoreActions = {
   setVoiceSessionStatus: (voiceSessionStatus: VoiceSessionStatus) => void;
   setActiveVoiceSessionGroundingEnabled: (enabled: boolean | null) => void;
   setEffectiveVoiceSessionCapabilities: (
-    capabilities: EffectiveVoiceSessionCapabilities | null,
+    capabilities: GeminiLiveEffectiveVoiceSessionCapabilities | null,
   ) => void;
   setVoiceSessionLatency: (voiceSessionLatency: VoiceSessionLatencyState) => void;
   setVoiceSessionResumption: (patch: Partial<VoiceSessionResumptionState>) => void;

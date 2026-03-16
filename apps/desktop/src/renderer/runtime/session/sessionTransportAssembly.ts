@@ -1,6 +1,10 @@
 import { logRuntimeDiagnostic } from '../core/logger';
 import { asErrorDetail } from '../core/runtimeUtils';
-import { getLiveConfig, LIVE_ADAPTER_KEY } from '../transport/liveConfig';
+import {
+  getEffectiveVoiceSessionCapabilities,
+  getLiveConfig,
+  LIVE_ADAPTER_KEY,
+} from '../transport/liveConfig';
 import { createTransportEventRouter } from '../transport/transportEventRouter';
 import { createVoiceResumeController } from '../voice/session/voiceResumeController';
 import { connectFallbackVoiceSession } from '../voice/session/connectFallbackVoiceSession';
@@ -221,14 +225,7 @@ export function createSessionTransportAssembly({
     },
     getActiveLiveCapabilities: () => {
       try {
-        const config = getLiveConfig();
-        const voiceMode = config.sessionModes.voice;
-        return {
-          inputAudioTranscriptionEnabled: voiceMode.inputAudioTranscription,
-          outputAudioTranscriptionEnabled: voiceMode.outputAudioTranscription,
-          responseModality: voiceMode.responseModality,
-          sessionResumptionEnabled: config.sessionResumptionEnabled,
-        };
+        return getEffectiveVoiceSessionCapabilities(getLiveConfig());
       } catch {
         return null;
       }

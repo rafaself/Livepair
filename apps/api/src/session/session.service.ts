@@ -4,7 +4,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
-  GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+  buildGeminiLiveConnectCapabilityConfig,
+  GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
   type CreateEphemeralTokenRequest,
   type CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
@@ -68,27 +69,8 @@ export class SessionService {
     ).toISOString();
 
     try {
-      const issuedCapabilities = {
-        responseModalities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities,
-        inputAudioTranscriptionEnabled:
-          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
-        outputAudioTranscriptionEnabled:
-          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
-        sessionResumptionEnabled:
-          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
-      };
-      const constrainedVoiceConfig = {
-        responseModalities: issuedCapabilities.responseModalities,
-        ...(issuedCapabilities.inputAudioTranscriptionEnabled
-          ? { inputAudioTranscription: {} }
-          : {}),
-        ...(issuedCapabilities.outputAudioTranscriptionEnabled
-          ? { outputAudioTranscription: {} }
-          : {}),
-        ...(issuedCapabilities.sessionResumptionEnabled
-          ? { sessionResumption: {} }
-          : {}),
-      };
+      const issuedCapabilities =
+        GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES;
       const token = await this.geminiAuthTokenClient.createToken({
         apiKey: env.geminiApiKey,
         newSessionExpireTime,
@@ -97,7 +79,7 @@ export class SessionService {
           model: env.sessionTokenLiveModel,
           // Lock the constrained voice-session capability profile so the desktop runtime
           // and token-issuance boundary share one source of truth.
-          config: constrainedVoiceConfig,
+          config: buildGeminiLiveConnectCapabilityConfig(issuedCapabilities),
         },
       });
 

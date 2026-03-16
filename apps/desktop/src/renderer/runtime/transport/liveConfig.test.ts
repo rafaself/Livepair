@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES } from '@livepair/shared-types';
+import {
+  buildGeminiLiveConnectCapabilityConfig,
+  buildGeminiLiveVoiceModeConfig,
+  GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
+} from '@livepair/shared-types';
 import type { LiveConnectMode } from '../core/session.types';
 import {
   LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION,
@@ -9,6 +13,7 @@ import {
   buildGeminiLiveConnectConfig,
   composeLiveSystemInstruction,
   createVoiceModeTools,
+  getEffectiveVoiceSessionCapabilities,
   parseLiveConfig,
   resolveLiveConfigEnv,
 } from './liveConfig';
@@ -30,13 +35,7 @@ function createRawLiveConfig(overrides: Partial<Parameters<typeof parseLiveConfi
         inputAudioTranscription: false,
         outputAudioTranscription: false,
       },
-      voice: {
-        responseModality: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities[0],
-        inputAudioTranscription:
-          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
-        outputAudioTranscription:
-          GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
-      },
+      voice: buildGeminiLiveVoiceModeConfig(),
     } satisfies Record<LiveConnectMode, {
       responseModality: 'TEXT' | 'AUDIO';
       inputAudioTranscription: boolean;
@@ -44,7 +43,7 @@ function createRawLiveConfig(overrides: Partial<Parameters<typeof parseLiveConfi
     }>,
     mediaResolution: 'MEDIA_RESOLUTION_LOW',
     sessionResumptionEnabled:
-      GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
+      GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.sessionResumptionEnabled,
     contextCompressionEnabled: false,
     ...overrides,
   };
@@ -70,15 +69,11 @@ describe('liveConfig', () => {
         'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained',
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
       sessionResumptionEnabled:
-        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.sessionResumptionEnabled,
+        GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.sessionResumptionEnabled,
       contextCompressionEnabled: true,
     });
     expect(config.sessionModes.voice).toEqual({
-      responseModality: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities[0],
-      inputAudioTranscription:
-        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
-      outputAudioTranscription:
-        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
+      ...buildGeminiLiveVoiceModeConfig(),
     });
   });
 
@@ -158,13 +153,24 @@ describe('liveConfig', () => {
       model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
       apiVersion: 'v1alpha',
     });
-    expect(config.sessionModes.voice).toEqual({
-      responseModality: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.responseModalities[0],
-      inputAudioTranscription:
-        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.inputAudioTranscriptionEnabled,
-      outputAudioTranscription:
-        GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES.outputAudioTranscriptionEnabled,
-    });
+    expect(config.sessionModes.voice).toEqual(buildGeminiLiveVoiceModeConfig());
+  });
+
+  it('builds voice defaults from the shared constrained capability contract', () => {
+    const rawConfig = resolveLiveConfigEnv({});
+
+    expect(rawConfig.sessionModes.voice).toEqual(buildGeminiLiveVoiceModeConfig());
+    expect(rawConfig.sessionResumptionEnabled).toBe(
+      GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES.sessionResumptionEnabled,
+    );
+  });
+
+  it('exposes explicit effective voice capabilities from centralized config', () => {
+    const config = parseLiveConfig(resolveLiveConfigEnv({}));
+
+    expect(getEffectiveVoiceSessionCapabilities(config)).toEqual(
+      GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
+    );
   });
 
   it('keeps text-path defaults separate from speech env requirements', () => {
@@ -211,9 +217,7 @@ describe('liveConfig', () => {
         resumeHandle: 'handles/latest-voice-handle',
       }),
     ).toEqual({
-      responseModalities: ['AUDIO'],
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
+      ...buildGeminiLiveConnectCapabilityConfig(),
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
       sessionResumption: {
         handle: 'handles/latest-voice-handle',
@@ -236,9 +240,7 @@ describe('liveConfig', () => {
     const config = parseLiveConfig(createRawLiveConfig());
 
     expect(buildGeminiLiveConnectConfig(config, 'voice')).toEqual({
-      responseModalities: ['AUDIO'],
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
+      ...buildGeminiLiveConnectCapabilityConfig(),
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
       sessionResumption: {},
       speechConfig: {
@@ -336,9 +338,7 @@ describe('liveConfig', () => {
         groundingEnabled: false,
       }),
     ).toEqual({
-      responseModalities: ['AUDIO'],
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
+      ...buildGeminiLiveConnectCapabilityConfig(),
       mediaResolution: 'MEDIA_RESOLUTION_LOW',
       sessionResumption: {},
       speechConfig: {

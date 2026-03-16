@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import {
-  GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+  GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
   SESSION_TOKEN_AUTH_HEADER_NAME,
 } from '@livepair/shared-types';
 import type { AddressInfo } from 'net';
@@ -152,7 +152,7 @@ describe('Session token observability', () => {
         '[session:token] issued',
         expect.objectContaining({
           constraintModel: SESSION_TOKEN_LIVE_MODEL,
-          capabilities: GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
+          capabilities: GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
         }),
       );
       expectNoSensitiveValues(infoSpy, ['auth-tokens/ephemeral-token', SESSION_TOKEN_AUTH_SECRET]);

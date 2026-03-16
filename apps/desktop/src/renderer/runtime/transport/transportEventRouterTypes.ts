@@ -1,5 +1,8 @@
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
-import type { AnswerMetadata } from '@livepair/shared-types';
+import type {
+  AnswerMetadata,
+  CreateEphemeralTokenResponse,
+  GeminiLiveEffectiveVoiceSessionCapabilities,
+} from '@livepair/shared-types';
 import type { AssistantAudioPlayback } from '../audio/audio.types';
 import type { SessionStoreApi, SettingsStoreApi } from '../core/sessionControllerTypes';
 import type { RuntimeLogger } from '../core/session.types';
@@ -76,12 +79,7 @@ export type TransportEventRouterOps = {
   resumeVoiceSession: (detail: string) => Promise<void>;
   restoreScreenCapture: () => void;
   updateVoiceLiveSignalDiagnostics: (patch: Partial<VoiceLiveSignalDiagnostics>) => void;
-  getActiveLiveCapabilities: () => {
-    inputAudioTranscriptionEnabled: boolean;
-    outputAudioTranscriptionEnabled: boolean;
-    responseModality: string;
-    sessionResumptionEnabled: boolean;
-  } | null;
+  getActiveLiveCapabilities: () => GeminiLiveEffectiveVoiceSessionCapabilities | null;
 };
 
 export type TransportEventRouterContext = {
