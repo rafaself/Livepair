@@ -59,6 +59,7 @@ async function renderAssistantPanel(): Promise<ReturnType<typeof render>> {
 describe('AssistantPanel', () => {
   beforeEach(() => {
     resetDesktopStores();
+    useUiStore.setState({ isPanelOpen: false });
     useSettingsStore.setState({
       settings: DEFAULT_DESKTOP_SETTINGS,
       isReady: true,
