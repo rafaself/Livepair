@@ -72,12 +72,21 @@ describe('createScreenFrameDumpCoordinator', () => {
       '/tmp/livepair/screen-frame-dumps/current-debug-session',
     );
 
-    harness.coordinator.persistFrame(harness.capture, harness.generation, frame);
+    harness.coordinator.persistFrame(harness.capture, harness.generation, frame, {
+      savedAt: '2026-03-15T22:41:09.021Z',
+      mode: 'continuous',
+      quality: 'medium',
+      reason: 'base',
+    });
 
     await vi.waitFor(() => {
       expect(harness.saveScreenFrameDumpFrame).toHaveBeenCalledWith({
         data: frame.data,
         mimeType: frame.mimeType,
+        savedAt: '2026-03-15T22:41:09.021Z',
+        mode: 'continuous',
+        quality: 'medium',
+        reason: 'base',
         sequence: frame.sequence,
       });
     });
@@ -95,6 +104,12 @@ describe('createScreenFrameDumpCoordinator', () => {
       harness.capture,
       harness.generation,
       createScreenFrame(4, 9),
+      {
+        savedAt: '2026-03-15T22:41:03.124Z',
+        mode: 'manual',
+        quality: 'high',
+        reason: 'manual',
+      },
     );
     await Promise.resolve();
 
@@ -135,6 +150,12 @@ describe('createScreenFrameDumpCoordinator', () => {
       harness.capture,
       harness.generation,
       createScreenFrame(5, 11),
+      {
+        savedAt: '2026-03-15T22:41:10.034Z',
+        mode: 'continuous',
+        quality: 'medium',
+        reason: 'burst',
+      },
     );
 
     await vi.waitFor(() => {

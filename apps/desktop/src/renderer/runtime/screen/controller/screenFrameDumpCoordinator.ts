@@ -4,6 +4,7 @@ import type { LocalScreenCapture } from '../localScreenCapture';
 import type { LocalScreenFrame } from '../screen.types';
 import type {
   IsCurrentCapture,
+  ScreenFrameDumpMetadata,
   ScreenFrameDumpControls,
 } from './screenCaptureControllerTypes';
 
@@ -17,6 +18,7 @@ export type ScreenFrameDumpCoordinator = {
     capture: LocalScreenCapture,
     generation: number,
     frame: LocalScreenFrame,
+    metadata: ScreenFrameDumpMetadata,
   ) => void;
 };
 
@@ -67,7 +69,7 @@ export function createScreenFrameDumpCoordinator({
         onError(detail);
       }
     },
-    persistFrame: (capture, generation, frame) => {
+    persistFrame: (capture, generation, frame, metadata) => {
       if (
         !screenFrameDumpControls
         || !debugFrameDumpReady
@@ -80,6 +82,10 @@ export function createScreenFrameDumpCoordinator({
         sequence: frame.sequence,
         mimeType: frame.mimeType,
         data: frame.data,
+        savedAt: metadata.savedAt,
+        mode: metadata.mode,
+        quality: metadata.quality,
+        reason: metadata.reason,
       }).catch((error) => {
         if (!isCurrentCapture(capture, generation)) {
           return;

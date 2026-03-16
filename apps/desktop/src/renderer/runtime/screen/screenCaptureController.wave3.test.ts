@@ -185,6 +185,7 @@ function emitFrame(
 describe('createScreenCaptureController – Wave 4 burst mode', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-15T22:41:00.000Z'));
   });
 
   afterEach(() => {
@@ -335,7 +336,7 @@ describe('createScreenCaptureController – Wave 4 burst mode', () => {
     );
   });
 
-  it('saves debug frames only for actual outbound baseline and burst sends', async () => {
+  it('saves debug frames only for actual outbound continuous sends and tags them with sent metadata', async () => {
     const harness = createHarness({
       saveScreenFramesEnabled: true,
       submitDecision: (callIndex) => ({
@@ -363,8 +364,41 @@ describe('createScreenCaptureController – Wave 4 burst mode', () => {
 
     expect(harness.sendVideoFrame).toHaveBeenCalledTimes(1);
     expect(harness.saveScreenFrameDumpFrame).toHaveBeenCalledWith(
-      expect.objectContaining({ sequence: 4 }),
+      {
+        sequence: 4,
+        mimeType: 'image/jpeg',
+        data: new Uint8Array([4]),
+        savedAt: '2026-03-15T22:41:04.000Z',
+        mode: 'continuous',
+        quality: 'medium',
+        reason: 'burst',
+      },
     );
+  });
+
+  it('tags manual debug saves as explicit sent frames', async () => {
+    const harness = createHarness({
+      saveScreenFramesEnabled: true,
+    });
+
+    harness.setMode('manual');
+    await harness.ctrl.start();
+    emitFrame(harness.getObserver(), 1, { analysis: createAnalysis() });
+
+    harness.ctrl.analyzeScreenNow();
+    emitFrame(harness.getObserver(), 2, { byte: 2, analysis: createChangedAnalysis() });
+
+    await vi.waitFor(() => {
+      expect(harness.saveScreenFrameDumpFrame).toHaveBeenCalledWith({
+        sequence: 2,
+        mimeType: 'image/jpeg',
+        data: new Uint8Array([2]),
+        savedAt: '2026-03-15T22:41:00.000Z',
+        mode: 'manual',
+        quality: 'high',
+        reason: 'manual',
+      });
+    });
   });
 
   it('does not expose legacy trigger or explicit streaming APIs', () => {
