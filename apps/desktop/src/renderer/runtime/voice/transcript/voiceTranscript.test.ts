@@ -81,6 +81,17 @@ describe('normalizeTranscriptText', () => {
     expect(text).toBe('hello good morning');
   });
 
+  it('accumulates user chunks even when Gemini does not prefix later windows with whitespace', () => {
+    let text = normalizeTranscriptText('', 'primeiro trecho', { role: 'user' });
+    expect(text).toBe('primeiro trecho');
+
+    text = normalizeTranscriptText(text, 'segundo trecho', { role: 'user' });
+    expect(text).toBe('primeiro trecho segundo trecho');
+
+    text = normalizeTranscriptText(text, 'terceiro trecho', { role: 'user', isFinal: true });
+    expect(text).toBe('primeiro trecho segundo trecho terceiro trecho');
+  });
+
   it('stitches user transcript at an overlapping boundary', () => {
     expect(
       normalizeTranscriptText('hello wo', 'wo there', { role: 'user' }),

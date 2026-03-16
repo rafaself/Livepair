@@ -3,6 +3,17 @@ type NormalizeTranscriptTextOptions = {
   isFinal?: boolean | undefined;
 };
 
+function findSharedPrefixLength(left: string, right: string): number {
+  const limit = Math.min(left.length, right.length);
+  let index = 0;
+
+  while (index < limit && left[index] === right[index]) {
+    index += 1;
+  }
+
+  return index;
+}
+
 function findTranscriptOverlap(previous: string, incoming: string): number {
   const overlapLimit = Math.min(previous.length, incoming.length);
 
@@ -19,6 +30,24 @@ function canAppendTranscriptChunk(previous: string, incoming: string): boolean {
   return /^[\s,.;!?)]/.test(incoming) || /[\s(/-]$/.test(previous);
 }
 
+function shouldTreatAsUserCorrection(
+  previous: string,
+  incoming: string,
+  sharedPrefixLength: number,
+): boolean {
+  const shortestLength = Math.min(previous.length, incoming.length);
+
+  if (shortestLength < 6) {
+    return false;
+  }
+
+  return sharedPrefixLength >= 4 && sharedPrefixLength / shortestLength >= 0.6;
+}
+
+function appendSeparatedTranscriptChunk(previous: string, incoming: string): string {
+  return `${previous.trimEnd()} ${incoming.trimStart()}`;
+}
+
 /**
  * Reconciles an incoming transcript update with the best current text while
  * tolerating Gemini Live's mix of progressive, corrective, and out-of-order
@@ -27,7 +56,7 @@ function canAppendTranscriptChunk(previous: string, incoming: string): boolean {
 export function normalizeTranscriptText(
   previous: string,
   incoming: string,
-  { role: _role = 'assistant', isFinal = false }: NormalizeTranscriptTextOptions = {},
+  { role = 'assistant', isFinal = false }: NormalizeTranscriptTextOptions = {},
 ): string {
   if (incoming.length === 0 || incoming === previous) {
     return previous;
@@ -41,7 +70,13 @@ export function normalizeTranscriptText(
     return incoming;
   }
 
-  if (previous.includes(incoming) && !isFinal) {
+  const sharedPrefixLength = findSharedPrefixLength(previous, incoming);
+
+  if (previous.includes(incoming)) {
+    if (role === 'user' && isFinal && shouldTreatAsUserCorrection(previous, incoming, sharedPrefixLength)) {
+      return incoming;
+    }
+
     return previous;
   }
 
@@ -59,6 +94,14 @@ export function normalizeTranscriptText(
     }
 
     return `${previous}${incoming}`;
+  }
+
+  if (role === 'user') {
+    if (shouldTreatAsUserCorrection(previous, incoming, sharedPrefixLength)) {
+      return incoming;
+    }
+
+    return appendSeparatedTranscriptChunk(previous, incoming);
   }
 
   return incoming;

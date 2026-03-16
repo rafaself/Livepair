@@ -290,6 +290,32 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
   });
 
+  it('preserves the full finalized user utterance when Gemini sends successive input transcript windows', async () => {
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'speech' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'primeiro trecho' });
+    voiceTransport.emit({ type: 'input-transcript', text: 'segundo trecho' });
+    voiceTransport.emit({ type: 'input-transcript', text: 'terceiro trecho', isFinal: true });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'primeiro trecho segundo trecho terceiro trecho',
+        source: 'voice',
+      }),
+    ]);
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'primeiro trecho segundo trecho terceiro trecho',
+        source: 'voice',
+      }),
+    ]);
+  });
+
   it('keeps the same in-progress assistant transcript artifact as transcript corrections arrive', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 
