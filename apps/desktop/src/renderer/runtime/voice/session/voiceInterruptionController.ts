@@ -63,7 +63,7 @@ export function createVoiceInterruptionController(
         return;
       }
 
-      setVoiceSessionStatus('ready');
+      setVoiceSessionStatus('active');
       applySpeechLifecycleEvent({ type: 'recovery.completed' });
     })();
   };

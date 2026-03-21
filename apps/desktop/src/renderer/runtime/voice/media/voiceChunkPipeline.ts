@@ -40,7 +40,7 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
     }
 
     if (
-      store.voiceSessionStatus !== 'ready' &&
+      store.voiceSessionStatus !== 'active' &&
       store.voiceSessionStatus !== 'interrupted' &&
       store.voiceSessionStatus !== 'recovering'
     ) {
@@ -78,11 +78,6 @@ export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {
       });
       dispatch.advanceAudioLane();
       ops.store.getState().setVoiceCaptureState('capturing');
-      ops.store.getState().setVoiceSessionStatus(
-        store.voiceSessionStatus === 'interrupted' || store.voiceSessionStatus === 'recovering'
-          ? store.voiceSessionStatus
-          : 'ready',
-      );
       return true;
     } catch (error) {
       const detail = asErrorDetail(error, 'Failed to start microphone capture');

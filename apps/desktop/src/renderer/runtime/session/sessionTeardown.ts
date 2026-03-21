@@ -26,7 +26,7 @@ type SessionControllerTeardownArgs = {
   resetVoiceSessionDurability: () => void;
   resetVoiceSessionResumption: () => void;
   resetVoiceToolState: () => void;
-  setVoiceCaptureState: (state: 'stopped' | 'idle') => void;
+  setVoiceCaptureState: (state: 'inactive') => void;
   setVoicePlaybackState: (state: 'stopped') => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
   setVoiceSessionDurability: (value: ReturnType<SessionStoreApi['getState']>['voiceSessionDurability']) => void;
@@ -80,8 +80,8 @@ export function createSessionControllerTeardown({
         sessionStore.voiceSessionStatus !== 'error'
       ) ||
       (
-        sessionStore.voiceCaptureState !== 'idle' &&
-        sessionStore.voiceCaptureState !== 'stopped' &&
+        sessionStore.voiceCaptureState !== 'inactive' &&
+        sessionStore.voiceCaptureState !== 'muted' &&
         sessionStore.voiceCaptureState !== 'error'
       ) ||
       (
@@ -208,7 +208,7 @@ export function createSessionControllerTeardown({
         resetVoiceToolState();
       }
       clearCurrentVoiceTranscript();
-      setVoiceCaptureState(hasVoiceCapture() ? 'stopped' : 'idle');
+      setVoiceCaptureState('inactive');
       setVoicePlaybackState('stopped');
       setVoiceSessionStatus('disconnected');
       sessionStore.setAssistantActivity('idle');

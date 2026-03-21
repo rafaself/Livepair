@@ -44,7 +44,7 @@ function handleConnectionStateChanged(
 
   if (event.state === 'connected') {
     const wasResumption = ops.isVoiceResumptionInFlight();
-    ops.setVoiceSessionStatus('ready');
+    ops.setVoiceSessionStatus('active');
     ops.resetVoiceToolState();
     store.setAssistantActivity('idle');
     store.setActiveTransport(LIVE_ADAPTER_KEY);

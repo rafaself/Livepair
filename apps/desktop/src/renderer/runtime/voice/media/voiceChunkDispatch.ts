@@ -5,7 +5,6 @@ import type {
 import type { DesktopSession } from '../../transport/transport.types';
 import type {
   LocalVoiceChunk,
-  VoiceSessionStatus,
 } from '../voice.types';
 import type { VoiceChunkPipelineOps } from './voiceChunkPipeline';
 
@@ -16,19 +15,6 @@ type PendingAudioChunk = {
   transport: DesktopSession;
   outboundEvent: RealtimeOutboundAudioChunkEvent;
 };
-
-function shouldSetCapturingStatus(status: VoiceSessionStatus): boolean {
-  return status === 'ready' || status === 'interrupted' || status === 'recovering';
-}
-
-function shouldSetStreamingStatus(status: VoiceSessionStatus): boolean {
-  return (
-    status === 'capturing' ||
-    status === 'ready' ||
-    status === 'interrupted' ||
-    status === 'recovering'
-  );
-}
 
 export function createVoiceChunkDispatch(ops: VoiceChunkPipelineOps) {
   let voiceSendChain = Promise.resolve();
@@ -48,10 +34,6 @@ export function createVoiceChunkDispatch(ops: VoiceChunkPipelineOps) {
     // Chunks that arrive while no active transport is attached are dropped on purpose.
     if (!transport || ops.currentVoiceSessionStatus() === 'disconnected') {
       return Promise.resolve();
-    }
-
-    if (shouldSetCapturingStatus(ops.currentVoiceSessionStatus())) {
-      ops.setVoiceSessionStatus('capturing');
     }
 
     const outboundEvent: RealtimeOutboundAudioChunkEvent = {
@@ -104,9 +86,6 @@ export function createVoiceChunkDispatch(ops: VoiceChunkPipelineOps) {
             }
 
             ops.getRealtimeOutboundGateway().recordSuccess();
-            if (shouldSetStreamingStatus(ops.currentVoiceSessionStatus())) {
-              ops.setVoiceSessionStatus('streaming');
-            }
           } catch (error) {
             const detail = asErrorDetail(error, 'Failed to stream microphone audio');
             store.setVoiceCaptureDiagnostics({

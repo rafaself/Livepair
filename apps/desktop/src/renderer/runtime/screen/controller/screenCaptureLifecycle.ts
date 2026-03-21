@@ -24,9 +24,7 @@ type StopCaptureOptions = StopScreenCaptureOptions & {
 
 function isLiveSessionReadyForScreenCapture(status: VoiceSessionStatus): boolean {
   return (
-    status === 'ready'
-    || status === 'capturing'
-    || status === 'streaming'
+    status === 'active'
     || status === 'interrupted'
     || status === 'recovering'
   );

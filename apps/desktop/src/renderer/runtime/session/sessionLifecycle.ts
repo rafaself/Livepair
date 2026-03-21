@@ -29,7 +29,7 @@ type SessionControllerLifecycleArgs = {
   currentVoiceSessionStatus: () => VoiceSessionStatus;
   recordSessionEvent: (event: SessionControllerEvent) => void;
   applySpeechLifecycleEvent: (event: { type: string }) => void;
-  setVoiceCaptureState: (state: 'idle') => void;
+  setVoiceCaptureState: (state: 'inactive') => void;
   setVoiceCaptureDiagnostics: (patch: { lastError: null }) => void;
   setVoicePlaybackState: (state: 'idle') => void;
   updateVoicePlaybackDiagnostics: (patch: {
@@ -194,7 +194,7 @@ export function createSessionControllerLifecycle({
     }
 
     applySpeechLifecycleEvent({ type: 'session.start.requested' });
-    setVoiceCaptureState('idle');
+    setVoiceCaptureState('inactive');
     setVoiceCaptureDiagnostics({ lastError: null });
     setVoicePlaybackState('idle');
     updateVoicePlaybackDiagnostics({

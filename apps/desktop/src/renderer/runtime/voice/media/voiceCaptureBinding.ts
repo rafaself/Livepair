@@ -28,7 +28,7 @@ export function createVoiceCaptureBinding(
       return currentStatus;
     }
 
-    return ops.getActiveTransport() ? 'ready' : 'disconnected';
+    return ops.getActiveTransport() ? 'active' : 'disconnected';
   };
 
   const createCaptureObserver = (): LocalVoiceCaptureObserver => ({

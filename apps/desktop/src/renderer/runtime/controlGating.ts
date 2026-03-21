@@ -22,15 +22,13 @@ export type ControlGatingSnapshot = {
 };
 
 const MICROPHONE_STARTABLE_VOICE_STATUSES: VoiceSessionStatus[] = [
-  'ready',
+  'active',
   'interrupted',
   'recovering',
 ];
 
 const SCREEN_STARTABLE_VOICE_STATUSES: VoiceSessionStatus[] = [
-  'ready',
-  'capturing',
-  'streaming',
+  'active',
   'interrupted',
   'recovering',
 ];
@@ -60,7 +58,7 @@ export function createControlGatingSnapshot(
     textSessionStatus: 'idle',
     activeTransport: null,
     voiceSessionStatus: 'disconnected',
-    voiceCaptureState: 'idle',
+    voiceCaptureState: 'inactive',
     screenCaptureState: 'disabled',
     ...overrides,
   };

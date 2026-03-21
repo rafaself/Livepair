@@ -129,23 +129,21 @@ export function createSessionControllerPublicApi({
       const sessionStore = store.getState();
 
       if (
-        sessionStore.voiceCaptureState === 'idle' ||
-        sessionStore.voiceCaptureState === 'stopped'
+        sessionStore.voiceCaptureState === 'inactive' ||
+        sessionStore.voiceCaptureState === 'muted'
       ) {
         return;
       }
 
       sessionStore.setVoiceCaptureState('stopping');
-      sessionStore.setVoiceSessionStatus('stopping');
 
       try {
         await voiceChunkCtrl.flush();
         await voiceChunkCtrl.getVoiceCapture().stop();
       } finally {
-        store.getState().setVoiceCaptureState('stopped');
-        store
-          .getState()
-          .setVoiceSessionStatus(runtime.getActiveTransport() ? 'ready' : 'disconnected');
+        store.getState().setVoiceCaptureState(
+          runtime.getActiveTransport() ? 'muted' : 'inactive',
+        );
       }
     },
     submitTextTurn: async (text: string) => {
