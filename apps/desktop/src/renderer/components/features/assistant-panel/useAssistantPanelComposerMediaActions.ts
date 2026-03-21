@@ -108,7 +108,7 @@ export function useAssistantPanelComposerMediaActions({
       return;
     }
 
-    if (voiceCaptureState === 'idle' || voiceCaptureState === 'stopped') {
+    if (voiceCaptureState === 'inactive' || voiceCaptureState === 'muted') {
       return;
     }
 

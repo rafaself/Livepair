@@ -67,7 +67,7 @@ function getMicrophoneLabel(
   }
 
   if (isVoiceCapturing) {
-    return 'Stop microphone capture';
+    return 'Mute microphone';
   }
 
   if (voiceCaptureState === 'requestingPermission') {
@@ -79,10 +79,10 @@ function getMicrophoneLabel(
   }
 
   if (voiceCaptureState === 'error') {
-    return 'Retry microphone capture';
+    return 'Retry microphone';
   }
 
-  return 'Start microphone capture';
+  return 'Unmute microphone';
 }
 
 function getScreenContextLabel(
