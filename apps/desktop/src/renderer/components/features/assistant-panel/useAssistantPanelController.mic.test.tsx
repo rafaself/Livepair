@@ -180,7 +180,7 @@ describe('useAssistantPanelController – composer media controls', () => {
 
     expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
     expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
-    expect(handleStartVoiceCapture).toHaveBeenCalledTimes(1);
+    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
     expect(handleStopVoiceCapture).not.toHaveBeenCalled();
   });
 
@@ -218,7 +218,7 @@ describe('useAssistantPanelController – composer media controls', () => {
 
     expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
     expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
-    expect(handleStartVoiceCapture).toHaveBeenCalledTimes(1);
+    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
   });
 
   it('submits trimmed text and only clears the draft after a successful send', async () => {
@@ -293,12 +293,9 @@ describe('useAssistantPanelController – composer media controls', () => {
 
     expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
     expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
-    expect(handleStartVoiceCapture).toHaveBeenCalledTimes(1);
+    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
     expect(handleStartVoiceSession.mock.invocationCallOrder[0]).toBeLessThan(
       handleStartScreenCapture.mock.invocationCallOrder[0]!,
-    );
-    expect(handleStartScreenCapture.mock.invocationCallOrder[0]).toBeLessThan(
-      handleStartVoiceCapture.mock.invocationCallOrder[0]!,
     );
   });
 });

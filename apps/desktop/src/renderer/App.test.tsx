@@ -294,7 +294,7 @@ describe('App', () => {
       });
       expect(startSessionSpy).toHaveBeenCalledWith({ mode: 'speech' });
       expect(startScreenCaptureSpy).toHaveBeenCalledTimes(1);
-      expect(startVoiceCaptureSpy).toHaveBeenCalledTimes(1);
+      expect(startVoiceCaptureSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -326,7 +326,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(startSessionSpy).toHaveBeenCalledWith({ mode: 'speech' });
       expect(startScreenCaptureSpy).toHaveBeenCalledTimes(1);
-      expect(startVoiceCaptureSpy).toHaveBeenCalledTimes(1);
+      expect(startVoiceCaptureSpy).not.toHaveBeenCalled();
     });
 
     expect(screen.queryByRole('dialog', { name: 'Choose screen share mode' })).toBeNull();
