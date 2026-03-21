@@ -28,7 +28,7 @@ function createHarness() {
       store: { getState: () => storeState } as never,
       createVoiceCapture,
       getActiveTransport: vi.fn().mockReturnValue({ kind: 'gemini-live' }),
-      currentVoiceSessionStatus: vi.fn().mockReturnValue('streaming'),
+      currentVoiceSessionStatus: vi.fn().mockReturnValue('active'),
       getRealtimeOutboundGateway: vi.fn(),
       settingsStore: vi.fn(),
       setVoiceSessionStatus: vi.fn(),
@@ -86,7 +86,7 @@ describe('createVoiceCaptureBinding', () => {
 
     expect(store.setVoiceCaptureState).toHaveBeenCalledWith('error');
     expect(store.setLocalUserSpeechActive).toHaveBeenCalledWith(false);
-    expect(store.setVoiceSessionStatus).toHaveBeenCalledWith('ready');
+    expect(store.setVoiceSessionStatus).toHaveBeenCalledWith('active');
     expect(store.setLastRuntimeError).toHaveBeenCalledWith('Permission denied');
     expect(store.setVoiceCaptureDiagnostics).toHaveBeenCalledWith({
       lastError: 'Permission denied',

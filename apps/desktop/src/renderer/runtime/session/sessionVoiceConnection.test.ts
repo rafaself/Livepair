@@ -64,7 +64,7 @@ describe('createSessionVoiceConnection', () => {
     expect(args.createTransport).not.toHaveBeenCalled();
   });
 
-  it('activates the restored transport and marks the session ready when resume succeeds', async () => {
+  it('activates the restored transport and marks the session active when resume succeeds', async () => {
     const args = createMockArgs();
     const transport = {
       connect: vi.fn().mockResolvedValue(undefined),

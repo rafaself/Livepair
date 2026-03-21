@@ -88,7 +88,7 @@ describe('createDesktopSessionController – interruption', () => {
     );
   });
 
-  it('handles interruption while buffering, keeps capture active, and resumes streaming on the next mic chunk', async () => {
+  it('handles interruption while buffering, keeps capture active, and keeps recovery explicit on the next mic chunk', async () => {
     const voiceCapture = createVoiceCaptureHarness();
     const voiceTransport = createVoiceTransportHarness();
     const voicePlayback = createVoicePlaybackHarness();
@@ -158,7 +158,7 @@ describe('createDesktopSessionController – interruption', () => {
     expect(voiceTransport.sendAudioChunk).toHaveBeenLastCalledWith(
       new Uint8Array(640).fill(2),
     );
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('streaming');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('recovering');
   });
 
   it('treats repeated interruption events as safe and idempotent', async () => {

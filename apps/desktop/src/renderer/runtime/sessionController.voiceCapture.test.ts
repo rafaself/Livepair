@@ -69,7 +69,7 @@ describe('createDesktopSessionController – voice capture', () => {
       expect.objectContaining({
         currentMode: 'speech',
         voiceCaptureState: 'capturing',
-        voiceSessionStatus: 'streaming',
+        voiceSessionStatus: 'active',
         textSessionLifecycle: expect.objectContaining({ status: 'disconnected' }),
       }),
     );
@@ -96,7 +96,7 @@ describe('createDesktopSessionController – voice capture', () => {
     unsubscribe();
   });
 
-  it('stops local voice capture cleanly, flushes audio, and returns the session to ready', async () => {
+  it('stops local voice capture cleanly, flushes audio, and leaves the session active but muted', async () => {
     const voiceCapture = createVoiceCaptureHarness();
     const voiceTransport = createVoiceTransportHarness();
     const controller = createDesktopSessionController({
@@ -120,8 +120,8 @@ describe('createDesktopSessionController – voice capture', () => {
     await controller.stopVoiceCapture();
 
     expect(voiceCapture.stop).toHaveBeenCalledTimes(1);
-    expect(useSessionStore.getState().voiceCaptureState).toBe('stopped');
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(useSessionStore.getState().voiceCaptureState).toBe('muted');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
     expect(voiceTransport.sendAudioStreamEnd).toHaveBeenCalledTimes(1);
   });
 
@@ -154,7 +154,7 @@ describe('createDesktopSessionController – voice capture', () => {
     expect(createTransport).toHaveBeenCalledTimes(1);
     expect(voiceCapture.start).toHaveBeenCalledTimes(2);
     expect(useSessionStore.getState().voiceCaptureState).toBe('capturing');
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
   });
 
   it('rejects microphone capture until the voice session is connected', async () => {
@@ -211,7 +211,7 @@ describe('createDesktopSessionController – voice capture', () => {
       expect.objectContaining({
         currentMode: 'speech',
         voiceCaptureState: 'error',
-        voiceSessionStatus: 'ready',
+        voiceSessionStatus: 'active',
         voiceCaptureDiagnostics: expect.objectContaining({
           lastError: 'Microphone permission was denied',
         }),

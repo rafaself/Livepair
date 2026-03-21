@@ -31,7 +31,7 @@ describe('controlGating', () => {
           speechLifecycleStatus: 'listening',
           textSessionStatus: 'disconnected',
           activeTransport: 'gemini-live',
-          voiceSessionStatus: 'ready',
+          voiceSessionStatus: 'active',
         }),
       ),
     ).toBe(true);
@@ -67,7 +67,7 @@ describe('controlGating', () => {
           speechLifecycleStatus: 'listening',
           textSessionStatus: 'disconnected',
           activeTransport: null,
-          voiceSessionStatus: 'ready',
+          voiceSessionStatus: 'active',
         }),
       ),
     ).toBe(false);
@@ -95,14 +95,14 @@ describe('controlGating', () => {
     expect(canEndSpeechMode(teardownSnapshot)).toBe(false);
   });
 
-  it('requires a ready voice runtime before enabling the microphone control', () => {
+  it('requires an active voice runtime before enabling the microphone control', () => {
     expect(
       canToggleMicrophone(
         createControlGatingSnapshot({
           currentMode: 'speech',
           speechLifecycleStatus: 'listening',
-          voiceSessionStatus: 'ready',
-          voiceCaptureState: 'stopped',
+          voiceSessionStatus: 'active',
+          voiceCaptureState: 'muted',
         }),
       ),
     ).toBe(true);
@@ -113,7 +113,7 @@ describe('controlGating', () => {
           currentMode: 'speech',
           speechLifecycleStatus: 'recovering',
           voiceSessionStatus: 'recovering',
-          voiceCaptureState: 'stopped',
+          voiceCaptureState: 'muted',
         }),
       ),
     ).toBe(true);
@@ -135,7 +135,7 @@ describe('controlGating', () => {
           currentMode: 'speech',
           speechLifecycleStatus: 'starting',
           voiceSessionStatus: 'connecting',
-          voiceCaptureState: 'idle',
+          voiceCaptureState: 'inactive',
         }),
       ),
     ).toBe(false);
@@ -147,7 +147,7 @@ describe('controlGating', () => {
         createControlGatingSnapshot({
           currentMode: 'speech',
           speechLifecycleStatus: 'listening',
-          voiceSessionStatus: 'ready',
+          voiceSessionStatus: 'active',
           activeTransport: 'gemini-live',
           screenCaptureState: 'disabled',
         }),
@@ -159,7 +159,7 @@ describe('controlGating', () => {
         createControlGatingSnapshot({
           currentMode: 'speech',
           speechLifecycleStatus: 'assistantSpeaking',
-          voiceSessionStatus: 'streaming',
+          voiceSessionStatus: 'active',
           activeTransport: 'gemini-live',
           screenCaptureState: 'capturing',
         }),

@@ -20,7 +20,7 @@ function createHarness(options: { onAnswerMetadata?: (answerMetadata: AnswerMeta
     currentMode: 'speech' as ProductMode,
     textSessionStatus: 'idle',
     speechLifecycleStatus: 'listening',
-    voiceSessionStatus: 'ready',
+    voiceSessionStatus: 'active',
     voiceCaptureState: 'capturing',
     voicePlaybackState: 'idle',
   };

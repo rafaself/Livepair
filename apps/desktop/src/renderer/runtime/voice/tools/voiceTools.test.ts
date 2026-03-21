@@ -15,7 +15,7 @@ function createSnapshot(
     textSessionStatus: 'idle',
     speechLifecycleStatus: 'off',
     voiceSessionStatus: 'disconnected',
-    voiceCaptureState: 'idle',
+    voiceCaptureState: 'inactive',
     voicePlaybackState: 'idle',
     ...overrides,
   };
@@ -30,7 +30,7 @@ describe('voiceTools', () => {
           currentMode: 'speech',
           textSessionStatus: 'ready',
           speechLifecycleStatus: 'listening',
-          voiceSessionStatus: 'ready',
+          voiceSessionStatus: 'active',
         }),
       ),
     ).toBe('speech');
@@ -47,7 +47,7 @@ describe('voiceTools', () => {
         createSnapshot({
           currentMode: 'speech',
           speechLifecycleStatus: 'assistantSpeaking',
-          voiceSessionStatus: 'streaming',
+          voiceSessionStatus: 'active',
         }),
       ),
     ).resolves.toEqual({

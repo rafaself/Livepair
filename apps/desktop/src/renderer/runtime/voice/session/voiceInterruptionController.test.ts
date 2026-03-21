@@ -4,7 +4,7 @@ import type { DesktopSession } from '../../transport/transport.types';
 import type { VoiceCaptureState, VoiceSessionStatus } from '../voice.types';
 
 function createHarness(options: { captureState?: VoiceCaptureState } = {}) {
-  const { captureState = 'idle' } = options;
+  const { captureState = 'inactive' } = options;
   let currentCaptureState: VoiceCaptureState = captureState;
 
   const setAssistantActivity = vi.fn();
@@ -17,7 +17,7 @@ function createHarness(options: { captureState?: VoiceCaptureState } = {}) {
 
   const transport = { fake: true } as unknown as DesktopSession;
   let currentTransport: DesktopSession | null = transport;
-  let currentStatus: VoiceSessionStatus = 'ready';
+  let currentStatus: VoiceSessionStatus = 'active';
 
   const setVoiceSessionStatus = vi.fn((s: VoiceSessionStatus) => {
     currentStatus = s;
@@ -101,12 +101,12 @@ describe('createVoiceInterruptionController', () => {
     });
   });
 
-  it('transitions to ready when not capturing', async () => {
-    const h = createHarness({ captureState: 'idle' });
+  it('transitions to active when not capturing', async () => {
+    const h = createHarness({ captureState: 'muted' });
 
     h.ctrl.handle();
     await vi.waitFor(() => {
-      expect(h.setVoiceSessionStatus).toHaveBeenCalledWith('ready');
+      expect(h.setVoiceSessionStatus).toHaveBeenCalledWith('active');
       expect(h.applySpeechLifecycleEvent).toHaveBeenCalledWith({
         type: 'recovery.completed',
       });
@@ -122,11 +122,11 @@ describe('createVoiceInterruptionController', () => {
       expect(h.stopPlayback).toHaveBeenCalled();
     });
 
-    // Should NOT transition to ready/recovering since transport is null
-    const readyCalls = h.setVoiceSessionStatus.mock.calls.filter(
-      ([s]) => s === 'ready' || s === 'recovering',
+    // Should NOT transition to active/recovering since transport is null
+    const activeCalls = h.setVoiceSessionStatus.mock.calls.filter(
+      ([s]) => s === 'active' || s === 'recovering',
     );
-    expect(readyCalls).toHaveLength(0);
+    expect(activeCalls).toHaveLength(0);
   });
 
   it('aborts recovery when status changed externally', async () => {
@@ -140,10 +140,10 @@ describe('createVoiceInterruptionController', () => {
       expect(h.stopPlayback).toHaveBeenCalled();
     });
 
-    const readyCalls = h.setVoiceSessionStatus.mock.calls.filter(
-      ([s]) => s === 'ready' || s === 'recovering',
+    const activeCalls = h.setVoiceSessionStatus.mock.calls.filter(
+      ([s]) => s === 'active' || s === 'recovering',
     );
-    expect(readyCalls).toHaveLength(0);
+    expect(activeCalls).toHaveLength(0);
   });
 
   it('reset invalidates in-flight handler', async () => {
@@ -160,7 +160,7 @@ describe('createVoiceInterruptionController', () => {
 
     // Should NOT transition after reset
     const postInterruptCalls = h.setVoiceSessionStatus.mock.calls.filter(
-      ([s]) => s === 'ready' || s === 'recovering',
+      ([s]) => s === 'active' || s === 'recovering',
     );
     expect(postInterruptCalls).toHaveLength(0);
   });
@@ -173,7 +173,7 @@ describe('createVoiceInterruptionController', () => {
 
     await vi.waitFor(() => {
       // Should still transition despite playback error
-      expect(h.setVoiceSessionStatus).toHaveBeenCalledWith('ready');
+      expect(h.setVoiceSessionStatus).toHaveBeenCalledWith('active');
     });
   });
 });

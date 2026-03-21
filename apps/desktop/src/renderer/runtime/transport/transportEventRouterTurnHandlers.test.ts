@@ -26,7 +26,7 @@ function createMockContext() {
 
   const ops = {
     logRuntimeDiagnostic: vi.fn(),
-    currentVoiceSessionStatus: vi.fn().mockReturnValue('ready'),
+    currentVoiceSessionStatus: vi.fn().mockReturnValue('active'),
     currentSpeechLifecycleStatus: vi.fn().mockReturnValue('listening'),
     getVoicePlayback: vi.fn().mockReturnValue({
       enqueue: vi.fn().mockResolvedValue(undefined),
@@ -230,8 +230,8 @@ describe('handleTransportTurnEvent', () => {
 
   it('counts text-delta in voice mode as assistant text fallback', () => {
     const context = createMockContext();
-    // Voice mode: status is 'ready' (not 'disconnected').
-    context.ops.currentVoiceSessionStatus.mockReturnValue('ready');
+    // Voice mode: status is 'active' (not 'disconnected').
+    context.ops.currentVoiceSessionStatus.mockReturnValue('active');
 
     handleTransportTurnEvent(context as never, { type: 'text-delta', text: 'voice reply' });
 

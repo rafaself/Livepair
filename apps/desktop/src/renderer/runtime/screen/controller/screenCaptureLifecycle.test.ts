@@ -21,7 +21,7 @@ function createStoreHarness(options: {
   voiceSessionStatus?: VoiceSessionStatus;
   screenCaptureState?: ScreenCaptureState;
 } = {}) {
-  const currentVoiceStatus = options.voiceSessionStatus ?? 'ready';
+  const currentVoiceStatus = options.voiceSessionStatus ?? 'active';
   let currentScreenState = options.screenCaptureState ?? 'disabled';
 
   const setScreenCaptureState = vi.fn((nextState: ScreenCaptureState) => {

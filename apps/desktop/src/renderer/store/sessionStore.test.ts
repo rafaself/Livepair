@@ -29,7 +29,7 @@ describe('sessionStore', () => {
 
     useSessionStore.getState().setCurrentMode('speech');
     useSessionStore.getState().setSpeechLifecycle({ status: 'starting' });
-    useSessionStore.getState().setVoiceSessionStatus('ready');
+    useSessionStore.getState().setVoiceSessionStatus('active');
     useSessionStore.getState().setTextSessionLifecycle({ status: 'receiving' });
 
     expect(useSessionStore.getState()).toEqual(
@@ -38,7 +38,7 @@ describe('sessionStore', () => {
         speechLifecycle: expect.objectContaining({
           status: 'starting',
         }),
-        voiceSessionStatus: 'ready',
+        voiceSessionStatus: 'active',
         textSessionLifecycle: expect.objectContaining({
           status: 'receiving',
         }),
@@ -336,13 +336,13 @@ describe('sessionStore', () => {
 
   it('tracks the speech lifecycle separately from low-level voice diagnostics', () => {
     useSessionStore.getState().setSpeechLifecycle({ status: 'assistantSpeaking' });
-    useSessionStore.getState().setVoiceSessionStatus('streaming');
+    useSessionStore.getState().setVoiceSessionStatus('active');
     useSessionStore.getState().setVoiceCaptureState('capturing');
 
     expect(useSessionStore.getState().speechLifecycle).toEqual({
       status: 'assistantSpeaking',
     });
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('streaming');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
     expect(useSessionStore.getState().voiceCaptureState).toBe('capturing');
   });
 
@@ -488,7 +488,7 @@ describe('sessionStore', () => {
       source: 'voice',
     });
     useSessionStore.getState().setSpeechLifecycle({ status: 'listening' });
-    useSessionStore.getState().setVoiceSessionStatus('ready');
+    useSessionStore.getState().setVoiceSessionStatus('active');
 
     useSessionStore.getState().resetTextSessionRuntime('disconnected', {
       preserveConversationTurns: true,

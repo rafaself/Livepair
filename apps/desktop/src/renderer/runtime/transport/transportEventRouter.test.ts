@@ -126,7 +126,7 @@ function createMockOps() {
     logRuntimeDiagnostic: vi.fn(),
     isVoiceResumptionInFlight: vi.fn().mockReturnValue(false),
     setVoiceResumptionInFlight: vi.fn(),
-    currentVoiceSessionStatus: vi.fn().mockReturnValue('ready'),
+    currentVoiceSessionStatus: vi.fn().mockReturnValue('active'),
     currentSpeechLifecycleStatus: vi.fn().mockReturnValue('listening'),
     getToken: vi.fn().mockReturnValue({
       token: 'tok',
@@ -232,7 +232,7 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'connection-state-changed', state: 'connected' });
 
-      expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('ready');
+      expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('active');
       expect(ops.resetVoiceToolState).toHaveBeenCalledTimes(1);
       expect(ops._storeState.setAssistantActivity).toHaveBeenCalledWith('idle');
       expect(ops._storeState.setActiveTransport).toHaveBeenCalledWith('gemini-live');
@@ -475,7 +475,7 @@ describe('createTransportEventRouter', () => {
   describe('connection-terminated', () => {
     it('triggers resume when voice session is active', () => {
       const ops = createMockOps();
-      ops.currentVoiceSessionStatus.mockReturnValue('ready');
+      ops.currentVoiceSessionStatus.mockReturnValue('active');
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
 
       handleTransportEvent({ type: 'connection-terminated', detail: 'transport recycled' });
@@ -486,7 +486,7 @@ describe('createTransportEventRouter', () => {
 
     it('demotes latency diagnostics to unavailable last values before reconnecting', () => {
       const ops = createMockOps();
-      ops.currentVoiceSessionStatus.mockReturnValue('ready');
+      ops.currentVoiceSessionStatus.mockReturnValue('active');
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
 
       handleTransportEvent({ type: 'connection-terminated', detail: 'transport recycled' });

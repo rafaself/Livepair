@@ -216,7 +216,7 @@ describe('createDesktopSessionController – lifecycle', () => {
           status: 'listening',
         },
         voiceCaptureState: 'capturing',
-        voiceSessionStatus: 'ready',
+        voiceSessionStatus: 'active',
         voiceSessionResumption: {
           status: 'connected',
           latestHandle: null,
@@ -618,7 +618,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       lastDetail: null,
     });
     expect(useSessionStore.getState().lastRuntimeError).toBeNull();
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
     expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 
@@ -769,7 +769,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     });
     expect(useSessionStore.getState().lastRuntimeError).toBeNull();
     expect(useSessionStore.getState().currentMode).toBe('speech');
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
     expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 

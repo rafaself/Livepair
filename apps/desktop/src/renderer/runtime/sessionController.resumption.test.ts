@@ -309,7 +309,7 @@ describe('createDesktopSessionController – resumption', () => {
       lastDetail: 'resume rejected',
     });
     expect(useSessionStore.getState().currentMode).toBe('speech');
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
     expect(useSessionStore.getState().lastRuntimeError).toBeNull();
     expect(window.bridge.endLiveSession).toHaveBeenCalledWith({
       id: 'live-session-1',
@@ -378,7 +378,7 @@ describe('createDesktopSessionController – resumption', () => {
       resumable: true,
       lastDetail: 'server draining',
     });
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
   });
 
   it('keeps reconnect latency diagnostics honest by demoting stale values to unavailable last values', async () => {
@@ -492,7 +492,7 @@ describe('createDesktopSessionController – resumption', () => {
     });
     expect(useSessionStore.getState().speechLifecycle.status).toBe('listening');
     expect(useSessionStore.getState().currentMode).toBe('speech');
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
     expect(useSessionStore.getState().lastRuntimeError).toBeNull();
     expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
       kind: 'resumption',

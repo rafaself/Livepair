@@ -520,13 +520,13 @@ describe('selectLiveSessionPhaseLabel', () => {
 
   it('returns null when speech is listening with no voice recovery', () => {
     expect(
-      selectLiveSessionPhaseLabel(livePhaseInput('listening', 'connected', 'ready')),
+      selectLiveSessionPhaseLabel(livePhaseInput('listening', 'connected', 'active')),
     ).toBeNull();
   });
 
   it('returns null when speech is assistantSpeaking', () => {
     expect(
-      selectLiveSessionPhaseLabel(livePhaseInput('assistantSpeaking', 'connected', 'streaming')),
+      selectLiveSessionPhaseLabel(livePhaseInput('assistantSpeaking', 'connected', 'active')),
     ).toBeNull();
   });
 });

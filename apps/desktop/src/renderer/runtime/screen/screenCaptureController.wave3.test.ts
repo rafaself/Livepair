@@ -63,7 +63,7 @@ function createHarness(options: {
     quality = nextQuality;
   };
 
-  const { voiceSessionStatus = 'ready', screenCaptureState = 'disabled' } = options;
+  const { voiceSessionStatus = 'active', screenCaptureState = 'disabled' } = options;
   let currentScreenState: ScreenCaptureState = screenCaptureState;
   const currentVoiceStatus: VoiceSessionStatus = voiceSessionStatus;
 

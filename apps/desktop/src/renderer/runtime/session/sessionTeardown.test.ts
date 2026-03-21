@@ -6,7 +6,7 @@ function createMockStore(overrides: Record<string, unknown> = {}) {
     getState: vi.fn().mockReturnValue({
       speechLifecycle: { status: 'off' },
       voiceSessionStatus: 'disconnected',
-      voiceCaptureState: 'idle',
+      voiceCaptureState: 'inactive',
       voicePlaybackState: 'idle',
       screenCaptureState: 'disabled',
       voiceSessionResumption: { status: 'idle', latestHandle: null, resumable: false, lastDetail: null },
@@ -88,8 +88,8 @@ describe('createSessionControllerTeardown', () => {
       expect(hasSpeechRuntimeActivity()).toBe(true);
     });
 
-    it('returns true when voiceSessionStatus is ready', () => {
-      const args = createMockArgs({ voiceSessionStatus: 'ready' });
+    it('returns true when voiceSessionStatus is active', () => {
+      const args = createMockArgs({ voiceSessionStatus: 'active' });
       const { hasSpeechRuntimeActivity } = createSessionControllerTeardown(args as never);
 
       expect(hasSpeechRuntimeActivity()).toBe(true);
@@ -277,7 +277,7 @@ describe('createSessionControllerTeardown', () => {
     });
 
     it('fires speech end.requested when speech is active', async () => {
-      const args = createMockArgs({ voiceSessionStatus: 'ready' });
+      const args = createMockArgs({ voiceSessionStatus: 'active' });
       const { teardownActiveRuntime } = createSessionControllerTeardown(args as never);
 
       await teardownActiveRuntime();
@@ -286,7 +286,7 @@ describe('createSessionControllerTeardown', () => {
       expect(args.setVoiceSessionStatus).toHaveBeenCalledWith('stopping');
     });
 
-    it('sets voiceCaptureState to stopped when capture exists', async () => {
+    it('sets voiceCaptureState to inactive when capture exists', async () => {
       const args = createMockArgs();
       args.hasVoiceCapture.mockReturnValue(true);
       args.hasVoicePlayback.mockReturnValue(true);
@@ -294,10 +294,10 @@ describe('createSessionControllerTeardown', () => {
 
       await teardownActiveRuntime();
 
-      expect(args.setVoiceCaptureState).toHaveBeenCalledWith('stopped');
+      expect(args.setVoiceCaptureState).toHaveBeenCalledWith('inactive');
     });
 
-    it('sets voiceCaptureState to idle when no capture exists', async () => {
+    it('sets voiceCaptureState to inactive when no capture exists', async () => {
       const args = createMockArgs();
       args.hasVoiceCapture.mockReturnValue(false);
       args.hasVoicePlayback.mockReturnValue(true);
@@ -305,7 +305,7 @@ describe('createSessionControllerTeardown', () => {
 
       await teardownActiveRuntime();
 
-      expect(args.setVoiceCaptureState).toHaveBeenCalledWith('idle');
+      expect(args.setVoiceCaptureState).toHaveBeenCalledWith('inactive');
     });
 
     it('executes finally block even when teardown throws', async () => {
@@ -324,7 +324,7 @@ describe('createSessionControllerTeardown', () => {
     });
 
     it('skips voice capture stop when not in stoppable state', async () => {
-      const args = createMockArgs({ voiceCaptureState: 'idle' });
+      const args = createMockArgs({ voiceCaptureState: 'inactive' });
       args.hasVoiceCapture.mockReturnValue(true);
       args.hasVoicePlayback.mockReturnValue(true);
       const { teardownActiveRuntime } = createSessionControllerTeardown(args as never);
@@ -335,7 +335,7 @@ describe('createSessionControllerTeardown', () => {
     });
 
     it('preserves conversation state on the slow path when speech mode ends', async () => {
-      const args = createMockArgs({ voiceSessionStatus: 'ready' });
+      const args = createMockArgs({ voiceSessionStatus: 'active' });
       args.hasVoicePlayback.mockReturnValue(true);
       const { teardownActiveRuntime } = createSessionControllerTeardown(args as never);
 

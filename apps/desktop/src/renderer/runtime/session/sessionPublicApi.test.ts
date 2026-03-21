@@ -20,7 +20,7 @@ function createHarness(options: {
       setScreenShareIntended,
       setVoiceCaptureState: vi.fn(),
       setVoiceSessionStatus: vi.fn(),
-      voiceCaptureState: 'idle',
+      voiceCaptureState: 'inactive',
     })),
   } as never;
 

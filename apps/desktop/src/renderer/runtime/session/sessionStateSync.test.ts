@@ -47,7 +47,7 @@ function createMockArgs(speechStatus = 'off', mode = 'text') {
     voiceSessionLatency: createVoiceSessionLatencyState(),
     currentMode: mode,
     textSessionLifecycle: { status: 'idle' },
-    voiceCaptureState: 'idle',
+    voiceCaptureState: 'inactive',
     voicePlaybackState: 'idle',
     setSpeechLifecycle: vi.fn((speechLifecycle) => {
       storeState.speechLifecycle = speechLifecycle;
@@ -268,10 +268,10 @@ describe('createSessionControllerStateSync', () => {
   describe('currentVoiceSessionStatus', () => {
     it('reads voice session status from store', () => {
       const args = createMockArgs();
-      args._storeState.voiceSessionStatus = 'ready';
+      args._storeState.voiceSessionStatus = 'active';
       const sync = createSessionControllerStateSync(args as never);
 
-      expect(sync.currentVoiceSessionStatus()).toBe('ready');
+      expect(sync.currentVoiceSessionStatus()).toBe('active');
     });
   });
 
@@ -306,7 +306,7 @@ describe('createSessionControllerStateSync', () => {
   describe('createVoiceToolExecutionSnapshot', () => {
     it('captures all state dimensions', () => {
       const args = createMockArgs('listening', 'speech');
-      args._storeState.voiceSessionStatus = 'ready';
+      args._storeState.voiceSessionStatus = 'active';
       args._storeState.voiceCaptureState = 'capturing';
       args._storeState.voicePlaybackState = 'playing';
       args._storeState.textSessionLifecycle = { status: 'idle' };
@@ -318,7 +318,7 @@ describe('createSessionControllerStateSync', () => {
         currentMode: 'speech',
         textSessionStatus: 'idle',
         speechLifecycleStatus: 'listening',
-        voiceSessionStatus: 'ready',
+        voiceSessionStatus: 'active',
         voiceCaptureState: 'capturing',
         voicePlaybackState: 'playing',
       });
@@ -387,9 +387,9 @@ describe('createSessionControllerStateSync', () => {
       const args = createMockArgs();
       const sync = createSessionControllerStateSync(args as never);
 
-      sync.setVoiceSessionStatus('ready');
+      sync.setVoiceSessionStatus('active');
 
-      expect(args._storeState.setVoiceSessionStatus).toHaveBeenCalledWith('ready');
+      expect(args._storeState.setVoiceSessionStatus).toHaveBeenCalledWith('active');
     });
 
     it('delegates syncSpeechSilenceTimeout to handler', () => {

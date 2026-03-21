@@ -34,8 +34,8 @@ function createMockOps(options: {
   ) => RealtimeOutboundDecision;
 } = {}) {
   const storeState = {
-    voiceCaptureState: 'idle',
-    voiceSessionStatus: 'ready',
+    voiceCaptureState: 'inactive',
+    voiceSessionStatus: 'active',
     setVoiceCaptureState: vi.fn(),
     setVoiceCaptureDiagnostics: vi.fn(),
     setVoiceSessionStatus: vi.fn(),
@@ -81,7 +81,7 @@ function createMockOps(options: {
     } as never,
     createVoiceCapture: vi.fn().mockReturnValue(capture),
     getActiveTransport: vi.fn().mockReturnValue(transport),
-    currentVoiceSessionStatus: vi.fn().mockReturnValue('ready'),
+    currentVoiceSessionStatus: vi.fn().mockReturnValue('active'),
     getRealtimeOutboundGateway: vi.fn(() => outboundGateway),
     setVoiceSessionStatus: vi.fn(),
     setVoiceErrorState: vi.fn(),
@@ -195,6 +195,7 @@ describe('createVoiceChunkPipeline', () => {
       });
       expect(ops._transport.sendAudioChunk).toHaveBeenCalledWith(chunk.data);
       expect(ops._outboundGateway.recordSuccess).toHaveBeenCalledTimes(1);
+      expect(ops.setVoiceSessionStatus).not.toHaveBeenCalled();
     });
 
     it('forwards empty and undersized chunks unchanged', async () => {
@@ -235,7 +236,7 @@ describe('createVoiceChunkPipeline', () => {
 
     it('onError keeps the live session ready when local capture fails', () => {
       const ops = createMockOps();
-      ops.currentVoiceSessionStatus.mockReturnValue('streaming');
+      ops.currentVoiceSessionStatus.mockReturnValue('active');
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
@@ -243,7 +244,7 @@ describe('createVoiceChunkPipeline', () => {
       observer.onError('Permission denied');
 
       expect(ops._storeState.setVoiceCaptureState).toHaveBeenCalledWith('error');
-      expect(ops._storeState.setVoiceSessionStatus).toHaveBeenCalledWith('ready');
+      expect(ops._storeState.setVoiceSessionStatus).toHaveBeenCalledWith('active');
       expect(ops._storeState.setLastRuntimeError).toHaveBeenCalledWith('Permission denied');
       expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenCalledWith({
         lastError: 'Permission denied',
@@ -280,9 +281,9 @@ describe('createVoiceChunkPipeline', () => {
   });
 
   describe('enqueueChunkSend – state transitions', () => {
-    it('transitions from ready to streaming after send', async () => {
+    it('does not mutate session status while sending microphone audio', async () => {
       const ops = createMockOps();
-      ops.currentVoiceSessionStatus.mockReturnValue('ready');
+      ops.currentVoiceSessionStatus.mockReturnValue('active');
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
@@ -290,9 +291,7 @@ describe('createVoiceChunkPipeline', () => {
       observer.onChunk(createChunk());
       await pipeline.flush();
 
-      // First sets to capturing, then to streaming after send
-      expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('capturing');
-      expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('streaming');
+      expect(ops.setVoiceSessionStatus).not.toHaveBeenCalled();
     });
 
     it('sends queued chunks in arrival order and flush waits for the queue before ending the stream', async () => {
@@ -408,7 +407,7 @@ describe('createVoiceChunkPipeline', () => {
       await pipeline.flush();
 
       expect(ops._transport.sendAudioChunk).not.toHaveBeenCalled();
-      expect(ops.setVoiceSessionStatus).not.toHaveBeenCalledWith('streaming');
+      expect(ops.setVoiceSessionStatus).not.toHaveBeenCalled();
     });
 
     it('drops queued microphone chunks if resumption swaps the active transport before they send', async () => {
@@ -448,7 +447,7 @@ describe('createVoiceChunkPipeline', () => {
       expect(ops._transport.sendAudioChunk).toHaveBeenCalledTimes(1);
       expect(nextTransport.sendAudioChunk).not.toHaveBeenCalled();
       expect(
-        ops.setVoiceSessionStatus.mock.calls.filter(([status]) => status === 'streaming'),
+        ops.setVoiceSessionStatus.mock.calls,
       ).toHaveLength(0);
     });
 

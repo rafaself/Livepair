@@ -61,7 +61,7 @@ describe('createDesktopSessionController – voice tools', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        voiceSessionStatus: 'ready',
+        voiceSessionStatus: 'active',
         voiceToolState: {
           status: 'idle',
           toolName: 'get_current_mode',
@@ -119,7 +119,7 @@ describe('createDesktopSessionController – voice tools', () => {
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
-        voiceSessionStatus: 'ready',
+        voiceSessionStatus: 'active',
         voiceToolState: {
           status: 'toolError',
           toolName: 'unknown_tool',
@@ -402,7 +402,7 @@ describe('createDesktopSessionController – voice tools', () => {
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
         currentMode: 'speech',
-        voiceSessionStatus: 'ready',
+        voiceSessionStatus: 'active',
         activeTransport: 'gemini-live',
         lastRuntimeError: null,
       }),
