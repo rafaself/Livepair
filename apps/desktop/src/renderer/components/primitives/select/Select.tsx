@@ -23,6 +23,7 @@ export type SelectProps = {
   maxWidthPx?: number;
   portalTarget?: HTMLElement | null;
   placement?: FloatingPlacementStrategy;
+  onOpen?: () => void;
 } & Omit<SelectHTMLAttributes<HTMLSelectElement>, 'children' | 'size' | 'multiple'>;
 
 const CLOSE_ANIMATION_MS = 120;
@@ -54,6 +55,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(function Select
     form,
     required,
     autoComplete,
+    onOpen,
   },
   ref,
 ): JSX.Element {
@@ -142,7 +144,10 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(function Select
           ref.current = element;
         }}
         isOpen={overlay.isOpen}
-        onToggle={overlay.toggle}
+        onToggle={() => {
+          if (!overlay.isOpen) onOpen?.();
+          overlay.toggle();
+        }}
         valueContent={selectedOption?.triggerContent ?? selectedOption?.content ?? selectedOption?.label}
         placeholder={placeholder ?? 'Select…'}
         size={size}

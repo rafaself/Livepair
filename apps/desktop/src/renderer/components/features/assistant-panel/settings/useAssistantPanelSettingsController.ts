@@ -46,6 +46,7 @@ export type AssistantPanelSettingsController = {
   outputDeviceOptions: readonly SelectOptionItem[];
   screenCaptureSourceOptions: readonly SelectOptionItem[];
   selectedScreenCaptureSourceId: string;
+  refreshDevices: () => void;
   toggleDebugMode: () => void;
   togglePanelPinned: () => void;
   setSelectedInputDeviceId: (deviceId: string) => void;
@@ -73,6 +74,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
   const inputDeviceOptions = useUiStore((state) => state.inputDeviceOptions);
   const outputDeviceOptions = useUiStore((state) => state.outputDeviceOptions);
   const toggleDebugMode = useUiStore((state) => state.toggleDebugMode);
+  const refreshDevices = useUiStore((state) => state.refreshDevices);
   const activeChatId = useSessionStore((state) => state.activeChatId);
   const screenCaptureSources = useSessionStore((state) => state.screenCaptureSources);
   const selectedScreenCaptureSourceId = useSessionStore(
@@ -140,6 +142,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     screenCaptureSourceOptions,
     selectedScreenCaptureSourceId:
       selectedScreenCaptureSourceId ?? UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE,
+    refreshDevices,
     toggleDebugMode,
     togglePanelPinned: () => {
       void updateSetting('isPanelPinned', !settings.isPanelPinned);

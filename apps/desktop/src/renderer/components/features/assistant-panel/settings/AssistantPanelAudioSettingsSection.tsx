@@ -13,6 +13,7 @@ type AudioSettingsController = Pick<
   | 'voiceEchoCancellationEnabled'
   | 'voiceNoiseSuppressionEnabled'
   | 'voiceAutoGainControlEnabled'
+  | 'refreshDevices'
   | 'setSelectedInputDeviceId'
   | 'setSelectedOutputDeviceId'
   | 'setVoiceEchoCancellationEnabled'
@@ -36,6 +37,7 @@ export function AssistantPanelAudioSettingsSection({
     voiceEchoCancellationEnabled,
     voiceNoiseSuppressionEnabled,
     voiceAutoGainControlEnabled,
+    refreshDevices,
     setSelectedInputDeviceId,
     setSelectedOutputDeviceId,
     setVoiceEchoCancellationEnabled,
@@ -62,6 +64,7 @@ export function AssistantPanelAudioSettingsSection({
                 onChange={(event) => {
                   setSelectedInputDeviceId(event.target.value);
                 }}
+                onOpen={refreshDevices}
                 disabled={isInputUnavailable}
                 size="sm"
               />
@@ -78,6 +81,7 @@ export function AssistantPanelAudioSettingsSection({
                 onChange={(event) => {
                   setSelectedOutputDeviceId(event.target.value);
                 }}
+                onOpen={refreshDevices}
                 disabled={isOutputUnavailable}
                 size="sm"
               />

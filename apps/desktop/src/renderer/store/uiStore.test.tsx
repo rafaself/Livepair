@@ -279,6 +279,165 @@ describe('uiStore', () => {
     expect(window.bridge.updateSettings).not.toHaveBeenCalled();
   });
 
+  it('picks up a reconnected device via a later retry when devicechange fired too early', async () => {
+    enumerateDevices.mockResolvedValueOnce([
+      createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+      createDevice({ deviceId: 'hyperx', kind: 'audioinput', label: 'HyperX Mic' }),
+      createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    // Disconnect
+    enumerateDevices.mockResolvedValueOnce([
+      createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+      createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+    ]);
+    mediaDevicesEvents.dispatchEvent(new Event('devicechange'));
+    await flushAsyncWork();
+
+    expect(useUiStore.getState().inputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+    ]);
+
+    // Reconnect: devicechange fires but the device is not visible until the 1500 ms retry.
+    vi.useFakeTimers();
+    try {
+      const noDevice = [
+        createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+        createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+      ];
+      const withDevice = [
+        createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+        createDevice({ deviceId: 'hyperx', kind: 'audioinput', label: 'HyperX Mic' }),
+        createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+      ];
+      // immediate + 500 ms retries still see nothing; 1500 ms retry finds the device
+      enumerateDevices
+        .mockResolvedValueOnce(noDevice)   // immediate
+        .mockResolvedValueOnce(noDevice)   // 500 ms
+        .mockResolvedValueOnce(withDevice); // 1500 ms
+
+      mediaDevicesEvents.dispatchEvent(new Event('devicechange'));
+      await flushAsyncWork();
+      expect(useUiStore.getState().inputDeviceOptions).toEqual([{ value: 'default', label: 'System default' }]);
+
+      await vi.advanceTimersByTimeAsync(500);
+      await flushAsyncWork();
+      expect(useUiStore.getState().inputDeviceOptions).toEqual([{ value: 'default', label: 'System default' }]);
+
+      await vi.advanceTimersByTimeAsync(1000); // now at 1500 ms
+      await flushAsyncWork();
+      expect(useUiStore.getState().inputDeviceOptions).toEqual([
+        { value: 'default', label: 'System default' },
+        { value: 'hyperx', label: 'HyperX Mic' },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('picks up a reconnected device via refreshDevices when the user opens the select', async () => {
+    enumerateDevices.mockResolvedValueOnce([
+      createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+      createDevice({ deviceId: 'hyperx', kind: 'audioinput', label: 'HyperX Mic' }),
+      createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    // Device disappears
+    enumerateDevices.mockResolvedValueOnce([
+      createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+      createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+    ]);
+    await useUiStore.getState().refreshDevices();
+    await flushAsyncWork();
+    expect(useUiStore.getState().inputDeviceOptions).toEqual([{ value: 'default', label: 'System default' }]);
+
+    // Device reconnects — user opens the select and refreshDevices picks it up
+    enumerateDevices.mockResolvedValueOnce([
+      createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+      createDevice({ deviceId: 'hyperx', kind: 'audioinput', label: 'HyperX Mic' }),
+      createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+    ]);
+    await useUiStore.getState().refreshDevices();
+    await flushAsyncWork();
+    expect(useUiStore.getState().inputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'hyperx', label: 'HyperX Mic' },
+    ]);
+  });
+
+  it('cancels delayed device retries when the store resets', async () => {
+    vi.useFakeTimers();
+    try {
+      enumerateDevices.mockResolvedValueOnce([
+        createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+        createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+      ]);
+
+      await useUiStore.getState().initializeDevicePreferences();
+
+      enumerateDevices.mockResolvedValue([
+        createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+        createDevice({ deviceId: 'usb-mic', kind: 'audioinput', label: 'USB microphone' }),
+        createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+      ]);
+
+      mediaDevicesEvents.dispatchEvent(new Event('devicechange'));
+      await flushAsyncWork();
+
+      useUiStore.getState().reset();
+      await vi.runAllTimersAsync();
+      await flushAsyncWork();
+
+      expect(useUiStore.getState().inputDeviceOptions).toEqual([]);
+      expect(useUiStore.getState().outputDeviceOptions).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refreshes device labels when the device ids stay the same', async () => {
+    enumerateDevices.mockResolvedValueOnce([
+      createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+      createDevice({ deviceId: 'usb-mic', kind: 'audioinput', label: '' }),
+      createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+      createDevice({ deviceId: 'desk-speakers', kind: 'audiooutput', label: '' }),
+    ]);
+
+    await useUiStore.getState().initializeDevicePreferences();
+
+    expect(useUiStore.getState().inputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'usb-mic', label: 'Microphone 1' },
+    ]);
+    expect(useUiStore.getState().outputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'desk-speakers', label: 'Speaker 1' },
+    ]);
+
+    enumerateDevices.mockResolvedValueOnce([
+      createDevice({ deviceId: 'default', kind: 'audioinput', label: 'Default microphone' }),
+      createDevice({ deviceId: 'usb-mic', kind: 'audioinput', label: 'USB microphone' }),
+      createDevice({ deviceId: 'default', kind: 'audiooutput', label: 'Default speakers' }),
+      createDevice({ deviceId: 'desk-speakers', kind: 'audiooutput', label: 'Desk speakers' }),
+    ]);
+
+    await useUiStore.getState().refreshDevices();
+    await flushAsyncWork();
+
+    expect(useUiStore.getState().inputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'usb-mic', label: 'USB microphone' },
+    ]);
+    expect(useUiStore.getState().outputDeviceOptions).toEqual([
+      { value: 'default', label: 'System default' },
+      { value: 'desk-speakers', label: 'Desk speakers' },
+    ]);
+  });
+
   it('keeps the latest device refresh when devicechange events resolve out of order', async () => {
     enumerateDevices.mockResolvedValueOnce([
       createDevice({
