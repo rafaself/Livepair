@@ -51,6 +51,7 @@ describe('createDesktopSessionController – interruption', () => {
       expect.objectContaining({
         currentMode: 'speech',
         voiceSessionStatus: 'interrupted',
+        voiceCaptureState: 'capturing',
         speechLifecycle: expect.objectContaining({
           status: 'interrupted',
         }),
@@ -70,11 +71,12 @@ describe('createDesktopSessionController – interruption', () => {
     await vi.waitFor(() => {
       expect(useSessionStore.getState()).toEqual(
         expect.objectContaining({
-          voiceSessionStatus: 'ready',
+          voiceSessionStatus: 'recovering',
           speechLifecycle: expect.objectContaining({
             status: 'listening',
           }),
           voicePlaybackState: 'stopped',
+          voiceCaptureState: 'capturing',
           activeTransport: 'gemini-live',
         }),
       );
@@ -193,11 +195,12 @@ describe('createDesktopSessionController – interruption', () => {
     await vi.waitFor(() => {
       expect(useSessionStore.getState()).toEqual(
         expect.objectContaining({
-          voiceSessionStatus: 'ready',
+          voiceSessionStatus: 'recovering',
           speechLifecycle: expect.objectContaining({
             status: 'listening',
           }),
           voicePlaybackState: 'stopped',
+          voiceCaptureState: 'capturing',
           activeTransport: 'gemini-live',
         }),
       );

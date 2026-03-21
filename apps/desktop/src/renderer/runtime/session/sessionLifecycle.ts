@@ -70,6 +70,7 @@ type SessionControllerLifecycleArgs = {
   setVoiceResumptionInFlight: (value: boolean) => void;
   createTransport: (options?: { voice?: AssistantVoice }) => DesktopSession;
   activateVoiceTransport: (transport: DesktopSession) => void;
+  startVoiceCapture: () => Promise<boolean>;
   setVoiceErrorState: (detail: string) => Promise<void>;
   checkBackendHealth: () => Promise<boolean>;
   textRuntimeFailed: () => void;
@@ -113,6 +114,7 @@ export function createSessionControllerLifecycle({
   setVoiceResumptionInFlight,
   createTransport,
   activateVoiceTransport,
+  startVoiceCapture,
   setVoiceErrorState,
   checkBackendHealth,
   textRuntimeFailed,
@@ -169,6 +171,14 @@ export function createSessionControllerLifecycle({
       recordSessionEvent({ type: 'session.backend.health.failed', detail });
       return false;
     }
+  };
+
+  const autoStartVoiceCaptureIfCurrent = async (operationId: number): Promise<void> => {
+    if (!isCurrentSessionOperation(operationId)) {
+      return;
+    }
+
+    await startVoiceCapture();
   };
 
   const startSessionInternal = async (_options: { mode: 'speech' }): Promise<void> => {
@@ -249,6 +259,7 @@ export function createSessionControllerLifecycle({
         if (restoreAttempt.status === 'resumed' || !isCurrentSessionOperation(operationId)) {
           if (restoreAttempt.status === 'resumed') {
             onRestoredSessionConnected();
+            await autoStartVoiceCaptureIfCurrent(operationId);
           }
           return;
         }
@@ -261,6 +272,9 @@ export function createSessionControllerLifecycle({
         );
 
         if (fallbackAttempt.status === 'connected' || !isCurrentSessionOperation(operationId)) {
+          if (fallbackAttempt.status === 'connected') {
+            await autoStartVoiceCaptureIfCurrent(operationId);
+          }
           return;
         }
 
@@ -279,6 +293,9 @@ export function createSessionControllerLifecycle({
     );
 
     if (fallbackAttempt.status === 'connected' || !isCurrentSessionOperation(operationId)) {
+      if (fallbackAttempt.status === 'connected') {
+        await autoStartVoiceCaptureIfCurrent(operationId);
+      }
       return;
     }
 

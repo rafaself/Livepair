@@ -284,6 +284,7 @@ export function createSessionLifecycleAssembly({
     activateVoiceTransport: (transport) => {
       transportActivation.activateTransport(transport, handleTransportEvent);
     },
+    startVoiceCapture: () => voiceChunkCtrl.startCapture(),
     setVoiceErrorState: (detail) => {
       telemetryCollector.onSessionError({
         errorMessage: detail,

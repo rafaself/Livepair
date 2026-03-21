@@ -211,7 +211,7 @@ describe('createDesktopSessionController – speech lifecycle', () => {
     await controller.startSession({ mode: 'speech' });
     await vi.advanceTimersByTimeAsync(30_000);
 
-    expect(voiceCapture.stop).not.toHaveBeenCalled();
+    expect(voiceCapture.stop).toHaveBeenCalledTimes(1);
     expect(voiceTransport.disconnect).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
     expect(useSessionStore.getState().currentMode).toBe('inactive');

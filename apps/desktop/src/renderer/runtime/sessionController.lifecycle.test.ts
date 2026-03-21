@@ -215,7 +215,7 @@ describe('createDesktopSessionController – lifecycle', () => {
         speechLifecycle: {
           status: 'listening',
         },
-        voiceCaptureState: 'idle',
+        voiceCaptureState: 'capturing',
         voiceSessionStatus: 'ready',
         voiceSessionResumption: {
           status: 'connected',
@@ -306,7 +306,7 @@ describe('createDesktopSessionController – lifecycle', () => {
         firstResponseLatencyMs: expect.any(Number),
       }),
     ]);
-    expect(voiceCapture.start).not.toHaveBeenCalled();
+    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 
   it.each(['Puck', 'Kore', 'Aoede'] as const)(
@@ -489,7 +489,7 @@ describe('createDesktopSessionController – lifecycle', () => {
       resumable: true,
       lastDetail: 'Restoring persisted Live session',
     });
-    expect(voiceCapture.start).not.toHaveBeenCalled();
+    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to a new rehydrated Live session when no restore candidate exists', async () => {
@@ -619,7 +619,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     });
     expect(useSessionStore.getState().lastRuntimeError).toBeNull();
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
-    expect(voiceCapture.start).not.toHaveBeenCalled();
+    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to a new rehydrated Live session when persisted resumption fails', async () => {
@@ -770,7 +770,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(useSessionStore.getState().lastRuntimeError).toBeNull();
     expect(useSessionStore.getState().currentMode).toBe('speech');
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
-    expect(voiceCapture.start).not.toHaveBeenCalled();
+    expect(voiceCapture.start).toHaveBeenCalledTimes(1);
   });
 
   it('seeds a new Live session from canonical persisted chat history instead of renderer-only turns', async () => {

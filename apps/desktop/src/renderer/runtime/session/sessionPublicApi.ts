@@ -114,9 +114,11 @@ export function createSessionControllerPublicApi({
       screenCtrl.analyzeScreenNow();
     },
     startSession: async ({ mode }) => {
+      // Speech-mode start owns the default connect + mic-on contract.
       await startSessionInternal({ mode });
     },
     startVoiceCapture: async () => {
+      // Explicit capture start is reserved for in-session unmute/resume behavior.
       await voiceChunkCtrl.startCapture();
     },
     stopScreenCapture: () => {

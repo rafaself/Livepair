@@ -16,7 +16,7 @@ describe('createDesktopSessionController – voice capture', () => {
     resetDesktopStoresWithDefaults();
   });
 
-  it('starts local voice capture, publishes chunks, and updates diagnostics without affecting text mode', async () => {
+  it('auto-starts local voice capture with speech session start, publishes chunks, and updates diagnostics without affecting text mode', async () => {
     const voiceCapture = createVoiceCaptureHarness();
     const voiceTransport = createVoiceTransportHarness();
     useUiStore.setState({ isDebugMode: true });
@@ -49,7 +49,6 @@ describe('createDesktopSessionController – voice capture', () => {
     const unsubscribe = controller.subscribeToVoiceChunks(chunkListener);
 
     await controller.startSession({ mode: 'speech' });
-    await controller.startVoiceCapture();
     voiceCapture.emitChunk();
     await Promise.resolve();
     await Promise.resolve();
@@ -117,7 +116,6 @@ describe('createDesktopSessionController – voice capture', () => {
     });
 
     await controller.startSession({ mode: 'speech' });
-    await controller.startVoiceCapture();
     voiceCapture.emitChunk();
     await controller.stopVoiceCapture();
 
@@ -125,6 +123,38 @@ describe('createDesktopSessionController – voice capture', () => {
     expect(useSessionStore.getState().voiceCaptureState).toBe('stopped');
     expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
     expect(voiceTransport.sendAudioStreamEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('resumes local voice capture after mute without reconnecting the speech session', async () => {
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'auth_tokens/test-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    });
+    const createTransport = vi.fn(() => voiceTransport.transport);
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn().mockResolvedValue(true),
+      requestSessionToken,
+      createTransport,
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.stopVoiceCapture();
+    await controller.startVoiceCapture();
+
+    expect(requestSessionToken).toHaveBeenCalledTimes(1);
+    expect(createTransport).toHaveBeenCalledTimes(1);
+    expect(voiceCapture.start).toHaveBeenCalledTimes(2);
+    expect(useSessionStore.getState().voiceCaptureState).toBe('capturing');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('ready');
   });
 
   it('rejects microphone capture until the voice session is connected', async () => {
@@ -155,9 +185,10 @@ describe('createDesktopSessionController – voice capture', () => {
     );
   });
 
-  it('maps voice capture errors into the dedicated voice diagnostics without breaking text state', async () => {
+  it('keeps the speech session active when mic auto-start fails during session start', async () => {
     const voiceCapture = createVoiceCaptureHarness();
     const voiceTransport = createVoiceTransportHarness();
+    voiceCapture.start.mockRejectedValueOnce(new Error('Microphone permission was denied'));
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
@@ -175,8 +206,6 @@ describe('createDesktopSessionController – voice capture', () => {
     });
 
     await controller.startSession({ mode: 'speech' });
-    await controller.startVoiceCapture();
-    voiceCapture.emitError('Microphone permission was denied');
 
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
