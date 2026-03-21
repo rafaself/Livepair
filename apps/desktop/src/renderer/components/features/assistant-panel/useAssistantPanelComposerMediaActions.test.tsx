@@ -13,7 +13,7 @@ describe('useAssistantPanelComposerMediaActions', () => {
         controlGatingSnapshot: createControlGatingSnapshot({
           currentMode: 'inactive',
           speechLifecycleStatus: 'off',
-          voiceCaptureState: 'idle',
+          voiceCaptureState: 'inactive',
           screenCaptureState: 'disabled',
         }),
         composerSpeechActionKind: 'start',
@@ -50,14 +50,14 @@ describe('useAssistantPanelComposerMediaActions', () => {
         controlGatingSnapshot: createControlGatingSnapshot({
           currentMode: 'inactive',
           speechLifecycleStatus: 'off',
-          voiceCaptureState: 'idle',
+          voiceCaptureState: 'inactive',
           screenCaptureState: 'disabled',
         }),
         composerSpeechActionKind: 'start',
         getIsComposerMicrophoneEnabled: () => true,
         setComposerMicrophoneEnabled: vi.fn(),
         isVoiceSessionActive: false,
-        voiceCaptureState: 'idle',
+        voiceCaptureState: 'inactive',
         screenCaptureState: 'disabled',
         onStartVoiceSession,
         onStartVoiceCapture,
@@ -85,7 +85,7 @@ describe('useAssistantPanelComposerMediaActions', () => {
     const onStartVoiceCapture = vi.fn(async () => undefined);
     const onStopVoiceCapture = vi.fn(async () => undefined);
     const { result, rerender } = renderHook(
-      ({ voiceCaptureState }: { voiceCaptureState: 'capturing' | 'stopped' }) =>
+      ({ voiceCaptureState }: { voiceCaptureState: 'capturing' | 'muted' }) =>
         useAssistantPanelComposerMediaActions({
           controlGatingSnapshot: createControlGatingSnapshot({
             currentMode: 'speech',
@@ -122,7 +122,7 @@ describe('useAssistantPanelComposerMediaActions', () => {
     expect(onStopVoiceCapture).toHaveBeenCalledTimes(1);
     expect(onStartVoiceCapture).not.toHaveBeenCalled();
 
-    rerender({ voiceCaptureState: 'stopped' });
+    rerender({ voiceCaptureState: 'muted' });
 
     await act(async () => {
       await result.current.handleToggleComposerMicrophone();

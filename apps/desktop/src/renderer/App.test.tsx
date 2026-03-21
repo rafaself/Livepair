@@ -167,8 +167,8 @@ describe('App', () => {
       currentMode: 'speech',
       activeTransport: 'gemini-live',
       speechLifecycle: { status: 'listening' },
-      voiceSessionStatus: 'ready',
-      voiceCaptureState: 'stopped',
+      voiceSessionStatus: 'active',
+      voiceCaptureState: 'muted',
       screenCaptureState: 'disabled',
     });
 
@@ -228,8 +228,8 @@ describe('App', () => {
       currentMode: 'speech',
       activeTransport: 'gemini-live',
       speechLifecycle: { status: 'listening' },
-      voiceSessionStatus: 'ready',
-      voiceCaptureState: 'stopped',
+      voiceSessionStatus: 'active',
+      voiceCaptureState: 'muted',
       screenCaptureState: 'disabled',
     });
 

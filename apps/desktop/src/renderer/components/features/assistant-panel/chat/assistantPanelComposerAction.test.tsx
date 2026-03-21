@@ -13,7 +13,7 @@ const activeSnapshot = createControlGatingSnapshot({
   currentMode: 'speech',
   speechLifecycleStatus: 'listening',
   activeTransport: 'gemini-live',
-  voiceSessionStatus: 'ready',
+  voiceSessionStatus: 'active',
 });
 
 const startingSnapshot = createControlGatingSnapshot({
@@ -146,7 +146,7 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
         currentMode: 'speech',
         speechLifecycleStatus: 'userSpeaking',
         activeTransport: 'gemini-live',
-        voiceSessionStatus: 'ready',
+        voiceSessionStatus: 'active',
       });
       const action = createAssistantPanelComposerAction({
         controlGatingSnapshot: speakingSnapshot,

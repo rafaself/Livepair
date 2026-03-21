@@ -5,8 +5,8 @@ const baseInput = {
   currentMode: 'speech' as const,
   speechLifecycleStatus: 'listening' as const,
   activeTransport: 'gemini-live' as const,
-  voiceSessionStatus: 'ready' as const,
-  voiceCaptureState: 'idle' as const,
+  voiceSessionStatus: 'active' as const,
+  voiceCaptureState: 'inactive' as const,
   screenCaptureState: 'disabled' as const,
   screenContextMode: 'manual' as const,
   isPanelOpen: false,
@@ -43,7 +43,7 @@ describe('createControlDockUiState – Live session terminology', () => {
       const state = createControlDockUiState({
         ...baseInput,
         voiceSessionStatus: 'connecting',
-        voiceCaptureState: 'idle',
+        voiceCaptureState: 'inactive',
       });
       expect(state.microphoneLabel).toBe('Microphone unavailable while Live session starts');
     });

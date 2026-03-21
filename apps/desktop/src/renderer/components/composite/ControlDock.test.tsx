@@ -15,7 +15,7 @@ function createDockProps(
     speechLifecycleStatus: 'off',
     activeTransport: null,
     voiceSessionStatus: 'disconnected',
-    voiceCaptureState: 'idle',
+    voiceCaptureState: 'inactive',
     screenCaptureState: 'disabled',
     onStartVoiceCapture: vi.fn(async () => undefined),
     onStopVoiceCapture: vi.fn(async () => undefined),
@@ -64,7 +64,7 @@ describe('ControlDock', () => {
     renderDock();
 
     expect(screen.getByRole('button', { name: /close panel/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /start microphone capture/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /unmute microphone/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /share screen/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /end live session/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /switch to speech mode/i })).toBeNull();
@@ -78,12 +78,12 @@ describe('ControlDock', () => {
       currentMode: 'speech',
       speechLifecycleStatus: 'listening',
       activeTransport: 'gemini-live',
-      voiceSessionStatus: 'ready',
-      voiceCaptureState: 'stopped',
+      voiceSessionStatus: 'active',
+      voiceCaptureState: 'muted',
       screenCaptureState: 'disabled',
     });
 
-    expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /unmute microphone/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /share screen/i })).toBeEnabled();
     expect(screen.queryByRole('button', { name: /end live session/i })).toBeNull();
     expect(screen.getByRole('button', { name: /close panel/i })).toHaveAttribute(
@@ -98,12 +98,12 @@ describe('ControlDock', () => {
       currentMode: 'speech',
       speechLifecycleStatus: 'listening',
       activeTransport: 'gemini-live',
-      voiceSessionStatus: 'ready',
-      voiceCaptureState: 'stopped',
+      voiceSessionStatus: 'active',
+      voiceCaptureState: 'muted',
       screenCaptureState: 'disabled',
     });
 
-    expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /unmute microphone/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /share screen/i })).toBeEnabled();
 
     const endSpeechModeButton = screen.getByRole('button', { name: 'End Live session' });
@@ -122,13 +122,13 @@ describe('ControlDock', () => {
           speechLifecycleStatus: 'interrupted',
           activeTransport: 'gemini-live',
           voiceSessionStatus: 'interrupted',
-          voiceCaptureState: 'stopped',
+          voiceCaptureState: 'muted',
           screenCaptureState: 'disabled',
         })}
       />,
     );
 
-    expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /unmute microphone/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /share screen/i })).toBeEnabled();
 
     rerender(
@@ -138,13 +138,13 @@ describe('ControlDock', () => {
           speechLifecycleStatus: 'recovering',
           activeTransport: 'gemini-live',
           voiceSessionStatus: 'recovering',
-          voiceCaptureState: 'stopped',
+          voiceCaptureState: 'muted',
           screenCaptureState: 'disabled',
         })}
       />,
     );
 
-    expect(screen.getByRole('button', { name: /start microphone capture/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /unmute microphone/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /share screen/i })).toBeEnabled();
   });
 
@@ -160,8 +160,8 @@ describe('ControlDock', () => {
       currentMode: 'speech',
       speechLifecycleStatus: 'listening',
       activeTransport: 'gemini-live',
-      voiceSessionStatus: 'ready',
-      voiceCaptureState: 'stopped',
+      voiceSessionStatus: 'active',
+      voiceCaptureState: 'muted',
       screenCaptureState: 'capturing',
     });
 
@@ -182,8 +182,8 @@ describe('ControlDock', () => {
           currentMode: 'speech',
           speechLifecycleStatus: 'listening',
           activeTransport: 'gemini-live',
-          voiceSessionStatus: 'ready',
-          voiceCaptureState: 'stopped',
+          voiceSessionStatus: 'active',
+          voiceCaptureState: 'muted',
           screenCaptureState: 'capturing',
         })}
       />,
