@@ -166,7 +166,7 @@ export function buildDefaultSessionState(): SessionStoreData {
     voiceTranscriptDiagnostics: buildDefaultVoiceTranscriptDiagnostics(),
     ignoredAssistantOutputDiagnostics: buildDefaultIgnoredAssistantOutputDiagnostics(),
     voiceSessionRecoveryDiagnostics: buildDefaultVoiceSessionRecoveryDiagnostics(),
-    voiceCaptureState: 'idle',
+    voiceCaptureState: 'inactive',
     voiceCaptureDiagnostics: buildDefaultVoiceCaptureDiagnostics(),
     voicePlaybackState: 'idle',
     voicePlaybackDiagnostics: buildDefaultVoicePlaybackDiagnostics(),

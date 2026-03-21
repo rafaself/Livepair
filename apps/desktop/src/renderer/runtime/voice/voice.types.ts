@@ -1,11 +1,11 @@
 import type { GeminiLiveEffectiveVoiceSessionCapabilities } from '@livepair/shared-types';
 
 export type VoiceCaptureState =
-  | 'idle'
+  | 'inactive'
   | 'requestingPermission'
   | 'capturing'
   | 'stopping'
-  | 'stopped'
+  | 'muted'
   | 'error';
 export type VoicePlaybackState =
   | 'idle'
@@ -16,11 +16,9 @@ export type VoicePlaybackState =
   | 'error';
 export type VoiceSessionStatus =
   | 'connecting'
-  | 'ready'
+  | 'active'
   | 'interrupted'
   | 'recovering'
-  | 'capturing'
-  | 'streaming'
   | 'stopping'
   | 'disconnected'
   | 'error';
