@@ -141,7 +141,7 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
       expect(indicator?.props.isActive).toBe(true);
     });
 
-    it('does not activate the indicator when localUserSpeechActive is false, even if speechLifecycleStatus is userSpeaking', () => {
+    it('activates the indicator when speechLifecycleStatus is userSpeaking even if localUserSpeechActive is false', () => {
       const speakingSnapshot = createControlGatingSnapshot({
         currentMode: 'speech',
         speechLifecycleStatus: 'userSpeaking',
@@ -154,6 +154,25 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
         isConversationEmpty: false,
         isComposerDisabled: false,
         speechLifecycleStatus: 'userSpeaking',
+        localUserSpeechActive: false,
+      });
+      expect(action.kind).toBe('endSpeech');
+      expect(isValidElement(action.icon)).toBe(true);
+      const children = isValidElement(action.icon) ? action.icon.props.children : [];
+      const indicator = Array.isArray(children) ? children[0] : null;
+
+      expect(isValidElement(indicator)).toBe(true);
+      expect(indicator?.type).toBe(SpeechActivityIndicator);
+      expect(indicator?.props.isActive).toBe(true);
+    });
+
+    it('does not activate the indicator when both localUserSpeechActive is false and speechLifecycleStatus is listening', () => {
+      const action = createAssistantPanelComposerAction({
+        controlGatingSnapshot: activeSnapshot,
+        draftText: '',
+        isConversationEmpty: false,
+        isComposerDisabled: false,
+        speechLifecycleStatus: 'listening',
         localUserSpeechActive: false,
       });
       expect(action.kind).toBe('endSpeech');

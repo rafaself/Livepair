@@ -105,4 +105,22 @@ describe('AssistantPanelHeader', () => {
     expect(speechIndicator).not.toBeNull();
     expect(speechIndicator?.querySelectorAll('.speech-activity-indicator__bar')).toHaveLength(3);
   });
+
+  it('shows the animated speech indicator when speechLifecycleStatus is userSpeaking even if localUserSpeechActive is false', () => {
+    render(
+      <AssistantPanelHeader
+        panelView="settings"
+        setPanelView={vi.fn()}
+        isDebugMode={false}
+        localUserSpeechActive={false}
+        speechLifecycleStatus="userSpeaking"
+      />,
+    );
+
+    const chatButton = screen.getByRole('button', { name: 'Chat' });
+    const speechIndicator = chatButton.querySelector('.speech-activity-indicator--active');
+
+    expect(speechIndicator).not.toBeNull();
+    expect(speechIndicator?.querySelectorAll('.speech-activity-indicator__bar')).toHaveLength(3);
+  });
 });

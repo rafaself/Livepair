@@ -3,12 +3,14 @@ import { type PanelView } from '../../../store/uiStore';
 import { PanelHeader } from '../../layout';
 import { Button, LivepairIcon } from '../../primitives';
 import { SpeechActivityIndicator } from './SpeechActivityIndicator';
+import type { SpeechLifecycleStatus } from '../../../runtime';
 
 export type AssistantPanelHeaderProps = {
   panelView: PanelView;
   setPanelView: (view: PanelView) => void;
   isDebugMode?: boolean;
   localUserSpeechActive?: boolean;
+  speechLifecycleStatus?: SpeechLifecycleStatus;
 };
 
 function getButtonClassName(panelView: PanelView, targetView: PanelView): string | undefined {
@@ -24,7 +26,9 @@ export function AssistantPanelHeader({
   setPanelView,
   isDebugMode = false,
   localUserSpeechActive = false,
+  speechLifecycleStatus = 'off',
 }: AssistantPanelHeaderProps): JSX.Element {
+  const isSpeechActive = localUserSpeechActive || speechLifecycleStatus === 'userSpeaking';
   return (
     <PanelHeader title="Livepair" icon={<LivepairIcon size={28} />}>
       {isDebugMode ? (
@@ -67,7 +71,7 @@ export function AssistantPanelHeader({
         aria-pressed={isChatSectionActive(panelView)}
         className={isChatSectionActive(panelView) ? 'assistant-panel__header-btn--active' : undefined}
       >
-        {localUserSpeechActive ? (
+        {isSpeechActive ? (
           <SpeechActivityIndicator
             isActive={true}
             className="assistant-panel__header-speech-indicator"

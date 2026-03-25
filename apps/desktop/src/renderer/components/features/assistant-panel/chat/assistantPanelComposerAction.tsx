@@ -72,7 +72,7 @@ export function createAssistantPanelComposerAction({
         <Loader2 size={18} aria-hidden="true" />
       ) : (
         <>
-          <SpeechActivityIndicator isActive={localUserSpeechActive} />
+          <SpeechActivityIndicator isActive={localUserSpeechActive || speechLifecycleStatus === 'userSpeaking'} />
           <span aria-hidden="true">End</span>
         </>
       ),
