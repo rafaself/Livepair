@@ -14,7 +14,7 @@ import {
   type TextSessionStatus,
   type TransportKind,
   type VoiceSessionStatus,
-} from '../../../../runtime';
+} from '../../../../runtime/liveRuntime';
 import { AssistantPanelChatComposer } from './AssistantPanelChatComposer';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
 import { AssistantPanelConversationEmptyState } from './AssistantPanelConversationEmptyState';

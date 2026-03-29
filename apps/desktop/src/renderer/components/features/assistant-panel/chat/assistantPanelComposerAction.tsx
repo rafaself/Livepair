@@ -6,7 +6,7 @@ import {
   isSpeechLifecycleActive,
   type ControlGatingSnapshot,
   type SpeechLifecycleStatus,
-} from '../../../../runtime';
+} from '../../../../runtime/liveRuntime';
 import { SpeechActivityIndicator } from '../SpeechActivityIndicator';
 
 export type ComposerActionVariant = 'default' | 'speechCircle' | 'speechPill';

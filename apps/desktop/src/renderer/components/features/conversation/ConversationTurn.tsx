@@ -2,7 +2,7 @@ import type { HTMLAttributes } from 'react';
 import { useId, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { Badge, IconButton } from '../../primitives';
-import { isTranscriptArtifact, type ConversationTimelineEntry } from '../../../runtime';
+import { isTranscriptArtifact, type ConversationTimelineEntry } from '../../../runtime/liveRuntime';
 import { useSessionStore } from '../../../store/sessionStore';
 import { TypingIndicator } from '../TypingIndicator';
 import { renderAssistantMarkdown } from '../assistant-panel/chat/renderAssistantMarkdown';

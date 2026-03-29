@@ -10,7 +10,7 @@ import {
   type TransportKind,
   type VoiceCaptureState,
   type VoiceSessionStatus,
-} from '../../../runtime';
+} from '../../../runtime/liveRuntime';
 
 type UseAssistantPanelControlStateOptions = {
   currentMode: ProductMode;

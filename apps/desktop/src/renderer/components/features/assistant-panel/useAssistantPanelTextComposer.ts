@@ -1,5 +1,5 @@
 import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
-import { canSubmitComposerText, type ControlGatingSnapshot } from '../../../runtime';
+import { canSubmitComposerText, type ControlGatingSnapshot } from '../../../runtime/liveRuntime';
 
 type UseAssistantPanelTextComposerOptions = {
   controlGatingSnapshot: ControlGatingSnapshot;

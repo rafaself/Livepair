@@ -8,7 +8,7 @@ import type { OverlayMode } from '../shared';
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
 import { useSettingsStore } from './store/settingsStore';
 import { useSessionStore } from './store/sessionStore';
-import { useSessionRuntime } from './runtime';
+import { useSessionRuntime } from './runtime/liveRuntime';
 import { SnackbarProvider, useSnackbar } from './components/primitives';
 
 function LinuxOverlayInteraction(): null {

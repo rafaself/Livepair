@@ -6,7 +6,7 @@ import {
   toVisibleOverlayRects,
   VISIBLE_OVERLAY_SELECTOR,
 } from './visibleOverlayRects';
-import type { CaptureExclusionOverlayVisibility } from '../runtime/public';
+import type { CaptureExclusionOverlayVisibility } from '../runtime/liveRuntime';
 
 // Track .panel elements during their closing transition (after panel--open is removed).
 // The CSS transform transition plays for ~200ms after the class change, so the panel

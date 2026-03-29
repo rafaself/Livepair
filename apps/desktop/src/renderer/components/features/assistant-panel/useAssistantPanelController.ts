@@ -10,7 +10,7 @@ import {
   type TransportKind,
   type VoiceCaptureState,
   type VoiceSessionStatus,
-} from '../../../runtime';
+} from '../../../runtime/liveRuntime';
 import { useUiStore, type PanelView } from '../../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../../store/sessionStore';
 import { useAssistantPanelBackendHealth } from './useAssistantPanelBackendHealth';

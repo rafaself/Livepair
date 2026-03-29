@@ -12,7 +12,7 @@ import {
   selectBackendIndicatorState,
   selectBackendLabel,
   selectTokenFeedback,
-} from '../../../../runtime/selectors';
+} from '../../../../runtime/liveRuntime';
 
 export type AssistantPanelDebugViewProps = {
   saveScreenFramesEnabled: boolean;

@@ -2,7 +2,7 @@ import { TriangleAlert } from 'lucide-react';
 import type { LiveSessionRecord } from '@livepair/shared-types';
 import type { ReactNode } from 'react';
 import { ConversationList } from '../../conversation/ConversationList';
-import type { ConversationTimelineEntry } from '../../../../runtime';
+import type { ConversationTimelineEntry } from '../../../../runtime/liveRuntime';
 
 export type AssistantPanelConversationSectionProps = {
   activeChatTitle?: string | null;

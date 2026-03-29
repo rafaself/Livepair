@@ -1,5 +1,5 @@
 import type { OverlayHitRegion } from '../../shared/desktopBridge';
-import type { CaptureExclusionOverlayVisibility } from '../runtime/public';
+import type { CaptureExclusionOverlayVisibility } from '../runtime/liveRuntime';
 
 export type VisibleOverlayRect = OverlayHitRegion;
 export type VisibleOverlaySnapshot = {

@@ -9,7 +9,7 @@ import type {
   TransportKind,
   VoiceCaptureState,
   VoiceSessionStatus,
-} from '../../runtime';
+} from '../../runtime/liveRuntime';
 import { ControlDockSpeechControls } from './ControlDockSpeechControls';
 import { createControlDockUiState } from './controlDockUiState';
 import { useControlDockVisibility } from './useControlDockVisibility';

@@ -3,7 +3,7 @@ import { type PanelView } from '../../../store/uiStore';
 import { PanelHeader } from '../../layout';
 import { Button, LivepairIcon } from '../../primitives';
 import { SpeechActivityIndicator } from './SpeechActivityIndicator';
-import type { SpeechLifecycleStatus } from '../../../runtime';
+import type { SpeechLifecycleStatus } from '../../../runtime/liveRuntime';
 
 export type AssistantPanelHeaderProps = {
   panelView: PanelView;

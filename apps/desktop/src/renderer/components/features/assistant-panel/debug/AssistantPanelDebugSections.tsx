@@ -16,7 +16,7 @@ import type {
   VoiceSessionResumptionState,
   VoiceSessionStatus,
   VoiceToolState,
-} from '../../../../runtime';
+} from '../../../../runtime/liveRuntime';
 import type {
   BackendConnectionState,
   IgnoredAssistantOutputDiagnostics,

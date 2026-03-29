@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { OverlayHitRegion } from '../../shared/desktopBridge';
-import type { CaptureExclusionOverlayVisibility } from '../runtime/public';
+import type { CaptureExclusionOverlayVisibility } from '../runtime/liveRuntime';
 import { useCaptureExclusionRectsStore } from '../store/captureExclusionRectsStore';
 import { useVisibleOverlayRects } from './useVisibleOverlayRects';
 

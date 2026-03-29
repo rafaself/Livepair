@@ -11,7 +11,7 @@ import {
   type TransportKind,
   type VoiceCaptureState,
   type VoiceSessionStatus,
-} from '../../runtime';
+} from '../../runtime/liveRuntime';
 import type { ScreenContextMode } from '../../../shared';
 
 type ControlDockUiStateInput = {

@@ -5,7 +5,7 @@ import {
   type ControlGatingSnapshot,
   type ScreenCaptureState,
   type VoiceCaptureState,
-} from '../../../runtime';
+} from '../../../runtime/liveRuntime';
 
 type UseAssistantPanelComposerMediaActionsOptions = {
   controlGatingSnapshot: ControlGatingSnapshot;

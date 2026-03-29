@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { selectVisibleConversationTimeline } from '../../../runtime';
+import { selectVisibleConversationTimeline } from '../../../runtime/liveRuntime';
 import { useSessionStore } from '../../../store/sessionStore';
 
 export type AssistantPanelConversationState = {
