@@ -1,6 +1,7 @@
 import type { ChangeEvent, FormEvent } from 'react';
 import type { AssistantRuntimeState } from '../../../state/assistantUiState';
 import {
+  type ControlGatingSnapshot,
   useSessionRuntime,
   type ConversationTimelineEntry,
   type ProductMode,
@@ -26,6 +27,8 @@ export type AssistantPanelController = {
   conversationTurns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
   isComposerMicrophoneEnabled: boolean;
+  localUserSpeechActive: boolean;
+  controlGatingSnapshot: ControlGatingSnapshot;
   setPanelView: (view: PanelView) => void;
   closePanel: () => void;
   backendState: BackendConnectionState;
@@ -70,23 +73,7 @@ export function useAssistantPanelController({
   const setComposerMicrophoneEnabled = useUiStore((state) => state.setComposerMicrophoneEnabled);
   const setPanelView = useUiStore((state) => state.setPanelView);
   const {
-    assistantState,
-    backendState,
-    backendIndicatorState,
-    backendLabel,
-    currentMode,
-    activeTransport,
-    speechLifecycleStatus,
-    tokenRequestState,
-    tokenFeedback,
-    textSessionStatus,
-    textSessionStatusLabel,
-    voiceSessionStatus,
-    voiceCaptureState,
-    screenCaptureState,
-    isVoiceSessionActive,
-    canSubmitText,
-    lastRuntimeError,
+    snapshot,
     handleCheckBackendHealth: onCheckBackendHealth,
     handleStartVoiceSession: onStartVoiceSession,
     handleStartVoiceCapture: onStartVoiceCapture,
@@ -98,13 +85,7 @@ export function useAssistantPanelController({
   } = useSessionRuntime();
   const { conversationTurns, isConversationEmpty } = useAssistantPanelConversationState();
   const { controlGatingSnapshot, composerSpeechActionKind } = useAssistantPanelControlState({
-    currentMode,
-    speechLifecycleStatus,
-    textSessionStatus,
-    activeTransport,
-    voiceSessionStatus,
-    voiceCaptureState,
-    screenCaptureState,
+    sessionSnapshot: snapshot,
   });
   const handleCheckBackendHealth = useAssistantPanelBackendHealth({
     isPanelOpen,
@@ -133,9 +114,9 @@ export function useAssistantPanelController({
           getIsComposerMicrophoneEnabled: () => useUiStore.getState().isComposerMicrophoneEnabled,
           setComposerMicrophoneEnabled,
           screenShareModeGate,
-          isVoiceSessionActive,
-          voiceCaptureState,
-          screenCaptureState,
+          isVoiceSessionActive: snapshot.isVoiceSessionActive,
+          voiceCaptureState: snapshot.voiceCaptureState,
+          screenCaptureState: snapshot.screenCaptureState,
           onStartVoiceSession,
           onStartVoiceCapture,
           onStopVoiceCapture,
@@ -148,9 +129,9 @@ export function useAssistantPanelController({
           composerSpeechActionKind,
           getIsComposerMicrophoneEnabled: () => useUiStore.getState().isComposerMicrophoneEnabled,
           setComposerMicrophoneEnabled,
-          isVoiceSessionActive,
-          voiceCaptureState,
-          screenCaptureState,
+          isVoiceSessionActive: snapshot.isVoiceSessionActive,
+          voiceCaptureState: snapshot.voiceCaptureState,
+          screenCaptureState: snapshot.screenCaptureState,
           onStartVoiceSession,
           onStartVoiceCapture,
           onStopVoiceCapture,
@@ -161,30 +142,32 @@ export function useAssistantPanelController({
   );
 
   return {
-    assistantState,
+    assistantState: snapshot.assistantState,
     isPanelOpen,
     panelView,
     conversationTurns,
     isConversationEmpty,
     isComposerMicrophoneEnabled,
+    localUserSpeechActive: snapshot.localUserSpeechActive,
+    controlGatingSnapshot,
     setPanelView,
     closePanel,
-    backendState,
-    backendIndicatorState,
-    backendLabel,
-    currentMode,
-    activeTransport,
-    speechLifecycleStatus,
-    tokenRequestState,
-    tokenFeedback,
-    textSessionStatus,
-    textSessionStatusLabel,
-    voiceSessionStatus,
-    voiceCaptureState,
-    screenCaptureState,
-    isVoiceSessionActive,
-    canSubmitText,
-    lastRuntimeError,
+    backendState: snapshot.backendState,
+    backendIndicatorState: snapshot.backendIndicatorState,
+    backendLabel: snapshot.backendLabel,
+    currentMode: snapshot.currentMode,
+    activeTransport: snapshot.activeTransport,
+    speechLifecycleStatus: snapshot.speechLifecycleStatus,
+    tokenRequestState: snapshot.tokenRequestState,
+    tokenFeedback: snapshot.tokenFeedback,
+    textSessionStatus: snapshot.textSessionStatus,
+    textSessionStatusLabel: snapshot.textSessionStatusLabel,
+    voiceSessionStatus: snapshot.voiceSessionStatus,
+    voiceCaptureState: snapshot.voiceCaptureState,
+    screenCaptureState: snapshot.screenCaptureState,
+    isVoiceSessionActive: snapshot.isVoiceSessionActive,
+    canSubmitText: snapshot.canSubmitText,
+    lastRuntimeError: snapshot.lastRuntimeError,
     draftText,
     isSubmittingTextTurn,
     handleDraftTextChange,

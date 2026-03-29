@@ -1,22 +1,10 @@
-import { useMemo } from 'react';
-import { selectVisibleConversationTimeline } from '../../../runtime/liveRuntime';
-import { useSessionStore } from '../../../store/sessionStore';
+import { useLiveRuntimeConversationSnapshot } from '../../../runtime/liveRuntime';
 
 export type AssistantPanelConversationState = {
-  conversationTurns: ReturnType<typeof selectVisibleConversationTimeline>;
+  conversationTurns: ReturnType<typeof useLiveRuntimeConversationSnapshot>['conversationTurns'];
   isConversationEmpty: boolean;
 };
 
 export function useAssistantPanelConversationState(): AssistantPanelConversationState {
-  const conversationTurns = useSessionStore((state) => state.conversationTurns);
-  const transcriptArtifacts = useSessionStore((state) => state.transcriptArtifacts);
-  const visibleConversationTurns = useMemo(
-    () => selectVisibleConversationTimeline({ conversationTurns, transcriptArtifacts }),
-    [conversationTurns, transcriptArtifacts],
-  );
-
-  return {
-    conversationTurns: visibleConversationTurns,
-    isConversationEmpty: visibleConversationTurns.length === 0,
-  };
+  return useLiveRuntimeConversationSnapshot();
 }

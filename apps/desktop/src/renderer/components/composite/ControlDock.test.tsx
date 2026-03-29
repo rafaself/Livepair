@@ -1,11 +1,56 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../shared/settings';
+import {
+  createControlGatingSnapshot,
+  type ControlGatingSnapshot,
+  type ProductMode,
+  type TransportKind,
+  type VoiceSessionStatus,
+} from '../../runtime/liveRuntime';
 import { useSettingsStore } from '../../store/settingsStore';
 import { resetDesktopStores } from '../../test/store';
 import { useUiStore } from '../../store/uiStore';
 import { AssistantPanelPreferencesStandaloneView } from '../features/assistant-panel/AssistantPanelPreferencesView';
-import { type ControlDockProps, ControlDock } from './ControlDock';
+import { type ControlDockProps as RuntimeControlDockProps, ControlDock as RuntimeControlDock } from './ControlDock';
+
+type ControlDockProps = Omit<RuntimeControlDockProps, 'controlGatingSnapshot'> & {
+  controlGatingSnapshot?: ControlGatingSnapshot;
+  currentMode?: ProductMode;
+  activeTransport?: TransportKind | null;
+  voiceSessionStatus?: VoiceSessionStatus;
+};
+
+function ControlDock({
+  controlGatingSnapshot,
+  currentMode = 'inactive',
+  activeTransport = null,
+  voiceSessionStatus = 'disconnected',
+  speechLifecycleStatus,
+  voiceCaptureState,
+  screenCaptureState,
+  ...props
+}: ControlDockProps): JSX.Element {
+  const resolvedControlGatingSnapshot = controlGatingSnapshot
+    ?? createControlGatingSnapshot({
+      currentMode,
+      activeTransport,
+      voiceSessionStatus,
+      speechLifecycleStatus,
+      voiceCaptureState,
+      screenCaptureState,
+    });
+
+  return (
+    <RuntimeControlDock
+      {...props}
+      controlGatingSnapshot={resolvedControlGatingSnapshot}
+      speechLifecycleStatus={speechLifecycleStatus}
+      voiceCaptureState={voiceCaptureState}
+      screenCaptureState={screenCaptureState}
+    />
+  );
+}
 
 function createDockProps(
   overrides: Partial<ControlDockProps> = {},

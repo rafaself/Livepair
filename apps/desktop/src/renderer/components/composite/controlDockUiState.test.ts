@@ -1,5 +1,48 @@
 import { describe, expect, it } from 'vitest';
-import { createControlDockUiState } from './controlDockUiState';
+import {
+  createControlGatingSnapshot,
+  type ControlGatingSnapshot,
+  type ProductMode,
+  type TransportKind,
+  type VoiceSessionStatus,
+} from '../../runtime/liveRuntime';
+import { createControlDockUiState as createRuntimeControlDockUiState } from './controlDockUiState';
+
+type ControlDockUiStateInput = Omit<
+  Parameters<typeof createRuntimeControlDockUiState>[0],
+  'controlGatingSnapshot'
+> & {
+  controlGatingSnapshot?: ControlGatingSnapshot;
+  currentMode?: ProductMode;
+  activeTransport?: TransportKind | null;
+  voiceSessionStatus?: VoiceSessionStatus;
+};
+
+function createControlDockUiState({
+  controlGatingSnapshot,
+  currentMode = 'inactive',
+  activeTransport = null,
+  voiceSessionStatus = 'disconnected',
+  speechLifecycleStatus,
+  voiceCaptureState,
+  screenCaptureState,
+  ...input
+}: ControlDockUiStateInput) {
+  return createRuntimeControlDockUiState({
+    ...input,
+    controlGatingSnapshot: controlGatingSnapshot ?? createControlGatingSnapshot({
+      currentMode,
+      activeTransport,
+      voiceSessionStatus,
+      speechLifecycleStatus,
+      voiceCaptureState,
+      screenCaptureState,
+    }),
+    speechLifecycleStatus,
+    voiceCaptureState,
+    screenCaptureState,
+  });
+}
 
 const baseInput = {
   currentMode: 'speech' as const,

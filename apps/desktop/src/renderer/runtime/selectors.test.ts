@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  selectLiveRuntimeConversationSnapshot,
+  selectLiveRuntimeDiagnosticsSnapshot,
+  selectLiveRuntimeSessionSnapshot,
   selectAssistantRuntimeState,
   selectBackendIndicatorState,
   selectBackendLabel,
@@ -448,6 +451,170 @@ describe('selectVisibleConversationTimeline', () => {
       'assistant-transcript-1',
       'assistant-turn-1',
     ]);
+  });
+});
+
+describe('selectLiveRuntimeSessionSnapshot', () => {
+  it('builds a canonical renderer session snapshot with derived control state', () => {
+    const snapshot = selectLiveRuntimeSessionSnapshot({
+      currentMode: 'speech',
+      activeTransport: 'gemini-live',
+      assistantActivity: 'listening',
+      backendState: 'connected',
+      tokenRequestState: 'success',
+      textSessionLifecycle: { status: 'ready' },
+      lastRuntimeError: 'none',
+      speechLifecycle: { status: 'listening' },
+      voiceSessionStatus: 'active',
+      voiceCaptureState: 'capturing',
+      screenCaptureState: 'capturing',
+      voiceSessionResumption: { status: 'connected' },
+      localUserSpeechActive: true,
+    } as never);
+
+    expect(snapshot.assistantState).toBe('listening');
+    expect(snapshot.backendIndicatorState).toBe('ready');
+    expect(snapshot.backendLabel).toBe('Connected');
+    expect(snapshot.tokenFeedback).toBe('Token received');
+    expect(snapshot.isVoiceSessionActive).toBe(true);
+    expect(snapshot.voiceSessionResumptionStatus).toBe('connected');
+    expect(snapshot.controlGatingSnapshot.currentMode).toBe('speech');
+    expect(snapshot.composerSpeechActionKind).toBe('end');
+    expect(snapshot.localUserSpeechActive).toBe(true);
+  });
+});
+
+describe('selectLiveRuntimeConversationSnapshot', () => {
+  it('packs the visible timeline and empty-state projection together', () => {
+    const snapshot = selectLiveRuntimeConversationSnapshot({
+      conversationTurns: [
+        {
+          id: 'user-turn-1',
+          role: 'user',
+          content: 'hello',
+          timestamp: '10:00 AM',
+          timelineOrdinal: 1,
+        },
+      ],
+      transcriptArtifacts: [],
+    } as never);
+
+    expect(snapshot.isConversationEmpty).toBe(false);
+    expect(snapshot.conversationTurns.map((entry) => entry.id)).toEqual(['user-turn-1']);
+  });
+});
+
+describe('selectLiveRuntimeDiagnosticsSnapshot', () => {
+  it('packages debug-facing diagnostics with derived backend projection fields', () => {
+    const snapshot = selectLiveRuntimeDiagnosticsSnapshot({
+      backendState: 'failed',
+      tokenRequestState: 'error',
+      voiceSessionStatus: 'error',
+      activeVoiceSessionGroundingEnabled: false,
+      effectiveVoiceSessionCapabilities: null,
+      voiceSessionLatency: { connect: { status: 'unavailable', lastValueMs: null } },
+      voiceSessionResumption: { status: 'resumeFailed', resumable: false, latestHandle: null },
+      voiceSessionDurability: {
+        compressionEnabled: true,
+        tokenValid: false,
+        tokenRefreshing: false,
+        tokenRefreshFailed: true,
+        expireTime: null,
+        newSessionExpireTime: null,
+        lastDetail: 'token failed',
+      },
+      voiceTranscriptDiagnostics: {
+        inputTranscriptCount: 0,
+        lastInputTranscriptAt: null,
+        outputTranscriptCount: 0,
+        lastOutputTranscriptAt: null,
+        assistantTextFallbackCount: 0,
+        lastAssistantTextFallbackAt: null,
+        lastAssistantTextFallbackReason: null,
+      },
+      ignoredAssistantOutputDiagnostics: {
+        totalCount: 0,
+        countsByEventType: { textDelta: 0, outputTranscript: 0, audioChunk: 0, turnComplete: 0 },
+        countsByReason: { turnUnavailable: 0, lifecycleFence: 0, noOpenTurnFence: 0 },
+        lastIgnoredAt: null,
+        lastIgnoredReason: null,
+        lastIgnoredEventType: null,
+        lastIgnoredVoiceSessionStatus: null,
+      },
+      voiceSessionRecoveryDiagnostics: {
+        transitionCount: 0,
+        lastTransition: null,
+        lastTransitionAt: null,
+        lastRecoveryDetail: null,
+        lastTurnResetReason: null,
+        lastTurnResetAt: null,
+      },
+      voiceCaptureState: 'error',
+      voiceCaptureDiagnostics: {
+        chunkCount: 0,
+        sampleRateHz: null,
+        bytesPerChunk: null,
+        chunkDurationMs: null,
+        selectedInputDeviceId: null,
+        lastError: 'capture failed',
+      },
+      voicePlaybackState: 'error',
+      voicePlaybackDiagnostics: {
+        chunkCount: 0,
+        queueDepth: 0,
+        sampleRateHz: null,
+        selectedOutputDeviceId: null,
+        lastError: 'playback failed',
+      },
+      voiceToolState: { status: 'toolError', toolName: null, callId: null, lastError: 'tool failed' },
+      voiceLiveSignalDiagnostics: {
+        inboundAudioAt: null,
+        inboundTranscriptAt: null,
+        outboundAudioAt: null,
+        outboundTextAt: null,
+      },
+      realtimeOutboundDiagnostics: {
+        breakerState: 'closed',
+        breakerReason: null,
+        lastDecision: null,
+        lastReason: null,
+        lastError: null,
+      },
+      screenCaptureState: 'error',
+      screenCaptureDiagnostics: {
+        captureSource: null,
+        frameCount: 0,
+        frameRateHz: null,
+        widthPx: null,
+        heightPx: null,
+        lastFrameAt: null,
+        overlayMaskActive: false,
+        maskedRectCount: 0,
+        lastMaskedFrameAt: null,
+        maskReason: 'hidden',
+        lastUploadStatus: 'error',
+        lastError: 'screen failed',
+      },
+      visualSendDiagnostics: {
+        mode: 'manual',
+        baselineIntervalMs: 3000,
+        burstIntervalMs: 1000,
+        burstActive: false,
+        burstUntil: null,
+        lastEvent: null,
+        lastFrameSentAt: null,
+        lastManualSendRequestedAt: null,
+        lastManualSendCompletedAt: null,
+        lastContinuousFrameSentAt: null,
+      },
+    } as never);
+
+    expect(snapshot.backendIndicatorState).toBe('error');
+    expect(snapshot.backendLabel).toBe('Not connected');
+    expect(snapshot.tokenFeedback).toBe('Connection failed');
+    expect(snapshot.voiceSessionStatus).toBe('error');
+    expect(snapshot.voiceCaptureState).toBe('error');
+    expect(snapshot.screenCaptureState).toBe('error');
   });
 });
 

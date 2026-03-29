@@ -2,23 +2,18 @@ import {
   canEndSpeechMode,
   canToggleMicrophone,
   canToggleScreenContext,
-  createControlGatingSnapshot,
   shouldShowDockEndControl,
   shouldShowSpeechControls,
-  type ProductMode,
+  type ControlGatingSnapshot,
   type ScreenCaptureState,
   type SpeechLifecycleStatus,
-  type TransportKind,
   type VoiceCaptureState,
-  type VoiceSessionStatus,
 } from '../../runtime/liveRuntime';
 import type { ScreenContextMode } from '../../../shared';
 
 type ControlDockUiStateInput = {
-  currentMode: ProductMode;
+  controlGatingSnapshot: ControlGatingSnapshot;
   speechLifecycleStatus: SpeechLifecycleStatus;
-  activeTransport?: TransportKind | null;
-  voiceSessionStatus?: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   screenCaptureState: ScreenCaptureState;
   screenContextMode: ScreenContextMode;
@@ -140,23 +135,13 @@ function getEndSpeechModeLabel(speechLifecycleStatus: SpeechLifecycleStatus): st
 }
 
 export function createControlDockUiState({
-  currentMode,
+  controlGatingSnapshot,
   speechLifecycleStatus,
-  activeTransport = null,
-  voiceSessionStatus = 'disconnected',
   voiceCaptureState,
   screenCaptureState,
   screenContextMode,
   isPanelOpen,
 }: ControlDockUiStateInput): ControlDockUiState {
-  const controlGatingSnapshot = createControlGatingSnapshot({
-    currentMode,
-    speechLifecycleStatus,
-    activeTransport,
-    voiceSessionStatus,
-    voiceCaptureState,
-    screenCaptureState,
-  });
   const isVoiceCaptureBusy =
     voiceCaptureState === 'requestingPermission' || voiceCaptureState === 'stopping';
   const isVoiceCapturing = voiceCaptureState === 'capturing';

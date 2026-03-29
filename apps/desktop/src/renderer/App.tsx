@@ -8,7 +8,7 @@ import type { OverlayMode } from '../shared';
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
 import { useSettingsStore } from './store/settingsStore';
 import { useSessionStore } from './store/sessionStore';
-import { useSessionRuntime } from './runtime/liveRuntime';
+import { useLiveRuntimeSessionSnapshot, useSessionRuntime } from './runtime/liveRuntime';
 import { SnackbarProvider, useSnackbar } from './components/primitives';
 
 function LinuxOverlayInteraction(): null {
@@ -70,10 +70,8 @@ function AppShell(): JSX.Element {
   const setLastRuntimeError = useSessionStore((state) => state.setLastRuntimeError);
   const overlayMode = window.bridge?.overlayMode ?? 'linux-shape';
   const {
-    currentMode,
-    activeTransport,
+    controlGatingSnapshot,
     speechLifecycleStatus,
-    voiceSessionStatus,
     voiceCaptureState,
     screenCaptureState,
     handleStartVoiceCapture,
@@ -161,10 +159,8 @@ function AppShell(): JSX.Element {
       />
       <AssistantPanel screenShareModeGate={handleShareActionWithGate} />
       <ControlDock
-        currentMode={currentMode}
+        controlGatingSnapshot={controlGatingSnapshot}
         speechLifecycleStatus={speechLifecycleStatus}
-        activeTransport={activeTransport}
-        voiceSessionStatus={voiceSessionStatus}
         voiceCaptureState={voiceCaptureState}
         screenCaptureState={screenCaptureState}
         onStartVoiceCapture={handleStartVoiceCapture}
@@ -244,10 +240,10 @@ function formatRuntimeSnackbarMessage(detail: string): string {
 }
 
 function RuntimeSnackbarObserver(): null {
-  const lastRuntimeError = useSessionStore((state) => state.lastRuntimeError);
-  const voiceSessionResumptionStatus = useSessionStore(
-    (state) => state.voiceSessionResumption.status,
-  );
+  const {
+    lastRuntimeError,
+    voiceSessionResumptionStatus,
+  } = useLiveRuntimeSessionSnapshot();
   const { showError, showSnackbar } = useSnackbar();
   const previousResumptionStatusRef = useRef(voiceSessionResumptionStatus);
   const recoveryNoticePendingRef = useRef(false);

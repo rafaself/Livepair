@@ -5,15 +5,10 @@ import type { SelectOptionItem } from '../../../primitives';
 import {
   canToggleScreenContext,
   canSubmitComposerText,
-  createControlGatingSnapshot,
-  isSpeechLifecycleActive,
+  type ControlGatingSnapshot,
   type ConversationTimelineEntry,
-  type ProductMode,
   type ScreenCaptureState,
   type SpeechLifecycleStatus,
-  type TextSessionStatus,
-  type TransportKind,
-  type VoiceSessionStatus,
 } from '../../../../runtime/liveRuntime';
 import { AssistantPanelChatComposer } from './AssistantPanelChatComposer';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
@@ -26,17 +21,15 @@ import './AssistantPanelChatEmptyState.css';
 
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;
-  currentMode: ProductMode;
   isPanelOpen?: boolean;
+  controlGatingSnapshot: ControlGatingSnapshot;
   speechLifecycleStatus: SpeechLifecycleStatus;
-  textSessionStatus: TextSessionStatus;
   canSubmitText: boolean;
-  activeTransport?: TransportKind | null;
-  voiceSessionStatus?: VoiceSessionStatus;
   activeChat?: ChatRecord | null;
   latestLiveSession?: LiveSessionRecord | null;
   turns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
+  isVoiceSessionActive: boolean;
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
@@ -60,17 +53,15 @@ export type AssistantPanelChatViewProps = {
 
 export function AssistantPanelChatView({
   assistantState,
-  currentMode,
   isPanelOpen,
+  controlGatingSnapshot,
   speechLifecycleStatus,
-  textSessionStatus,
   canSubmitText,
-  activeTransport = null,
-  voiceSessionStatus = 'disconnected',
   activeChat = null,
   latestLiveSession = null,
   turns,
   isConversationEmpty,
+  isVoiceSessionActive,
   lastRuntimeError,
   draftText,
   isSubmittingTextTurn,
@@ -91,18 +82,10 @@ export function AssistantPanelChatView({
   onToggleComposerScreenShare = async () => undefined,
   onEndSpeechMode,
 }: AssistantPanelChatViewProps): JSX.Element {
-  const controlGatingSnapshot = createControlGatingSnapshot({
-    currentMode,
-    speechLifecycleStatus,
-    textSessionStatus,
-    activeTransport,
-    voiceSessionStatus,
-  });
   const isComposerDisabled =
     isSubmittingTextTurn ||
     !canSubmitText ||
     !canSubmitComposerText(controlGatingSnapshot);
-  const isLiveSessionActive = isSpeechLifecycleActive(speechLifecycleStatus);
   const composerAction = createAssistantPanelComposerAction({
     controlGatingSnapshot,
     draftText,
@@ -125,7 +108,7 @@ export function AssistantPanelChatView({
         ? 'Stop screen share'
         : 'Start screen share';
   const composerPlaceholder = 'Add a note to the session';
-  const isViewingPastChat = !isLiveSessionActive && activeChat?.isCurrent === false;
+  const isViewingPastChat = !isVoiceSessionActive && activeChat?.isCurrent === false;
 
   return (
     <section
@@ -137,7 +120,7 @@ export function AssistantPanelChatView({
         emptyState={
           <AssistantPanelConversationEmptyState
             assistantState={assistantState}
-            isLiveSessionActive={isLiveSessionActive}
+            isLiveSessionActive={isVoiceSessionActive}
             lastRuntimeError={lastRuntimeError}
             onStartSpeechMode={onStartSpeechMode}
             onStartSpeechModeWithScreen={onStartSpeechModeWithScreen}
@@ -157,7 +140,7 @@ export function AssistantPanelChatView({
         isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
         isComposerScreenShareActive={isComposerScreenShareActive}
         isComposerScreenShareDisabled={isComposerScreenShareDisabled}
-        isLiveSessionActive={isLiveSessionActive}
+        isLiveSessionActive={isVoiceSessionActive}
         isPanelOpen={isPanelOpen ?? false}
         inputDeviceOptions={inputDeviceOptions}
         placeholder={composerPlaceholder}

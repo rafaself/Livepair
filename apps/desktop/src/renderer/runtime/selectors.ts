@@ -3,6 +3,11 @@ import type { SessionStoreState } from '../store/sessionStore';
 import {
   getTextSessionStatus,
 } from '../store/sessionStore';
+import {
+  createControlGatingSnapshot,
+  getComposerSpeechActionKind,
+  type ControlGatingSnapshot,
+} from './controlGating';
 import type {
   ConversationTimelineEntry,
   ConversationTurnModel,
@@ -10,6 +15,64 @@ import type {
 } from './conversation/conversation.types';
 import { isSessionActiveLifecycle, isTextTurnInFlight } from './text/textSessionLifecycle';
 import { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
+
+export type LiveRuntimeSessionSnapshot = {
+  assistantState: AssistantRuntimeState;
+  currentMode: SessionStoreState['currentMode'];
+  activeTransport: SessionStoreState['activeTransport'];
+  isSpeechMode: boolean;
+  backendState: SessionStoreState['backendState'];
+  backendIndicatorState: AssistantRuntimeState;
+  backendLabel: string;
+  tokenRequestState: SessionStoreState['tokenRequestState'];
+  tokenFeedback: string | null;
+  textSessionStatus: SessionStoreState['textSessionLifecycle']['status'];
+  textSessionStatusLabel: string;
+  canSubmitText: boolean;
+  lastRuntimeError: string | null;
+  isSessionActive: boolean;
+  liveSessionPhaseLabel: string | null;
+  speechLifecycleStatus: SessionStoreState['speechLifecycle']['status'];
+  voiceSessionStatus: SessionStoreState['voiceSessionStatus'];
+  voiceSessionResumptionStatus: SessionStoreState['voiceSessionResumption']['status'];
+  voiceCaptureState: SessionStoreState['voiceCaptureState'];
+  screenCaptureState: SessionStoreState['screenCaptureState'];
+  isVoiceSessionActive: boolean;
+  controlGatingSnapshot: ControlGatingSnapshot;
+  composerSpeechActionKind: ReturnType<typeof getComposerSpeechActionKind>;
+  localUserSpeechActive: SessionStoreState['localUserSpeechActive'];
+};
+
+export type LiveRuntimeConversationSnapshot = {
+  conversationTurns: ConversationTimelineEntry[];
+  isConversationEmpty: boolean;
+};
+
+export type LiveRuntimeDiagnosticsSnapshot = {
+  backendState: SessionStoreState['backendState'];
+  backendIndicatorState: AssistantRuntimeState;
+  backendLabel: string;
+  tokenFeedback: string | null;
+  voiceSessionStatus: SessionStoreState['voiceSessionStatus'];
+  activeVoiceSessionGroundingEnabled: SessionStoreState['activeVoiceSessionGroundingEnabled'];
+  effectiveVoiceSessionCapabilities: SessionStoreState['effectiveVoiceSessionCapabilities'];
+  voiceSessionLatency: SessionStoreState['voiceSessionLatency'];
+  voiceSessionResumption: SessionStoreState['voiceSessionResumption'];
+  voiceSessionDurability: SessionStoreState['voiceSessionDurability'];
+  voiceTranscriptDiagnostics: SessionStoreState['voiceTranscriptDiagnostics'];
+  ignoredAssistantOutputDiagnostics: SessionStoreState['ignoredAssistantOutputDiagnostics'];
+  voiceSessionRecoveryDiagnostics: SessionStoreState['voiceSessionRecoveryDiagnostics'];
+  voiceCaptureState: SessionStoreState['voiceCaptureState'];
+  voiceCaptureDiagnostics: SessionStoreState['voiceCaptureDiagnostics'];
+  voicePlaybackState: SessionStoreState['voicePlaybackState'];
+  voicePlaybackDiagnostics: SessionStoreState['voicePlaybackDiagnostics'];
+  voiceToolState: SessionStoreState['voiceToolState'];
+  voiceLiveSignalDiagnostics: SessionStoreState['voiceLiveSignalDiagnostics'];
+  realtimeOutboundDiagnostics: SessionStoreState['realtimeOutboundDiagnostics'];
+  screenCaptureState: SessionStoreState['screenCaptureState'];
+  screenCaptureDiagnostics: SessionStoreState['screenCaptureDiagnostics'];
+  visualSendDiagnostics: SessionStoreState['visualSendDiagnostics'];
+};
 
 function getAttachedConversationTurn(
   artifact: TranscriptArtifactModel,
@@ -356,4 +419,134 @@ export function selectLiveSessionPhaseLabel(
   }
 
   return null;
+}
+
+export function selectLiveRuntimeSessionSnapshot(
+  state: Pick<
+    SessionStoreState,
+    | 'activeTransport'
+    | 'assistantActivity'
+    | 'backendState'
+    | 'currentMode'
+    | 'lastRuntimeError'
+    | 'localUserSpeechActive'
+    | 'screenCaptureState'
+    | 'speechLifecycle'
+    | 'textSessionLifecycle'
+    | 'tokenRequestState'
+    | 'voiceCaptureState'
+    | 'voiceSessionResumption'
+    | 'voiceSessionStatus'
+  >,
+): LiveRuntimeSessionSnapshot {
+  const assistantState = selectAssistantRuntimeState(state);
+  const backendIndicatorState = selectBackendIndicatorState(state);
+  const backendLabel = selectBackendLabel(state);
+  const tokenFeedback = selectTokenFeedback(state);
+  const textSessionStatus = selectTextSessionStatus(state);
+  const textSessionStatusLabel = selectTextSessionStatusLabel(state);
+  const canSubmitText = selectCanSubmitText(state);
+  const isSessionActive = selectIsSessionActive(state);
+  const liveSessionPhaseLabel = selectLiveSessionPhaseLabel(state);
+  const speechLifecycleStatus = state.speechLifecycle.status;
+  const controlGatingSnapshot = createControlGatingSnapshot({
+    currentMode: state.currentMode,
+    speechLifecycleStatus,
+    textSessionStatus,
+    activeTransport: state.activeTransport,
+    voiceSessionStatus: state.voiceSessionStatus,
+    voiceCaptureState: state.voiceCaptureState,
+    screenCaptureState: state.screenCaptureState,
+  });
+
+  return {
+    assistantState,
+    currentMode: state.currentMode,
+    activeTransport: state.activeTransport,
+    isSpeechMode: state.currentMode === 'speech',
+    backendState: state.backendState,
+    backendIndicatorState,
+    backendLabel,
+    tokenRequestState: state.tokenRequestState,
+    tokenFeedback,
+    textSessionStatus,
+    textSessionStatusLabel,
+    canSubmitText,
+    lastRuntimeError: state.lastRuntimeError,
+    isSessionActive,
+    liveSessionPhaseLabel,
+    speechLifecycleStatus,
+    voiceSessionStatus: state.voiceSessionStatus,
+    voiceSessionResumptionStatus: state.voiceSessionResumption.status,
+    voiceCaptureState: state.voiceCaptureState,
+    screenCaptureState: state.screenCaptureState,
+    isVoiceSessionActive: isSpeechLifecycleActive(speechLifecycleStatus),
+    controlGatingSnapshot,
+    composerSpeechActionKind: getComposerSpeechActionKind(controlGatingSnapshot),
+    localUserSpeechActive: state.localUserSpeechActive,
+  };
+}
+
+export function selectLiveRuntimeConversationSnapshot(
+  state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
+): LiveRuntimeConversationSnapshot {
+  const conversationTurns = selectVisibleConversationTimeline(state);
+
+  return {
+    conversationTurns,
+    isConversationEmpty: conversationTurns.length === 0,
+  };
+}
+
+export function selectLiveRuntimeDiagnosticsSnapshot(
+  state: Pick<
+    SessionStoreState,
+    | 'activeVoiceSessionGroundingEnabled'
+    | 'backendState'
+    | 'effectiveVoiceSessionCapabilities'
+    | 'ignoredAssistantOutputDiagnostics'
+    | 'realtimeOutboundDiagnostics'
+    | 'screenCaptureDiagnostics'
+    | 'screenCaptureState'
+    | 'tokenRequestState'
+    | 'visualSendDiagnostics'
+    | 'voiceCaptureDiagnostics'
+    | 'voiceCaptureState'
+    | 'voiceLiveSignalDiagnostics'
+    | 'voicePlaybackDiagnostics'
+    | 'voicePlaybackState'
+    | 'voiceSessionDurability'
+    | 'voiceSessionLatency'
+    | 'voiceSessionRecoveryDiagnostics'
+    | 'voiceSessionResumption'
+    | 'voiceSessionStatus'
+    | 'voiceToolState'
+    | 'voiceTranscriptDiagnostics'
+  >,
+): LiveRuntimeDiagnosticsSnapshot {
+  return {
+    backendState: state.backendState,
+    backendIndicatorState: selectBackendIndicatorState(state),
+    backendLabel: selectBackendLabel(state),
+    tokenFeedback: selectTokenFeedback(state),
+    voiceSessionStatus: state.voiceSessionStatus,
+    activeVoiceSessionGroundingEnabled: state.activeVoiceSessionGroundingEnabled,
+    effectiveVoiceSessionCapabilities: state.effectiveVoiceSessionCapabilities,
+    voiceSessionLatency: state.voiceSessionLatency,
+    voiceSessionResumption: state.voiceSessionResumption,
+    voiceSessionDurability: state.voiceSessionDurability,
+    voiceTranscriptDiagnostics: state.voiceTranscriptDiagnostics,
+    ignoredAssistantOutputDiagnostics: state.ignoredAssistantOutputDiagnostics,
+    voiceSessionRecoveryDiagnostics: state.voiceSessionRecoveryDiagnostics,
+    voiceCaptureState: state.voiceCaptureState,
+    voiceCaptureDiagnostics: state.voiceCaptureDiagnostics,
+    voicePlaybackState: state.voicePlaybackState,
+    voicePlaybackDiagnostics: state.voicePlaybackDiagnostics,
+    voiceToolState: state.voiceToolState,
+    voiceLiveSignalDiagnostics: state.voiceLiveSignalDiagnostics,
+    realtimeOutboundDiagnostics: state.realtimeOutboundDiagnostics,
+    screenCaptureState: state.screenCaptureState,
+    screenCaptureDiagnostics: state.screenCaptureDiagnostics,
+    visualSendDiagnostics: state.visualSendDiagnostics,
+  };
 }

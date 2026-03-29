@@ -2,14 +2,18 @@ import { act, renderHook } from '@testing-library/react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
-import { useSessionRuntime } from '../../../runtime';
+import {
+  createControlGatingSnapshot,
+  getComposerSpeechActionKind,
+  useSessionRuntime,
+} from '../../../runtime/liveRuntime';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { resetDesktopStores } from '../../../test/store';
 import { useUiStore } from '../../../store/uiStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
 
-vi.mock('../../../runtime', async () => {
-  const actual = await vi.importActual<typeof import('../../../runtime')>('../../../runtime');
+vi.mock('../../../runtime/liveRuntime', async () => {
+  const actual = await vi.importActual<typeof import('../../../runtime/liveRuntime')>('../../../runtime/liveRuntime');
   return {
     ...actual,
     useSessionRuntime: vi.fn(),
@@ -19,7 +23,52 @@ vi.mock('../../../runtime', async () => {
 type SessionRuntime = ReturnType<typeof useSessionRuntime>;
 
 function createRuntime(overrides: Partial<SessionRuntime> = {}): SessionRuntime {
+  const currentMode = overrides.currentMode ?? 'inactive';
+  const speechLifecycleStatus = overrides.speechLifecycleStatus ?? 'off';
+  const activeTransport = overrides.activeTransport ?? null;
+  const voiceSessionStatus = overrides.voiceSessionStatus ?? 'disconnected';
+  const voiceCaptureState = overrides.voiceCaptureState ?? 'inactive';
+  const screenCaptureState = overrides.screenCaptureState ?? 'disabled';
+  const textSessionStatus = overrides.textSessionStatus ?? 'idle';
+
+  const controlGatingSnapshot = overrides.snapshot?.controlGatingSnapshot ?? createControlGatingSnapshot({
+    currentMode,
+    speechLifecycleStatus,
+    textSessionStatus,
+    activeTransport,
+    voiceSessionStatus,
+    voiceCaptureState,
+    screenCaptureState,
+  });
+
   return {
+    snapshot: {
+      assistantState: overrides.assistantState ?? 'ready',
+      currentMode,
+      activeTransport,
+      isSpeechMode: currentMode === 'speech',
+      backendState: overrides.backendState ?? 'connected',
+      backendIndicatorState: overrides.backendIndicatorState ?? 'ready',
+      backendLabel: overrides.backendLabel ?? 'Connected',
+      tokenRequestState: overrides.tokenRequestState ?? 'idle',
+      tokenFeedback: overrides.tokenFeedback ?? null,
+      textSessionStatus,
+      textSessionStatusLabel: overrides.textSessionStatusLabel ?? 'Idle',
+      canSubmitText: overrides.canSubmitText ?? true,
+      lastRuntimeError: overrides.lastRuntimeError ?? null,
+      isSessionActive: overrides.isSessionActive ?? false,
+      liveSessionPhaseLabel: overrides.snapshot?.liveSessionPhaseLabel ?? null,
+      speechLifecycleStatus,
+      voiceSessionStatus,
+      voiceSessionResumptionStatus: overrides.voiceSessionResumptionStatus ?? 'idle',
+      voiceCaptureState,
+      screenCaptureState,
+      isVoiceSessionActive: overrides.isVoiceSessionActive ?? false,
+      controlGatingSnapshot,
+      composerSpeechActionKind:
+        overrides.snapshot?.composerSpeechActionKind ?? getComposerSpeechActionKind(controlGatingSnapshot),
+      localUserSpeechActive: overrides.localUserSpeechActive ?? false,
+    },
     assistantState: 'ready',
     currentMode: 'inactive',
     activeTransport: null,
@@ -51,7 +100,7 @@ function createRuntime(overrides: Partial<SessionRuntime> = {}): SessionRuntime 
     handleEndSession: vi.fn(async () => undefined),
     setAssistantState: vi.fn(),
     ...overrides,
-  };
+  } as SessionRuntime;
 }
 
 describe('useAssistantPanelController – composer media controls', () => {

@@ -12,6 +12,9 @@ export {
   shouldShowSpeechControls,
 } from './public';
 export {
+  selectLiveRuntimeConversationSnapshot,
+  selectLiveRuntimeDiagnosticsSnapshot,
+  selectLiveRuntimeSessionSnapshot,
   selectAssistantRuntimeState,
   selectBackendIndicatorState,
   selectBackendLabel,
@@ -24,7 +27,12 @@ export {
   selectTokenFeedback,
   selectVisibleConversationTimeline,
 } from './selectors';
-export { useSessionRuntime } from './useSessionRuntime';
+export {
+  useLiveRuntimeConversationSnapshot,
+  useLiveRuntimeDiagnosticsSnapshot,
+  useLiveRuntimeSessionSnapshot,
+  useSessionRuntime,
+} from './useSessionRuntime';
 export { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
 export type {
   CaptureExclusionOverlayVisibility,
@@ -51,3 +59,8 @@ export type {
   VoiceSessionStatus,
   VoiceToolState,
 } from './public';
+export type {
+  LiveRuntimeConversationSnapshot,
+  LiveRuntimeDiagnosticsSnapshot,
+  LiveRuntimeSessionSnapshot,
+} from './selectors';

@@ -3,12 +3,10 @@ import { IconButton } from '../primitives';
 import { useUiStore } from '../../store/uiStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import type {
-  ProductMode,
+  ControlGatingSnapshot,
   ScreenCaptureState,
   SpeechLifecycleStatus,
-  TransportKind,
   VoiceCaptureState,
-  VoiceSessionStatus,
 } from '../../runtime/liveRuntime';
 import { ControlDockSpeechControls } from './ControlDockSpeechControls';
 import { createControlDockUiState } from './controlDockUiState';
@@ -16,10 +14,8 @@ import { useControlDockVisibility } from './useControlDockVisibility';
 import './ControlDock.css';
 
 export type ControlDockProps = {
-  currentMode: ProductMode;
+  controlGatingSnapshot: ControlGatingSnapshot;
   speechLifecycleStatus: SpeechLifecycleStatus;
-  activeTransport?: TransportKind | null;
-  voiceSessionStatus?: VoiceSessionStatus;
   voiceCaptureState: VoiceCaptureState;
   screenCaptureState: ScreenCaptureState;
   onStartVoiceCapture: () => Promise<void>;
@@ -31,10 +27,8 @@ export type ControlDockProps = {
 };
 
 export function ControlDock({
-  currentMode,
+  controlGatingSnapshot,
   speechLifecycleStatus,
-  activeTransport = null,
-  voiceSessionStatus = 'disconnected',
   voiceCaptureState,
   screenCaptureState,
   onStartVoiceCapture,
@@ -56,10 +50,8 @@ export function ControlDock({
   });
   const shouldDimDock = !isPanelOpen && !isWindowFocused && !isHovered;
   const uiState = createControlDockUiState({
-    currentMode,
+    controlGatingSnapshot,
     speechLifecycleStatus,
-    activeTransport,
-    voiceSessionStatus,
     voiceCaptureState,
     screenCaptureState,
     screenContextMode,

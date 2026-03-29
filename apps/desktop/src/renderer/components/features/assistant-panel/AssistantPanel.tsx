@@ -36,19 +36,17 @@ export function AssistantPanel({
     (state) => state.setSaveScreenFramesEnabled,
   );
   const activeChatId = useSessionStore((state) => state.activeChatId);
-  const localUserSpeechActive = useSessionStore((state) => state.localUserSpeechActive);
   const {
     assistantState,
     isPanelOpen,
     panelView,
     conversationTurns,
     isConversationEmpty,
+    localUserSpeechActive,
+    controlGatingSnapshot,
     setPanelView,
-    currentMode,
-    activeTransport,
     speechLifecycleStatus,
-    textSessionStatus,
-    voiceSessionStatus,
+    isVoiceSessionActive,
     screenCaptureState,
     canSubmitText,
     lastRuntimeError,
@@ -135,20 +133,18 @@ export function AssistantPanel({
                 {panelView === 'chat' ? (
                   <AssistantPanelChatView
                     assistantState={assistantState}
-                    currentMode={currentMode}
                     isPanelOpen={isPanelOpen}
+                    controlGatingSnapshot={controlGatingSnapshot}
                     speechLifecycleStatus={speechLifecycleStatus}
-                    textSessionStatus={textSessionStatus}
                     canSubmitText={canSubmitText}
-                    activeTransport={activeTransport}
-                    voiceSessionStatus={voiceSessionStatus}
                     activeChat={activeChat}
                     latestLiveSession={latestLiveSession}
                     turns={conversationTurns}
                     isConversationEmpty={isConversationEmpty}
-                     lastRuntimeError={lastRuntimeError}
-                     draftText={draftText}
-                     isSubmittingTextTurn={isSubmittingTextTurn}
+                    isVoiceSessionActive={isVoiceSessionActive}
+                    lastRuntimeError={lastRuntimeError}
+                    draftText={draftText}
+                    isSubmittingTextTurn={isSubmittingTextTurn}
                      isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
                      screenCaptureState={screenCaptureState}
                      inputDeviceOptions={settingsController.inputDeviceOptions}

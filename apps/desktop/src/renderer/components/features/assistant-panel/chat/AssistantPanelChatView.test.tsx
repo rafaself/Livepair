@@ -2,7 +2,64 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import type { FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ConversationTurnModel } from '../../../../test/fixtures/conversation';
-import { AssistantPanelChatView } from './AssistantPanelChatView';
+import {
+  createControlGatingSnapshot,
+  isSpeechLifecycleActive,
+  type ControlGatingSnapshot,
+  type ProductMode,
+  type TextSessionStatus,
+  type TransportKind,
+  type VoiceCaptureState,
+  type VoiceSessionStatus,
+} from '../../../../runtime/liveRuntime';
+import {
+  AssistantPanelChatView as RuntimeAssistantPanelChatView,
+  type AssistantPanelChatViewProps as RuntimeAssistantPanelChatViewProps,
+} from './AssistantPanelChatView';
+
+type AssistantPanelChatViewProps = Omit<
+  RuntimeAssistantPanelChatViewProps,
+  'controlGatingSnapshot' | 'isVoiceSessionActive'
+> & {
+  controlGatingSnapshot?: ControlGatingSnapshot;
+  currentMode?: ProductMode;
+  textSessionStatus?: TextSessionStatus;
+  activeTransport?: TransportKind | null;
+  voiceSessionStatus?: VoiceSessionStatus;
+  voiceCaptureState?: VoiceCaptureState;
+  isVoiceSessionActive?: boolean;
+};
+
+function AssistantPanelChatView({
+  controlGatingSnapshot,
+  currentMode = 'inactive',
+  textSessionStatus = 'idle',
+  activeTransport = null,
+  voiceSessionStatus = 'disconnected',
+  voiceCaptureState = 'inactive',
+  screenCaptureState = 'disabled',
+  speechLifecycleStatus = 'off',
+  isVoiceSessionActive = currentMode === 'speech' || isSpeechLifecycleActive(speechLifecycleStatus),
+  ...props
+}: AssistantPanelChatViewProps): JSX.Element {
+  return (
+    <RuntimeAssistantPanelChatView
+      {...props}
+      controlGatingSnapshot={controlGatingSnapshot ?? createControlGatingSnapshot({
+        currentMode,
+        textSessionStatus,
+        activeTransport,
+        voiceSessionStatus,
+        voiceCaptureState,
+        screenCaptureState,
+        speechLifecycleStatus,
+      })}
+      speechLifecycleStatus={speechLifecycleStatus}
+      screenCaptureState={screenCaptureState}
+      isVoiceSessionActive={isVoiceSessionActive}
+    />
+  );
+}
 
 describe('AssistantPanelChatView', () => {
   it('renders the empty conversation state when there are no turns', () => {

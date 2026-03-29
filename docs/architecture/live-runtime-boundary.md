@@ -246,3 +246,20 @@ This document records the current desktop Live runtime boundary as implemented t
   Renderer components, hooks, and `App.tsx` no longer import from `apps/desktop/src/renderer/runtime/index.ts`, `apps/desktop/src/renderer/runtime/public.ts`, or `apps/desktop/src/renderer/runtime/selectors.ts` directly; they now import from `liveRuntime.ts`.
 - Still remaining for SR-03
   `sessionController.ts` still composes runtime internals directly against renderer stores and settings, store defaults still import runtime screen internals, and provider-shaped capability/token DTOs still exist in internal runtime/store surfaces.
+
+# SR-03 Update
+
+- Snapshot/projection surface introduced
+  `apps/desktop/src/renderer/runtime/selectors.ts` now defines `LiveRuntimeSessionSnapshot`, `LiveRuntimeConversationSnapshot`, and `LiveRuntimeDiagnosticsSnapshot`.
+  `apps/desktop/src/renderer/runtime/useSessionRuntime.ts` and `apps/desktop/src/renderer/runtime/liveRuntime.ts` now expose these through `useLiveRuntimeSessionSnapshot()`, `useLiveRuntimeConversationSnapshot()`, and `useLiveRuntimeDiagnosticsSnapshot()`.
+- Duplicated derivation removed in this release
+  `apps/desktop/src/renderer/components/composite/controlDockUiState.ts` no longer recomputes control gating from raw runtime fields; it consumes `ControlGatingSnapshot`.
+  `apps/desktop/src/renderer/components/features/assistant-panel/useAssistantPanelControlState.ts` no longer rebuilds gating locally; it reads the runtime-owned projection from `LiveRuntimeSessionSnapshot`.
+  `apps/desktop/src/renderer/components/features/assistant-panel/useAssistantPanelConversationState.ts` now consumes `LiveRuntimeConversationSnapshot` instead of rebuilding the timeline in the hook.
+  `apps/desktop/src/renderer/components/features/assistant-panel/debug/AssistantPanelDebugView.tsx` now consumes `LiveRuntimeDiagnosticsSnapshot` instead of assembling debug state directly from `useSessionStore`.
+  `apps/desktop/src/renderer/App.tsx`, `apps/desktop/src/renderer/components/composite/ControlDock.tsx`, and `apps/desktop/src/renderer/components/features/assistant-panel/AssistantPanel.tsx` now pass runtime-owned projections through the SR-02 facade instead of passing raw lifecycle/transport fields for downstream recomputation.
+- Remaining state ownership issues left for later releases
+  `useSessionStore` remains the authoritative runtime state container; snapshots are read-only projections over that store, not a store replacement.
+  `sessionPhase`, `transportState`, and provider-shaped capability/token fields still live in the store and remain outside the new snapshot boundary.
+  `sessionController.ts` and `session/*` still own store mutation and lifecycle orchestration directly; SR-03 did not extract a session engine or supervisor boundary.
+  Overlay masking, selected devices, and screen-share intent are still split across runtime/store/settings layers and remain follow-up work for SR-04+.
