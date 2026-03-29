@@ -37,6 +37,7 @@ function createMockContext() {
     attachCurrentAssistantTurn: vi.fn(),
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
+    recordSessionEvent: vi.fn(),
     applySpeechLifecycleEvent: vi.fn(),
     applyVoiceTranscriptUpdate: vi.fn(),
     appendAssistantDraftTextDelta: vi.fn(),
@@ -80,7 +81,9 @@ describe('handleTransportTurnEvent', () => {
     expect(context.ops.completeAssistantDraft).not.toHaveBeenCalled();
     expect(context.ops.commitAssistantDraft).not.toHaveBeenCalled();
     expect(context.ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalledWith('completed');
-    expect(context.ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+    expect(context.ops.recordSessionEvent).not.toHaveBeenCalledWith({
+      type: 'turn.assistantCompleted',
+    });
     expect(context.ops.logRuntimeDiagnostic).toHaveBeenCalledWith(
       'voice-session',
       'ignored assistant output while turn is unavailable',

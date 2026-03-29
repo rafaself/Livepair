@@ -100,6 +100,7 @@ export function createSessionTransportAssembly({
     store: dependencies.store,
     settingsStore: dependencies.settingsStore,
     logger: dependencies.logger,
+    recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
     logRuntimeDiagnostic,
     isVoiceResumptionInFlight: () => runtimeRef.current!.getVoiceResumptionInFlight(),
     setVoiceResumptionInFlight: (value) => {
@@ -351,8 +352,8 @@ export function createSessionTransportAssembly({
         setVoiceResumptionInFlight: (value) => {
           runtimeRef.current!.setVoiceResumptionInFlight(value);
         },
-        applySpeechLifecycleEvent: (event) => {
-          runtimeRef.current!.applySpeechLifecycleEvent(event);
+        recordSessionEvent: (event) => {
+          runtimeRef.current!.recordSessionEvent(event);
         },
       });
     },

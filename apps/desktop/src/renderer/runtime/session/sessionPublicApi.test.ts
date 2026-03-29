@@ -59,6 +59,7 @@ function createHarness(options: {
   const refreshScreenCaptureSourceSnapshot = vi.fn(
     async () => options.refreshScreenCaptureSourceSnapshotResult ?? true,
   );
+  const onCommand = vi.fn();
 
   const publicApi = createSessionControllerPublicApi({
     store,
@@ -88,6 +89,7 @@ function createHarness(options: {
       syncSpeechSilenceTimeout,
     },
     logRuntimeError,
+    onCommand,
   });
 
   return {
@@ -104,6 +106,7 @@ function createHarness(options: {
     syncSpeechSilenceTimeout,
     setVoiceErrorState,
     logRuntimeError,
+    onCommand,
   };
 }
 
@@ -166,6 +169,17 @@ describe('createSessionControllerPublicApi', () => {
     expect(harness.sendText).not.toHaveBeenCalled();
     expect(harness.outboundGateway.recordSuccess).not.toHaveBeenCalled();
     expect(harness.outboundGateway.recordFailure).not.toHaveBeenCalled();
+  });
+
+  it('records session commands before dispatching text submission', async () => {
+    const harness = createHarness();
+
+    await harness.publicApi.submitTextTurn('Keep going');
+
+    expect(harness.onCommand).toHaveBeenCalledWith({
+      type: 'textTurn.submit',
+      text: 'Keep going',
+    });
   });
 });
 

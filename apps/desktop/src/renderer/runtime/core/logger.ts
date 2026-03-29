@@ -1,6 +1,6 @@
 import { useUiStore } from '../../store/uiStore';
 import type { LiveSessionEvent } from '../transport/transport.types';
-import type { RuntimeLogger, SessionControllerEvent } from './session.types';
+import type { RuntimeLogger, SessionEvent } from './session.types';
 
 export const NOOP_RUNTIME_LOGGER: RuntimeLogger = {
   onSessionEvent: () => undefined,
@@ -40,7 +40,7 @@ function serialize(value: unknown): string {
   }
 }
 
-function logSessionEvent(event: SessionControllerEvent): void {
+function logSessionEvent(event: SessionEvent): void {
   if (!isConsoleLoggingEnabled()) {
     return;
   }

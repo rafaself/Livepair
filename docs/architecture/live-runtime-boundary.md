@@ -258,6 +258,24 @@ This document records the current desktop Live runtime boundary as implemented t
   `apps/desktop/src/renderer/components/features/assistant-panel/useAssistantPanelConversationState.ts` now consumes `LiveRuntimeConversationSnapshot` instead of rebuilding the timeline in the hook.
   `apps/desktop/src/renderer/components/features/assistant-panel/debug/AssistantPanelDebugView.tsx` now consumes `LiveRuntimeDiagnosticsSnapshot` instead of assembling debug state directly from `useSessionStore`.
   `apps/desktop/src/renderer/App.tsx`, `apps/desktop/src/renderer/components/composite/ControlDock.tsx`, and `apps/desktop/src/renderer/components/features/assistant-panel/AssistantPanel.tsx` now pass runtime-owned projections through the SR-02 facade instead of passing raw lifecycle/transport fields for downstream recomputation.
+
+# SR-04 Update
+
+- Internal command contract introduced
+  `apps/desktop/src/renderer/runtime/core/sessionCommand.types.ts` now defines the Live runtime's internal command vocabulary for session start/end, speech-mode end, backend health checks, voice capture, screen capture, manual screen analysis, and speech-mode text submission.
+  `apps/desktop/src/renderer/runtime/session/sessionCommandDispatcher.ts` remains the single public-API routing point for those commands, and `apps/desktop/src/renderer/runtime/session/sessionPublicApi.ts` routes controller-facing session actions through it.
+- Internal event contract introduced
+  `apps/desktop/src/renderer/runtime/core/sessionEvent.types.ts` now defines the runtime's internal event vocabulary for session lifecycle, backend/token outcomes, transport connectivity, transcript updates, interruption, and turn-completion facts.
+  `apps/desktop/src/renderer/runtime/session/sessionEventMapping.ts` maps the subset of normalized session events that should advance `speechLifecycle` into the existing speech lifecycle reducer, keeping lifecycle state changes driven by the event contract without introducing a separate event-bus framework.
+- Runtime paths now using the contracts
+  `apps/desktop/src/renderer/runtime/session/sessionLifecycle.ts` now records `session.start.requested` and delegates `session.ready` publication to the voice-connection path instead of driving those lifecycle transitions through separate ad hoc calls.
+  `apps/desktop/src/renderer/runtime/session/sessionRuntime.ts` now records normalized `SessionEvent`s and applies lifecycle-relevant events through the mapper before logging/debug publication.
+  `apps/desktop/src/renderer/runtime/session/sessionVoiceConnection.ts` and `apps/desktop/src/renderer/runtime/voice/session/connectFallbackVoiceSession.ts` now publish `session.ready` through the session event contract when a restored or fallback Live connection becomes usable.
+  `apps/desktop/src/renderer/runtime/transport/transportEventRouterSessionHandlers.ts` now normalizes connection-state, go-away, termination, resumption-update, transport-error, and audio-error facts into `SessionEvent`s.
+  `apps/desktop/src/renderer/runtime/transport/transportEventRouterTurnHandlers.ts` now normalizes interruption, transcript updates, assistant-output start, and turn-completion facts into `SessionEvent`s while leaving the existing transcript/playback/store responsibilities in place.
+- Intentionally left for the next release
+  Session teardown still applies a few speech lifecycle transitions directly instead of routing every shutdown path through the session event contract.
+  Transcript persistence, assistant-draft mutation, playback queue management, and voice-tool execution still live in their existing modules; SR-04 only normalizes the highest-value session facts around those flows.
 - Remaining state ownership issues left for later releases
   `useSessionStore` remains the authoritative runtime state container; snapshots are read-only projections over that store, not a store replacement.
   `sessionPhase`, `transportState`, and provider-shaped capability/token fields still live in the store and remain outside the new snapshot boundary.

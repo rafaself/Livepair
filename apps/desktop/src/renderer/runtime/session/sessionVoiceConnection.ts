@@ -20,7 +20,7 @@ type FallbackAttemptResult =
 type SessionVoiceConnectionArgs = {
   store: SessionStoreApi;
   isCurrentSessionOperation: (operationId: number) => boolean;
-  applySpeechLifecycleEvent: (event: { type: string }) => void;
+  recordSessionEvent: (event: { type: 'session.ready' }) => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
   resolveSessionVoice: () => Promise<AssistantVoice>;
   createTransport: (options?: { voice?: AssistantVoice }) => DesktopSession;
@@ -46,7 +46,7 @@ type SessionVoiceConnectionArgs = {
 export function createSessionVoiceConnection({
   store,
   isCurrentSessionOperation,
-  applySpeechLifecycleEvent,
+  recordSessionEvent,
   setVoiceResumptionInFlight,
   resolveSessionVoice,
   createTransport,
@@ -120,7 +120,7 @@ export function createSessionVoiceConnection({
         return { status: 'failed', detail: 'Voice session resumption was superseded' };
       }
 
-      applySpeechLifecycleEvent({ type: 'session.ready' });
+      recordSessionEvent({ type: 'session.ready' });
       return { status: 'resumed' };
     } catch (error) {
       const detail = asErrorDetail(error, 'Failed to resume voice session');
@@ -167,9 +167,7 @@ export function createSessionVoiceConnection({
         createPersistedLiveSession,
       activateVoiceTransport,
       setVoiceResumptionInFlight,
-      applySpeechLifecycleEvent: (event) => {
-        applySpeechLifecycleEvent(event);
-      },
+      recordSessionEvent,
     });
   };
 

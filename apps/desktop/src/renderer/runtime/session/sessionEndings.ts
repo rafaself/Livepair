@@ -1,4 +1,4 @@
-import type { SessionControllerEvent } from '../core/session.types';
+import type { SessionEvent } from '../core/session.types';
 import type { TextSessionStatus } from '../text/text.types';
 
 export type EndSessionInternalOptions = {
@@ -15,7 +15,7 @@ export type EndSessionInternal = (options?: EndSessionInternalOptions) => Promis
 
 type SessionControllerEndingsArgs = {
   beginSessionOperation: () => number;
-  recordSessionEvent: (event: SessionControllerEvent) => void;
+  recordSessionEvent: (event: SessionEvent) => void;
   teardownActiveRuntime: (options: {
     textSessionStatus: TextSessionStatus;
     preserveLastRuntimeError?: string | null;

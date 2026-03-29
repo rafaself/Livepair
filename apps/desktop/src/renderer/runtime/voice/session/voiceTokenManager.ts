@@ -1,6 +1,6 @@
 import { isTokenValidForReconnect } from './voiceSessionToken';
 import { asErrorDetail } from '../../core/runtimeUtils';
-import type { SessionControllerEvent } from '../../core/session.types';
+import type { SessionEvent } from '../../core/session.types';
 import type { TransportKind } from '../../transport/transport.types';
 import type {
   VoiceSessionDurabilityState,
@@ -35,7 +35,7 @@ export function createVoiceTokenManager(
   requestSessionToken: (params: Record<string, never>) => Promise<CreateEphemeralTokenResponse>,
   isCurrentSessionOperation: (id: number) => boolean,
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void,
-  recordSessionEvent: (event: SessionControllerEvent) => void,
+  recordSessionEvent: (event: SessionEvent) => void,
   onError: (detail: string) => void,
   liveAdapterKey: TransportKind,
 ): VoiceTokenManager {

@@ -244,12 +244,12 @@ function handleTurnCompleteLifecycleTransition(context: TransportEventRouterCont
   const speechLifecycleStatus = context.ops.currentSpeechLifecycleStatus();
 
   if (speechLifecycleStatus === 'assistantSpeaking') {
-    context.ops.applySpeechLifecycleEvent({ type: 'assistant.turn.completed' });
+    context.ops.recordSessionEvent({ type: 'turn.assistantCompleted' });
     return;
   }
 
   if (speechLifecycleStatus === 'userSpeaking') {
-    context.ops.applySpeechLifecycleEvent({ type: 'user.turn.settled' });
+    context.ops.recordSessionEvent({ type: 'turn.user.settled' });
   }
 }
 
@@ -271,6 +271,7 @@ export function handleTransportTurnEvent(
       ops.discardAssistantDraft();
       ops.cancelVoiceToolCalls('voice turn interrupted');
       ops.finalizeCurrentVoiceTurns('interrupted');
+      ops.recordSessionEvent({ type: 'turn.interrupted' });
       ops.handleVoiceInterruption();
       return;
 
@@ -301,7 +302,12 @@ export function handleTransportTurnEvent(
     case 'input-transcript':
       recordTranscriptArrival(context, 'input');
       const now = new Date().toISOString();
-      ops.applySpeechLifecycleEvent({ type: 'user.speech.detected' });
+      ops.recordSessionEvent({ type: 'turn.user.speech.detected' });
+      ops.recordSessionEvent({
+        type: 'transcript.user.updated',
+        text: event.text,
+        isFinal: event.isFinal === true,
+      });
       ops.applyVoiceTranscriptUpdate('user', event.text, event.isFinal);
       ops.updateVoiceLiveSignalDiagnostics({
         inputTranscriptCount: context.store.voiceLiveSignalDiagnostics.inputTranscriptCount + 1,
@@ -320,7 +326,12 @@ export function handleTransportTurnEvent(
         return;
       }
 
-      ops.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
+      ops.recordSessionEvent({ type: 'turn.assistant.output.started' });
+      ops.recordSessionEvent({
+        type: 'transcript.assistant.updated',
+        text: event.text,
+        isFinal: event.isFinal === true,
+      });
       ops.applyVoiceTranscriptUpdate('assistant', event.text, event.isFinal);
       {
         const now = new Date().toISOString();
@@ -341,7 +352,7 @@ export function handleTransportTurnEvent(
         return;
       }
 
-      ops.applySpeechLifecycleEvent({ type: 'assistant.output.started' });
+      ops.recordSessionEvent({ type: 'turn.assistant.output.started' });
       void ops.getVoicePlayback()
         .enqueue(event.chunk)
         .catch(() => {});

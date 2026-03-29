@@ -3,7 +3,7 @@ import type { AssistantAudioPlayback } from '../audio/audio.types';
 import type { RealtimeOutboundGateway } from '../outbound/outbound.types';
 import type {
   ProductMode,
-  SessionControllerEvent,
+  SessionEvent,
 } from '../core/session.types';
 import type {
   SessionStoreApi,
@@ -24,10 +24,11 @@ import type {
   SpeechSessionLifecycleEvent,
 } from '../speech/speechSessionLifecycle';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import { mapSessionEventToSpeechLifecycleEvent } from './sessionEventMapping';
 
 type SessionControllerRuntimeArgs = {
   logger: {
-    onSessionEvent: (event: SessionControllerEvent) => void;
+    onSessionEvent: (event: SessionEvent) => void;
   };
   store: SessionStoreApi;
   mutableRuntime: {
@@ -135,7 +136,13 @@ export function createSessionControllerRuntime({
   voiceTranscript,
   silenceCtrl,
 }: SessionControllerRuntimeArgs) {
-  const recordSessionEvent = (event: SessionControllerEvent): void => {
+  const recordSessionEvent = (event: SessionEvent): void => {
+    const speechLifecycleEvent = mapSessionEventToSpeechLifecycleEvent(event);
+
+    if (speechLifecycleEvent) {
+      stateSync.applySpeechLifecycleEvent(speechLifecycleEvent);
+    }
+
     logger.onSessionEvent(event);
     store
       .getState()

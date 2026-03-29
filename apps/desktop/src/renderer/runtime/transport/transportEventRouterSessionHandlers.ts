@@ -35,6 +35,7 @@ function handleConnectionStateChanged(
 
   if (event.state === 'connecting') {
     const resuming = ops.isVoiceResumptionInFlight();
+    ops.recordSessionEvent({ type: 'transport.connecting', resuming });
     ops.setVoiceSessionStatus(resuming ? 'recovering' : 'connecting');
     if (!resuming) {
       ops.updateVoiceLiveSignalDiagnostics(createDefaultVoiceLiveSignalDiagnostics());
@@ -44,6 +45,7 @@ function handleConnectionStateChanged(
 
   if (event.state === 'connected') {
     const wasResumption = ops.isVoiceResumptionInFlight();
+    ops.recordSessionEvent({ type: 'transport.connected', resumed: wasResumption });
     ops.setVoiceSessionStatus('active');
     ops.resetVoiceToolState();
     store.setAssistantActivity('idle');
@@ -98,6 +100,7 @@ function handleConnectionStateChanged(
     return;
   }
 
+  ops.recordSessionEvent({ type: 'transport.disconnected' });
   ops.setVoiceSessionStatus('disconnected');
   ops.cancelVoiceToolCalls('voice transport disconnected');
   ops.resetVoiceTurnTranscriptState();
@@ -125,6 +128,7 @@ function handleGoAway(
   }
 
   logResumeRequest(context, detail, 'resume requested after go-away');
+  ops.recordSessionEvent({ type: 'transport.goAway', detail });
   ops.cancelVoiceToolCalls(detail);
   store.setVoiceSessionLatency(invalidateVoiceSessionLatency(store.voiceSessionLatency));
   ops.setVoiceSessionResumption({
@@ -155,6 +159,7 @@ function handleConnectionTerminated(
   }
 
   logResumeRequest(context, detail, 'resume requested after connection termination');
+  ops.recordSessionEvent({ type: 'transport.terminated', detail });
   ops.cancelVoiceToolCalls(detail);
   store.setVoiceSessionLatency(invalidateVoiceSessionLatency(store.voiceSessionLatency));
   ops.setVoiceSessionDurability({
@@ -203,6 +208,11 @@ function handleSessionResumptionUpdate(
     invalidatedAt: resumable ? null : updatedAt,
     invalidationReason: resumable ? null : detail,
   });
+  ops.recordSessionEvent({
+    type: 'transport.resumptionUpdated',
+    handle: event.handle,
+    resumable,
+  });
 }
 
 function handleAudioError(
@@ -214,6 +224,7 @@ function handleAudioError(
   ops.updateVoicePlaybackDiagnostics({
     lastError: event.detail,
   });
+  ops.recordSessionEvent({ type: 'transport.audioError', detail: event.detail });
   store.setLastRuntimeError(event.detail);
   void ops.stopVoicePlayback('error');
 }
@@ -235,6 +246,7 @@ export function handleTransportSessionEvent(
       handleConnectionTerminated(context, event);
       return;
     case 'error':
+      ops.recordSessionEvent({ type: 'transport.error', detail: event.detail });
       ops.cancelVoiceToolCalls(event.detail);
       ops.setVoiceErrorState(event.detail);
       return;

@@ -6,7 +6,7 @@ import {
 import { asErrorDetail } from '../core/runtimeUtils';
 import { createSessionVoiceConnection } from './sessionVoiceConnection';
 import type {
-  SessionControllerEvent,
+  SessionEvent,
 } from '../core/session.types';
 import type { DesktopSession } from '../transport/transport.types';
 import type { SessionStoreApi } from '../core/sessionControllerTypes';
@@ -27,8 +27,7 @@ type SessionControllerLifecycleArgs = {
   isCurrentSessionOperation: (operationId: number) => boolean;
   ensureExclusiveMode: (targetMode: 'speech', operationId: number) => Promise<void>;
   currentVoiceSessionStatus: () => VoiceSessionStatus;
-  recordSessionEvent: (event: SessionControllerEvent) => void;
-  applySpeechLifecycleEvent: (event: { type: string }) => void;
+  recordSessionEvent: (event: SessionEvent) => void;
   setVoiceCaptureState: (state: 'inactive') => void;
   setVoiceCaptureDiagnostics: (patch: { lastError: null }) => void;
   setVoicePlaybackState: (state: 'idle') => void;
@@ -88,7 +87,6 @@ export function createSessionControllerLifecycle({
   ensureExclusiveMode,
   currentVoiceSessionStatus,
   recordSessionEvent,
-  applySpeechLifecycleEvent,
   setVoiceCaptureState,
   setVoiceCaptureDiagnostics,
   setVoicePlaybackState,
@@ -123,7 +121,7 @@ export function createSessionControllerLifecycle({
   const voiceConnection = createSessionVoiceConnection({
     store,
     isCurrentSessionOperation,
-    applySpeechLifecycleEvent,
+    recordSessionEvent: (event) => recordSessionEvent(event),
     setVoiceResumptionInFlight,
     createTransport,
     activateVoiceTransport,
@@ -193,7 +191,6 @@ export function createSessionControllerLifecycle({
       return;
     }
 
-    applySpeechLifecycleEvent({ type: 'session.start.requested' });
     setVoiceCaptureState('inactive');
     setVoiceCaptureDiagnostics({ lastError: null });
     setVoicePlaybackState('idle');

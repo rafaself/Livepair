@@ -18,6 +18,7 @@ import type {
   DesktopSessionControllerDependencies,
 } from '../core/sessionControllerTypes';
 import type { ProductMode } from '../core/session.types';
+import type { SessionCommand } from '../core/session.types';
 import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
 import type { TextSessionStatus } from '../text/text.types';
 import type { DesktopSession } from '../transport/transport.types';
@@ -203,9 +204,6 @@ export function createSessionLifecycleAssembly({
     ensureExclusiveMode: (targetMode, operationId) => ensureExclusiveMode(targetMode, operationId),
     currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
     recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
-    applySpeechLifecycleEvent: (event) => {
-      runtimeRef.current!.applySpeechLifecycleEvent(event as SpeechSessionLifecycleEvent);
-    },
     setVoiceCaptureState: (state) => {
       dependencies.store.getState().setVoiceCaptureState(state);
     },
@@ -400,6 +398,11 @@ export function createSessionLifecycleAssembly({
         syncSpeechSilenceTimeout: (status) => runtimeRef.current!.syncSpeechSilenceTimeout(status),
       },
       logRuntimeError,
+      onCommand: (command: SessionCommand) => {
+        logRuntimeDiagnostic('session', 'command dispatched', {
+          commandType: command.type,
+        });
+      },
     }),
     endSessionInternal,
     voiceErrorHandlers,

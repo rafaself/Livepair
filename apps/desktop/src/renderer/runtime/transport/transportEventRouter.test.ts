@@ -123,6 +123,7 @@ function createMockOps() {
       onTransportEvent: vi.fn(),
       onSessionEvent: vi.fn(),
     },
+    recordSessionEvent: vi.fn(),
     logRuntimeDiagnostic: vi.fn(),
     isVoiceResumptionInFlight: vi.fn().mockReturnValue(false),
     setVoiceResumptionInFlight: vi.fn(),
@@ -197,6 +198,10 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'connection-state-changed', state: 'connecting' });
 
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'transport.connecting',
+        resuming: false,
+      });
       expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('connecting');
     });
 
@@ -232,6 +237,10 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'connection-state-changed', state: 'connected' });
 
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'transport.connected',
+        resumed: false,
+      });
       expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('active');
       expect(ops.resetVoiceToolState).toHaveBeenCalledTimes(1);
       expect(ops._storeState.setAssistantActivity).toHaveBeenCalledWith('idle');
@@ -690,7 +699,9 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'output-transcript', text: 'late transcript', isFinal: false } as never);
 
-      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.recordSessionEvent).not.toHaveBeenCalledWith({
+        type: 'turn.assistant.output.started',
+      });
       expect(ops.ensureAssistantVoiceTurn).not.toHaveBeenCalled();
       expect(ops.applyVoiceTranscriptUpdate).not.toHaveBeenCalled();
       expect(ops.appendAssistantDraftTextDelta).not.toHaveBeenCalled();
@@ -705,7 +716,9 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'audio-chunk', chunk });
 
-      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.recordSessionEvent).not.toHaveBeenCalledWith({
+        type: 'turn.assistant.output.started',
+      });
       expect(ops.ensureAssistantVoiceTurn).not.toHaveBeenCalled();
       expect(ops.getVoicePlayback().enqueue).not.toHaveBeenCalled();
       expect(ops.logRuntimeDiagnostic).toHaveBeenCalledWith(
@@ -740,7 +753,14 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'input-transcript', text: 'hello', isFinal: true } as never);
 
-      expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'user.speech.detected' });
+      expect(ops.recordSessionEvent).toHaveBeenNthCalledWith(1, {
+        type: 'turn.user.speech.detected',
+      });
+      expect(ops.recordSessionEvent).toHaveBeenNthCalledWith(2, {
+        type: 'transcript.user.updated',
+        text: 'hello',
+        isFinal: true,
+      });
       expect(ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('user', 'hello', true);
     });
   });
@@ -752,7 +772,14 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'output-transcript', text: 'hi there', isFinal: false } as never);
 
-      expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.output.started' });
+      expect(ops.recordSessionEvent).toHaveBeenNthCalledWith(1, {
+        type: 'turn.assistant.output.started',
+      });
+      expect(ops.recordSessionEvent).toHaveBeenNthCalledWith(2, {
+        type: 'transcript.assistant.updated',
+        text: 'hi there',
+        isFinal: false,
+      });
       expect(ops.ensureAssistantVoiceTurn).toHaveBeenCalledTimes(1);
       expect(ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('assistant', 'hi there', false);
     });
@@ -766,7 +793,9 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'audio-chunk', chunk });
 
-      expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.output.started' });
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'turn.assistant.output.started',
+      });
       expect(ops.ensureAssistantVoiceTurn).toHaveBeenCalledTimes(1);
       expect(ops.getVoicePlayback().enqueue).toHaveBeenCalledWith(chunk);
     });
@@ -782,7 +811,7 @@ describe('createTransportEventRouter', () => {
       expect(ops.completeAssistantDraft).not.toHaveBeenCalled();
       expect(ops.commitAssistantDraft).not.toHaveBeenCalled();
       expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalled();
-      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.recordSessionEvent).not.toHaveBeenCalled();
     });
   });
 
@@ -822,7 +851,9 @@ describe('createTransportEventRouter', () => {
       expect(ops.completeAssistantDraft).not.toHaveBeenCalled();
       expect(ops.commitAssistantDraft).not.toHaveBeenCalled();
       expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalledWith('completed');
-      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.recordSessionEvent).not.toHaveBeenCalledWith({
+        type: 'turn.assistantCompleted',
+      });
       expect(ops.logRuntimeDiagnostic).toHaveBeenCalledWith(
         'voice-session',
         'ignored assistant output while turn is unavailable',
@@ -915,7 +946,9 @@ describe('createTransportEventRouter', () => {
 
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
       expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
-      expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'assistant.turn.completed' });
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'turn.assistantCompleted',
+      });
     });
 
     it('marks turn completed and fires user.turn.settled when user is speaking', () => {
@@ -927,7 +960,9 @@ describe('createTransportEventRouter', () => {
 
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
       expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
-      expect(ops.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'user.turn.settled' });
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'turn.user.settled',
+      });
     });
 
     it('marks turn completed without lifecycle event in other states', () => {
@@ -939,7 +974,7 @@ describe('createTransportEventRouter', () => {
 
       expect(ops.finalizeCurrentVoiceTurns).toHaveBeenCalledWith('completed');
       expect(ops.attachCurrentAssistantTurn).toHaveBeenCalledWith(null);
-      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.recordSessionEvent).not.toHaveBeenCalled();
     });
 
     it('does not treat a post-interruption turn-complete as a normal assistant completion transition', () => {
@@ -950,7 +985,9 @@ describe('createTransportEventRouter', () => {
       handleTransportEvent({ type: 'turn-complete' });
 
       expect(ops.finalizeCurrentVoiceTurns).not.toHaveBeenCalledWith('completed');
-      expect(ops.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+      expect(ops.recordSessionEvent).not.toHaveBeenCalledWith({
+        type: 'turn.assistantCompleted',
+      });
     });
   });
 

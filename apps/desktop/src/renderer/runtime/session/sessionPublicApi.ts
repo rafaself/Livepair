@@ -3,6 +3,8 @@ import {
 } from '../speech/speechSessionLifecycle';
 import { asErrorDetail } from '../core/runtimeUtils';
 import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
+import { createSessionCommandDispatcher } from './sessionCommandDispatcher';
+import type { SessionCommandSink } from './sessionCommandDispatcher';
 import type {
   DesktopSessionController,
   DebugAssistantState,
@@ -67,6 +69,7 @@ type SessionControllerPublicApiArgs = {
     message: string,
     detail: Record<string, unknown>,
   ) => void;
+  onCommand: SessionCommandSink;
 };
 
 export function createSessionControllerPublicApi({
@@ -80,19 +83,138 @@ export function createSessionControllerPublicApi({
   voiceTranscriptCtrl,
   runtime,
   logRuntimeError,
+  onCommand,
 }: SessionControllerPublicApiArgs): DesktopSessionController {
   let textSubmitSequence = 0;
 
+  // ── Extracted command handlers ──
+
+  const handleStopVoiceCapture = async (): Promise<void> => {
+    const sessionStore = store.getState();
+
+    if (
+      sessionStore.voiceCaptureState === 'inactive' ||
+      sessionStore.voiceCaptureState === 'muted'
+    ) {
+      return;
+    }
+
+    sessionStore.setVoiceCaptureState('stopping');
+
+    try {
+      await voiceChunkCtrl.flush();
+      await voiceChunkCtrl.getVoiceCapture().stop();
+    } finally {
+      store.getState().setVoiceCaptureState(
+        runtime.getActiveTransport() ? 'muted' : 'inactive',
+      );
+    }
+  };
+
+  const handleStartScreenCapture = async (): Promise<void> => {
+    const didRefresh = await refreshScreenCaptureSourceSnapshot();
+
+    if (!didRefresh) {
+      return;
+    }
+
+    store.getState().setScreenShareIntended(true);
+    await screenCtrl.start();
+  };
+
+  const handleStopScreenCapture = async (): Promise<void> => {
+    store.getState().setScreenShareIntended(false);
+    await screenCtrl.stop();
+  };
+
+  const handleSubmitTextTurn = async (text: string): Promise<boolean> => {
+    const trimmedText = text.trim();
+
+    if (!trimmedText) {
+      return false;
+    }
+
+    if (isSpeechLifecycleActive(runtime.currentSpeechLifecycleStatus())) {
+      const activeTransport = runtime.getActiveTransport();
+
+      if (!activeTransport || activeTransport.kind !== LIVE_ADAPTER_KEY) {
+        logRuntimeError('voice-session', 'submit aborted because voice transport is unavailable', {
+          textLength: trimmedText.length,
+        });
+        return false;
+      }
+
+      try {
+        const outboundGateway = runtime.getRealtimeOutboundGateway();
+        textSubmitSequence += 1;
+        const decision = outboundGateway.submit({
+          kind: 'text',
+          channelKey: TEXT_SPEECH_MODE_CHANNEL_KEY,
+          sequence: textSubmitSequence,
+          createdAtMs: Date.now(),
+          estimatedBytes: trimmedText.length,
+        });
+
+        if (decision.outcome !== 'send') {
+          logRuntimeError('voice-session', 'submit blocked by outbound guardrails', {
+            textLength: trimmedText.length,
+            outcome: decision.outcome,
+            reason: decision.reason,
+          });
+          return false;
+        }
+
+        appendTypedUserTurn(trimmedText);
+        voiceTranscriptCtrl.queueMixedModeAssistantReply();
+        store.getState().setLastRuntimeError(null);
+        await activeTransport.sendText(trimmedText);
+        outboundGateway.recordSuccess();
+        runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());
+        return true;
+      } catch (error) {
+        voiceTranscriptCtrl.clearQueuedMixedModeAssistantReply();
+        const detail = asErrorDetail(error, 'Failed to send speech-mode text turn');
+        store.getState().setLastRuntimeError(detail);
+        runtime.getRealtimeOutboundGateway().recordFailure(detail);
+        runtime.setVoiceErrorState(detail);
+        return false;
+      }
+    }
+
+    return false;
+  };
+
+  // ── Command dispatcher ──
+
+  const dispatcher = createSessionCommandDispatcher({
+    onCommand,
+    handlers: {
+      startSession: (options) => startSessionInternal(options),
+      endSession: () => runtime.endSessionInternal({ recordEvents: true }),
+      endSpeechMode: () => runtime.endSpeechModeInternal({ recordEvents: true }),
+      checkBackendHealth: async () => {
+        await performBackendHealthCheck();
+      },
+      startVoiceCapture: async () => {
+        await voiceChunkCtrl.startCapture();
+      },
+      stopVoiceCapture: handleStopVoiceCapture,
+      startScreenCapture: handleStartScreenCapture,
+      stopScreenCapture: handleStopScreenCapture,
+      analyzeScreenNow: () => screenCtrl.analyzeScreenNow(),
+      submitTextTurn: handleSubmitTextTurn,
+    },
+  });
+
+  // ── Public controller interface ──
+  // All session commands route through the dispatcher.
+  // setAssistantState and subscribeToVoiceChunks are not session commands
+  // and remain as direct implementations.
+
   return {
-    checkBackendHealth: async () => {
-      await performBackendHealthCheck();
-    },
-    endSpeechMode: async () => {
-      await runtime.endSpeechModeInternal({ recordEvents: true });
-    },
-    endSession: async () => {
-      await runtime.endSessionInternal({ recordEvents: true });
-    },
+    checkBackendHealth: dispatcher.checkBackendHealth,
+    endSpeechMode: dispatcher.endSpeechMode,
+    endSession: dispatcher.endSession,
     setAssistantState: (assistantState: DebugAssistantState) => {
       store.getState().setAssistantState(assistantState);
       runtime.recordSessionEvent({
@@ -100,108 +222,13 @@ export function createSessionControllerPublicApi({
         detail: assistantState,
       });
     },
-    startScreenCapture: async () => {
-      const didRefresh = await refreshScreenCaptureSourceSnapshot();
-
-      if (!didRefresh) {
-        return;
-      }
-
-      store.getState().setScreenShareIntended(true);
-      await screenCtrl.start();
-    },
-    analyzeScreenNow: () => {
-      screenCtrl.analyzeScreenNow();
-    },
-    startSession: async ({ mode }) => {
-      // Speech-mode start owns the default connect + mic-on contract.
-      await startSessionInternal({ mode });
-    },
-    startVoiceCapture: async () => {
-      // Explicit capture start is reserved for in-session unmute/resume behavior.
-      await voiceChunkCtrl.startCapture();
-    },
-    stopScreenCapture: () => {
-      store.getState().setScreenShareIntended(false);
-      return screenCtrl.stop();
-    },
-    stopVoiceCapture: async () => {
-      const sessionStore = store.getState();
-
-      if (
-        sessionStore.voiceCaptureState === 'inactive' ||
-        sessionStore.voiceCaptureState === 'muted'
-      ) {
-        return;
-      }
-
-      sessionStore.setVoiceCaptureState('stopping');
-
-      try {
-        await voiceChunkCtrl.flush();
-        await voiceChunkCtrl.getVoiceCapture().stop();
-      } finally {
-        store.getState().setVoiceCaptureState(
-          runtime.getActiveTransport() ? 'muted' : 'inactive',
-        );
-      }
-    },
-    submitTextTurn: async (text: string) => {
-      const trimmedText = text.trim();
-
-      if (!trimmedText) {
-        return false;
-      }
-
-      if (isSpeechLifecycleActive(runtime.currentSpeechLifecycleStatus())) {
-        const activeTransport = runtime.getActiveTransport();
-
-        if (!activeTransport || activeTransport.kind !== LIVE_ADAPTER_KEY) {
-          logRuntimeError('voice-session', 'submit aborted because voice transport is unavailable', {
-            textLength: trimmedText.length,
-          });
-          return false;
-        }
-
-        try {
-          const outboundGateway = runtime.getRealtimeOutboundGateway();
-          textSubmitSequence += 1;
-          const decision = outboundGateway.submit({
-            kind: 'text',
-            channelKey: TEXT_SPEECH_MODE_CHANNEL_KEY,
-            sequence: textSubmitSequence,
-            createdAtMs: Date.now(),
-            estimatedBytes: trimmedText.length,
-          });
-
-          if (decision.outcome !== 'send') {
-            logRuntimeError('voice-session', 'submit blocked by outbound guardrails', {
-              textLength: trimmedText.length,
-              outcome: decision.outcome,
-              reason: decision.reason,
-            });
-            return false;
-          }
-
-          appendTypedUserTurn(trimmedText);
-          voiceTranscriptCtrl.queueMixedModeAssistantReply();
-          store.getState().setLastRuntimeError(null);
-          await activeTransport.sendText(trimmedText);
-          outboundGateway.recordSuccess();
-          runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());
-          return true;
-        } catch (error) {
-          voiceTranscriptCtrl.clearQueuedMixedModeAssistantReply();
-          const detail = asErrorDetail(error, 'Failed to send speech-mode text turn');
-          store.getState().setLastRuntimeError(detail);
-          runtime.getRealtimeOutboundGateway().recordFailure(detail);
-          runtime.setVoiceErrorState(detail);
-          return false;
-        }
-      }
-
-      return false;
-    },
+    startScreenCapture: dispatcher.startScreenCapture,
+    analyzeScreenNow: dispatcher.analyzeScreenNow,
+    startSession: dispatcher.startSession,
+    startVoiceCapture: dispatcher.startVoiceCapture,
+    stopScreenCapture: dispatcher.stopScreenCapture,
+    stopVoiceCapture: dispatcher.stopVoiceCapture,
+    submitTextTurn: dispatcher.submitTextTurn,
     subscribeToVoiceChunks: (listener) => {
       return voiceChunkCtrl.addChunkListener(listener);
     },

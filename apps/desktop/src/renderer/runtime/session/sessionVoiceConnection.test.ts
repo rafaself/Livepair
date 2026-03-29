@@ -13,7 +13,7 @@ function createMockArgs() {
         })),
       } as never,
       isCurrentSessionOperation: vi.fn(() => true),
-      applySpeechLifecycleEvent: vi.fn(),
+      recordSessionEvent: vi.fn(),
       setVoiceResumptionInFlight: vi.fn(),
       resolveSessionVoice: vi.fn().mockResolvedValue('Kore'),
       createTransport: vi.fn(),
@@ -102,7 +102,7 @@ describe('createSessionVoiceConnection', () => {
       mode: 'voice',
       resumeHandle: 'resume-handle',
     });
-    expect(args.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'session.ready' });
+    expect(args.recordSessionEvent).toHaveBeenCalledWith({ type: 'session.ready' });
   });
 
   it('persists a fresh live session only after fallback connect succeeds', async () => {
@@ -131,7 +131,7 @@ describe('createSessionVoiceConnection', () => {
     expect(transport.connect.mock.invocationCallOrder[0]).toBeLessThan(
       args.createPersistedLiveSession.mock.invocationCallOrder[0]!,
     );
-    expect(args.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'session.ready' });
+    expect(args.recordSessionEvent).toHaveBeenCalledWith({ type: 'session.ready' });
   });
 
   it('does not persist a fresh live session when fallback connect fails', async () => {
@@ -154,7 +154,7 @@ describe('createSessionVoiceConnection', () => {
 
     expect(args.resolveSessionVoice).toHaveBeenCalledTimes(1);
     expect(args.createPersistedLiveSession).not.toHaveBeenCalled();
-    expect(args.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+    expect(args.recordSessionEvent).not.toHaveBeenCalled();
   });
 
   it('disconnects the fallback transport when persisting the fresh live session fails', async () => {
@@ -178,7 +178,7 @@ describe('createSessionVoiceConnection', () => {
 
     expect(args.createPersistedLiveSession).toHaveBeenCalledWith('Kore');
     expect(transport.disconnect).toHaveBeenCalledTimes(1);
-    expect(args.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+    expect(args.recordSessionEvent).not.toHaveBeenCalled();
   });
 
   it('disconnects the fallback transport when a newer operation supersedes the connect', async () => {
@@ -206,6 +206,6 @@ describe('createSessionVoiceConnection', () => {
 
     expect(args.createPersistedLiveSession).not.toHaveBeenCalled();
     expect(transport.disconnect).toHaveBeenCalledTimes(1);
-    expect(args.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+    expect(args.recordSessionEvent).not.toHaveBeenCalled();
   });
 });

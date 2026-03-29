@@ -32,7 +32,7 @@ type ConnectFallbackVoiceSessionArgs = {
   createPersistedLiveSession: (voice: AssistantVoice) => Promise<void>;
   activateVoiceTransport: (transport: DesktopSession) => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
-  applySpeechLifecycleEvent: (event: { type: 'session.ready' }) => void;
+  recordSessionEvent: (event: { type: 'session.ready' }) => void;
 };
 
 export async function connectFallbackVoiceSession({
@@ -48,7 +48,7 @@ export async function connectFallbackVoiceSession({
   createPersistedLiveSession,
   activateVoiceTransport,
   setVoiceResumptionInFlight,
-  applySpeechLifecycleEvent,
+  recordSessionEvent,
 }: ConnectFallbackVoiceSessionArgs): Promise<VoiceFallbackAttemptResult> {
   logRuntimeDiagnostic('voice-session', 'starting explicit fallback session', {
     reason,
@@ -149,7 +149,7 @@ export async function connectFallbackVoiceSession({
       return disconnectConnectedTransport(asErrorDetail(error, 'Failed to create live session'));
     }
 
-    applySpeechLifecycleEvent({ type: 'session.ready' });
+    recordSessionEvent({ type: 'session.ready' });
     return { status: 'connected' };
   } catch (error) {
     if (transportConnected) {

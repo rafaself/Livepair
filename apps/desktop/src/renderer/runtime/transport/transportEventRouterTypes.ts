@@ -5,7 +5,7 @@ import type {
 } from '@livepair/shared-types';
 import type { AssistantAudioPlayback } from '../audio/audio.types';
 import type { SessionStoreApi, SettingsStoreApi } from '../core/sessionControllerTypes';
-import type { RuntimeLogger } from '../core/session.types';
+import type { RuntimeLogger, SessionEvent } from '../core/session.types';
 import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
 import type { SpeechLifecycleStatus } from '../speech/speech.types';
 import type {
@@ -22,6 +22,7 @@ export type TransportEventRouterOps = {
   store: SessionStoreApi;
   settingsStore: SettingsStoreApi;
   logger: RuntimeLogger;
+  recordSessionEvent: (event: SessionEvent) => void;
   logRuntimeDiagnostic: (
     scope: 'voice-session',
     message: string,
