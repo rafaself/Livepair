@@ -11,6 +11,7 @@ coverage/
 apps/desktop/frames/
 apps/desktop/.packaging/
 apps/desktop/release/
+.codex
 
 # Terraform local state
 infra/terraform/**/.terraform/
