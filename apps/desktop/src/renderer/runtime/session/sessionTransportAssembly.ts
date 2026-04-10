@@ -139,7 +139,6 @@ export function createSessionTransportAssembly({
     },
     enqueueVoiceToolCalls: (calls) => runtimeRef.current!.enqueueVoiceToolCalls(calls),
     handleVoiceInterruption: () => runtimeRef.current!.handleVoiceInterruption(),
-    applySpeechLifecycleEvent: (event) => runtimeRef.current!.applySpeechLifecycleEvent(event),
     applyVoiceTranscriptUpdate: (role, text, isFinal) =>
       runtimeRef.current!.applyVoiceTranscriptUpdate(role, text, isFinal),
     appendAssistantDraftTextDelta: (text) => {
@@ -236,6 +235,9 @@ export function createSessionTransportAssembly({
           ?.state === 'streaming'
       );
     },
+    shouldIgnoreAssistantOutput: (eventType, options) =>
+      runtimeRef.current!.shouldIgnoreAssistantOutput(eventType, options),
+    deriveTurnCompleteEvent: () => runtimeRef.current!.deriveTurnCompleteEvent(),
     setVoiceErrorState: (detail) => setVoiceErrorState(detail),
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     resumeVoiceSession: (detail) => voiceResumeCtrl.resume(detail),

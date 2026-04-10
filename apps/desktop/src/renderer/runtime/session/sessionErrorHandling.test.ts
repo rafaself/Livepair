@@ -3,6 +3,7 @@ import { createSessionControllerErrorHandling } from './sessionErrorHandling';
 
 function createMockArgs() {
   return {
+    applySessionEvent: vi.fn(),
     clearToken: vi.fn(),
     cleanupTransport: vi.fn(),
     endSessionInternal: vi.fn().mockResolvedValue(undefined),
@@ -15,7 +16,6 @@ function createMockArgs() {
     setVoiceResumptionInFlight: vi.fn(),
     getVoiceSessionResumptionStatus: vi.fn().mockReturnValue('idle'),
     setVoiceSessionResumption: vi.fn(),
-    setVoiceSessionStatus: vi.fn(),
     setVoiceToolState: vi.fn(),
     textRuntimeFailed: vi.fn(),
     failPendingAssistantTurn: vi.fn(),
@@ -60,7 +60,7 @@ describe('createSessionControllerErrorHandling', () => {
 
       expect(args.clearToken).not.toHaveBeenCalled();
       expect(args.setCurrentMode).not.toHaveBeenCalled();
-      expect(args.setVoiceSessionStatus).not.toHaveBeenCalled();
+      expect(args.applySessionEvent).not.toHaveBeenCalled();
       expect(args.setVoiceToolState).not.toHaveBeenCalled();
       expect(args.resetVoiceTurnTranscriptState).not.toHaveBeenCalled();
     });
@@ -121,7 +121,10 @@ describe('createSessionControllerErrorHandling', () => {
 
       setVoiceErrorState('transport failed');
 
-      expect(args.setVoiceSessionStatus).toHaveBeenCalledWith('error');
+      expect(args.applySessionEvent).toHaveBeenCalledWith({
+        type: 'session.error',
+        detail: 'transport failed',
+      });
       expect(args.setLastRuntimeError).toHaveBeenCalledWith('transport failed');
       expect(args.setCurrentMode).toHaveBeenCalledWith('inactive');
       expect(args.setVoiceToolState).toHaveBeenCalledWith({

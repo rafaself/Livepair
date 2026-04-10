@@ -36,7 +36,6 @@ function handleConnectionStateChanged(
   if (event.state === 'connecting') {
     const resuming = ops.isVoiceResumptionInFlight();
     ops.recordSessionEvent({ type: 'transport.connecting', resuming });
-    ops.setVoiceSessionStatus(resuming ? 'recovering' : 'connecting');
     if (!resuming) {
       ops.updateVoiceLiveSignalDiagnostics(createDefaultVoiceLiveSignalDiagnostics());
     }
@@ -46,7 +45,6 @@ function handleConnectionStateChanged(
   if (event.state === 'connected') {
     const wasResumption = ops.isVoiceResumptionInFlight();
     ops.recordSessionEvent({ type: 'transport.connected', resumed: wasResumption });
-    ops.setVoiceSessionStatus('active');
     ops.resetVoiceToolState();
     store.setAssistantActivity('idle');
     store.setActiveTransport(LIVE_ADAPTER_KEY);
@@ -96,12 +94,10 @@ function handleConnectionStateChanged(
   }
 
   if (ops.isVoiceResumptionInFlight()) {
-    ops.setVoiceSessionStatus('recovering');
     return;
   }
 
   ops.recordSessionEvent({ type: 'transport.disconnected' });
-  ops.setVoiceSessionStatus('disconnected');
   ops.cancelVoiceToolCalls('voice transport disconnected');
   ops.resetVoiceTurnTranscriptState();
   ops.resetVoiceToolState();

@@ -1,4 +1,5 @@
 type SessionControllerErrorHandlingArgs = {
+  applySessionEvent: (event: { type: 'session.error'; detail: string }) => void;
   clearToken: () => void;
   cleanupTransport: () => void;
   endSessionInternal: (options: {
@@ -26,13 +27,13 @@ type SessionControllerErrorHandlingArgs = {
     resumable: false;
     lastDetail: string;
   }) => void;
-  setVoiceSessionStatus: (status: 'error') => void;
   setVoiceToolState: (patch: { status: 'toolError'; lastError: string }) => void;
   textRuntimeFailed: () => void;
   failPendingAssistantTurn: (statusLabel: string) => void;
 };
 
 export function createSessionControllerErrorHandling({
+  applySessionEvent,
   clearToken,
   cleanupTransport,
   endSessionInternal,
@@ -45,7 +46,6 @@ export function createSessionControllerErrorHandling({
   setVoiceResumptionInFlight,
   getVoiceSessionResumptionStatus,
   setVoiceSessionResumption,
-  setVoiceSessionStatus,
   setVoiceToolState,
   textRuntimeFailed,
   failPendingAssistantTurn,
@@ -77,7 +77,7 @@ export function createSessionControllerErrorHandling({
       });
     }
 
-    setVoiceSessionStatus('error');
+    applySessionEvent({ type: 'session.error', detail });
     setLastRuntimeError(detail);
     setCurrentMode('inactive');
     setVoiceToolState({

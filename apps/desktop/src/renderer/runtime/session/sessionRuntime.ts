@@ -2,6 +2,7 @@ import { createDebugEvent } from '../core/runtimeUtils';
 import type { AssistantAudioPlayback } from '../audio/audio.types';
 import type { RealtimeOutboundGateway } from '../outbound/outbound.types';
 import type {
+  SessionCommand,
   ProductMode,
   SessionEvent,
 } from '../core/session.types';
@@ -24,7 +25,7 @@ import type {
   SpeechSessionLifecycleEvent,
 } from '../speech/speechSessionLifecycle';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
-import { mapSessionEventToSpeechLifecycleEvent } from './sessionEventMapping';
+import { createLiveSessionEngine } from './liveSessionEngine';
 
 type SessionControllerRuntimeArgs = {
   logger: {
@@ -47,6 +48,7 @@ type SessionControllerRuntimeArgs = {
     setVoiceResumptionInFlight: (value: boolean) => void;
   };
   stateSync: {
+    applyEngineEventTransition: (transition: import('./liveSessionEngine').LiveSessionEngineEventTransition) => SpeechLifecycleStatus;
     applySpeechLifecycleEvent: (
       event: SpeechSessionLifecycleEvent,
     ) => SpeechLifecycleStatus;
@@ -136,11 +138,22 @@ export function createSessionControllerRuntime({
   voiceTranscript,
   silenceCtrl,
 }: SessionControllerRuntimeArgs) {
-  const recordSessionEvent = (event: SessionEvent): void => {
-    const speechLifecycleEvent = mapSessionEventToSpeechLifecycleEvent(event);
+  const engine = createLiveSessionEngine({
+    speechLifecycle: store.getState().speechLifecycle,
+    voiceSessionStatus: store.getState().voiceSessionStatus,
+  });
 
-    if (speechLifecycleEvent) {
-      stateSync.applySpeechLifecycleEvent(speechLifecycleEvent);
+  const applySessionEvent = (
+    event: SessionEvent,
+    options: { record?: boolean } = {},
+  ): void => {
+    const { record = false } = options;
+    const transition = engine.applyEvent(event);
+
+    stateSync.applyEngineEventTransition(transition);
+
+    if (!record) {
+      return;
     }
 
     logger.onSessionEvent(event);
@@ -153,6 +166,10 @@ export function createSessionControllerRuntime({
           'detail' in event ? event.detail : undefined,
         ),
       );
+  };
+
+  const recordSessionEvent = (event: SessionEvent): void => {
+    applySessionEvent(event, { record: true });
   };
 
   const cleanupTransport = (): void => {
@@ -170,15 +187,17 @@ export function createSessionControllerRuntime({
   };
 
   return {
+    applySessionEvent,
     applySpeechLifecycleEvent: stateSync.applySpeechLifecycleEvent,
     applyVoiceTranscriptUpdate: stateSync.applyVoiceTranscriptUpdate,
     beginSessionOperation: mutableRuntime.beginSessionOperation,
     cleanupTransport,
     clearCurrentVoiceTranscript: stateSync.clearCurrentVoiceTranscript,
     currentProductMode: stateSync.currentProductMode,
-    currentSpeechLifecycleStatus: stateSync.currentSpeechLifecycleStatus,
+    currentSpeechLifecycleStatus: () => engine.getState().speechLifecycle.status,
     currentTextSessionStatus,
-    currentVoiceSessionStatus: stateSync.currentVoiceSessionStatus,
+    currentVoiceSessionStatus: () => engine.getState().voiceSessionStatus,
+    deriveTurnCompleteEvent: () => engine.deriveTurnCompleteEvent(),
     enqueueVoiceToolCalls: (calls: VoiceToolCall[]): void => {
       voiceToolCtrl.enqueue(calls);
     },
@@ -186,6 +205,7 @@ export function createSessionControllerRuntime({
     getRealtimeOutboundGateway: mutableRuntime.getRealtimeOutboundGateway,
     getVoicePlayback: stateSync.getVoicePlayback,
     getVoiceResumptionInFlight: mutableRuntime.getVoiceResumptionInFlight,
+    handleSessionCommand: (command: SessionCommand) => engine.handleCommand(command),
     handleVoiceInterruption: (): void => {
       interruptionCtrl.handle();
     },
@@ -210,6 +230,13 @@ export function createSessionControllerRuntime({
     setVoiceSessionResumption: stateSync.setVoiceSessionResumption,
     setVoiceSessionStatus: stateSync.setVoiceSessionStatus,
     setVoiceToolState: stateSync.setVoiceToolState,
+    shouldIgnoreAssistantOutput: (
+      eventType: 'text-delta' | 'output-transcript' | 'audio-chunk' | 'turn-complete',
+      options: {
+        hasQueuedMixedModeAssistantReply: boolean;
+        hasStreamingAssistantVoiceTurn: boolean;
+      },
+    ) => engine.shouldIgnoreAssistantOutput(eventType, options),
     stopScreenCaptureInternal: screenCtrl.stopInternal,
     stopVoicePlayback: (nextState: VoicePlaybackState = 'stopped'): Promise<void> =>
       playbackCtrl.stop(nextState),

@@ -47,5 +47,7 @@ export type SessionEvent =
   | { type: 'transcript.assistant.updated'; text: string; isFinal: boolean }
   | { type: 'turn.assistantCompleted' }
   | { type: 'turn.interrupted' }
+  | { type: 'turn.recovery.started' }
+  | { type: 'turn.recovery.completed' }
   // ── Debug ──
   | { type: 'session.debug.state.set'; detail: string };

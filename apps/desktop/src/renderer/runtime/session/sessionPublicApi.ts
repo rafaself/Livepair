@@ -1,6 +1,3 @@
-import {
-  isSpeechLifecycleActive,
-} from '../speech/speechSessionLifecycle';
 import { asErrorDetail } from '../core/runtimeUtils';
 import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import { createSessionCommandDispatcher } from './sessionCommandDispatcher';
@@ -45,6 +42,10 @@ type SessionControllerPublicApiArgs = {
   };
   runtime: {
     currentSpeechLifecycleStatus: () => SpeechLifecycleStatus;
+    handleSessionCommand: (command: import('../core/session.types').SessionCommand) => {
+      accepted: boolean;
+      reason?: 'session-already-active' | 'speech-inactive';
+    };
     endSessionInternal: (options?: {
       preserveLastRuntimeError?: string | null;
       recordEvents?: boolean;
@@ -134,7 +135,9 @@ export function createSessionControllerPublicApi({
       return false;
     }
 
-    if (isSpeechLifecycleActive(runtime.currentSpeechLifecycleStatus())) {
+    if (
+      runtime.handleSessionCommand({ type: 'textTurn.submit', text: trimmedText }).accepted
+    ) {
       const activeTransport = runtime.getActiveTransport();
 
       if (!activeTransport || activeTransport.kind !== LIVE_ADAPTER_KEY) {

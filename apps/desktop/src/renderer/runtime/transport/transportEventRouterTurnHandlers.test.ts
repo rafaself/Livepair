@@ -38,7 +38,6 @@ function createMockContext() {
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
     recordSessionEvent: vi.fn(),
-    applySpeechLifecycleEvent: vi.fn(),
     applyVoiceTranscriptUpdate: vi.fn(),
     appendAssistantDraftTextDelta: vi.fn(),
     completeAssistantDraft: vi.fn(),
@@ -49,6 +48,37 @@ function createMockContext() {
     hasPendingVoiceToolCall: vi.fn().mockReturnValue(false),
     hasQueuedMixedModeAssistantReply: vi.fn().mockReturnValue(false),
     hasStreamingAssistantVoiceTurn: vi.fn().mockReturnValue(false),
+    shouldIgnoreAssistantOutput: vi.fn((eventType: string, options: Record<string, boolean>) => {
+      const voiceStatus = ops.currentVoiceSessionStatus();
+      const unavailable =
+        voiceStatus === 'interrupted' || voiceStatus === 'recovering' || voiceStatus === 'stopping';
+
+      if (!unavailable) {
+        return { ignore: false };
+      }
+
+      const canContinueUnavailableTurn =
+        eventType === 'turn-complete'
+          ? options['hasStreamingAssistantVoiceTurn']
+          : options['hasQueuedMixedModeAssistantReply'] || options['hasStreamingAssistantVoiceTurn'];
+
+      return canContinueUnavailableTurn
+        ? { ignore: false }
+        : { ignore: true, reason: 'turn-unavailable' as const };
+    }),
+    deriveTurnCompleteEvent: vi.fn(() => {
+      const speechLifecycleStatus = ops.currentSpeechLifecycleStatus();
+
+      if (speechLifecycleStatus === 'assistantSpeaking') {
+        return { type: 'turn.assistantCompleted' as const };
+      }
+
+      if (speechLifecycleStatus === 'userSpeaking') {
+        return { type: 'turn.user.settled' as const };
+      }
+
+      return null;
+    }),
     updateVoiceLiveSignalDiagnostics: vi.fn((patch: Record<string, unknown>) => {
       store.voiceLiveSignalDiagnostics = {
         ...store.voiceLiveSignalDiagnostics,

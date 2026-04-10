@@ -31,6 +31,7 @@ import type {
 import type {
   CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
+import type { LiveSessionEngineEventTransition } from './liveSessionEngine';
 
 type SessionControllerStateSyncArgs = {
   store: SessionStoreApi;
@@ -111,6 +112,39 @@ export function createSessionControllerStateSync({
     return nextLifecycle.status;
   };
 
+  const applyEngineEventTransition = (
+    transition: LiveSessionEngineEventTransition,
+  ): SpeechLifecycleStatus => {
+    const sessionStore = store.getState();
+    const previousStatus = sessionStore.speechLifecycle.status;
+    const nextLifecycle = transition.nextState.speechLifecycle;
+    const speechLifecycleEvent = transition.speechLifecycleEvent;
+
+    if (speechLifecycleEvent) {
+      const nextLatency = reduceVoiceSessionLatency(
+        sessionStore.voiceSessionLatency ?? createDefaultVoiceSessionLatencyState(),
+        speechLifecycleEvent,
+        getNowMs(),
+      );
+
+      if (nextLatency !== sessionStore.voiceSessionLatency) {
+        sessionStore.setVoiceSessionLatency(nextLatency);
+      }
+    }
+
+    if (nextLifecycle.status !== previousStatus) {
+      sessionStore.setSpeechLifecycle(nextLifecycle);
+      onSpeechLifecycleTransition(previousStatus, nextLifecycle.status, transition.event.type);
+      handleSpeechLifecycleStatusChange(nextLifecycle.status);
+    }
+
+    if (transition.nextState.voiceSessionStatus !== sessionStore.voiceSessionStatus) {
+      sessionStore.setVoiceSessionStatus(transition.nextState.voiceSessionStatus);
+    }
+
+    return nextLifecycle.status;
+  };
+
   const currentVoiceSessionStatus = (): VoiceSessionStatus => {
     return store.getState().voiceSessionStatus;
   };
@@ -171,6 +205,7 @@ export function createSessionControllerStateSync({
   };
 
   return {
+    applyEngineEventTransition,
     applySpeechLifecycleEvent,
     applyVoiceTranscriptUpdate,
     clearCurrentVoiceTranscript,

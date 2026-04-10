@@ -17,28 +17,25 @@ function createHarness(options: { captureState?: VoiceCaptureState } = {}) {
 
   const transport = { fake: true } as unknown as DesktopSession;
   let currentTransport: DesktopSession | null = transport;
-  let currentStatus: VoiceSessionStatus = 'active';
+  let currentStatus: VoiceSessionStatus = 'interrupted';
 
-  const setVoiceSessionStatus = vi.fn((s: VoiceSessionStatus) => {
-    currentStatus = s;
+  const applySessionEvent = vi.fn((event: { type: 'turn.recovery.started' | 'turn.recovery.completed' }) => {
+    currentStatus = event.type === 'turn.recovery.started' ? 'recovering' : 'active';
   });
-  const applySpeechLifecycleEvent = vi.fn();
   const stopPlayback = vi.fn(() => Promise.resolve());
 
   const ctrl = createVoiceInterruptionController(
     store,
     () => currentTransport,
     () => currentStatus,
-    setVoiceSessionStatus,
-    applySpeechLifecycleEvent,
+    applySessionEvent,
     stopPlayback,
   );
 
   return {
     ctrl,
     setAssistantActivity,
-    setVoiceSessionStatus,
-    applySpeechLifecycleEvent,
+    applySessionEvent,
     stopPlayback,
     setTransport: (t: DesktopSession | null) => { currentTransport = t; },
     setStatus: (s: VoiceSessionStatus) => { currentStatus = s; },
@@ -47,18 +44,6 @@ function createHarness(options: { captureState?: VoiceCaptureState } = {}) {
 }
 
 describe('createVoiceInterruptionController', () => {
-  it('sets status to interrupted and emits lifecycle event', async () => {
-    const h = createHarness();
-
-    h.ctrl.handle();
-    await vi.waitFor(() => {
-      expect(h.setVoiceSessionStatus).toHaveBeenCalledWith('interrupted');
-    });
-    expect(h.applySpeechLifecycleEvent).toHaveBeenCalledWith({
-      type: 'interruption.detected',
-    });
-  });
-
   it('sets assistant activity to idle', async () => {
     const h = createHarness();
 
@@ -94,9 +79,8 @@ describe('createVoiceInterruptionController', () => {
 
     h.ctrl.handle();
     await vi.waitFor(() => {
-      expect(h.setVoiceSessionStatus).toHaveBeenCalledWith('recovering');
-      expect(h.applySpeechLifecycleEvent).toHaveBeenCalledWith({
-        type: 'recovery.started',
+      expect(h.applySessionEvent).toHaveBeenCalledWith({
+        type: 'turn.recovery.started',
       });
     });
   });
@@ -106,9 +90,8 @@ describe('createVoiceInterruptionController', () => {
 
     h.ctrl.handle();
     await vi.waitFor(() => {
-      expect(h.setVoiceSessionStatus).toHaveBeenCalledWith('active');
-      expect(h.applySpeechLifecycleEvent).toHaveBeenCalledWith({
-        type: 'recovery.completed',
+      expect(h.applySessionEvent).toHaveBeenCalledWith({
+        type: 'turn.recovery.completed',
       });
     });
   });
@@ -123,8 +106,8 @@ describe('createVoiceInterruptionController', () => {
     });
 
     // Should NOT transition to active/recovering since transport is null
-    const activeCalls = h.setVoiceSessionStatus.mock.calls.filter(
-      ([s]) => s === 'active' || s === 'recovering',
+    const activeCalls = h.applySessionEvent.mock.calls.filter(
+      ([event]) => event.type === 'turn.recovery.completed' || event.type === 'turn.recovery.started',
     );
     expect(activeCalls).toHaveLength(0);
   });
@@ -140,8 +123,8 @@ describe('createVoiceInterruptionController', () => {
       expect(h.stopPlayback).toHaveBeenCalled();
     });
 
-    const activeCalls = h.setVoiceSessionStatus.mock.calls.filter(
-      ([s]) => s === 'active' || s === 'recovering',
+    const activeCalls = h.applySessionEvent.mock.calls.filter(
+      ([event]) => event.type === 'turn.recovery.completed' || event.type === 'turn.recovery.started',
     );
     expect(activeCalls).toHaveLength(0);
   });
@@ -159,8 +142,8 @@ describe('createVoiceInterruptionController', () => {
     await promise;
 
     // Should NOT transition after reset
-    const postInterruptCalls = h.setVoiceSessionStatus.mock.calls.filter(
-      ([s]) => s === 'active' || s === 'recovering',
+    const postInterruptCalls = h.applySessionEvent.mock.calls.filter(
+      ([event]) => event.type === 'turn.recovery.completed' || event.type === 'turn.recovery.started',
     );
     expect(postInterruptCalls).toHaveLength(0);
   });
@@ -173,7 +156,9 @@ describe('createVoiceInterruptionController', () => {
 
     await vi.waitFor(() => {
       // Should still transition despite playback error
-      expect(h.setVoiceSessionStatus).toHaveBeenCalledWith('active');
+      expect(h.applySessionEvent).toHaveBeenCalledWith({
+        type: 'turn.recovery.completed',
+      });
     });
   });
 });

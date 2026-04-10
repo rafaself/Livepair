@@ -281,3 +281,29 @@ This document records the current desktop Live runtime boundary as implemented t
   `sessionPhase`, `transportState`, and provider-shaped capability/token fields still live in the store and remain outside the new snapshot boundary.
   `sessionController.ts` and `session/*` still own store mutation and lifecycle orchestration directly; SR-03 did not extract a session engine or supervisor boundary.
   Overlay masking, selected devices, and screen-share intent are still split across runtime/store/settings layers and remain follow-up work for SR-04+.
+
+# SR-05 Update
+
+- Dedicated Live session engine introduced
+  `apps/desktop/src/renderer/runtime/session/liveSessionEngine.ts` now owns the Live runtime's internal logical session model for `speechLifecycle` and `voiceSessionStatus`.
+  The engine consumes `SessionCommand` and `SessionEvent`, applies explicit state transitions, and centralizes assistant-output gating plus turn-complete lifecycle decisions.
+- Runtime flows now delegating logical session behavior
+  `apps/desktop/src/renderer/runtime/session/sessionRuntime.ts` now hosts the engine instance and syncs engine-owned transitions back into `useSessionStore`.
+  `apps/desktop/src/renderer/runtime/session/sessionLifecycle.ts` now asks the engine whether `session.start` is logically admissible before continuing the operational startup path.
+  `apps/desktop/src/renderer/runtime/transport/transportEventRouterTurnHandlers.ts` now delegates assistant-output ignore rules and turn-complete lifecycle selection to the engine instead of recomputing them locally.
+  `apps/desktop/src/renderer/runtime/voice/session/voiceInterruptionController.ts` now emits engine-owned recovery events instead of mutating speech lifecycle and voice-session status directly.
+  `apps/desktop/src/renderer/runtime/session/sessionTeardown.ts` and `apps/desktop/src/renderer/runtime/session/sessionErrorHandling.ts` now route logical end/error transitions through the engine path instead of applying those transitions ad hoc.
+- What the engine owns in this release
+  Logical speech lifecycle transitions.
+  Logical voice session status transitions.
+  Session command admissibility checks that are independent from transport plumbing.
+  Assistant-output interruption gating and turn-complete lifecycle selection.
+- What still remains outside the engine
+  Transport subscription and connection mechanics.
+  Token fetching, persisted session restore/fallback wiring, and chat/live-session persistence.
+  Assistant draft mutation, transcript artifact mutation, playback queueing, and tool execution side effects.
+  Renderer store ownership, `currentMode`, and teardown/startup sequencing orchestration.
+- Intentionally deferred to the next release
+  A full runtime supervisor split.
+  Moving conversation/transcript mutation behind engine-issued side effects.
+  Unifying `currentMode`, teardown ordering, and remaining session/store orchestration behind the engine boundary.

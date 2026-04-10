@@ -6,6 +6,7 @@ function createHarness() {
     onSessionEvent: vi.fn(),
   };
   const stateSync = {
+    applyEngineEventTransition: vi.fn(),
     applySpeechLifecycleEvent: vi.fn(),
     applyVoiceTranscriptUpdate: vi.fn(),
     clearCurrentVoiceTranscript: vi.fn(),
@@ -28,6 +29,8 @@ function createHarness() {
     updateVoicePlaybackDiagnostics: vi.fn(),
   };
   const storeState = {
+    speechLifecycle: { status: 'off' },
+    voiceSessionStatus: 'disconnected',
     setLastDebugEvent: vi.fn(),
   };
 
@@ -91,9 +94,15 @@ describe('createSessionControllerRuntime', () => {
 
     runtime.recordSessionEvent({ type: 'turn.assistant.output.started' });
 
-    expect(stateSync.applySpeechLifecycleEvent).toHaveBeenCalledWith({
-      type: 'assistant.output.started',
-    });
+    expect(stateSync.applyEngineEventTransition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: { type: 'turn.assistant.output.started' },
+        speechLifecycleEvent: { type: 'assistant.output.started' },
+        nextState: expect.objectContaining({
+          speechLifecycle: { status: 'off' },
+        }),
+      }),
+    );
     expect(logger.onSessionEvent).toHaveBeenCalledWith({
       type: 'turn.assistant.output.started',
     });
@@ -108,6 +117,10 @@ describe('createSessionControllerRuntime', () => {
       isFinal: false,
     });
 
-    expect(stateSync.applySpeechLifecycleEvent).not.toHaveBeenCalled();
+    expect(stateSync.applyEngineEventTransition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        speechLifecycleEvent: null,
+      }),
+    );
   });
 });

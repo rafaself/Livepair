@@ -19,7 +19,6 @@ import type {
 } from '../core/sessionControllerTypes';
 import type { ProductMode } from '../core/session.types';
 import type { SessionCommand } from '../core/session.types';
-import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
 import type { TextSessionStatus } from '../text/text.types';
 import type { DesktopSession } from '../transport/transport.types';
 import type {
@@ -114,8 +113,8 @@ export function createSessionLifecycleAssembly({
     store: dependencies.store,
     currentSpeechLifecycleStatus: () => runtimeRef.current!.currentSpeechLifecycleStatus(),
     currentTextSessionStatus: () => runtimeRef.current!.currentTextSessionStatus(),
-    applySpeechLifecycleEvent: (event) => {
-      runtimeRef.current!.applySpeechLifecycleEvent(event as SpeechSessionLifecycleEvent);
+    applySessionEvent: (event) => {
+      runtimeRef.current!.applySessionEvent(event);
     },
     clearToken: () => {
       tokenMgr.clear();
@@ -148,9 +147,6 @@ export function createSessionLifecycleAssembly({
     },
     setVoiceSessionResumption: (value) => {
       dependencies.store.getState().setVoiceSessionResumption(value);
-    },
-    setVoiceSessionStatus: (status) => {
-      dependencies.store.getState().setVoiceSessionStatus(status);
     },
     setVoiceToolStateSnapshot: (value) => {
       dependencies.store.getState().setVoiceToolState(value);
@@ -200,9 +196,9 @@ export function createSessionLifecycleAssembly({
   const lifecycle = createSessionControllerLifecycle({
     store: dependencies.store,
     beginSessionOperation: () => runtimeRef.current!.beginSessionOperation(),
+    handleSessionCommand: (command) => runtimeRef.current!.handleSessionCommand(command),
     isCurrentSessionOperation: (operationId) => runtimeRef.current!.isCurrentSessionOperation(operationId),
     ensureExclusiveMode: (targetMode, operationId) => ensureExclusiveMode(targetMode, operationId),
-    currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
     recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
     setVoiceCaptureState: (state) => {
       dependencies.store.getState().setVoiceCaptureState(state);
@@ -221,9 +217,6 @@ export function createSessionLifecycleAssembly({
       dependencies.store.getState().setActiveVoiceSessionGroundingEnabled(enabled);
     },
     selectedOutputDeviceId,
-    setVoiceSessionStatus: (status) => {
-      runtimeRef.current!.setVoiceSessionStatus(status);
-    },
     resetVoiceSessionResumption: () => runtimeRef.current!.resetVoiceSessionResumption(),
     resetVoiceSessionDurability: () => runtimeRef.current!.resetVoiceSessionDurability(),
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
@@ -313,6 +306,9 @@ export function createSessionLifecycleAssembly({
   });
 
   const voiceErrorHandlers = createSessionControllerErrorHandling({
+    applySessionEvent: (event) => {
+      runtimeRef.current!.applySessionEvent(event);
+    },
     clearToken: () => {
       tokenMgr.clear();
     },
@@ -339,9 +335,6 @@ export function createSessionLifecycleAssembly({
       dependencies.store.getState().voiceSessionResumption.status,
     setVoiceSessionResumption: (patch) => {
       runtimeRef.current!.setVoiceSessionResumption(patch);
-    },
-    setVoiceSessionStatus: (status) => {
-      dependencies.store.getState().setVoiceSessionStatus(status);
     },
     setVoiceToolState: (patch) => {
       runtimeRef.current!.setVoiceToolState(patch);
@@ -389,6 +382,7 @@ export function createSessionLifecycleAssembly({
       },
       runtime: {
         currentSpeechLifecycleStatus: () => runtimeRef.current!.currentSpeechLifecycleStatus(),
+        handleSessionCommand: (command) => runtimeRef.current!.handleSessionCommand(command),
         endSpeechModeInternal: (options) => endSpeechModeInternal(options),
         endSessionInternal: (options) => endSessionInternal(options),
         getActiveTransport: () => runtimeRef.current!.getActiveTransport(),

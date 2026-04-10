@@ -6,13 +6,13 @@ import {
 import { asErrorDetail } from '../core/runtimeUtils';
 import { createSessionVoiceConnection } from './sessionVoiceConnection';
 import type {
+  SessionCommand,
   SessionEvent,
 } from '../core/session.types';
 import type { DesktopSession } from '../transport/transport.types';
 import type { SessionStoreApi } from '../core/sessionControllerTypes';
 import type {
   VoiceSessionDurabilityState,
-  VoiceSessionStatus,
 } from '../voice/voice.types';
 import type {
   AssistantVoice,
@@ -24,9 +24,9 @@ import type {
 type SessionControllerLifecycleArgs = {
   store: SessionStoreApi;
   beginSessionOperation: () => number;
+  handleSessionCommand: (command: SessionCommand) => { accepted: boolean };
   isCurrentSessionOperation: (operationId: number) => boolean;
   ensureExclusiveMode: (targetMode: 'speech', operationId: number) => Promise<void>;
-  currentVoiceSessionStatus: () => VoiceSessionStatus;
   recordSessionEvent: (event: SessionEvent) => void;
   setVoiceCaptureState: (state: 'inactive') => void;
   setVoiceCaptureDiagnostics: (patch: { lastError: null }) => void;
@@ -41,7 +41,6 @@ type SessionControllerLifecycleArgs = {
   currentGroundingEnabled: () => boolean;
   setActiveVoiceSessionGroundingEnabled: (enabled: boolean | null) => void;
   selectedOutputDeviceId: () => string;
-  setVoiceSessionStatus: (status: 'connecting' | 'recovering') => void;
   resetVoiceSessionResumption: () => void;
   resetVoiceSessionDurability: () => void;
   resetVoiceToolState: () => void;
@@ -83,9 +82,9 @@ type SessionControllerLifecycleArgs = {
 export function createSessionControllerLifecycle({
   store,
   beginSessionOperation,
+  handleSessionCommand,
   isCurrentSessionOperation,
   ensureExclusiveMode,
-  currentVoiceSessionStatus,
   recordSessionEvent,
   setVoiceCaptureState,
   setVoiceCaptureDiagnostics,
@@ -94,7 +93,6 @@ export function createSessionControllerLifecycle({
   currentGroundingEnabled,
   setActiveVoiceSessionGroundingEnabled,
   selectedOutputDeviceId,
-  setVoiceSessionStatus,
   resetVoiceSessionResumption,
   resetVoiceSessionDurability,
   resetVoiceToolState,
@@ -187,7 +185,7 @@ export function createSessionControllerLifecycle({
       return;
     }
 
-    if (currentVoiceSessionStatus() !== 'disconnected' && currentVoiceSessionStatus() !== 'error') {
+    if (!handleSessionCommand({ type: 'session.start', mode: 'speech' }).accepted) {
       return;
     }
 
@@ -204,7 +202,6 @@ export function createSessionControllerLifecycle({
     setActiveVoiceSessionGroundingEnabled(currentGroundingEnabled());
     const effectiveVoiceSessionCapabilities = getEffectiveVoiceSessionCapabilities(getLiveConfig());
     store.getState().setEffectiveVoiceSessionCapabilities(effectiveVoiceSessionCapabilities);
-    setVoiceSessionStatus('connecting');
     resetVoiceSessionResumption();
     resetVoiceSessionDurability();
     resetVoiceToolState();

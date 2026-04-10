@@ -1,4 +1,3 @@
-import { isAssistantTurnUnavailable } from './transportEventGating';
 import type { LiveSessionEvent } from './transport.types';
 import type { TransportEventRouterContext } from './transportEventRouterTypes';
 
@@ -173,18 +172,12 @@ function shouldIgnoreCanonicalAssistantOutput(
   eventType: CanonicalAssistantOutputEventType,
 ): boolean {
   const { ops } = context;
-  const voiceStatus = ops.currentVoiceSessionStatus();
+  const decision = ops.shouldIgnoreAssistantOutput(eventType, {
+    hasQueuedMixedModeAssistantReply: ops.hasQueuedMixedModeAssistantReply(),
+    hasStreamingAssistantVoiceTurn: ops.hasStreamingAssistantVoiceTurn(),
+  });
 
-  if (!isAssistantTurnUnavailable(voiceStatus)) {
-    return false;
-  }
-
-  const canContinueUnavailableTurn =
-    eventType === 'text-delta'
-      ? ops.hasQueuedMixedModeAssistantReply() || ops.hasStreamingAssistantVoiceTurn()
-      : ops.hasStreamingAssistantVoiceTurn();
-
-  if (canContinueUnavailableTurn) {
+  if (!decision.ignore) {
     return false;
   }
 
@@ -201,17 +194,12 @@ function shouldIgnoreTranscriptOrAudio(
   eventType: TranscriptOrAudioEventType,
 ): boolean {
   const { ops } = context;
-  const voiceStatus = ops.currentVoiceSessionStatus();
+  const decision = ops.shouldIgnoreAssistantOutput(eventType, {
+    hasQueuedMixedModeAssistantReply: ops.hasQueuedMixedModeAssistantReply(),
+    hasStreamingAssistantVoiceTurn: ops.hasStreamingAssistantVoiceTurn(),
+  });
 
-  if (!isAssistantTurnUnavailable(voiceStatus)) {
-    return false;
-  }
-
-  const canContinueUnavailableTurn =
-    ops.hasQueuedMixedModeAssistantReply()
-    || ops.hasStreamingAssistantVoiceTurn();
-
-  if (canContinueUnavailableTurn) {
+  if (!decision.ignore) {
     return false;
   }
 
@@ -238,19 +226,6 @@ function ensureAssistantVoiceTurn(
     hasStreamingAssistantVoiceTurn: context.ops.hasStreamingAssistantVoiceTurn(),
   });
   return false;
-}
-
-function handleTurnCompleteLifecycleTransition(context: TransportEventRouterContext): void {
-  const speechLifecycleStatus = context.ops.currentSpeechLifecycleStatus();
-
-  if (speechLifecycleStatus === 'assistantSpeaking') {
-    context.ops.recordSessionEvent({ type: 'turn.assistantCompleted' });
-    return;
-  }
-
-  if (speechLifecycleStatus === 'userSpeaking') {
-    context.ops.recordSessionEvent({ type: 'turn.user.settled' });
-  }
 }
 
 export function handleTransportTurnEvent(
@@ -366,11 +341,14 @@ export function handleTransportTurnEvent(
       return;
 
     case 'tool-call': {
-      const voiceStatus = ops.currentVoiceSessionStatus();
+      const decision = ops.shouldIgnoreAssistantOutput('output-transcript', {
+        hasQueuedMixedModeAssistantReply: ops.hasQueuedMixedModeAssistantReply(),
+        hasStreamingAssistantVoiceTurn: ops.hasStreamingAssistantVoiceTurn(),
+      });
 
-      if (isAssistantTurnUnavailable(voiceStatus)) {
+      if (decision.ignore) {
         ops.logRuntimeDiagnostic('voice-session', 'ignored tool call while turn is unavailable', {
-          voiceStatus,
+          voiceStatus: ops.currentVoiceSessionStatus(),
           callCount: event.calls.length,
         });
         return;
@@ -398,7 +376,11 @@ export function handleTransportTurnEvent(
       ops.completeAssistantDraft();
       ops.finalizeCurrentVoiceTurns('completed');
       ops.attachCurrentAssistantTurn(ops.commitAssistantDraft());
-      handleTurnCompleteLifecycleTransition(context);
+      const turnCompleteEvent = ops.deriveTurnCompleteEvent();
+
+      if (turnCompleteEvent) {
+        ops.recordSessionEvent(turnCompleteEvent);
+      }
       return;
 
     default:

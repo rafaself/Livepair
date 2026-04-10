@@ -8,7 +8,9 @@ type SessionControllerTeardownArgs = {
   store: SessionStoreApi;
   currentSpeechLifecycleStatus: () => ReturnType<SessionStoreApi['getState']>['speechLifecycle']['status'];
   currentTextSessionStatus: () => TextSessionStatus;
-  applySpeechLifecycleEvent: (event: { type: string }) => void;
+  applySessionEvent: (
+    event: { type: 'session.end.requested' } | { type: 'session.ended' },
+  ) => void;
   clearToken: () => void;
   clearCurrentVoiceTranscript: () => void;
   cleanupTransport: () => void;
@@ -31,7 +33,6 @@ type SessionControllerTeardownArgs = {
   setVoiceResumptionInFlight: (value: boolean) => void;
   setVoiceSessionDurability: (value: ReturnType<SessionStoreApi['getState']>['voiceSessionDurability']) => void;
   setVoiceSessionResumption: (value: ReturnType<SessionStoreApi['getState']>['voiceSessionResumption']) => void;
-  setVoiceSessionStatus: (status: 'disconnected' | 'stopping') => void;
   setVoiceToolStateSnapshot: (value: ReturnType<SessionStoreApi['getState']>['voiceToolState']) => void;
   stopScreenCaptureInternal: () => Promise<void>;
   stopVoiceCapture: () => Promise<void>;
@@ -43,7 +44,7 @@ export function createSessionControllerTeardown({
   store,
   currentSpeechLifecycleStatus,
   currentTextSessionStatus,
-  applySpeechLifecycleEvent,
+  applySessionEvent,
   clearToken,
   clearCurrentVoiceTranscript,
   cleanupTransport,
@@ -63,7 +64,6 @@ export function createSessionControllerTeardown({
   setVoiceResumptionInFlight,
   setVoiceSessionDurability,
   setVoiceSessionResumption,
-  setVoiceSessionStatus,
   setVoiceToolStateSnapshot,
   stopScreenCaptureInternal,
   stopVoiceCapture,
@@ -131,11 +131,10 @@ export function createSessionControllerTeardown({
 
     if (!hasActiveRuntime) {
       if (isSpeechLifecycleActive(currentSpeechLifecycleStatus())) {
-        applySpeechLifecycleEvent({ type: 'session.end.requested' });
-        applySpeechLifecycleEvent({ type: 'session.ended' });
+        applySessionEvent({ type: 'session.end.requested' });
+        applySessionEvent({ type: 'session.ended' });
       }
       resetRuntimeState(textSessionStatus, { preserveConversationTurns });
-      setVoiceSessionStatus('disconnected');
       sessionStore.setAssistantActivity('idle');
       clearToken();
       setVoiceResumptionInFlight(false);
@@ -166,8 +165,7 @@ export function createSessionControllerTeardown({
     }
 
     if (hasSpeechRuntimeActivity()) {
-      applySpeechLifecycleEvent({ type: 'session.end.requested' });
-      setVoiceSessionStatus('stopping');
+      applySessionEvent({ type: 'session.end.requested' });
     }
 
     try {
@@ -187,7 +185,7 @@ export function createSessionControllerTeardown({
       await getActiveTransport()?.disconnect();
       await stopVoicePlayback();
     } finally {
-      applySpeechLifecycleEvent({ type: 'session.ended' });
+      applySessionEvent({ type: 'session.ended' });
       cleanupTransport();
       resetRuntimeState(textSessionStatus, { preserveConversationTurns });
       clearToken();
@@ -210,7 +208,6 @@ export function createSessionControllerTeardown({
       clearCurrentVoiceTranscript();
       setVoiceCaptureState('inactive');
       setVoicePlaybackState('stopped');
-      setVoiceSessionStatus('disconnected');
       sessionStore.setAssistantActivity('idle');
       if (preserveLastRuntimeError !== null) {
         sessionStore.setLastRuntimeError(preserveLastRuntimeError);

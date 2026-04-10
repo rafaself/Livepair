@@ -6,7 +6,6 @@ import type {
 import type { AssistantAudioPlayback } from '../audio/audio.types';
 import type { SessionStoreApi, SettingsStoreApi } from '../core/sessionControllerTypes';
 import type { RuntimeLogger, SessionEvent } from '../core/session.types';
-import type { SpeechSessionLifecycleEvent } from '../speech/speechSessionLifecycle';
 import type { SpeechLifecycleStatus } from '../speech/speech.types';
 import type {
   VoiceLiveSignalDiagnostics,
@@ -59,7 +58,6 @@ export type TransportEventRouterOps = {
   attachCurrentAssistantTurn: (turnId: string | null) => void;
   enqueueVoiceToolCalls: (calls: VoiceToolCall[]) => void;
   handleVoiceInterruption: () => void;
-  applySpeechLifecycleEvent: (event: SpeechSessionLifecycleEvent) => SpeechLifecycleStatus;
   applyVoiceTranscriptUpdate: (role: 'user' | 'assistant', text: string, isFinal?: boolean) => void;
   appendAssistantDraftTextDelta: (text: string) => void;
   setAssistantAnswerMetadata: (answerMetadata: AnswerMetadata) => void;
@@ -72,6 +70,20 @@ export type TransportEventRouterOps = {
   hasActiveAssistantVoiceTurn: () => boolean;
   hasQueuedMixedModeAssistantReply: () => boolean;
   hasStreamingAssistantVoiceTurn: () => boolean;
+  shouldIgnoreAssistantOutput: (
+    eventType: 'text-delta' | 'output-transcript' | 'audio-chunk' | 'turn-complete',
+    options: {
+      hasQueuedMixedModeAssistantReply: boolean;
+      hasStreamingAssistantVoiceTurn: boolean;
+    },
+  ) => {
+    ignore: boolean;
+    reason?: 'turn-unavailable';
+  };
+  deriveTurnCompleteEvent: () => Extract<
+    SessionEvent,
+    { type: 'turn.assistantCompleted' } | { type: 'turn.user.settled' }
+  > | null;
   setVoiceErrorState: (detail: string) => void;
   cleanupTransport: () => void;
   resumeVoiceSession: (detail: string) => Promise<void>;

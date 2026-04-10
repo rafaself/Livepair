@@ -112,7 +112,7 @@ function createMockOps() {
     screenShareIntended: false,
     screenCaptureState: 'disabled' as string,
   };
-  return {
+  const ops = {
     store: { getState: vi.fn().mockReturnValue(storeState) } as never,
     settingsStore: {
       getState: vi.fn().mockReturnValue({
@@ -153,7 +153,6 @@ function createMockOps() {
     attachCurrentAssistantTurn: vi.fn(),
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
-    applySpeechLifecycleEvent: vi.fn(),
     applyVoiceTranscriptUpdate: vi.fn(),
     appendAssistantDraftTextDelta: vi.fn(),
     setAssistantAnswerMetadata: vi.fn(),
@@ -166,6 +165,8 @@ function createMockOps() {
     hasActiveAssistantVoiceTurn: vi.fn().mockReturnValue(false),
     hasQueuedMixedModeAssistantReply: vi.fn().mockReturnValue(false),
     hasStreamingAssistantVoiceTurn: vi.fn().mockReturnValue(false),
+    shouldIgnoreAssistantOutput: vi.fn(),
+    deriveTurnCompleteEvent: vi.fn(),
     setVoiceErrorState: vi.fn(),
     cleanupTransport: vi.fn(),
     resumeVoiceSession: vi.fn().mockResolvedValue(undefined),
@@ -184,6 +185,42 @@ function createMockOps() {
     }),
     _storeState: storeState,
   };
+
+  ops.shouldIgnoreAssistantOutput.mockImplementation(
+    (eventType: string, options: Record<string, boolean>) => {
+      const voiceStatus = ops.currentVoiceSessionStatus();
+      const unavailable =
+        voiceStatus === 'interrupted' || voiceStatus === 'recovering' || voiceStatus === 'stopping';
+
+      if (!unavailable) {
+        return { ignore: false };
+      }
+
+      const canContinueUnavailableTurn =
+        eventType === 'turn-complete'
+          ? options['hasStreamingAssistantVoiceTurn']
+          : options['hasQueuedMixedModeAssistantReply'] || options['hasStreamingAssistantVoiceTurn'];
+
+      return canContinueUnavailableTurn
+        ? { ignore: false }
+        : { ignore: true, reason: 'turn-unavailable' as const };
+    },
+  );
+  ops.deriveTurnCompleteEvent.mockImplementation(() => {
+    const speechLifecycleStatus = ops.currentSpeechLifecycleStatus();
+
+    if (speechLifecycleStatus === 'assistantSpeaking') {
+      return { type: 'turn.assistantCompleted' as const };
+    }
+
+    if (speechLifecycleStatus === 'userSpeaking') {
+      return { type: 'turn.user.settled' as const };
+    }
+
+    return null;
+  });
+
+  return ops;
 }
 
 describe('createTransportEventRouter', () => {
@@ -202,7 +239,7 @@ describe('createTransportEventRouter', () => {
         type: 'transport.connecting',
         resuming: false,
       });
-      expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('connecting');
+      expect(ops.setVoiceSessionStatus).not.toHaveBeenCalled();
     });
 
     it('sets recovering on connecting when resumption is in flight', () => {
@@ -212,7 +249,10 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'connection-state-changed', state: 'connecting' });
 
-      expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('recovering');
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'transport.connecting',
+        resuming: true,
+      });
     });
 
     it('resets live signal diagnostics on fresh voice-session connect', () => {
@@ -241,7 +281,7 @@ describe('createTransportEventRouter', () => {
         type: 'transport.connected',
         resumed: false,
       });
-      expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('active');
+      expect(ops.setVoiceSessionStatus).not.toHaveBeenCalled();
       expect(ops.resetVoiceToolState).toHaveBeenCalledTimes(1);
       expect(ops._storeState.setAssistantActivity).toHaveBeenCalledWith('idle');
       expect(ops._storeState.setActiveTransport).toHaveBeenCalledWith('gemini-live');
@@ -341,7 +381,9 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'connection-state-changed', state: 'disconnected' });
 
-      expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('recovering');
+      expect(ops.recordSessionEvent).not.toHaveBeenCalledWith({
+        type: 'transport.disconnected',
+      });
       expect(ops.cleanupTransport).not.toHaveBeenCalled();
     });
 
@@ -351,7 +393,9 @@ describe('createTransportEventRouter', () => {
 
       handleTransportEvent({ type: 'connection-state-changed', state: 'disconnected' });
 
-      expect(ops.setVoiceSessionStatus).toHaveBeenCalledWith('disconnected');
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'transport.disconnected',
+      });
       expect(ops.cancelVoiceToolCalls).toHaveBeenCalledWith('voice transport disconnected');
       expect(ops.resetVoiceTurnTranscriptState).toHaveBeenCalledTimes(1);
       expect(ops.resetVoiceToolState).toHaveBeenCalledTimes(1);

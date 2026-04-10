@@ -27,7 +27,7 @@ function createMockArgs(storeOverrides: Record<string, unknown> = {}) {
     store: store as never,
     currentSpeechLifecycleStatus: vi.fn().mockReturnValue('off'),
     currentTextSessionStatus: vi.fn().mockReturnValue('idle'),
-    applySpeechLifecycleEvent: vi.fn(),
+    applySessionEvent: vi.fn(),
     clearToken: vi.fn(),
     clearCurrentVoiceTranscript: vi.fn(),
     cleanupTransport: vi.fn(),
@@ -47,7 +47,6 @@ function createMockArgs(storeOverrides: Record<string, unknown> = {}) {
     setVoiceResumptionInFlight: vi.fn(),
     setVoiceSessionDurability: vi.fn(),
     setVoiceSessionResumption: vi.fn(),
-    setVoiceSessionStatus: vi.fn(),
     setVoiceToolStateSnapshot: vi.fn(),
     stopScreenCaptureInternal: vi.fn().mockImplementation(() => {
       if (!deferScreenStop) {
@@ -142,7 +141,6 @@ describe('createSessionControllerTeardown', () => {
       expect(args.resetRuntimeState).toHaveBeenCalledWith('disconnected', {
         preserveConversationTurns: false,
       });
-      expect(args.setVoiceSessionStatus).toHaveBeenCalledWith('disconnected');
       expect(args.clearToken).toHaveBeenCalledTimes(1);
       expect(args.setVoiceResumptionInFlight).toHaveBeenCalledWith(false);
       expect(args.clearCurrentVoiceTranscript).toHaveBeenCalledTimes(1);
@@ -155,8 +153,8 @@ describe('createSessionControllerTeardown', () => {
 
       await teardownActiveRuntime();
 
-      expect(args.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'session.end.requested' });
-      expect(args.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'session.ended' });
+      expect(args.applySessionEvent).toHaveBeenCalledWith({ type: 'session.end.requested' });
+      expect(args.applySessionEvent).toHaveBeenCalledWith({ type: 'session.ended' });
     });
 
     it('resets voice diagnostics when preservation is disabled', async () => {
@@ -282,8 +280,7 @@ describe('createSessionControllerTeardown', () => {
 
       await teardownActiveRuntime();
 
-      expect(args.applySpeechLifecycleEvent).toHaveBeenCalledWith({ type: 'session.end.requested' });
-      expect(args.setVoiceSessionStatus).toHaveBeenCalledWith('stopping');
+      expect(args.applySessionEvent).toHaveBeenCalledWith({ type: 'session.end.requested' });
     });
 
     it('sets voiceCaptureState to inactive when capture exists', async () => {
@@ -320,7 +317,7 @@ describe('createSessionControllerTeardown', () => {
       expect(args.cleanupTransport).toHaveBeenCalledTimes(1);
       expect(args.resetRuntimeState).toHaveBeenCalledTimes(1);
       expect(args.setVoicePlaybackState).toHaveBeenCalledWith('stopped');
-      expect(args.setVoiceSessionStatus).toHaveBeenCalledWith('disconnected');
+      expect(args.applySessionEvent).toHaveBeenCalledWith({ type: 'session.ended' });
     });
 
     it('skips voice capture stop when not in stoppable state', async () => {

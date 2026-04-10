@@ -80,6 +80,7 @@ function createHarness(options: {
     },
     runtime: {
       currentSpeechLifecycleStatus: vi.fn(() => 'listening' as const),
+      handleSessionCommand: vi.fn(() => ({ accepted: true as const })),
       endSessionInternal: vi.fn(async () => undefined),
       endSpeechModeInternal: vi.fn(async () => undefined),
       getActiveTransport: vi.fn(() => activeTransport as never),

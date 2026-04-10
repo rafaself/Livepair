@@ -4,7 +4,7 @@ import type {
   VoiceCaptureState,
   VoiceSessionStatus,
 } from '../voice.types';
-import type { SpeechSessionLifecycleEvent } from '../../speech/speechSessionLifecycle';
+import type { SessionEvent } from '../../core/session.types';
 
 type InterruptionStoreApi = {
   getState: () => {
@@ -22,8 +22,12 @@ export function createVoiceInterruptionController(
   store: InterruptionStoreApi,
   getTransport: () => DesktopSession | null,
   getCurrentVoiceSessionStatus: () => VoiceSessionStatus,
-  setVoiceSessionStatus: (status: VoiceSessionStatus) => void,
-  applySpeechLifecycleEvent: (event: SpeechSessionLifecycleEvent) => void,
+  applySessionEvent: (
+    event: Extract<
+      SessionEvent,
+      { type: 'turn.recovery.started' } | { type: 'turn.recovery.completed' }
+    >,
+  ) => void,
   stopPlayback: () => Promise<void>,
 ): VoiceInterruptionController {
   let inFlight: Promise<void> | null = null;
@@ -36,8 +40,6 @@ export function createVoiceInterruptionController(
 
     sequence += 1;
     const capturedSequence = sequence;
-    setVoiceSessionStatus('interrupted');
-    applySpeechLifecycleEvent({ type: 'interruption.detected' });
     store.getState().setAssistantActivity('idle');
 
     inFlight = (async () => {
@@ -58,13 +60,11 @@ export function createVoiceInterruptionController(
       }
 
       if (store.getState().voiceCaptureState === 'capturing') {
-        setVoiceSessionStatus('recovering');
-        applySpeechLifecycleEvent({ type: 'recovery.started' });
+        applySessionEvent({ type: 'turn.recovery.started' });
         return;
       }
 
-      setVoiceSessionStatus('active');
-      applySpeechLifecycleEvent({ type: 'recovery.completed' });
+      applySessionEvent({ type: 'turn.recovery.completed' });
     })();
   };
 

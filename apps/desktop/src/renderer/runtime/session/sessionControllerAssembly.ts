@@ -141,8 +141,7 @@ export function createSessionControllerAssembly(
     dependencies.store,
     () => mutableRuntime.getActiveTransport(),
     () => runtimeRef.current!.currentVoiceSessionStatus(),
-    (status) => runtimeRef.current!.setVoiceSessionStatus(status),
-    (event) => runtimeRef.current!.applySpeechLifecycleEvent(event),
+    (event) => runtimeRef.current!.applySessionEvent(event),
     () => runtimeRef.current!.stopVoicePlayback(),
   );
   const tokenMgr = createVoiceTokenManager(
@@ -157,7 +156,7 @@ export function createSessionControllerAssembly(
   const silenceCtrl = createSpeechSilenceController(
     dependencies.settingsStore,
     () => void endSessionInternal(),
-    () => runtimeRef.current!.applySpeechLifecycleEvent({ type: 'recovery.completed' }),
+    () => runtimeRef.current!.applySessionEvent({ type: 'turn.recovery.completed' }),
   );
   const voiceChunkCtrl = createVoiceChunkPipeline({
     store: dependencies.store,
