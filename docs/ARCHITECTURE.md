@@ -104,12 +104,35 @@ Implemented:
 - Detect interruption locally
 - Send manual screen frames during an active Live session
 - Execute narrow local voice tools
+- Internal Live transport adapter boundary under `apps/desktop/src/renderer/runtime/transport/` now owns provider connection lifecycle, provider connect/setup mapping, outbound transport payload mapping, inbound event normalization, transport termination classification, and session-resumption handle updates before the rest of the runtime sees them
 
 Planned:
 
 - Broader backend-backed tool execution
 - Checkpoint save/restore integration
 - Additional adaptive screen capture guardrails and HD screenshot flow
+
+### Live Transport Boundary
+
+Implemented:
+
+- Session and supervisor code now create and coordinate Live transport through a small internal adapter contract instead of selecting the Gemini transport directly
+- Inbound Gemini SDK/server messages are normalized to internal transport events before the session engine, supervisor, transcript, or tool logic handles them
+- Outbound runtime requests are mapped at the transport boundary from internal request types (`text`, `audio-chunk`, `audio-stream-end`, `tool-responses`, `video-frame`) into Gemini transport payloads
+
+Still outside the transport adapter:
+
+- Session lifecycle rules and recovery policy owned by the session engine/supervisor
+- Transcript ownership and turn assembly
+- Local audio capture/playback behavior
+- Screen-capture cadence and frame-production policy
+- UI state and presentation logic
+
+Deferred:
+
+- Multi-runtime or multi-provider host abstractions
+- Audio or screen adapter redesign
+- Broad telemetry redesign
 
 ### Backend API
 

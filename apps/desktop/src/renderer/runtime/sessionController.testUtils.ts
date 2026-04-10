@@ -13,11 +13,7 @@ export function createUnusedTransport(): DesktopSession {
   return {
     kind: 'gemini-live',
     connect: vi.fn(async () => undefined),
-    sendText: vi.fn(async () => undefined),
-    sendAudioChunk: vi.fn(async () => undefined),
-    sendAudioStreamEnd: vi.fn(async () => undefined),
-    sendToolResponses: vi.fn(async () => undefined),
-    sendVideoFrame: vi.fn(async () => undefined),
+    submit: vi.fn(async () => undefined),
     disconnect: vi.fn(async () => undefined),
     subscribe: vi.fn(() => vi.fn()),
   };
@@ -26,6 +22,7 @@ export function createUnusedTransport(): DesktopSession {
 export function createVoiceTransportHarness(): {
   transport: DesktopSession;
   connect: ReturnType<typeof vi.fn>;
+  submit: ReturnType<typeof vi.fn>;
   sendText: ReturnType<typeof vi.fn>;
   sendAudioChunk: ReturnType<typeof vi.fn>;
   sendAudioStreamEnd: ReturnType<typeof vi.fn>;
@@ -37,11 +34,27 @@ export function createVoiceTransportHarness(): {
 } {
   let listener: ((event: Parameters<Parameters<DesktopSession['subscribe']>[0]>[0]) => void)
     | null = null;
-  const sendText = vi.fn(async () => undefined);
-  const sendAudioChunk = vi.fn(async () => undefined);
+  const sendText = vi.fn(async (_text: string) => undefined);
+  const sendAudioChunk = vi.fn(async (_chunk: Uint8Array) => undefined);
   const sendAudioStreamEnd = vi.fn(async () => undefined);
-  const sendToolResponses = vi.fn(async () => undefined);
-  const sendVideoFrame = vi.fn(async () => undefined);
+  const sendToolResponses = vi.fn(async (_responses: unknown[]) => undefined);
+  const sendVideoFrame = vi.fn(async (_data: Uint8Array, _mimeType: string) => undefined);
+  const submit = vi.fn(async (request) => {
+    switch (request.type) {
+      case 'text':
+        return sendText(request.text);
+      case 'audio-chunk':
+        return sendAudioChunk(request.chunk);
+      case 'audio-stream-end':
+        return sendAudioStreamEnd();
+      case 'tool-responses':
+        return sendToolResponses(request.responses);
+      case 'video-frame':
+        return sendVideoFrame(request.data, request.mimeType);
+      default:
+        return undefined;
+    }
+  });
   let connectError: Error | null = null;
   const disconnect = vi.fn(async () => {
     listener?.({ type: 'connection-state-changed', state: 'disconnected' });
@@ -59,11 +72,7 @@ export function createVoiceTransportHarness(): {
     transport: {
       kind: 'gemini-live',
       connect,
-      sendText,
-      sendAudioChunk,
-      sendAudioStreamEnd,
-      sendToolResponses,
-      sendVideoFrame,
+      submit,
       disconnect,
       subscribe: vi.fn((nextListener) => {
         listener = nextListener;
@@ -72,8 +81,9 @@ export function createVoiceTransportHarness(): {
           listener = null;
         };
       }),
-    },
+    } as DesktopSession,
     connect,
+    submit,
     sendText,
     sendAudioChunk,
     sendAudioStreamEnd,

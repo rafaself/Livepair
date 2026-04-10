@@ -156,7 +156,10 @@ export function createVoiceToolController(
     );
 
     try {
-      await transport.sendToolResponses(responses);
+      await transport.submit({
+        type: 'tool-responses',
+        responses,
+      });
     } catch (error) {
       if (!isActiveExecution(version, transport)) {
         return;

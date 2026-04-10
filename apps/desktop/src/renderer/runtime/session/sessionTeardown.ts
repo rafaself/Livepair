@@ -1,4 +1,3 @@
-import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import { isSpeechLifecycleActive } from '../speech/speechSessionLifecycle';
 import { isSessionActiveLifecycle } from '../text/textSessionLifecycle';
 import type { SessionStoreApi } from '../core/sessionControllerTypes';
@@ -93,7 +92,7 @@ export function createSessionControllerTeardown({
         sessionStore.screenCaptureState !== 'disabled' &&
         sessionStore.screenCaptureState !== 'error'
       ) ||
-      getActiveTransport()?.kind === LIVE_ADAPTER_KEY
+      getActiveTransport() !== null
     );
   };
 

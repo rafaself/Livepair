@@ -31,10 +31,10 @@ function createHarness(options: {
     isActive: vi.fn(() => false),
   };
 
-  const sendText = vi.fn(async () => undefined);
+  const sendText = vi.fn(async (_text: string) => undefined);
   const activeTransport = {
     kind: 'gemini-live' as const,
-    sendText,
+    submit: vi.fn(async (request: { type: 'text'; text: string }) => sendText(request.text)),
   };
   const outboundGateway: RealtimeOutboundGateway = {
     submit: vi.fn((_event: RealtimeOutboundEvent): RealtimeOutboundDecision => {

@@ -46,9 +46,21 @@ function createMockOps(options: {
     start: vi.fn().mockResolvedValue(undefined),
     stop: vi.fn().mockResolvedValue(undefined),
   };
+  const sendAudioChunk = vi.fn().mockResolvedValue(undefined);
+  const sendAudioStreamEnd = vi.fn().mockResolvedValue(undefined);
   const transport = {
-    sendAudioChunk: vi.fn().mockResolvedValue(undefined),
-    sendAudioStreamEnd: vi.fn().mockResolvedValue(undefined),
+    submit: vi.fn(async (request: { type: string; chunk?: Uint8Array }) => {
+      switch (request.type) {
+        case 'audio-chunk':
+          return sendAudioChunk(request.chunk);
+        case 'audio-stream-end':
+          return sendAudioStreamEnd();
+        default:
+          return undefined;
+      }
+    }),
+    sendAudioChunk,
+    sendAudioStreamEnd,
   };
   let gatewaySubmitCount = 0;
   const outboundGateway: RealtimeOutboundGateway = {
@@ -412,11 +424,27 @@ describe('createVoiceChunkPipeline', () => {
 
     it('drops queued microphone chunks if resumption swaps the active transport before they send', async () => {
       const ops = createMockOps();
-      let activeTransport: { sendAudioChunk: ReturnType<typeof vi.fn>; sendAudioStreamEnd: ReturnType<typeof vi.fn> } | null =
+      let activeTransport: {
+        submit: ReturnType<typeof vi.fn>;
+        sendAudioChunk: ReturnType<typeof vi.fn>;
+        sendAudioStreamEnd: ReturnType<typeof vi.fn>;
+      } | null =
         ops._transport;
+      const nextTransportSendAudioChunk = vi.fn().mockResolvedValue(undefined);
+      const nextTransportSendAudioStreamEnd = vi.fn().mockResolvedValue(undefined);
       const nextTransport = {
-        sendAudioChunk: vi.fn().mockResolvedValue(undefined),
-        sendAudioStreamEnd: vi.fn().mockResolvedValue(undefined),
+        submit: vi.fn(async (request: { type: string; chunk?: Uint8Array }) => {
+          switch (request.type) {
+            case 'audio-chunk':
+              return nextTransportSendAudioChunk(request.chunk);
+            case 'audio-stream-end':
+              return nextTransportSendAudioStreamEnd();
+            default:
+              return undefined;
+          }
+        }),
+        sendAudioChunk: nextTransportSendAudioChunk,
+        sendAudioStreamEnd: nextTransportSendAudioStreamEnd,
       };
       let resolveFirstSend!: () => void;
       ops.getActiveTransport.mockImplementation(() => activeTransport as never);

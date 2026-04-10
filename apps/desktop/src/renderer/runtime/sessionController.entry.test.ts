@@ -52,7 +52,10 @@ describe('sessionController entry', () => {
         }),
         checkBackendHealth: expect.any(Function),
         requestSessionToken: expect.any(Function),
-        createTransport,
+        transportAdapter: expect.objectContaining({
+          key: 'gemini-live',
+          create: expect.any(Function),
+        }),
         createVoiceCapture: expect.any(Function),
         createVoicePlayback: expect.any(Function),
         createScreenCapture: expect.any(Function),
@@ -96,7 +99,15 @@ describe('sessionController entry', () => {
 
   it('reads saved Gemini Live voice preferences when creating a new transport', async () => {
     const createSessionControllerAssembly = vi.fn();
-    const createGeminiLiveTransport = vi.fn(() => ({ kind: 'gemini-live' }));
+    const createGeminiLiveTransport = vi.fn((_options?: Record<string, unknown>) => ({ kind: 'gemini-live' }));
+    const createGeminiLiveTransportAdapter = vi.fn((resolveOptions) => ({
+      key: 'gemini-live',
+      create: (options?: { voice?: 'Puck' | 'Kore' | 'Aoede' }) =>
+        createGeminiLiveTransport({
+          ...resolveOptions(),
+          ...(options?.voice ? { voice: options.voice } : {}),
+        }),
+    }));
     const controller = createControllerDouble();
 
     createSessionControllerAssembly.mockReturnValue(controller);
@@ -104,6 +115,7 @@ describe('sessionController entry', () => {
       createSessionControllerAssembly,
     }));
     vi.doMock('./transport/geminiLiveTransport', () => ({
+      createGeminiLiveTransportAdapter,
       createGeminiLiveTransport,
     }));
 
@@ -130,11 +142,14 @@ describe('sessionController entry', () => {
 
     expect(dependencies).toEqual(
       expect.objectContaining({
-        createTransport: expect.any(Function),
+        transportAdapter: expect.objectContaining({
+          key: 'gemini-live',
+          create: expect.any(Function),
+        }),
       }),
     );
 
-    dependencies.createTransport('voice');
+    dependencies.transportAdapter.create();
 
     expect(createGeminiLiveTransport).toHaveBeenCalledWith({
       mediaResolutionOverride: 'MEDIA_RESOLUTION_HIGH',
@@ -146,7 +161,15 @@ describe('sessionController entry', () => {
 
   it('reads the latest grounding preference when creating the next transport', async () => {
     const createSessionControllerAssembly = vi.fn();
-    const createGeminiLiveTransport = vi.fn(() => ({ kind: 'gemini-live' }));
+    const createGeminiLiveTransport = vi.fn((_options?: Record<string, unknown>) => ({ kind: 'gemini-live' }));
+    const createGeminiLiveTransportAdapter = vi.fn((resolveOptions) => ({
+      key: 'gemini-live',
+      create: (options?: { voice?: 'Puck' | 'Kore' | 'Aoede' }) =>
+        createGeminiLiveTransport({
+          ...resolveOptions(),
+          ...(options?.voice ? { voice: options.voice } : {}),
+        }),
+    }));
     const controller = createControllerDouble();
 
     createSessionControllerAssembly.mockReturnValue(controller);
@@ -154,6 +177,7 @@ describe('sessionController entry', () => {
       createSessionControllerAssembly,
     }));
     vi.doMock('./transport/geminiLiveTransport', () => ({
+      createGeminiLiveTransportAdapter,
       createGeminiLiveTransport,
     }));
 
@@ -171,7 +195,7 @@ describe('sessionController entry', () => {
     createDesktopSessionController();
 
     const dependencies = createSessionControllerAssembly.mock.calls[0]?.[0];
-    dependencies.createTransport('voice');
+    dependencies.transportAdapter.create();
 
     useSettingsStore.setState({
       settings: {
@@ -180,7 +204,7 @@ describe('sessionController entry', () => {
       },
       isReady: true,
     });
-    dependencies.createTransport('voice');
+    dependencies.transportAdapter.create();
 
     expect(createGeminiLiveTransport).toHaveBeenNthCalledWith(1, {
       mediaResolutionOverride: 'MEDIA_RESOLUTION_MEDIUM',

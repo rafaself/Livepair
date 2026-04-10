@@ -4,7 +4,6 @@ import {
   logRuntimeError,
 } from '../core/logger';
 import { isRuntimeDebugModeEnabled } from '../core/debugMode';
-import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import { createVoicePlaybackController } from '../voice/media/voicePlaybackController';
 import { createScreenCaptureController } from '../screen/screenCaptureController';
 import { createVoiceToolController } from '../voice/tools/voiceToolController';
@@ -150,7 +149,7 @@ export function createSessionControllerAssembly(
     (patch) => runtimeRef.current!.setVoiceSessionDurability(patch),
     (event) => runtimeRef.current!.recordSessionEvent(event),
     (detail) => setVoiceErrorState(detail),
-    LIVE_ADAPTER_KEY,
+    dependencies.transportAdapter.key,
   );
   const silenceCtrl = createSpeechSilenceController(
     dependencies.settingsStore,

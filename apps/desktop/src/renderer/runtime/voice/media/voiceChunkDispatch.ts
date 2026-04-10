@@ -79,7 +79,10 @@ export function createVoiceChunkDispatch(ops: VoiceChunkPipelineOps) {
               continue;
             }
 
-            await nextChunk.transport.sendAudioChunk(nextChunk.chunk.data);
+            await nextChunk.transport.submit({
+              type: 'audio-chunk',
+              chunk: nextChunk.chunk.data,
+            });
 
             if (ops.getActiveTransport() !== nextChunk.transport) {
               continue;
@@ -122,7 +125,9 @@ export function createVoiceChunkDispatch(ops: VoiceChunkPipelineOps) {
       await voiceSendChain;
     }
 
-    await ops.getActiveTransport()?.sendAudioStreamEnd();
+    await ops.getActiveTransport()?.submit({
+      type: 'audio-stream-end',
+    });
   };
 
   return {

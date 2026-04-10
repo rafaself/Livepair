@@ -3,7 +3,6 @@ import { asErrorDetail } from '../core/runtimeUtils';
 import {
   getEffectiveVoiceSessionCapabilities,
   getLiveConfig,
-  LIVE_ADAPTER_KEY,
 } from '../transport/liveConfig';
 import { createTransportEventRouter } from '../transport/transportEventRouter';
 import { createVoiceResumeController } from '../voice/session/voiceResumeController';
@@ -298,7 +297,7 @@ export function createSessionTransportAssembly({
 
   const voiceResumeCtrl = createVoiceResumeController({
     store: dependencies.store,
-    createTransport: dependencies.createTransport,
+    transportAdapter: dependencies.transportAdapter,
     getToken: () => tokenMgr.get(),
     beginSessionOperation: () => runtimeRef.current!.beginSessionOperation(),
     isCurrentSessionOperation: (operationId) => runtimeRef.current!.isCurrentSessionOperation(operationId),
@@ -344,7 +343,7 @@ export function createSessionTransportAssembly({
           resolveCurrentChatLiveSessionVoice(
             dependencies.settingsStore.getState().settings.voice,
           ),
-        createTransport: (options) => dependencies.createTransport(LIVE_ADAPTER_KEY, options),
+        transportAdapter: dependencies.transportAdapter,
         createPersistedLiveSession: async (voice) => {
           await startCurrentLiveSession({ voicePreference: voice });
         },

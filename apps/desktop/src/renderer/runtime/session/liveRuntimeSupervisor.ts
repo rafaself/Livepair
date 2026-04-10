@@ -1,5 +1,5 @@
 import { logRuntimeDiagnostic, logRuntimeError } from '../core/logger';
-import { getLiveConfig, LIVE_ADAPTER_KEY } from '../transport/liveConfig';
+import { getLiveConfig } from '../transport/liveConfig';
 import {
   buildRehydrationPacketFromCurrentChat,
   getCurrentChat,
@@ -293,7 +293,7 @@ export function createLiveRuntimeSupervisor({
     setVoiceResumptionInFlight: (value) => {
       runtimeRef.current!.setVoiceResumptionInFlight(value);
     },
-    createTransport: (options) => dependencies.createTransport(LIVE_ADAPTER_KEY, options),
+    transportAdapter: dependencies.transportAdapter,
     activateVoiceTransport: (transport) => {
       transportActivation.activateTransport(transport, handleTransportEvent);
     },

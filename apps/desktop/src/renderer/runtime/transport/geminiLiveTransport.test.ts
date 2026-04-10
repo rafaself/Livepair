@@ -435,7 +435,7 @@ Saved context state:
       ],
     });
 
-    await transport.sendText('Fresh user prompt');
+    await transport.submit({ type: 'text', text: 'Fresh user prompt' });
 
     expect(sdkHarness.session.sendClientContent).toHaveBeenCalledTimes(2);
     expect(sdkHarness.session.sendClientContent).toHaveBeenNthCalledWith(2, {
@@ -566,7 +566,7 @@ Saved context state:
     sdkHarness.emitMessage({ setupComplete: {} });
     await connectPromise;
 
-    await transport.sendText('Hello from the desktop runtime');
+    await transport.submit({ type: 'text', text: 'Hello from the desktop runtime' });
 
     expect(sdkHarness.session.sendClientContent).toHaveBeenCalledWith({
       turns: [
@@ -720,16 +720,19 @@ Saved context state:
     sdkHarness.emitMessage({ setupComplete: {} });
     await connectPromise;
 
-    await transport.sendToolResponses([
-      {
-        id: 'call-1',
-        name: 'get_current_mode',
-        response: {
-          ok: true,
-          mode: 'voice',
+    await transport.submit({
+      type: 'tool-responses',
+      responses: [
+        {
+          id: 'call-1',
+          name: 'get_current_mode',
+          response: {
+            ok: true,
+            mode: 'voice',
+          },
         },
-      },
-    ]);
+      ],
+    });
 
     expect(sdkHarness.session.sendToolResponse).toHaveBeenCalledWith({
       functionResponses: [
@@ -767,7 +770,7 @@ Saved context state:
 
     sdkHarness.emitMessage({ setupComplete: {} });
     await connectPromise;
-    await transport.sendText('Hello from the desktop runtime');
+    await transport.submit({ type: 'text', text: 'Hello from the desktop runtime' });
 
     sdkHarness.emitMessage(buildModelTextMessage('Done', {
       serverContent: {
@@ -813,7 +816,7 @@ Saved context state:
 
     sdkHarness.emitMessage({ setupComplete: {} });
     await connectPromise;
-    await transport.sendText('Hello from the desktop runtime');
+    await transport.submit({ type: 'text', text: 'Hello from the desktop runtime' });
 
     sdkHarness.emitMessage(buildModelTextMessage('Partial reply', {
       serverContent: {
@@ -1179,7 +1182,7 @@ Saved context state:
 
     sdkHarness.emitMessage({ setupComplete: {} });
     await connectPromise;
-    await transport.sendAudioChunk(new Uint8Array([1, 2, 3, 4]));
+    await transport.submit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
 
     expect(sdkHarness.session.sendRealtimeInput).toHaveBeenCalledWith({
       audio: {
@@ -1207,8 +1210,8 @@ Saved context state:
 
     sdkHarness.emitMessage({ setupComplete: {} });
     await connectPromise;
-    await transport.sendAudioChunk(new Uint8Array([1, 2, 3, 4]));
-    await transport.sendAudioStreamEnd();
+    await transport.submit({ type: 'audio-chunk', chunk: new Uint8Array([1, 2, 3, 4]) });
+    await transport.submit({ type: 'audio-stream-end' });
 
     expect(sdkHarness.session.sendRealtimeInput).toHaveBeenCalledWith({
       audioStreamEnd: true,
@@ -1466,7 +1469,11 @@ Saved context state:
 
     sdkHarness.emitMessage({ setupComplete: {} });
     await connectPromise;
-    await transport.sendVideoFrame(new Uint8Array([1, 2, 3, 4]), 'image/jpeg');
+    await transport.submit({
+      type: 'video-frame',
+      data: new Uint8Array([1, 2, 3, 4]),
+      mimeType: 'image/jpeg',
+    });
 
     expect(sdkHarness.session.sendRealtimeInput).toHaveBeenCalledWith({
       video: {
@@ -1479,7 +1486,11 @@ Saved context state:
   it('throws when sendVideoFrame is called without a connected session', async () => {
     const transport = createGeminiLiveTransport({ config: TEST_LIVE_CONFIG });
     await expect(
-      transport.sendVideoFrame(new Uint8Array([1, 2]), 'image/jpeg'),
+      transport.submit({
+        type: 'video-frame',
+        data: new Uint8Array([1, 2]),
+        mimeType: 'image/jpeg',
+      }),
     ).rejects.toThrow('Gemini Live session is not connected');
   });
 
@@ -1503,7 +1514,11 @@ Saved context state:
     await connectPromise;
 
     await expect(
-      transport.sendVideoFrame(new Uint8Array([1, 2]), 'image/jpeg'),
+      transport.submit({
+        type: 'video-frame',
+        data: new Uint8Array([1, 2]),
+        mimeType: 'image/jpeg',
+      }),
     ).rejects.toThrow('Gemini Live video input requires a voice session');
   });
 });

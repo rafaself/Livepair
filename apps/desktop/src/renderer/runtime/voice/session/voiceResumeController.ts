@@ -1,7 +1,6 @@
 import type {
   DesktopSession,
   LiveSessionEvent,
-  TransportKind,
 } from '../../transport/transport.types';
 import type { VoiceFallbackAttemptResult } from './connectFallbackVoiceSession';
 import type {
@@ -12,14 +11,14 @@ import type {
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import { asErrorDetail } from '../../core/runtimeUtils';
 import { isTokenValidForReconnect } from './voiceSessionToken';
-import { LIVE_ADAPTER_KEY } from '../../transport/liveConfig';
+import type { LiveTransportAdapter } from '../../transport/liveTransportAdapter';
 import type { SessionStoreApi } from '../../core/sessionControllerTypes';
 import { createVoiceResumeFallbackController } from './voiceResumeFallback';
 import { teardownVoiceSessionForResume } from './voiceResumeTeardown';
 
 export type VoiceResumeControllerOps = {
   store: SessionStoreApi;
-  createTransport: (kind: TransportKind) => DesktopSession;
+  transportAdapter: LiveTransportAdapter;
   getToken: () => CreateEphemeralTokenResponse | null;
   beginSessionOperation: () => number;
   isCurrentSessionOperation: (id: number) => boolean;
@@ -181,7 +180,7 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       return;
     }
 
-    const transport = ops.createTransport(LIVE_ADAPTER_KEY);
+    const transport = ops.transportAdapter.create();
     ops.setActiveTransport(transport);
     ops.subscribeTransport(transport, ops.handleTransportEvent);
 

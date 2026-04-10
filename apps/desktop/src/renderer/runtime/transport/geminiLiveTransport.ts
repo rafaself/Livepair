@@ -1,9 +1,11 @@
 import type {
-  DesktopSession,
-  DesktopSessionConnectParams,
+  LiveTransport,
+  LiveTransportConnectRequest,
+  LiveTransportSubmitRequest,
   LiveSessionEvent,
 } from './transport.types';
 import type { DesktopVoice } from '../../../shared';
+import type { LiveTransportAdapter } from './liveTransportAdapter';
 import type { VoiceToolResponse } from '../voice/voice.types';
 import {
   LIVE_ADAPTER_KEY,
@@ -61,7 +63,7 @@ type CreateGeminiLiveTransportOptions = {
   systemInstruction?: string | undefined;
 };
 
-export class GeminiLiveTransport implements DesktopSession {
+export class GeminiLiveTransport implements LiveTransport {
   kind = LIVE_ADAPTER_KEY;
 
   private readonly listeners = new Set<(event: LiveSessionEvent) => void>();
@@ -99,7 +101,7 @@ export class GeminiLiveTransport implements DesktopSession {
     };
   }
 
-  async connect(params: DesktopSessionConnectParams): Promise<void> {
+  async connect(params: LiveTransportConnectRequest): Promise<void> {
     if ('history' in (params as Record<string, unknown>)) {
       throw createTransportError(
         'Gemini Live fallback rehydration must use a RehydrationPacket instead of raw history',
@@ -313,6 +315,23 @@ export class GeminiLiveTransport implements DesktopSession {
     }
   }
 
+  async submit(request: LiveTransportSubmitRequest): Promise<void> {
+    switch (request.type) {
+      case 'text':
+        return this.sendText(request.text);
+      case 'audio-chunk':
+        return this.sendAudioChunk(request.chunk);
+      case 'audio-stream-end':
+        return this.sendAudioStreamEnd();
+      case 'tool-responses':
+        return this.sendToolResponses(request.responses);
+      case 'video-frame':
+        return this.sendVideoFrame(request.data, request.mimeType);
+      default:
+        return Promise.resolve();
+    }
+  }
+
   async sendText(text: string): Promise<void> {
     const session = this.state.session;
 
@@ -425,6 +444,26 @@ export class GeminiLiveTransport implements DesktopSession {
 
 export function createGeminiLiveTransport(
   options?: CreateGeminiLiveTransportOptions,
-): DesktopSession {
+): LiveTransport {
   return new GeminiLiveTransport(options);
+}
+
+export function createGeminiLiveTransportAdapter(
+  options:
+    | CreateGeminiLiveTransportOptions
+    | (() => CreateGeminiLiveTransportOptions) = {},
+): LiveTransportAdapter {
+  const resolveOptions = (): CreateGeminiLiveTransportOptions =>
+    typeof options === 'function'
+      ? options()
+      : options;
+
+  return {
+    key: LIVE_ADAPTER_KEY,
+    create: (overrides) =>
+      createGeminiLiveTransport({
+        ...resolveOptions(),
+        ...(overrides?.voice ? { voice: overrides.voice } : {}),
+      }),
+  };
 }

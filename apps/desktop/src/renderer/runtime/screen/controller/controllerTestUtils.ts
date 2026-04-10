@@ -57,7 +57,10 @@ export function createTransportMock() {
   const sendVideoFrame = vi.fn(
     async (_data: Uint8Array, _mimeType: 'image/jpeg'): Promise<void> => undefined,
   );
-  const transport = { sendVideoFrame } as unknown as DesktopSession;
+  const transport = {
+    submit: vi.fn(async (request: { type: 'video-frame'; data: Uint8Array; mimeType: 'image/jpeg' }) =>
+      sendVideoFrame(request.data, request.mimeType)),
+  } as unknown as DesktopSession;
 
   return {
     transport,

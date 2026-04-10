@@ -12,8 +12,11 @@ function createHarness(options: { onAnswerMetadata?: (answerMetadata: AnswerMeta
   const setLastDebugEvent = vi.fn();
   const store = { getState: () => ({ setVoiceToolState, setLastDebugEvent }) };
 
-  const sendToolResponses = vi.fn(() => Promise.resolve());
-  const transport = { sendToolResponses } as unknown as DesktopSession;
+  const sendToolResponses = vi.fn((_responses: unknown[]) => Promise.resolve());
+  const transport = {
+    submit: vi.fn(async (request: { type: 'tool-responses'; responses: unknown[] }) =>
+      sendToolResponses(request.responses)),
+  } as unknown as DesktopSession;
   let currentTransport: DesktopSession | null = transport;
 
   const snapshot: VoiceToolExecutionSnapshot = {
@@ -154,7 +157,9 @@ describe('createVoiceToolController', () => {
     const { ctrl, setTransport, sendToolResponses } = createHarness();
 
     mockedExecute.mockImplementation(async (call) => {
-      setTransport({ sendToolResponses: vi.fn() } as unknown as DesktopSession);
+      setTransport({
+        submit: vi.fn(async () => undefined),
+      } as unknown as DesktopSession);
       return { id: call.id, name: call.name, response: { ok: true } };
     });
 

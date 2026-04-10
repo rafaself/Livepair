@@ -83,10 +83,11 @@ export function createScreenFrameSendCoordinator({
         }
 
         try {
-          await nextFrame.transport.sendVideoFrame(
-            nextFrame.frame.data,
-            nextFrame.frame.mimeType,
-          );
+          await nextFrame.transport.submit({
+            type: 'video-frame',
+            data: nextFrame.frame.data,
+            mimeType: nextFrame.frame.mimeType,
+          });
         } catch (error) {
           if (
             !isCurrentFrame(

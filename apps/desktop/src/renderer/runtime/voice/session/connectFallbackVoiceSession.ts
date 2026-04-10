@@ -1,5 +1,6 @@
 import { asErrorDetail } from '../../core/runtimeUtils';
 import type { DesktopSession } from '../../transport/transport.types';
+import type { LiveTransportAdapter } from '../../transport/liveTransportAdapter';
 import type {
   AssistantVoice,
   CreateEphemeralTokenResponse,
@@ -28,7 +29,7 @@ type ConnectFallbackVoiceSessionArgs = {
   buildRehydrationPacketFromCurrentChat: () => Promise<RehydrationPacket>;
   isCurrentSessionOperation: (operationId: number) => boolean;
   resolveSessionVoice: () => Promise<AssistantVoice>;
-  createTransport: (options?: { voice?: AssistantVoice }) => DesktopSession;
+  transportAdapter: Pick<LiveTransportAdapter, 'create'>;
   createPersistedLiveSession: (voice: AssistantVoice) => Promise<void>;
   activateVoiceTransport: (transport: DesktopSession) => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
@@ -44,7 +45,7 @@ export async function connectFallbackVoiceSession({
   buildRehydrationPacketFromCurrentChat,
   isCurrentSessionOperation,
   resolveSessionVoice,
-  createTransport,
+  transportAdapter,
   createPersistedLiveSession,
   activateVoiceTransport,
   setVoiceResumptionInFlight,
@@ -92,7 +93,7 @@ export async function connectFallbackVoiceSession({
 
   let transport: DesktopSession;
   try {
-    transport = createTransport({ voice });
+    transport = transportAdapter.create({ voice });
   } catch (error) {
     return {
       status: 'failed',

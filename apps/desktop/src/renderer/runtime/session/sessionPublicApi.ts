@@ -1,5 +1,4 @@
 import { asErrorDetail } from '../core/runtimeUtils';
-import { LIVE_ADAPTER_KEY } from '../transport/liveConfig';
 import { createSessionCommandDispatcher } from './sessionCommandDispatcher';
 import type { SessionCommandSink } from './sessionCommandDispatcher';
 import type {
@@ -131,7 +130,7 @@ export function createSessionControllerPublicApi({
     ) {
       const activeTransport = runtime.getActiveTransport();
 
-      if (!activeTransport || activeTransport.kind !== LIVE_ADAPTER_KEY) {
+      if (!activeTransport) {
         logRuntimeError('voice-session', 'submit aborted because voice transport is unavailable', {
           textLength: trimmedText.length,
         });
@@ -161,7 +160,10 @@ export function createSessionControllerPublicApi({
         appendTypedUserTurn(trimmedText);
         voiceTranscriptCtrl.queueMixedModeAssistantReply();
         store.getState().setLastRuntimeError(null);
-        await activeTransport.sendText(trimmedText);
+        await activeTransport.submit({
+          type: 'text',
+          text: trimmedText,
+        });
         outboundGateway.recordSuccess();
         runtime.syncSpeechSilenceTimeout(runtime.currentSpeechLifecycleStatus());
         return true;

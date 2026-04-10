@@ -96,39 +96,60 @@ export type LiveSessionEvent =
       detail: string;
     };
 
-type DesktopSessionConnectParamsBase = {
+type LiveTransportConnectRequestBase = {
   token: CreateEphemeralTokenResponse;
   mode: LiveConnectMode;
 };
 
-type DesktopSessionFreshConnectParams = DesktopSessionConnectParamsBase & {
+type LiveTransportFreshConnectRequest = LiveTransportConnectRequestBase & {
   resumeHandle?: undefined;
   rehydrationPacket?: undefined;
 };
 
-type DesktopSessionResumeConnectParams = DesktopSessionConnectParamsBase & {
+type LiveTransportResumeConnectRequest = LiveTransportConnectRequestBase & {
   resumeHandle: string;
   rehydrationPacket?: undefined;
 };
 
-type DesktopSessionRehydrateConnectParams = DesktopSessionConnectParamsBase & {
+type LiveTransportRehydrateConnectRequest = LiveTransportConnectRequestBase & {
   resumeHandle?: undefined;
   rehydrationPacket: RehydrationPacket;
 };
 
-export type DesktopSessionConnectParams =
-  | DesktopSessionFreshConnectParams
-  | DesktopSessionResumeConnectParams
-  | DesktopSessionRehydrateConnectParams;
+export type LiveTransportConnectRequest =
+  | LiveTransportFreshConnectRequest
+  | LiveTransportResumeConnectRequest
+  | LiveTransportRehydrateConnectRequest;
 
-export type DesktopSession = {
+export type LiveTransportSubmitRequest =
+  | {
+      type: 'text';
+      text: string;
+    }
+  | {
+      type: 'audio-chunk';
+      chunk: Uint8Array;
+    }
+  | {
+      type: 'audio-stream-end';
+    }
+  | {
+      type: 'tool-responses';
+      responses: VoiceToolResponse[];
+    }
+  | {
+      type: 'video-frame';
+      data: Uint8Array;
+      mimeType: string;
+    };
+
+export type LiveTransport = {
   kind: TransportKind;
-  connect: (params: DesktopSessionConnectParams) => Promise<void>;
-  sendText: (text: string) => Promise<void>;
-  sendAudioChunk: (chunk: Uint8Array) => Promise<void>;
-  sendAudioStreamEnd: () => Promise<void>;
-  sendToolResponses: (responses: VoiceToolResponse[]) => Promise<void>;
-  sendVideoFrame: (data: Uint8Array, mimeType: string) => Promise<void>;
+  connect: (params: LiveTransportConnectRequest) => Promise<void>;
+  submit: (request: LiveTransportSubmitRequest) => Promise<void>;
   disconnect: () => Promise<void>;
   subscribe: (listener: (event: LiveSessionEvent) => void) => () => void;
 };
+
+export type DesktopSessionConnectParams = LiveTransportConnectRequest;
+export type DesktopSession = LiveTransport;

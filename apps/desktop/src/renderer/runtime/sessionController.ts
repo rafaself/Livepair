@@ -4,8 +4,9 @@ import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { resolveActiveScreenContextQuality } from '../../shared';
 import { defaultRuntimeLogger } from './core/logger';
-import { createGeminiLiveTransport } from './transport/geminiLiveTransport';
+import { createGeminiLiveTransportAdapter } from './transport/geminiLiveTransport';
 import { continuousScreenQualityToMediaResolution } from './transport/continuousScreenQuality';
+import { LIVE_ADAPTER_KEY } from './transport/liveConfig';
 import { createAssistantAudioPlayback } from './audio/assistantAudioPlayback';
 import { createLocalVoiceCapture } from './audio/localVoiceCapture';
 import { createLocalScreenCapture } from './screen/localScreenCapture';
@@ -23,23 +24,33 @@ export type {
 function resolveDesktopSessionControllerDependencies(
   overrides: Partial<DesktopSessionControllerDependencies>,
 ): DesktopSessionControllerDependencies {
+  const transportAdapter = overrides.transportAdapter
+    ?? (
+      overrides.createTransport
+        ? {
+            key: LIVE_ADAPTER_KEY,
+            create: (options) => overrides.createTransport!(LIVE_ADAPTER_KEY, options),
+          }
+        : createGeminiLiveTransportAdapter(() => {
+            const settings = useSettingsStore.getState().settings;
+
+            return {
+              mediaResolutionOverride: continuousScreenQualityToMediaResolution(
+                resolveActiveScreenContextQuality(settings),
+              ),
+              groundingEnabled: settings.groundingEnabled,
+              voice: settings.voice,
+              systemInstruction: settings.systemInstruction,
+            };
+          })
+    );
+
   return {
     logger: defaultRuntimeLogger,
     checkBackendHealth,
     requestSessionToken,
     reportLiveTelemetry,
-    createTransport: (_kind, options) => {
-      const settings = useSettingsStore.getState().settings;
-
-      return createGeminiLiveTransport({
-        mediaResolutionOverride: continuousScreenQualityToMediaResolution(
-          resolveActiveScreenContextQuality(settings),
-        ),
-        groundingEnabled: settings.groundingEnabled,
-        voice: options?.voice ?? settings.voice,
-        systemInstruction: settings.systemInstruction,
-      });
-    },
+    transportAdapter,
     createVoiceCapture: (observer) => createLocalVoiceCapture(observer),
     createVoicePlayback: (observer, options) =>
       createAssistantAudioPlayback(observer, options),

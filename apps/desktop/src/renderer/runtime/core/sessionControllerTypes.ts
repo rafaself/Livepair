@@ -12,6 +12,7 @@ import type { LocalVoiceCapture } from '../audio/localVoiceCapture';
 import type {
   AssistantAudioPlayback,
 } from '../audio/audio.types';
+import type { LiveTransportAdapter } from '../transport/liveTransportAdapter';
 import type {
   DesktopSession,
   TransportKind,
@@ -51,7 +52,8 @@ export type DesktopSessionControllerDependencies = {
   checkBackendHealth: typeof checkBackendHealth;
   requestSessionToken: typeof requestSessionToken;
   reportLiveTelemetry: typeof reportLiveTelemetry;
-  createTransport: (
+  transportAdapter: LiveTransportAdapter;
+  createTransport?: (
     kind: TransportKind,
     options?: { voice?: AssistantVoice },
   ) => DesktopSession;

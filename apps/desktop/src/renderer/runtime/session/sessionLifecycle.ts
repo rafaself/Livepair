@@ -1,7 +1,6 @@
 import {
   getEffectiveVoiceSessionCapabilities,
   getLiveConfig,
-  LIVE_ADAPTER_KEY,
 } from '../transport/liveConfig';
 import { asErrorDetail } from '../core/runtimeUtils';
 import { createSessionVoiceConnection } from './sessionVoiceConnection';
@@ -10,6 +9,7 @@ import type {
   SessionEvent,
 } from '../core/session.types';
 import type { DesktopSession } from '../transport/transport.types';
+import type { LiveTransportAdapter } from '../transport/liveTransportAdapter';
 import type { SessionStoreApi } from '../core/sessionControllerTypes';
 import type {
   VoiceSessionDurabilityState,
@@ -66,7 +66,7 @@ type SessionControllerLifecycleArgs = {
   }) => Promise<void>;
   onRestoredSessionConnected: () => void;
   setVoiceResumptionInFlight: (value: boolean) => void;
-  createTransport: (options?: { voice?: AssistantVoice }) => DesktopSession;
+  transportAdapter: LiveTransportAdapter;
   activateVoiceTransport: (transport: DesktopSession) => void;
   startVoiceCapture: () => Promise<boolean>;
   setVoiceErrorState: (detail: string) => Promise<void>;
@@ -108,7 +108,7 @@ export function createSessionControllerLifecycle({
   endPersistedLiveSession,
   onRestoredSessionConnected,
   setVoiceResumptionInFlight,
-  createTransport,
+  transportAdapter,
   activateVoiceTransport,
   startVoiceCapture,
   setVoiceErrorState,
@@ -121,7 +121,7 @@ export function createSessionControllerLifecycle({
     isCurrentSessionOperation,
     recordSessionEvent: (event) => recordSessionEvent(event),
     setVoiceResumptionInFlight,
-    createTransport,
+    createTransport: (options) => transportAdapter.create(options),
     activateVoiceTransport,
     buildRehydrationPacketFromCurrentChat,
     invalidatePersistedLiveSession,
@@ -207,10 +207,10 @@ export function createSessionControllerLifecycle({
     resetVoiceToolState();
     recordSessionEvent({
       type: 'session.start.requested',
-      transport: LIVE_ADAPTER_KEY,
+      transport: transportAdapter.key,
     });
     logRuntimeDiagnostic('voice-session', 'start requested', {
-      transport: LIVE_ADAPTER_KEY,
+      transport: transportAdapter.key,
       capabilities: effectiveVoiceSessionCapabilities,
     });
 
