@@ -56,6 +56,12 @@ function createHarness(options: {
   const syncSpeechSilenceTimeout = vi.fn();
   const setVoiceErrorState = vi.fn();
   const logRuntimeError = vi.fn();
+  const supervisor = {
+    checkBackendHealth: vi.fn(async () => undefined),
+    startSession: vi.fn(async () => undefined),
+    endSession: vi.fn(async () => undefined),
+    endSpeechMode: vi.fn(async () => undefined),
+  };
   const refreshScreenCaptureSourceSnapshot = vi.fn(
     async () => options.refreshScreenCaptureSourceSnapshotResult ?? true,
   );
@@ -63,8 +69,7 @@ function createHarness(options: {
 
   const publicApi = createSessionControllerPublicApi({
     store,
-    performBackendHealthCheck: vi.fn(async () => true),
-    startSessionInternal: vi.fn(async () => undefined),
+    supervisor,
     voiceChunkCtrl: {
       addChunkListener: vi.fn(() => () => undefined),
       flush: vi.fn(async () => undefined),
@@ -81,8 +86,6 @@ function createHarness(options: {
     runtime: {
       currentSpeechLifecycleStatus: vi.fn(() => 'listening' as const),
       handleSessionCommand: vi.fn(() => ({ accepted: true as const })),
-      endSessionInternal: vi.fn(async () => undefined),
-      endSpeechModeInternal: vi.fn(async () => undefined),
       getActiveTransport: vi.fn(() => activeTransport as never),
       getRealtimeOutboundGateway: vi.fn(() => outboundGateway),
       recordSessionEvent: vi.fn(),
@@ -107,11 +110,30 @@ function createHarness(options: {
     syncSpeechSilenceTimeout,
     setVoiceErrorState,
     logRuntimeError,
+    supervisor,
     onCommand,
   };
 }
 
 describe('createSessionControllerPublicApi', () => {
+  it('delegates lifecycle commands to the runtime supervisor', async () => {
+    const harness = createHarness();
+
+    await harness.publicApi.startSession({ mode: 'speech' });
+    await harness.publicApi.endSession();
+    await harness.publicApi.endSpeechMode();
+    await harness.publicApi.checkBackendHealth();
+
+    expect(harness.supervisor.startSession).toHaveBeenCalledWith({ mode: 'speech' });
+    expect(harness.supervisor.endSession).toHaveBeenCalledTimes(1);
+    expect(harness.supervisor.endSpeechMode).toHaveBeenCalledTimes(1);
+    expect(harness.supervisor.checkBackendHealth).toHaveBeenCalledTimes(1);
+    expect(harness.onCommand).toHaveBeenCalledWith({ type: 'session.start', mode: 'speech' });
+    expect(harness.onCommand).toHaveBeenCalledWith({ type: 'session.end' });
+    expect(harness.onCommand).toHaveBeenCalledWith({ type: 'speechMode.end' });
+    expect(harness.onCommand).toHaveBeenCalledWith({ type: 'backend.checkHealth' });
+  });
+
   it('routes text sends through the outbound gateway and keeps them non-replaceable', async () => {
     const harness = createHarness();
 

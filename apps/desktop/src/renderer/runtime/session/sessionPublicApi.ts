@@ -7,17 +7,19 @@ import type {
   DebugAssistantState,
   SessionStoreApi,
 } from '../core/sessionControllerTypes';
-import type {
-  SpeechLifecycleStatus,
-} from '../speech/speech.types';
+import type { SpeechLifecycleStatus } from '../speech/speech.types';
 import type { RealtimeOutboundGateway } from '../outbound/outbound.types';
 
-const TEXT_SPEECH_MODE_CHANNEL_KEY = 'text:speech-mode';
+type SessionControllerPublicApiSupervisor = {
+  checkBackendHealth: () => Promise<void>;
+  startSession: (options: { mode: 'speech' }) => Promise<void>;
+  endSession: () => Promise<void>;
+  endSpeechMode: () => Promise<void>;
+};
 
 type SessionControllerPublicApiArgs = {
   store: SessionStoreApi;
-  performBackendHealthCheck: () => Promise<boolean>;
-  startSessionInternal: (options: { mode: 'speech' }) => Promise<void>;
+  supervisor: SessionControllerPublicApiSupervisor;
   voiceChunkCtrl: {
     addChunkListener: (
       listener: Parameters<DesktopSessionController['subscribeToVoiceChunks']>[0],
@@ -46,16 +48,6 @@ type SessionControllerPublicApiArgs = {
       accepted: boolean;
       reason?: 'session-already-active' | 'speech-inactive';
     };
-    endSessionInternal: (options?: {
-      preserveLastRuntimeError?: string | null;
-      recordEvents?: boolean;
-      preserveVoiceRuntimeDiagnostics?: boolean;
-      liveSessionEnd?: {
-        status: 'ended' | 'failed';
-        endedReason?: string | null;
-      };
-    }) => Promise<void>;
-    endSpeechModeInternal: (options?: { recordEvents?: boolean }) => Promise<void>;
     getActiveTransport: () => import('../transport/transport.types').DesktopSession | null;
     getRealtimeOutboundGateway: () => RealtimeOutboundGateway;
     recordSessionEvent: (event: {
@@ -75,8 +67,7 @@ type SessionControllerPublicApiArgs = {
 
 export function createSessionControllerPublicApi({
   store,
-  performBackendHealthCheck,
-  startSessionInternal,
+  supervisor,
   voiceChunkCtrl,
   screenCtrl,
   refreshScreenCaptureSourceSnapshot,
@@ -152,7 +143,7 @@ export function createSessionControllerPublicApi({
         textSubmitSequence += 1;
         const decision = outboundGateway.submit({
           kind: 'text',
-          channelKey: TEXT_SPEECH_MODE_CHANNEL_KEY,
+          channelKey: 'text:speech-mode',
           sequence: textSubmitSequence,
           createdAtMs: Date.now(),
           estimatedBytes: trimmedText.length,
@@ -192,12 +183,10 @@ export function createSessionControllerPublicApi({
   const dispatcher = createSessionCommandDispatcher({
     onCommand,
     handlers: {
-      startSession: (options) => startSessionInternal(options),
-      endSession: () => runtime.endSessionInternal({ recordEvents: true }),
-      endSpeechMode: () => runtime.endSpeechModeInternal({ recordEvents: true }),
-      checkBackendHealth: async () => {
-        await performBackendHealthCheck();
-      },
+      startSession: (options) => supervisor.startSession(options),
+      endSession: () => supervisor.endSession(),
+      endSpeechMode: () => supervisor.endSpeechMode(),
+      checkBackendHealth: () => supervisor.checkBackendHealth(),
       startVoiceCapture: async () => {
         await voiceChunkCtrl.startCapture();
       },

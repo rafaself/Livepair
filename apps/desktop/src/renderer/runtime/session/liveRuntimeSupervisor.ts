@@ -17,19 +17,17 @@ import type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
 } from '../core/sessionControllerTypes';
-import type { ProductMode } from '../core/session.types';
-import type { SessionCommand } from '../core/session.types';
+import type { ProductMode, SessionCommand } from '../core/session.types';
 import type { TextSessionStatus } from '../text/text.types';
-import type { DesktopSession } from '../transport/transport.types';
-import type {
-  CreateEphemeralTokenResponse,
-  LiveSessionRecord,
-} from '@livepair/shared-types';
+import type { LiveSessionRecord } from '@livepair/shared-types';
 import type { createVoicePlaybackController } from '../voice/media/voicePlaybackController';
 import type { createScreenCaptureController } from '../screen/screenCaptureController';
 import type { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
+import type { createVoiceInterruptionController } from '../voice/session/voiceInterruptionController';
 import type { createVoiceTokenManager } from '../voice/session/voiceTokenManager';
+import type { createVoiceToolController } from '../voice/tools/voiceToolController';
 import type { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
+import type { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import type { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionControllerErrorHandling } from './sessionErrorHandling';
 import {
@@ -41,17 +39,17 @@ import { createSessionControllerModeSwitching } from './sessionModeSwitching';
 import { createSessionControllerPublicApi } from './sessionPublicApi';
 import { createSessionControllerTeardown } from './sessionTeardown';
 import { createSessionTransportActivation } from './sessionTransportActivation';
+import { createSessionTransportAssembly } from './sessionTransportAssembly';
 import type { createLiveTelemetryCollector } from './liveTelemetryCollector';
 
 type RuntimeRef = {
   current: ReturnType<typeof createSessionControllerRuntime> | null;
 };
 
-type TransportEvent = Parameters<Parameters<DesktopSession['subscribe']>[0]>[0];
-
-type SessionLifecycleAssemblyArgs = {
+type LiveRuntimeSupervisorArgs = {
   dependencies: DesktopSessionControllerDependencies;
   conversationCtx: ConversationContext;
+  mutableRuntime: ReturnType<typeof createSessionControllerMutableRuntime>;
   runtimeRef: RuntimeRef;
   telemetryCollector: ReturnType<typeof createLiveTelemetryCollector>;
   telemetryEnvironment: string;
@@ -60,22 +58,28 @@ type SessionLifecycleAssemblyArgs = {
   playbackCtrl: ReturnType<typeof createVoicePlaybackController>;
   screenCtrl: ReturnType<typeof createScreenCaptureController>;
   voiceChunkCtrl: ReturnType<typeof createVoiceChunkPipeline>;
+  voiceToolCtrl: ReturnType<typeof createVoiceToolController>;
   voiceTranscript: ReturnType<typeof createVoiceTranscriptController>;
+  interruptionCtrl: ReturnType<typeof createVoiceInterruptionController>;
   tokenMgr: ReturnType<typeof createVoiceTokenManager>;
   appendTypedUserTurn: (text: string) => string;
-  handleTransportEvent: (event: TransportEvent) => void;
-  requestVoiceSessionToken: (
-    operationId: number,
-  ) => Promise<CreateEphemeralTokenResponse | null>;
-  selectedOutputDeviceId: () => string;
   refreshScreenCaptureSourceSnapshot: () => Promise<boolean>;
+  selectedOutputDeviceId: () => string;
   setVoiceErrorState: (detail: string) => void;
   settleVoiceErrorState: (detail: string) => Promise<void>;
+  persistSettledConversationTurn: (turnId: string) => void;
 };
 
-export function createSessionLifecycleAssembly({
+export type LiveRuntimeSupervisor = {
+  publicApi: DesktopSessionController;
+  endSessionInternal: EndSessionInternal;
+  voiceErrorHandlers: ReturnType<typeof createSessionControllerErrorHandling>;
+};
+
+export function createLiveRuntimeSupervisor({
   dependencies,
   conversationCtx,
+  mutableRuntime,
   runtimeRef,
   telemetryCollector,
   telemetryEnvironment,
@@ -84,20 +88,17 @@ export function createSessionLifecycleAssembly({
   playbackCtrl,
   screenCtrl,
   voiceChunkCtrl,
+  voiceToolCtrl,
   voiceTranscript,
+  interruptionCtrl,
   tokenMgr,
   appendTypedUserTurn,
-  handleTransportEvent,
-  requestVoiceSessionToken,
-  selectedOutputDeviceId,
   refreshScreenCaptureSourceSnapshot,
+  selectedOutputDeviceId,
   setVoiceErrorState,
   settleVoiceErrorState,
-}: SessionLifecycleAssemblyArgs): {
-  publicApi: DesktopSessionController;
-  endSessionInternal: EndSessionInternal;
-  voiceErrorHandlers: ReturnType<typeof createSessionControllerErrorHandling>;
-} {
+  persistSettledConversationTurn,
+}: LiveRuntimeSupervisorArgs): LiveRuntimeSupervisor {
   const startTelemetrySession = (liveSession: LiveSessionRecord): void => {
     telemetryCollector.onSessionStarted({
       sessionId: liveSession.id,
@@ -108,6 +109,23 @@ export function createSessionLifecycleAssembly({
       appVersion: telemetryAppVersion,
     });
   };
+
+  const { handleTransportEvent, requestVoiceSessionToken } = createSessionTransportAssembly({
+    dependencies,
+    conversationCtx,
+    mutableRuntime,
+    telemetryCollector,
+    refreshScreenCaptureSourceSnapshot,
+    runtimeRef,
+    voiceToolCtrl,
+    voiceTranscript,
+    voiceChunkCtrl,
+    screenCtrl,
+    interruptionCtrl,
+    tokenMgr,
+    setVoiceErrorState,
+    persistSettledConversationTurn,
+  });
 
   const teardown = createSessionControllerTeardown({
     store: dependencies.store,
@@ -179,6 +197,7 @@ export function createSessionLifecycleAssembly({
       preserveConversationTurns,
     });
   };
+
   const transportActivation = createSessionTransportActivation({
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     setActiveTransport: (transport) => runtimeRef.current!.setActiveTransport(transport),
@@ -197,8 +216,10 @@ export function createSessionLifecycleAssembly({
     store: dependencies.store,
     beginSessionOperation: () => runtimeRef.current!.beginSessionOperation(),
     handleSessionCommand: (command) => runtimeRef.current!.handleSessionCommand(command),
-    isCurrentSessionOperation: (operationId) => runtimeRef.current!.isCurrentSessionOperation(operationId),
-    ensureExclusiveMode: (targetMode, operationId) => ensureExclusiveMode(targetMode, operationId),
+    isCurrentSessionOperation: (operationId) =>
+      runtimeRef.current!.isCurrentSessionOperation(operationId),
+    ensureExclusiveMode: (targetMode, operationId) =>
+      ensureExclusiveMode(targetMode, operationId),
     recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
     setVoiceCaptureState: (state) => {
       dependencies.store.getState().setVoiceCaptureState(state);
@@ -228,7 +249,8 @@ export function createSessionLifecycleAssembly({
     setCachedVoiceToken: (token) => {
       tokenMgr.set(token);
     },
-    syncVoiceDurabilityState: (token, patch) => runtimeRef.current!.syncVoiceDurabilityState(token, patch),
+    syncVoiceDurabilityState: (token, patch) =>
+      runtimeRef.current!.syncVoiceDurabilityState(token, patch),
     restorePersistedLiveSession: async () => {
       const liveSession = await restoreCurrentLiveSession();
 
@@ -286,6 +308,7 @@ export function createSessionLifecycleAssembly({
     textRuntimeFailed: () => undefined,
     logRuntimeDiagnostic,
   });
+
   const { endSessionInternal, endSpeechModeInternal } = createSessionControllerEndings({
     beginSessionOperation: () => runtimeRef.current!.beginSessionOperation(),
     recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
@@ -349,7 +372,8 @@ export function createSessionLifecycleAssembly({
     currentProductMode: () => runtimeRef.current!.currentProductMode(),
     hasSpeechRuntimeActivity: () => teardown.hasSpeechRuntimeActivity(),
     hasTextRuntimeActivity: () => false,
-    isCurrentSessionOperation: (operationId) => runtimeRef.current!.isCurrentSessionOperation(operationId),
+    isCurrentSessionOperation: (operationId) =>
+      runtimeRef.current!.isCurrentSessionOperation(operationId),
     setCurrentMode: (mode) => {
       runtimeRef.current!.setCurrentMode(mode);
     },
@@ -388,7 +412,8 @@ export function createSessionLifecycleAssembly({
       },
       runtime: {
         currentSpeechLifecycleStatus: () => runtimeRef.current!.currentSpeechLifecycleStatus(),
-        handleSessionCommand: (command) => runtimeRef.current!.handleSessionCommand(command),
+        handleSessionCommand: (command: SessionCommand) =>
+          runtimeRef.current!.handleSessionCommand(command),
         getActiveTransport: () => runtimeRef.current!.getActiveTransport(),
         getRealtimeOutboundGateway: () => runtimeRef.current!.getRealtimeOutboundGateway(),
         recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),

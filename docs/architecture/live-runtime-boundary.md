@@ -307,3 +307,22 @@ This document records the current desktop Live runtime boundary as implemented t
   A full runtime supervisor split.
   Moving conversation/transcript mutation behind engine-issued side effects.
   Unifying `currentMode`, teardown ordering, and remaining session/store orchestration behind the engine boundary.
+
+# SR-06 Update
+
+- Dedicated Live runtime supervisor introduced
+  `apps/desktop/src/renderer/runtime/session/liveRuntimeSupervisor.ts` now defines the Live-runtime internal supervisor boundary for operational lifecycle orchestration.
+  `apps/desktop/src/renderer/runtime/session/sessionControllerAssembly.ts` is thinner and now delegates lifecycle ownership to that supervisor after assembling the lower-level runtime, media, and store adapters.
+- What the supervisor owns in this release
+  Runtime startup and shutdown orchestration through the existing lifecycle/endings helpers.
+  Session instance creation, persisted-session restore, fresh-session fallback, and persisted-session teardown coordination.
+  Reconnect and resumption orchestration by owning the transport/lifecycle assembly boundary used by the resume controller and startup flow.
+  Public runtime lifecycle command delegation for backend health checks, speech-session start, full session end, and speech-mode end.
+- What remains outside the supervisor
+  The logical session engine in `apps/desktop/src/renderer/runtime/session/liveSessionEngine.ts` still owns command admissibility, logical lifecycle transitions, assistant-output gating, and turn-complete decisions.
+  Low-level transport, audio, screen-capture, transcript, tool, and persistence helpers remain in their existing modules and are coordinated by the supervisor rather than redesigned here.
+  `apps/desktop/src/renderer/runtime/sessionController.ts` still owns singleton creation plus renderer-store-backed dependency resolution, including settings/env-driven transport construction.
+- Intentionally deferred beyond this release
+  Pulling renderer-store dependency resolution and environment/config assembly fully behind the supervisor factory.
+  Moving screen/audio/public command helpers that are still in `sessionPublicApi.ts` into the supervisor if a later release needs a stricter boundary.
+  Any transport, audio, screen, telemetry, or provider-DTO redesign.

@@ -15,10 +15,9 @@ import { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
 import { createSessionControllerStateSync } from './sessionStateSync';
 import { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import { createSessionControllerRuntime } from './sessionRuntime';
-import { createSessionTransportAssembly } from './sessionTransportAssembly';
-import { createSessionLifecycleAssembly } from './sessionLifecycleAssembly';
 import { createSessionConversationSupport } from './sessionConversationSupport';
 import { createLiveTelemetryCollector } from './liveTelemetryCollector';
+import { createLiveRuntimeSupervisor } from './liveRuntimeSupervisor';
 import { useUiStore } from '../../store/uiStore';
 import { setAssistantAnswerMetadata } from '../conversation/conversationTurnManager';
 import desktopPackageJson from '../../../../package.json';
@@ -224,29 +223,14 @@ export function createSessionControllerAssembly(
     voiceTranscript,
     silenceCtrl,
   });
-  const { handleTransportEvent, requestVoiceSessionToken } = createSessionTransportAssembly({
-    dependencies,
-    conversationCtx,
-    mutableRuntime,
-    telemetryCollector,
-    refreshScreenCaptureSourceSnapshot,
-    runtimeRef,
-    voiceToolCtrl,
-    voiceTranscript,
-    voiceChunkCtrl,
-    screenCtrl,
-    interruptionCtrl,
-    tokenMgr,
-    setVoiceErrorState: (detail) => setVoiceErrorState(detail),
-    persistSettledConversationTurn,
-  });
   const {
     publicApi,
     endSessionInternal: assembledEndSessionInternal,
     voiceErrorHandlers,
-  } = createSessionLifecycleAssembly({
+  } = createLiveRuntimeSupervisor({
     dependencies,
     conversationCtx,
+    mutableRuntime,
     runtimeRef,
     telemetryCollector,
     telemetryEnvironment: import.meta.env.MODE,
@@ -255,15 +239,16 @@ export function createSessionControllerAssembly(
     playbackCtrl,
     screenCtrl,
     voiceChunkCtrl,
+    voiceToolCtrl,
     voiceTranscript,
+    interruptionCtrl,
     tokenMgr,
     appendTypedUserTurn,
-    handleTransportEvent,
-    requestVoiceSessionToken,
     selectedOutputDeviceId: () => stateSync.selectedOutputDeviceId(),
     refreshScreenCaptureSourceSnapshot,
     setVoiceErrorState: (detail) => setVoiceErrorState(detail),
     settleVoiceErrorState: (detail) => settleVoiceErrorState(detail),
+    persistSettledConversationTurn,
   });
 
   endSessionInternal = assembledEndSessionInternal;
