@@ -1,5 +1,5 @@
-import type { LocalVoiceChunk, VoiceCaptureDiagnostics } from '../voice/voice.types';
 import { createLocalVoiceCaptureRuntime } from './localVoiceCaptureRuntime';
+import type { AudioInputObserver } from './audio.types';
 
 const CAPTURE_WORKLET_PROCESSOR_NAME = 'livepair-local-voice-capture';
 const CAPTURE_WORKLET_MODULE_URL = new URL(
@@ -41,12 +41,7 @@ type AudioContextLike = {
   close: () => Promise<void>;
 };
 
-export type LocalVoiceCaptureObserver = {
-  onChunk: (chunk: LocalVoiceChunk) => void;
-  onDiagnostics: (diagnostics: Partial<VoiceCaptureDiagnostics>) => void;
-  onError: (detail: string) => void;
-  onSpeechActivity?: (active: boolean) => void;
-};
+export type LocalVoiceCaptureObserver = AudioInputObserver;
 
 export type LocalVoiceCapture = {
   start: (options: {
@@ -159,7 +154,7 @@ export function createLocalVoiceCapture(
       if (!mediaDevices?.getUserMedia) {
         const detail = 'Microphone capture is not available in this environment';
         runtime.emitDiagnostics({ lastError: detail, selectedInputDeviceId });
-        observer.onError(detail);
+        observer.onEvent({ type: 'capture.error', detail });
         throw new Error(detail);
       }
 
@@ -201,7 +196,7 @@ export function createLocalVoiceCapture(
         const detail = getCaptureErrorDetail(error);
         await runtime.cleanupResources();
         runtime.emitDiagnostics({ lastError: detail, selectedInputDeviceId });
-        observer.onError(detail);
+        observer.onEvent({ type: 'capture.error', detail });
         throw new Error(detail);
       }
     },

@@ -62,7 +62,10 @@ describe('createVoiceCaptureBinding', () => {
   it('suppresses hot capture diagnostics when debug mode is off', () => {
     const { observer, store } = createHarness();
 
-    observer.onDiagnostics({ chunkCount: 4, bytesPerChunk: 640 });
+    observer.onEvent({
+      type: 'capture.diagnostics',
+      diagnostics: { chunkCount: 4, bytesPerChunk: 640 },
+    });
 
     expect(store.setVoiceCaptureDiagnostics).not.toHaveBeenCalled();
   });
@@ -71,7 +74,10 @@ describe('createVoiceCaptureBinding', () => {
     useUiStore.setState({ isDebugMode: true });
     const { observer, store } = createHarness();
 
-    observer.onDiagnostics({ chunkCount: 4, bytesPerChunk: 640 });
+    observer.onEvent({
+      type: 'capture.diagnostics',
+      diagnostics: { chunkCount: 4, bytesPerChunk: 640 },
+    });
 
     expect(store.setVoiceCaptureDiagnostics).toHaveBeenCalledWith({
       chunkCount: 4,
@@ -82,7 +88,7 @@ describe('createVoiceCaptureBinding', () => {
   it('still surfaces capture errors even when debug mode is off', () => {
     const { observer, store } = createHarness();
 
-    observer.onError('Permission denied');
+    observer.onEvent({ type: 'capture.error', detail: 'Permission denied' });
 
     expect(store.setVoiceCaptureState).toHaveBeenCalledWith('error');
     expect(store.setLocalUserSpeechActive).toHaveBeenCalledWith(false);

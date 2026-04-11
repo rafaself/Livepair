@@ -4,6 +4,7 @@ import {
   type AssistantAudioPlayback,
   type AssistantAudioPlaybackObserver,
 } from './assistantAudioPlayback';
+import type { AudioOutputEvent } from './audio.types';
 import type { VoicePlaybackDiagnostics, VoicePlaybackState } from '../voice/voice.types';
 
 type FakeAudioBuffer = {
@@ -118,14 +119,18 @@ function createPlaybackHarness({
   };
 
   const observer: AssistantAudioPlaybackObserver = {
-    onStateChange: (state) => {
-      stateChanges.push(state);
-    },
-    onDiagnostics: (patch) => {
-      diagnostics.push(patch);
-    },
-    onError: (detail) => {
-      errors.push(detail);
+    onEvent: (event: AudioOutputEvent) => {
+      switch (event.type) {
+        case 'playback.state':
+          stateChanges.push(event.state);
+          return;
+        case 'playback.diagnostics':
+          diagnostics.push(event.diagnostics);
+          return;
+        case 'playback.error':
+          errors.push(event.detail);
+          return;
+      }
     },
   };
 

@@ -195,7 +195,7 @@ describe('createVoicePlaybackController', () => {
     const { ctrl, store, getObserver } = createHarness();
 
     ctrl.getOrCreate();
-    getObserver()!.onStateChange('playing');
+    getObserver()!.onEvent({ type: 'playback.state', state: 'playing' });
 
     expect(store.setVoicePlaybackState).toHaveBeenCalledWith('playing');
   });
@@ -206,7 +206,7 @@ describe('createVoicePlaybackController', () => {
 
     ctrl.getOrCreate();
     store.setVoicePlaybackDiagnostics.mockClear();
-    getObserver()!.onDiagnostics({ chunkCount: 5 });
+    getObserver()!.onEvent({ type: 'playback.diagnostics', diagnostics: { chunkCount: 5 } });
 
     expect(store.setVoicePlaybackDiagnostics).toHaveBeenCalledWith({ chunkCount: 5 });
   });
@@ -217,7 +217,10 @@ describe('createVoicePlaybackController', () => {
     ctrl.getOrCreate();
     store.setVoicePlaybackDiagnostics.mockClear();
 
-    getObserver()!.onDiagnostics({ chunkCount: 5, queueDepth: 1 });
+    getObserver()!.onEvent({
+      type: 'playback.diagnostics',
+      diagnostics: { chunkCount: 5, queueDepth: 1 },
+    });
 
     expect(store.setVoicePlaybackDiagnostics).not.toHaveBeenCalled();
   });
@@ -229,7 +232,10 @@ describe('createVoicePlaybackController', () => {
     ctrl.getOrCreate();
     store.setVoicePlaybackDiagnostics.mockClear();
 
-    getObserver()!.onDiagnostics({ chunkCount: 5, queueDepth: 1 });
+    getObserver()!.onEvent({
+      type: 'playback.diagnostics',
+      diagnostics: { chunkCount: 5, queueDepth: 1 },
+    });
 
     expect(store.setVoicePlaybackDiagnostics).toHaveBeenCalledWith({
       chunkCount: 5,
@@ -241,7 +247,7 @@ describe('createVoicePlaybackController', () => {
     const { ctrl, store, getObserver } = createHarness();
 
     ctrl.getOrCreate();
-    getObserver()!.onError('audio decode failed');
+    getObserver()!.onEvent({ type: 'playback.error', detail: 'audio decode failed' });
 
     expect(store.setVoicePlaybackDiagnostics).toHaveBeenCalledWith({
       lastError: 'audio decode failed',

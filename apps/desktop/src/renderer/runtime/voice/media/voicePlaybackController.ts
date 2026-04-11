@@ -1,4 +1,7 @@
-import type { AssistantAudioPlayback } from '../../audio/audio.types';
+import type {
+  AssistantAudioPlayback,
+  AudioOutputEvent,
+} from '../../audio/audio.types';
 import type {
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
@@ -59,25 +62,33 @@ export function createVoicePlaybackController(
     }
   };
 
+  const handlePlaybackEvent = (event: AudioOutputEvent): void => {
+    switch (event.type) {
+      case 'playback.state':
+        setState(event.state);
+        return;
+      case 'playback.diagnostics':
+        if (!isRuntimeDebugModeEnabled()) {
+          return;
+        }
+        updateDiagnostics(event.diagnostics);
+        return;
+      case 'playback.error':
+        updateDiagnostics({ lastError: event.detail });
+        setState('error');
+        store.getState().setLastRuntimeError(event.detail);
+        return;
+    }
+  };
+
   const getOrCreate = (): AssistantAudioPlayback => {
     if (!voicePlayback) {
       const selectedOutputDeviceId =
         settingsStore.getState().settings.selectedOutputDeviceId;
       voicePlayback = createPlayback(
         {
-          onStateChange: (state) => {
-            setState(state);
-          },
-          onDiagnostics: (diagnostics) => {
-            if (!isRuntimeDebugModeEnabled()) {
-              return;
-            }
-            updateDiagnostics(diagnostics);
-          },
-          onError: (detail) => {
-            updateDiagnostics({ lastError: detail });
-            setState('error');
-            store.getState().setLastRuntimeError(detail);
+          onEvent: (event) => {
+            handlePlaybackEvent(event);
           },
         },
         { selectedOutputDeviceId },

@@ -134,6 +134,27 @@ Deferred:
 - Audio or screen adapter redesign
 - Broad telemetry redesign
 
+### Audio Adapter Boundary
+
+Implemented:
+
+- `apps/desktop/src/renderer/runtime/audio/` owns microphone capture startup/shutdown, browser media-device setup, Web Audio/worklet wiring, PCM chunk production, speech-activity detection integration, assistant playback routing, and audio-device/playback diagnostics
+- Audio-originated callbacks are normalized at the audio boundary into small internal runtime events for capture chunks, capture activity, capture diagnostics/errors, and playback state/diagnostics/errors before voice/session orchestration consumes them
+- Voice media modules under `runtime/voice/media/` translate those normalized audio events into existing store updates, transport sends, interruption recovery, and runtime error handling
+
+Still outside the audio adapter:
+
+- Session lifecycle rules and recovery policy owned by the session engine/supervisor
+- Transport protocol handling and provider event normalization
+- Screen capture behavior
+- UI state and presentation logic
+
+Deferred:
+
+- Broader audio boundary consolidation across every runtime consumer
+- Multi-runtime or non-Live audio abstractions
+- Telemetry redesign beyond the existing audio diagnostics patches
+
 ### Backend API
 
 Implemented:

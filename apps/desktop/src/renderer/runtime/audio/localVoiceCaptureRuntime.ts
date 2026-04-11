@@ -71,11 +71,14 @@ export function createLocalVoiceCaptureRuntime(
   const emitDiagnostics = (
     diagnostics: Partial<VoiceCaptureDiagnostics>,
   ): void => {
-    observer.onDiagnostics({
-      bytesPerChunk: PCM16_CHUNK_BYTE_SIZE,
-      chunkDurationMs: PCM16_CHUNK_DURATION_MS,
-      sampleRateHz: TARGET_VOICE_SAMPLE_RATE,
-      ...diagnostics,
+    observer.onEvent({
+      type: 'capture.diagnostics',
+      diagnostics: {
+        bytesPerChunk: PCM16_CHUNK_BYTE_SIZE,
+        chunkDurationMs: PCM16_CHUNK_DURATION_MS,
+        sampleRateHz: TARGET_VOICE_SAMPLE_RATE,
+        ...diagnostics,
+      },
     });
   };
 
@@ -92,7 +95,7 @@ export function createLocalVoiceCaptureRuntime(
     }
 
     activeWorkletNode = null;
-    observer.onSpeechActivity?.(false);
+    observer.onEvent({ type: 'capture.activity', active: false });
 
     for (const track of activeTracks) {
       track.stop();
@@ -126,7 +129,7 @@ export function createLocalVoiceCaptureRuntime(
       sequence: ++nextChunkSequence,
     };
 
-    observer.onChunk(chunk);
+    observer.onEvent({ type: 'capture.chunk', chunk });
     emitDiagnostics({
       chunkCount: emittedChunkCount,
       selectedInputDeviceId: currentInputDeviceId,
@@ -154,7 +157,7 @@ export function createLocalVoiceCaptureRuntime(
     workletNode.port.onmessage = (event) => {
       const message = event.data as WorkletMessage;
       if ('type' in message && message.type === 'speech-activity') {
-        observer.onSpeechActivity?.(message.active);
+        observer.onEvent({ type: 'capture.activity', active: message.active });
         return;
       }
 
@@ -165,13 +168,13 @@ export function createLocalVoiceCaptureRuntime(
     workletNode.port.onmessageerror = () => {
       const detail = 'Microphone capture failed while receiving audio frames';
       emitDiagnostics({ lastError: detail, selectedInputDeviceId: currentInputDeviceId });
-      observer.onError(detail);
+      observer.onEvent({ type: 'capture.error', detail });
     };
 
     const handleTrackEnded = (): void => {
       const detail = 'Microphone capture stopped unexpectedly';
       emitDiagnostics({ lastError: detail, selectedInputDeviceId: currentInputDeviceId });
-      observer.onError(detail);
+      observer.onEvent({ type: 'capture.error', detail });
       void cleanupResources();
     };
 

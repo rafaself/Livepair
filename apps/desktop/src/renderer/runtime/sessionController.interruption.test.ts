@@ -71,7 +71,7 @@ describe('createDesktopSessionController – interruption', () => {
     await vi.waitFor(() => {
       expect(useSessionStore.getState()).toEqual(
         expect.objectContaining({
-          voiceSessionStatus: 'recovering',
+          voiceSessionStatus: 'active',
           speechLifecycle: expect.objectContaining({
             status: 'listening',
           }),
@@ -137,7 +137,7 @@ describe('createDesktopSessionController – interruption', () => {
     await vi.waitFor(() => {
       expect(useSessionStore.getState()).toEqual(
         expect.objectContaining({
-          voiceSessionStatus: 'recovering',
+          voiceSessionStatus: 'active',
           voicePlaybackState: 'stopped',
         }),
       );
@@ -158,7 +158,7 @@ describe('createDesktopSessionController – interruption', () => {
     expect(voiceTransport.sendAudioChunk).toHaveBeenLastCalledWith(
       new Uint8Array(640).fill(2),
     );
-    expect(useSessionStore.getState().voiceSessionStatus).toBe('recovering');
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
   });
 
   it('treats repeated interruption events as safe and idempotent', async () => {
@@ -195,7 +195,7 @@ describe('createDesktopSessionController – interruption', () => {
     await vi.waitFor(() => {
       expect(useSessionStore.getState()).toEqual(
         expect.objectContaining({
-          voiceSessionStatus: 'recovering',
+          voiceSessionStatus: 'active',
           speechLifecycle: expect.objectContaining({
             status: 'listening',
           }),

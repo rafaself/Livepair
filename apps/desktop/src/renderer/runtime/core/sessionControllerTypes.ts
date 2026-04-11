@@ -6,21 +6,19 @@ import type {
   reportLiveTelemetry,
   requestSessionToken,
 } from '../../api/backend';
-import type { AssistantAudioPlaybackObserver } from '../audio/assistantAudioPlayback';
 import type { LocalScreenCaptureObserver, LocalScreenCapture } from '../screen/localScreenCapture';
 import type { LocalVoiceCapture } from '../audio/localVoiceCapture';
 import type {
   AssistantAudioPlayback,
+  AudioInputObserver,
+  AudioOutputObserver,
 } from '../audio/audio.types';
 import type { LiveTransportAdapter } from '../transport/liveTransportAdapter';
 import type {
   DesktopSession,
   TransportKind,
 } from '../transport/transport.types';
-import type {
-  LocalVoiceChunk,
-  VoiceCaptureDiagnostics,
-} from '../voice/voice.types';
+import type { LocalVoiceChunk } from '../voice/voice.types';
 import type {
   RuntimeLogger,
 } from './session.types';
@@ -58,14 +56,10 @@ export type DesktopSessionControllerDependencies = {
     options?: { voice?: AssistantVoice },
   ) => DesktopSession;
   createVoiceCapture: (
-    observer: {
-      onChunk: (chunk: LocalVoiceChunk) => void;
-      onDiagnostics: (diagnostics: Partial<VoiceCaptureDiagnostics>) => void;
-      onError: (detail: string) => void;
-    },
+    observer: AudioInputObserver,
   ) => LocalVoiceCapture;
   createVoicePlayback: (
-    observer: AssistantAudioPlaybackObserver,
+    observer: AudioOutputObserver,
     options: { selectedOutputDeviceId: string },
   ) => AssistantAudioPlayback;
   createScreenCapture: (observer: LocalScreenCaptureObserver) => LocalScreenCapture;

@@ -2,6 +2,7 @@ import type {
   LocalVoiceCapture,
   LocalVoiceCaptureObserver,
 } from '../../audio/localVoiceCapture';
+import type { AudioInputEvent } from '../../audio/audio.types';
 import { isRuntimeDebugModeEnabled } from '../../core/debugMode';
 import type { LocalVoiceChunk } from '../voice.types';
 import type { VoiceChunkPipelineOps } from './voiceChunkPipeline';
@@ -31,43 +32,56 @@ export function createVoiceCaptureBinding(
     return ops.getActiveTransport() ? 'active' : 'disconnected';
   };
 
-  const createCaptureObserver = (): LocalVoiceCaptureObserver => ({
-    onChunk: (chunk) => {
-      for (const listener of voiceChunkListeners) {
-        listener(chunk);
-      }
+  const handleCaptureEvent = (event: AudioInputEvent): void => {
+    switch (event.type) {
+      case 'capture.chunk':
+        for (const listener of voiceChunkListeners) {
+          listener(event.chunk);
+        }
 
-      void enqueueChunkSend(chunk);
-    },
-    onDiagnostics: (diagnostics) => {
-      if (!isRuntimeDebugModeEnabled()) {
+        void enqueueChunkSend(event.chunk);
+        return;
+
+      case 'capture.diagnostics':
+        if (!isRuntimeDebugModeEnabled()) {
+          return;
+        }
+
+        ops.store.getState().setVoiceCaptureDiagnostics(event.diagnostics);
+        return;
+
+      case 'capture.activity':
+        ops.store.getState().setLocalUserSpeechActive(event.active);
+        return;
+
+      case 'capture.error': {
+        const detail = event.detail;
+        const store = ops.store.getState();
+        const currentStatus = ops.currentVoiceSessionStatus();
+
+        store.setVoiceCaptureState('error');
+        store.setLocalUserSpeechActive(false);
+        if (
+          currentStatus !== 'connecting'
+          && currentStatus !== 'stopping'
+          && currentStatus !== 'disconnected'
+          && currentStatus !== 'error'
+        ) {
+          store.setVoiceSessionStatus(getVoiceSessionStatusAfterCaptureError());
+        }
+        store.setLastRuntimeError(detail);
+        store.setVoiceCaptureDiagnostics({
+          lastError: detail,
+        });
+        ops.logRuntimeError('voice-capture', 'local capture failed', { detail });
         return;
       }
+    }
+  };
 
-      ops.store.getState().setVoiceCaptureDiagnostics(diagnostics);
-    },
-    onError: (detail) => {
-      const store = ops.store.getState();
-      const currentStatus = ops.currentVoiceSessionStatus();
-
-      store.setVoiceCaptureState('error');
-      store.setLocalUserSpeechActive(false);
-      if (
-        currentStatus !== 'connecting'
-        && currentStatus !== 'stopping'
-        && currentStatus !== 'disconnected'
-        && currentStatus !== 'error'
-      ) {
-        store.setVoiceSessionStatus(getVoiceSessionStatusAfterCaptureError());
-      }
-      store.setLastRuntimeError(detail);
-      store.setVoiceCaptureDiagnostics({
-        lastError: detail,
-      });
-      ops.logRuntimeError('voice-capture', 'local capture failed', { detail });
-    },
-    onSpeechActivity: (active) => {
-      ops.store.getState().setLocalUserSpeechActive(active);
+  const createCaptureObserver = (): LocalVoiceCaptureObserver => ({
+    onEvent: (event) => {
+      handleCaptureEvent(event);
     },
   });
 

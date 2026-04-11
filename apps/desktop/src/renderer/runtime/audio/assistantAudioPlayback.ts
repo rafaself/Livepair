@@ -1,4 +1,7 @@
-import type { AssistantAudioPlayback as AssistantAudioPlaybackContract } from './audio.types';
+import type {
+  AssistantAudioPlayback as AssistantAudioPlaybackContract,
+  AudioOutputObserver,
+} from './audio.types';
 import type {
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
@@ -46,11 +49,7 @@ type AudioElementLike = {
   setSinkId?: (sinkId: string) => Promise<void>;
 };
 
-export type AssistantAudioPlaybackObserver = {
-  onStateChange: (state: VoicePlaybackState) => void;
-  onDiagnostics: (diagnostics: Partial<VoicePlaybackDiagnostics>) => void;
-  onError: (detail: string) => void;
-};
+export type AssistantAudioPlaybackObserver = AudioOutputObserver;
 
 export type AssistantAudioPlayback = AssistantAudioPlaybackContract;
 
@@ -97,18 +96,21 @@ export function createAssistantAudioPlayback(
     }
 
     state = nextState;
-    observer.onStateChange(nextState);
+    observer.onEvent({ type: 'playback.state', state: nextState });
   };
 
   const emitDiagnostics = (
     patch: Partial<VoicePlaybackDiagnostics>,
   ): void => {
-    observer.onDiagnostics({
-      sampleRateHz: ASSISTANT_PLAYBACK_SAMPLE_RATE_HZ,
-      chunkCount,
-      queueDepth: activeSources.size,
-      selectedOutputDeviceId: outputRoute.getEffectiveOutputDeviceId(),
-      ...patch,
+    observer.onEvent({
+      type: 'playback.diagnostics',
+      diagnostics: {
+        sampleRateHz: ASSISTANT_PLAYBACK_SAMPLE_RATE_HZ,
+        chunkCount,
+        queueDepth: activeSources.size,
+        selectedOutputDeviceId: outputRoute.getEffectiveOutputDeviceId(),
+        ...patch,
+      },
     });
   };
 
@@ -157,7 +159,7 @@ export function createAssistantAudioPlayback(
   };
 
   const failPlayback = async (detail: string): Promise<never> => {
-    observer.onError(detail);
+    observer.onEvent({ type: 'playback.error', detail });
     emitDiagnostics({
       queueDepth: 0,
       lastError: detail,

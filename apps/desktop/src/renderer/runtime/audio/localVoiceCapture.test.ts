@@ -10,6 +10,7 @@ import {
   TARGET_VOICE_SAMPLE_RATE,
 } from './audioProcessing';
 import { createLocalVoiceCapture } from './localVoiceCapture';
+import type { AudioInputEvent } from './audio.types';
 
 type MediaTrackLike = {
   stop: ReturnType<typeof vi.fn>;
@@ -35,10 +36,22 @@ function createObserver(): {
 
   return {
     observer: {
-      onChunk,
-      onDiagnostics,
-      onError,
-      onSpeechActivity,
+      onEvent: (event: AudioInputEvent) => {
+        switch (event.type) {
+          case 'capture.chunk':
+            onChunk(event.chunk);
+            return;
+          case 'capture.diagnostics':
+            onDiagnostics(event.diagnostics);
+            return;
+          case 'capture.error':
+            onError(event.detail);
+            return;
+          case 'capture.activity':
+            onSpeechActivity(event.active);
+            return;
+        }
+      },
     },
     onChunk,
     onDiagnostics,

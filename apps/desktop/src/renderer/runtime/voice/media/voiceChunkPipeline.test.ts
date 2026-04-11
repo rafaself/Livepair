@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVoiceChunkPipeline } from './voiceChunkPipeline';
 import { createDefaultRealtimeOutboundDiagnostics } from '../../outbound/realtimeOutboundGateway';
+import type { AudioInputObserver } from '../../audio/audio.types';
 import type {
   RealtimeOutboundDecision,
   RealtimeOutboundEvent,
@@ -25,6 +26,28 @@ function createChunk(overrides: Partial<{
     durationMs: 20 as const,
     ...overrides,
   };
+}
+
+function emitCaptureChunk(observer: AudioInputObserver, chunk: ReturnType<typeof createChunk>): void {
+  observer.onEvent({ type: 'capture.chunk', chunk });
+}
+
+function emitCaptureDiagnostics(
+  observer: AudioInputObserver,
+  diagnostics: Record<string, unknown>,
+): void {
+  observer.onEvent({
+    type: 'capture.diagnostics',
+    diagnostics: diagnostics as never,
+  });
+}
+
+function emitCaptureError(observer: AudioInputObserver, detail: string): void {
+  observer.onEvent({ type: 'capture.error', detail });
+}
+
+function emitCaptureActivity(observer: AudioInputObserver, active: boolean): void {
+  observer.onEvent({ type: 'capture.activity', active });
 }
 
 function createMockOps(options: {
@@ -161,21 +184,25 @@ describe('createVoiceChunkPipeline', () => {
       const unsubscribe = pipeline.addChunkListener(listener);
       // Trigger via capture observer
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk({
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, {
         data: new Uint8Array(640).fill(1),
         sequence: 1,
         sampleRateHz: 16_000,
+        channels: 1,
+        encoding: 'pcm_s16le',
         durationMs: 20,
       });
 
       expect(listener).toHaveBeenCalledTimes(1);
 
       unsubscribe();
-      observer.onChunk({
+      emitCaptureChunk(observer, {
         data: new Uint8Array(640).fill(2),
         sequence: 2,
         sampleRateHz: 16_000,
+        channels: 1,
+        encoding: 'pcm_s16le',
         durationMs: 20,
       });
 
@@ -193,8 +220,8 @@ describe('createVoiceChunkPipeline', () => {
       });
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(chunk);
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, chunk);
 
       await pipeline.flush();
 
@@ -224,9 +251,9 @@ describe('createVoiceChunkPipeline', () => {
       });
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(emptyChunk);
-      observer.onChunk(finalChunk);
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, emptyChunk);
+      emitCaptureChunk(observer, finalChunk);
 
       await pipeline.flush();
 
@@ -240,8 +267,8 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onDiagnostics({ chunkCount: 5 });
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureDiagnostics(observer, { chunkCount: 5 });
 
       expect(ops._storeState.setVoiceCaptureDiagnostics).toHaveBeenCalledWith({ chunkCount: 5 });
     });
@@ -252,8 +279,8 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onError('Permission denied');
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureError(observer, 'Permission denied');
 
       expect(ops._storeState.setVoiceCaptureState).toHaveBeenCalledWith('error');
       expect(ops._storeState.setVoiceSessionStatus).toHaveBeenCalledWith('active');
@@ -274,8 +301,8 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onSpeechActivity(true);
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureActivity(observer, true);
 
       expect(ops._storeState.setLocalUserSpeechActive).toHaveBeenCalledWith(true);
     });
@@ -285,8 +312,8 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onSpeechActivity(false);
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureActivity(observer, false);
 
       expect(ops._storeState.setLocalUserSpeechActive).toHaveBeenCalledWith(false);
     });
@@ -299,8 +326,8 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk());
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk());
       await pipeline.flush();
 
       expect(ops.setVoiceSessionStatus).not.toHaveBeenCalled();
@@ -329,9 +356,9 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk({ data: new Uint8Array([1]), sequence: 1 }));
-      observer.onChunk(createChunk({ data: new Uint8Array([2]), sequence: 2 }));
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk({ data: new Uint8Array([1]), sequence: 1 }));
+      emitCaptureChunk(observer, createChunk({ data: new Uint8Array([2]), sequence: 2 }));
 
       await Promise.resolve();
       expect(ops._transport.sendAudioChunk).toHaveBeenCalledTimes(1);
@@ -370,10 +397,10 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk({ data: new Uint8Array([1]), sequence: 1 }));
-      observer.onChunk(createChunk({ data: new Uint8Array([2]), sequence: 2 }));
-      observer.onChunk(createChunk({ data: new Uint8Array([3]), sequence: 3 }));
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk({ data: new Uint8Array([1]), sequence: 1 }));
+      emitCaptureChunk(observer, createChunk({ data: new Uint8Array([2]), sequence: 2 }));
+      emitCaptureChunk(observer, createChunk({ data: new Uint8Array([3]), sequence: 3 }));
 
       await Promise.resolve();
       expect(ops._transport.sendAudioChunk).toHaveBeenCalledTimes(1);
@@ -398,8 +425,8 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk());
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk());
       await pipeline.flush();
 
       expect(ops._outboundGateway.submit).toHaveBeenCalledTimes(1);
@@ -414,8 +441,8 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk());
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk());
       await pipeline.flush();
 
       expect(ops._transport.sendAudioChunk).not.toHaveBeenCalled();
@@ -457,13 +484,13 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk({
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk({
         data: new Uint8Array([1]),
         sequence: 1,
       }));
       await Promise.resolve();
-      observer.onChunk(createChunk({
+      emitCaptureChunk(observer, createChunk({
         data: new Uint8Array([2]),
         sequence: 2,
       }));
@@ -485,8 +512,8 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk());
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk());
       await pipeline.flush();
 
       expect(ops._transport.sendAudioChunk).not.toHaveBeenCalled();
@@ -500,12 +527,12 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk({
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk({
         data: new Uint8Array([1]),
         sequence: 1,
       }));
-      observer.onChunk(createChunk({
+      emitCaptureChunk(observer, createChunk({
         data: new Uint8Array([2]),
         sequence: 2,
       }));
@@ -639,8 +666,8 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk());
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk());
       await Promise.resolve();
 
       pipeline.resetSendChain();
@@ -667,9 +694,9 @@ describe('createVoiceChunkPipeline', () => {
       const pipeline = createVoiceChunkPipeline(ops as never);
 
       pipeline.getVoiceCapture();
-      const observer = ops.createVoiceCapture.mock.calls[0]![0];
-      observer.onChunk(createChunk({ data: new Uint8Array([1]), sequence: 1 }));
-      observer.onChunk(createChunk({ data: new Uint8Array([2]), sequence: 2 }));
+      const observer = ops.createVoiceCapture.mock.calls[0]![0] as AudioInputObserver;
+      emitCaptureChunk(observer, createChunk({ data: new Uint8Array([1]), sequence: 1 }));
+      emitCaptureChunk(observer, createChunk({ data: new Uint8Array([2]), sequence: 2 }));
       await Promise.resolve();
 
       pipeline.resetSendChain();

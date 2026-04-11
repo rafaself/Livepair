@@ -56,7 +56,7 @@ describe('createDesktopSessionController – playback', () => {
 
     expect(voicePlayback.createVoicePlayback).toHaveBeenCalledWith(
       expect.objectContaining({
-        onStateChange: expect.any(Function),
+        onEvent: expect.any(Function),
       }),
       expect.objectContaining({
         selectedOutputDeviceId: 'desk-speakers',
@@ -171,7 +171,7 @@ describe('createDesktopSessionController – playback', () => {
     expect(useSessionStore.getState()).toEqual(
       expect.objectContaining({
         activeTransport: 'gemini-live',
-        voiceSessionStatus: 'active',
+        voiceSessionStatus: 'error',
         voicePlaybackState: 'error',
         lastRuntimeError: 'Assistant audio payload was malformed',
       }),

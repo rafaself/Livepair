@@ -1,5 +1,8 @@
 import { vi } from 'vitest';
-import type { AssistantAudioPlaybackObserver } from './audio/assistantAudioPlayback';
+import type {
+  AudioInputObserver,
+  AudioOutputObserver,
+} from './audio/audio.types';
 import type { DesktopSession } from './transport/transport.types';
 import type {
   LocalVoiceChunk,
@@ -117,11 +120,7 @@ export function createVoiceCaptureHarness(): {
   stop: ReturnType<typeof vi.fn>;
 } {
   let observer:
-    | {
-        onChunk: (chunk: LocalVoiceChunk) => void;
-        onDiagnostics: (diagnostics: Partial<VoiceCaptureDiagnostics>) => void;
-        onError: (detail: string) => void;
-      }
+    | AudioInputObserver
     | null = null;
   const start = vi.fn(async () => undefined);
   const stop = vi.fn(async () => undefined);
@@ -136,21 +135,24 @@ export function createVoiceCaptureHarness(): {
       };
     }),
     emitChunk: (chunk = {}) => {
-      observer?.onChunk({
-        data: new Uint8Array(640).fill(1),
-        sampleRateHz: 16_000,
-        channels: 1,
-        encoding: 'pcm_s16le',
-        durationMs: 20,
-        sequence: 1,
-        ...chunk,
+      observer?.onEvent({
+        type: 'capture.chunk',
+        chunk: {
+          data: new Uint8Array(640).fill(1),
+          sampleRateHz: 16_000,
+          channels: 1,
+          encoding: 'pcm_s16le',
+          durationMs: 20,
+          sequence: 1,
+          ...chunk,
+        },
       });
     },
     emitDiagnostics: (diagnostics) => {
-      observer?.onDiagnostics(diagnostics);
+      observer?.onEvent({ type: 'capture.diagnostics', diagnostics });
     },
     emitError: (detail) => {
-      observer?.onError(detail);
+      observer?.onEvent({ type: 'capture.error', detail });
     },
     start,
     stop,
@@ -220,7 +222,7 @@ export function createVoicePlaybackHarness(): {
   resolveStop: () => void;
   enableDeferredStop: () => void;
 } {
-  let observer: AssistantAudioPlaybackObserver | null = null;
+  let observer: AudioOutputObserver | null = null;
   const enqueue = vi.fn(async () => undefined);
   let resolveStopPromise: (() => void) | null = null;
   let useDeferredStop = false;
@@ -246,13 +248,13 @@ export function createVoicePlaybackHarness(): {
     enqueue,
     stop,
     emitState: (state) => {
-      observer?.onStateChange(state);
+      observer?.onEvent({ type: 'playback.state', state });
     },
     emitDiagnostics: (diagnostics) => {
-      observer?.onDiagnostics(diagnostics);
+      observer?.onEvent({ type: 'playback.diagnostics', diagnostics });
     },
     emitError: (detail) => {
-      observer?.onError(detail);
+      observer?.onEvent({ type: 'playback.error', detail });
     },
     resolveStop: () => {
       resolveStopPromise?.();
