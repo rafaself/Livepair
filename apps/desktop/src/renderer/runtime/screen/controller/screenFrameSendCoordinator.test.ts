@@ -14,6 +14,17 @@ import {
   createTransportMock,
 } from './controllerTestUtils';
 import { createScreenFrameSendCoordinator } from './screenFrameSendCoordinator';
+import type { ScreenOutboundFrameRequest } from './screenFrameContracts';
+
+function createOutboundRequest(sequence: number, fill = sequence): ScreenOutboundFrameRequest {
+  return {
+    frame: createScreenFrame(sequence, fill),
+    requestedAtMs: Date.now(),
+    mode: 'continuous',
+    quality: 'medium',
+    reason: 'base',
+  };
+}
 
 function createHarness(options: {
   submitDecision?: (callIndex: number) => RealtimeOutboundDecision;
@@ -85,7 +96,7 @@ describe('createScreenFrameSendCoordinator', () => {
     const harness = createHarness();
     harness.controllerState.clearCapture();
 
-    await harness.coordinator.enqueueFrameSend(createScreenFrame(1));
+    await harness.coordinator.enqueueFrameSend(createOutboundRequest(1));
 
     expect(harness.gateway.submit).not.toHaveBeenCalled();
     expect(harness.sendVideoFrame).not.toHaveBeenCalled();
@@ -95,7 +106,7 @@ describe('createScreenFrameSendCoordinator', () => {
     const harness = createHarness();
     harness.setTransport(null);
 
-    await harness.coordinator.enqueueFrameSend(createScreenFrame(1));
+    await harness.coordinator.enqueueFrameSend(createOutboundRequest(1));
 
     expect(harness.gateway.submit).not.toHaveBeenCalled();
     expect(harness.sendVideoFrame).not.toHaveBeenCalled();
@@ -103,9 +114,9 @@ describe('createScreenFrameSendCoordinator', () => {
 
   it('submits accepted frames to the gateway and active transport', async () => {
     const harness = createHarness();
-    const frame = createScreenFrame(4);
+    const request = createOutboundRequest(4);
 
-    await harness.coordinator.enqueueFrameSend(frame);
+    await harness.coordinator.enqueueFrameSend(request);
 
     expect(harness.gateway.submit).toHaveBeenCalledWith({
       kind: 'visual_frame',
@@ -113,14 +124,14 @@ describe('createScreenFrameSendCoordinator', () => {
       replaceKey: 'visual:screen',
       sequence: 1,
       createdAtMs: expect.any(Number),
-      estimatedBytes: frame.data.byteLength,
+      estimatedBytes: request.frame.data.byteLength,
     });
-    expect(harness.onFrameAccepted).toHaveBeenCalledWith(frame);
+    expect(harness.onFrameAccepted).toHaveBeenCalledWith(request);
     expect(harness.flushVisualDiagnostics).toHaveBeenCalledTimes(1);
     expect(harness.onSendStarted).toHaveBeenCalledTimes(1);
-    expect(harness.sendVideoFrame).toHaveBeenCalledWith(frame.data, frame.mimeType);
+    expect(harness.sendVideoFrame).toHaveBeenCalledWith(request.frame.data, request.frame.mimeType);
     expect(harness.gateway.recordSuccess).toHaveBeenCalledTimes(1);
-    expect(harness.onSendSucceeded).toHaveBeenCalledWith(frame);
+    expect(harness.onSendSucceeded).toHaveBeenCalledWith(request);
     expect(harness.onSendFailed).not.toHaveBeenCalled();
   });
 
@@ -133,7 +144,7 @@ describe('createScreenFrameSendCoordinator', () => {
       }),
     });
 
-    await harness.coordinator.enqueueFrameSend(createScreenFrame(5));
+    await harness.coordinator.enqueueFrameSend(createOutboundRequest(5));
 
     expect(harness.gateway.submit).toHaveBeenCalledTimes(1);
     expect(harness.onFrameBlockedByGateway).toHaveBeenCalledTimes(1);
@@ -158,10 +169,10 @@ describe('createScreenFrameSendCoordinator', () => {
       .mockImplementationOnce(() => firstSend.promise)
       .mockResolvedValueOnce(undefined);
 
-    const first = harness.coordinator.enqueueFrameSend(createScreenFrame(6, 1));
+    const first = harness.coordinator.enqueueFrameSend(createOutboundRequest(6, 1));
     await Promise.resolve();
-    const second = harness.coordinator.enqueueFrameSend(createScreenFrame(7, 2));
-    const third = harness.coordinator.enqueueFrameSend(createScreenFrame(8, 3));
+    const second = harness.coordinator.enqueueFrameSend(createOutboundRequest(7, 2));
+    const third = harness.coordinator.enqueueFrameSend(createOutboundRequest(8, 3));
 
     firstSend.resolve();
     await Promise.all([first, second, third]);
@@ -180,7 +191,7 @@ describe('createScreenFrameSendCoordinator', () => {
     const harness = createHarness();
     harness.sendVideoFrame.mockRejectedValueOnce(new Error('frame upload failed'));
 
-    await harness.coordinator.enqueueFrameSend(createScreenFrame(12, 7));
+    await harness.coordinator.enqueueFrameSend(createOutboundRequest(12, 7));
 
     expect(harness.gateway.recordFailure).toHaveBeenCalledWith('frame upload failed');
     expect(harness.onSendFailed).toHaveBeenCalledWith('frame upload failed');

@@ -219,11 +219,14 @@ Implemented:
 - Voice-mode screen sharing uses `MEDIA_RESOLUTION_LOW` by default unless the desktop env overrides it
 - Runtime replacement during reconnect/resume/fallback always stops screen capture; users must manually re-enable it on the replacement Live runtime
 - Durable multimodal carry-over is limited to an optional compact text-only `screenContextSummary` entry in the existing rehydration context snapshot; raw screen media and live screen state remain ephemeral
+- `apps/desktop/src/renderer/runtime/screen/` now owns the internal Live-runtime screen adapter boundary for capture lifecycle, masked/analyzed frame availability, manual/continuous send policy, latest-frame buffering, normalized outbound frame requests, and screen-specific failure classification before session runtime code consumes those signals
+- Session runtime and supervisor code now consume narrow internal screen contracts split between capture controls and runtime coordination instead of depending directly on screen send-chain details
 
 Planned:
 
 - Additional guardrails and tuning
 - HD screenshot tool path if needed
+- Broader screen-settings/UI restructuring remains outside the current screen adapter work
 
 ### Tool Invocation
 

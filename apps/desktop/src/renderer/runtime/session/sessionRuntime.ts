@@ -95,8 +95,8 @@ type SessionControllerRuntimeArgs = {
     enqueue: (calls: VoiceToolCall[]) => void;
   };
   screenCtrl: {
-    resetSendChain: () => void;
-    stopInternal: (options?: {
+    handleTransportDetached: () => void;
+    stopCapture: (options?: {
       nextState?: 'disabled' | 'error';
       detail?: string | null;
       preserveDiagnostics?: boolean;
@@ -179,7 +179,7 @@ export function createSessionControllerRuntime({
     playbackCtrl.release();
     voiceChunkCtrl.resetSendChain();
     voiceToolCtrl.cancel('voice transport cleaned up');
-    screenCtrl.resetSendChain();
+    screenCtrl.handleTransportDetached();
     interruptionCtrl.reset();
     silenceCtrl.clearAll();
     clearPendingAssistantTurn();
@@ -237,7 +237,7 @@ export function createSessionControllerRuntime({
         hasStreamingAssistantVoiceTurn: boolean;
       },
     ) => engine.shouldIgnoreAssistantOutput(eventType, options),
-    stopScreenCaptureInternal: screenCtrl.stopInternal,
+    stopScreenCaptureInternal: screenCtrl.stopCapture,
     stopVoicePlayback: (nextState: VoicePlaybackState = 'stopped'): Promise<void> =>
       playbackCtrl.stop(nextState),
     subscribeTransport: mutableRuntime.subscribeTransport,

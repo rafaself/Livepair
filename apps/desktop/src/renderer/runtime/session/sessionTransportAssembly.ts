@@ -34,7 +34,6 @@ import type {
 } from '../core/sessionControllerTypes';
 import type { DesktopSession } from '../transport/transport.types';
 import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
-import type { createScreenCaptureController } from '../screen/screenCaptureController';
 import type { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
 import type { createVoiceInterruptionController } from '../voice/session/voiceInterruptionController';
 import type { createVoiceTokenManager } from '../voice/session/voiceTokenManager';
@@ -44,6 +43,7 @@ import type { createSessionControllerMutableRuntime } from './sessionMutableRunt
 import type { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionTransportActivation } from './sessionTransportActivation';
 import type { createLiveTelemetryCollector } from './liveTelemetryCollector';
+import type { LiveRuntimeScreenAdapter } from '../screen/screenAdapter';
 
 type RuntimeRef = {
   current: ReturnType<typeof createSessionControllerRuntime> | null;
@@ -61,7 +61,7 @@ type SessionTransportAssemblyArgs = {
   voiceToolCtrl: ReturnType<typeof createVoiceToolController>;
   voiceTranscript: ReturnType<typeof createVoiceTranscriptController>;
   voiceChunkCtrl: ReturnType<typeof createVoiceChunkPipeline>;
-  screenCtrl: ReturnType<typeof createScreenCaptureController>;
+  screen: LiveRuntimeScreenAdapter;
   interruptionCtrl: ReturnType<typeof createVoiceInterruptionController>;
   tokenMgr: ReturnType<typeof createVoiceTokenManager>;
   setVoiceErrorState: (detail: string) => void;
@@ -78,7 +78,7 @@ export function createSessionTransportAssembly({
   voiceToolCtrl,
   voiceTranscript,
   voiceChunkCtrl,
-  screenCtrl,
+  screen,
   interruptionCtrl,
   tokenMgr,
   setVoiceErrorState,
@@ -256,7 +256,7 @@ export function createSessionTransportAssembly({
           return;
         }
 
-        return screenCtrl.start();
+        return screen.capture.start();
       });
     },
   });
@@ -377,7 +377,7 @@ export function createSessionTransportAssembly({
     resetTransportDeps: () => {
       voiceChunkCtrl.resetSendChain();
       voiceToolCtrl.cancel('voice transport replaced');
-      screenCtrl.resetSendChain();
+      screen.runtime.handleTransportDetached();
       interruptionCtrl.reset();
       // Transport replacement abandons any uncommitted assistant draft. Only
       // turn-complete is allowed to finalize a normal assistant draft commit.

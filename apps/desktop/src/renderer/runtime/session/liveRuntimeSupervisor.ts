@@ -21,7 +21,6 @@ import type { ProductMode, SessionCommand } from '../core/session.types';
 import type { TextSessionStatus } from '../text/text.types';
 import type { LiveSessionRecord } from '@livepair/shared-types';
 import type { createVoicePlaybackController } from '../voice/media/voicePlaybackController';
-import type { createScreenCaptureController } from '../screen/screenCaptureController';
 import type { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
 import type { createVoiceInterruptionController } from '../voice/session/voiceInterruptionController';
 import type { createVoiceTokenManager } from '../voice/session/voiceTokenManager';
@@ -29,6 +28,7 @@ import type { createVoiceToolController } from '../voice/tools/voiceToolControll
 import type { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
 import type { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import type { createSessionControllerRuntime } from './sessionRuntime';
+import type { LiveRuntimeScreenAdapter } from '../screen/screenAdapter';
 import { createSessionControllerErrorHandling } from './sessionErrorHandling';
 import {
   createSessionControllerEndings,
@@ -56,7 +56,7 @@ type LiveRuntimeSupervisorArgs = {
   telemetryPlatform: string;
   telemetryAppVersion: string;
   playbackCtrl: ReturnType<typeof createVoicePlaybackController>;
-  screenCtrl: ReturnType<typeof createScreenCaptureController>;
+  screen: LiveRuntimeScreenAdapter;
   voiceChunkCtrl: ReturnType<typeof createVoiceChunkPipeline>;
   voiceToolCtrl: ReturnType<typeof createVoiceToolController>;
   voiceTranscript: ReturnType<typeof createVoiceTranscriptController>;
@@ -86,7 +86,7 @@ export function createLiveRuntimeSupervisor({
   telemetryPlatform,
   telemetryAppVersion,
   playbackCtrl,
-  screenCtrl,
+  screen,
   voiceChunkCtrl,
   voiceToolCtrl,
   voiceTranscript,
@@ -120,7 +120,7 @@ export function createLiveRuntimeSupervisor({
     voiceToolCtrl,
     voiceTranscript,
     voiceChunkCtrl,
-    screenCtrl,
+    screen,
     interruptionCtrl,
     tokenMgr,
     setVoiceErrorState,
@@ -142,7 +142,7 @@ export function createLiveRuntimeSupervisor({
     getActiveTransport: () => runtimeRef.current!.getActiveTransport(),
     getVoiceCapture: () => voiceChunkCtrl.getVoiceCapture(),
     hasActiveTextStream: () => false,
-    hasScreenCapture: () => screenCtrl.isActive(),
+    hasScreenCapture: () => screen.capture.isActive(),
     hasTextRuntimeActivity: () => false,
     hasVoiceCapture: () => voiceChunkCtrl.hasCapture(),
     hasVoicePlayback: () => playbackCtrl.isActive(),
@@ -399,7 +399,7 @@ export function createLiveRuntimeSupervisor({
         endSpeechMode: () => endSpeechModeInternal({ recordEvents: true }),
       },
       voiceChunkCtrl,
-      screenCtrl,
+      screenCtrl: screen.capture,
       refreshScreenCaptureSourceSnapshot,
       appendTypedUserTurn,
       voiceTranscriptCtrl: {

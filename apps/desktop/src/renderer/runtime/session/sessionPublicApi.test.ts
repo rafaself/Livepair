@@ -27,7 +27,7 @@ function createHarness(options: {
   const screenCtrl = {
     start: vi.fn(async () => undefined),
     stop: vi.fn(async () => undefined),
-    analyzeScreenNow: vi.fn(),
+    analyzeNow: vi.fn(),
     isActive: vi.fn(() => false),
   };
 

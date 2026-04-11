@@ -6,11 +6,11 @@ import type {
   LocalScreenCaptureObserver,
 } from '../localScreenCapture';
 import type {
-  LocalScreenFrame,
   ScreenCaptureDiagnostics,
   ScreenCaptureState,
 } from '../screen.types';
 import type { VisualSendDiagnostics } from '../screenContextDiagnostics';
+import type { ScreenFrameAvailableEvent, ScreenOutboundFrameRequest } from './screenFrameContracts';
 import type {
   ScreenFrameDumpMode,
   ScreenFrameDumpQuality,
@@ -35,7 +35,7 @@ export type ScreenCaptureController = {
   stop: () => Promise<void>;
   stopInternal: (options?: StopScreenCaptureOptions) => Promise<void>;
   resetDiagnostics: () => void;
-  enqueueFrameSend: (frame: LocalScreenFrame) => Promise<void>;
+  enqueueFrameSend: (request: ScreenOutboundFrameRequest) => Promise<void>;
   isActive: () => boolean;
   resetSendChain: () => void;
   analyzeScreenNow: () => void;
@@ -85,3 +85,5 @@ export type CreateScreenCapture = (
 export type GetTransport = () => DesktopSession | null;
 
 export type GetRealtimeOutboundGateway = () => RealtimeOutboundGateway;
+
+export type OnScreenFrameAvailable = (event: ScreenFrameAvailableEvent) => void;

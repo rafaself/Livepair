@@ -2,7 +2,6 @@ import { logRuntimeError } from '../../core/logger';
 import { asErrorDetail } from '../../core/runtimeUtils';
 import type { VoiceSessionStatus } from '../../voice/voice.types';
 import type {
-  LocalScreenFrame,
   ScreenCaptureDiagnostics,
 } from '../screen.types';
 import type { LocalScreenCaptureObserver } from '../localScreenCapture';
@@ -10,6 +9,7 @@ import { SCREEN_CAPTURE_START_POLICY } from '../screenCapturePolicy';
 import type {
   CreateScreenCapture,
   GetTransport,
+  OnScreenFrameAvailable,
   ScreenCaptureController,
   ScreenCaptureStoreApi,
   StopScreenCaptureOptions,
@@ -50,7 +50,7 @@ export function createScreenCaptureLifecycle({
   resetDiagnostics: () => void;
   frameDumpCoordinator: ScreenFrameDumpCoordinator;
   frameSendCoordinator: ScreenFrameSendCoordinator;
-  onFrameCaptured?: (frame: LocalScreenFrame) => void;
+  onFrameCaptured?: OnScreenFrameAvailable;
   getCaptureStartParams?: () => { jpegQuality?: number; maxWidthPx?: number };
   onScreenShareStarted: () => void;
   onScreenShareStopped: () => void;
@@ -170,12 +170,15 @@ export function createScreenCaptureLifecycle({
 
     const captureGeneration = controllerState.getNextCaptureGeneration();
     const capture = createCapture({
-      onFrame: (frame: LocalScreenFrame) => {
+      onFrame: (frame) => {
         if (!controllerState.isCurrentCapture(capture, captureGeneration) || !getTransport()) {
           return;
         }
 
-        onFrameCaptured?.(frame);
+        onFrameCaptured?.({
+          frame,
+          capturedAtMs: Date.now(),
+        });
       },
       onDiagnostics: (patch: Partial<ScreenCaptureDiagnostics>) => {
         if (!controllerState.isCurrentCapture(capture, captureGeneration)) {

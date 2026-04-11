@@ -2,25 +2,25 @@ import { logRuntimeDiagnostic, logRuntimeError } from '../../core/logger';
 import { asErrorDetail } from '../../core/runtimeUtils';
 import type { DesktopSession } from '../../transport/transport.types';
 import { SCREEN_CAPTURE_MAX_PENDING_FRAMES } from '../screenCapturePolicy';
-import type { LocalScreenFrame } from '../screen.types';
 import type {
   GetActiveScreenCapture,
   GetRealtimeOutboundGateway,
   GetTransport,
   IsCurrentCapture,
 } from './screenCaptureControllerTypes';
+import type { ScreenOutboundFrameRequest } from './screenFrameContracts';
 
 const VISUAL_SCREEN_CHANNEL_KEY = 'visual:screen';
 
 type PendingScreenFrame = {
   capture: NonNullable<ReturnType<GetActiveScreenCapture>>['capture'];
   captureGeneration: number;
-  frame: LocalScreenFrame;
+  request: ScreenOutboundFrameRequest;
   transport: DesktopSession;
 };
 
 export type ScreenFrameSendCoordinator = {
-  enqueueFrameSend: (frame: LocalScreenFrame) => Promise<void>;
+  enqueueFrameSend: (request: ScreenOutboundFrameRequest) => Promise<void>;
   reset: () => void;
 };
 
@@ -40,11 +40,11 @@ export function createScreenFrameSendCoordinator({
   isCurrentCapture: IsCurrentCapture;
   getTransport: GetTransport;
   getRealtimeOutboundGateway: GetRealtimeOutboundGateway;
-  onFrameAccepted: (frame: LocalScreenFrame) => void;
+  onFrameAccepted: (request: ScreenOutboundFrameRequest) => void;
   onFrameBlockedByGateway: () => void;
   flushVisualDiagnostics: () => void;
   onSendStarted: () => void;
-  onSendSucceeded: (frame: LocalScreenFrame) => void;
+  onSendSucceeded: (request: ScreenOutboundFrameRequest) => void;
   onSendFailed: (detail: string) => void;
 }): ScreenFrameSendCoordinator {
   let visualOutboundSequence = 0;
@@ -83,10 +83,11 @@ export function createScreenFrameSendCoordinator({
         }
 
         try {
+          const { frame } = nextFrame.request;
           await nextFrame.transport.submit({
             type: 'video-frame',
-            data: nextFrame.frame.data,
-            mimeType: nextFrame.frame.mimeType,
+            data: frame.data,
+            mimeType: frame.mimeType,
           });
         } catch (error) {
           if (
@@ -101,13 +102,14 @@ export function createScreenFrameSendCoordinator({
 
           const detail = asErrorDetail(error, 'Failed to send screen frame');
           getRealtimeOutboundGateway().recordFailure(detail);
+          const { frame } = nextFrame.request;
           logRuntimeError('screen-capture', 'video frame send failed', {
             detail,
-            sequence: nextFrame.frame.sequence,
-            mimeType: nextFrame.frame.mimeType,
-            byteLength: nextFrame.frame.data.byteLength,
-            widthPx: nextFrame.frame.widthPx,
-            heightPx: nextFrame.frame.heightPx,
+            sequence: frame.sequence,
+            mimeType: frame.mimeType,
+            byteLength: frame.data.byteLength,
+            widthPx: frame.widthPx,
+            heightPx: frame.heightPx,
           });
           pendingFrame = null;
           onSendFailed(detail);
@@ -125,15 +127,16 @@ export function createScreenFrameSendCoordinator({
         }
 
         getRealtimeOutboundGateway().recordSuccess();
+        const { frame } = nextFrame.request;
         logRuntimeDiagnostic('screen-capture', 'video frame sent', {
-          sequence: nextFrame.frame.sequence,
-          mimeType: nextFrame.frame.mimeType,
-          byteLength: nextFrame.frame.data.byteLength,
-          widthPx: nextFrame.frame.widthPx,
-          heightPx: nextFrame.frame.heightPx,
+          sequence: frame.sequence,
+          mimeType: frame.mimeType,
+          byteLength: frame.data.byteLength,
+          widthPx: frame.widthPx,
+          heightPx: frame.heightPx,
           maxPendingFrames: SCREEN_CAPTURE_MAX_PENDING_FRAMES,
         });
-        onSendSucceeded(nextFrame.frame);
+        onSendSucceeded(nextFrame.request);
       }
     })().finally(() => {
       if (frameDrainInFlight === drainPromise) {
@@ -150,7 +153,7 @@ export function createScreenFrameSendCoordinator({
   };
 
   return {
-    enqueueFrameSend: (frame) => {
+    enqueueFrameSend: (request) => {
       const transport = getTransport();
       const activeCapture = getActiveCapture();
 
@@ -165,7 +168,7 @@ export function createScreenFrameSendCoordinator({
         replaceKey: VISUAL_SCREEN_CHANNEL_KEY,
         sequence: visualOutboundSequence,
         createdAtMs: Date.now(),
-        estimatedBytes: frame.data.byteLength,
+        estimatedBytes: request.frame.data.byteLength,
       });
 
       if (decision.outcome === 'drop' || decision.outcome === 'block') {
@@ -175,13 +178,13 @@ export function createScreenFrameSendCoordinator({
         return Promise.resolve();
       }
 
-      onFrameAccepted(frame);
+      onFrameAccepted(request);
       flushVisualDiagnostics();
 
       pendingFrame = {
         capture: activeCapture.capture,
         captureGeneration: activeCapture.generation,
-        frame,
+        request,
         transport,
       };
       onSendStarted();

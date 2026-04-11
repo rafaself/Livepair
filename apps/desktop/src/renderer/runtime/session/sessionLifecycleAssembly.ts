@@ -375,7 +375,12 @@ export function createSessionLifecycleAssembly({
         endSpeechMode: () => endSpeechModeInternal({ recordEvents: true }),
       },
       voiceChunkCtrl,
-      screenCtrl,
+      screenCtrl: {
+        start: screenCtrl.start,
+        stop: screenCtrl.stop,
+        analyzeNow: screenCtrl.analyzeScreenNow,
+        isActive: screenCtrl.isActive,
+      },
       refreshScreenCaptureSourceSnapshot,
       appendTypedUserTurn,
       voiceTranscriptCtrl: {

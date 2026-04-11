@@ -32,7 +32,7 @@ type SessionControllerPublicApiArgs = {
   screenCtrl: {
     start: () => Promise<void>;
     stop: () => Promise<void>;
-    analyzeScreenNow: () => void;
+    analyzeNow: () => void;
     isActive: () => boolean;
   };
   refreshScreenCaptureSourceSnapshot: () => Promise<boolean>;
@@ -195,7 +195,7 @@ export function createSessionControllerPublicApi({
       stopVoiceCapture: handleStopVoiceCapture,
       startScreenCapture: handleStartScreenCapture,
       stopScreenCapture: handleStopScreenCapture,
-      analyzeScreenNow: () => screenCtrl.analyzeScreenNow(),
+      analyzeScreenNow: () => screenCtrl.analyzeNow(),
       submitTextTurn: handleSubmitTextTurn,
     },
   });

@@ -6,6 +6,7 @@ import {
 import { isRuntimeDebugModeEnabled } from '../core/debugMode';
 import { createVoicePlaybackController } from '../voice/media/voicePlaybackController';
 import { createScreenCaptureController } from '../screen/screenCaptureController';
+import { createLiveRuntimeScreenAdapter } from '../screen/screenAdapter';
 import { createVoiceToolController } from '../voice/tools/voiceToolController';
 import { createVoiceInterruptionController } from '../voice/session/voiceInterruptionController';
 import { createVoiceTokenManager } from '../voice/session/voiceTokenManager';
@@ -97,6 +98,7 @@ export function createSessionControllerAssembly(
     () => dependencies.settingsStore.getState().settings.continuousScreenQuality,
     () => dependencies.settingsStore.getState().settings.screenContextMode,
   );
+  const screen = createLiveRuntimeScreenAdapter(screenCtrl);
   const refreshScreenCaptureSourceSnapshot = async (): Promise<boolean> => {
     try {
       const snapshot = await window.bridge.listScreenCaptureSources();
@@ -210,7 +212,7 @@ export function createSessionControllerAssembly(
     playbackCtrl,
     voiceChunkCtrl,
     voiceToolCtrl,
-    screenCtrl,
+    screenCtrl: screen.runtime,
     interruptionCtrl,
     currentTextSessionStatus: () => dependencies.store.getState().textSessionLifecycle.status,
     resetTextSessionRuntime: (textSessionStatus, options) => {
@@ -236,7 +238,7 @@ export function createSessionControllerAssembly(
     telemetryPlatform,
     telemetryAppVersion: desktopPackageJson.version,
     playbackCtrl,
-    screenCtrl,
+    screen,
     voiceChunkCtrl,
     voiceToolCtrl,
     voiceTranscript,

@@ -29,6 +29,10 @@ import type {
 } from './controller/screenCaptureControllerTypes';
 import type { LocalScreenFrame } from './screen.types';
 import { createScreenBurstDetector } from './screenBurstDetector';
+import type {
+  ScreenFrameAvailableEvent,
+  ScreenOutboundFrameRequest,
+} from './controller/screenFrameContracts';
 
 export type { ScreenCaptureController } from './controller/screenCaptureControllerTypes';
 
@@ -108,8 +112,6 @@ export function createScreenCaptureController(
   );
   let manualSendPending = false;
   let lastManualSendRequestedAt = Number.NEGATIVE_INFINITY;
-  const continuousFrameReasons = new WeakMap<LocalScreenFrame, ContinuousFrameReason>();
-  const frameDumpMetadata = new WeakMap<LocalScreenFrame, ScreenFrameDumpMetadata>();
 
   const setLastEvent = (lastEvent: VisualSendEvent): void => {
     diagnostics = {
@@ -208,13 +210,16 @@ export function createScreenCaptureController(
     }, Math.max(0, dueAtMs - nowMs()));
   };
 
-  const buildFrameDumpMetadata = (
+  const createOutboundFrameRequest = (
     frame: LocalScreenFrame,
     metadata: ScreenFrameDumpMetadata,
-  ): LocalScreenFrame => {
-    frameDumpMetadata.set(frame, metadata);
-    return frame;
-  };
+  ): ScreenOutboundFrameRequest => ({
+    frame,
+    requestedAtMs: nowMs(),
+    mode: metadata.mode,
+    quality: metadata.quality,
+    reason: metadata.reason,
+  });
 
   const queueAutoFrameSend = async (reason: ContinuousFrameReason): Promise<void> => {
     if (!latestCapturedFrame) {
@@ -222,14 +227,12 @@ export function createScreenCaptureController(
     }
 
     const frame = cloneFrameForSend(latestCapturedFrame);
-    continuousFrameReasons.set(frame, reason);
-    buildFrameDumpMetadata(frame, {
+    await frameSendCoordinator.enqueueFrameSend(createOutboundFrameRequest(frame, {
       savedAt: toIsoTimestamp(nowMs()),
       mode: 'continuous',
       quality: resolveRequestedCaptureQuality(),
       reason,
-    });
-    await frameSendCoordinator.enqueueFrameSend(frame);
+    }));
   };
 
   const advanceBaselineSchedule = (timestampMs: number): void => {
@@ -420,22 +423,23 @@ export function createScreenCaptureController(
         lastError: null,
       });
     },
-    onSendSucceeded: (frame) => {
+    onSendSucceeded: (request) => {
       const activeCapture = controllerState.getActiveCapture();
       const sentAt = toIsoTimestamp(nowMs());
+      const metadata: ScreenFrameDumpMetadata = {
+        savedAt: sentAt,
+        mode: request.mode,
+        quality: request.quality,
+        reason: request.reason,
+      };
 
       if (manualSendPending) {
         if (activeCapture) {
           frameDumpCoordinator.persistSentFrame(
             activeCapture.capture,
             activeCapture.generation,
-            frame,
-            {
-              savedAt: sentAt,
-              mode: 'manual',
-              quality: 'high',
-              reason: 'manual',
-            },
+            request.frame,
+            metadata,
           );
         }
 
@@ -449,19 +453,14 @@ export function createScreenCaptureController(
         setLastEvent('manualFrameSent');
         store.getState().setScreenCaptureState('capturing');
       } else {
-        const continuousFrameReason = continuousFrameReasons.get(frame) ?? 'base';
+        const continuousFrameReason = request.reason === 'burst' ? 'burst' : 'base';
 
         if (activeCapture) {
           frameDumpCoordinator.persistSentFrame(
             activeCapture.capture,
             activeCapture.generation,
-            frame,
-            frameDumpMetadata.get(frame) ?? {
-              savedAt: sentAt,
-              mode: 'continuous',
-              quality: resolveRequestedCaptureQuality(),
-              reason: continuousFrameReason,
-            },
+            request.frame,
+            metadata,
           );
         }
 
@@ -504,21 +503,22 @@ export function createScreenCaptureController(
 
   resetFrameSendChain = frameSendCoordinator.reset;
 
-  const handleFrameCaptured = (frame: LocalScreenFrame): void => {
+  const handleFrameCaptured = ({ frame }: ScreenFrameAvailableEvent): void => {
     latestCapturedFrame = frame;
     applyCaptureQuality();
 
     if (isManualMode()) {
       stopContinuousSending('continuousStopped', { dropPendingFrame: true });
       if (manualSendPending) {
-        void frameSendCoordinator.enqueueFrameSend(
-          buildFrameDumpMetadata(cloneFrameForSend(frame), {
+        void frameSendCoordinator.enqueueFrameSend(createOutboundFrameRequest(
+          cloneFrameForSend(frame),
+          {
             savedAt: toIsoTimestamp(nowMs()),
             mode: 'manual',
             quality: 'high',
             reason: 'manual',
-          }),
-        );
+          },
+        ));
       }
       return;
     }

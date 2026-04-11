@@ -66,8 +66,8 @@ function createHarness() {
       enqueue: vi.fn(),
     } as never,
     screenCtrl: {
-      resetSendChain: vi.fn(),
-      stopInternal: vi.fn(),
+      handleTransportDetached: vi.fn(),
+      stopCapture: vi.fn(),
     } as never,
     interruptionCtrl: {
       handle: vi.fn(),

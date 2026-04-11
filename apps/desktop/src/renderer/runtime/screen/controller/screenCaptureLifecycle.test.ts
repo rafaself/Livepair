@@ -196,7 +196,10 @@ describe('createScreenCaptureLifecycle', () => {
     await harness.lifecycle.start();
     harness.getObserver()?.onFrame(frame);
 
-    expect(harness.onFrameCaptured).toHaveBeenCalledWith(frame);
+    expect(harness.onFrameCaptured).toHaveBeenCalledWith({
+      frame,
+      capturedAtMs: expect.any(Number),
+    });
     expect(harness.frameDumpCoordinator.persistSentFrame).not.toHaveBeenCalled();
     expect(harness.frameSendCoordinator.enqueueFrameSend).not.toHaveBeenCalled();
   });
