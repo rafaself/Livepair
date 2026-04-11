@@ -42,7 +42,7 @@ import type { createVoiceTranscriptController } from '../voice/transcript/voiceT
 import type { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import type { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionTransportActivation } from './sessionTransportActivation';
-import type { createLiveTelemetryCollector } from './liveTelemetryCollector';
+import type { createLiveRuntimeObservability } from './liveRuntimeObservability';
 import type { LiveRuntimeScreenAdapter } from '../screen/screenAdapter';
 
 type RuntimeRef = {
@@ -55,7 +55,7 @@ type SessionTransportAssemblyArgs = {
   dependencies: DesktopSessionControllerDependencies;
   conversationCtx: ConversationContext;
   mutableRuntime: ReturnType<typeof createSessionControllerMutableRuntime>;
-  telemetryCollector: ReturnType<typeof createLiveTelemetryCollector>;
+  observability: ReturnType<typeof createLiveRuntimeObservability>;
   refreshScreenCaptureSourceSnapshot: () => Promise<boolean>;
   runtimeRef: RuntimeRef;
   voiceToolCtrl: ReturnType<typeof createVoiceToolController>;
@@ -72,7 +72,7 @@ export function createSessionTransportAssembly({
   dependencies,
   conversationCtx,
   mutableRuntime,
-  telemetryCollector,
+  observability,
   refreshScreenCaptureSourceSnapshot,
   runtimeRef,
   voiceToolCtrl,
@@ -100,7 +100,7 @@ export function createSessionTransportAssembly({
     settingsStore: dependencies.settingsStore,
     logger: dependencies.logger,
     recordSessionEvent: (event) => runtimeRef.current!.recordSessionEvent(event),
-    logRuntimeDiagnostic,
+    emitDiagnostic: (event) => observability.emitDiagnostic(event),
     isVoiceResumptionInFlight: () => runtimeRef.current!.getVoiceResumptionInFlight(),
     setVoiceResumptionInFlight: (value) => {
       runtimeRef.current!.setVoiceResumptionInFlight(value);
@@ -265,21 +265,21 @@ export function createSessionTransportAssembly({
     switch (event.type) {
       case 'connection-state-changed':
         if (event.state === 'connected') {
-          telemetryCollector.onSessionConnected();
+          observability.onSessionConnected();
         }
         break;
       case 'usage-metadata':
-        telemetryCollector.onUsageMetadata(event.usage);
+        observability.onUsageMetadata(event.usage);
         break;
       case 'interrupted':
-        telemetryCollector.onInterruption();
+        observability.onInterruption();
         break;
       case 'text-delta':
       case 'audio-chunk':
       case 'output-transcript':
       case 'answer-metadata':
       case 'tool-call':
-        telemetryCollector.onResponseStarted();
+        observability.onResponseStarted();
         break;
       default:
         break;
@@ -301,7 +301,7 @@ export function createSessionTransportAssembly({
     getToken: () => tokenMgr.get(),
     beginSessionOperation: () => runtimeRef.current!.beginSessionOperation(),
     isCurrentSessionOperation: (operationId) => runtimeRef.current!.isCurrentSessionOperation(operationId),
-    logRuntimeDiagnostic,
+    emitDiagnostic: (event) => observability.emitDiagnostic(event),
     setVoiceSessionStatus: (status) => runtimeRef.current!.setVoiceSessionStatus(status),
     setVoiceSessionResumption: (patch) => runtimeRef.current!.setVoiceSessionResumption(patch),
     setVoiceSessionDurability: (patch) => runtimeRef.current!.setVoiceSessionDurability(patch),
@@ -336,7 +336,7 @@ export function createSessionTransportAssembly({
         token,
         reason: 'resume-failed',
         previousDetail: detail,
-        logRuntimeDiagnostic,
+        emitDiagnostic: (event) => observability.emitDiagnostic(event),
         buildRehydrationPacketFromCurrentChat,
         isCurrentSessionOperation: (id) => runtimeRef.current!.isCurrentSessionOperation(id),
         resolveSessionVoice: () =>
@@ -365,7 +365,7 @@ export function createSessionTransportAssembly({
     },
     handleTransportEvent: (event) => handleTransportEvent(event),
     onResumeConnected: () => {
-      telemetryCollector.onSessionResumed();
+      observability.onSessionResumed();
     },
     getActiveTransport: () => runtimeRef.current!.getActiveTransport(),
     setActiveTransport: (transport) => {

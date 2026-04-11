@@ -6,6 +6,7 @@ import type {
   CreateEphemeralTokenResponse,
   RehydrationPacket,
 } from '@livepair/shared-types';
+import type { LiveRuntimeDiagnosticEvent } from '../../session/liveRuntimeObservability';
 
 type VoiceFallbackReason =
   | 'no-restore-candidate'
@@ -21,7 +22,8 @@ type ConnectFallbackVoiceSessionArgs = {
   token: CreateEphemeralTokenResponse;
   reason: VoiceFallbackReason;
   previousDetail?: string | null;
-  logRuntimeDiagnostic: (
+  emitDiagnostic?: (event: LiveRuntimeDiagnosticEvent) => void;
+  logRuntimeDiagnostic?: (
     scope: 'voice-session',
     message: string,
     detail: Record<string, unknown>,
@@ -41,6 +43,7 @@ export async function connectFallbackVoiceSession({
   token,
   reason,
   previousDetail = null,
+  emitDiagnostic,
   logRuntimeDiagnostic,
   buildRehydrationPacketFromCurrentChat,
   isCurrentSessionOperation,
@@ -51,9 +54,25 @@ export async function connectFallbackVoiceSession({
   setVoiceResumptionInFlight,
   recordSessionEvent,
 }: ConnectFallbackVoiceSessionArgs): Promise<VoiceFallbackAttemptResult> {
-  logRuntimeDiagnostic('voice-session', 'starting explicit fallback session', {
-    reason,
-    previousDetail,
+  const reportDiagnostic = (event: LiveRuntimeDiagnosticEvent): void => {
+    if (emitDiagnostic) {
+      emitDiagnostic(event);
+      return;
+    }
+
+    logRuntimeDiagnostic?.('voice-session', event.name, {
+      ...(event.detail ? { detail: event.detail } : {}),
+      ...event.data,
+    });
+  };
+
+  reportDiagnostic({
+    scope: 'voice-session',
+    name: 'starting explicit fallback session',
+    data: {
+      reason,
+      previousDetail,
+    },
   });
 
   let rehydrationPacket: RehydrationPacket;
@@ -121,9 +140,12 @@ export async function connectFallbackVoiceSession({
       };
     } catch (disconnectError) {
       const disconnectDetail = asErrorDetail(disconnectError, 'Failed to disconnect voice session');
-      logRuntimeDiagnostic('voice-session', 'fallback cleanup failed', {
+      reportDiagnostic({
+        scope: 'voice-session',
+        name: 'fallback cleanup failed',
+        level: 'error',
         detail,
-        disconnectDetail,
+        data: { disconnectDetail },
       });
       return {
         status: 'failed',

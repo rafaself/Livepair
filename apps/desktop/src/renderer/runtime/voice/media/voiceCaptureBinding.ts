@@ -73,7 +73,12 @@ export function createVoiceCaptureBinding(
         store.setVoiceCaptureDiagnostics({
           lastError: detail,
         });
-        ops.logRuntimeError('voice-capture', 'local capture failed', { detail });
+        ops.emitDiagnostic?.({
+          scope: 'voice-capture',
+          name: 'capture-error',
+          level: 'error',
+          detail,
+        });
         return;
       }
     }

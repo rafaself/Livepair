@@ -41,8 +41,9 @@ export function createVoiceTranscriptController(
     clearTranscript,
     ensureAssistantTurn: turnState.ensureAssistantTurn,
     hasSettledTurnFence: turnState.hasSettledTurnFence,
-    ...(options.logRuntimeDiagnostic
+    ...(options.emitDiagnostic || options.logRuntimeDiagnostic
       ? {
+          emitDiagnostic: options.emitDiagnostic,
           logRuntimeDiagnostic: options.logRuntimeDiagnostic,
         }
       : {}),

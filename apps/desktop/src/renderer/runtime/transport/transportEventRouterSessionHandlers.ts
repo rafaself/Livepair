@@ -14,16 +14,41 @@ function getUnavailableDetail(detail?: string): string {
   return detail ?? DEFAULT_UNAVAILABLE_DETAIL;
 }
 
+function emitDiagnostic(
+  context: TransportEventRouterContext,
+  event: {
+    scope: 'voice-session';
+    name: string;
+    level?: 'info' | 'error';
+    detail?: string | null;
+    data?: Record<string, unknown>;
+  },
+): void {
+  if (context.ops.emitDiagnostic) {
+    context.ops.emitDiagnostic(event);
+    return;
+  }
+
+  context.ops.logRuntimeDiagnostic?.(event.scope, event.name, {
+    ...(event.detail ? { detail: event.detail } : {}),
+    ...event.data,
+  });
+}
+
 function logResumeRequest(context: TransportEventRouterContext, detail: string, message: string): void {
   const { ops, store } = context;
   const voiceStatus = ops.currentVoiceSessionStatus();
 
-  ops.logRuntimeDiagnostic('voice-session', message, {
-    detail,
-    voiceStatus,
-    latestHandle: store.voiceSessionResumption.latestHandle,
-    resumable: store.voiceSessionResumption.resumable,
-    tokenValid: isTokenValidForReconnect(ops.getToken()),
+  emitDiagnostic(context, {
+    scope: 'voice-session',
+    name: message,
+    data: {
+      detail,
+      voiceStatus,
+      latestHandle: store.voiceSessionResumption.latestHandle,
+      resumable: store.voiceSessionResumption.resumable,
+      tokenValid: isTokenValidForReconnect(ops.getToken()),
+    },
   });
 }
 
@@ -116,9 +141,13 @@ function handleGoAway(
   const voiceStatus = ops.currentVoiceSessionStatus();
 
   if (shouldIgnoreTermination(voiceStatus)) {
-    ops.logRuntimeDiagnostic('voice-session', 'ignored go-away while not resumable', {
-      detail,
-      voiceStatus,
+    emitDiagnostic(context, {
+      scope: 'voice-session',
+      name: 'ignored go-away while not resumable',
+      data: {
+        detail,
+        voiceStatus,
+      },
     });
     return;
   }
@@ -147,9 +176,13 @@ function handleConnectionTerminated(
   const voiceStatus = ops.currentVoiceSessionStatus();
 
   if (shouldIgnoreTermination(voiceStatus)) {
-    ops.logRuntimeDiagnostic('voice-session', 'ignored connection termination while not resumable', {
-      detail,
-      voiceStatus,
+    emitDiagnostic(context, {
+      scope: 'voice-session',
+      name: 'ignored connection termination while not resumable',
+      data: {
+        detail,
+        voiceStatus,
+      },
     });
     return;
   }
@@ -179,12 +212,16 @@ function handleSessionResumptionUpdate(
     ? GROUNDING_SESSION_RESTART_DETAIL
     : (event.detail ?? null);
 
-  ops.logRuntimeDiagnostic('voice-session', 'resumption handle updated', {
-    previousHandle: store.voiceSessionResumption.latestHandle,
-    latestHandle: event.handle,
-    resumable,
-    detail,
-    groundingChangedForCurrentSession,
+  emitDiagnostic(context, {
+    scope: 'voice-session',
+    name: 'resumption handle updated',
+    data: {
+      previousHandle: store.voiceSessionResumption.latestHandle,
+      latestHandle: event.handle,
+      resumable,
+      detail,
+      groundingChangedForCurrentSession,
+    },
   });
   ops.setVoiceSessionResumption({
     latestHandle: event.handle,

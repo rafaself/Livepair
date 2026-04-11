@@ -15,14 +15,17 @@ import type { LiveTransportAdapter } from '../../transport/liveTransportAdapter'
 import type { SessionStoreApi } from '../../core/sessionControllerTypes';
 import { createVoiceResumeFallbackController } from './voiceResumeFallback';
 import { teardownVoiceSessionForResume } from './voiceResumeTeardown';
+import type { LiveRuntimeDiagnosticEvent } from '../../session/liveRuntimeObservability';
 
 export type VoiceResumeControllerOps = {
   store: SessionStoreApi;
-  transportAdapter: LiveTransportAdapter;
+  transportAdapter?: LiveTransportAdapter;
+  createTransport?: (kind: 'gemini-live') => DesktopSession;
   getToken: () => CreateEphemeralTokenResponse | null;
   beginSessionOperation: () => number;
   isCurrentSessionOperation: (id: number) => boolean;
-  logRuntimeDiagnostic: (
+  emitDiagnostic?: (event: LiveRuntimeDiagnosticEvent) => void;
+  logRuntimeDiagnostic?: (
     scope: 'voice-session',
     message: string,
     detail: Record<string, unknown>,
@@ -80,6 +83,18 @@ function recordRecoveryTransition(
 }
 
 export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
+  const reportDiagnostic = (event: LiveRuntimeDiagnosticEvent): void => {
+    if (ops.emitDiagnostic) {
+      ops.emitDiagnostic(event);
+      return;
+    }
+
+    ops.logRuntimeDiagnostic?.('voice-session', event.name, {
+      ...(event.detail ? { detail: event.detail } : {}),
+      ...event.data,
+    });
+  };
+
   const resume = async (detail: string): Promise<void> => {
     const store = ops.store.getState();
     const resumeHandle = store.voiceSessionResumption.latestHandle;
@@ -102,22 +117,30 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
     });
 
     if (resumeUnavailableDetail) {
-      ops.logRuntimeDiagnostic('voice-session', 'resume skipped', {
-        operationId,
-        triggerDetail: detail,
-        failureDetail: resumeUnavailableDetail,
-        latestHandle: resumeHandle,
-        resumable: store.voiceSessionResumption.resumable,
+      reportDiagnostic({
+        scope: 'voice-session',
+        name: 'resume skipped',
+        data: {
+          operationId,
+          triggerDetail: detail,
+          failureDetail: resumeUnavailableDetail,
+          latestHandle: resumeHandle,
+          resumable: store.voiceSessionResumption.resumable,
+        },
       });
       recordRecoveryTransition(ops, 'resume-skipped', resumeUnavailableDetail);
     }
 
-    ops.logRuntimeDiagnostic('voice-session', 'resume requested', {
-      operationId,
-      detail,
-      latestHandle: resumeHandle,
-      resumable: store.voiceSessionResumption.resumable,
-      tokenValid: isTokenValidForReconnect(tokenToUse),
+    reportDiagnostic({
+      scope: 'voice-session',
+      name: 'resume requested',
+      data: {
+        operationId,
+        detail,
+        latestHandle: resumeHandle,
+        resumable: store.voiceSessionResumption.resumable,
+        tokenValid: isTokenValidForReconnect(tokenToUse),
+      },
     });
     recordRecoveryTransition(ops, 'resume-requested', detail);
 
@@ -137,20 +160,28 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
     await teardownVoiceSessionForResume(ops, previousTransport);
 
     if (!isTokenValidForReconnect(tokenToUse)) {
-      ops.logRuntimeDiagnostic('voice-session', 'resume requires token refresh', {
-        operationId,
-        detail,
-        latestHandle: resumeHandle,
+      reportDiagnostic({
+        scope: 'voice-session',
+        name: 'resume requires token refresh',
+        data: {
+          operationId,
+          detail,
+          latestHandle: resumeHandle,
+        },
       });
       recordRecoveryTransition(ops, 'token-refresh-required', detail);
       tokenToUse = await ops.refreshToken(operationId, detail);
 
       if (!tokenToUse || !ops.isCurrentSessionOperation(operationId)) {
-        ops.logRuntimeDiagnostic('voice-session', 'resume aborted after token refresh', {
-          operationId,
-          detail,
-          tokenAvailable: tokenToUse !== null,
-          isCurrentOperation: ops.isCurrentSessionOperation(operationId),
+        reportDiagnostic({
+          scope: 'voice-session',
+          name: 'resume aborted after token refresh',
+          data: {
+            operationId,
+            detail,
+            tokenAvailable: tokenToUse !== null,
+            isCurrentOperation: ops.isCurrentSessionOperation(operationId),
+          },
         });
         if (ops.isCurrentSessionOperation(operationId)) {
           const failureDetail =
@@ -180,7 +211,11 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       return;
     }
 
-    const transport = ops.transportAdapter.create();
+    const transport = ops.transportAdapter?.create() ?? ops.createTransport?.('gemini-live');
+
+    if (!transport) {
+      throw new Error('Voice transport adapter was unavailable for resume');
+    }
     ops.setActiveTransport(transport);
     ops.subscribeTransport(transport, ops.handleTransportEvent);
 
@@ -196,9 +231,13 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       });
       ops.onResumeConnected();
       recordRecoveryTransition(ops, 'resume-connect-resolved', detail);
-      ops.logRuntimeDiagnostic('voice-session', 'resume connect resolved', {
-        operationId,
-        latestHandle: activeResumeHandle,
+      reportDiagnostic({
+        scope: 'voice-session',
+        name: 'resume connect resolved',
+        data: {
+          operationId,
+          latestHandle: activeResumeHandle,
+        },
       });
 
       if (!ops.isCurrentSessionOperation(operationId)) {
@@ -211,10 +250,15 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
 
       const resumeDetail = asErrorDetail(error, 'Failed to resume voice session');
       recordRecoveryTransition(ops, 'resume-connect-failed', resumeDetail);
-      ops.logRuntimeDiagnostic('voice-session', 'resume connect failed', {
-        operationId,
-        latestHandle: activeResumeHandle,
+      reportDiagnostic({
+        scope: 'voice-session',
+        name: 'resume connect failed',
+        level: 'error',
         detail: resumeDetail,
+        data: {
+          operationId,
+          latestHandle: activeResumeHandle,
+        },
       });
       ops.setVoiceSessionResumption({
         status: 'resumeFailed',

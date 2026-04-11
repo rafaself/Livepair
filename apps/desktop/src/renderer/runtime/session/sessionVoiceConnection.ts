@@ -8,6 +8,7 @@ import type {
   LiveSessionRecord,
   RehydrationPacket,
 } from '@livepair/shared-types';
+import type { LiveRuntimeDiagnosticEvent } from './liveRuntimeObservability';
 
 type RestoreAttemptResult =
   | { status: 'resumed' }
@@ -36,7 +37,8 @@ type SessionVoiceConnectionArgs = {
     status: 'ended' | 'failed';
     endedReason?: string | null;
   }) => Promise<void>;
-  logRuntimeDiagnostic: (
+  emitDiagnostic?: (event: LiveRuntimeDiagnosticEvent) => void;
+  logRuntimeDiagnostic?: (
     scope: 'session' | 'voice-session',
     message: string,
     detail: Record<string, unknown>,
@@ -55,8 +57,20 @@ export function createSessionVoiceConnection({
   invalidatePersistedLiveSession,
   createPersistedLiveSession,
   endPersistedLiveSession,
+  emitDiagnostic,
   logRuntimeDiagnostic,
 }: SessionVoiceConnectionArgs) {
+  const reportDiagnostic = (event: LiveRuntimeDiagnosticEvent): void => {
+    if (emitDiagnostic) {
+      emitDiagnostic(event);
+      return;
+    }
+
+    logRuntimeDiagnostic?.('voice-session', event.name, {
+      ...(event.detail ? { detail: event.detail } : {}),
+      ...event.data,
+    });
+  };
   const connectRestoredSession = async (
     operationId: number,
     token: CreateEphemeralTokenResponse,
@@ -140,9 +154,14 @@ export function createSessionVoiceConnection({
         resumable: false,
         lastDetail: detail,
       });
-      logRuntimeDiagnostic('voice-session', 'restore attempt failed', {
-        liveSessionId: liveSession.id,
+      reportDiagnostic({
+        scope: 'voice-session',
+        name: 'restore attempt failed',
+        level: 'error',
         detail,
+        data: {
+          liveSessionId: liveSession.id,
+        },
       });
       return { status: 'failed', detail };
     }
@@ -159,7 +178,7 @@ export function createSessionVoiceConnection({
       token,
       reason,
       previousDetail,
-      logRuntimeDiagnostic,
+      emitDiagnostic: reportDiagnostic,
       buildRehydrationPacketFromCurrentChat,
       isCurrentSessionOperation,
       resolveSessionVoice,

@@ -1,4 +1,4 @@
-import { logRuntimeDiagnostic, logRuntimeError } from '../core/logger';
+import { logRuntimeError } from '../core/logger';
 import { getLiveConfig } from '../transport/liveConfig';
 import {
   buildRehydrationPacketFromCurrentChat,
@@ -40,7 +40,7 @@ import { createSessionControllerPublicApi } from './sessionPublicApi';
 import { createSessionControllerTeardown } from './sessionTeardown';
 import { createSessionTransportActivation } from './sessionTransportActivation';
 import { createSessionTransportAssembly } from './sessionTransportAssembly';
-import type { createLiveTelemetryCollector } from './liveTelemetryCollector';
+import type { createLiveRuntimeObservability } from './liveRuntimeObservability';
 
 type RuntimeRef = {
   current: ReturnType<typeof createSessionControllerRuntime> | null;
@@ -51,7 +51,7 @@ type LiveRuntimeSupervisorArgs = {
   conversationCtx: ConversationContext;
   mutableRuntime: ReturnType<typeof createSessionControllerMutableRuntime>;
   runtimeRef: RuntimeRef;
-  telemetryCollector: ReturnType<typeof createLiveTelemetryCollector>;
+  observability: ReturnType<typeof createLiveRuntimeObservability>;
   telemetryEnvironment: string;
   telemetryPlatform: string;
   telemetryAppVersion: string;
@@ -81,7 +81,7 @@ export function createLiveRuntimeSupervisor({
   conversationCtx,
   mutableRuntime,
   runtimeRef,
-  telemetryCollector,
+  observability,
   telemetryEnvironment,
   telemetryPlatform,
   telemetryAppVersion,
@@ -100,7 +100,7 @@ export function createLiveRuntimeSupervisor({
   persistSettledConversationTurn,
 }: LiveRuntimeSupervisorArgs): LiveRuntimeSupervisor {
   const startTelemetrySession = (liveSession: LiveSessionRecord): void => {
-    telemetryCollector.onSessionStarted({
+    observability.onSessionStarted({
       sessionId: liveSession.id,
       chatId: liveSession.chatId,
       model: getLiveConfig().model,
@@ -114,7 +114,7 @@ export function createLiveRuntimeSupervisor({
     dependencies,
     conversationCtx,
     mutableRuntime,
-    telemetryCollector,
+    observability,
     refreshScreenCaptureSourceSnapshot,
     runtimeRef,
     voiceToolCtrl,
@@ -261,7 +261,7 @@ export function createLiveRuntimeSupervisor({
       return liveSession;
     },
     onRestoredSessionConnected: () => {
-      telemetryCollector.onSessionResumed();
+      observability.onSessionResumed();
     },
     invalidatePersistedLiveSession: async (patch) => {
       await updateCurrentLiveSession({
@@ -276,16 +276,16 @@ export function createLiveRuntimeSupervisor({
     createPersistedLiveSession: async (voice) => {
       const liveSession = await startCurrentLiveSession({ voicePreference: voice });
       startTelemetrySession(liveSession);
-      telemetryCollector.onSessionConnected();
+      observability.onSessionConnected();
     },
     endPersistedLiveSession: async (liveSessionEnd) => {
       if (liveSessionEnd.status === 'failed' && liveSessionEnd.endedReason) {
-        telemetryCollector.onSessionError({
-          errorMessage: liveSessionEnd.endedReason,
+        observability.onSessionError({
+          detail: liveSessionEnd.endedReason,
         });
       }
 
-      telemetryCollector.onSessionEnded({
+      observability.onSessionEnded({
         closeReason: liveSessionEnd.endedReason ?? null,
       });
       await endCurrentLiveSession(liveSessionEnd);
@@ -299,14 +299,15 @@ export function createLiveRuntimeSupervisor({
     },
     startVoiceCapture: () => voiceChunkCtrl.startCapture(),
     setVoiceErrorState: (detail) => {
-      telemetryCollector.onSessionError({
-        errorMessage: detail,
+      observability.onSessionError({
+        detail,
+        name: 'session-error',
       });
       return settleVoiceErrorState(detail);
     },
     checkBackendHealth: () => dependencies.checkBackendHealth(),
     textRuntimeFailed: () => undefined,
-    logRuntimeDiagnostic,
+    emitDiagnostic: (event) => observability.emitDiagnostic(event),
   });
 
   const { endSessionInternal, endSpeechModeInternal } = createSessionControllerEndings({
@@ -315,12 +316,12 @@ export function createLiveRuntimeSupervisor({
     teardownActiveRuntime,
     endLiveSession: async (liveSessionEnd) => {
       if (liveSessionEnd.status === 'failed' && liveSessionEnd.endedReason) {
-        telemetryCollector.onSessionError({
-          errorMessage: liveSessionEnd.endedReason,
+        observability.onSessionError({
+          detail: liveSessionEnd.endedReason,
         });
       }
 
-      telemetryCollector.onSessionEnded({
+      observability.onSessionEnded({
         closeReason: liveSessionEnd.endedReason ?? null,
       });
       await endCurrentLiveSession(liveSessionEnd);
@@ -337,7 +338,7 @@ export function createLiveRuntimeSupervisor({
     },
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     endSessionInternal: (options) => endSessionInternal(options),
-    logRuntimeError,
+    emitDiagnostic: (event) => observability.emitDiagnostic(event),
     resetVoiceTurnTranscriptState: () => runtimeRef.current!.resetVoiceTurnTranscriptState(),
     setLastRuntimeError: (detail) => {
       dependencies.store.getState().setLastRuntimeError(detail);
@@ -422,8 +423,12 @@ export function createLiveRuntimeSupervisor({
       },
       logRuntimeError,
       onCommand: (command: SessionCommand) => {
-        logRuntimeDiagnostic('session', 'command dispatched', {
-          commandType: command.type,
+        observability.emitDiagnostic({
+          scope: 'session',
+          name: 'command-dispatched',
+          data: {
+            commandType: command.type,
+          },
         });
       },
     }),

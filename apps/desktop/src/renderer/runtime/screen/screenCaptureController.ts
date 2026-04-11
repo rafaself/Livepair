@@ -33,6 +33,7 @@ import type {
   ScreenFrameAvailableEvent,
   ScreenOutboundFrameRequest,
 } from './controller/screenFrameContracts';
+import type { createLiveRuntimeObservability } from '../session/liveRuntimeObservability';
 
 export type { ScreenCaptureController } from './controller/screenCaptureControllerTypes';
 
@@ -70,6 +71,7 @@ export function createScreenCaptureController(
   controllerOptions?: ScreenCaptureControllerOptions,
   getBaselineQuality?: () => ContinuousScreenQuality,
   getScreenContextMode?: () => ScreenContextMode,
+  observability?: Pick<ReturnType<typeof createLiveRuntimeObservability>, 'emitDiagnostic'>,
 ): ScreenCaptureController {
   const continuousSendIntervalMs = Math.max(
     1,
@@ -499,6 +501,7 @@ export function createScreenCaptureController(
         uploadStatus: 'error',
       });
     },
+    emitDiagnostic: (event) => observability?.emitDiagnostic(event),
   });
 
   resetFrameSendChain = frameSendCoordinator.reset;

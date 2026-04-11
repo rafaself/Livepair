@@ -284,7 +284,19 @@ export function createSessionLifecycleAssembly({
     },
     checkBackendHealth: () => dependencies.checkBackendHealth(),
     textRuntimeFailed: () => undefined,
-    logRuntimeDiagnostic,
+    emitDiagnostic: (event) => {
+      const payload = {
+        ...(event.detail ? { detail: event.detail } : {}),
+        ...event.data,
+      };
+
+      if (event.level === 'error') {
+        logRuntimeError(event.scope, event.name, payload);
+        return;
+      }
+
+      logRuntimeDiagnostic(event.scope, event.name, payload);
+    },
   });
   const { endSessionInternal, endSpeechModeInternal } = createSessionControllerEndings({
     beginSessionOperation: () => runtimeRef.current!.beginSessionOperation(),
@@ -314,7 +326,19 @@ export function createSessionLifecycleAssembly({
     },
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
     endSessionInternal: (options) => endSessionInternal(options),
-    logRuntimeError,
+    emitDiagnostic: (event) => {
+      const payload = {
+        ...(event.detail ? { detail: event.detail } : {}),
+        ...event.data,
+      };
+
+      if (event.level === 'error') {
+        logRuntimeError(event.scope, event.name, payload);
+        return;
+      }
+
+      logRuntimeDiagnostic(event.scope, event.name, payload);
+    },
     resetVoiceTurnTranscriptState: () => runtimeRef.current!.resetVoiceTurnTranscriptState(),
     setLastRuntimeError: (detail) => {
       dependencies.store.getState().setLastRuntimeError(detail);

@@ -10,7 +10,14 @@ type SessionControllerErrorHandlingArgs = {
       endedReason?: string | null;
     };
   }) => Promise<void>;
-  logRuntimeError: (
+  emitDiagnostic?: (event: {
+    scope: 'session' | 'voice-session';
+    name: string;
+    level?: 'info' | 'error';
+    detail?: string | null;
+    data?: Record<string, unknown>;
+  }) => void;
+  logRuntimeError?: (
     scope: 'session' | 'voice-session',
     message: string,
     detail?: Record<string, unknown>,
@@ -37,6 +44,7 @@ export function createSessionControllerErrorHandling({
   clearToken,
   cleanupTransport,
   endSessionInternal,
+  emitDiagnostic,
   logRuntimeError,
   resetVoiceTurnTranscriptState,
   setLastRuntimeError,
@@ -50,12 +58,35 @@ export function createSessionControllerErrorHandling({
   textRuntimeFailed,
   failPendingAssistantTurn,
 }: SessionControllerErrorHandlingArgs) {
+  const reportDiagnostic = (event: {
+    scope: 'session' | 'voice-session';
+    name: string;
+    level?: 'info' | 'error';
+    detail?: string | null;
+    data?: Record<string, unknown>;
+  }): void => {
+    if (emitDiagnostic) {
+      emitDiagnostic(event);
+      return;
+    }
+
+    logRuntimeError?.(event.scope, event.name, {
+      ...(event.detail ? { detail: event.detail } : {}),
+      ...event.data,
+    });
+  };
+
   const setErrorState = (
     detail: string,
     failedTurnStatusLabel = 'Disconnected',
   ): void => {
     textRuntimeFailed();
-    logRuntimeError('session', 'runtime entered error state', { detail });
+    reportDiagnostic({
+      scope: 'session',
+      name: 'runtime entered error state',
+      level: 'error',
+      detail,
+    });
     failPendingAssistantTurn(failedTurnStatusLabel);
     cleanupTransport();
     setAssistantActivity('idle');
@@ -64,7 +95,12 @@ export function createSessionControllerErrorHandling({
   };
 
   const settleVoiceErrorState = async (detail: string): Promise<void> => {
-    logRuntimeError('voice-session', 'runtime entered error state', { detail });
+    reportDiagnostic({
+      scope: 'voice-session',
+      name: 'runtime entered error state',
+      level: 'error',
+      detail,
+    });
     resetVoiceTurnTranscriptState();
     setVoiceResumptionInFlight(false);
     clearToken();

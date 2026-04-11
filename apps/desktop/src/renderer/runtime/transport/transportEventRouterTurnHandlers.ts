@@ -17,6 +17,27 @@ type IgnoredAssistantOutputDiagnostics = {
 
 const ignoredAssistantOutputDiagnostics = new WeakMap<object, IgnoredAssistantOutputDiagnostics>();
 
+function emitDiagnostic(
+  context: TransportEventRouterContext,
+  event: {
+    scope: 'voice-session';
+    name: string;
+    level?: 'info' | 'error';
+    detail?: string | null;
+    data?: Record<string, unknown>;
+  },
+): void {
+  if (context.ops.emitDiagnostic) {
+    context.ops.emitDiagnostic(event);
+    return;
+  }
+
+  context.ops.logRuntimeDiagnostic?.(event.scope, event.name, {
+    ...(event.detail ? { detail: event.detail } : {}),
+    ...event.data,
+  });
+}
+
 function getIgnoredAssistantOutputDiagnostics(
   context: TransportEventRouterContext,
 ): IgnoredAssistantOutputDiagnostics {
@@ -161,9 +182,13 @@ function logIgnoredUnavailableAssistantOutput(
   eventType: AssistantOutputEventType,
   detail: Record<string, unknown> = {},
 ): void {
-  context.ops.logRuntimeDiagnostic('voice-session', 'ignored assistant output while turn is unavailable', {
-    ...buildIgnoredAssistantOutputDetail(context, eventType, 'turn-unavailable'),
-    ...detail,
+  emitDiagnostic(context, {
+    scope: 'voice-session',
+    name: 'ignored assistant output while turn is unavailable',
+    data: {
+      ...buildIgnoredAssistantOutputDetail(context, eventType, 'turn-unavailable'),
+      ...detail,
+    },
   });
 }
 
@@ -219,11 +244,15 @@ function ensureAssistantVoiceTurn(
     return true;
   }
 
-  context.ops.logRuntimeDiagnostic('voice-session', 'ignored assistant output after lifecycle fence', {
-    ...buildIgnoredAssistantOutputDetail(context, eventType, 'lifecycle-fence'),
-    hasOpenVoiceTurnFence: context.ops.hasOpenVoiceTurnFence(),
-    hasQueuedMixedModeAssistantReply: context.ops.hasQueuedMixedModeAssistantReply(),
-    hasStreamingAssistantVoiceTurn: context.ops.hasStreamingAssistantVoiceTurn(),
+  emitDiagnostic(context, {
+    scope: 'voice-session',
+    name: 'ignored assistant output after lifecycle fence',
+    data: {
+      ...buildIgnoredAssistantOutputDetail(context, eventType, 'lifecycle-fence'),
+      hasOpenVoiceTurnFence: context.ops.hasOpenVoiceTurnFence(),
+      hasQueuedMixedModeAssistantReply: context.ops.hasQueuedMixedModeAssistantReply(),
+      hasStreamingAssistantVoiceTurn: context.ops.hasStreamingAssistantVoiceTurn(),
+    },
   });
   return false;
 }
@@ -238,7 +267,10 @@ export function handleTransportTurnEvent(
     case 'interrupted':
       resetAssistantTextFallback(context);
       if (!ops.hasOpenVoiceTurnFence() && !ops.hasPendingVoiceToolCall()) {
-        ops.logRuntimeDiagnostic('voice-session', 'ignored interrupted event without an open turn fence', {});
+        emitDiagnostic(context, {
+          scope: 'voice-session',
+          name: 'ignored interrupted event without an open turn fence',
+        });
         return;
       }
 
@@ -347,9 +379,13 @@ export function handleTransportTurnEvent(
       });
 
       if (decision.ignore) {
-        ops.logRuntimeDiagnostic('voice-session', 'ignored tool call while turn is unavailable', {
-          voiceStatus: ops.currentVoiceSessionStatus(),
-          callCount: event.calls.length,
+        emitDiagnostic(context, {
+          scope: 'voice-session',
+          name: 'ignored tool call while turn is unavailable',
+          data: {
+            voiceStatus: ops.currentVoiceSessionStatus(),
+            callCount: event.calls.length,
+          },
         });
         return;
       }
@@ -361,10 +397,14 @@ export function handleTransportTurnEvent(
     case 'turn-complete':
       resetAssistantTextFallback(context);
       if (!ops.hasOpenVoiceTurnFence()) {
-        ops.logRuntimeDiagnostic('voice-session', 'ignored turn-complete without an open turn fence', {
-          ...buildIgnoredAssistantOutputDetail(context, 'turn-complete', 'no-open-turn-fence'),
-          hasOpenVoiceTurnFence: false,
-          hasPendingVoiceToolCall: ops.hasPendingVoiceToolCall(),
+        emitDiagnostic(context, {
+          scope: 'voice-session',
+          name: 'ignored turn-complete without an open turn fence',
+          data: {
+            ...buildIgnoredAssistantOutputDetail(context, 'turn-complete', 'no-open-turn-fence'),
+            hasOpenVoiceTurnFence: false,
+            hasPendingVoiceToolCall: ops.hasPendingVoiceToolCall(),
+          },
         });
         return;
       }

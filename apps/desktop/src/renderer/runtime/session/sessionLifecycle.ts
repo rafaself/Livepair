@@ -20,6 +20,7 @@ import type {
   LiveSessionRecord,
   RehydrationPacket,
 } from '@livepair/shared-types';
+import type { LiveRuntimeDiagnosticEvent } from './liveRuntimeObservability';
 
 type SessionControllerLifecycleArgs = {
   store: SessionStoreApi;
@@ -72,11 +73,7 @@ type SessionControllerLifecycleArgs = {
   setVoiceErrorState: (detail: string) => Promise<void>;
   checkBackendHealth: () => Promise<boolean>;
   textRuntimeFailed: () => void;
-  logRuntimeDiagnostic: (
-    scope: 'session' | 'voice-session',
-    message: string,
-    detail: Record<string, unknown>,
-  ) => void;
+  emitDiagnostic: (event: LiveRuntimeDiagnosticEvent) => void;
 };
 
 export function createSessionControllerLifecycle({
@@ -114,7 +111,7 @@ export function createSessionControllerLifecycle({
   setVoiceErrorState,
   checkBackendHealth,
   textRuntimeFailed,
-  logRuntimeDiagnostic,
+  emitDiagnostic,
 }: SessionControllerLifecycleArgs) {
   const voiceConnection = createSessionVoiceConnection({
     store,
@@ -128,7 +125,7 @@ export function createSessionControllerLifecycle({
     resolveSessionVoice,
     createPersistedLiveSession,
     endPersistedLiveSession,
-    logRuntimeDiagnostic,
+    emitDiagnostic,
   });
   const performBackendHealthCheck = async (operationId?: number): Promise<boolean> => {
     const sessionStore = store.getState();
@@ -209,9 +206,13 @@ export function createSessionControllerLifecycle({
       type: 'session.start.requested',
       transport: transportAdapter.key,
     });
-    logRuntimeDiagnostic('voice-session', 'start requested', {
-      transport: transportAdapter.key,
-      capabilities: effectiveVoiceSessionCapabilities,
+    emitDiagnostic({
+      scope: 'voice-session',
+      name: 'start-requested',
+      data: {
+        transport: transportAdapter.key,
+        capabilities: effectiveVoiceSessionCapabilities,
+      },
     });
 
     try {

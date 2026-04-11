@@ -16,7 +16,7 @@ import { createSessionControllerStateSync } from './sessionStateSync';
 import { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionConversationSupport } from './sessionConversationSupport';
-import { createLiveTelemetryCollector } from './liveTelemetryCollector';
+import { createLiveRuntimeObservability } from './liveRuntimeObservability';
 import { createLiveRuntimeSupervisor } from './liveRuntimeSupervisor';
 import { useUiStore } from '../../store/uiStore';
 import { setAssistantAnswerMetadata } from '../conversation/conversationTurnManager';
@@ -44,14 +44,12 @@ export function createSessionControllerAssembly(
 
     return navigator.platform || 'unknown';
   })();
-  const telemetryCollector = createLiveTelemetryCollector({
-    emit: (events) => dependencies.reportLiveTelemetry(events),
-  });
-  const mutableRuntime = createSessionControllerMutableRuntime({
-    onRealtimeOutboundDiagnosticsChanged: (diagnostics) => {
-      dependencies.store.getState().setRealtimeOutboundDiagnostics(diagnostics);
-    },
-    shouldPublishRealtimeOutboundDiagnostics: isRuntimeDebugModeEnabled,
+  let getCurrentTurnId = (): string | null => null;
+  const observability = createLiveRuntimeObservability({
+    emitTelemetry: (events) => dependencies.reportLiveTelemetry(events),
+    logDiagnostic: logRuntimeDiagnostic,
+    logError: logRuntimeError,
+    getTurnId: () => getCurrentTurnId(),
   });
   const {
     appendTypedUserTurn,
@@ -59,7 +57,14 @@ export function createSessionControllerAssembly(
     conversationCtx,
     persistSettledConversationTurn,
     voiceTranscript,
-  } = createSessionConversationSupport(dependencies.store);
+  } = createSessionConversationSupport(dependencies.store, observability);
+  getCurrentTurnId = () => conversationCtx.currentVoiceTurnId;
+  const mutableRuntime = createSessionControllerMutableRuntime({
+    onRealtimeOutboundDiagnosticsChanged: (diagnostics) => {
+      dependencies.store.getState().setRealtimeOutboundDiagnostics(diagnostics);
+    },
+    shouldPublishRealtimeOutboundDiagnostics: isRuntimeDebugModeEnabled,
+  });
   let endSessionInternal = async (
     _options: {
       preserveLastRuntimeError?: string | null;
@@ -80,6 +85,7 @@ export function createSessionControllerAssembly(
     dependencies.store,
     dependencies.settingsStore,
     dependencies.createVoicePlayback,
+    observability,
   );
   const screenCtrl = createScreenCaptureController(
     dependencies.store,
@@ -97,6 +103,7 @@ export function createSessionControllerAssembly(
     undefined,
     () => dependencies.settingsStore.getState().settings.continuousScreenQuality,
     () => dependencies.settingsStore.getState().settings.screenContextMode,
+    observability,
   );
   const screen = createLiveRuntimeScreenAdapter(screenCtrl);
   const refreshScreenCaptureSourceSnapshot = async (): Promise<boolean> => {
@@ -167,7 +174,7 @@ export function createSessionControllerAssembly(
     currentVoiceSessionStatus: () => runtimeRef.current!.currentVoiceSessionStatus(),
     setVoiceSessionStatus: (s) => runtimeRef.current!.setVoiceSessionStatus(s),
     setVoiceErrorState: (d) => setVoiceErrorState(d),
-    logRuntimeError,
+    emitDiagnostic: (event) => observability.emitDiagnostic(event),
   });
   const stateSync = createSessionControllerStateSync({
     store: dependencies.store,
@@ -233,7 +240,7 @@ export function createSessionControllerAssembly(
     conversationCtx,
     mutableRuntime,
     runtimeRef,
-    telemetryCollector,
+    observability,
     telemetryEnvironment: import.meta.env.MODE,
     telemetryPlatform,
     telemetryAppVersion: desktopPackageJson.version,

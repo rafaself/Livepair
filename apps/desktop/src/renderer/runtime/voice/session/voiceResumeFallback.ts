@@ -15,6 +15,24 @@ export function createVoiceResumeFallbackController({
   resumeHandle,
   getTokenToUse,
 }: CreateVoiceResumeFallbackControllerOptions) {
+  const reportDiagnostic = (event: {
+    scope: 'voice-session';
+    name: string;
+    level?: 'info' | 'error';
+    detail?: string | null;
+    data?: Record<string, unknown>;
+  }): void => {
+    if (ops.emitDiagnostic) {
+      ops.emitDiagnostic(event);
+      return;
+    }
+
+    ops.logRuntimeDiagnostic?.(event.scope, event.name, {
+      ...(event.detail ? { detail: event.detail } : {}),
+      ...event.data,
+    });
+  };
+
   const recordRecoveryTransition = (
     transition: 'fallback-connected' | 'fallback-failed',
     detail: string,
@@ -81,10 +99,15 @@ export function createVoiceResumeFallbackController({
       return;
     }
 
-    ops.logRuntimeDiagnostic('voice-session', 'fallback connect failed', {
-      operationId,
-      latestHandle: resumeHandle,
+    reportDiagnostic({
+      scope: 'voice-session',
+      name: 'fallback connect failed',
+      level: 'error',
       detail: fallbackResult.detail,
+      data: {
+        operationId,
+        latestHandle: resumeHandle,
+      },
     });
     finalizeFailedFallback(fallbackResult.detail);
   };

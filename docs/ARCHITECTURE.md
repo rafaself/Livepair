@@ -134,6 +134,27 @@ Deferred:
 - Audio or screen adapter redesign
 - Broad telemetry redesign
 
+### Live Runtime Observability Boundary
+
+Implemented:
+
+- `apps/desktop/src/renderer/runtime/session/liveRuntimeObservability.ts` is the dedicated internal Live-runtime observability boundary for runtime emission only; it does not own session rules or transport behavior
+- The boundary wraps the existing summarized backend `LiveTelemetryEvent` collector so session start/connect/resume/error/end reporting stays unchanged while runtime diagnostics now emit through one internal contract
+- The normalized runtime diagnostic emission API now attaches existing correlation context where available: active `sessionId`, `chatId`, and current voice `turnId`
+- The highest-value touched runtime paths now emit through this boundary instead of direct ad hoc runtime logs: transport reconnect/resumption diagnostics, transcript turn-reopen diagnostics, playback state/error diagnostics, screen frame send/block/failure diagnostics, and centralized runtime error-state diagnostics
+
+Still outside the observability boundary:
+
+- Store state itself and debug-panel presentation
+- Untouched direct logs in provider/SDK-adjacent helpers such as low-level Gemini transport setup
+- Backend observability storage, metrics, dashboards, and server-side error-reporting design
+
+Deferred:
+
+- Shared telemetry schema expansion beyond the existing summarized backend session events
+- Broader normalization of every remaining runtime debug log
+- Any product analytics redesign or cross-runtime observability framework
+
 ### Audio Adapter Boundary
 
 Implemented:

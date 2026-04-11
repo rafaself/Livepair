@@ -8,6 +8,7 @@ import type {
 } from '../voice.types';
 import type { AssistantAudioPlaybackObserver } from '../../audio/assistantAudioPlayback';
 import { isRuntimeDebugModeEnabled } from '../../core/debugMode';
+import type { createLiveRuntimeObservability } from '../../session/liveRuntimeObservability';
 
 type PlaybackStoreApi = {
   getState: () => {
@@ -42,6 +43,7 @@ export function createVoicePlaybackController(
     observer: AssistantAudioPlaybackObserver,
     options: { selectedOutputDeviceId: string },
   ) => AssistantAudioPlayback,
+  observability?: Pick<ReturnType<typeof createLiveRuntimeObservability>, 'emitDiagnostic'>,
 ): VoicePlaybackController {
   let voicePlayback: AssistantAudioPlayback | null = null;
 
@@ -51,6 +53,11 @@ export function createVoicePlaybackController(
 
   const setState = (state: VoicePlaybackState): void => {
     store.getState().setVoicePlaybackState(state);
+    observability?.emitDiagnostic({
+      scope: 'voice-playback',
+      name: 'state-changed',
+      data: { state },
+    });
 
     if (state === 'playing' || state === 'buffering') {
       store.getState().setAssistantActivity('speaking');
@@ -77,6 +84,12 @@ export function createVoicePlaybackController(
         updateDiagnostics({ lastError: event.detail });
         setState('error');
         store.getState().setLastRuntimeError(event.detail);
+        observability?.emitDiagnostic({
+          scope: 'voice-playback',
+          name: 'playback-error',
+          level: 'error',
+          detail: event.detail,
+        });
         return;
     }
   };

@@ -29,6 +29,11 @@ export type SessionStoreApi = {
 
 export type VoiceTranscriptControllerOptions = {
   onConversationTurnSettled?: (turnId: string) => void;
+  emitDiagnostic?: (event: {
+    scope: 'voice-session';
+    name: string;
+    data?: Record<string, unknown>;
+  }) => void;
   logRuntimeDiagnostic?: (
     scope: 'voice-session',
     message: string,

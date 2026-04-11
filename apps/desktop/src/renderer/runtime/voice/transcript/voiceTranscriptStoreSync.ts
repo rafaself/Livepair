@@ -18,6 +18,11 @@ type VoiceTranscriptStoreSyncArgs = {
   clearTranscript: () => void;
   ensureAssistantTurn: () => boolean;
   hasSettledTurnFence: () => boolean;
+  emitDiagnostic?: (event: {
+    scope: 'voice-session';
+    name: string;
+    data?: Record<string, unknown>;
+  }) => void;
   logRuntimeDiagnostic?: (
     scope: 'voice-session',
     message: string,
@@ -42,8 +47,25 @@ export function createVoiceTranscriptStoreSync({
   clearTranscript,
   ensureAssistantTurn,
   hasSettledTurnFence,
+  emitDiagnostic,
   logRuntimeDiagnostic,
 }: VoiceTranscriptStoreSyncArgs) {
+  const reportDiagnostic = (
+    name: string,
+    data: Record<string, unknown>,
+  ): void => {
+    if (emitDiagnostic) {
+      emitDiagnostic({
+        scope: 'voice-session',
+        name,
+        data,
+      });
+      return;
+    }
+
+    logRuntimeDiagnostic?.('voice-session', name, data);
+  };
+
   const recordTurnReset = (reason: 'replayed-user-transcript' | 'new-user-transcript'): void => {
     store.getState().setVoiceSessionRecoveryDiagnostics({
       lastTurnResetReason: reason,
@@ -70,8 +92,7 @@ export function createVoiceTranscriptStoreSync({
           ? 'replayed-user-transcript'
           : 'new-user-transcript',
       );
-      logRuntimeDiagnostic?.(
-        'voice-session',
+      reportDiagnostic(
         replayedSettledTranscript
           ? 'reopened settled voice turn after user transcript replay'
           : 'reopened settled voice turn for new user transcript',

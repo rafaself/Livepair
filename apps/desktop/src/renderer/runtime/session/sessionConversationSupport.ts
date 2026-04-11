@@ -6,18 +6,23 @@ import {
 import {
   persistConversationTurnInBackground,
 } from '../conversation/persistConversationTurn';
-import { logRuntimeDiagnostic } from '../core/logger';
 import { createVoiceTranscriptController } from '../voice/transcript/voiceTranscriptController';
 import type { SessionStoreApi } from '../core/sessionControllerTypes';
+import type { createLiveRuntimeObservability } from './liveRuntimeObservability';
 
-export function createSessionConversationSupport(store: SessionStoreApi) {
+export function createSessionConversationSupport(
+  store: SessionStoreApi,
+  observability?: Pick<ReturnType<typeof createLiveRuntimeObservability>, 'emitDiagnostic'>,
+) {
   const conversationCtx = createConversationContext(store);
   const persistSettledConversationTurn = (turnId: string): void => {
     persistConversationTurnInBackground(store, turnId);
   };
   const voiceTranscript = createVoiceTranscriptController(store, conversationCtx, {
     onConversationTurnSettled: persistSettledConversationTurn,
-    logRuntimeDiagnostic,
+    ...(observability?.emitDiagnostic
+      ? { emitDiagnostic: observability.emitDiagnostic }
+      : {}),
   });
 
   return {

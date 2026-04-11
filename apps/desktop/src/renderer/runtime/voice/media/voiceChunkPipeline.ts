@@ -10,6 +10,7 @@ import { asErrorDetail } from '../../core/runtimeUtils';
 import type { SessionStoreApi, SettingsStoreApi } from '../../core/sessionControllerTypes';
 import { createVoiceCaptureBinding } from './voiceCaptureBinding';
 import { createVoiceChunkDispatch } from './voiceChunkDispatch';
+import type { LiveRuntimeDiagnosticEvent } from '../../session/liveRuntimeObservability';
 
 const VOICE_SESSION_NOT_READY_DETAIL = 'Voice session is not ready';
 
@@ -22,7 +23,7 @@ export type VoiceChunkPipelineOps = {
   currentVoiceSessionStatus: () => VoiceSessionStatus;
   setVoiceSessionStatus: (s: VoiceSessionStatus) => void;
   setVoiceErrorState: (detail: string) => void;
-  logRuntimeError: (scope: string, message: string, context: Record<string, unknown>) => void;
+  emitDiagnostic?: (event: LiveRuntimeDiagnosticEvent) => void;
 };
 
 export function createVoiceChunkPipeline(ops: VoiceChunkPipelineOps) {

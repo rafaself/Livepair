@@ -16,13 +16,15 @@ import type {
   VoiceSessionStatus,
   VoiceToolCall,
 } from '../voice/voice.types';
+import type { LiveRuntimeDiagnosticEvent } from '../session/liveRuntimeObservability';
 
 export type TransportEventRouterOps = {
   store: SessionStoreApi;
   settingsStore: SettingsStoreApi;
   logger: RuntimeLogger;
   recordSessionEvent: (event: SessionEvent) => void;
-  logRuntimeDiagnostic: (
+  emitDiagnostic?: (event: LiveRuntimeDiagnosticEvent) => void;
+  logRuntimeDiagnostic?: (
     scope: 'voice-session',
     message: string,
     detail: Record<string, unknown>,

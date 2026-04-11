@@ -1,4 +1,3 @@
-import { logRuntimeDiagnostic, logRuntimeError } from '../../core/logger';
 import { asErrorDetail } from '../../core/runtimeUtils';
 import type { DesktopSession } from '../../transport/transport.types';
 import { SCREEN_CAPTURE_MAX_PENDING_FRAMES } from '../screenCapturePolicy';
@@ -9,6 +8,7 @@ import type {
   IsCurrentCapture,
 } from './screenCaptureControllerTypes';
 import type { ScreenOutboundFrameRequest } from './screenFrameContracts';
+import type { LiveRuntimeDiagnosticEvent } from '../../session/liveRuntimeObservability';
 
 const VISUAL_SCREEN_CHANNEL_KEY = 'visual:screen';
 
@@ -35,6 +35,7 @@ export function createScreenFrameSendCoordinator({
   onSendStarted,
   onSendSucceeded,
   onSendFailed,
+  emitDiagnostic,
 }: {
   getActiveCapture: GetActiveScreenCapture;
   isCurrentCapture: IsCurrentCapture;
@@ -46,6 +47,7 @@ export function createScreenFrameSendCoordinator({
   onSendStarted: () => void;
   onSendSucceeded: (request: ScreenOutboundFrameRequest) => void;
   onSendFailed: (detail: string) => void;
+  emitDiagnostic?: (event: LiveRuntimeDiagnosticEvent) => void;
 }): ScreenFrameSendCoordinator {
   let visualOutboundSequence = 0;
   let pendingFrame: PendingScreenFrame | null = null;
@@ -103,13 +105,18 @@ export function createScreenFrameSendCoordinator({
           const detail = asErrorDetail(error, 'Failed to send screen frame');
           getRealtimeOutboundGateway().recordFailure(detail);
           const { frame } = nextFrame.request;
-          logRuntimeError('screen-capture', 'video frame send failed', {
+          emitDiagnostic?.({
+            scope: 'screen-capture',
+            name: 'video-frame-send-failed',
+            level: 'error',
             detail,
-            sequence: frame.sequence,
-            mimeType: frame.mimeType,
-            byteLength: frame.data.byteLength,
-            widthPx: frame.widthPx,
-            heightPx: frame.heightPx,
+            data: {
+              sequence: frame.sequence,
+              mimeType: frame.mimeType,
+              byteLength: frame.data.byteLength,
+              widthPx: frame.widthPx,
+              heightPx: frame.heightPx,
+            },
           });
           pendingFrame = null;
           onSendFailed(detail);
@@ -128,13 +135,17 @@ export function createScreenFrameSendCoordinator({
 
         getRealtimeOutboundGateway().recordSuccess();
         const { frame } = nextFrame.request;
-        logRuntimeDiagnostic('screen-capture', 'video frame sent', {
-          sequence: frame.sequence,
-          mimeType: frame.mimeType,
-          byteLength: frame.data.byteLength,
-          widthPx: frame.widthPx,
-          heightPx: frame.heightPx,
-          maxPendingFrames: SCREEN_CAPTURE_MAX_PENDING_FRAMES,
+        emitDiagnostic?.({
+          scope: 'screen-capture',
+          name: 'video-frame-sent',
+          data: {
+            sequence: frame.sequence,
+            mimeType: frame.mimeType,
+            byteLength: frame.data.byteLength,
+            widthPx: frame.widthPx,
+            heightPx: frame.heightPx,
+            maxPendingFrames: SCREEN_CAPTURE_MAX_PENDING_FRAMES,
+          },
         });
         onSendSucceeded(nextFrame.request);
       }
@@ -173,6 +184,14 @@ export function createScreenFrameSendCoordinator({
 
       if (decision.outcome === 'drop' || decision.outcome === 'block') {
         // Wave 4: policy allowed the send but the gateway blocked/dropped it.
+        emitDiagnostic?.({
+          scope: 'screen-capture',
+          name: 'video-frame-blocked-by-gateway',
+          data: {
+            outcome: decision.outcome,
+            reason: decision.reason,
+          },
+        });
         onFrameBlockedByGateway();
         flushVisualDiagnostics();
         return Promise.resolve();
