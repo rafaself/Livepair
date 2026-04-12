@@ -43,12 +43,13 @@ export function AssistantPanel({
     conversationTurns,
     isConversationEmpty,
     localUserSpeechActive,
-    controlGatingSnapshot,
     setPanelView,
     speechLifecycleStatus,
     isVoiceSessionActive,
     canToggleScreenContext,
     isScreenCaptureActive,
+    canEndSpeechMode,
+    sessionActionKind,
     canSubmitText,
     lastRuntimeError,
     draftText,
@@ -135,9 +136,10 @@ export function AssistantPanel({
                   <AssistantPanelChatView
                     assistantState={assistantState}
                     isPanelOpen={isPanelOpen}
-                    controlGatingSnapshot={controlGatingSnapshot}
                     speechLifecycleStatus={speechLifecycleStatus}
                     canSubmitText={canSubmitText}
+                    canEndSpeechMode={canEndSpeechMode}
+                    sessionActionKind={sessionActionKind}
                     activeChat={activeChat}
                     latestLiveSession={latestLiveSession}
                     turns={conversationTurns}

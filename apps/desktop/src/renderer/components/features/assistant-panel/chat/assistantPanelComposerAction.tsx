@@ -1,12 +1,6 @@
 import { AudioLines, Loader2, SendHorizonal, Undo2 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import {
-  canEndSpeechMode,
-  getComposerSpeechActionKind,
-  isSpeechLifecycleActive,
-  type ControlGatingSnapshot,
-  type SpeechLifecycleStatus,
-} from '../../../../runtime/liveRuntime';
+import { type SpeechLifecycleStatus } from '../../../../runtime/liveRuntime';
 import { SpeechActivityIndicator } from '../SpeechActivityIndicator';
 
 export type ComposerActionVariant = 'default' | 'speechCircle' | 'speechPill';
@@ -21,12 +15,14 @@ export type AssistantPanelComposerAction = {
 };
 
 export type CreateAssistantPanelComposerActionOptions = {
-  controlGatingSnapshot: ControlGatingSnapshot;
+  controlGatingSnapshot?: unknown;
   draftText: string;
   isConversationEmpty: boolean;
   isComposerDisabled: boolean;
   speechLifecycleStatus: SpeechLifecycleStatus;
   localUserSpeechActive: boolean;
+  sessionActionKind?: 'start' | 'end';
+  canEndSpeechMode?: boolean;
 };
 
 function getEndSpeechModeLabel(speechLifecycleStatus: SpeechLifecycleStatus): string {
@@ -42,17 +38,15 @@ function getEndSpeechModeLabel(speechLifecycleStatus: SpeechLifecycleStatus): st
 }
 
 export function createAssistantPanelComposerAction({
-  controlGatingSnapshot,
   draftText,
   isConversationEmpty,
   isComposerDisabled,
   speechLifecycleStatus,
   localUserSpeechActive,
+  sessionActionKind = 'start',
+  canEndSpeechMode = false,
 }: CreateAssistantPanelComposerActionOptions): AssistantPanelComposerAction {
-  if (
-    draftText.trim().length > 0 &&
-    isSpeechLifecycleActive(controlGatingSnapshot.speechLifecycleStatus)
-  ) {
+  if (draftText.trim().length > 0 && sessionActionKind === 'end') {
     return {
       disabled: isComposerDisabled,
       icon: <SendHorizonal size={18} aria-hidden="true" />,
@@ -63,11 +57,11 @@ export function createAssistantPanelComposerAction({
     };
   }
 
-  if (getComposerSpeechActionKind(controlGatingSnapshot) === 'end') {
+  if (sessionActionKind === 'end') {
     const isTransitioning =
       speechLifecycleStatus === 'starting' || speechLifecycleStatus === 'ending';
     return {
-      disabled: !canEndSpeechMode(controlGatingSnapshot),
+      disabled: !canEndSpeechMode,
       icon: isTransitioning ? (
         <Loader2 size={18} aria-hidden="true" />
       ) : (

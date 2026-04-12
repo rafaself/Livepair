@@ -175,7 +175,10 @@ describe('App', () => {
 
     render(<App />);
 
-    const shareScreenButton = screen.getByRole('button', { name: 'Share screen' });
+    const assistantControls = screen.getByRole('toolbar', { name: 'Assistant controls' });
+    const shareScreenButton = within(assistantControls).getByRole('button', {
+      name: 'Share screen',
+    });
     shareScreenButton.focus();
     fireEvent.click(shareScreenButton);
 
@@ -237,7 +240,10 @@ describe('App', () => {
 
     render(<App />);
 
-    const shareScreenButton = screen.getByRole('button', { name: 'Share screen' });
+    const assistantControls = screen.getByRole('toolbar', { name: 'Assistant controls' });
+    const shareScreenButton = within(assistantControls).getByRole('button', {
+      name: 'Share screen',
+    });
     shareScreenButton.focus();
     fireEvent.click(shareScreenButton);
 
@@ -609,11 +615,17 @@ describe('App', () => {
     });
 
     render(<App />);
+    const assistantControls = screen.getByRole('toolbar', { name: 'Assistant controls' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Talk' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Starting Live session' })).toBeDisabled();
+      expect(
+        within(assistantControls).getByRole('button', {
+          name: 'Live session is starting',
+          hidden: true,
+        }),
+      ).toBeDisabled();
       expect(screen.queryByRole('heading', { name: 'Current speech turn' })).toBeNull();
     });
 
@@ -622,7 +634,12 @@ describe('App', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'End Live session' })).toBeEnabled();
+      expect(
+        within(assistantControls).getByRole('button', {
+          name: 'End Live session',
+          hidden: true,
+        }),
+      ).toBeEnabled();
     });
 
     await act(async () => {

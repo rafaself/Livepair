@@ -3,8 +3,6 @@ import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 import type { SelectOptionItem } from '../../../primitives';
 import {
-  canSubmitComposerText,
-  type ControlGatingSnapshot,
   type ConversationTimelineEntry,
   type ScreenCaptureState,
   type SpeechLifecycleStatus,
@@ -21,9 +19,11 @@ import './AssistantPanelChatEmptyState.css';
 export type AssistantPanelChatViewProps = {
   assistantState: AssistantRuntimeState;
   isPanelOpen?: boolean;
-  controlGatingSnapshot: ControlGatingSnapshot;
+  controlGatingSnapshot?: unknown;
   speechLifecycleStatus: SpeechLifecycleStatus;
   canSubmitText: boolean;
+  canEndSpeechMode?: boolean;
+  sessionActionKind?: 'start' | 'end';
   activeChat?: ChatRecord | null;
   latestLiveSession?: LiveSessionRecord | null;
   turns: ConversationTimelineEntry[];
@@ -55,9 +55,10 @@ export type AssistantPanelChatViewProps = {
 export function AssistantPanelChatView({
   assistantState,
   isPanelOpen,
-  controlGatingSnapshot,
   speechLifecycleStatus,
   canSubmitText,
+  canEndSpeechMode = false,
+  sessionActionKind = 'start',
   activeChat = null,
   latestLiveSession = null,
   turns,
@@ -85,17 +86,15 @@ export function AssistantPanelChatView({
   onToggleComposerScreenShare = async () => undefined,
   onEndSpeechMode,
 }: AssistantPanelChatViewProps): JSX.Element {
-  const isComposerDisabled =
-    isSubmittingTextTurn ||
-    !canSubmitText ||
-    !canSubmitComposerText(controlGatingSnapshot);
+  const isComposerDisabled = isSubmittingTextTurn || !canSubmitText;
   const composerAction = createAssistantPanelComposerAction({
-    controlGatingSnapshot,
     draftText,
     isConversationEmpty,
     isComposerDisabled,
     speechLifecycleStatus,
     localUserSpeechActive,
+    sessionActionKind,
+    canEndSpeechMode,
   });
   const isComposerScreenShareActive = screenCaptureState !== undefined
     ? screenCaptureState === 'ready' || screenCaptureState === 'capturing'

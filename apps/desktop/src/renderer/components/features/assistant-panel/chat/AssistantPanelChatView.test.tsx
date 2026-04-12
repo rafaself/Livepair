@@ -3,7 +3,10 @@ import type { FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ConversationTurnModel } from '../../../../test/fixtures/conversation';
 import {
+  canEndSpeechMode,
+  canToggleScreenContext,
   createControlGatingSnapshot,
+  getComposerSpeechActionKind,
   isSpeechLifecycleActive,
   type ControlGatingSnapshot,
   type ProductMode,
@@ -42,21 +45,29 @@ function AssistantPanelChatView({
   isVoiceSessionActive = currentMode === 'speech' || isSpeechLifecycleActive(speechLifecycleStatus),
   ...props
 }: AssistantPanelChatViewProps): JSX.Element {
+  const resolvedControlGatingSnapshot = controlGatingSnapshot ?? createControlGatingSnapshot({
+    currentMode,
+    textSessionStatus,
+    activeTransport,
+    voiceSessionStatus,
+    voiceCaptureState,
+    screenCaptureState,
+    speechLifecycleStatus,
+  });
+
   return (
     <RuntimeAssistantPanelChatView
       {...props}
-      controlGatingSnapshot={controlGatingSnapshot ?? createControlGatingSnapshot({
-        currentMode,
-        textSessionStatus,
-        activeTransport,
-        voiceSessionStatus,
-        voiceCaptureState,
-        screenCaptureState,
-        speechLifecycleStatus,
-      })}
+      controlGatingSnapshot={resolvedControlGatingSnapshot}
       speechLifecycleStatus={speechLifecycleStatus}
       screenCaptureState={screenCaptureState}
       isVoiceSessionActive={isVoiceSessionActive}
+      sessionActionKind={getComposerSpeechActionKind(resolvedControlGatingSnapshot)}
+      canEndSpeechMode={canEndSpeechMode(resolvedControlGatingSnapshot)}
+      canToggleScreenContext={canToggleScreenContext(resolvedControlGatingSnapshot)}
+      isScreenCaptureActive={
+        screenCaptureState === 'ready' || screenCaptureState === 'capturing'
+      }
     />
   );
 }
@@ -667,7 +678,7 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="starting"
         textSessionStatus="disconnected"
-        canSubmitText={true}
+        canSubmitText={false}
         activeTransport="gemini-live"
         voiceSessionStatus="connecting"
         turns={[]}
@@ -692,7 +703,7 @@ describe('AssistantPanelChatView', () => {
         currentMode="speech"
         speechLifecycleStatus="listening"
         textSessionStatus="disconnected"
-        canSubmitText={true}
+        canSubmitText={false}
         activeTransport={null}
         voiceSessionStatus="error"
         turns={[]}

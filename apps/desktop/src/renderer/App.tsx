@@ -7,7 +7,11 @@ import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrou
 import type { OverlayMode } from '../shared';
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
 import { useSettingsStore } from './store/settingsStore';
-import { useLiveRuntimeSessionSnapshot, useSessionRuntime } from './runtime/liveRuntime';
+import {
+  useDomainRuntimeHost,
+  useDomainRuntimeSessionSnapshot,
+} from './runtime/domainRuntimeContract';
+import { useSessionRuntime } from './runtime/liveRuntime';
 import { SnackbarProvider, useSnackbar } from './components/primitives';
 
 type PendingShareIntent = 'start-screen-capture' | 'start-speech-with-screen-share';
@@ -70,6 +74,11 @@ function AppShell(): JSX.Element {
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const overlayMode = window.bridge?.overlayMode ?? 'linux-shape';
   const {
+    startSpeechModeWithContext,
+    setContextSharingEnabled,
+    reportRuntimeError,
+  } = useDomainRuntimeHost();
+  const {
     controlGatingSnapshot,
     speechLifecycleStatus,
     voiceCaptureState,
@@ -80,8 +89,6 @@ function AppShell(): JSX.Element {
     handleStopScreenCapture,
     handleSendScreenNow,
     handleEndSpeechMode,
-    handleStartSpeechModeWithScreenShare,
-    handleReportRuntimeError,
   } = useSessionRuntime();
   const pendingShareIntentRef = useRef<PendingShareIntent | null>(null);
   const [isShareScreenDialogOpen, setIsShareScreenDialogOpen] = useState(false);
@@ -123,12 +130,12 @@ function AppShell(): JSX.Element {
       pendingShareIntentRef.current = null;
 
       if (pendingShareIntent === 'start-screen-capture') {
-        await handleStartScreenCapture();
+        await setContextSharingEnabled(true);
       } else if (pendingShareIntent === 'start-speech-with-screen-share') {
-        await handleStartSpeechModeWithScreenShare();
+        await startSpeechModeWithContext();
       }
     } catch (error) {
-      handleReportRuntimeError(
+      reportRuntimeError(
         error instanceof Error && error.message.length > 0
           ? error.message
           : 'Failed to save Share Screen mode',
@@ -139,9 +146,9 @@ function AppShell(): JSX.Element {
   }, [
     isSavingScreenContextMode,
     selectedScreenContextMode,
-    handleReportRuntimeError,
-    handleStartScreenCapture,
-    handleStartSpeechModeWithScreenShare,
+    reportRuntimeError,
+    setContextSharingEnabled,
+    startSpeechModeWithContext,
     updateSetting,
   ]);
 
@@ -252,10 +259,10 @@ function formatRuntimeSnackbarMessage(detail: string): string {
 function RuntimeSnackbarObserver(): null {
   const {
     lastRuntimeError,
-    voiceSessionResumptionStatus,
-  } = useLiveRuntimeSessionSnapshot();
+    sessionRecoveryStatus,
+  } = useDomainRuntimeSessionSnapshot();
   const { showError, showSnackbar } = useSnackbar();
-  const previousResumptionStatusRef = useRef(voiceSessionResumptionStatus);
+  const previousResumptionStatusRef = useRef(sessionRecoveryStatus);
   const recoveryNoticePendingRef = useRef(false);
 
   useEffect(() => {
@@ -267,28 +274,28 @@ function RuntimeSnackbarObserver(): null {
   useEffect(() => {
     const previousStatus = previousResumptionStatusRef.current;
 
-    if (voiceSessionResumptionStatus === previousStatus) {
+    if (sessionRecoveryStatus === previousStatus) {
       return;
     }
 
-    if (voiceSessionResumptionStatus === 'reconnecting') {
+    if (sessionRecoveryStatus === 'reconnecting') {
       recoveryNoticePendingRef.current = true;
       showSnackbar('Reconnecting Live session...', 'warning');
-    } else if (voiceSessionResumptionStatus === 'resumed' && recoveryNoticePendingRef.current) {
+    } else if (sessionRecoveryStatus === 'resumed' && recoveryNoticePendingRef.current) {
       recoveryNoticePendingRef.current = false;
       showSnackbar('Live session reconnected', 'success');
-    } else if (voiceSessionResumptionStatus === 'connected' && recoveryNoticePendingRef.current) {
+    } else if (sessionRecoveryStatus === 'connected' && recoveryNoticePendingRef.current) {
       recoveryNoticePendingRef.current = false;
       showSnackbar('Live session restarted', 'info');
     } else if (
-      voiceSessionResumptionStatus === 'idle'
-      || voiceSessionResumptionStatus === 'resumeFailed'
+      sessionRecoveryStatus === 'idle'
+      || sessionRecoveryStatus === 'resumeFailed'
     ) {
       recoveryNoticePendingRef.current = false;
     }
 
-    previousResumptionStatusRef.current = voiceSessionResumptionStatus;
-  }, [voiceSessionResumptionStatus, showSnackbar]);
+    previousResumptionStatusRef.current = sessionRecoveryStatus;
+  }, [sessionRecoveryStatus, showSnackbar]);
 
   return null;
 }

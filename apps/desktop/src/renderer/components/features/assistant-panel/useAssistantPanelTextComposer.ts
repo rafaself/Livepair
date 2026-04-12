@@ -1,8 +1,8 @@
 import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
-import { canSubmitComposerText, type ControlGatingSnapshot } from '../../../runtime/liveRuntime';
 
 type UseAssistantPanelTextComposerOptions = {
-  controlGatingSnapshot: ControlGatingSnapshot;
+  canSubmitComposerText?: boolean;
+  controlGatingSnapshot?: unknown;
   onSubmitTextTurn: (draftText: string) => Promise<boolean>;
 };
 
@@ -14,7 +14,7 @@ export type AssistantPanelTextComposer = {
 };
 
 export function useAssistantPanelTextComposer({
-  controlGatingSnapshot,
+  canSubmitComposerText = true,
   onSubmitTextTurn,
 }: UseAssistantPanelTextComposerOptions): AssistantPanelTextComposer {
   const [draftText, setDraftText] = useState('');
@@ -33,7 +33,7 @@ export function useAssistantPanelTextComposer({
       if (
         !nextDraft ||
         isSubmittingTextTurn ||
-        !canSubmitComposerText(controlGatingSnapshot)
+        !canSubmitComposerText
       ) {
         return;
       }
@@ -50,7 +50,7 @@ export function useAssistantPanelTextComposer({
         setIsSubmittingTextTurn(false);
       }
     },
-    [controlGatingSnapshot, draftText, isSubmittingTextTurn, onSubmitTextTurn],
+    [canSubmitComposerText, draftText, isSubmittingTextTurn, onSubmitTextTurn],
   );
 
   return {

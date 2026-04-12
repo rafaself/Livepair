@@ -1,23 +1,17 @@
 import type { ChangeEvent, FormEvent } from 'react';
 import type { AssistantRuntimeState } from '../../../state/assistantUiState';
 import {
-  type ControlGatingSnapshot,
-  useSessionRuntime,
   type ConversationTimelineEntry,
   type ProductMode,
-  type ScreenCaptureState,
   type SpeechLifecycleStatus,
   type TextSessionStatus,
-  type TransportKind,
-  type VoiceCaptureState,
-  type VoiceSessionStatus,
 } from '../../../runtime/liveRuntime';
+import { useDomainRuntimeHost } from '../../../runtime/domainRuntimeContract';
 import { useUiStore, type PanelView } from '../../../store/uiStore';
 import { type BackendConnectionState, type TokenRequestState } from '../../../store/sessionStore';
 import { useAssistantPanelBackendHealth } from './useAssistantPanelBackendHealth';
 import { useAssistantPanelComposerMediaActions } from './useAssistantPanelComposerMediaActions';
 import { useAssistantPanelConversationState } from './useAssistantPanelConversationState';
-import { useAssistantPanelControlState } from './useAssistantPanelControlState';
 import { useAssistantPanelTextComposer } from './useAssistantPanelTextComposer';
 
 export type AssistantPanelController = {
@@ -28,25 +22,22 @@ export type AssistantPanelController = {
   isConversationEmpty: boolean;
   isComposerMicrophoneEnabled: boolean;
   localUserSpeechActive: boolean;
-  controlGatingSnapshot: ControlGatingSnapshot;
   setPanelView: (view: PanelView) => void;
   closePanel: () => void;
   backendState: BackendConnectionState;
   backendIndicatorState: AssistantRuntimeState;
   backendLabel: string;
   currentMode: ProductMode;
-  activeTransport: TransportKind | null;
   speechLifecycleStatus: SpeechLifecycleStatus;
   tokenRequestState: TokenRequestState;
   tokenFeedback: string | null;
   textSessionStatus: TextSessionStatus;
   textSessionStatusLabel: string;
-  voiceSessionStatus: VoiceSessionStatus;
-  voiceCaptureState: VoiceCaptureState;
-  screenCaptureState: ScreenCaptureState;
   isVoiceSessionActive: boolean;
   canToggleScreenContext: boolean;
   isScreenCaptureActive: boolean;
+  canEndSpeechMode: boolean;
+  sessionActionKind: 'start' | 'end';
   canSubmitText: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -76,18 +67,15 @@ export function useAssistantPanelController({
   const setPanelView = useUiStore((state) => state.setPanelView);
   const {
     snapshot,
-    handleCheckBackendHealth: onCheckBackendHealth,
-    handleStartSpeechMode: onStartSpeechMode,
-    handleStartSpeechModeWithScreenShare: onStartSpeechModeWithScreenShare,
-    handleSetComposerMicrophoneEnabled: onSetComposerMicrophoneEnabled,
-    handleToggleScreenCapture: onToggleScreenCapture,
-    handleRequestEndSpeechMode: onEndSpeechMode,
-    handleSubmitTextTurn: onSubmitTextTurn,
-  } = useSessionRuntime();
+    checkBackendHealth: onCheckBackendHealth,
+    startSpeechMode: onStartSpeechMode,
+    startSpeechModeWithContext: onStartSpeechModeWithScreenShare,
+    setInputEnabled: onSetComposerMicrophoneEnabled,
+    setContextSharingEnabled,
+    requestEndSpeechMode: onEndSpeechMode,
+    submitTextTurn: onSubmitTextTurn,
+  } = useDomainRuntimeHost();
   const { conversationTurns, isConversationEmpty } = useAssistantPanelConversationState();
-  const { controlGatingSnapshot, composerSpeechActionKind } = useAssistantPanelControlState({
-    sessionSnapshot: snapshot,
-  });
   const handleCheckBackendHealth = useAssistantPanelBackendHealth({
     isPanelOpen,
     onCheckBackendHealth,
@@ -98,9 +86,13 @@ export function useAssistantPanelController({
     handleDraftTextChange,
     handleSubmitTextTurn,
   } = useAssistantPanelTextComposer({
-    controlGatingSnapshot,
+    canSubmitComposerText: snapshot.canSubmitComposerText,
     onSubmitTextTurn,
   });
+  const toggleContextSharing = async (): Promise<boolean> => {
+    await setContextSharingEnabled(!snapshot.isContextSharingActive);
+    return true;
+  };
   const {
     handleStartSpeechMode,
     handleStartSpeechModeWithScreen,
@@ -110,28 +102,28 @@ export function useAssistantPanelController({
   } = useAssistantPanelComposerMediaActions(
     screenShareModeGate
       ? {
-          composerSpeechActionKind,
+          composerSpeechActionKind: snapshot.sessionActionKind,
           canEndSpeechMode: snapshot.canEndSpeechMode,
-          canToggleScreenContext: snapshot.canToggleScreenContext,
+          canToggleScreenContext: snapshot.canToggleContextSharing,
           getIsComposerMicrophoneEnabled: () => useUiStore.getState().isComposerMicrophoneEnabled,
           setComposerMicrophoneEnabled,
           screenShareModeGate,
           onStartSpeechMode,
           onStartSpeechModeWithScreenShare,
           onSetComposerMicrophoneEnabled,
-          onToggleScreenCapture,
+          onToggleScreenCapture: toggleContextSharing,
           onEndSpeechMode,
         }
       : {
-          composerSpeechActionKind,
+          composerSpeechActionKind: snapshot.sessionActionKind,
           canEndSpeechMode: snapshot.canEndSpeechMode,
-          canToggleScreenContext: snapshot.canToggleScreenContext,
+          canToggleScreenContext: snapshot.canToggleContextSharing,
           getIsComposerMicrophoneEnabled: () => useUiStore.getState().isComposerMicrophoneEnabled,
           setComposerMicrophoneEnabled,
           onStartSpeechMode,
           onStartSpeechModeWithScreenShare,
           onSetComposerMicrophoneEnabled,
-          onToggleScreenCapture,
+          onToggleScreenCapture: toggleContextSharing,
           onEndSpeechMode,
         },
   );
@@ -144,26 +136,23 @@ export function useAssistantPanelController({
     isConversationEmpty,
     isComposerMicrophoneEnabled,
     localUserSpeechActive: snapshot.localUserSpeechActive,
-    controlGatingSnapshot,
     setPanelView,
     closePanel,
     backendState: snapshot.backendState,
     backendIndicatorState: snapshot.backendIndicatorState,
     backendLabel: snapshot.backendLabel,
     currentMode: snapshot.currentMode,
-    activeTransport: snapshot.activeTransport,
     speechLifecycleStatus: snapshot.speechLifecycleStatus,
     tokenRequestState: snapshot.tokenRequestState,
     tokenFeedback: snapshot.tokenFeedback,
     textSessionStatus: snapshot.textSessionStatus,
     textSessionStatusLabel: snapshot.textSessionStatusLabel,
-    voiceSessionStatus: snapshot.voiceSessionStatus,
-    voiceCaptureState: snapshot.voiceCaptureState,
-    screenCaptureState: snapshot.screenCaptureState,
-    isVoiceSessionActive: snapshot.isVoiceSessionActive,
-    canToggleScreenContext: snapshot.canToggleScreenContext,
-    isScreenCaptureActive: snapshot.isScreenCaptureActive,
-    canSubmitText: snapshot.canSubmitText,
+    isVoiceSessionActive: snapshot.isSessionActive,
+    canToggleScreenContext: snapshot.canToggleContextSharing,
+    isScreenCaptureActive: snapshot.isContextSharingActive,
+    canEndSpeechMode: snapshot.canEndSpeechMode,
+    sessionActionKind: snapshot.sessionActionKind,
+    canSubmitText: snapshot.canSubmitComposerText,
     lastRuntimeError: snapshot.lastRuntimeError,
     draftText,
     isSubmittingTextTurn,

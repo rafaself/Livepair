@@ -130,13 +130,17 @@ Still outside the transport adapter:
 - Screen-capture cadence and frame-production policy
 - UI state and presentation logic
 
-### Renderer UI Boundary Note
+### Renderer UI And Host Runtime Boundary Note
 
-Implemented in the current SR-11 slice:
+Implemented through SR-11 and SR-12:
 
-- Assistant-panel controller hooks now treat the runtime facade as the command boundary for speech start/end, microphone enable/disable, and screen-share toggling
-- Conversation rendering now consumes runtime-projected transcript metadata instead of reading raw session store state to reconstruct assistant thinking data
-- Share-screen mode selection remains UI-local because it is dialog/view state, but it now gates a small set of user intents instead of owning runtime action sequencing directly
+- Assistant-panel hooks and components now consume runtime-owned projections and host-facing commands instead of reconstructing session truth from raw runtime state
+- `apps/desktop/src/renderer/runtime/domainRuntimeContract.ts` freezes the minimal host-facing runtime shape that the desktop renderer uses today:
+  - session snapshot projection for assistant/backend/session/context status
+  - conversation snapshot projection for timeline turns
+  - host commands for lifecycle start/end, text submission, microphone/context toggles, backend health, and runtime error reporting
+- The renderer host now depends on that bounded contract for assistant-panel flow and snackbar/session recovery messaging instead of reaching through Live-specific runtime snapshot fields
+- Share-screen mode selection remains UI-local because it is dialog/view state, but it now gates a small set of host intents instead of owning runtime action sequencing directly
 
 Still local to the UI by design:
 
@@ -144,14 +148,17 @@ Still local to the UI by design:
 - Share-screen mode dialog visibility and selected option before confirmation
 - View-specific composition such as chat/history navigation and settings form state
 
-Deferred for the next release:
+Intentionally excluded from the frozen host/runtime contract in SR-12:
 
-- Replace remaining renderer reads of chat/session store slices such as `activeChatId`, screen-source management, and debug formatting with explicit runtime or application-facing projections where that boundary is already stable
-- Freeze and document the final small UI-facing runtime contract once the remaining compatibility fields are trimmed
+- `DesktopSessionController` internals and Live runtime supervisor/session-engine implementation details
+- Provider, transport, audio-capture, audio-playback, and screen-capture implementation details
+- Debug/diagnostics formatting and control-dock state that still read Live-specific runtime fields
+- Screen-source option management and other device/source selection details that are not yet stable as host-level runtime contract surface
 
 Deferred:
 
-- Multi-runtime or multi-provider host abstractions
+- Moving remaining control-dock and diagnostics consumers onto host-level projections once those projections are stable
+- Multi-runtime or multi-provider host abstractions beyond the frozen host/runtime contract
 - Audio or screen adapter redesign
 - Broad telemetry redesign
 

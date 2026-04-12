@@ -1,7 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { createControlGatingSnapshot } from '../../../runtime';
 import { useAssistantPanelTextComposer } from './useAssistantPanelTextComposer';
 
 describe('useAssistantPanelTextComposer', () => {
@@ -9,14 +8,7 @@ describe('useAssistantPanelTextComposer', () => {
     const onSubmitTextTurn = vi.fn(async () => true);
     const { result } = renderHook(() =>
       useAssistantPanelTextComposer({
-        controlGatingSnapshot: createControlGatingSnapshot({
-          currentMode: 'speech',
-          speechLifecycleStatus: 'listening',
-          activeTransport: 'gemini-live',
-          voiceSessionStatus: 'active',
-          voiceCaptureState: 'capturing',
-          screenCaptureState: 'disabled',
-        }),
+        canSubmitComposerText: true,
         onSubmitTextTurn,
       }),
     );
@@ -40,25 +32,14 @@ describe('useAssistantPanelTextComposer', () => {
   it('preserves the draft when runtime submission or control gating declines the send', async () => {
     const onSubmitTextTurn = vi.fn(async () => false);
     const { result, rerender } = renderHook(
-      ({
-        controlGatingSnapshot,
-      }: {
-        controlGatingSnapshot: ReturnType<typeof createControlGatingSnapshot>;
-      }) =>
+      ({ canSubmitComposerText }: { canSubmitComposerText: boolean }) =>
         useAssistantPanelTextComposer({
-          controlGatingSnapshot,
+          canSubmitComposerText,
           onSubmitTextTurn,
         }),
       {
         initialProps: {
-          controlGatingSnapshot: createControlGatingSnapshot({
-            currentMode: 'speech',
-            speechLifecycleStatus: 'listening',
-            activeTransport: 'gemini-live',
-            voiceSessionStatus: 'active',
-            voiceCaptureState: 'capturing',
-            screenCaptureState: 'disabled',
-          }),
+          canSubmitComposerText: true,
         },
       },
     );
@@ -79,14 +60,7 @@ describe('useAssistantPanelTextComposer', () => {
     expect(result.current.draftText).toBe('  keep me  ');
 
     rerender({
-      controlGatingSnapshot: createControlGatingSnapshot({
-        currentMode: 'inactive',
-        speechLifecycleStatus: 'off',
-        activeTransport: null,
-        voiceSessionStatus: 'disconnected',
-        voiceCaptureState: 'inactive',
-        screenCaptureState: 'disabled',
-      }),
+      canSubmitComposerText: false,
     });
 
     await act(async () => {

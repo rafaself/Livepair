@@ -1,41 +1,19 @@
 import { isValidElement } from 'react';
 import { describe, expect, it } from 'vitest';
 import { createAssistantPanelComposerAction } from './assistantPanelComposerAction';
-import { createControlGatingSnapshot } from '../../../../runtime';
 import { SpeechActivityIndicator } from '../SpeechActivityIndicator';
-
-const inactiveSnapshot = createControlGatingSnapshot({
-  currentMode: 'inactive',
-  speechLifecycleStatus: 'off',
-});
-
-const activeSnapshot = createControlGatingSnapshot({
-  currentMode: 'speech',
-  speechLifecycleStatus: 'listening',
-  activeTransport: 'gemini-live',
-  voiceSessionStatus: 'active',
-});
-
-const startingSnapshot = createControlGatingSnapshot({
-  currentMode: 'speech',
-  speechLifecycleStatus: 'starting',
-});
-
-const endingSnapshot = createControlGatingSnapshot({
-  currentMode: 'speech',
-  speechLifecycleStatus: 'ending',
-});
 
 describe('createAssistantPanelComposerAction – Live session terminology', () => {
   describe('startSpeech action', () => {
     it('labels Start Live Session for empty conversation', () => {
       const action = createAssistantPanelComposerAction({
-        controlGatingSnapshot: inactiveSnapshot,
         draftText: '',
         isConversationEmpty: true,
         isComposerDisabled: false,
         speechLifecycleStatus: 'off',
         localUserSpeechActive: false,
+        sessionActionKind: 'start',
+        canEndSpeechMode: false,
       });
       expect(action.kind).toBe('startSpeech');
       expect(action.label).toBe('Start Live Session');
@@ -44,12 +22,13 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
 
     it('renders Resume Session pill for non-empty conversation', () => {
       const action = createAssistantPanelComposerAction({
-        controlGatingSnapshot: inactiveSnapshot,
         draftText: '',
         isConversationEmpty: false,
         isComposerDisabled: false,
         speechLifecycleStatus: 'off',
         localUserSpeechActive: false,
+        sessionActionKind: 'start',
+        canEndSpeechMode: false,
       });
       expect(action.kind).toBe('startSpeech');
       expect(action.label).toBe('Resume Live Session');
@@ -62,12 +41,13 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
   describe('send action', () => {
     it('labels the send button as a session note action, not generic message', () => {
       const action = createAssistantPanelComposerAction({
-        controlGatingSnapshot: activeSnapshot,
         draftText: 'hello',
         isConversationEmpty: false,
         isComposerDisabled: false,
         speechLifecycleStatus: 'listening',
         localUserSpeechActive: false,
+        sessionActionKind: 'end',
+        canEndSpeechMode: true,
       });
       expect(action.kind).toBe('send');
       expect(action.label).toBe('Send note to session');
@@ -78,12 +58,13 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
   describe('endSpeech action', () => {
     it('labels End Live session in ready state', () => {
       const action = createAssistantPanelComposerAction({
-        controlGatingSnapshot: activeSnapshot,
         draftText: '',
         isConversationEmpty: false,
         isComposerDisabled: false,
         speechLifecycleStatus: 'listening',
         localUserSpeechActive: false,
+        sessionActionKind: 'end',
+        canEndSpeechMode: true,
       });
       expect(action.kind).toBe('endSpeech');
       expect(action.label).toBe('End Live session');
@@ -92,12 +73,13 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
 
     it('labels Starting Live session during starting transition', () => {
       const action = createAssistantPanelComposerAction({
-        controlGatingSnapshot: startingSnapshot,
         draftText: '',
         isConversationEmpty: false,
         isComposerDisabled: false,
         speechLifecycleStatus: 'starting',
         localUserSpeechActive: false,
+        sessionActionKind: 'end',
+        canEndSpeechMode: false,
       });
       expect(action.kind).toBe('endSpeech');
       expect(action.label).toBe('Starting Live session');
@@ -107,12 +89,13 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
 
     it('labels Ending Live session during ending transition', () => {
       const action = createAssistantPanelComposerAction({
-        controlGatingSnapshot: endingSnapshot,
         draftText: '',
         isConversationEmpty: false,
         isComposerDisabled: false,
         speechLifecycleStatus: 'ending',
         localUserSpeechActive: false,
+        sessionActionKind: 'end',
+        canEndSpeechMode: false,
       });
       expect(action.kind).toBe('endSpeech');
       expect(action.label).toBe('Ending Live session');
@@ -124,12 +107,13 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
   describe('speech-activity indicator', () => {
     it('activates the indicator when localUserSpeechActive is true', () => {
       const action = createAssistantPanelComposerAction({
-        controlGatingSnapshot: activeSnapshot,
         draftText: '',
         isConversationEmpty: false,
         isComposerDisabled: false,
         speechLifecycleStatus: 'listening',
         localUserSpeechActive: true,
+        sessionActionKind: 'end',
+        canEndSpeechMode: true,
       });
       expect(action.kind).toBe('endSpeech');
       expect(isValidElement(action.icon)).toBe(true);
@@ -142,19 +126,14 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
     });
 
     it('activates the indicator when speechLifecycleStatus is userSpeaking even if localUserSpeechActive is false', () => {
-      const speakingSnapshot = createControlGatingSnapshot({
-        currentMode: 'speech',
-        speechLifecycleStatus: 'userSpeaking',
-        activeTransport: 'gemini-live',
-        voiceSessionStatus: 'active',
-      });
       const action = createAssistantPanelComposerAction({
-        controlGatingSnapshot: speakingSnapshot,
         draftText: '',
         isConversationEmpty: false,
         isComposerDisabled: false,
         speechLifecycleStatus: 'userSpeaking',
         localUserSpeechActive: false,
+        sessionActionKind: 'end',
+        canEndSpeechMode: true,
       });
       expect(action.kind).toBe('endSpeech');
       expect(isValidElement(action.icon)).toBe(true);
@@ -168,12 +147,13 @@ describe('createAssistantPanelComposerAction – Live session terminology', () =
 
     it('does not activate the indicator when both localUserSpeechActive is false and speechLifecycleStatus is listening', () => {
       const action = createAssistantPanelComposerAction({
-        controlGatingSnapshot: activeSnapshot,
         draftText: '',
         isConversationEmpty: false,
         isComposerDisabled: false,
         speechLifecycleStatus: 'listening',
         localUserSpeechActive: false,
+        sessionActionKind: 'end',
+        canEndSpeechMode: true,
       });
       expect(action.kind).toBe('endSpeech');
       expect(isValidElement(action.icon)).toBe(true);
