@@ -160,8 +160,6 @@ describe('App', () => {
 
   it('gates the first Share Screen attempt, traps focus, and resumes after confirmation', async () => {
     installMatchMedia(true);
-    const controller = getDesktopSessionController();
-    const startScreenCaptureSpy = vi.spyOn(controller, 'startScreenCapture').mockResolvedValue();
 
     useSessionStore.setState({
       currentMode: 'speech',
@@ -171,6 +169,9 @@ describe('App', () => {
       voiceCaptureState: 'muted',
       screenCaptureState: 'disabled',
     });
+
+    const controller = getDesktopSessionController();
+    const startScreenCaptureSpy = vi.spyOn(controller, 'startScreenCapture').mockResolvedValue();
 
     render(<App />);
 
@@ -221,8 +222,6 @@ describe('App', () => {
 
   it('closes the Share Screen mode dialog without starting capture when canceled', async () => {
     installMatchMedia(true);
-    const controller = getDesktopSessionController();
-    const startScreenCaptureSpy = vi.spyOn(controller, 'startScreenCapture').mockResolvedValue();
 
     useSessionStore.setState({
       currentMode: 'speech',
@@ -232,6 +231,9 @@ describe('App', () => {
       voiceCaptureState: 'muted',
       screenCaptureState: 'disabled',
     });
+
+    const controller = getDesktopSessionController();
+    const startScreenCaptureSpy = vi.spyOn(controller, 'startScreenCapture').mockResolvedValue();
 
     render(<App />);
 

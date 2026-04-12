@@ -45,6 +45,8 @@ export type AssistantPanelController = {
   voiceCaptureState: VoiceCaptureState;
   screenCaptureState: ScreenCaptureState;
   isVoiceSessionActive: boolean;
+  canToggleScreenContext: boolean;
+  isScreenCaptureActive: boolean;
   canSubmitText: boolean;
   lastRuntimeError: string | null;
   draftText: string;
@@ -75,12 +77,11 @@ export function useAssistantPanelController({
   const {
     snapshot,
     handleCheckBackendHealth: onCheckBackendHealth,
-    handleStartVoiceSession: onStartVoiceSession,
-    handleStartVoiceCapture: onStartVoiceCapture,
-    handleStopVoiceCapture: onStopVoiceCapture,
-    handleStartScreenCapture: onStartScreenCapture,
-    handleStopScreenCapture: onStopScreenCapture,
-    handleEndSpeechMode: onEndSpeechMode,
+    handleStartSpeechMode: onStartSpeechMode,
+    handleStartSpeechModeWithScreenShare: onStartSpeechModeWithScreenShare,
+    handleSetComposerMicrophoneEnabled: onSetComposerMicrophoneEnabled,
+    handleToggleScreenCapture: onToggleScreenCapture,
+    handleRequestEndSpeechMode: onEndSpeechMode,
     handleSubmitTextTurn: onSubmitTextTurn,
   } = useSessionRuntime();
   const { conversationTurns, isConversationEmpty } = useAssistantPanelConversationState();
@@ -109,34 +110,28 @@ export function useAssistantPanelController({
   } = useAssistantPanelComposerMediaActions(
     screenShareModeGate
       ? {
-          controlGatingSnapshot,
           composerSpeechActionKind,
+          canEndSpeechMode: snapshot.canEndSpeechMode,
+          canToggleScreenContext: snapshot.canToggleScreenContext,
           getIsComposerMicrophoneEnabled: () => useUiStore.getState().isComposerMicrophoneEnabled,
           setComposerMicrophoneEnabled,
           screenShareModeGate,
-          isVoiceSessionActive: snapshot.isVoiceSessionActive,
-          voiceCaptureState: snapshot.voiceCaptureState,
-          screenCaptureState: snapshot.screenCaptureState,
-          onStartVoiceSession,
-          onStartVoiceCapture,
-          onStopVoiceCapture,
-          onStartScreenCapture,
-          onStopScreenCapture,
+          onStartSpeechMode,
+          onStartSpeechModeWithScreenShare,
+          onSetComposerMicrophoneEnabled,
+          onToggleScreenCapture,
           onEndSpeechMode,
         }
       : {
-          controlGatingSnapshot,
           composerSpeechActionKind,
+          canEndSpeechMode: snapshot.canEndSpeechMode,
+          canToggleScreenContext: snapshot.canToggleScreenContext,
           getIsComposerMicrophoneEnabled: () => useUiStore.getState().isComposerMicrophoneEnabled,
           setComposerMicrophoneEnabled,
-          isVoiceSessionActive: snapshot.isVoiceSessionActive,
-          voiceCaptureState: snapshot.voiceCaptureState,
-          screenCaptureState: snapshot.screenCaptureState,
-          onStartVoiceSession,
-          onStartVoiceCapture,
-          onStopVoiceCapture,
-          onStartScreenCapture,
-          onStopScreenCapture,
+          onStartSpeechMode,
+          onStartSpeechModeWithScreenShare,
+          onSetComposerMicrophoneEnabled,
+          onToggleScreenCapture,
           onEndSpeechMode,
         },
   );
@@ -166,6 +161,8 @@ export function useAssistantPanelController({
     voiceCaptureState: snapshot.voiceCaptureState,
     screenCaptureState: snapshot.screenCaptureState,
     isVoiceSessionActive: snapshot.isVoiceSessionActive,
+    canToggleScreenContext: snapshot.canToggleScreenContext,
+    isScreenCaptureActive: snapshot.isScreenCaptureActive,
     canSubmitText: snapshot.canSubmitText,
     lastRuntimeError: snapshot.lastRuntimeError,
     draftText,

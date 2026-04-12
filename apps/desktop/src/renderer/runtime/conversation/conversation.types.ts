@@ -33,6 +33,7 @@ export type TranscriptArtifactModel = {
   source: 'voice';
   transcriptFinal?: boolean | undefined;
   attachedTurnId?: string | undefined;
+  answerMetadata?: AnswerMetadata | undefined;
 };
 
 export type ConversationTimelineEntry = ConversationTurnModel | TranscriptArtifactModel;

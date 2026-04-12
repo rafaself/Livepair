@@ -3,7 +3,6 @@ import { useId, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { Badge, IconButton } from '../../primitives';
 import { isTranscriptArtifact, type ConversationTimelineEntry } from '../../../runtime/liveRuntime';
-import { useSessionStore } from '../../../store/sessionStore';
 import { TypingIndicator } from '../TypingIndicator';
 import { renderAssistantMarkdown } from '../assistant-panel/chat/renderAssistantMarkdown';
 import { useSettingsStore } from '../../../store/settingsStore';
@@ -38,14 +37,9 @@ export function ConversationTurn({
   const isInterruptedTranscript = isTranscript && turn.statusLabel === 'Interrupted';
   const isCompletedTranscript = isTranscript && turn.state === 'complete' && !isInterruptedTranscript;
   const isTypedNote = !isTranscript && turn.role === 'user' && turn.source === 'text';
-  const attachedAssistantTurn = useSessionStore((state) =>
-    isTranscript && turn.role === 'assistant' && turn.attachedTurnId
-      ? state.conversationTurns.find((entry) => entry.id === turn.attachedTurnId) ?? null
-      : null);
-  const assistantTurnWithMetadata =
-    !isTranscript && turn.role === 'assistant' ? turn : attachedAssistantTurn;
-  const thinkingText =
-    assistantTurnWithMetadata?.answerMetadata?.thinkingText?.trim() ?? '';
+  const thinkingText = turn.role === 'assistant'
+    ? turn.answerMetadata?.thinkingText?.trim() ?? ''
+    : '';
   const hasThinkingText = thinkingText.length > 0;
 
   const classes = [

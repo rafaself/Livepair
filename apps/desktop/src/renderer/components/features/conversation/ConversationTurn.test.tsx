@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
-import { useSessionStore } from '../../../store/sessionStore';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { resetDesktopStores } from '../../../test/store';
 import { ConversationTurn } from './ConversationTurn';
@@ -485,19 +484,7 @@ describe('ConversationTurn transcript artifact presentation', () => {
     expect(thinkingRegion).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('shows a thinking toggle for a live assistant transcript using its attached turn metadata', () => {
-    useSessionStore.getState().appendConversationTurn({
-      id: 'assistant-turn-linked',
-      role: 'assistant',
-      content: 'Canonical assistant reply.',
-      timestamp: '10:00',
-      state: 'complete',
-      answerMetadata: {
-        provenance: 'unverified',
-        thinkingText: 'Linked canonical reasoning',
-      },
-    });
-
+  it('shows a thinking toggle for a transcript entry when the projection includes attached metadata', () => {
     render(
       <ConversationTurn
         turn={{
@@ -509,6 +496,10 @@ describe('ConversationTurn transcript artifact presentation', () => {
           state: 'complete',
           source: 'voice',
           attachedTurnId: 'assistant-turn-linked',
+          answerMetadata: {
+            provenance: 'unverified',
+            thinkingText: 'Linked canonical reasoning',
+          },
         }}
       />,
     );

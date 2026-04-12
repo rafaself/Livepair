@@ -58,4 +58,41 @@ describe('useAssistantPanelConversationState', () => {
     ]);
     expect(result.current.isConversationEmpty).toBe(false);
   });
+
+  it('projects attached assistant thinking metadata onto transcript entries', () => {
+    const { result } = renderHook(() => useAssistantPanelConversationState());
+
+    act(() => {
+      useSessionStore.getState().appendConversationTurn({
+        id: 'assistant-turn-with-thinking',
+        role: 'assistant',
+        content: 'Canonical reply',
+        timestamp: '10:02 AM',
+        timelineOrdinal: 2,
+        answerMetadata: {
+          provenance: 'unverified',
+          thinkingText: 'Projected reasoning',
+        },
+      });
+      useSessionStore.getState().appendTranscriptArtifact({
+        id: 'assistant-transcript-with-thinking',
+        kind: 'transcript',
+        role: 'assistant',
+        content: 'Canonical reply',
+        timestamp: '10:02 AM',
+        source: 'voice',
+        timelineOrdinal: 1,
+        attachedTurnId: 'assistant-turn-with-thinking',
+      });
+    });
+
+    expect(result.current.conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'assistant-transcript-with-thinking',
+        answerMetadata: expect.objectContaining({
+          thinkingText: 'Projected reasoning',
+        }),
+      }),
+    ]);
+  });
 });

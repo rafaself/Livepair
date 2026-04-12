@@ -1,27 +1,17 @@
 import { useCallback } from 'react';
-import {
-  canEndSpeechMode,
-  canToggleScreenContext,
-  type ControlGatingSnapshot,
-  type ScreenCaptureState,
-  type VoiceCaptureState,
-} from '../../../runtime/liveRuntime';
 
 type UseAssistantPanelComposerMediaActionsOptions = {
-  controlGatingSnapshot: ControlGatingSnapshot;
   composerSpeechActionKind: 'start' | 'end';
+  canEndSpeechMode: boolean;
+  canToggleScreenContext: boolean;
   getIsComposerMicrophoneEnabled: () => boolean;
   setComposerMicrophoneEnabled: (enabled: boolean) => void;
   screenShareModeGate?: (action: () => Promise<void>) => Promise<boolean | void>;
-  isVoiceSessionActive: boolean;
-  voiceCaptureState: VoiceCaptureState;
-  screenCaptureState: ScreenCaptureState;
-  onStartVoiceSession: () => Promise<void>;
-  onStartVoiceCapture: () => Promise<void>;
-  onStopVoiceCapture: () => Promise<void>;
-  onStartScreenCapture: () => Promise<void>;
-  onStopScreenCapture: () => Promise<void>;
-  onEndSpeechMode: () => Promise<void>;
+  onStartSpeechMode: () => Promise<boolean | void>;
+  onStartSpeechModeWithScreenShare: () => Promise<boolean | void>;
+  onSetComposerMicrophoneEnabled: (enabled: boolean) => Promise<void>;
+  onToggleScreenCapture: () => Promise<boolean | void>;
+  onEndSpeechMode: () => Promise<boolean | void>;
 };
 
 export type AssistantPanelComposerMediaActions = {
@@ -32,27 +22,17 @@ export type AssistantPanelComposerMediaActions = {
   handleEndSpeechMode: () => Promise<void>;
 };
 
-function isScreenCaptureActive(screenCaptureState: ScreenCaptureState): boolean {
-  return (
-    screenCaptureState === 'ready' ||
-    screenCaptureState === 'capturing'
-  );
-}
-
 export function useAssistantPanelComposerMediaActions({
-  controlGatingSnapshot,
   composerSpeechActionKind,
+  canEndSpeechMode,
+  canToggleScreenContext,
   getIsComposerMicrophoneEnabled,
   setComposerMicrophoneEnabled,
   screenShareModeGate,
-  isVoiceSessionActive,
-  voiceCaptureState,
-  screenCaptureState,
-  onStartVoiceSession,
-  onStartVoiceCapture,
-  onStopVoiceCapture,
-  onStartScreenCapture,
-  onStopScreenCapture,
+  onStartSpeechMode,
+  onStartSpeechModeWithScreenShare,
+  onSetComposerMicrophoneEnabled,
+  onToggleScreenCapture,
   onEndSpeechMode,
 }: UseAssistantPanelComposerMediaActionsOptions): AssistantPanelComposerMediaActions {
   const runScreenShareAction = useCallback(async (action: () => Promise<void>): Promise<boolean> => {
@@ -70,8 +50,8 @@ export function useAssistantPanelComposerMediaActions({
     }
 
     setComposerMicrophoneEnabled(true);
-    await onStartVoiceSession();
-  }, [composerSpeechActionKind, onStartVoiceSession, setComposerMicrophoneEnabled]);
+    await onStartSpeechMode();
+  }, [composerSpeechActionKind, onStartSpeechMode, setComposerMicrophoneEnabled]);
 
   const handleStartSpeechModeWithScreen = useCallback(async (): Promise<boolean> => {
     if (composerSpeechActionKind !== 'start') {
@@ -80,13 +60,11 @@ export function useAssistantPanelComposerMediaActions({
 
     return runScreenShareAction(async () => {
       setComposerMicrophoneEnabled(true);
-      await onStartVoiceSession();
-      await onStartScreenCapture();
+      await onStartSpeechModeWithScreenShare();
     });
   }, [
     composerSpeechActionKind,
-    onStartScreenCapture,
-    onStartVoiceSession,
+    onStartSpeechModeWithScreenShare,
     runScreenShareAction,
     setComposerMicrophoneEnabled,
   ]);
@@ -94,32 +72,11 @@ export function useAssistantPanelComposerMediaActions({
   const handleToggleComposerMicrophone = useCallback(async (): Promise<void> => {
     const nextEnabled = !getIsComposerMicrophoneEnabled();
     setComposerMicrophoneEnabled(nextEnabled);
-
-    if (!isVoiceSessionActive) {
-      return;
-    }
-
-    if (nextEnabled) {
-      if (voiceCaptureState === 'capturing') {
-        return;
-      }
-
-      await onStartVoiceCapture();
-      return;
-    }
-
-    if (voiceCaptureState === 'inactive' || voiceCaptureState === 'muted') {
-      return;
-    }
-
-    await onStopVoiceCapture();
+    await onSetComposerMicrophoneEnabled(nextEnabled);
   }, [
     getIsComposerMicrophoneEnabled,
-    isVoiceSessionActive,
-    onStartVoiceCapture,
-    onStopVoiceCapture,
+    onSetComposerMicrophoneEnabled,
     setComposerMicrophoneEnabled,
-    voiceCaptureState,
   ]);
 
   const handleToggleComposerScreenShare = useCallback(async (): Promise<void> => {
@@ -128,33 +85,28 @@ export function useAssistantPanelComposerMediaActions({
       return;
     }
 
-    if (!canToggleScreenContext(controlGatingSnapshot)) {
+    if (!canToggleScreenContext) {
       return;
     }
 
-    if (isScreenCaptureActive(screenCaptureState)) {
-      await onStopScreenCapture();
-      return;
-    }
-
-    await runScreenShareAction(onStartScreenCapture);
+    await runScreenShareAction(async () => {
+      await onToggleScreenCapture();
+    });
   }, [
+    canToggleScreenContext,
     composerSpeechActionKind,
-    controlGatingSnapshot,
     handleStartSpeechModeWithScreen,
-    onStartScreenCapture,
-    onStopScreenCapture,
+    onToggleScreenCapture,
     runScreenShareAction,
-    screenCaptureState,
   ]);
 
   const handleEndSpeechMode = useCallback(async (): Promise<void> => {
-    if (!canEndSpeechMode(controlGatingSnapshot)) {
+    if (!canEndSpeechMode) {
       return;
     }
 
     await onEndSpeechMode();
-  }, [controlGatingSnapshot, onEndSpeechMode]);
+  }, [canEndSpeechMode, onEndSpeechMode]);
 
   return {
     handleStartSpeechMode,

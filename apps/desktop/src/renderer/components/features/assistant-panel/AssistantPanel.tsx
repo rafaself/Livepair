@@ -47,7 +47,8 @@ export function AssistantPanel({
     setPanelView,
     speechLifecycleStatus,
     isVoiceSessionActive,
-    screenCaptureState,
+    canToggleScreenContext,
+    isScreenCaptureActive,
     canSubmitText,
     lastRuntimeError,
     draftText,
@@ -142,11 +143,12 @@ export function AssistantPanel({
                     turns={conversationTurns}
                     isConversationEmpty={isConversationEmpty}
                     isVoiceSessionActive={isVoiceSessionActive}
+                    canToggleScreenContext={canToggleScreenContext}
+                    isScreenCaptureActive={isScreenCaptureActive}
                     lastRuntimeError={lastRuntimeError}
                     draftText={draftText}
                     isSubmittingTextTurn={isSubmittingTextTurn}
                      isComposerMicrophoneEnabled={isComposerMicrophoneEnabled}
-                     screenCaptureState={screenCaptureState}
                      inputDeviceOptions={settingsController.inputDeviceOptions}
                      localUserSpeechActive={localUserSpeechActive}
                      screenCaptureSourceOptions={settingsController.screenCaptureSourceOptions}

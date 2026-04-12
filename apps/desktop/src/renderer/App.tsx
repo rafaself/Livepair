@@ -7,9 +7,10 @@ import { useOverlayPointerPassthrough } from './hooks/useOverlayPointerPassthrou
 import type { OverlayMode } from '../shared';
 import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from './theme';
 import { useSettingsStore } from './store/settingsStore';
-import { useSessionStore } from './store/sessionStore';
 import { useLiveRuntimeSessionSnapshot, useSessionRuntime } from './runtime/liveRuntime';
 import { SnackbarProvider, useSnackbar } from './components/primitives';
+
+type PendingShareIntent = 'start-screen-capture' | 'start-speech-with-screen-share';
 
 function LinuxOverlayInteraction(): null {
   useOverlayHitRegions();
@@ -67,7 +68,6 @@ function ThemePreferenceSync(): null {
 function AppShell(): JSX.Element {
   const screenContextMode = useSettingsStore((state) => state.settings.screenContextMode);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
-  const setLastRuntimeError = useSessionStore((state) => state.setLastRuntimeError);
   const overlayMode = window.bridge?.overlayMode ?? 'linux-shape';
   const {
     controlGatingSnapshot,
@@ -80,18 +80,21 @@ function AppShell(): JSX.Element {
     handleStopScreenCapture,
     handleSendScreenNow,
     handleEndSpeechMode,
+    handleStartSpeechModeWithScreenShare,
+    handleReportRuntimeError,
   } = useSessionRuntime();
-  const pendingShareActionRef = useRef<(() => Promise<void>) | null>(null);
+  const pendingShareIntentRef = useRef<PendingShareIntent | null>(null);
   const [isShareScreenDialogOpen, setIsShareScreenDialogOpen] = useState(false);
   const [selectedScreenContextMode, setSelectedScreenContextMode] =
     useState<ConfiguredScreenContextMode | null>(null);
   const [isSavingScreenContextMode, setIsSavingScreenContextMode] = useState(false);
 
   const handleShareActionWithGate = useCallback(async (
+    intent: PendingShareIntent,
     shareAction: () => Promise<void>,
   ): Promise<boolean> => {
     if (screenContextMode === 'unconfigured') {
-      pendingShareActionRef.current = shareAction;
+      pendingShareIntentRef.current = intent;
       setSelectedScreenContextMode(null);
       setIsShareScreenDialogOpen(true);
       return false;
@@ -102,7 +105,7 @@ function AppShell(): JSX.Element {
   }, [screenContextMode]);
 
   const handleStartScreenCaptureWithGate = useCallback(async (): Promise<void> => {
-    await handleShareActionWithGate(handleStartScreenCapture);
+    await handleShareActionWithGate('start-screen-capture', handleStartScreenCapture);
   }, [handleShareActionWithGate, handleStartScreenCapture]);
 
   const handleConfirmScreenContextMode = useCallback(async (): Promise<void> => {
@@ -116,14 +119,16 @@ function AppShell(): JSX.Element {
       await updateSetting('screenContextMode', selectedScreenContextMode);
       setIsShareScreenDialogOpen(false);
 
-      const pendingShareAction = pendingShareActionRef.current;
-      pendingShareActionRef.current = null;
+      const pendingShareIntent = pendingShareIntentRef.current;
+      pendingShareIntentRef.current = null;
 
-      if (pendingShareAction !== null) {
-        await pendingShareAction();
+      if (pendingShareIntent === 'start-screen-capture') {
+        await handleStartScreenCapture();
+      } else if (pendingShareIntent === 'start-speech-with-screen-share') {
+        await handleStartSpeechModeWithScreenShare();
       }
     } catch (error) {
-      setLastRuntimeError(
+      handleReportRuntimeError(
         error instanceof Error && error.message.length > 0
           ? error.message
           : 'Failed to save Share Screen mode',
@@ -134,12 +139,14 @@ function AppShell(): JSX.Element {
   }, [
     isSavingScreenContextMode,
     selectedScreenContextMode,
-    setLastRuntimeError,
+    handleReportRuntimeError,
+    handleStartScreenCapture,
+    handleStartSpeechModeWithScreenShare,
     updateSetting,
   ]);
 
   const handleCancelScreenContextMode = useCallback((): void => {
-    pendingShareActionRef.current = null;
+    pendingShareIntentRef.current = null;
     setSelectedScreenContextMode(null);
     setIsShareScreenDialogOpen(false);
   }, []);
@@ -157,7 +164,10 @@ function AppShell(): JSX.Element {
         onCancel={handleCancelScreenContextMode}
         onSelectMode={setSelectedScreenContextMode}
       />
-      <AssistantPanel screenShareModeGate={handleShareActionWithGate} />
+      <AssistantPanel
+        screenShareModeGate={(shareAction) =>
+          handleShareActionWithGate('start-speech-with-screen-share', shareAction)}
+      />
       <ControlDock
         controlGatingSnapshot={controlGatingSnapshot}
         speechLifecycleStatus={speechLifecycleStatus}

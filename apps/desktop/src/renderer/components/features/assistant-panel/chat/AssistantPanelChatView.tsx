@@ -3,7 +3,6 @@ import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
 import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 import type { SelectOptionItem } from '../../../primitives';
 import {
-  canToggleScreenContext,
   canSubmitComposerText,
   type ControlGatingSnapshot,
   type ConversationTimelineEntry,
@@ -30,13 +29,15 @@ export type AssistantPanelChatViewProps = {
   turns: ConversationTimelineEntry[];
   isConversationEmpty: boolean;
   isVoiceSessionActive: boolean;
+  canToggleScreenContext?: boolean;
+  isScreenCaptureActive?: boolean;
+  screenCaptureState?: ScreenCaptureState;
   lastRuntimeError: string | null;
   draftText: string;
   isSubmittingTextTurn: boolean;
   isComposerMicrophoneEnabled?: boolean;
   inputDeviceOptions?: readonly SelectOptionItem[];
   localUserSpeechActive?: boolean;
-  screenCaptureState?: ScreenCaptureState;
   screenCaptureSourceOptions?: readonly SelectOptionItem[];
   selectedInputDeviceId?: string;
   selectedScreenCaptureSourceId?: string;
@@ -62,13 +63,15 @@ export function AssistantPanelChatView({
   turns,
   isConversationEmpty,
   isVoiceSessionActive,
+  canToggleScreenContext = false,
+  isScreenCaptureActive = false,
+  screenCaptureState,
   lastRuntimeError,
   draftText,
   isSubmittingTextTurn,
   isComposerMicrophoneEnabled = true,
   inputDeviceOptions = [],
   localUserSpeechActive = false,
-  screenCaptureState = 'disabled',
   screenCaptureSourceOptions = [],
   selectedInputDeviceId = '',
   selectedScreenCaptureSourceId = '',
@@ -94,13 +97,13 @@ export function AssistantPanelChatView({
     speechLifecycleStatus,
     localUserSpeechActive,
   });
-  const isComposerScreenShareActive =
-    screenCaptureState === 'ready' ||
-    screenCaptureState === 'capturing';
+  const isComposerScreenShareActive = screenCaptureState !== undefined
+    ? screenCaptureState === 'ready' || screenCaptureState === 'capturing'
+    : isScreenCaptureActive;
   const isComposerScreenShareDisabled =
     composerAction.kind === 'startSpeech'
       ? composerAction.disabled || composerAction.isLoading
-      : !canToggleScreenContext(controlGatingSnapshot);
+      : !canToggleScreenContext;
   const screenShareButtonLabel =
     composerAction.kind === 'startSpeech'
       ? 'Start Live session with screen share'

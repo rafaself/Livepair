@@ -4,6 +4,9 @@ import {
   getTextSessionStatus,
 } from '../store/sessionStore';
 import {
+  canEndSpeechMode,
+  canToggleMicrophone,
+  canToggleScreenContext,
   createControlGatingSnapshot,
   getComposerSpeechActionKind,
   type ControlGatingSnapshot,
@@ -38,6 +41,10 @@ export type LiveRuntimeSessionSnapshot = {
   voiceCaptureState: SessionStoreState['voiceCaptureState'];
   screenCaptureState: SessionStoreState['screenCaptureState'];
   isVoiceSessionActive: boolean;
+  canEndSpeechMode: boolean;
+  canToggleMicrophone: boolean;
+  canToggleScreenContext: boolean;
+  isScreenCaptureActive: boolean;
   controlGatingSnapshot: ControlGatingSnapshot;
   composerSpeechActionKind: ReturnType<typeof getComposerSpeechActionKind>;
   localUserSpeechActive: SessionStoreState['localUserSpeechActive'];
@@ -106,6 +113,30 @@ function filterVisibleConversationTurns(
       artifact.attachedTurnId === turn.id
       && transcriptArtifactCoversConversationTurn(artifact, conversationTurnsById),
     ));
+}
+
+function attachTranscriptProjectionMetadata(
+  conversationTurns: readonly ConversationTurnModel[],
+  transcriptArtifacts: readonly TranscriptArtifactModel[],
+): TranscriptArtifactModel[] {
+  const conversationTurnsById = new Map(conversationTurns.map((turn) => [turn.id, turn]));
+
+  return transcriptArtifacts.map((artifact) => {
+    if (artifact.role !== 'assistant' || artifact.attachedTurnId === undefined) {
+      return artifact;
+    }
+
+    const attachedTurn = conversationTurnsById.get(artifact.attachedTurnId);
+
+    if (attachedTurn?.answerMetadata === undefined) {
+      return artifact;
+    }
+
+    return {
+      ...artifact,
+      answerMetadata: attachedTurn.answerMetadata,
+    };
+  });
 }
 
 function hasDefinedIncreasingOrdinals(
@@ -331,7 +362,10 @@ export function selectIsConversationEmpty(
 export function selectVisibleConversationTimeline(
   state: Pick<SessionStoreState, 'conversationTurns' | 'transcriptArtifacts'>,
 ): ConversationTimelineEntry[] {
-  const { transcriptArtifacts } = state;
+  const transcriptArtifacts = attachTranscriptProjectionMetadata(
+    state.conversationTurns,
+    state.transcriptArtifacts,
+  );
   const visibleTurns = filterVisibleConversationTurns(state.conversationTurns, transcriptArtifacts);
 
   if (visibleTurns.length === 0) {
@@ -481,6 +515,11 @@ export function selectLiveRuntimeSessionSnapshot(
     voiceCaptureState: state.voiceCaptureState,
     screenCaptureState: state.screenCaptureState,
     isVoiceSessionActive: isSpeechLifecycleActive(speechLifecycleStatus),
+    canEndSpeechMode: canEndSpeechMode(controlGatingSnapshot),
+    canToggleMicrophone: canToggleMicrophone(controlGatingSnapshot),
+    canToggleScreenContext: canToggleScreenContext(controlGatingSnapshot),
+    isScreenCaptureActive:
+      state.screenCaptureState === 'ready' || state.screenCaptureState === 'capturing',
     controlGatingSnapshot,
     composerSpeechActionKind: getComposerSpeechActionKind(controlGatingSnapshot),
     localUserSpeechActive: state.localUserSpeechActive,

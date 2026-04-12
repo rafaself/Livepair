@@ -96,6 +96,8 @@ Important boundary:
 Implemented:
 
 - Render the assistant UI
+- Consume runtime-owned session and conversation snapshots for assistant-panel and conversation rendering
+- Dispatch runtime commands for speech start/end, microphone capture, and screen-share actions from renderer hooks instead of sequencing those lifecycle steps inside the UI
 - Hold product state and runtime diagnostics
 - Start and end Live sessions for speech mode while preserving inactive/history state
 - Accept typed notes only while a Live session is active
@@ -127,6 +129,25 @@ Still outside the transport adapter:
 - Local audio capture/playback behavior
 - Screen-capture cadence and frame-production policy
 - UI state and presentation logic
+
+### Renderer UI Boundary Note
+
+Implemented in the current SR-11 slice:
+
+- Assistant-panel controller hooks now treat the runtime facade as the command boundary for speech start/end, microphone enable/disable, and screen-share toggling
+- Conversation rendering now consumes runtime-projected transcript metadata instead of reading raw session store state to reconstruct assistant thinking data
+- Share-screen mode selection remains UI-local because it is dialog/view state, but it now gates a small set of user intents instead of owning runtime action sequencing directly
+
+Still local to the UI by design:
+
+- Panel visibility, selected panel view, debug toggles, and other presentational state in `uiStore`
+- Share-screen mode dialog visibility and selected option before confirmation
+- View-specific composition such as chat/history navigation and settings form state
+
+Deferred for the next release:
+
+- Replace remaining renderer reads of chat/session store slices such as `activeChatId`, screen-source management, and debug formatting with explicit runtime or application-facing projections where that boundary is already stable
+- Freeze and document the final small UI-facing runtime contract once the remaining compatibility fields are trimmed
 
 Deferred:
 

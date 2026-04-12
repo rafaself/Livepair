@@ -7,6 +7,11 @@ import {
   type LiveRuntimeDiagnosticsSnapshot,
   type LiveRuntimeSessionSnapshot,
 } from './selectors';
+import {
+  canEndSpeechMode,
+  canToggleMicrophone,
+  canToggleScreenContext,
+} from './controlGating';
 import { getDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -122,6 +127,25 @@ export function useSessionRuntime() {
     await controller.startSession({ mode: 'speech' });
   }, [controller]);
 
+  const handleStartSpeechMode = useCallback(async (): Promise<boolean> => {
+    if (snapshot.composerSpeechActionKind !== 'start') {
+      return false;
+    }
+
+    await controller.startSession({ mode: 'speech' });
+    return true;
+  }, [controller, snapshot.composerSpeechActionKind]);
+
+  const handleStartSpeechModeWithScreenShare = useCallback(async (): Promise<boolean> => {
+    if (snapshot.composerSpeechActionKind !== 'start') {
+      return false;
+    }
+
+    await controller.startSession({ mode: 'speech' });
+    await controller.startScreenCapture();
+    return true;
+  }, [controller, snapshot.composerSpeechActionKind]);
+
   const handleSubmitTextTurn = useCallback(async (text: string): Promise<boolean> => {
     return controller.submitTextTurn(text);
   }, [controller]);
@@ -129,6 +153,15 @@ export function useSessionRuntime() {
   const handleEndSpeechMode = useCallback(async (): Promise<void> => {
     await controller.endSpeechMode();
   }, [controller]);
+
+  const handleRequestEndSpeechMode = useCallback(async (): Promise<boolean> => {
+    if (!canEndSpeechMode(snapshot.controlGatingSnapshot)) {
+      return false;
+    }
+
+    await controller.endSpeechMode();
+    return true;
+  }, [controller, snapshot.controlGatingSnapshot]);
 
   const handleEndSession = useCallback(async (): Promise<void> => {
     await controller.endSession();
@@ -142,6 +175,38 @@ export function useSessionRuntime() {
     await controller.stopVoiceCapture();
   }, [controller]);
 
+  const handleSetComposerMicrophoneEnabled = useCallback(async (enabled: boolean): Promise<void> => {
+    if (!snapshot.isVoiceSessionActive) {
+      return;
+    }
+
+    if (enabled) {
+      if (
+        snapshot.voiceCaptureState === 'capturing' ||
+        !canToggleMicrophone(snapshot.controlGatingSnapshot)
+      ) {
+        return;
+      }
+
+      await controller.startVoiceCapture();
+      return;
+    }
+
+    if (
+      snapshot.voiceCaptureState === 'inactive' ||
+      snapshot.voiceCaptureState === 'muted'
+    ) {
+      return;
+    }
+
+    await controller.stopVoiceCapture();
+  }, [
+    controller,
+    snapshot.controlGatingSnapshot,
+    snapshot.isVoiceSessionActive,
+    snapshot.voiceCaptureState,
+  ]);
+
   const handleStartScreenCapture = useCallback(async (): Promise<void> => {
     await controller.startScreenCapture();
   }, [controller]);
@@ -150,9 +215,27 @@ export function useSessionRuntime() {
     await controller.stopScreenCapture();
   }, [controller]);
 
+  const handleToggleScreenCapture = useCallback(async (): Promise<boolean> => {
+    if (!canToggleScreenContext(snapshot.controlGatingSnapshot)) {
+      return false;
+    }
+
+    if (snapshot.isScreenCaptureActive) {
+      await controller.stopScreenCapture();
+      return true;
+    }
+
+    await controller.startScreenCapture();
+    return true;
+  }, [controller, snapshot.controlGatingSnapshot, snapshot.isScreenCaptureActive]);
+
   const handleSendScreenNow = useCallback((): void => {
     controller.analyzeScreenNow();
   }, [controller]);
+
+  const handleReportRuntimeError = useCallback((detail: string): void => {
+    useSessionStore.getState().setLastRuntimeError(detail);
+  }, []);
 
   const setAssistantState = useCallback(
     (assistantState: Parameters<typeof controller.setAssistantState>[0]): void => {
@@ -165,15 +248,21 @@ export function useSessionRuntime() {
     snapshot,
     ...snapshot,
     handleCheckBackendHealth,
+    handleStartSpeechMode,
+    handleStartSpeechModeWithScreenShare,
     handleStartVoiceSession,
     handleStartVoiceCapture,
     handleStopVoiceCapture,
+    handleSetComposerMicrophoneEnabled,
     handleStartScreenCapture,
     handleStopScreenCapture,
+    handleToggleScreenCapture,
     handleSendScreenNow,
     handleSubmitTextTurn,
     handleEndSpeechMode,
+    handleRequestEndSpeechMode,
     handleEndSession,
+    handleReportRuntimeError,
     setAssistantState,
   };
 }
