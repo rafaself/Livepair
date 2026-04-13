@@ -59,6 +59,9 @@ function createHost(overrides: DomainRuntimeHostOverrides = {}): DomainRuntimeHo
       canSubmitComposerText: overrides.snapshot?.canSubmitComposerText ?? true,
       lastRuntimeError: overrides.snapshot?.lastRuntimeError ?? null,
       isSessionActive: overrides.snapshot?.isSessionActive ?? currentMode === 'speech',
+      isVoiceSessionActive:
+        overrides.snapshot?.isVoiceSessionActive
+          ?? (currentMode === 'speech' || speechLifecycleStatus !== 'off'),
       liveSessionPhaseLabel: overrides.snapshot?.liveSessionPhaseLabel ?? null,
       speechLifecycleStatus,
       sessionRecoveryStatus: overrides.snapshot?.sessionRecoveryStatus ?? 'idle',

@@ -147,7 +147,7 @@ export function useAssistantPanelController({
     tokenFeedback: snapshot.tokenFeedback,
     textSessionStatus: snapshot.textSessionStatus,
     textSessionStatusLabel: snapshot.textSessionStatusLabel,
-    isVoiceSessionActive: snapshot.isSessionActive,
+    isVoiceSessionActive: snapshot.isVoiceSessionActive,
     canToggleScreenContext: snapshot.canToggleContextSharing,
     isScreenCaptureActive: snapshot.isContextSharingActive,
     canEndSpeechMode: snapshot.canEndSpeechMode,

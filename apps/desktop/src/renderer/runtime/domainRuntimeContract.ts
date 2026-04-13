@@ -40,6 +40,7 @@ export type DomainRuntimeSessionSnapshot = {
   canSubmitComposerText: boolean;
   lastRuntimeError: string | null;
   isSessionActive: boolean;
+  isVoiceSessionActive: boolean;
   liveSessionPhaseLabel: string | null;
   speechLifecycleStatus: SpeechLifecycleStatus;
   sessionRecoveryStatus: LiveRuntimeSessionSnapshot['voiceSessionResumptionStatus'];
@@ -129,6 +130,7 @@ export function selectDomainRuntimeSessionSnapshot(
       && snapshot.speechLifecycleStatus !== 'ending',
     lastRuntimeError: snapshot.lastRuntimeError,
     isSessionActive: snapshot.isSessionActive,
+    isVoiceSessionActive: snapshot.isVoiceSessionActive,
     liveSessionPhaseLabel: snapshot.liveSessionPhaseLabel,
     speechLifecycleStatus: snapshot.speechLifecycleStatus,
     sessionRecoveryStatus: snapshot.voiceSessionResumptionStatus,

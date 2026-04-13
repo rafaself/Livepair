@@ -26,6 +26,7 @@ describe('selectDomainRuntimeSessionSnapshot', () => {
       canSubmitText: true,
       lastRuntimeError: null,
       isSessionActive: true,
+      isVoiceSessionActive: true,
       liveSessionPhaseLabel: null,
       speechLifecycleStatus: 'listening',
       voiceSessionResumptionStatus: 'connected',
