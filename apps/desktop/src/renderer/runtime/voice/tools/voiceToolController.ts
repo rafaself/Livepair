@@ -2,7 +2,10 @@ import type { AnswerMetadata } from '@livepair/shared-types';
 import { asErrorDetail, createDebugEvent } from '../../core/runtimeUtils';
 import { createDefaultVoiceToolState } from '../../core/defaults';
 import { executeLocalVoiceTool } from './voiceTools';
-import type { VoiceToolExecutionSnapshot } from './voiceTools';
+import type {
+  VoiceToolDependencies,
+  VoiceToolExecutionSnapshot,
+} from './voiceTools';
 import type { DesktopSession } from '../../transport/transport.types';
 import type {
   VoiceToolCall,
@@ -32,6 +35,7 @@ export function createVoiceToolController(
   store: VoiceToolStoreApi,
   getTransport: () => DesktopSession | null,
   getSnapshot: SnapshotProvider,
+  dependencies?: VoiceToolDependencies,
   getExecutionOptionsOrOnAnswerMetadata?:
     | (() => { groundingEnabled?: boolean })
     | ((answerMetadata: AnswerMetadata) => void),
@@ -109,7 +113,7 @@ export function createVoiceToolController(
       const response = await executeLocalVoiceTool(
         call,
         getSnapshot(),
-        undefined,
+        dependencies,
         getExecutionOptions?.(),
       );
 

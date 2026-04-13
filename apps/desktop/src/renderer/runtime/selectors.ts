@@ -1,4 +1,4 @@
-import type { AssistantRuntimeState } from '../state/assistantUiState';
+import type { AssistantRuntimeState } from './assistantRuntimeState';
 import type { SessionStoreState } from '../store/sessionStore';
 import {
   getTextSessionStatus,

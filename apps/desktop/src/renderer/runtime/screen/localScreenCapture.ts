@@ -143,14 +143,6 @@ function encodeCanvasFrame(cvs: CanvasLike, jpegQuality: number): Promise<Uint8A
   });
 }
 
-function defaultGetDisplayMedia(): Promise<MediaStream> {
-  return navigator.mediaDevices.getDisplayMedia({ video: true });
-}
-
-function defaultGetScreenCaptureAccessStatus(): Promise<ScreenCaptureAccessStatus> {
-  return window.bridge.getScreenCaptureAccessStatus();
-}
-
 function defaultCreateCanvas(): CanvasLike {
   return document.createElement('canvas') as unknown as CanvasLike;
 }
@@ -211,8 +203,8 @@ function analyzeCanvasFrame(sourceCanvas: CanvasLike, analysisCanvas: CanvasLike
 export function createLocalScreenCapture(
   observer: LocalScreenCaptureObserver,
   {
-    getDisplayMedia = defaultGetDisplayMedia,
-    getScreenCaptureAccessStatus = defaultGetScreenCaptureAccessStatus,
+    getDisplayMedia,
+    getScreenCaptureAccessStatus,
     createCanvas = defaultCreateCanvas,
     createVideoElement = defaultCreateVideoElement,
     createInterval = defaultCreateInterval,
@@ -363,11 +355,19 @@ export function createLocalScreenCapture(
       let capturedStream: MediaStream;
 
       try {
+        if (!getDisplayMedia) {
+          throw new Error('Screen capture is not available in this environment');
+        }
+
         capturedStream = await getDisplayMedia();
       } catch (error: unknown) {
         let accessStatus: ScreenCaptureAccessStatus | null = null;
 
         try {
+          if (!getScreenCaptureAccessStatus) {
+            throw new Error('Screen capture access status is unavailable');
+          }
+
           accessStatus = await getScreenCaptureAccessStatus();
         } catch {
           accessStatus = null;

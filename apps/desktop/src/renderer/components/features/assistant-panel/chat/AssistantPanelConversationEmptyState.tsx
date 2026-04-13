@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Mic, Cast } from 'lucide-react';
-import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
+import type { AssistantRuntimeState } from '../../../../runtime/public';
 import { Button, LivepairIcon } from '../../../primitives';
 
 export type AssistantPanelConversationEmptyStateProps = {

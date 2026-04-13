@@ -1,4 +1,4 @@
-import type { AssistantRuntimeState } from '../state/assistantUiState';
+import type { AssistantRuntimeState } from '../runtime/assistantRuntimeState';
 import {
   LIVE_ADAPTER_KEY,
   createDefaultRealtimeOutboundDiagnostics,

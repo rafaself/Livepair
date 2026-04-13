@@ -8,7 +8,7 @@ import {
   normalizeDesktopSettings,
 } from '../../shared';
 
-type SettingsStoreState = {
+export type SettingsStoreState = {
   settings: DesktopSettings;
   isReady: boolean;
   hydrate: () => Promise<DesktopSettings>;

@@ -7,7 +7,7 @@ import type {
   ScreenCaptureSource,
   ScreenCaptureSourceSnapshot,
 } from '../../shared';
-import type { AssistantRuntimeState } from '../state/assistantUiState';
+import type { AssistantRuntimeState } from '../runtime/assistantRuntimeState';
 import type {
   AssistantActivityState,
   ConversationTurnModel,

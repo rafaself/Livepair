@@ -1,6 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react';
-import type { AssistantRuntimeState } from '../../../state/assistantUiState';
 import {
+  type AssistantRuntimeState,
   type ConversationTimelineEntry,
   type ProductMode,
   type SpeechLifecycleStatus,

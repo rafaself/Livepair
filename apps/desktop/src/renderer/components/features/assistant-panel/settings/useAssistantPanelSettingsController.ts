@@ -9,6 +9,10 @@ import type {
 } from '../../../../../shared';
 import { DEFAULT_DESKTOP_SETTINGS } from '../../../../../shared';
 import { invalidateCurrentLiveSessionResumption } from '../../../../liveSessions/currentLiveSession';
+import {
+  useDomainRuntimeCommands,
+  useDomainRuntimeHostState,
+} from '../../../../runtime/domainRuntimeContract';
 import { useSettingsStore } from '../../../../store/settingsStore';
 import { useSessionStore } from '../../../../store/sessionStore';
 import { useUiStore } from '../../../../store/uiStore';
@@ -76,13 +80,11 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
   const toggleDebugMode = useUiStore((state) => state.toggleDebugMode);
   const refreshDevices = useUiStore((state) => state.refreshDevices);
   const activeChatId = useSessionStore((state) => state.activeChatId);
-  const screenCaptureSources = useSessionStore((state) => state.screenCaptureSources);
-  const selectedScreenCaptureSourceId = useSessionStore(
-    (state) => state.selectedScreenCaptureSourceId,
-  );
-  const setScreenCaptureSourceSnapshot = useSessionStore(
-    (state) => state.setScreenCaptureSourceSnapshot,
-  );
+  const { screenCaptureSources, selectedScreenCaptureSourceId } = useDomainRuntimeHostState();
+  const {
+    refreshScreenCaptureSources,
+    selectScreenCaptureSource,
+  } = useDomainRuntimeCommands();
   const setLastRuntimeError = useSessionStore((state) => state.setLastRuntimeError);
   const invalidateActiveSpeechSessionResumption = async (detail: string): Promise<void> => {
     if (useSessionStore.getState().currentMode !== 'speech') {
@@ -105,19 +107,8 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
   );
 
   useEffect(() => {
-    void window.bridge
-      .listScreenCaptureSources()
-      .then((snapshot) => {
-        setScreenCaptureSourceSnapshot(snapshot);
-      })
-      .catch((error: unknown) => {
-        setLastRuntimeError(
-          error instanceof Error && error.message.length > 0
-            ? error.message
-            : 'Failed to load screen capture sources',
-        );
-      });
-  }, [activeChatId, setLastRuntimeError, setScreenCaptureSourceSnapshot]);
+    void refreshScreenCaptureSources();
+  }, [activeChatId, refreshScreenCaptureSources]);
 
   return {
     isDebugMode,
@@ -157,18 +148,7 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
       const nextSourceId =
         sourceId === UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE ? null : sourceId;
 
-      void window.bridge
-        .selectScreenCaptureSource(nextSourceId)
-        .then((snapshot) => {
-          setScreenCaptureSourceSnapshot(snapshot);
-        })
-        .catch((error: unknown) => {
-          setLastRuntimeError(
-            error instanceof Error && error.message.length > 0
-              ? error.message
-              : 'Failed to select screen capture source',
-          );
-        });
+      void selectScreenCaptureSource(nextSourceId);
     },
     setSpeechSilenceTimeout: (speechSilenceTimeout) => {
       void updateSetting('speechSilenceTimeout', speechSilenceTimeout);

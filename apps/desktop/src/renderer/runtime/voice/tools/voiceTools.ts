@@ -212,8 +212,16 @@ export async function executeLocalVoiceTool(
         );
       }
 
-      const searchProjectKnowledge = dependencies?.searchProjectKnowledge
-        ?? ((req: ProjectKnowledgeSearchRequest) => window.bridge.searchProjectKnowledge(req));
+      const searchProjectKnowledge = dependencies?.searchProjectKnowledge;
+
+      if (!searchProjectKnowledge) {
+        return createToolErrorResponse(
+          call,
+          'tool_not_available',
+          'Tool "search_project_knowledge" is unavailable in this runtime host',
+        );
+      }
+
       const result = await searchProjectKnowledge(request);
       const answerMetadata = deriveProjectKnowledgeAnswerMetadata(result);
 

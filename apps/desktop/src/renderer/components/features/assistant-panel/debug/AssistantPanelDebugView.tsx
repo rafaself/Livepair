@@ -7,8 +7,8 @@ import {
   AssistantPanelDebugScreenContextSection,
 } from './AssistantPanelDebugSections';
 import {
-  useLiveRuntimeDiagnosticsSnapshot,
-} from '../../../../runtime/liveRuntime';
+  useDomainRuntimeDiagnosticsSnapshot,
+} from '../../../../runtime/domainRuntimeContract';
 
 export type AssistantPanelDebugViewProps = {
   saveScreenFramesEnabled: boolean;
@@ -47,7 +47,7 @@ export function AssistantPanelDebugView({
     screenCaptureState,
     screenCaptureDiagnostics,
     visualSendDiagnostics,
-  } = useLiveRuntimeDiagnosticsSnapshot();
+  } = useDomainRuntimeDiagnosticsSnapshot();
 
   return (
     <div className="assistant-panel__debug-modal">

@@ -14,6 +14,7 @@ import { useAssistantPanelSettingsController } from './settings/useAssistantPane
 import { AssistantPanelSharedHeaderActions } from './AssistantPanelSharedHeaderActions';
 import { useAssistantPanelSharedViewNavigation } from './useAssistantPanelSharedViewNavigation';
 import { useAssistantPanelChatSessionData } from './chat/useAssistantPanelChatSessionData';
+import { useDomainRuntimeHost } from '../../../runtime/domainRuntimeContract';
 import { GeminiIcon } from '../../primitives';
 import './AssistantPanel.css';
 
@@ -28,13 +29,11 @@ export function AssistantPanel({
   screenShareModeGate,
 }: AssistantPanelProps = {}): JSX.Element {
   const isDebugMode = useUiStore((state) => state.isDebugMode);
-  const saveScreenFramesEnabled = useUiStore((state) => state.saveScreenFramesEnabled);
-  const screenFrameDumpDirectoryPath = useUiStore(
-    (state) => state.screenFrameDumpDirectoryPath,
-  );
-  const setSaveScreenFramesEnabled = useUiStore(
-    (state) => state.setSaveScreenFramesEnabled,
-  );
+  const {
+    saveScreenFramesEnabled,
+    screenFrameDumpDirectoryPath,
+    setSaveScreenFramesEnabled,
+  } = useDomainRuntimeHost();
   const activeChatId = useSessionStore((state) => state.activeChatId);
   const {
     assistantState,

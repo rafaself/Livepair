@@ -9,9 +9,7 @@ import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from '.
 import { useSettingsStore } from './store/settingsStore';
 import {
   useDomainRuntimeHost,
-  useDomainRuntimeSessionSnapshot,
 } from './runtime/domainRuntimeContract';
-import { useSessionRuntime } from './runtime/liveRuntime';
 import { SnackbarProvider, useSnackbar } from './components/primitives';
 
 type PendingShareIntent = 'start-screen-capture' | 'start-speech-with-screen-share';
@@ -74,22 +72,20 @@ function AppShell(): JSX.Element {
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const overlayMode = window.bridge?.overlayMode ?? 'linux-shape';
   const {
+    controlGatingSnapshot,
+    speechLifecycleStatus,
     startSpeechModeWithContext,
     setContextSharingEnabled,
     reportRuntimeError,
-  } = useDomainRuntimeHost();
-  const {
-    controlGatingSnapshot,
-    speechLifecycleStatus,
     voiceCaptureState,
     screenCaptureState,
-    handleStartVoiceCapture,
-    handleStopVoiceCapture,
-    handleStartScreenCapture,
-    handleStopScreenCapture,
-    handleSendScreenNow,
-    handleEndSpeechMode,
-  } = useSessionRuntime();
+    startVoiceCapture,
+    stopVoiceCapture,
+    startScreenCapture,
+    stopScreenCapture,
+    sendContextNow,
+    requestEndSpeechMode,
+  } = useDomainRuntimeHost();
   const pendingShareIntentRef = useRef<PendingShareIntent | null>(null);
   const [isShareScreenDialogOpen, setIsShareScreenDialogOpen] = useState(false);
   const [selectedScreenContextMode, setSelectedScreenContextMode] =
@@ -112,8 +108,8 @@ function AppShell(): JSX.Element {
   }, [screenContextMode]);
 
   const handleStartScreenCaptureWithGate = useCallback(async (): Promise<void> => {
-    await handleShareActionWithGate('start-screen-capture', handleStartScreenCapture);
-  }, [handleShareActionWithGate, handleStartScreenCapture]);
+    await handleShareActionWithGate('start-screen-capture', startScreenCapture);
+  }, [handleShareActionWithGate, startScreenCapture]);
 
   const handleConfirmScreenContextMode = useCallback(async (): Promise<void> => {
     if (selectedScreenContextMode === null || isSavingScreenContextMode) {
@@ -180,12 +176,12 @@ function AppShell(): JSX.Element {
         speechLifecycleStatus={speechLifecycleStatus}
         voiceCaptureState={voiceCaptureState}
         screenCaptureState={screenCaptureState}
-        onStartVoiceCapture={handleStartVoiceCapture}
-        onStopVoiceCapture={handleStopVoiceCapture}
+        onStartVoiceCapture={startVoiceCapture}
+        onStopVoiceCapture={stopVoiceCapture}
         onStartScreenCapture={handleStartScreenCaptureWithGate}
-        onStopScreenCapture={handleStopScreenCapture}
-        onSendScreenNow={handleSendScreenNow}
-        onEndSession={handleEndSpeechMode}
+        onStopScreenCapture={stopScreenCapture}
+        onSendScreenNow={sendContextNow}
+        onEndSession={requestEndSpeechMode}
       />
     </div>
   );

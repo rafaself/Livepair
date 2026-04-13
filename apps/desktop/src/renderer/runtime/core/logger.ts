@@ -1,4 +1,3 @@
-import { useUiStore } from '../../store/uiStore';
 import type { LiveSessionEvent } from '../transport/transport.types';
 import type { RuntimeLogger, SessionEvent } from './session.types';
 
@@ -7,16 +6,35 @@ export const NOOP_RUNTIME_LOGGER: RuntimeLogger = {
   onTransportEvent: () => undefined,
 };
 
+type RuntimeLoggingConfiguration = {
+  isConsoleLoggingEnabled: () => boolean;
+  isVerboseLoggingEnabled: () => boolean;
+  defaultConsoleLoggingEnabled: boolean;
+};
+
+const DEFAULT_RUNTIME_LOGGING_CONFIGURATION: RuntimeLoggingConfiguration = {
+  isConsoleLoggingEnabled: () => false,
+  isVerboseLoggingEnabled: () => false,
+  defaultConsoleLoggingEnabled: false,
+};
+
+let runtimeLoggingConfiguration = DEFAULT_RUNTIME_LOGGING_CONFIGURATION;
+
+export function configureRuntimeLogging(
+  configuration: Partial<RuntimeLoggingConfiguration>,
+): void {
+  runtimeLoggingConfiguration = {
+    ...runtimeLoggingConfiguration,
+    ...configuration,
+  };
+}
+
 function isConsoleLoggingEnabled(): boolean {
-  return (
-    import.meta.env.DEV ||
-    import.meta.env.MODE === 'test' ||
-    useUiStore.getState().isDebugMode
-  );
+  return runtimeLoggingConfiguration.isConsoleLoggingEnabled();
 }
 
 function isVerboseLoggingEnabled(): boolean {
-  return import.meta.env.MODE === 'test' || useUiStore.getState().isDebugMode;
+  return runtimeLoggingConfiguration.isVerboseLoggingEnabled();
 }
 
 function serialize(value: unknown): string {
@@ -120,7 +138,7 @@ export function logRuntimeError(
 }
 
 export function createRuntimeLogger({
-  enableConsole = import.meta.env.DEV || import.meta.env.MODE === 'test',
+  enableConsole = runtimeLoggingConfiguration.defaultConsoleLoggingEnabled,
 }: {
   enableConsole?: boolean;
 } = {}): RuntimeLogger {

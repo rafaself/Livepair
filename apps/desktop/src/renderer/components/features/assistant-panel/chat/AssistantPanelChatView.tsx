@@ -1,8 +1,8 @@
 import type { ChangeEventHandler, FormEventHandler } from 'react';
 import type { ChatRecord, LiveSessionRecord } from '@livepair/shared-types';
-import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 import type { SelectOptionItem } from '../../../primitives';
 import {
+  type AssistantRuntimeState,
   type ConversationTimelineEntry,
   type ScreenCaptureState,
   type SpeechLifecycleStatus,

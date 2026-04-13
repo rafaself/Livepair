@@ -1,7 +1,7 @@
 import {
   ASSISTANT_RUNTIME_STATE_LABELS,
   type AssistantRuntimeState,
-} from '../../state/assistantUiState';
+} from '../../runtime/public';
 import './StatusIndicator.css';
 
 export type StatusIndicatorProps = {

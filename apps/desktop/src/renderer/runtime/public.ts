@@ -40,6 +40,10 @@ export {
 } from './text/textSessionLifecycle';
 export { mapRehydrationTurnsToLiveSessionHistory } from './transport/liveSessionHistory';
 export { isTranscriptArtifact } from './conversation/conversation.types';
+export {
+  ASSISTANT_RUNTIME_STATE_LABELS,
+  type AssistantRuntimeState,
+} from './assistantRuntimeState';
 export type {
   ConversationRole,
   ConversationTimelineEntry,

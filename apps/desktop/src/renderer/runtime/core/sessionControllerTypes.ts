@@ -1,10 +1,11 @@
-import type { useSessionStore } from '../../store/sessionStore';
-import type { useSettingsStore } from '../../store/settingsStore';
 import type { AssistantVoice } from '@livepair/shared-types';
+import type { SessionStoreState } from '../../store/sessionStore';
+import type { SettingsStoreState } from '../../store/settingsStore';
 import type {
   checkBackendHealth,
   reportLiveTelemetry,
   requestSessionToken,
+  searchProjectKnowledge,
 } from '../../api/backend';
 import type { LocalScreenCaptureObserver, LocalScreenCapture } from '../screen/localScreenCapture';
 import type { LocalVoiceCapture } from '../audio/localVoiceCapture';
@@ -19,15 +20,47 @@ import type {
   TransportKind,
 } from '../transport/transport.types';
 import type { LocalVoiceChunk } from '../voice/voice.types';
+import type { AssistantRuntimeState } from '../assistantRuntimeState';
 import type {
   RuntimeLogger,
 } from './session.types';
+import type {
+  SaveScreenFrameDumpFrameRequest,
+  ScreenCaptureSourceSnapshot,
+  ScreenFrameDumpSessionInfo,
+} from '../../../shared';
 
-export type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
-export type SettingsStoreApi = Pick<typeof useSettingsStore, 'getState'>;
-export type DebugAssistantState = Parameters<
-  ReturnType<SessionStoreApi['getState']>['setAssistantState']
->[0];
+export type SessionStoreApi = {
+  getState: () => SessionStoreState;
+};
+
+export type SettingsStoreApi = {
+  getState: () => Pick<SettingsStoreState, 'settings'>;
+};
+
+export type DebugAssistantState = AssistantRuntimeState;
+
+export type ScreenSourceAdapter = {
+  listScreenCaptureSources: () => Promise<ScreenCaptureSourceSnapshot>;
+  selectScreenCaptureSource: (
+    sourceId: string | null,
+  ) => Promise<ScreenCaptureSourceSnapshot>;
+};
+
+export type ScreenFrameDumpAdapter = {
+  shouldSaveFrames: () => boolean;
+  startScreenFrameDumpSession: () => Promise<ScreenFrameDumpSessionInfo>;
+  saveScreenFrameDumpFrame: (
+    request: SaveScreenFrameDumpFrameRequest,
+  ) => Promise<void>;
+  setScreenFrameDumpDirectoryPath: (directoryPath: string | null) => void;
+};
+
+export type RuntimeEnvironmentAdapter = {
+  environment: string;
+  platform: string;
+  appVersion: string;
+};
 
 export type DesktopSessionController = {
   checkBackendHealth: () => Promise<void>;
@@ -50,6 +83,10 @@ export type DesktopSessionControllerDependencies = {
   checkBackendHealth: typeof checkBackendHealth;
   requestSessionToken: typeof requestSessionToken;
   reportLiveTelemetry: typeof reportLiveTelemetry;
+  searchProjectKnowledge: typeof searchProjectKnowledge;
+  screenSourceAdapter: ScreenSourceAdapter;
+  screenFrameDumpAdapter: ScreenFrameDumpAdapter;
+  runtimeEnvironment: RuntimeEnvironmentAdapter;
   transportAdapter: LiveTransportAdapter;
   createTransport?: (
     kind: TransportKind,

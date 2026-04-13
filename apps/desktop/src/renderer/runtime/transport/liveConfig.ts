@@ -65,7 +65,7 @@ export type LiveConfig = {
 
 export type EffectiveVoiceSessionCapabilities = GeminiLiveEffectiveVoiceSessionCapabilities;
 
-type LiveConfigEnv = Partial<Record<
+export type LiveConfigEnv = Partial<Record<
   | 'VITE_LIVE_MODEL'
   | 'VITE_LIVE_API_VERSION'
   | 'VITE_LIVE_CONTEXT_COMPRESSION',
@@ -259,7 +259,7 @@ function validateSessionModeConfig(
 }
 
 export function resolveLiveConfigEnv(
-  env: LiveConfigEnv = import.meta.env as LiveConfigEnv,
+  env: LiveConfigEnv,
 ): RawLiveConfig {
   return {
     provider: LIVE_PROVIDER,
@@ -425,10 +425,16 @@ export function getEffectiveVoiceSessionCapabilities(
 }
 
 let cachedLiveConfig: LiveConfig | null = null;
+let configuredLiveConfigEnv: LiveConfigEnv | null = null;
+
+export function configureLiveConfigEnv(env: LiveConfigEnv): void {
+  configuredLiveConfigEnv = env;
+  cachedLiveConfig = null;
+}
 
 export function getLiveConfig(): LiveConfig {
   if (!cachedLiveConfig) {
-    cachedLiveConfig = parseLiveConfig(resolveLiveConfigEnv());
+    cachedLiveConfig = parseLiveConfig(resolveLiveConfigEnv(configuredLiveConfigEnv ?? {}));
   }
 
   return cachedLiveConfig;
@@ -436,4 +442,5 @@ export function getLiveConfig(): LiveConfig {
 
 export function resetLiveConfigForTests(): void {
   cachedLiveConfig = null;
+  configuredLiveConfigEnv = null;
 }

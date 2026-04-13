@@ -18,9 +18,7 @@ import { createSessionControllerRuntime } from './sessionRuntime';
 import { createSessionConversationSupport } from './sessionConversationSupport';
 import { createLiveRuntimeObservability } from './liveRuntimeObservability';
 import { createLiveRuntimeSupervisor } from './liveRuntimeSupervisor';
-import { useUiStore } from '../../store/uiStore';
 import { setAssistantAnswerMetadata } from '../conversation/conversationTurnManager';
-import desktopPackageJson from '../../../../package.json';
 import type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
@@ -29,21 +27,6 @@ import type {
 export function createSessionControllerAssembly(
   dependencies: DesktopSessionControllerDependencies,
 ): DesktopSessionController {
-  const telemetryPlatform = (() => {
-    if (typeof navigator === 'undefined') {
-      return 'unknown';
-    }
-
-    const navigatorWithUserAgentData = navigator as Navigator & {
-      userAgentData?: { platform?: string | undefined } | undefined;
-    };
-
-    if (typeof navigatorWithUserAgentData.userAgentData?.platform === 'string') {
-      return navigatorWithUserAgentData.userAgentData.platform;
-    }
-
-    return navigator.platform || 'unknown';
-  })();
   let getCurrentTurnId = (): string | null => null;
   const observability = createLiveRuntimeObservability({
     emitTelemetry: (events) => dependencies.reportLiveTelemetry(events),
@@ -92,14 +75,7 @@ export function createSessionControllerAssembly(
     dependencies.createScreenCapture,
     () => mutableRuntime.getActiveTransport(),
     () => mutableRuntime.getRealtimeOutboundGateway(),
-    {
-      shouldSaveFrames: () => useUiStore.getState().saveScreenFramesEnabled,
-      startScreenFrameDumpSession: () => window.bridge.startScreenFrameDumpSession(),
-      saveScreenFrameDumpFrame: (request) => window.bridge.saveScreenFrameDumpFrame(request),
-      setScreenFrameDumpDirectoryPath: (directoryPath) => {
-        useUiStore.getState().setScreenFrameDumpDirectoryPath(directoryPath);
-      },
-    },
+    dependencies.screenFrameDumpAdapter,
     undefined,
     () => dependencies.settingsStore.getState().settings.continuousScreenQuality,
     () => dependencies.settingsStore.getState().settings.screenContextMode,
@@ -108,7 +84,7 @@ export function createSessionControllerAssembly(
   const screen = createLiveRuntimeScreenAdapter(screenCtrl);
   const refreshScreenCaptureSourceSnapshot = async (): Promise<boolean> => {
     try {
-      const snapshot = await window.bridge.listScreenCaptureSources();
+      const snapshot = await dependencies.screenSourceAdapter.listScreenCaptureSources();
       dependencies.store.getState().setScreenCaptureSourceSnapshot(snapshot);
       return true;
     } catch (error: unknown) {
@@ -130,6 +106,9 @@ export function createSessionControllerAssembly(
     dependencies.store,
     () => mutableRuntime.getActiveTransport(),
     () => stateSync.createVoiceToolExecutionSnapshot(),
+    {
+      searchProjectKnowledge: dependencies.searchProjectKnowledge,
+    },
     () => ({
       groundingEnabled:
         dependencies.store.getState().activeVoiceSessionGroundingEnabled
@@ -241,9 +220,6 @@ export function createSessionControllerAssembly(
     mutableRuntime,
     runtimeRef,
     observability,
-    telemetryEnvironment: import.meta.env.MODE,
-    telemetryPlatform,
-    telemetryAppVersion: desktopPackageJson.version,
     playbackCtrl,
     screen,
     voiceChunkCtrl,
@@ -254,6 +230,7 @@ export function createSessionControllerAssembly(
     appendTypedUserTurn,
     selectedOutputDeviceId: () => stateSync.selectedOutputDeviceId(),
     refreshScreenCaptureSourceSnapshot,
+    runtimeEnvironment: dependencies.runtimeEnvironment,
     setVoiceErrorState: (detail) => setVoiceErrorState(detail),
     settleVoiceErrorState: (detail) => settleVoiceErrorState(detail),
     persistSettledConversationTurn,

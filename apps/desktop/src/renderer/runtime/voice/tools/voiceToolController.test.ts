@@ -33,6 +33,7 @@ function createHarness(options: { onAnswerMetadata?: (answerMetadata: AnswerMeta
     store,
     () => currentTransport,
     getSnapshot,
+    undefined,
     options.onAnswerMetadata,
   );
 

@@ -1,6 +1,6 @@
 import { Activity, Eye, Monitor, ShieldAlert, Wifi } from 'lucide-react';
-import type { AssistantRuntimeState } from '../../../../state/assistantUiState';
 import type {
+  AssistantRuntimeState,
   EffectiveVoiceSessionCapabilities,
   RealtimeOutboundDiagnostics,
   ScreenCaptureDiagnostics,

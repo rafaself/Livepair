@@ -35,6 +35,7 @@ export {
 } from './useSessionRuntime';
 export { isSpeechLifecycleActive } from './speech/speechSessionLifecycle';
 export type {
+  AssistantRuntimeState,
   CaptureExclusionOverlayVisibility,
   ConversationTimelineEntry,
   ControlGatingSnapshot,

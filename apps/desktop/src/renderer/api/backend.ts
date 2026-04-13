@@ -2,6 +2,8 @@ import type {
   CreateEphemeralTokenRequest,
   CreateEphemeralTokenResponse,
   LiveTelemetryEvent,
+  ProjectKnowledgeSearchRequest,
+  ProjectKnowledgeSearchResult,
 } from '@livepair/shared-types';
 
 export async function checkBackendHealth(): Promise<boolean> {
@@ -21,4 +23,10 @@ export function requestSessionToken(
 
 export function reportLiveTelemetry(events: LiveTelemetryEvent[]): Promise<void> {
   return window.bridge.reportLiveTelemetry(events);
+}
+
+export function searchProjectKnowledge(
+  req: ProjectKnowledgeSearchRequest,
+): Promise<ProjectKnowledgeSearchResult> {
+  return window.bridge.searchProjectKnowledge(req);
 }

@@ -52,9 +52,7 @@ type LiveRuntimeSupervisorArgs = {
   mutableRuntime: ReturnType<typeof createSessionControllerMutableRuntime>;
   runtimeRef: RuntimeRef;
   observability: ReturnType<typeof createLiveRuntimeObservability>;
-  telemetryEnvironment: string;
-  telemetryPlatform: string;
-  telemetryAppVersion: string;
+  runtimeEnvironment: DesktopSessionControllerDependencies['runtimeEnvironment'];
   playbackCtrl: ReturnType<typeof createVoicePlaybackController>;
   screen: LiveRuntimeScreenAdapter;
   voiceChunkCtrl: ReturnType<typeof createVoiceChunkPipeline>;
@@ -82,9 +80,7 @@ export function createLiveRuntimeSupervisor({
   mutableRuntime,
   runtimeRef,
   observability,
-  telemetryEnvironment,
-  telemetryPlatform,
-  telemetryAppVersion,
+  runtimeEnvironment,
   playbackCtrl,
   screen,
   voiceChunkCtrl,
@@ -104,9 +100,9 @@ export function createLiveRuntimeSupervisor({
       sessionId: liveSession.id,
       chatId: liveSession.chatId,
       model: getLiveConfig().model,
-      environment: telemetryEnvironment,
-      platform: telemetryPlatform,
-      appVersion: telemetryAppVersion,
+      environment: runtimeEnvironment.environment,
+      platform: runtimeEnvironment.platform,
+      appVersion: runtimeEnvironment.appVersion,
     });
   };
 

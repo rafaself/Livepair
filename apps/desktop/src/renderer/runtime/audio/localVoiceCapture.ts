@@ -136,7 +136,7 @@ function getCaptureErrorDetail(error: unknown): string {
 export function createLocalVoiceCapture(
   observer: LocalVoiceCaptureObserver,
   {
-    mediaDevices = navigator.mediaDevices,
+    mediaDevices,
     createAudioContext: createAudioContextImpl = createAudioContext,
     createAudioWorkletNode: createAudioWorkletNodeImpl = createAudioWorkletNode,
     loadCaptureWorklet: loadCaptureWorkletImpl = loadCaptureWorklet,
