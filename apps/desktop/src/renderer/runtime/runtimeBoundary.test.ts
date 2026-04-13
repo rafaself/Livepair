@@ -25,7 +25,7 @@ function collectRuntimeFiles(rootDir: string): string[] {
   });
 }
 
-const runtimeRootDir = new URL('.', import.meta.url).pathname;
+const runtimeRootDir = join(process.cwd(), 'src/renderer/runtime');
 const engineSubtrees = [
   'audio',
   'conversation',

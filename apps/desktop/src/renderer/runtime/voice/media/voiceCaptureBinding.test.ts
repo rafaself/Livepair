@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVoiceCaptureBinding } from './voiceCaptureBinding';
+import { configureRuntimeDebugMode } from '../../core/debugMode';
 import { useUiStore } from '../../../store/uiStore';
 import { resetDesktopStores } from '../../../test/store';
 
@@ -57,6 +58,7 @@ function createHarness() {
 describe('createVoiceCaptureBinding', () => {
   beforeEach(() => {
     resetDesktopStores();
+    configureRuntimeDebugMode(() => useUiStore.getState().isDebugMode);
   });
 
   it('suppresses hot capture diagnostics when debug mode is off', () => {

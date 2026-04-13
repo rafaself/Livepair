@@ -9,6 +9,7 @@ import { applyResolvedTheme, resolveThemePreference, THEME_MEDIA_QUERY } from '.
 import { useSettingsStore } from './store/settingsStore';
 import {
   useDomainRuntimeHost,
+  useDomainRuntimeSessionSnapshot,
 } from './runtime/domainRuntimeContract';
 import { SnackbarProvider, useSnackbar } from './components/primitives';
 
@@ -154,6 +155,10 @@ function AppShell(): JSX.Element {
     setIsShareScreenDialogOpen(false);
   }, []);
 
+  const handleEndSession = useCallback(async (): Promise<void> => {
+    await requestEndSpeechMode();
+  }, [requestEndSpeechMode]);
+
   return (
     <div className="app-shell">
       <ThemePreferenceSync />
@@ -181,7 +186,7 @@ function AppShell(): JSX.Element {
         onStartScreenCapture={handleStartScreenCaptureWithGate}
         onStopScreenCapture={stopScreenCapture}
         onSendScreenNow={sendContextNow}
-        onEndSession={requestEndSpeechMode}
+        onEndSession={handleEndSession}
       />
     </div>
   );

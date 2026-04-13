@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVoicePlaybackController } from './voicePlaybackController';
 import type { AssistantAudioPlaybackObserver } from '../../audio/assistantAudioPlayback';
+import { configureRuntimeDebugMode } from '../../core/debugMode';
 import { useUiStore } from '../../../store/uiStore';
 import { resetDesktopStores } from '../../../test/store';
 
@@ -50,6 +51,7 @@ function createHarness() {
 describe('createVoicePlaybackController', () => {
   beforeEach(() => {
     resetDesktopStores();
+    configureRuntimeDebugMode(() => useUiStore.getState().isDebugMode);
   });
 
   it('isActive returns false initially', () => {

@@ -7,6 +7,7 @@ import type {
   RealtimeOutboundEvent,
   RealtimeOutboundGateway,
 } from '../../outbound/outbound.types';
+import { configureRuntimeDebugMode } from '../../core/debugMode';
 import { useUiStore } from '../../../store/uiStore';
 
 function createChunk(overrides: Partial<{
@@ -121,7 +122,7 @@ function createMockOps(options: {
     setVoiceSessionStatus: vi.fn(),
     setVoiceErrorState: vi.fn(),
     endSessionInternal: vi.fn(),
-    logRuntimeError: vi.fn(),
+    emitDiagnostic: vi.fn(),
     _storeState: storeState,
     _capture: capture,
     _transport: transport,
@@ -131,6 +132,7 @@ function createMockOps(options: {
 
 beforeEach(() => {
   useUiStore.setState({ isDebugMode: false });
+  configureRuntimeDebugMode(() => useUiStore.getState().isDebugMode);
 });
 
 describe('createVoiceChunkPipeline', () => {
@@ -289,11 +291,12 @@ describe('createVoiceChunkPipeline', () => {
         lastError: 'Permission denied',
       });
       expect(ops._storeState.setLocalUserSpeechActive).toHaveBeenCalledWith(false);
-      expect(ops.logRuntimeError).toHaveBeenCalledWith(
-        'voice-capture',
-        'local capture failed',
-        { detail: 'Permission denied' },
-      );
+      expect(ops.emitDiagnostic).toHaveBeenCalledWith({
+        scope: 'voice-capture',
+        name: 'capture-error',
+        level: 'error',
+        detail: 'Permission denied',
+      });
     });
 
     it('onSpeechActivity forwards active=true to store', () => {

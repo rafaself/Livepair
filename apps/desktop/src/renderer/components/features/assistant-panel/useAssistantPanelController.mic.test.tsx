@@ -5,106 +5,97 @@ import { DEFAULT_DESKTOP_SETTINGS } from '../../../../shared/settings';
 import {
   createControlGatingSnapshot,
   getComposerSpeechActionKind,
-  useSessionRuntime,
 } from '../../../runtime/liveRuntime';
+import { useDomainRuntimeHost } from '../../../runtime/domainRuntimeContract';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { resetDesktopStores } from '../../../test/store';
 import { useUiStore } from '../../../store/uiStore';
 import { useAssistantPanelController } from './useAssistantPanelController';
 
-vi.mock('../../../runtime/liveRuntime', async () => {
-  const actual = await vi.importActual<typeof import('../../../runtime/liveRuntime')>('../../../runtime/liveRuntime');
+vi.mock('../../../runtime/domainRuntimeContract', async () => {
+  const actual = await vi.importActual<typeof import('../../../runtime/domainRuntimeContract')>('../../../runtime/domainRuntimeContract');
   return {
     ...actual,
-    useSessionRuntime: vi.fn(),
+    useDomainRuntimeHost: vi.fn(),
   };
 });
 
-type SessionRuntime = ReturnType<typeof useSessionRuntime>;
+type DomainRuntimeHost = ReturnType<typeof useDomainRuntimeHost>;
+type DomainRuntimeHostOverrides = Omit<Partial<DomainRuntimeHost>, 'snapshot'> & {
+  snapshot?: Partial<DomainRuntimeHost['snapshot']>;
+};
 
-function createRuntime(overrides: Partial<SessionRuntime> = {}): SessionRuntime {
-  const currentMode = overrides.currentMode ?? 'inactive';
-  const speechLifecycleStatus = overrides.speechLifecycleStatus ?? 'off';
-  const activeTransport = overrides.activeTransport ?? null;
-  const voiceSessionStatus = overrides.voiceSessionStatus ?? 'disconnected';
-  const voiceCaptureState = overrides.voiceCaptureState ?? 'inactive';
-  const screenCaptureState = overrides.screenCaptureState ?? 'disabled';
-  const textSessionStatus = overrides.textSessionStatus ?? 'idle';
+function createHost(overrides: DomainRuntimeHostOverrides = {}): DomainRuntimeHost {
+  const currentMode = overrides.snapshot?.currentMode ?? 'inactive';
+  const speechLifecycleStatus = overrides.snapshot?.speechLifecycleStatus ?? 'off';
+  const voiceCaptureState = overrides.snapshot?.voiceCaptureState ?? 'inactive';
+  const screenCaptureState = overrides.snapshot?.screenCaptureState ?? 'disabled';
+  const textSessionStatus = overrides.snapshot?.textSessionStatus ?? 'idle';
+  const canToggleContextSharing = overrides.snapshot?.canToggleContextSharing ?? true;
+  const isContextSharingActive = overrides.snapshot?.isContextSharingActive ?? false;
 
   const controlGatingSnapshot = overrides.snapshot?.controlGatingSnapshot ?? createControlGatingSnapshot({
     currentMode,
     speechLifecycleStatus,
     textSessionStatus,
-    activeTransport,
-    voiceSessionStatus,
+    activeTransport: currentMode === 'speech' ? 'gemini-live' : null,
+    voiceSessionStatus: currentMode === 'speech' ? 'active' : 'disconnected',
     voiceCaptureState,
     screenCaptureState,
   });
 
   return {
     snapshot: {
-      assistantState: overrides.assistantState ?? 'ready',
+      assistantState: overrides.snapshot?.assistantState ?? 'ready',
+      backendState: overrides.snapshot?.backendState ?? 'connected',
+      backendIndicatorState: overrides.snapshot?.backendIndicatorState ?? 'ready',
+      backendLabel: overrides.snapshot?.backendLabel ?? 'Connected',
       currentMode,
-      activeTransport,
-      isSpeechMode: currentMode === 'speech',
-      backendState: overrides.backendState ?? 'connected',
-      backendIndicatorState: overrides.backendIndicatorState ?? 'ready',
-      backendLabel: overrides.backendLabel ?? 'Connected',
-      tokenRequestState: overrides.tokenRequestState ?? 'idle',
-      tokenFeedback: overrides.tokenFeedback ?? null,
+      tokenRequestState: overrides.snapshot?.tokenRequestState ?? 'idle',
+      tokenFeedback: overrides.snapshot?.tokenFeedback ?? null,
       textSessionStatus,
-      textSessionStatusLabel: overrides.textSessionStatusLabel ?? 'Idle',
-      canSubmitText: overrides.canSubmitText ?? true,
-      lastRuntimeError: overrides.lastRuntimeError ?? null,
-      isSessionActive: overrides.isSessionActive ?? false,
+      textSessionStatusLabel: overrides.snapshot?.textSessionStatusLabel ?? 'Idle',
+      canSubmitText: overrides.snapshot?.canSubmitText ?? true,
+      canSubmitComposerText: overrides.snapshot?.canSubmitComposerText ?? true,
+      lastRuntimeError: overrides.snapshot?.lastRuntimeError ?? null,
+      isSessionActive: overrides.snapshot?.isSessionActive ?? currentMode === 'speech',
       liveSessionPhaseLabel: overrides.snapshot?.liveSessionPhaseLabel ?? null,
       speechLifecycleStatus,
-      voiceSessionStatus,
-      voiceSessionResumptionStatus: overrides.voiceSessionResumptionStatus ?? 'idle',
+      sessionRecoveryStatus: overrides.snapshot?.sessionRecoveryStatus ?? 'idle',
+      canEndSpeechMode: overrides.snapshot?.canEndSpeechMode ?? currentMode === 'speech',
+      sessionActionKind:
+        overrides.snapshot?.sessionActionKind ?? getComposerSpeechActionKind(controlGatingSnapshot),
+      localUserSpeechActive: overrides.snapshot?.localUserSpeechActive ?? false,
+      canToggleContextSharing,
+      isContextSharingActive,
+      contextState: overrides.snapshot?.contextState ?? (isContextSharingActive ? 'active' : 'inactive'),
+      controlGatingSnapshot,
       voiceCaptureState,
       screenCaptureState,
-      isVoiceSessionActive: overrides.isVoiceSessionActive ?? false,
-      controlGatingSnapshot,
-      composerSpeechActionKind:
-        overrides.snapshot?.composerSpeechActionKind ?? getComposerSpeechActionKind(controlGatingSnapshot),
-      localUserSpeechActive: overrides.localUserSpeechActive ?? false,
     },
-    assistantState: 'ready',
-    currentMode: 'inactive',
-    activeTransport: null,
-    isSpeechMode: false,
-    backendState: 'connected',
-    backendIndicatorState: 'ready',
-    backendLabel: 'Connected',
-    tokenRequestState: 'idle',
-    tokenFeedback: null,
-    textSessionStatus: 'idle',
-    textSessionStatusLabel: 'Idle',
-    canSubmitText: true,
-    lastRuntimeError: null,
-    isSessionActive: false,
-    isVoiceSessionActive: false,
-    speechLifecycleStatus: 'off',
-    voiceSessionStatus: 'disconnected',
-    voiceCaptureState: 'inactive',
-    screenCaptureState: 'disabled',
-    handleCheckBackendHealth: vi.fn(async () => undefined),
-    handleStartVoiceSession: vi.fn(async () => undefined),
-    handleStartVoiceCapture: vi.fn(async () => undefined),
-    handleStopVoiceCapture: vi.fn(async () => undefined),
-    handleStartScreenCapture: vi.fn(async () => undefined),
-    handleStopScreenCapture: vi.fn(async () => undefined),
-    handleSendScreenNow: vi.fn(),
-    handleSubmitTextTurn: vi.fn(async () => false),
-    handleEndSpeechMode: vi.fn(async () => undefined),
-    handleEndSession: vi.fn(async () => undefined),
+    checkBackendHealth: vi.fn(async () => undefined),
+    startSpeechMode: vi.fn(async () => true),
+    startSpeechModeWithContext: vi.fn(async () => true),
+    startVoiceCapture: vi.fn(async () => undefined),
+    stopVoiceCapture: vi.fn(async () => undefined),
+    startScreenCapture: vi.fn(async () => undefined),
+    stopScreenCapture: vi.fn(async () => undefined),
+    submitTextTurn: vi.fn(async () => false),
+    setInputEnabled: vi.fn(async () => undefined),
+    setContextSharingEnabled: vi.fn(async () => undefined),
+    sendContextNow: vi.fn(),
+    requestEndSpeechMode: vi.fn(async () => true),
+    refreshScreenCaptureSources: vi.fn(async () => true),
+    selectScreenCaptureSource: vi.fn(async () => true),
+    setSaveScreenFramesEnabled: vi.fn(),
+    reportRuntimeError: vi.fn(),
     setAssistantState: vi.fn(),
     ...overrides,
-  } as SessionRuntime;
+  } as DomainRuntimeHost;
 }
 
 describe('useAssistantPanelController – composer media controls', () => {
-  const mockUseSessionRuntime = vi.mocked(useSessionRuntime);
+  const mockUseDomainRuntimeHost = vi.mocked(useDomainRuntimeHost);
 
   beforeEach(() => {
     resetDesktopStores();
@@ -113,14 +104,12 @@ describe('useAssistantPanelController – composer media controls', () => {
   });
 
   it('stores the microphone preference for the next session and applies it after speech mode starts', async () => {
-    const handleStartVoiceSession = vi.fn(async () => undefined);
-    const handleStartVoiceCapture = vi.fn(async () => undefined);
-    const handleStopVoiceCapture = vi.fn(async () => undefined);
-    mockUseSessionRuntime.mockReturnValue(
-      createRuntime({
-        handleStartVoiceSession,
-        handleStartVoiceCapture,
-        handleStopVoiceCapture,
+    const startSpeechMode = vi.fn(async () => true);
+    const setInputEnabled = vi.fn(async () => undefined);
+    mockUseDomainRuntimeHost.mockReturnValue(
+      createHost({
+        startSpeechMode,
+        setInputEnabled,
       }),
     );
 
@@ -134,33 +123,30 @@ describe('useAssistantPanelController – composer media controls', () => {
 
     expect(useUiStore.getState().isComposerMicrophoneEnabled).toBe(false);
     expect(result.current.isComposerMicrophoneEnabled).toBe(false);
+    expect(setInputEnabled).toHaveBeenCalledWith(false);
 
     await act(async () => {
       await result.current.handleStartSpeechMode();
     });
 
-    expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
-    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
-    expect(handleStopVoiceCapture).not.toHaveBeenCalled();
+    expect(startSpeechMode).toHaveBeenCalledTimes(1);
   });
 
   it('toggles active-session microphone capture without ending or restarting the session', async () => {
-    const handleStartVoiceSession = vi.fn(async () => undefined);
-    const handleEndSpeechMode = vi.fn(async () => undefined);
-    const handleStopVoiceCapture = vi.fn(async () => undefined);
-    mockUseSessionRuntime.mockReturnValue(
-      createRuntime({
-        currentMode: 'speech',
-        activeTransport: 'gemini-live',
-        isSpeechMode: true,
-        isSessionActive: true,
-        isVoiceSessionActive: true,
-        speechLifecycleStatus: 'listening',
-        voiceSessionStatus: 'active',
-        voiceCaptureState: 'capturing',
-        handleStartVoiceSession,
-        handleEndSpeechMode,
-        handleStopVoiceCapture,
+    const startSpeechMode = vi.fn(async () => true);
+    const requestEndSpeechMode = vi.fn(async () => true);
+    const setInputEnabled = vi.fn(async () => undefined);
+    mockUseDomainRuntimeHost.mockReturnValue(
+      createHost({
+        snapshot: {
+          currentMode: 'speech',
+          isSessionActive: true,
+          speechLifecycleStatus: 'listening',
+          voiceCaptureState: 'capturing',
+        },
+        startSpeechMode,
+        requestEndSpeechMode,
+        setInputEnabled,
       }),
     );
 
@@ -171,28 +157,28 @@ describe('useAssistantPanelController – composer media controls', () => {
     });
 
     expect(useUiStore.getState().isComposerMicrophoneEnabled).toBe(false);
-    expect(handleStopVoiceCapture).toHaveBeenCalledTimes(1);
-    expect(handleEndSpeechMode).not.toHaveBeenCalled();
-    expect(handleStartVoiceSession).not.toHaveBeenCalled();
+    expect(setInputEnabled).toHaveBeenCalledWith(false);
+    expect(requestEndSpeechMode).not.toHaveBeenCalled();
+    expect(startSpeechMode).not.toHaveBeenCalled();
   });
 
   it('starts screen capture during an active Live session without restarting the session', async () => {
-    const handleStartVoiceSession = vi.fn(async () => undefined);
-    const handleStartScreenCapture = vi.fn(async () => undefined);
-    const handleEndSpeechMode = vi.fn(async () => undefined);
-    mockUseSessionRuntime.mockReturnValue(
-      createRuntime({
-        currentMode: 'speech',
-        activeTransport: 'gemini-live',
-        isSpeechMode: true,
-        isSessionActive: true,
-        isVoiceSessionActive: true,
-        speechLifecycleStatus: 'listening',
-        voiceSessionStatus: 'active',
-        screenCaptureState: 'disabled',
-        handleStartVoiceSession,
-        handleStartScreenCapture,
-        handleEndSpeechMode,
+    const startSpeechMode = vi.fn(async () => true);
+    const requestEndSpeechMode = vi.fn(async () => true);
+    const setContextSharingEnabled = vi.fn(async () => undefined);
+    mockUseDomainRuntimeHost.mockReturnValue(
+      createHost({
+        snapshot: {
+          currentMode: 'speech',
+          isSessionActive: true,
+          speechLifecycleStatus: 'listening',
+          screenCaptureState: 'disabled',
+          canToggleContextSharing: true,
+          isContextSharingActive: false,
+        },
+        startSpeechMode,
+        requestEndSpeechMode,
+        setContextSharingEnabled,
       }),
     );
 
@@ -202,22 +188,20 @@ describe('useAssistantPanelController – composer media controls', () => {
       await result.current.handleToggleComposerScreenShare();
     });
 
-    expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
-    expect(handleEndSpeechMode).not.toHaveBeenCalled();
-    expect(handleStartVoiceSession).not.toHaveBeenCalled();
+    expect(setContextSharingEnabled).toHaveBeenCalledWith(true);
+    expect(requestEndSpeechMode).not.toHaveBeenCalled();
+    expect(startSpeechMode).not.toHaveBeenCalled();
   });
 
   it('starts a Live session with screen sharing when toggled from an inactive composer', async () => {
-    const handleStartVoiceSession = vi.fn(async () => undefined);
-    const handleStartVoiceCapture = vi.fn(async () => undefined);
-    const handleStartScreenCapture = vi.fn(async () => undefined);
-    const handleStopVoiceCapture = vi.fn(async () => undefined);
-    mockUseSessionRuntime.mockReturnValue(
-      createRuntime({
-        handleStartVoiceSession,
-        handleStartVoiceCapture,
-        handleStartScreenCapture,
-        handleStopVoiceCapture,
+    const startSpeechModeWithContext = vi.fn(async () => true);
+    const setInputEnabled = vi.fn(async () => undefined);
+    const setContextSharingEnabled = vi.fn(async () => undefined);
+    mockUseDomainRuntimeHost.mockReturnValue(
+      createHost({
+        startSpeechModeWithContext,
+        setInputEnabled,
+        setContextSharingEnabled,
       }),
     );
 
@@ -227,25 +211,20 @@ describe('useAssistantPanelController – composer media controls', () => {
       await result.current.handleToggleComposerScreenShare();
     });
 
-    expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
-    expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
-    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
-    expect(handleStopVoiceCapture).not.toHaveBeenCalled();
+    expect(startSpeechModeWithContext).toHaveBeenCalledTimes(1);
+    expect(setContextSharingEnabled).not.toHaveBeenCalled();
+    expect(setInputEnabled).not.toHaveBeenCalled();
   });
 
   it('gates starting a Live session with screen sharing until Share Screen mode is configured', async () => {
-    const handleStartVoiceSession = vi.fn(async () => undefined);
-    const handleStartVoiceCapture = vi.fn(async () => undefined);
-    const handleStartScreenCapture = vi.fn(async () => undefined);
+    const startSpeechModeWithContext = vi.fn(async () => true);
     let pendingStartAction: (() => Promise<void>) | null = null;
     const screenShareModeGate = vi.fn(async (action: () => Promise<void>) => {
       pendingStartAction = action;
     });
-    mockUseSessionRuntime.mockReturnValue(
-      createRuntime({
-        handleStartVoiceSession,
-        handleStartVoiceCapture,
-        handleStartScreenCapture,
+    mockUseDomainRuntimeHost.mockReturnValue(
+      createHost({
+        startSpeechModeWithContext,
       }),
     );
 
@@ -256,36 +235,30 @@ describe('useAssistantPanelController – composer media controls', () => {
     });
 
     expect(screenShareModeGate).toHaveBeenCalledTimes(1);
-    expect(handleStartVoiceSession).not.toHaveBeenCalled();
-    expect(handleStartScreenCapture).not.toHaveBeenCalled();
-    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
+    expect(startSpeechModeWithContext).not.toHaveBeenCalled();
     expect(pendingStartAction).not.toBeNull();
 
     await act(async () => {
       await pendingStartAction?.();
     });
 
-    expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
-    expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
-    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
+    expect(startSpeechModeWithContext).toHaveBeenCalledTimes(1);
   });
 
   it('submits trimmed text and only clears the draft after a successful send', async () => {
-    const handleSubmitTextTurn = vi
+    const submitTextTurn = vi
       .fn<(draftText: string) => Promise<boolean>>()
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(false);
-    mockUseSessionRuntime.mockReturnValue(
-      createRuntime({
-        currentMode: 'speech',
-        activeTransport: 'gemini-live',
-        isSpeechMode: true,
-        isSessionActive: true,
-        isVoiceSessionActive: true,
-        speechLifecycleStatus: 'listening',
-        voiceSessionStatus: 'active',
-        voiceCaptureState: 'capturing',
-        handleSubmitTextTurn,
+    mockUseDomainRuntimeHost.mockReturnValue(
+      createHost({
+        snapshot: {
+          currentMode: 'speech',
+          isSessionActive: true,
+          speechLifecycleStatus: 'listening',
+          canSubmitComposerText: true,
+        },
+        submitTextTurn,
       }),
     );
 
@@ -303,7 +276,7 @@ describe('useAssistantPanelController – composer media controls', () => {
       } as unknown as FormEvent<HTMLFormElement>);
     });
 
-    expect(handleSubmitTextTurn).toHaveBeenCalledWith('successful send');
+    expect(submitTextTurn).toHaveBeenCalledWith('successful send');
     expect(result.current.draftText).toBe('');
 
     act(() => {
@@ -318,19 +291,19 @@ describe('useAssistantPanelController – composer media controls', () => {
       } as unknown as FormEvent<HTMLFormElement>);
     });
 
-    expect(handleSubmitTextTurn).toHaveBeenLastCalledWith('keep draft');
+    expect(submitTextTurn).toHaveBeenLastCalledWith('keep draft');
     expect(result.current.draftText).toBe('  keep draft  ');
   });
 
   it('starts screen sharing before microphone capture when toggled from an inactive composer', async () => {
-    const handleStartVoiceSession = vi.fn(async () => undefined);
-    const handleStartVoiceCapture = vi.fn(async () => undefined);
-    const handleStartScreenCapture = vi.fn(async () => undefined);
-    mockUseSessionRuntime.mockReturnValue(
-      createRuntime({
-      handleStartVoiceSession,
-      handleStartVoiceCapture,
-      handleStartScreenCapture,
+    const startSpeechModeWithContext = vi.fn(async () => true);
+    const setInputEnabled = vi.fn(async () => undefined);
+    const setContextSharingEnabled = vi.fn(async () => undefined);
+    mockUseDomainRuntimeHost.mockReturnValue(
+      createHost({
+        startSpeechModeWithContext,
+        setInputEnabled,
+        setContextSharingEnabled,
       }),
     );
 
@@ -340,11 +313,8 @@ describe('useAssistantPanelController – composer media controls', () => {
       await result.current.handleToggleComposerScreenShare();
     });
 
-    expect(handleStartVoiceSession).toHaveBeenCalledTimes(1);
-    expect(handleStartScreenCapture).toHaveBeenCalledTimes(1);
-    expect(handleStartVoiceCapture).not.toHaveBeenCalled();
-    expect(handleStartVoiceSession.mock.invocationCallOrder[0]).toBeLessThan(
-      handleStartScreenCapture.mock.invocationCallOrder[0]!,
-    );
+    expect(startSpeechModeWithContext).toHaveBeenCalledTimes(1);
+    expect(setInputEnabled).not.toHaveBeenCalled();
+    expect(setContextSharingEnabled).not.toHaveBeenCalled();
   });
 });

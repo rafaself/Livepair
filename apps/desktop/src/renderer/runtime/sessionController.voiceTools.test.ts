@@ -352,10 +352,6 @@ describe('createDesktopSessionController – voice tools', () => {
           callId: null,
           lastError: null,
         },
-        lastDebugEvent: expect.objectContaining({
-          type: 'voice.tool.cancelled',
-          detail: 'voice turn interrupted',
-        }),
       }),
     );
   });

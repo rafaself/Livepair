@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ScreenCaptureSourceSnapshot } from '../../shared';
 import { resetDesktopStores } from '../test/store';
 import { useSessionStore } from '../store/sessionStore';
 import { useUiStore } from '../store/uiStore';
@@ -117,7 +118,7 @@ describe('useDomainRuntimeCommands', () => {
   });
 
   it('refreshes and selects screen capture sources through the host boundary', async () => {
-    window.bridge.listScreenCaptureSources = vi.fn(async () => ({
+    const initialSnapshot: ScreenCaptureSourceSnapshot = {
       sources: [
         { id: 'screen:1:0', kind: 'screen', name: 'Entire Screen', displayId: '1' },
       ],
@@ -128,8 +129,8 @@ describe('useDomainRuntimeCommands', () => {
         workArea: { x: 0, y: 0, width: 100, height: 100 },
         scaleFactor: 1,
       },
-    }));
-    window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => ({
+    };
+    const selectedSnapshot = (sourceId: string | null): ScreenCaptureSourceSnapshot => ({
       sources: [
         { id: 'screen:1:0', kind: 'screen', name: 'Entire Screen', displayId: '1' },
         { id: 'window:42:0', kind: 'window', name: 'VSCode' },
@@ -141,7 +142,9 @@ describe('useDomainRuntimeCommands', () => {
         workArea: { x: 0, y: 0, width: 100, height: 100 },
         scaleFactor: 1,
       },
-    }));
+    });
+    window.bridge.listScreenCaptureSources = vi.fn(async () => initialSnapshot);
+    window.bridge.selectScreenCaptureSource = vi.fn(async (sourceId) => selectedSnapshot(sourceId));
 
     const { result } = renderHook(() => useDomainRuntimeCommands());
 

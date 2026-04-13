@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTransportEventRouter } from './transportEventRouter';
+import { configureRuntimeDebugMode } from '../core/debugMode';
 import { useUiStore } from '../../store/uiStore';
 import { resetDesktopStores } from '../../test/store';
 
@@ -226,6 +227,7 @@ function createMockOps() {
 describe('createTransportEventRouter', () => {
   beforeEach(() => {
     resetDesktopStores();
+    configureRuntimeDebugMode(() => useUiStore.getState().isDebugMode);
   });
 
   describe('connection-state-changed', () => {

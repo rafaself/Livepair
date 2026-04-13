@@ -58,8 +58,11 @@ function serialize(value: unknown): string {
   }
 }
 
-function logSessionEvent(event: SessionEvent): void {
-  if (!isConsoleLoggingEnabled()) {
+function logSessionEvent(
+  event: SessionEvent,
+  options: { forceConsole?: boolean } = {},
+): void {
+  if (!options.forceConsole && !isConsoleLoggingEnabled()) {
     return;
   }
 
@@ -71,8 +74,11 @@ function logSessionEvent(event: SessionEvent): void {
   console.info('[runtime:session]', event.type, serialize(event));
 }
 
-function logTransportEvent(event: LiveSessionEvent): void {
-  if (!isConsoleLoggingEnabled()) {
+function logTransportEvent(
+  event: LiveSessionEvent,
+  options: { forceConsole?: boolean } = {},
+): void {
+  if (!options.forceConsole && !isConsoleLoggingEnabled()) {
     return;
   }
 
@@ -147,9 +153,20 @@ export function createRuntimeLogger({
   }
 
   return {
-    onSessionEvent: logSessionEvent,
-    onTransportEvent: logTransportEvent,
+    onSessionEvent: (event) => {
+      logSessionEvent(event, { forceConsole: true });
+    },
+    onTransportEvent: (event) => {
+      logTransportEvent(event, { forceConsole: true });
+    },
   };
 }
 
-export const defaultRuntimeLogger = createRuntimeLogger();
+export const defaultRuntimeLogger: RuntimeLogger = {
+  onSessionEvent: (event) => {
+    logSessionEvent(event);
+  },
+  onTransportEvent: (event) => {
+    logTransportEvent(event);
+  },
+};

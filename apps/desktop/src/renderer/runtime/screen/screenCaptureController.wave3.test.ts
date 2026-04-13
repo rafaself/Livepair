@@ -95,8 +95,14 @@ function createHarness(options: {
     return capture;
   });
 
-  const sendVideoFrame = vi.fn(async () => undefined);
-  const transport = { sendVideoFrame } as unknown as DesktopSession;
+  const sendVideoFrame = vi.fn(async (_data: Uint8Array, _mimeType: string) => undefined);
+  const transport = {
+    submit: vi.fn(async (request: { type: string; data?: Uint8Array; mimeType?: string }) => {
+      if (request.type === 'video-frame' && request.data && request.mimeType) {
+        await sendVideoFrame(request.data, request.mimeType);
+      }
+    }),
+  } as unknown as DesktopSession;
   let currentTransport: DesktopSession | null = transport;
 
   let submitCount = 0;
