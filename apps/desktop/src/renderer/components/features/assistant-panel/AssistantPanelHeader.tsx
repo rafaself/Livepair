@@ -30,7 +30,7 @@ export function AssistantPanelHeader({
 }: AssistantPanelHeaderProps): JSX.Element {
   const isSpeechActive = localUserSpeechActive || speechLifecycleStatus === 'userSpeaking';
   return (
-    <PanelHeader title="Livepair" icon={<LivepairIcon size={28} />}>
+    <PanelHeader title="Livepair" icon={<LivepairIcon size={22} />}>
       {isDebugMode ? (
         <Button
           variant="ghost"
