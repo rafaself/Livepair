@@ -201,14 +201,12 @@ describe('backendClient', () => {
     expect(consoleInfoSpy).toHaveBeenCalledWith(
       '[desktop:backend-client] session token request started',
       {
-        url: 'http://localhost:3000/session/token',
-        request: req,
+        hasSessionId: typeof req.sessionId === 'string' && req.sessionId.length > 0,
       },
     );
     expect(consoleInfoSpy).toHaveBeenCalledWith(
       '[desktop:backend-client] session token request succeeded',
       {
-        url: 'http://localhost:3000/session/token',
         expireTime: '2099-03-09T12:30:00.000Z',
         newSessionExpireTime: '2099-03-09T12:01:30.000Z',
         tokenLength: 'ephemeral-token'.length,
@@ -372,7 +370,6 @@ describe('backendClient', () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[desktop:backend-client] session token request failed',
       {
-        url: 'http://localhost:3000/session/token',
         status: 401,
         detail: 'Gemini token request failed: upstream 400 INVALID_ARGUMENT',
       },

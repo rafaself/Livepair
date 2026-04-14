@@ -694,9 +694,9 @@ export function createBackendClient({
     ): Promise<CreateEphemeralTokenResponse> {
       const backendUrl = await resolveBackendUrl();
       const url = `${backendUrl}/session/token`;
+      const hasSessionId = typeof req.sessionId === 'string' && req.sessionId.length > 0;
       console.info('[desktop:backend-client] session token request started', {
-        url,
-        request: req,
+        hasSessionId,
       });
 
       const sessionTokenAuthSecret = readSessionTokenAuthSecret();
@@ -713,7 +713,6 @@ export function createBackendClient({
       if (!res.ok) {
         const detail = await readErrorDetail(res);
         console.error('[desktop:backend-client] session token request failed', {
-          url,
           status: res.status,
           detail,
         });
@@ -724,7 +723,6 @@ export function createBackendClient({
 
       const parsedResponse = parseCreateEphemeralTokenResponse(await res.json());
       console.info('[desktop:backend-client] session token request succeeded', {
-        url,
         expireTime: parsedResponse.expireTime,
         newSessionExpireTime: parsedResponse.newSessionExpireTime,
         tokenLength: parsedResponse.token.length,
