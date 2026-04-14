@@ -13,13 +13,15 @@ describe('HealthController', () => {
     controller = module.get<HealthController>(HealthController);
   });
 
-  it('returns status ok with a timestamp', () => {
-    const firstResult: HealthResponse = controller.check();
-    const secondResult: HealthResponse = controller.check();
+  it('returns status ok with the current request timestamp', () => {
+    const beforeIso = new Date().toISOString();
+    const result: HealthResponse = controller.check();
+    const afterIso = new Date().toISOString();
 
-    expect(firstResult.status).toBe('ok');
-    expect(typeof firstResult.timestamp).toBe('string');
-    expect(new Date(firstResult.timestamp).toISOString()).toBe(firstResult.timestamp);
-    expect(secondResult).toEqual(firstResult);
+    expect(result.status).toBe('ok');
+    expect(typeof result.timestamp).toBe('string');
+    expect(new Date(result.timestamp).toISOString()).toBe(result.timestamp);
+    expect(result.timestamp >= beforeIso).toBe(true);
+    expect(result.timestamp <= afterIso).toBe(true);
   });
 });

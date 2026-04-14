@@ -265,7 +265,13 @@ export class ProjectKnowledgeGeminiClient {
   }
 
   private async waitForOperation(apiKey: string, operationName: string): Promise<void> {
-    for (let attempt = 0; attempt < 60; attempt += 1) {
+    const initialDelayMs = 500;
+    const maxDelayMs = 5_000;
+    const totalBudgetMs = 60_000;
+    const startedAt = Date.now();
+    let nextDelayMs = initialDelayMs;
+
+    while (Date.now() - startedAt < totalBudgetMs) {
       const operation = await this.requestJson(
         `${GEMINI_API_BASE_URL}/v1beta/${encodeResourcePath(operationName)}?key=${encodeURIComponent(apiKey)}`,
         'Failed to poll File Search operation',
@@ -283,7 +289,8 @@ export class ProjectKnowledgeGeminiClient {
         return;
       }
 
-      await delay(500);
+      await delay(nextDelayMs);
+      nextDelayMs = Math.min(nextDelayMs * 2, maxDelayMs);
     }
 
     throw new Error('File Search operation timed out');
