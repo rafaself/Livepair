@@ -1,11 +1,14 @@
+import type { AnswerMetadata } from '@livepair/shared-types';
 import type { ConversationContext } from '../../conversation/conversationTurnManager';
 import {
   appendCompletedAssistantTurn,
   appendUserTurn,
+  clearAssistantDraft,
   clearCurrentVoiceTurns,
   finalizeCurrentVoiceAssistantTranscriptArtifact,
   finalizeCurrentVoiceUserTranscriptArtifact,
   getTranscriptArtifact,
+  interruptAssistantDraft,
   interruptCurrentVoiceAssistantTranscriptArtifact,
   settleVoiceTurnFence,
 } from '../../conversation/conversationTurnManager';
@@ -14,6 +17,29 @@ import type {
   SessionStoreApi,
   VoiceTranscriptControllerOptions,
 } from './voiceTranscriptController.shared';
+
+function buildInterruptedAssistantAnswerMetadata(
+  conversationCtx: ConversationContext,
+): AnswerMetadata | undefined {
+  const base =
+    conversationCtx.assistantDraft?.answerMetadata
+    ?? conversationCtx.pendingAssistantAnswerMetadata
+    ?? undefined;
+  const draftText = conversationCtx.assistantDraft?.content?.trim() ?? '';
+  const thinkingText = base?.thinkingText ?? (draftText.length > 0 ? draftText : undefined);
+
+  if (!base && !thinkingText) {
+    return undefined;
+  }
+
+  return {
+    provenance: base?.provenance ?? 'unverified',
+    ...(base?.citations ? { citations: base.citations } : {}),
+    ...(base?.confidence ? { confidence: base.confidence } : {}),
+    ...(base?.reason ? { reason: base.reason } : {}),
+    ...(thinkingText ? { thinkingText } : {}),
+  };
+}
 
 type VoiceTranscriptLifecycleArgs = {
   store: SessionStoreApi;
@@ -130,13 +156,18 @@ export function createVoiceTranscriptLifecycle({
       }
 
       // Materialize the in-flight transcript as a persisted assistant turn so
-      // it survives navigation to the chat history list and back.
+      // it survives navigation to the chat history list and back. Carry over
+      // any in-flight reasoning/thinking captured on the assistant draft so
+      // an interrupted turn is still recorded with the same metadata as a
+      // completed one.
       if (hasContent && activeAssistantArtifact.attachedTurnId === undefined) {
+        const answerMetadata = buildInterruptedAssistantAnswerMetadata(conversationCtx);
         const assistantTurnId = appendCompletedAssistantTurn(
           conversationCtx,
           activeAssistantArtifact.content,
           {
             source: 'voice',
+            ...(answerMetadata ? { answerMetadata } : {}),
             ...(activeAssistantArtifact.transcriptFinal !== undefined
               ? { transcriptFinal: activeAssistantArtifact.transcriptFinal }
               : {}),
@@ -160,6 +191,15 @@ export function createVoiceTranscriptLifecycle({
         });
       }
     }
+
+    // Always settle the assistant draft when resetting turn state so an
+    // in-flight thought bubble is finalized (as interrupted) even when the
+    // session ends or the app closes mid-turn. Without this, the draft stays
+    // in 'streaming' status, which keeps the UI's thinking indicator open.
+    if (conversationCtx.assistantDraft?.status === 'streaming') {
+      interruptAssistantDraft(conversationCtx);
+    }
+    clearAssistantDraft(conversationCtx);
 
     clearTranscript();
     clearCurrentVoiceTurns(conversationCtx);

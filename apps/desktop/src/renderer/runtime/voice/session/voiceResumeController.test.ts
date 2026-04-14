@@ -299,16 +299,50 @@ describe('createVoiceResumeController', () => {
     expect(ops.setVoiceErrorState).toHaveBeenCalledWith('fallback connect failed');
   });
 
-  it('disconnects and aborts when operation cancelled after connect', async () => {
+  it('aborts before creating a transport when operation is cancelled during teardown', async () => {
     const ops = createMockOps();
-    // isCurrentSessionOperation is only checked after connect resolves
     ops.isCurrentSessionOperation.mockReturnValue(false);
     const { resume } = createVoiceResumeController(ops as never);
 
     await resume('detail');
 
-    expect(ops._transport.disconnect).toHaveBeenCalledTimes(1);
+    expect(ops.createTransport).not.toHaveBeenCalled();
+    expect(ops.setActiveTransport).not.toHaveBeenCalledWith(ops._transport);
+    expect(ops._transport.connect).not.toHaveBeenCalled();
+    expect(ops.setVoiceResumptionInFlight).toHaveBeenCalledWith(false);
     expect(ops.setVoiceErrorState).not.toHaveBeenCalled();
+  });
+
+  it('tears down the new transport when the session is ended after connect resolves', async () => {
+    const ops = createMockOps();
+    // First two checks pass (before create, before setActive, before connect),
+    // then the session is torn down concurrently so the post-connect check fails.
+    const returns = [true, true, true, true, false];
+    ops.isCurrentSessionOperation.mockImplementation(() => {
+      const next = returns.shift();
+      return next ?? false;
+    });
+    const { resume } = createVoiceResumeController(ops as never);
+
+    await resume('detail');
+
+    expect(ops._transport.connect).toHaveBeenCalledTimes(1);
+    expect(ops._transport.disconnect).toHaveBeenCalledTimes(1);
+    expect(ops.onResumeConnected).not.toHaveBeenCalled();
+    expect(ops.setVoiceErrorState).not.toHaveBeenCalled();
+  });
+
+  it('skips resume entirely when voice session is already terminating', async () => {
+    const ops = createMockOps();
+    (ops._storeState as unknown as { voiceSessionStatus: string }).voiceSessionStatus = 'stopping';
+    const { resume } = createVoiceResumeController(ops as never);
+
+    await resume('user ended session');
+
+    expect(ops.beginSessionOperation).not.toHaveBeenCalled();
+    expect(ops.setVoiceSessionStatus).not.toHaveBeenCalled();
+    expect(ops.createTransport).not.toHaveBeenCalled();
+    expect(ops._transport.connect).not.toHaveBeenCalled();
   });
 
   it('ignores playback stop errors during teardown', async () => {

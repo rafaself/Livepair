@@ -95,8 +95,31 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
     });
   };
 
+  const isTerminalVoiceStatus = (status: VoiceSessionStatus): boolean =>
+    status === 'stopping' || status === 'disconnected' || status === 'error';
+
   const resume = async (detail: string): Promise<void> => {
     const store = ops.store.getState();
+    const currentStatus = store.voiceSessionStatus;
+
+    // If the user (or the runtime) has already requested a session teardown
+    // before this resume could start, refuse to promote the status back to
+    // 'recovering'. Without this guard we would open a fresh Gemini Live
+    // session, subscribe to it, and keep billing audio-chunk traffic while
+    // the UI thinks the session is closed — producing the log spam seen
+    // after end-session/app-close.
+    if (isTerminalVoiceStatus(currentStatus)) {
+      reportDiagnostic({
+        scope: 'voice-session',
+        name: 'resume skipped while terminating',
+        data: {
+          detail,
+          voiceStatus: currentStatus,
+        },
+      });
+      return;
+    }
+
     const resumeHandle = store.voiceSessionResumption.latestHandle;
     let tokenToUse: CreateEphemeralTokenResponse | null = ops.getToken();
     const resumeUnavailableDetail =
@@ -109,6 +132,28 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
 
     const operationId = ops.beginSessionOperation();
     const previousTransport = ops.getActiveTransport();
+
+    const isResumeStillCurrent = (): boolean => {
+      if (!ops.isCurrentSessionOperation(operationId)) {
+        return false;
+      }
+      return !isTerminalVoiceStatus(ops.store.getState().voiceSessionStatus);
+    };
+
+    const abortResumeAfterTeardown = (phase: string): void => {
+      reportDiagnostic({
+        scope: 'voice-session',
+        name: 'resume aborted after teardown',
+        data: {
+          operationId,
+          detail,
+          phase,
+          voiceStatus: ops.store.getState().voiceSessionStatus,
+        },
+      });
+      recordRecoveryTransition(ops, 'resume-aborted', detail);
+      ops.setVoiceResumptionInFlight(false);
+    };
     const fallbackController = createVoiceResumeFallbackController({
       ops,
       operationId,
@@ -158,6 +203,11 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
     });
 
     await teardownVoiceSessionForResume(ops, previousTransport);
+
+    if (!isResumeStillCurrent()) {
+      abortResumeAfterTeardown('after-previous-teardown');
+      return;
+    }
 
     if (!isTokenValidForReconnect(tokenToUse)) {
       reportDiagnostic({
@@ -211,11 +261,22 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       return;
     }
 
+    if (!isResumeStillCurrent()) {
+      abortResumeAfterTeardown('before-transport-create');
+      return;
+    }
+
     const transport = ops.transportAdapter?.create() ?? ops.createTransport?.('gemini-live');
 
     if (!transport) {
       throw new Error('Voice transport adapter was unavailable for resume');
     }
+
+    if (!isResumeStillCurrent()) {
+      abortResumeAfterTeardown('before-set-active-transport');
+      return;
+    }
+
     ops.setActiveTransport(transport);
     ops.subscribeTransport(transport, ops.handleTransportEvent);
 
@@ -224,11 +285,28 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
         throw new Error('Voice session token was unavailable for resume');
       }
 
+      if (!isResumeStillCurrent()) {
+        ops.unsubscribePreviousTransport();
+        ops.setActiveTransport(null);
+        void transport.disconnect().catch(() => undefined);
+        abortResumeAfterTeardown('before-transport-connect');
+        return;
+      }
+
       await transport.connect({
         token: tokenToUse,
         mode: 'voice',
         resumeHandle: activeResumeHandle,
       });
+
+      if (!isResumeStillCurrent()) {
+        ops.unsubscribePreviousTransport();
+        ops.setActiveTransport(null);
+        void transport.disconnect().catch(() => undefined);
+        abortResumeAfterTeardown('after-transport-connect');
+        return;
+      }
+
       ops.onResumeConnected();
       recordRecoveryTransition(ops, 'resume-connect-resolved', detail);
       reportDiagnostic({
@@ -239,10 +317,6 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
           latestHandle: activeResumeHandle,
         },
       });
-
-      if (!ops.isCurrentSessionOperation(operationId)) {
-        void transport.disconnect().catch(() => undefined);
-      }
     } catch (error) {
       if (!ops.isCurrentSessionOperation(operationId)) {
         return;
