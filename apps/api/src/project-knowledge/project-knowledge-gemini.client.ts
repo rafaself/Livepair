@@ -20,6 +20,12 @@ import {
 const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com';
 const FILE_UPLOAD_START_URL = `${GEMINI_API_BASE_URL}/upload/v1beta/files`;
 const FILE_SEARCH_STORES_URL = `${GEMINI_API_BASE_URL}/v1beta/fileSearchStores`;
+const GEMINI_REQUEST_TIMEOUT_MS = 30_000;
+const GEMINI_UPLOAD_TIMEOUT_MS = 120_000;
+
+function withTimeout(init: RequestInit, timeoutMs: number): RequestInit {
+  return { ...init, signal: AbortSignal.timeout(timeoutMs) };
+}
 
 @Injectable()
 export class ProjectKnowledgeGeminiClient {
@@ -28,8 +34,9 @@ export class ProjectKnowledgeGeminiClient {
     errorLabel: string,
     init: RequestInit,
     parse: (value: unknown) => T,
+    timeoutMs: number = GEMINI_REQUEST_TIMEOUT_MS,
   ): Promise<T> {
-    const response = await fetch(url, init);
+    const response = await fetch(url, init.signal ? init : withTimeout(init, timeoutMs));
 
     if (!response.ok) {
       const detail = await readErrorDetail(response);
@@ -106,9 +113,7 @@ export class ProjectKnowledgeGeminiClient {
   async deleteDocument(apiKey: string, documentName: string): Promise<void> {
     const response = await fetch(
       `${GEMINI_API_BASE_URL}/v1beta/${encodeResourcePath(documentName)}?key=${encodeURIComponent(apiKey)}&force=true`,
-      {
-        method: 'DELETE',
-      },
+      withTimeout({ method: 'DELETE' }, GEMINI_REQUEST_TIMEOUT_MS),
     );
 
     if (!response.ok) {
@@ -124,21 +129,24 @@ export class ProjectKnowledgeGeminiClient {
     const fileBuffer = await readFile(document.absolutePath);
     const startResponse = await fetch(
       `${FILE_UPLOAD_START_URL}?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: {
-          'X-Goog-Upload-Protocol': 'resumable',
-          'X-Goog-Upload-Command': 'start',
-          'X-Goog-Upload-Header-Content-Length': String(fileBuffer.byteLength),
-          'X-Goog-Upload-Header-Content-Type': document.mimeType,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          file: {
-            display_name: document.title,
+      withTimeout(
+        {
+          method: 'POST',
+          headers: {
+            'X-Goog-Upload-Protocol': 'resumable',
+            'X-Goog-Upload-Command': 'start',
+            'X-Goog-Upload-Header-Content-Length': String(fileBuffer.byteLength),
+            'X-Goog-Upload-Header-Content-Type': document.mimeType,
+            'Content-Type': 'application/json',
           },
-        }),
-      },
+          body: JSON.stringify({
+            file: {
+              display_name: document.title,
+            },
+          }),
+        },
+        GEMINI_REQUEST_TIMEOUT_MS,
+      ),
     );
 
     if (!startResponse.ok) {
@@ -164,15 +172,14 @@ export class ProjectKnowledgeGeminiClient {
         body: fileBuffer,
       },
       normalizeUploadResponse,
+      GEMINI_UPLOAD_TIMEOUT_MS,
     );
   }
 
   async deleteFile(apiKey: string, fileName: string): Promise<void> {
     const response = await fetch(
       `${GEMINI_API_BASE_URL}/v1beta/${encodeResourcePath(fileName)}?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'DELETE',
-      },
+      withTimeout({ method: 'DELETE' }, GEMINI_REQUEST_TIMEOUT_MS),
     );
 
     if (!response.ok) {

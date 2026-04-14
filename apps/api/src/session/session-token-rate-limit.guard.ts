@@ -17,9 +17,12 @@ type RateLimitBucket = {
   windowStartedAt: number;
 };
 
+const RATE_LIMIT_BUCKET_MAX_SIZE = 10_000;
+
 @Injectable()
 export class SessionTokenRateLimitGuard implements CanActivate {
   private readonly buckets = new Map<string, RateLimitBucket>();
+  private lastSweepAt = 0;
 
   constructor(
     private readonly observabilityService: ObservabilityService,
@@ -32,6 +35,7 @@ export class SessionTokenRateLimitGuard implements CanActivate {
     const now = Date.now();
     const windowMs = env.sessionTokenRateLimitWindowMs;
     const maxRequests = env.sessionTokenRateLimitMaxRequests;
+    this.sweepExpiredBuckets(now, windowMs);
     const currentBucket = this.buckets.get(clientIp);
 
     if (!currentBucket || now >= currentBucket.windowStartedAt + windowMs) {
@@ -69,5 +73,22 @@ export class SessionTokenRateLimitGuard implements CanActivate {
     this.buckets.set(clientIp, currentBucket);
 
     return true;
+  }
+
+  private sweepExpiredBuckets(now: number, windowMs: number): void {
+    const dueForTimeSweep = now >= this.lastSweepAt + windowMs;
+    const dueForSizeSweep = this.buckets.size > RATE_LIMIT_BUCKET_MAX_SIZE;
+
+    if (!dueForTimeSweep && !dueForSizeSweep) {
+      return;
+    }
+
+    for (const [ip, bucket] of this.buckets) {
+      if (now >= bucket.windowStartedAt + windowMs) {
+        this.buckets.delete(ip);
+      }
+    }
+
+    this.lastSweepAt = now;
   }
 }

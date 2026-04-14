@@ -22,7 +22,11 @@ function isAllowedCorsOrigin(
   origin: string | undefined,
   allowedOrigins: readonly string[],
 ): boolean {
-  if (typeof origin !== 'string' || origin.trim().length === 0) {
+  // Requests without an Origin header are not subject to the browser CORS
+  // protocol (same-origin or non-browser callers), so they bypass the
+  // allowlist. A defined-but-empty value, however, is suspicious and is
+  // treated as a cross-origin request that must match the allowlist.
+  if (typeof origin === 'undefined') {
     return true;
   }
 

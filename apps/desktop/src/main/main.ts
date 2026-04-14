@@ -28,13 +28,34 @@ registerIpcHandlers({
   settingsService,
 });
 
-app.whenReady().then(() => {
-  registerDisplayMediaHandler(captureSourceRegistry);
-  createWindow();
-  app.on('activate', () => {
-    handleAppActivate();
+function handleFatalMainProcessError(scope: string, error: unknown): void {
+  console.error(`[desktop:main] ${scope}`, {
+    errorMessage: error instanceof Error ? error.message : String(error),
+    errorName: error instanceof Error ? error.name : 'Error',
+    errorStack: error instanceof Error ? error.stack : undefined,
   });
+}
+
+process.on('uncaughtException', (error) => {
+  handleFatalMainProcessError('uncaught exception', error);
 });
+
+process.on('unhandledRejection', (reason) => {
+  handleFatalMainProcessError('unhandled rejection', reason);
+});
+
+app.whenReady()
+  .then(() => {
+    registerDisplayMediaHandler(captureSourceRegistry);
+    createWindow();
+    app.on('activate', () => {
+      handleAppActivate();
+    });
+  })
+  .catch((error) => {
+    handleFatalMainProcessError('app whenReady failed', error);
+    app.exit(1);
+  });
 
 app.on('window-all-closed', () => {
   handleWindowAllClosed();

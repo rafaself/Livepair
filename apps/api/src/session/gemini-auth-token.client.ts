@@ -7,6 +7,7 @@ import { ObservabilityService } from '../observability/observability.service';
 
 const GEMINI_AUTH_TOKEN_URL =
   'https://generativelanguage.googleapis.com/v1alpha/auth_tokens';
+const GEMINI_AUTH_TOKEN_REQUEST_TIMEOUT_MS = 10_000;
 
 type GeminiAuthTokenPayload = {
   name?: unknown;
@@ -130,6 +131,7 @@ export async function requestGeminiAuthToken({
           // convertBidiSetupToTokenSetup.
           bidiGenerateContentSetup,
         }),
+        signal: AbortSignal.timeout(GEMINI_AUTH_TOKEN_REQUEST_TIMEOUT_MS),
       });
     } catch (error) {
       outcome = 'network_error';

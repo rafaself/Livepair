@@ -46,7 +46,7 @@ describe('requestGeminiAuthToken', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith(
       'https://generativelanguage.googleapis.com/v1alpha/auth_tokens',
-      {
+      expect.objectContaining({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,7 +66,8 @@ describe('requestGeminiAuthToken', () => {
             sessionResumption: {},
           },
         }),
-      },
+        signal: expect.any(AbortSignal),
+      }),
     );
 
     await expect(observabilityService.getMetrics()).resolves.toMatch(
