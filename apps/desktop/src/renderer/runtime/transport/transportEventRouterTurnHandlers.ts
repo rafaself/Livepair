@@ -369,25 +369,19 @@ export function handleTransportTurnEvent(
       }
       return;
 
-    case 'audio-chunk': {
+    case 'audio-chunk':
       if (shouldIgnoreTranscriptOrAudio(context, 'audio-chunk')) {
         return;
       }
 
-      const wasStreaming = ops.hasStreamingAssistantVoiceTurn();
-
-      if (!ensureAssistantVoiceTurn(context, 'audio-chunk')) {
+      if (!openAssistantVoiceTurnIfNeeded(context, 'audio-chunk')) {
         return;
       }
 
-      if (!wasStreaming) {
-        ops.recordSessionEvent({ type: 'turn.assistant.output.started' });
-      }
       void ops.getVoicePlayback()
         .enqueue(event.chunk)
         .catch(() => {});
       return;
-    }
 
     case 'generation-complete':
       return;
