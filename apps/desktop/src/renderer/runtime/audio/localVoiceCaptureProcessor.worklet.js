@@ -8,6 +8,9 @@ const SAD_EXIT_MULT = 1.5;
 const SAD_ENTER_ABS_MIN = 0.006;
 const SAD_EXIT_ABS_MIN = 0.004;
 
+// Throttle live-level postMessages to ~33 Hz regardless of sampleRate.
+const LEVEL_EMIT_INTERVAL_MS = 30;
+
 class LivepairLocalVoiceCaptureProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -20,6 +23,8 @@ class LivepairLocalVoiceCaptureProcessor extends AudioWorkletProcessor {
     this._releaseCount = 0;
     this._noiseFloor = SAD_MIN_NOISE_FLOOR;
     this._chunkEncoder = new StreamingPcm16ChunkEncoder(globalThis.sampleRate);
+    this._levelQuantaInterval = Math.max(1, Math.round((sampleRate * LEVEL_EMIT_INTERVAL_MS) / 1000 / 128));
+    this._levelQuantaCount = 0;
   }
 
   process(inputs) {
@@ -41,6 +46,12 @@ class LivepairLocalVoiceCaptureProcessor extends AudioWorkletProcessor {
 
     for (const chunk of chunks) {
       this.port.postMessage({ type: 'audio-chunk', chunk }, [chunk.buffer]);
+    }
+
+    this._levelQuantaCount++;
+    if (this._levelQuantaCount >= this._levelQuantaInterval) {
+      this._levelQuantaCount = 0;
+      this.port.postMessage({ type: 'audio-level', rms });
     }
 
     // Step 1: compute adaptive thresholds from current noise floor.

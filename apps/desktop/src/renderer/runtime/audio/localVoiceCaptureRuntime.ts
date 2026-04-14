@@ -4,6 +4,7 @@ import {
   PCM16_CHUNK_DURATION_MS,
   TARGET_VOICE_SAMPLE_RATE,
 } from './audioProcessing';
+import { micLevelChannel } from './micLevelChannel';
 import type { LocalVoiceChunk, VoiceCaptureDiagnostics } from '../voice/voice.types';
 
 type AudioChunkMessage = {
@@ -16,7 +17,12 @@ type SpeechActivityMessage = {
   active: boolean;
 };
 
-type WorkletMessage = AudioChunkMessage | SpeechActivityMessage;
+type AudioLevelMessage = {
+  type: 'audio-level';
+  rms: number;
+};
+
+type WorkletMessage = AudioChunkMessage | SpeechActivityMessage | AudioLevelMessage;
 
 type TrackLike = {
   stop: () => void;
@@ -95,6 +101,7 @@ export function createLocalVoiceCaptureRuntime(
     }
 
     activeWorkletNode = null;
+    micLevelChannel.reset();
     observer.onEvent({ type: 'capture.activity', active: false });
 
     for (const track of activeTracks) {
@@ -158,6 +165,11 @@ export function createLocalVoiceCaptureRuntime(
       const message = event.data as WorkletMessage;
       if ('type' in message && message.type === 'speech-activity') {
         observer.onEvent({ type: 'capture.activity', active: message.active });
+        return;
+      }
+
+      if ('type' in message && message.type === 'audio-level') {
+        micLevelChannel.setLevel(message.rms);
         return;
       }
 
