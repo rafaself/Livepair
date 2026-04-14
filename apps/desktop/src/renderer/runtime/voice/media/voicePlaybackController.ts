@@ -46,6 +46,7 @@ export function createVoicePlaybackController(
   observability?: Pick<ReturnType<typeof createLiveRuntimeObservability>, 'emitDiagnostic'>,
 ): VoicePlaybackController {
   let voicePlayback: AssistantAudioPlayback | null = null;
+  let lastEmittedState: VoicePlaybackState | null = null;
 
   const updateDiagnostics = (patch: Partial<VoicePlaybackDiagnostics>): void => {
     store.getState().setVoicePlaybackDiagnostics(patch);
@@ -53,11 +54,15 @@ export function createVoicePlaybackController(
 
   const setState = (state: VoicePlaybackState): void => {
     store.getState().setVoicePlaybackState(state);
-    observability?.emitDiagnostic({
-      scope: 'voice-playback',
-      name: 'state-changed',
-      data: { state },
-    });
+
+    if (lastEmittedState !== state) {
+      lastEmittedState = state;
+      observability?.emitDiagnostic({
+        scope: 'voice-playback',
+        name: 'state-changed',
+        data: { state },
+      });
+    }
 
     if (state === 'playing' || state === 'buffering') {
       store.getState().setAssistantActivity('speaking');

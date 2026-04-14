@@ -257,6 +257,26 @@ function ensureAssistantVoiceTurn(
   return false;
 }
 
+// Ensures the active assistant voice turn exists and emits
+// `turn.assistant.output.started` exactly once per turn transition. Returning
+// false tells the caller the lifecycle fence rejected the chunk and no further
+// processing should happen.
+function openAssistantVoiceTurnIfNeeded(
+  context: TransportEventRouterContext,
+  eventType: 'output-transcript' | 'audio-chunk',
+): boolean {
+  const wasStreaming = context.ops.hasStreamingAssistantVoiceTurn();
+
+  if (!ensureAssistantVoiceTurn(context, eventType)) {
+    return false;
+  }
+
+  if (!wasStreaming) {
+    context.ops.recordSessionEvent({ type: 'turn.assistant.output.started' });
+  }
+  return true;
+}
+
 export function handleTransportTurnEvent(
   context: TransportEventRouterContext,
   event: LiveSessionEvent,
@@ -329,11 +349,10 @@ export function handleTransportTurnEvent(
         return;
       }
 
-      if (!ensureAssistantVoiceTurn(context, 'output-transcript')) {
+      if (!openAssistantVoiceTurnIfNeeded(context, 'output-transcript')) {
         return;
       }
 
-      ops.recordSessionEvent({ type: 'turn.assistant.output.started' });
       ops.recordSessionEvent({
         type: 'transcript.assistant.updated',
         text: event.text,
@@ -350,20 +369,25 @@ export function handleTransportTurnEvent(
       }
       return;
 
-    case 'audio-chunk':
+    case 'audio-chunk': {
       if (shouldIgnoreTranscriptOrAudio(context, 'audio-chunk')) {
         return;
       }
+
+      const wasStreaming = ops.hasStreamingAssistantVoiceTurn();
 
       if (!ensureAssistantVoiceTurn(context, 'audio-chunk')) {
         return;
       }
 
-      ops.recordSessionEvent({ type: 'turn.assistant.output.started' });
+      if (!wasStreaming) {
+        ops.recordSessionEvent({ type: 'turn.assistant.output.started' });
+      }
       void ops.getVoicePlayback()
         .enqueue(event.chunk)
         .catch(() => {});
       return;
+    }
 
     case 'generation-complete':
       return;

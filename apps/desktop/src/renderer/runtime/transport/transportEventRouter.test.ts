@@ -829,6 +829,24 @@ describe('createTransportEventRouter', () => {
       expect(ops.ensureAssistantVoiceTurn).toHaveBeenCalledTimes(1);
       expect(ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('assistant', 'hi there', false);
     });
+
+    it('does not re-emit assistant output started when a turn is already streaming', () => {
+      const ops = createMockOps();
+      ops.hasStreamingAssistantVoiceTurn.mockReturnValue(true);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'output-transcript', text: 'still hi', isFinal: false } as never);
+
+      expect(ops.recordSessionEvent).not.toHaveBeenCalledWith({
+        type: 'turn.assistant.output.started',
+      });
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'transcript.assistant.updated',
+        text: 'still hi',
+        isFinal: false,
+      });
+      expect(ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('assistant', 'still hi', false);
+    });
   });
 
   describe('audio-chunk', () => {
@@ -843,6 +861,20 @@ describe('createTransportEventRouter', () => {
         type: 'turn.assistant.output.started',
       });
       expect(ops.ensureAssistantVoiceTurn).toHaveBeenCalledTimes(1);
+      expect(ops.getVoicePlayback().enqueue).toHaveBeenCalledWith(chunk);
+    });
+
+    it('does not re-emit assistant output started for subsequent audio chunks of the same turn', () => {
+      const ops = createMockOps();
+      ops.hasStreamingAssistantVoiceTurn.mockReturnValue(true);
+      const chunk = new Uint8Array([4, 5, 6]);
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'audio-chunk', chunk });
+
+      expect(ops.recordSessionEvent).not.toHaveBeenCalledWith({
+        type: 'turn.assistant.output.started',
+      });
       expect(ops.getVoicePlayback().enqueue).toHaveBeenCalledWith(chunk);
     });
   });
