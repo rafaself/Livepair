@@ -1,11 +1,47 @@
-import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
-import type { CreateEphemeralTokenRequest } from '@livepair/shared-types';
+import { Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsIn,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
+import {
+  ASSISTANT_VOICES,
+  LIVE_MEDIA_RESOLUTIONS,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
+  SESSION_ID_MAX_LENGTH,
+  SESSION_ID_PATTERN,
+  type CreateEphemeralTokenRequest,
+  type CreateEphemeralTokenVoiceSessionPolicy,
+} from '@livepair/shared-types';
 
-const SESSION_ID_MAX_LENGTH = 128;
-// Permit URL-safe identifier characters: alphanumerics plus dash and underscore.
-const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+class CreateEphemeralTokenVoiceSessionPolicyDto {
+  @IsOptional()
+  @IsIn(ASSISTANT_VOICES)
+  voice?: CreateEphemeralTokenVoiceSessionPolicy['voice'];
 
-export class CreateEphemeralTokenDto implements CreateEphemeralTokenRequest {
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_SYSTEM_INSTRUCTION_LENGTH)
+  systemInstruction?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  groundingEnabled?: boolean;
+
+  @IsOptional()
+  @IsIn(LIVE_MEDIA_RESOLUTIONS)
+  mediaResolution?: CreateEphemeralTokenVoiceSessionPolicy['mediaResolution'];
+
+  @IsOptional()
+  @IsBoolean()
+  contextCompressionEnabled?: boolean;
+}
+
+export class CreateEphemeralTokenDto {
   @IsOptional()
   @IsString()
   @MaxLength(SESSION_ID_MAX_LENGTH)
@@ -13,4 +49,38 @@ export class CreateEphemeralTokenDto implements CreateEphemeralTokenRequest {
     message: 'sessionId must contain only URL-safe characters',
   })
   sessionId?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateEphemeralTokenVoiceSessionPolicyDto)
+  voiceSessionPolicy?: CreateEphemeralTokenVoiceSessionPolicyDto;
+}
+
+export function toCreateEphemeralTokenRequest(
+  dto: CreateEphemeralTokenDto,
+): CreateEphemeralTokenRequest {
+  return {
+    ...(typeof dto.sessionId === 'string' ? { sessionId: dto.sessionId } : {}),
+    ...(dto.voiceSessionPolicy
+      ? {
+          voiceSessionPolicy: {
+            ...(dto.voiceSessionPolicy.voice !== undefined
+              ? { voice: dto.voiceSessionPolicy.voice }
+              : {}),
+            ...(dto.voiceSessionPolicy.systemInstruction !== undefined
+              ? { systemInstruction: dto.voiceSessionPolicy.systemInstruction }
+              : {}),
+            ...(dto.voiceSessionPolicy.groundingEnabled !== undefined
+              ? { groundingEnabled: dto.voiceSessionPolicy.groundingEnabled }
+              : {}),
+            ...(dto.voiceSessionPolicy.mediaResolution !== undefined
+              ? { mediaResolution: dto.voiceSessionPolicy.mediaResolution }
+              : {}),
+            ...(dto.voiceSessionPolicy.contextCompressionEnabled !== undefined
+              ? { contextCompressionEnabled: dto.voiceSessionPolicy.contextCompressionEnabled }
+              : {}),
+          } satisfies CreateEphemeralTokenVoiceSessionPolicy,
+        }
+      : {}),
+  };
 }

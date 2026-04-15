@@ -2,12 +2,23 @@ import {
   BadGatewayException,
   Injectable,
 } from '@nestjs/common';
-import type { GeminiLiveConnectCapabilityConfig } from '@livepair/shared-types';
+import type { GeminiLiveVoiceConnectConfig } from '@livepair/shared-types';
 import { ObservabilityService } from '../observability/observability.service';
 
 const GEMINI_AUTH_TOKEN_URL =
   'https://generativelanguage.googleapis.com/v1alpha/auth_tokens';
 const GEMINI_AUTH_TOKEN_REQUEST_TIMEOUT_MS = 10_000;
+export const GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK = [
+  'model',
+  'generationConfig.responseModalities',
+  'inputAudioTranscription',
+  'outputAudioTranscription',
+  'mediaResolution',
+  'speechConfig',
+  'systemInstruction',
+  'tools',
+  'contextWindowCompression',
+].join(',');
 
 type GeminiAuthTokenPayload = {
   name?: unknown;
@@ -27,8 +38,9 @@ export type GeminiAuthTokenRequest = {
   expireTime: string;
   liveConnectConstraints: {
     model: string;
-    config: GeminiLiveConnectCapabilityConfig;
+    config: GeminiLiveVoiceConnectConfig;
   };
+  fieldMask: string;
 };
 
 export type GeminiProvisionedToken = {
@@ -86,6 +98,7 @@ export async function requestGeminiAuthToken({
   fetchImpl = fetch,
   newSessionExpireTime,
   expireTime,
+  fieldMask,
   liveConnectConstraints,
   observabilityService,
 }: RequestGeminiAuthTokenOptions): Promise<GeminiProvisionedToken> {
@@ -112,6 +125,31 @@ export async function requestGeminiAuthToken({
             sessionResumption: liveConnectConstraints.config.sessionResumption,
           }
         : {}),
+      ...(liveConnectConstraints.config.mediaResolution
+        ? {
+            mediaResolution: liveConnectConstraints.config.mediaResolution,
+          }
+        : {}),
+      ...(liveConnectConstraints.config.speechConfig
+        ? {
+            speechConfig: liveConnectConstraints.config.speechConfig,
+          }
+        : {}),
+      ...(liveConnectConstraints.config.systemInstruction
+        ? {
+            systemInstruction: liveConnectConstraints.config.systemInstruction,
+          }
+        : {}),
+      ...(liveConnectConstraints.config.tools
+        ? {
+            tools: liveConnectConstraints.config.tools,
+          }
+        : {}),
+      ...(liveConnectConstraints.config.contextWindowCompression
+        ? {
+            contextWindowCompression: liveConnectConstraints.config.contextWindowCompression,
+          }
+        : {}),
     };
     let response: Response;
     try {
@@ -125,6 +163,7 @@ export async function requestGeminiAuthToken({
           uses: 1,
           newSessionExpireTime,
           expireTime,
+          fieldMask,
           // The Gemini REST API expects bidiGenerateContentSetup (not
           // liveConnectConstraints). Mirrors the mapping the @google/genai SDK
           // performs internally via liveConnectConstraintsToMldev +

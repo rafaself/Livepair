@@ -5,13 +5,17 @@ import {
 } from '@nestjs/common';
 import {
   buildGeminiLiveConnectCapabilityConfig,
+  buildGeminiLiveVoiceSessionPolicyConfig,
   GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
   type CreateEphemeralTokenRequest,
   type CreateEphemeralTokenResponse,
 } from '@livepair/shared-types';
 import { env } from '../config/env';
 import { ObservabilityService } from '../observability/observability.service';
-import { GeminiAuthTokenClient } from './gemini-auth-token.client';
+import {
+  GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK,
+  GeminiAuthTokenClient,
+} from './gemini-auth-token.client';
 
 const DEFAULT_EPHEMERAL_TOKEN_EXPIRE_WINDOW_MS = 30 * 60 * 1000;
 
@@ -71,15 +75,18 @@ export class SessionService {
     try {
       const issuedCapabilities =
         GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES;
+      const constrainedVoiceSessionConfig = {
+        ...buildGeminiLiveConnectCapabilityConfig(issuedCapabilities),
+        ...buildGeminiLiveVoiceSessionPolicyConfig(req.voiceSessionPolicy),
+      };
       const token = await this.geminiAuthTokenClient.createToken({
         apiKey: env.geminiApiKey,
         newSessionExpireTime,
         expireTime,
+        fieldMask: GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK,
         liveConnectConstraints: {
           model: env.sessionTokenLiveModel,
-          // Lock the constrained voice-session capability profile so the desktop runtime
-          // and token-issuance boundary share one source of truth.
-          config: buildGeminiLiveConnectCapabilityConfig(issuedCapabilities),
+          config: constrainedVoiceSessionConfig,
         },
       });
 
@@ -93,6 +100,7 @@ export class SessionService {
         newSessionExpireTime,
         sessionIdProvided:
           typeof req.sessionId === 'string' && req.sessionId.trim().length > 0,
+        voiceSessionPolicyProvided: req.voiceSessionPolicy !== undefined,
       });
 
       return {

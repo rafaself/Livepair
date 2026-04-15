@@ -1,8 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVoiceTokenManager } from './voiceTokenManager';
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
+import type {
+  CreateEphemeralTokenRequest,
+  CreateEphemeralTokenResponse,
+} from '@livepair/shared-types';
 
 function createHarness() {
+  return createHarnessWithOptions();
+}
+
+function createHarnessWithOptions(options: {
+  contextCompressionEnabled?: boolean;
+} = {}) {
+  const contextCompressionEnabled = options.contextCompressionEnabled ?? true;
   const setTokenRequestState = vi.fn();
   const setBackendState = vi.fn();
   const store = {
@@ -16,6 +26,15 @@ function createHarness() {
   };
 
   const requestSessionToken = vi.fn(() => Promise.resolve(mockToken));
+  const buildTokenRequest = vi.fn((): CreateEphemeralTokenRequest => ({
+    voiceSessionPolicy: {
+      voice: 'Puck',
+      systemInstruction: 'You are Livepair, a realtime multimodal desktop assistant.',
+      groundingEnabled: true,
+      mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+      contextCompressionEnabled,
+    },
+  }));
   let currentOperationId = 1;
   const isCurrentSessionOperation = vi.fn((id: number) => id === currentOperationId);
   const setVoiceSessionDurability = vi.fn();
@@ -25,17 +44,20 @@ function createHarness() {
   const mgr = createVoiceTokenManager(
     store,
     requestSessionToken,
+    buildTokenRequest,
     isCurrentSessionOperation,
     setVoiceSessionDurability,
     recordSessionEvent,
     onError,
     'gemini-live',
+    contextCompressionEnabled,
   );
 
   return {
     mgr,
     store: { setTokenRequestState, setBackendState },
     requestSessionToken,
+    buildTokenRequest,
     isCurrentSessionOperation,
     setVoiceSessionDurability,
     recordSessionEvent,
@@ -76,7 +98,7 @@ describe('createVoiceTokenManager', () => {
   });
 
   it('request on success stores token and updates state', async () => {
-    const { mgr, store, recordSessionEvent, mockToken } = createHarness();
+    const { mgr, store, recordSessionEvent, mockToken, requestSessionToken, buildTokenRequest } = createHarness();
 
     const token = await mgr.request(1);
 
@@ -88,6 +110,7 @@ describe('createVoiceTokenManager', () => {
       type: 'session.token.request.succeeded',
       transport: 'gemini-live',
     });
+    expect(requestSessionToken).toHaveBeenCalledWith(buildTokenRequest.mock.results[0]?.value);
   });
 
   it('request syncs durability state on success', async () => {
@@ -98,6 +121,25 @@ describe('createVoiceTokenManager', () => {
     expect(setVoiceSessionDurability).toHaveBeenCalledWith(
       expect.objectContaining({
         compressionEnabled: true,
+        tokenValid: true,
+        tokenRefreshing: false,
+        tokenRefreshFailed: false,
+        expireTime: mockToken.expireTime,
+        newSessionExpireTime: mockToken.newSessionExpireTime,
+      }),
+    );
+  });
+
+  it('request syncs durability state with the injected compression flag', async () => {
+    const { mgr, setVoiceSessionDurability, mockToken } = createHarnessWithOptions({
+      contextCompressionEnabled: false,
+    });
+
+    await mgr.request(1);
+
+    expect(setVoiceSessionDurability).toHaveBeenCalledWith(
+      expect.objectContaining({
+        compressionEnabled: false,
         tokenValid: true,
         tokenRefreshing: false,
         tokenRefreshFailed: false,

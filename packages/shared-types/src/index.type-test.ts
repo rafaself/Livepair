@@ -13,14 +13,17 @@ import type {
   CreateChatRequest,
   DurableChatSummaryRecord,
   CreateEphemeralTokenRequest,
+  CreateEphemeralTokenVoiceSessionPolicy,
   CreateEphemeralTokenResponse,
   CreateLiveSessionRequest,
   GeminiLiveConnectCapabilityConfig,
   GeminiLiveEffectiveVoiceSessionCapabilities,
+  GeminiLiveVoiceConnectConfig,
   GeminiLiveVoiceModeConfig,
   EndLiveSessionRequest,
   GeminiLiveVoiceSessionCapabilities,
   HealthResponse,
+  LiveMediaResolution,
   LiveSessionId,
   LiveSessionRecord,
   LiveSessionStatus,
@@ -43,6 +46,11 @@ import type {
 } from './index';
 import {
   ASSISTANT_VOICES,
+  DEFAULT_ASSISTANT_VOICE,
+  DEFAULT_SYSTEM_INSTRUCTION,
+  LIVE_MEDIA_RESOLUTIONS,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
+  buildGeminiLiveVoiceSessionPolicyConfig,
   buildGeminiLiveConnectCapabilityConfig,
   buildGeminiLiveVoiceModeConfig,
   buildGeminiLiveVoiceSessionCapabilities,
@@ -60,7 +68,13 @@ type _HealthShape = Assert<
   IsExact<HealthResponse, { status: 'ok'; timestamp: string }>
 >;
 type _RequestShape = Assert<
-  IsExact<CreateEphemeralTokenRequest, { sessionId?: string }>
+  IsExact<
+    CreateEphemeralTokenRequest,
+    {
+      sessionId?: string;
+      voiceSessionPolicy?: CreateEphemeralTokenVoiceSessionPolicy;
+    }
+  >
 >;
 type _ResponseToken = Assert<
   IsExact<CreateEphemeralTokenResponse['token'], string>
@@ -74,8 +88,29 @@ type _ResponseNewSessionExpireTime = Assert<
 type _AssistantVoiceShape = Assert<
   IsExact<AssistantVoice, 'Puck' | 'Kore' | 'Aoede'>
 >;
+type _DefaultAssistantVoiceShape = Assert<
+  IsExact<typeof DEFAULT_ASSISTANT_VOICE, AssistantVoice>
+>;
 type _AssistantVoicesShape = Assert<
   IsExact<typeof ASSISTANT_VOICES, readonly ['Puck', 'Kore', 'Aoede']>
+>;
+type _DefaultSystemInstructionShape = Assert<
+  IsExact<
+    typeof DEFAULT_SYSTEM_INSTRUCTION,
+    'You are Livepair, a realtime multimodal desktop assistant.'
+  >
+>;
+type _MaxSystemInstructionLengthShape = Assert<
+  IsExact<typeof MAX_SYSTEM_INSTRUCTION_LENGTH, 1200>
+>;
+type _LiveMediaResolutionShape = Assert<
+  IsExact<LiveMediaResolution, 'MEDIA_RESOLUTION_LOW' | 'MEDIA_RESOLUTION_MEDIUM' | 'MEDIA_RESOLUTION_HIGH'>
+>;
+type _LiveMediaResolutionsShape = Assert<
+  IsExact<
+    typeof LIVE_MEDIA_RESOLUTIONS,
+    readonly ['MEDIA_RESOLUTION_LOW', 'MEDIA_RESOLUTION_MEDIUM', 'MEDIA_RESOLUTION_HIGH']
+  >
 >;
 type _GeminiLiveVoiceSessionCapabilitiesShape = Assert<
   IsExact<
@@ -142,6 +177,35 @@ type _GeminiLiveConnectCapabilityConfigShape = Assert<
     }
   >
 >;
+type _GeminiLiveVoiceConnectConfigMediaResolution = Assert<
+  IsExact<GeminiLiveVoiceConnectConfig['mediaResolution'], LiveMediaResolution | undefined>
+>;
+type _GeminiLiveVoiceConnectConfigSystemInstruction = Assert<
+  IsExact<GeminiLiveVoiceConnectConfig['systemInstruction'], string | undefined>
+>;
+type _GeminiLiveVoiceConnectConfigTools = Assert<
+  IsExact<
+    GeminiLiveVoiceConnectConfig['tools'],
+    readonly (
+      | {
+          functionDeclarations: readonly {
+            name: 'get_current_mode' | 'get_voice_session_status' | 'search_project_knowledge';
+            description: string;
+            parameters: {
+              type: 'object';
+              properties: Record<string, unknown>;
+              required?: string[];
+              additionalProperties: false;
+            };
+          }[];
+        }
+      | {
+          googleSearch: Record<string, never>;
+        }
+    )[]
+    | undefined
+  >
+>;
 type _BuildGeminiLiveVoiceModeConfigReturn = Assert<
   IsExact<
     ReturnType<typeof buildGeminiLiveVoiceModeConfig>,
@@ -158,6 +222,44 @@ type _BuildGeminiLiveConnectCapabilityConfigReturn = Assert<
   IsExact<
     ReturnType<typeof buildGeminiLiveConnectCapabilityConfig>,
     GeminiLiveConnectCapabilityConfig
+  >
+>;
+type _BuildGeminiLiveVoiceSessionPolicyConfigReturn = Assert<
+  IsExact<
+    ReturnType<typeof buildGeminiLiveVoiceSessionPolicyConfig>,
+    {
+      mediaResolution: LiveMediaResolution;
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: AssistantVoice;
+          };
+        };
+      };
+      systemInstruction: string;
+      contextWindowCompression?:
+        | {
+            slidingWindow: Record<string, never>;
+          }
+        | undefined;
+      tools: readonly (
+        | {
+            functionDeclarations: readonly {
+              name: 'get_current_mode' | 'get_voice_session_status' | 'search_project_knowledge';
+              description: string;
+              parameters: {
+                type: 'object';
+                properties: Record<string, unknown>;
+                required?: string[];
+                additionalProperties: false;
+              };
+            }[];
+          }
+        | {
+            googleSearch: Record<string, never>;
+          }
+      )[];
+    }
   >
 >;
 type _ProjectKnowledgeSearchRequestShape = Assert<

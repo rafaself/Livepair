@@ -1,11 +1,14 @@
 import { isTokenValidForReconnect } from './voiceSessionToken';
+import type {
+  CreateEphemeralTokenRequest,
+  CreateEphemeralTokenResponse,
+} from '@livepair/shared-types';
 import { asErrorDetail } from '../../core/runtimeUtils';
 import type { SessionEvent } from '../../core/session.types';
 import type { TransportKind } from '../../transport/transport.types';
 import type {
   VoiceSessionDurabilityState,
 } from '../voice.types';
-import type { CreateEphemeralTokenResponse } from '@livepair/shared-types';
 import type { TokenRequestState, BackendConnectionState } from '../../../store/sessionStore';
 
 type TokenStoreApi = {
@@ -32,12 +35,14 @@ export type VoiceTokenManager = {
 
 export function createVoiceTokenManager(
   store: TokenStoreApi,
-  requestSessionToken: (params: Record<string, never>) => Promise<CreateEphemeralTokenResponse>,
+  requestSessionToken: (params: CreateEphemeralTokenRequest) => Promise<CreateEphemeralTokenResponse>,
+  buildTokenRequest: () => CreateEphemeralTokenRequest,
   isCurrentSessionOperation: (id: number) => boolean,
   setVoiceSessionDurability: (patch: Partial<VoiceSessionDurabilityState>) => void,
   recordSessionEvent: (event: SessionEvent) => void,
   onError: (detail: string) => void,
   liveAdapterKey: TransportKind,
+  contextCompressionEnabled: boolean,
 ): VoiceTokenManager {
   let activeVoiceToken: CreateEphemeralTokenResponse | null = null;
 
@@ -46,7 +51,7 @@ export function createVoiceTokenManager(
     patch: Partial<VoiceSessionDurabilityState> = {},
   ): void => {
     setVoiceSessionDurability({
-      compressionEnabled: true,
+      compressionEnabled: contextCompressionEnabled,
       tokenValid: isTokenValidForReconnect(token),
       tokenRefreshing: false,
       tokenRefreshFailed: false,
@@ -65,7 +70,7 @@ export function createVoiceTokenManager(
     recordSessionEvent({ type: 'session.token.request.started' });
 
     try {
-      const token = await requestSessionToken({});
+      const token = await requestSessionToken(buildTokenRequest());
 
       if (!isCurrentSessionOperation(operationId)) {
         return null;
@@ -111,7 +116,7 @@ export function createVoiceTokenManager(
     });
 
     try {
-      const token = await requestSessionToken({});
+      const token = await requestSessionToken(buildTokenRequest());
 
       if (!isCurrentSessionOperation(operationId)) {
         return null;

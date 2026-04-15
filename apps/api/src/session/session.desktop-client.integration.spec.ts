@@ -2,11 +2,13 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import {
   buildGeminiLiveConnectCapabilityConfig,
+  buildGeminiLiveVoiceSessionPolicyConfig,
   type CreateEphemeralTokenResponse,
   type LiveTelemetryEvent,
 } from '@livepair/shared-types';
 import type { AddressInfo } from 'net';
 import { createRequire } from 'module';
+import { GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK } from './gemini-auth-token.client';
 
 const GEMINI_AUTH_TOKEN_URL =
   'https://generativelanguage.googleapis.com/v1alpha/auth_tokens';
@@ -181,6 +183,7 @@ describe('desktop client protected token flow', () => {
           uses: 1,
           expireTime: expect.any(String),
           newSessionExpireTime: expect.any(String),
+          fieldMask: GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK,
           bidiGenerateContentSetup: {
             model: SESSION_TOKEN_LIVE_MODEL,
             generationConfig: {
@@ -189,6 +192,7 @@ describe('desktop client protected token flow', () => {
             inputAudioTranscription: {},
             outputAudioTranscription: {},
             sessionResumption: {},
+            ...buildGeminiLiveVoiceSessionPolicyConfig(),
           },
         },
       ]);

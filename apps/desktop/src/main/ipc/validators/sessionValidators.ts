@@ -1,3 +1,7 @@
+import {
+  isCreateEphemeralTokenSessionId,
+  isCreateEphemeralTokenVoiceSessionPolicy,
+} from '@livepair/shared-types';
 import type {
   CreateEphemeralTokenRequest,
   LiveTelemetryEvent,
@@ -77,16 +81,20 @@ function isUsagePayload(
 export function isCreateEphemeralTokenRequest(
   req: unknown,
 ): req is CreateEphemeralTokenRequest {
-  if (!isPlainRecord(req) || !hasOnlyAllowedKeys(req, ['sessionId'])) {
+  if (!isPlainRecord(req) || !hasOnlyAllowedKeys(req, ['sessionId', 'voiceSessionPolicy'])) {
     return false;
   }
 
-  if (!('sessionId' in req)) {
-    return true;
-  }
-
-  const sessionId = req['sessionId'];
-  return typeof sessionId === 'string' || typeof sessionId === 'undefined';
+  return (
+    (!('sessionId' in req)
+      || typeof req['sessionId'] === 'undefined'
+      || isCreateEphemeralTokenSessionId(req['sessionId']))
+    && (
+      !('voiceSessionPolicy' in req)
+      || typeof req['voiceSessionPolicy'] === 'undefined'
+      || isCreateEphemeralTokenVoiceSessionPolicy(req['voiceSessionPolicy'])
+    )
+  );
 }
 
 export function isProjectKnowledgeSearchRequest(

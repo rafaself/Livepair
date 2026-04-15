@@ -175,7 +175,16 @@ describe('backendClient', () => {
   });
 
   it('requests a session token through the configured backend URL', async () => {
-    const req: CreateEphemeralTokenRequest = { sessionId: 'session-1' };
+    const req: CreateEphemeralTokenRequest = {
+      sessionId: 'session-1',
+      voiceSessionPolicy: {
+        voice: 'Kore',
+        systemInstruction: 'Stay concise.',
+        groundingEnabled: false,
+        mediaResolution: 'MEDIA_RESOLUTION_HIGH',
+        contextCompressionEnabled: false,
+      },
+    };
     const response: CreateEphemeralTokenResponse = {
       token: 'ephemeral-token',
       expireTime: '2099-03-09T12:30:00.000Z',

@@ -1,8 +1,10 @@
 import 'reflect-metadata';
 import {
   buildGeminiLiveConnectCapabilityConfig,
+  buildGeminiLiveVoiceSessionPolicyConfig,
   GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
 } from '@livepair/shared-types';
+import { GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK } from './gemini-auth-token.client';
 // Prevent the root env loader from re-reading .env on each jest.resetModules()
 // re-import of env.ts, which would restore deleted process.env vars from disk.
 jest.mock('../config/loadRootEnv', () => ({}));
@@ -65,9 +67,13 @@ describe('SessionService', () => {
       apiKey: 'gemini-key',
       newSessionExpireTime: '2026-03-09T12:01:00.000Z',
       expireTime: '2026-03-09T12:30:00.000Z',
+      fieldMask: GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK,
       liveConnectConstraints: {
         model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
-        config: buildGeminiLiveConnectCapabilityConfig(),
+        config: {
+          ...buildGeminiLiveConnectCapabilityConfig(),
+          ...buildGeminiLiveVoiceSessionPolicyConfig(),
+        },
       },
     });
   });
@@ -91,6 +97,38 @@ describe('SessionService', () => {
     );
   });
 
+  it('passes through a custom voice session policy into the constrained token setup', async () => {
+    const { service, createToken } = await createSessionService();
+
+    await service.createEphemeralToken({
+      voiceSessionPolicy: {
+        voice: 'Aoede',
+        systemInstruction: 'Answer in short bullets.',
+        groundingEnabled: false,
+        mediaResolution: 'MEDIA_RESOLUTION_HIGH',
+        contextCompressionEnabled: false,
+      },
+    });
+
+    expect(createToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        liveConnectConstraints: {
+          model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
+          config: {
+            ...buildGeminiLiveConnectCapabilityConfig(),
+            ...buildGeminiLiveVoiceSessionPolicyConfig({
+              voice: 'Aoede',
+              systemInstruction: 'Answer in short bullets.',
+              groundingEnabled: false,
+              mediaResolution: 'MEDIA_RESOLUTION_HIGH',
+              contextCompressionEnabled: false,
+            }),
+          },
+        },
+      }),
+    );
+  });
+
   it('logs the issued constrained capability profile in a compact structured diagnostic', async () => {
     const { service } = await createSessionService();
 
@@ -102,6 +140,7 @@ describe('SessionService', () => {
         constraintModel: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         capabilities: GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
         sessionIdProvided: false,
+        voiceSessionPolicyProvided: false,
       }),
     );
   });

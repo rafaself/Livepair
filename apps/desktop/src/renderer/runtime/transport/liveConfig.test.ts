@@ -11,6 +11,8 @@ import {
   LIVE_ADAPTER_KEY,
   LIVE_PROVIDER,
   buildGeminiLiveConnectConfig,
+  buildGeminiLiveVoiceSessionTokenPolicy,
+  buildGeminiLiveVoiceSessionTokenRequest,
   composeLiveSystemInstruction,
   createVoiceModeTools,
   getEffectiveVoiceSessionCapabilities,
@@ -231,6 +233,108 @@ describe('liveConfig', () => {
         },
         {
           googleSearch: {},
+        },
+      ],
+    });
+  });
+
+  it('keeps grounded token policy and voice connect config aligned', () => {
+    const config = parseLiveConfig(
+      createRawLiveConfig({
+        mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+        contextCompressionEnabled: true,
+        sessionResumptionEnabled: true,
+      }),
+    );
+
+    const options = {
+      sessionId: 'session-1',
+      voice: 'Kore' as const,
+      systemInstruction: 'Stay concise.',
+      groundingEnabled: true,
+      mediaResolutionOverride: 'MEDIA_RESOLUTION_HIGH' as const,
+    };
+    const tokenRequest = buildGeminiLiveVoiceSessionTokenRequest(config, options);
+    const tokenPolicy = buildGeminiLiveVoiceSessionTokenPolicy(config, options);
+
+    expect(tokenRequest).toEqual({
+      sessionId: 'session-1',
+      voiceSessionPolicy: tokenPolicy,
+    });
+    expect(buildGeminiLiveConnectConfig(config, 'voice', options)).toEqual({
+      ...buildGeminiLiveConnectCapabilityConfig(),
+      mediaResolution: 'MEDIA_RESOLUTION_HIGH',
+      sessionResumption: {},
+      contextWindowCompression: {
+        slidingWindow: {},
+      },
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: 'Kore',
+          },
+        },
+      },
+      systemInstruction: composeLiveSystemInstruction('Stay concise.'),
+      tools: [
+        {
+          functionDeclarations: expect.arrayContaining([
+            expect.objectContaining({ name: 'search_project_knowledge' }),
+          ]),
+        },
+        {
+          googleSearch: {},
+        },
+      ],
+    });
+  });
+
+  it('keeps ungrounded token policy and voice connect config aligned without compression', () => {
+    const config = parseLiveConfig(
+      createRawLiveConfig({
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+        contextCompressionEnabled: false,
+        sessionResumptionEnabled: true,
+      }),
+    );
+
+    const options = {
+      voice: 'Aoede' as const,
+      systemInstruction: 'Focus on what is visible.',
+      groundingEnabled: false,
+    };
+    const tokenRequest = buildGeminiLiveVoiceSessionTokenRequest(config, options);
+    const tokenPolicy = buildGeminiLiveVoiceSessionTokenPolicy(config, options);
+
+    expect(tokenRequest).toEqual({
+      voiceSessionPolicy: tokenPolicy,
+    });
+    expect(tokenRequest.voiceSessionPolicy).toMatchObject({
+      voice: 'Aoede',
+      groundingEnabled: false,
+      mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      contextCompressionEnabled: false,
+    });
+    expect(buildGeminiLiveConnectConfig(config, 'voice', options)).toEqual({
+      ...buildGeminiLiveConnectCapabilityConfig(),
+      mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      sessionResumption: {},
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: 'Aoede',
+          },
+        },
+      },
+      systemInstruction: composeLiveSystemInstruction('Focus on what is visible.', {
+        groundingEnabled: false,
+      }),
+      tools: [
+        {
+          functionDeclarations: [
+            expect.objectContaining({ name: 'get_current_mode' }),
+            expect.objectContaining({ name: 'get_voice_session_status' }),
+          ],
         },
       ],
     });

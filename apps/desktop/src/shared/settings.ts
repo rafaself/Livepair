@@ -1,7 +1,18 @@
 import {
-  ASSISTANT_VOICES,
+  DEFAULT_ASSISTANT_VOICE,
+  DEFAULT_SYSTEM_INSTRUCTION,
+  isAssistantVoice,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
+  resolveAssistantVoicePreference,
+  resolveSystemInstructionPreference,
   type AssistantVoice,
 } from '@livepair/shared-types';
+
+export {
+  DEFAULT_SYSTEM_INSTRUCTION,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
+  resolveSystemInstructionPreference,
+};
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type SpeechSilenceTimeout = 'never' | '30s' | '3m';
@@ -9,10 +20,6 @@ export type ScreenContextMode = 'unconfigured' | 'manual' | 'continuous';
 export type ContinuousScreenQuality = 'low' | 'medium' | 'high';
 export type ChatTimestampVisibility = 'hidden' | 'visible';
 export type DesktopVoice = AssistantVoice;
-
-export const DEFAULT_SYSTEM_INSTRUCTION =
-  'You are Livepair, a realtime multimodal desktop assistant.';
-export const MAX_SYSTEM_INSTRUCTION_LENGTH = 1200;
 
 export type DesktopSettings = {
   themePreference: ThemePreference;
@@ -46,7 +53,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   continuousScreenQuality: 'medium',
   chatTimestampVisibility: 'hidden',
   groundingEnabled: true,
-  voice: 'Puck',
+  voice: DEFAULT_ASSISTANT_VOICE,
   systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
 };
 
@@ -74,28 +81,8 @@ function normalizeChatTimestampVisibility(value: unknown): ChatTimestampVisibili
   return value === 'hidden' || value === 'visible' ? value : null;
 }
 
-function isAssistantVoice(value: unknown): value is AssistantVoice {
-  return typeof value === 'string' && ASSISTANT_VOICES.some((voice) => voice === value);
-}
-
-function normalizeDesktopVoice(value: unknown): DesktopVoice | null {
-  return isAssistantVoice(value) ? value : null;
-}
-
-function normalizeSystemInstructionText(value: string): string {
-  const normalized = value.trim().slice(0, MAX_SYSTEM_INSTRUCTION_LENGTH);
-
-  return normalized.length > 0 ? normalized : DEFAULT_SYSTEM_INSTRUCTION;
-}
-
 export function resolveDesktopVoicePreference(value: unknown): DesktopVoice {
-  return normalizeDesktopVoice(value) ?? DEFAULT_DESKTOP_SETTINGS.voice;
-}
-
-export function resolveSystemInstructionPreference(value: unknown): string {
-  return typeof value === 'string'
-    ? normalizeSystemInstructionText(value)
-    : DEFAULT_SYSTEM_INSTRUCTION;
+  return resolveAssistantVoicePreference(value);
 }
 
 export function resolveActiveScreenContextQuality(
@@ -276,11 +263,10 @@ export function normalizeDesktopSettingsPatch(
   }
 
   if ('voice' in patch) {
-    const voice = normalizeDesktopVoice(patch.voice);
-    if (voice === null) {
+    if (patch.voice !== undefined && !isAssistantVoice(patch.voice)) {
       return null;
     }
-    normalizedPatch.voice = voice;
+    normalizedPatch.voice = resolveDesktopVoicePreference(patch.voice);
   }
 
   if ('systemInstruction' in patch) {

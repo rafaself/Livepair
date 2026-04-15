@@ -94,7 +94,16 @@ describe('ipc validators', () => {
   });
 
   it('validates token request payloads', () => {
-    const valid: CreateEphemeralTokenRequest = { sessionId: 'session-1' };
+    const valid: CreateEphemeralTokenRequest = {
+      sessionId: 'session-1',
+      voiceSessionPolicy: {
+        voice: 'Kore',
+        systemInstruction: 'Stay concise.',
+        groundingEnabled: false,
+        mediaResolution: 'MEDIA_RESOLUTION_HIGH',
+        contextCompressionEnabled: false,
+      },
+    };
     const validProjectKnowledgeRequest: ProjectKnowledgeSearchRequest = {
       query: 'How does desktop verification work?',
     };
@@ -105,6 +114,55 @@ describe('ipc validators', () => {
     expect(isCreateEphemeralTokenRequest(valid)).toBe(true);
     expect(isCreateEphemeralTokenRequest({})).toBe(true);
     expect(isCreateEphemeralTokenRequest({ sessionId: undefined })).toBe(true);
+    expect(isCreateEphemeralTokenRequest({ sessionId: 'bad value' })).toBe(false);
+    expect(
+      isCreateEphemeralTokenRequest({
+        voiceSessionPolicy: {
+          voice: 'BadVoice',
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isCreateEphemeralTokenRequest({
+        voiceSessionPolicy: {
+          mediaResolution: 'MEDIA_RESOLUTION_ULTRA',
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isCreateEphemeralTokenRequest({
+        voiceSessionPolicy: {
+          groundingEnabled: 'yes',
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isCreateEphemeralTokenRequest({
+        voiceSessionPolicy: {
+          contextCompressionEnabled: 'yes',
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isCreateEphemeralTokenRequest({
+        voiceSessionPolicy: {
+          systemInstruction: 12,
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isCreateEphemeralTokenRequest({
+        voiceSessionPolicy: [],
+      }),
+    ).toBe(false);
+    expect(
+      isCreateEphemeralTokenRequest({
+        voiceSessionPolicy: {
+          voice: 'Kore',
+          extra: true,
+        },
+      }),
+    ).toBe(false);
     expect(isCreateEphemeralTokenRequest({ sessionId: 12 })).toBe(false);
     expect(isCreateEphemeralTokenRequest(new Date())).toBe(false);
     expect(isCreateEphemeralTokenRequest(new Map())).toBe(false);

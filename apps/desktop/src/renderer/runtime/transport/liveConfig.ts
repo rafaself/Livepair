@@ -1,32 +1,35 @@
 import {
   buildGeminiLiveConnectCapabilityConfig,
   buildGeminiLiveVoiceModeConfig,
+  buildGeminiLiveVoiceSessionPolicyConfig,
+  createGeminiLiveVoiceTools,
+  type CreateEphemeralTokenRequest,
+  type CreateEphemeralTokenVoiceSessionPolicy,
+  type GeminiLiveToolConfig,
   type GeminiLiveEffectiveVoiceSessionCapabilities,
+  isLiveMediaResolution,
+  LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION as SHARED_LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION,
+  LIVE_GROUNDING_POLICY_INSTRUCTION as SHARED_LIVE_GROUNDING_POLICY_INSTRUCTION,
+  type LiveMediaResolution,
+  resolveAssistantVoicePreference,
+  resolveSystemInstructionPreference,
   GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
 } from '@livepair/shared-types';
 import type { LiveConnectMode } from '../core/session.types';
-import { getVoiceToolDeclarations } from '../voice/tools/voiceTools';
 import {
-  resolveDesktopVoicePreference,
-  resolveSystemInstructionPreference,
   type DesktopVoice,
 } from '../../../shared';
 
 export const LIVE_PROVIDER = 'gemini' as const;
 export const LIVE_ADAPTER_KEY = 'gemini-live' as const;
-// Always-active baseline: model must not state unverifiable facts confidently.
 export const LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION =
-  'If you cannot verify a factual claim from provided context or tool output, say the answer is not verified.';
-// Appended only when grounding is enabled: routes project and web queries to the right sources.
+  SHARED_LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION;
 export const LIVE_GROUNDING_POLICY_INSTRUCTION =
-  'Use provided context, built-in Google Search grounding, and explicit tool output as the source of truth for factual claims. For project-specific factual questions about this codebase, architecture, implementation details, or internal docs, call search_project_knowledge. For public or current facts that may have changed, rely on Google Search grounding instead of model memory. For runtime state, user/device/session facts, and actions, use explicit local state or tools rather than web grounding. Do not use search_project_knowledge for public web facts, direct runtime state, brainstorming, or stylistic editing. If grounding or tool evidence is weak or ambiguous, say the answer is not verified. Keep non-factual replies natural and avoid reading out source lists unless the user asks.';
+  SHARED_LIVE_GROUNDING_POLICY_INSTRUCTION;
 
 export type LiveApiVersion = 'v1alpha' | 'v1beta';
 export type LiveResponseModality = 'TEXT' | 'AUDIO';
-export type LiveMediaResolution =
-  | 'MEDIA_RESOLUTION_LOW'
-  | 'MEDIA_RESOLUTION_MEDIUM'
-  | 'MEDIA_RESOLUTION_HIGH';
+export type { LiveMediaResolution } from '@livepair/shared-types';
 
 type RawLiveSessionModeConfig = {
   responseModality: string;
@@ -97,16 +100,7 @@ export type GeminiLiveConnectConfig = {
         slidingWindow: Record<string, never>;
       }
     | undefined;
-  tools?:
-    | Array<
-        | {
-            functionDeclarations: ReturnType<typeof getVoiceToolDeclarations>;
-          }
-        | {
-            googleSearch: Record<string, never>;
-          }
-      >
-    | undefined;
+  tools?: readonly GeminiLiveToolConfig[] | undefined;
 };
 
 // Match the first-use screen-quality selector default so transport bootstrap and UI agree.
@@ -121,12 +115,12 @@ export function composeLiveSystemInstruction(
     groundingEnabled?: boolean;
   } = {},
 ): string {
-  if (options.groundingEnabled === false) {
-    // Grounding routing is disabled, but baseline factual caution remains.
-    return `${systemInstruction}\n\n${LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION}`;
-  }
-
-  return `${systemInstruction}\n\n${LIVE_GROUNDING_POLICY_INSTRUCTION}`;
+  return buildGeminiLiveVoiceSessionPolicyConfig({
+    systemInstruction,
+    ...(options.groundingEnabled === undefined
+      ? {}
+      : { groundingEnabled: options.groundingEnabled }),
+  }).systemInstruction;
 }
 
 export function createVoiceModeTools(
@@ -134,20 +128,7 @@ export function createVoiceModeTools(
     groundingEnabled?: boolean;
   } = {},
 ): NonNullable<GeminiLiveConnectConfig['tools']> {
-  const groundingEnabled = options.groundingEnabled ?? true;
-  const tools: NonNullable<GeminiLiveConnectConfig['tools']> = [
-    {
-      functionDeclarations: getVoiceToolDeclarations({ groundingEnabled }),
-    },
-  ];
-
-  if (groundingEnabled) {
-    tools.push({
-      googleSearch: {},
-    });
-  }
-
-  return tools;
+  return createGeminiLiveVoiceTools(options);
 }
 
 function createConfigError(detail: string): Error {
@@ -209,11 +190,7 @@ function parseResponseModality(value: string, mode: LiveConnectMode): LiveRespon
 }
 
 function parseMediaResolution(value: string): LiveMediaResolution {
-  if (
-    value === 'MEDIA_RESOLUTION_LOW' ||
-    value === 'MEDIA_RESOLUTION_MEDIUM' ||
-    value === 'MEDIA_RESOLUTION_HIGH'
-  ) {
+  if (isLiveMediaResolution(value)) {
     return value;
   }
 
@@ -351,6 +328,7 @@ export function buildGeminiLiveConnectConfig(
     voice?: DesktopVoice | undefined;
     systemInstruction?: string | undefined;
     groundingEnabled?: boolean | undefined;
+    mediaResolutionOverride?: LiveMediaResolution | undefined;
   } = {},
 ): GeminiLiveConnectConfig {
   if (config.apiVersion !== 'v1alpha') {
@@ -360,19 +338,20 @@ export function buildGeminiLiveConnectConfig(
   }
 
   const modeConfig = config.sessionModes[mode];
-  const groundingOptions =
-    options.groundingEnabled === undefined
-      ? {}
-      : { groundingEnabled: options.groundingEnabled };
   const liveConnectConfig: GeminiLiveConnectConfig =
     mode === 'voice'
-      ? buildGeminiLiveConnectCapabilityConfig(getEffectiveVoiceSessionCapabilities(config))
+      ? {
+          ...buildGeminiLiveConnectCapabilityConfig(getEffectiveVoiceSessionCapabilities(config)),
+          ...buildGeminiLiveVoiceSessionPolicyConfig(
+            buildGeminiLiveVoiceSessionTokenPolicy(config, options),
+          ),
+        }
       : {
           responseModalities: [modeConfig.responseModality],
         };
 
   if (mode === 'voice' || config.mediaResolution !== DEFAULT_MEDIA_RESOLUTION) {
-    liveConnectConfig.mediaResolution = config.mediaResolution;
+    liveConnectConfig.mediaResolution = options.mediaResolutionOverride ?? config.mediaResolution;
   }
 
   if (mode === 'voice' && config.sessionResumptionEnabled) {
@@ -383,31 +362,50 @@ export function buildGeminiLiveConnectConfig(
       : {};
   }
 
-  if (mode === 'voice' && config.contextCompressionEnabled) {
-    liveConnectConfig.contextWindowCompression = {
-      slidingWindow: {},
-    };
-  }
-
   if (mode === 'voice' && !options.resumeHandle) {
-    liveConnectConfig.speechConfig = {
-      voiceConfig: {
-        prebuiltVoiceConfig: {
-          voiceName: resolveDesktopVoicePreference(options.voice),
-        },
-      },
-    };
-    liveConnectConfig.systemInstruction = composeLiveSystemInstruction(
-      resolveSystemInstructionPreference(options.systemInstruction),
-      groundingOptions,
-    );
+    return liveConnectConfig;
   }
 
   if (mode === 'voice') {
-    liveConnectConfig.tools = createVoiceModeTools(groundingOptions);
+    delete liveConnectConfig.speechConfig;
+    delete liveConnectConfig.systemInstruction;
   }
 
   return liveConnectConfig;
+}
+
+export function buildGeminiLiveVoiceSessionTokenPolicy(
+  config: LiveConfig,
+  options: {
+    voice?: DesktopVoice | undefined;
+    systemInstruction?: string | undefined;
+    groundingEnabled?: boolean | undefined;
+    mediaResolutionOverride?: LiveMediaResolution | undefined;
+  } = {},
+): CreateEphemeralTokenVoiceSessionPolicy {
+  return {
+    voice: resolveAssistantVoicePreference(options.voice),
+    systemInstruction: resolveSystemInstructionPreference(options.systemInstruction),
+    groundingEnabled: options.groundingEnabled ?? true,
+    mediaResolution: options.mediaResolutionOverride ?? config.mediaResolution,
+    contextCompressionEnabled: config.contextCompressionEnabled,
+  };
+}
+
+export function buildGeminiLiveVoiceSessionTokenRequest(
+  config: LiveConfig,
+  options: {
+    sessionId?: string | undefined;
+    voice?: DesktopVoice | undefined;
+    systemInstruction?: string | undefined;
+    groundingEnabled?: boolean | undefined;
+    mediaResolutionOverride?: LiveMediaResolution | undefined;
+  } = {},
+): CreateEphemeralTokenRequest {
+  return {
+    ...(typeof options.sessionId === 'string' ? { sessionId: options.sessionId } : {}),
+    voiceSessionPolicy: buildGeminiLiveVoiceSessionTokenPolicy(config, options),
+  };
 }
 
 export function getEffectiveVoiceSessionCapabilities(

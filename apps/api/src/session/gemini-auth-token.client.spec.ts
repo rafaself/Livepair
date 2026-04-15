@@ -1,7 +1,13 @@
 import { BadGatewayException } from '@nestjs/common';
-import { buildGeminiLiveConnectCapabilityConfig } from '@livepair/shared-types';
+import {
+  buildGeminiLiveConnectCapabilityConfig,
+  buildGeminiLiveVoiceSessionPolicyConfig,
+} from '@livepair/shared-types';
 import { ObservabilityService } from '../observability/observability.service';
-import { requestGeminiAuthToken } from './gemini-auth-token.client';
+import {
+  GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK,
+  requestGeminiAuthToken,
+} from './gemini-auth-token.client';
 
 describe('requestGeminiAuthToken', () => {
   let fetchImpl: jest.MockedFunction<typeof fetch>;
@@ -14,12 +20,16 @@ describe('requestGeminiAuthToken', () => {
       fetchImpl,
       newSessionExpireTime: '2026-03-09T12:01:30.000Z',
       expireTime: '2099-03-09T12:30:00.000Z',
+      fieldMask: GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK,
       liveConnectConstraints: {
         model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
-        config: buildGeminiLiveConnectCapabilityConfig(),
+        config: {
+          ...buildGeminiLiveConnectCapabilityConfig(),
+          ...buildGeminiLiveVoiceSessionPolicyConfig(),
+        },
       },
       observabilityService,
-    } as Parameters<typeof requestGeminiAuthToken>[0];
+    };
   }
 
   beforeEach(() => {
@@ -52,21 +62,49 @@ describe('requestGeminiAuthToken', () => {
           'Content-Type': 'application/json',
           'x-goog-api-key': 'gemini-key',
         },
-        body: JSON.stringify({
-          uses: 1,
-          newSessionExpireTime: '2026-03-09T12:01:30.000Z',
-          expireTime: '2099-03-09T12:30:00.000Z',
-          bidiGenerateContentSetup: {
-            model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
-            generationConfig: {
-              responseModalities: buildGeminiLiveConnectCapabilityConfig().responseModalities,
-            },
-            inputAudioTranscription: {},
-            outputAudioTranscription: {},
-            sessionResumption: {},
-          },
-        }),
         signal: expect.any(AbortSignal),
+      }),
+    );
+
+    const requestInit = fetchImpl.mock.calls[0]?.[1];
+    const payload = JSON.parse(String(requestInit?.body)) as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      uses: 1,
+      newSessionExpireTime: '2026-03-09T12:01:30.000Z',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      fieldMask: GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK,
+      bidiGenerateContentSetup: {
+        model: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
+        generationConfig: {
+          responseModalities: buildGeminiLiveConnectCapabilityConfig().responseModalities,
+        },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        sessionResumption: {},
+        mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: 'Puck',
+            },
+          },
+        },
+        contextWindowCompression: {
+          slidingWindow: {},
+        },
+      },
+    });
+    expect(payload['bidiGenerateContentSetup']).toEqual(
+      expect.objectContaining({
+        systemInstruction: expect.any(String),
+        tools: [
+          {
+            functionDeclarations: expect.any(Array),
+          },
+          {
+            googleSearch: {},
+          },
+        ],
       }),
     );
 

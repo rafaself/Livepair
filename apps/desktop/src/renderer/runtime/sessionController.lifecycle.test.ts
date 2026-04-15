@@ -235,7 +235,15 @@ describe('createDesktopSessionController – lifecycle', () => {
         },
       }),
     );
-    expect(requestSessionToken).toHaveBeenCalledWith({});
+    expect(requestSessionToken).toHaveBeenCalledWith({
+      voiceSessionPolicy: {
+        voice: 'Puck',
+        systemInstruction: 'You are Livepair, a realtime multimodal desktop assistant.',
+        groundingEnabled: true,
+        mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+        contextCompressionEnabled: true,
+      },
+    });
     expect(voiceTransport.connect).toHaveBeenCalledWith({
       token: {
         token: 'auth_tokens/test-token',

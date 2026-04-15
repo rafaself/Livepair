@@ -29,6 +29,15 @@ describe('renderer backend api helper', () => {
   });
 
   it('delegates token request to bridge and returns response', async () => {
+    const tokenRequest = {
+      voiceSessionPolicy: {
+        voice: 'Aoede' as const,
+        systemInstruction: 'Stay concise.',
+        groundingEnabled: false,
+        mediaResolution: 'MEDIA_RESOLUTION_HIGH' as const,
+        contextCompressionEnabled: false,
+      },
+    };
     const tokenResponse = {
       token: 't',
       expireTime: '2099-03-09T12:30:00.000Z',
@@ -38,8 +47,8 @@ describe('renderer backend api helper', () => {
     bridge.requestSessionToken.mockResolvedValue(tokenResponse);
     window.bridge = bridge;
 
-    await expect(requestSessionToken({})).resolves.toEqual(tokenResponse);
-    expect(bridge.requestSessionToken).toHaveBeenCalledWith({});
+    await expect(requestSessionToken(tokenRequest)).resolves.toEqual(tokenResponse);
+    expect(bridge.requestSessionToken).toHaveBeenCalledWith(tokenRequest);
   });
 
   it('propagates token request failures', async () => {

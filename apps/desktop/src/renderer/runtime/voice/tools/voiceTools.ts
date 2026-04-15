@@ -2,6 +2,12 @@ import type {
   AnswerMetadata,
   ProjectKnowledgeSearchRequest,
   ProjectKnowledgeSearchResult,
+  VoiceToolDeclaration,
+  VoiceToolName,
+} from '@livepair/shared-types';
+import {
+  getVoiceToolDeclarations,
+  VOICE_TOOL_DECLARATIONS,
 } from '@livepair/shared-types';
 import { asErrorDetail } from '../../core/runtimeUtils';
 import type { ProductMode } from '../../core/session.types';
@@ -15,11 +21,6 @@ import type {
   VoiceToolResponse,
 } from '../voice.types';
 
-export type VoiceToolName =
-  | 'get_current_mode'
-  | 'get_voice_session_status'
-  | 'search_project_knowledge';
-
 export type VoiceToolExecutionSnapshot = {
   currentMode: ProductMode;
   textSessionStatus: TextSessionStatus;
@@ -29,68 +30,12 @@ export type VoiceToolExecutionSnapshot = {
   voicePlaybackState: VoicePlaybackState;
 };
 
-type VoiceToolDeclaration = {
-  name: VoiceToolName;
-  description: string;
-  parameters: {
-    type: 'object';
-    properties: Record<string, unknown>;
-    required?: string[];
-    additionalProperties: false;
-  };
+export {
+  getVoiceToolDeclarations,
+  VOICE_TOOL_DECLARATIONS,
+  type VoiceToolDeclaration,
+  type VoiceToolName,
 };
-
-const BASE_VOICE_TOOL_DECLARATIONS: readonly VoiceToolDeclaration[] = [
-  {
-    name: 'get_current_mode',
-    description: 'Get the current assistant session mode.',
-    parameters: {
-      type: 'object',
-      properties: {},
-      additionalProperties: false,
-    },
-  },
-  {
-    name: 'get_voice_session_status',
-    description: 'Get the current voice session runtime status.',
-    parameters: {
-      type: 'object',
-      properties: {},
-      additionalProperties: false,
-    },
-  },
-];
-
-const PROJECT_GROUNDING_TOOL_DECLARATIONS: readonly VoiceToolDeclaration[] = [
-  {
-    name: 'search_project_knowledge',
-    description: 'Search curated project documents for project-specific facts, architecture, implementation details, and internal docs. Use this for repository-specific factual questions. Do not use it for current public web facts, runtime app state when a direct tool already exists, or brainstorming and stylistic opinions.',
-    parameters: {
-      type: 'object',
-      properties: {
-        query: {
-          type: 'string',
-        },
-      },
-      required: ['query'],
-      additionalProperties: false,
-    },
-  },
-] as const;
-
-export function getVoiceToolDeclarations(
-  options: {
-    groundingEnabled?: boolean;
-  } = {},
-): readonly VoiceToolDeclaration[] {
-  if (options.groundingEnabled === false) {
-    return BASE_VOICE_TOOL_DECLARATIONS;
-  }
-
-  return [...BASE_VOICE_TOOL_DECLARATIONS, ...PROJECT_GROUNDING_TOOL_DECLARATIONS];
-}
-
-export const VOICE_TOOL_DECLARATIONS = getVoiceToolDeclarations();
 
 function createToolErrorResponse(
   call: Pick<VoiceToolCall, 'id' | 'name'>,

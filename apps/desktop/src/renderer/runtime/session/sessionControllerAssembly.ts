@@ -12,6 +12,11 @@ import { createVoiceInterruptionController } from '../voice/session/voiceInterru
 import { createVoiceTokenManager } from '../voice/session/voiceTokenManager';
 import { createSpeechSilenceController } from '../speech/speechSilenceController';
 import { createVoiceChunkPipeline } from '../voice/media/voiceChunkPipeline';
+import {
+  buildGeminiLiveVoiceSessionTokenRequest,
+  getLiveConfig,
+} from '../transport/liveConfig';
+import { continuousScreenQualityToMediaResolution } from '../transport/continuousScreenQuality';
 import { createSessionControllerStateSync } from './sessionStateSync';
 import { createSessionControllerMutableRuntime } from './sessionMutableRuntime';
 import { createSessionControllerRuntime } from './sessionRuntime';
@@ -23,6 +28,7 @@ import type {
   DesktopSessionController,
   DesktopSessionControllerDependencies,
 } from '../core/sessionControllerTypes';
+import { resolveActiveScreenContextQuality } from '../../../shared';
 
 export function createSessionControllerAssembly(
   dependencies: DesktopSessionControllerDependencies,
@@ -102,6 +108,19 @@ export function createSessionControllerAssembly(
   let settleVoiceErrorState = async (_detail: string): Promise<void> => {
     throw new Error('settleVoiceErrorState called before initialization');
   };
+  const buildCurrentVoiceSessionTokenRequest = () => {
+    const liveConfig = getLiveConfig();
+    const settings = dependencies.settingsStore.getState().settings;
+
+    return buildGeminiLiveVoiceSessionTokenRequest(liveConfig, {
+      voice: settings.voice,
+      systemInstruction: settings.systemInstruction,
+      groundingEnabled: settings.groundingEnabled,
+      mediaResolutionOverride: continuousScreenQualityToMediaResolution(
+        resolveActiveScreenContextQuality(settings),
+      ),
+    });
+  };
   const voiceToolCtrl = createVoiceToolController(
     dependencies.store,
     () => mutableRuntime.getActiveTransport(),
@@ -133,11 +152,13 @@ export function createSessionControllerAssembly(
   const tokenMgr = createVoiceTokenManager(
     dependencies.store,
     dependencies.requestSessionToken,
+    buildCurrentVoiceSessionTokenRequest,
     (id) => runtimeRef.current!.isCurrentSessionOperation(id),
     (patch) => runtimeRef.current!.setVoiceSessionDurability(patch),
     (event) => runtimeRef.current!.recordSessionEvent(event),
     (detail) => setVoiceErrorState(detail),
     dependencies.transportAdapter.key,
+    getLiveConfig().contextCompressionEnabled,
   );
   const silenceCtrl = createSpeechSilenceController(
     dependencies.settingsStore,
