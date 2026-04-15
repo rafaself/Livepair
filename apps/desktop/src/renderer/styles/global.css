@@ -15,6 +15,21 @@
   --scrollbar-thumb-active: rgba(82, 97, 115, 0.4);
 }
 
+:root[data-theme-transition='active'],
+:root[data-theme-transition='active'] *,
+:root[data-theme-transition='active'] *::before,
+:root[data-theme-transition='active'] *::after {
+  transition:
+    background-color var(--motion-slow) var(--ease-out),
+    border-color var(--motion-slow) var(--ease-out),
+    box-shadow var(--motion-slow) var(--ease-out),
+    color var(--motion-slow) var(--ease-out),
+    fill var(--motion-slow) var(--ease-out),
+    outline-color var(--motion-slow) var(--ease-out),
+    stroke var(--motion-slow) var(--ease-out),
+    text-decoration-color var(--motion-slow) var(--ease-out);
+}
+
 *,
 *::before,
 *::after {
