@@ -88,19 +88,27 @@ describe('uiStore', () => {
     expect(useUiStore.getState().isComposerMicrophoneEnabled).toBe(true);
   });
 
-  it('toggles the panel and resets the current view when closing', () => {
+  it('preserves the current view when closing and reopening the panel', () => {
     useUiStore.getState().togglePanel();
     expect(useUiStore.getState().isPanelOpen).toBe(false);
 
     useUiStore.getState().togglePanel();
-    useUiStore.getState().setPanelView('settings');
-    expect(useUiStore.getState().panelView).toBe('settings');
+    useUiStore.getState().setPanelView('preferences');
+    expect(useUiStore.getState().panelView).toBe('preferences');
 
     useUiStore.getState().closePanel();
     expect(useUiStore.getState()).toEqual(
       expect.objectContaining({
         isPanelOpen: false,
-        panelView: 'chat',
+        panelView: 'preferences',
+      }),
+    );
+
+    useUiStore.getState().togglePanel();
+    expect(useUiStore.getState()).toEqual(
+      expect.objectContaining({
+        isPanelOpen: true,
+        panelView: 'preferences',
       }),
     );
   });

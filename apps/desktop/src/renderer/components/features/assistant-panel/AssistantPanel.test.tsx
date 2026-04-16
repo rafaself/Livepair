@@ -133,6 +133,39 @@ describe('AssistantPanel', () => {
     expect(enumerateDevices).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the preferences view selected after hiding and reopening the panel overlay', async () => {
+    await renderAssistantPanel();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle panel' }));
+    });
+
+    const togglePanelButton = screen.getByRole('button', { name: 'toggle panel' });
+    const panel = screen.getByRole('complementary', { name: 'Assistant Panel' });
+    const panelScope = within(panel);
+
+    await act(async () => {
+      fireEvent.click(panelScope.getByRole('button', { name: 'Preferences' }));
+    });
+
+    expect(await panelScope.findByRole('heading', { name: 'Preferences' })).toBeVisible();
+    expect(useUiStore.getState().panelView).toBe('preferences');
+
+    await act(async () => {
+      fireEvent.click(togglePanelButton);
+    });
+
+    expect(panel).toHaveAttribute('aria-hidden', 'true');
+    expect(useUiStore.getState().panelView).toBe('preferences');
+
+    await act(async () => {
+      fireEvent.click(togglePanelButton);
+    });
+
+    expect(panel).toHaveAttribute('aria-hidden', 'false');
+    expect(await panelScope.findByRole('heading', { name: 'Preferences' })).toBeVisible();
+    expect(useUiStore.getState().panelView).toBe('preferences');
+  });
+
   it('shows developer tools only when debug mode is enabled', async () => {
     useUiStore.setState({ isDebugMode: true });
     await renderAssistantPanel();

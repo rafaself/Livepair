@@ -180,12 +180,10 @@ export const useUiStore = create<UiStoreState>((set, get) => {
     togglePanel: () =>
       set((state) => ({
         isPanelOpen: !state.isPanelOpen,
-        panelView: state.isPanelOpen ? 'chat' : state.panelView,
       })),
     closePanel: () =>
       set({
         isPanelOpen: false,
-        panelView: 'chat',
       }),
     setPanelView: (panelView) => set({ panelView }),
     toggleDebugMode: () =>
