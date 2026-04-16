@@ -5,6 +5,7 @@ import type {
   ChatRecord,
   CreateChatRequest,
   DurableChatSummaryRecord,
+  UpdateChatMessageRequest,
 } from '@livepair/shared-types';
 
 export type ChatMemoryQueriesBridge = Pick<
@@ -17,6 +18,7 @@ export type ChatMemoryQueriesBridge = Pick<
   | 'getChatSummary'
   | 'listChatMessages'
   | 'listChats'
+  | 'updateChatMessage'
 >;
 
 export type CurrentChatQueryBridge = Pick<
@@ -34,6 +36,13 @@ export function appendPersistedChatMessage(
   bridge: Pick<ChatMemoryQueriesBridge, 'appendChatMessage'> = window.bridge,
 ): Promise<ChatMessageRecord> {
   return bridge.appendChatMessage(request);
+}
+
+export function updatePersistedChatMessage(
+  request: UpdateChatMessageRequest,
+  bridge: Pick<ChatMemoryQueriesBridge, 'updateChatMessage'> = window.bridge,
+): Promise<ChatMessageRecord> {
+  return bridge.updateChatMessage(request);
 }
 
 export function createChatRecord(

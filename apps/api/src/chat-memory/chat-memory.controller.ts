@@ -22,11 +22,13 @@ import type {
   ChatRecord,
   DurableChatSummaryRecord,
   LiveSessionRecord,
+  UpdateChatMessageRequest,
 } from '@livepair/shared-types';
 import { AppendMessageDto } from './dto/append-message.dto';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { CreateLiveSessionDto } from './dto/create-live-session.dto';
 import { EndLiveSessionDto } from './dto/end-live-session.dto';
+import { UpdateMessageDto } from './dto/update-message.dto';
 import { UpdateLiveSessionResumptionDto } from './dto/update-live-session-resumption.dto';
 import { UpdateLiveSessionSnapshotDto } from './dto/update-live-session-snapshot.dto';
 import { ChatMemoryAuthGuard } from './chat-memory-auth.guard';
@@ -119,6 +121,22 @@ export class ChatMemoryController {
       ...(answerMetadata ? { answerMetadata } : {}),
     };
     return this.chatMemoryService.appendMessage(request);
+  }
+
+  @Patch('chats/:chatId/messages/:id')
+  updateMessage(
+    @Param('chatId', new ParseUUIDPipe()) chatId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateMessageDto,
+  ): Promise<ChatMessageRecord> {
+    this.assertMatchingId('chatId', chatId, dto.chatId);
+    this.assertMatchingId('id', id, dto.id);
+    const request: UpdateChatMessageRequest = {
+      id: dto.id,
+      chatId: dto.chatId,
+      contentText: dto.contentText,
+    };
+    return this.chatMemoryService.updateMessage(request);
   }
 
   @Get('chats/:chatId/summary')

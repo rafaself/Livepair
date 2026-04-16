@@ -1,4 +1,4 @@
-type ChatMemoryResource = 'Chat' | 'Live session';
+type ChatMemoryResource = 'Chat' | 'Live session' | 'Message';
 
 export class ChatMemoryNotFoundError extends Error {
   constructor(resource: ChatMemoryResource, id: string) {

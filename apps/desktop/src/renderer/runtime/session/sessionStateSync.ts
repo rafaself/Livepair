@@ -26,6 +26,7 @@ import type {
   VoiceSessionStatus,
   VoicePlaybackDiagnostics,
   VoicePlaybackState,
+  VoiceTranscriptUpdateResult,
   VoiceToolState,
 } from '../voice/voice.types';
 import type {
@@ -55,7 +56,7 @@ type SessionControllerStateSyncArgs = {
     role: 'user' | 'assistant',
     text: string,
     isFinal?: boolean,
-  ) => void;
+  ) => VoiceTranscriptUpdateResult;
   syncVoiceDurabilityState: (
     token: CreateEphemeralTokenResponse | null,
     patch?: Partial<VoiceSessionDurabilityState>,

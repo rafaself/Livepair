@@ -45,6 +45,7 @@ describe('preload bridge', () => {
       'listChatMessages',
       'getChatSummary',
       'appendChatMessage',
+      'updateChatMessage',
       'createLiveSession',
       'listLiveSessions',
       'updateLiveSession',
@@ -74,6 +75,7 @@ describe('preload bridge', () => {
       listChatMessages: expect.any(Function),
       getChatSummary: expect.any(Function),
       appendChatMessage: expect.any(Function),
+      updateChatMessage: expect.any(Function),
       createLiveSession: expect.any(Function),
       listLiveSessions: expect.any(Function),
       updateLiveSession: expect.any(Function),
@@ -238,6 +240,25 @@ describe('preload bridge', () => {
       chatId: 'chat-1',
       role: 'user',
       contentText: 'Hello',
+    });
+
+    mockInvoke.mockResolvedValueOnce({
+      id: 'message-1',
+      chatId: 'chat-1',
+      role: 'user',
+      contentText: 'Hello corrected',
+      createdAt: '2026-03-12T00:00:00.000Z',
+      sequence: 1,
+    });
+    await bridge.updateChatMessage({
+      id: 'message-1',
+      chatId: 'chat-1',
+      contentText: 'Hello corrected',
+    });
+    expect(mockInvoke).toHaveBeenCalledWith('chatMemory:updateMessage', {
+      id: 'message-1',
+      chatId: 'chat-1',
+      contentText: 'Hello corrected',
     });
 
     mockInvoke.mockResolvedValueOnce({

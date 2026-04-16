@@ -119,6 +119,14 @@ beforeEach(async () => {
       createdAt: '2026-03-12T09:00:00.000Z',
       sequence: 1,
     })),
+    updateChatMessage: vi.fn(async (req) => ({
+      id: req.id,
+      chatId: req.chatId,
+      role: 'user',
+      contentText: req.contentText,
+      createdAt: '2026-03-12T09:00:00.000Z',
+      sequence: 1,
+    })),
     createLiveSession: vi.fn(async (req) => ({
       id: 'live-session-1',
       chatId: req.chatId,

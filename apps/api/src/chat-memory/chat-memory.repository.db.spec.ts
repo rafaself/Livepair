@@ -140,6 +140,45 @@ describeWithDatabase('PostgresChatMemoryRepository', () => {
     ]);
   });
 
+  it('updates a persisted message in place while preserving id, sequence, and createdAt', async () => {
+    const chat = await repository.getOrCreateCurrentChat();
+    const storedMessage = await repository.appendMessage({
+      chatId: chat.id,
+      role: 'user',
+      contentText: 'Original transcript',
+    });
+    const originalChat = await repository.getChat(chat.id);
+
+    expect(originalChat).not.toBeNull();
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const updatedMessage = await repository.updateMessage({
+      id: storedMessage.id,
+      chatId: chat.id,
+      contentText: 'Corrected transcript',
+    });
+    const updatedChat = await repository.getChat(chat.id);
+
+    expect(updatedMessage).toEqual({
+      ...storedMessage,
+      contentText: 'Corrected transcript',
+    });
+    await expect(repository.listMessages(chat.id)).resolves.toEqual([
+      {
+        ...storedMessage,
+        contentText: 'Corrected transcript',
+      },
+    ]);
+    expect(updatedChat).toEqual(
+      expect.objectContaining({
+        id: chat.id,
+        updatedAt: expect.any(String),
+      }),
+    );
+    expect(Date.parse(updatedChat!.updatedAt)).toBeGreaterThan(Date.parse(originalChat!.updatedAt));
+  });
+
   it('keeps older answer metadata records without thinking text compatible', async () => {
     const chat = await repository.getOrCreateCurrentChat();
 

@@ -18,6 +18,7 @@ import type {
   VoicePlaybackState,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
+  VoiceTranscriptUpdateResult,
   VoiceToolCall,
   VoiceToolState,
 } from '../voice/voice.types';
@@ -56,7 +57,7 @@ type SessionControllerRuntimeArgs = {
       role: 'user' | 'assistant',
       text: string,
       isFinal?: boolean,
-    ) => void;
+    ) => VoiceTranscriptUpdateResult;
     clearCurrentVoiceTranscript: () => void;
     currentProductMode: () => ProductMode;
     currentSpeechLifecycleStatus: () => SpeechLifecycleStatus;

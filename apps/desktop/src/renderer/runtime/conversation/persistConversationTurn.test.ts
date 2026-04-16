@@ -100,6 +100,27 @@ describe('persistConversationTurn', () => {
     });
   });
 
+  it('updates an existing persisted message in place when the canonical turn text changes', async () => {
+    useSessionStore.getState().appendConversationTurn({
+      id: 'user-turn-1',
+      role: 'user',
+      content: 'Corrected spoken request',
+      timestamp: '9:00 AM',
+      state: 'complete',
+      source: 'voice',
+      persistedMessageId: 'user-message-1',
+    });
+
+    await persistConversationTurn(useSessionStore, 'user-turn-1');
+
+    expect(window.bridge.appendChatMessage).not.toHaveBeenCalled();
+    expect(window.bridge.updateChatMessage).toHaveBeenCalledWith({
+      id: 'user-message-1',
+      chatId: 'chat-1',
+      contentText: 'Corrected spoken request',
+    });
+  });
+
   it('deduplicates concurrent persistence for the same turn', async () => {
     let resolveAppend: ((value: ChatMessageRecord) => void) | undefined;
 

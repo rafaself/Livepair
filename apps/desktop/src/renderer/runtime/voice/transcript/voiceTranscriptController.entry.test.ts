@@ -20,7 +20,11 @@ describe('createVoiceTranscriptController facade', () => {
     const currentAssistantArtifact = vi.fn(() => null);
     const currentUserArtifact = vi.fn(() => null);
     const hasSettledTurnFence = vi.fn(() => false);
-    const applyTranscriptUpdate = vi.fn();
+    const applyTranscriptUpdate = vi.fn(() => ({
+      role: 'assistant' as const,
+      classification: 'assistant-update' as const,
+      didUpdate: true,
+    }));
     const finalizeCurrentVoiceTurns = vi.fn();
     const resetTurnTranscriptState = vi.fn();
 
@@ -84,7 +88,9 @@ describe('createVoiceTranscriptController facade', () => {
       conversationCtx,
       clearTranscript: expect.any(Function),
       ensureAssistantTurn,
+      queueMixedModeAssistantReply,
       hasSettledTurnFence,
+      onConversationTurnUpdated: undefined,
     });
     expect(createVoiceTranscriptLifecycle).toHaveBeenCalledWith({
       store,

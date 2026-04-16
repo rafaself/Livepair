@@ -1,4 +1,7 @@
-import { normalizeTranscriptText } from './voiceTranscript';
+import {
+  classifySettledUserTranscriptUpdate,
+  normalizeTranscriptText,
+} from './voiceTranscript';
 import type { ConversationContext } from '../../conversation/conversationTurnManager';
 import {
   beginVoiceTurnFence,
@@ -6,9 +9,11 @@ import {
   hasOpenVoiceTurnFence,
   upsertCurrentVoiceAssistantTranscriptArtifact,
   upsertCurrentVoiceUserTranscriptArtifact,
+  updateSettledVoiceUserTranscriptArtifact,
 } from '../../conversation/conversationTurnManager';
 import type {
   SessionStoreApi,
+  VoiceTranscriptUpdateResult,
   VoiceTranscriptRole,
 } from './voiceTranscriptController.shared';
 
@@ -17,7 +22,9 @@ type VoiceTranscriptStoreSyncArgs = {
   conversationCtx: ConversationContext;
   clearTranscript: () => void;
   ensureAssistantTurn: () => boolean;
+  queueMixedModeAssistantReply: () => void;
   hasSettledTurnFence: () => boolean;
+  onConversationTurnUpdated?: (turnId: string) => void;
   emitDiagnostic?: (event: {
     scope: 'voice-session';
     name: string;
@@ -28,17 +35,6 @@ type VoiceTranscriptStoreSyncArgs = {
     message: string,
     detail: Record<string, unknown>,
   ) => void;
-};
-
-function shouldReuseCompletedUserTurn(previousText: string, incomingText: string): boolean {
-  const previous = previousText.trim();
-  const incoming = incomingText.trim();
-
-  if (incoming.length === 0) {
-    return true;
-  }
-
-  return previous === incoming;
 }
 
 export function createVoiceTranscriptStoreSync({
@@ -46,7 +42,9 @@ export function createVoiceTranscriptStoreSync({
   conversationCtx,
   clearTranscript,
   ensureAssistantTurn,
+  queueMixedModeAssistantReply,
   hasSettledTurnFence,
+  onConversationTurnUpdated,
   emitDiagnostic,
   logRuntimeDiagnostic,
 }: VoiceTranscriptStoreSyncArgs) {
@@ -77,13 +75,56 @@ export function createVoiceTranscriptStoreSync({
     role: VoiceTranscriptRole,
     text: string,
     isFinal?: boolean,
-  ): void => {
+  ): VoiceTranscriptUpdateResult => {
     const state = store.getState();
     const previousEntry = state.currentVoiceTranscript[role];
 
     if (role === 'user' && hasSettledTurnFence()) {
-      const replayedSettledTranscript = shouldReuseCompletedUserTurn(previousEntry.text, text);
+      const settledUpdateClassification = classifySettledUserTranscriptUpdate(
+        previousEntry.text,
+        text,
+        { isFinal },
+      );
+
+      if (settledUpdateClassification === 'settled-correction') {
+        const nextText = normalizeTranscriptText(previousEntry.text, text, {
+          role,
+          isFinal,
+        });
+        const didUpdate =
+          nextText !== previousEntry.text || isFinal !== previousEntry.isFinal;
+
+        if (!didUpdate) {
+          return {
+            role: 'user',
+            classification: 'settled-correction',
+            didUpdate: false,
+          };
+        }
+
+        state.setCurrentVoiceTranscriptEntry('user', {
+          text: nextText,
+          ...(isFinal !== undefined ? { isFinal } : {}),
+        });
+        const updatedTurnId = updateSettledVoiceUserTranscriptArtifact(
+          conversationCtx,
+          nextText,
+          isFinal,
+        );
+        queueMixedModeAssistantReply();
+        if (updatedTurnId) {
+          onConversationTurnUpdated?.(updatedTurnId);
+        }
+
+        return {
+          role: 'user',
+          classification: 'settled-correction',
+          didUpdate: true,
+        };
+      }
+
       const previousTurnState = conversationCtx.currentVoiceTurnState;
+      const replayedSettledTranscript = settledUpdateClassification === 'settled-replay';
 
       clearTranscript();
       clearCurrentVoiceTurns(conversationCtx);
@@ -105,19 +146,35 @@ export function createVoiceTranscriptStoreSync({
       );
 
       if (replayedSettledTranscript) {
-        return;
+        return {
+          role: 'user',
+          classification: 'settled-replay',
+          didUpdate: false,
+        };
       }
     }
 
     if (role === 'assistant') {
       if (!ensureAssistantTurn()) {
-        return;
+        return {
+          role: 'assistant',
+          classification: 'assistant-update',
+          didUpdate: false,
+        };
       }
 
       if (text.length === 0) {
-        return;
+        return {
+          role: 'assistant',
+          classification: 'assistant-update',
+          didUpdate: false,
+        };
       }
-    } else if (!hasOpenVoiceTurnFence(conversationCtx)) {
+    }
+
+    let userClassification: VoiceTranscriptUpdateResult | null = null;
+
+    if (role === 'user' && !hasOpenVoiceTurnFence(conversationCtx)) {
       beginVoiceTurnFence(conversationCtx);
 
       // Reserve a timeline ordinal for the user turn so that it appears
@@ -126,6 +183,17 @@ export function createVoiceTranscriptStoreSync({
       const maxOrdinal = [...currentState.conversationTurns, ...currentState.transcriptArtifacts]
         .reduce((max, entry) => Math.max(max, entry.timelineOrdinal ?? 0), 0);
       conversationCtx.currentVoiceUserTimelineOrdinal = maxOrdinal + 1;
+      userClassification = {
+        role: 'user',
+        classification: 'new-turn',
+        didUpdate: false,
+      };
+    } else if (role === 'user') {
+      userClassification = {
+        role: 'user',
+        classification: 'same-turn-update',
+        didUpdate: false,
+      };
     }
 
     const refreshedState = store.getState();
@@ -136,7 +204,19 @@ export function createVoiceTranscriptStoreSync({
     });
 
     if (nextText === refreshedPreviousEntry.text && isFinal === refreshedPreviousEntry.isFinal) {
-      return;
+      if (role === 'assistant') {
+        return {
+          role: 'assistant',
+          classification: 'assistant-update',
+          didUpdate: false,
+        };
+      }
+
+      return userClassification ?? {
+        role: 'user',
+        classification: 'same-turn-update',
+        didUpdate: false,
+      };
     }
 
     refreshedState.setCurrentVoiceTranscriptEntry(role, {
@@ -150,7 +230,15 @@ export function createVoiceTranscriptStoreSync({
         nextText,
         isFinal,
       );
-      return;
+
+      return {
+        ...(userClassification ?? {
+          role: 'user',
+          classification: 'same-turn-update',
+          didUpdate: true,
+        }),
+        didUpdate: true,
+      };
     }
 
     upsertCurrentVoiceAssistantTranscriptArtifact(
@@ -158,6 +246,12 @@ export function createVoiceTranscriptStoreSync({
       nextText,
       isFinal,
     );
+
+    return {
+      role: 'assistant',
+      classification: 'assistant-update',
+      didUpdate: true,
+    };
   };
 
   return {

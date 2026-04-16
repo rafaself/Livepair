@@ -17,6 +17,7 @@ import type {
   EndLiveSessionRequest,
   LiveSessionRecord,
   RehydrationPacketContextState,
+  UpdateChatMessageRequest,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
@@ -146,6 +147,7 @@ export type ChatMemoryRepository = {
   ): Promise<ChatMessageRecord[]>;
   getChatSummary(chatId: ChatId): Promise<DurableChatSummaryRecord | null>;
   appendMessage(request: AppendChatMessageRequest): Promise<ChatMessageRecord>;
+  updateMessage(request: UpdateChatMessageRequest): Promise<ChatMessageRecord>;
   createLiveSession(request: CreateLiveSessionRequest): Promise<LiveSessionRecord>;
   listLiveSessions(
     chatId: ChatId,
@@ -641,6 +643,45 @@ export class PostgresChatMemoryRepository implements ChatMemoryRepository {
     );
 
     return toChatMessageRecord(insertResult.rows[0]!);
+  }
+
+  async updateMessage(request: UpdateChatMessageRequest): Promise<ChatMessageRecord> {
+    if (this.client === null) {
+      return this.withTransaction((repository) => repository.updateMessage(request));
+    }
+
+    const chat = await this.getChat(request.chatId);
+
+    if (chat === null) {
+      throw new ChatMemoryNotFoundError('Chat', request.chatId);
+    }
+
+    const normalizedContentText = normalizeContentText(request.contentText);
+    const updatedAt = new Date().toISOString();
+    const updateResult = await this.executeQuery<MessageRow>(
+      `
+        UPDATE messages
+        SET content_text = $3
+        WHERE id = $1 AND chat_id = $2
+        RETURNING id, chat_id, role, content_text, answer_metadata, created_at, sequence
+      `,
+      [request.id, request.chatId, normalizedContentText],
+    );
+
+    if (updateResult.rowCount === 0) {
+      throw new ChatMemoryNotFoundError('Message', request.id);
+    }
+
+    await this.executeQuery(
+      `
+        UPDATE chats
+        SET updated_at = $2
+        WHERE id = $1
+      `,
+      [request.chatId, updatedAt],
+    );
+
+    return toChatMessageRecord(updateResult.rows[0]!);
   }
 
   async createLiveSession(request: CreateLiveSessionRequest): Promise<LiveSessionRecord> {

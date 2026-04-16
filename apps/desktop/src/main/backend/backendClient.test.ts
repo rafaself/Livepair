@@ -435,6 +435,11 @@ describe('backendClient', () => {
         thinkingText: 'Hidden assistant draft',
       },
     };
+    const updateMessageRequest = {
+      id: MESSAGE_ID,
+      chatId: CHAT_ID,
+      contentText: 'Stored corrected',
+    };
     const createLiveSessionRequest: CreateLiveSessionRequest = {
       chatId: CHAT_ID,
       voice: 'Puck',
@@ -523,6 +528,15 @@ describe('backendClient', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        json: vi.fn(async () =>
+          createChatMessageRecord({
+            contentText: 'Stored corrected',
+          }),
+        ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         status: 201,
         json: vi.fn(async () => createLiveSessionRecord()),
       })
@@ -599,6 +613,11 @@ describe('backendClient', () => {
           provenance: 'unverified',
           thinkingText: 'Hidden assistant draft',
         },
+      }),
+    );
+    await expect(client.updateChatMessage(updateMessageRequest)).resolves.toEqual(
+      createChatMessageRecord({
+        contentText: 'Stored corrected',
       }),
     );
     await expect(client.createLiveSession(createLiveSessionRequest)).resolves.toEqual(
@@ -699,6 +718,18 @@ describe('backendClient', () => {
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       8,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages/${MESSAGE_ID}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+        body: JSON.stringify(updateMessageRequest),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      9,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
       {
         method: 'POST',
@@ -710,7 +741,7 @@ describe('backendClient', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      9,
+      10,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
       {
         headers: {
@@ -719,7 +750,7 @@ describe('backendClient', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      10,
+      11,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/resumption`,
       {
         method: 'PATCH',
@@ -731,7 +762,7 @@ describe('backendClient', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      11,
+      12,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/snapshot`,
       {
         method: 'PATCH',
@@ -743,7 +774,7 @@ describe('backendClient', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      12,
+      13,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/end`,
       {
         method: 'POST',

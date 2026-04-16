@@ -6,6 +6,7 @@ import type {
   DurableChatSummaryRecord,
   RehydrationPacket,
   LiveSessionRecord,
+  UpdateChatMessageRequest,
 } from '@livepair/shared-types';
 import { useSessionStore } from '../store/sessionStore';
 import { mapChatMessageRecordsToConversationTurns } from '../runtime/public';
@@ -18,6 +19,7 @@ import {
   getOrCreateCurrentChatRecord,
   getPersistedChatSummary,
   listPersistedChatMessages,
+  updatePersistedChatMessage,
   type ActiveChatQueryBridge,
   type ChatMemoryQueriesBridge,
   type CurrentChatQueryBridge,
@@ -210,6 +212,34 @@ export async function appendMessageToCurrentChat(
     const chat = await ensureActiveChat(bridge);
 
     return appendPersistedChatMessage({
+      ...request,
+      chatId: chat.id,
+      contentText,
+    }, bridge);
+  });
+
+  pendingAppend = task.then(
+    () => undefined,
+    () => undefined,
+  );
+
+  return task;
+}
+
+export async function updateMessageInCurrentChat(
+  request: Omit<UpdateChatMessageRequest, 'chatId'>,
+  bridge: CurrentChatMemoryBridge = window.bridge,
+): Promise<ChatMessageRecord | null> {
+  const contentText = request.contentText.trim();
+
+  if (contentText.length === 0) {
+    return null;
+  }
+
+  const task = pendingAppend.then(async () => {
+    const chat = await ensureActiveChat(bridge);
+
+    return updatePersistedChatMessage({
       ...request,
       chatId: chat.id,
       contentText,

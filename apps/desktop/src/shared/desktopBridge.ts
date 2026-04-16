@@ -15,6 +15,7 @@ import type {
   LiveSessionRecord,
   ProjectKnowledgeSearchRequest,
   ProjectKnowledgeSearchResult,
+  UpdateChatMessageRequest,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import type {
@@ -117,6 +118,7 @@ export interface DesktopBridge {
   ) => Promise<ChatMessageRecord[]>;
   getChatSummary: (chatId: ChatId) => Promise<DurableChatSummaryRecord | null>;
   appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
+  updateChatMessage: (req: UpdateChatMessageRequest) => Promise<ChatMessageRecord>;
   createLiveSession: (req: CreateLiveSessionRequest) => Promise<LiveSessionRecord>;
   listLiveSessions: (
     chatId: ChatId,
@@ -153,6 +155,7 @@ export const IPC_CHANNELS = {
   listChatMessages: 'chatMemory:listMessages',
   getChatSummary: 'chatMemory:getSummary',
   appendChatMessage: 'chatMemory:appendMessage',
+  updateChatMessage: 'chatMemory:updateMessage',
   createLiveSession: 'liveSession:create',
   listLiveSessions: 'liveSession:listByChat',
   updateLiveSession: 'liveSession:update',

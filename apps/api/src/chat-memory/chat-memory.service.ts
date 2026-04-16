@@ -14,6 +14,7 @@ import type {
   DurableChatSummaryRecord,
   EndLiveSessionRequest,
   LiveSessionRecord,
+  UpdateChatMessageRequest,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import {
@@ -66,6 +67,10 @@ export class ChatMemoryService {
 
   appendMessage(request: AppendChatMessageRequest): Promise<ChatMessageRecord> {
     return this.run(() => this.repository.appendMessage(request));
+  }
+
+  updateMessage(request: UpdateChatMessageRequest): Promise<ChatMessageRecord> {
+    return this.run(() => this.repository.updateMessage(request));
   }
 
   createLiveSession(request: CreateLiveSessionRequest): Promise<LiveSessionRecord> {

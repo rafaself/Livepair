@@ -136,8 +136,8 @@ export function classifySettledUserTranscriptUpdate(
     || canAppendTranscriptChunk(previous, incoming)
     || (endsWithWordCharacter(previous) && startsWithApostropheSuffix(incoming))
     || shouldAttachUserWordContinuation(previous, incoming)
-    || previous.includes(normalized)
-    || normalized.includes(previous);
+    || previousTrimmed.includes(incomingTrimmed)
+    || incomingTrimmed.includes(previousTrimmed);
 
   return sameUtterance ? 'settled-correction' : 'new-turn';
 }

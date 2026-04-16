@@ -5,6 +5,7 @@ import { createVoiceTranscriptTurnState } from './voiceTranscriptTurnState';
 import type {
   SessionStoreApi,
   VoiceTranscriptControllerOptions,
+  VoiceTranscriptUpdateResult,
 } from './voiceTranscriptController.shared';
 
 export type VoiceTranscriptController = {
@@ -12,7 +13,7 @@ export type VoiceTranscriptController = {
     role: 'user' | 'assistant',
     text: string,
     isFinal?: boolean,
-  ) => void;
+  ) => VoiceTranscriptUpdateResult;
   ensureAssistantTurn: () => boolean;
   finalizeCurrentVoiceTurns: (finalizeReason: 'completed' | 'interrupted') => void;
   attachCurrentAssistantTurn: (turnId: string | null) => void;
@@ -40,7 +41,9 @@ export function createVoiceTranscriptController(
     conversationCtx,
     clearTranscript,
     ensureAssistantTurn: turnState.ensureAssistantTurn,
+    queueMixedModeAssistantReply: turnState.queueMixedModeAssistantReply,
     hasSettledTurnFence: turnState.hasSettledTurnFence,
+    onConversationTurnUpdated: options.onConversationTurnUpdated,
     ...(options.emitDiagnostic || options.logRuntimeDiagnostic
       ? {
           emitDiagnostic: options.emitDiagnostic,

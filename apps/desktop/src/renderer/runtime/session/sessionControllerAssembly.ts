@@ -205,7 +205,7 @@ export function createSessionControllerAssembly(
       voiceTranscript.resetTurnTranscriptState();
     },
     applyVoiceTranscriptUpdate: (role, text, isFinal) => {
-      voiceTranscript.applyTranscriptUpdate(role, text, isFinal);
+      return voiceTranscript.applyTranscriptUpdate(role, text, isFinal);
     },
     syncVoiceDurabilityState: (token, patch) => {
       tokenMgr.syncDurabilityState(token, patch);

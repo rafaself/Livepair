@@ -302,14 +302,6 @@ export function handleGeminiLiveSdkMessage({
     emit({ type: 'text-delta', text: textChunk });
   }
 
-  if (message.serverContent?.interrupted) {
-    state.hasPendingTextResponse = false;
-    emit({ type: 'interrupted' });
-    return;
-  }
-
-  emitToolCalls(emit, message);
-
   if (parsedMessage.inputTranscript) {
     emit({
       type: 'input-transcript',
@@ -323,6 +315,14 @@ export function handleGeminiLiveSdkMessage({
       ...parsedMessage.outputTranscript,
     });
   }
+
+  if (message.serverContent?.interrupted) {
+    state.hasPendingTextResponse = false;
+    emit({ type: 'interrupted' });
+    return;
+  }
+
+  emitToolCalls(emit, message);
 
   emitAudioEvents(emit, state.activeMode, parsedMessage.modelTurnParts);
 

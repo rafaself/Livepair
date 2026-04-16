@@ -6,6 +6,7 @@ export {
   getPersistedChatSummary,
   listPersistedChatMessages,
   listPersistedChats,
+  updatePersistedChatMessage,
   type ActiveChatQueryBridge,
   type ChatMemoryQueriesBridge,
 } from './queries';
@@ -19,4 +20,5 @@ export {
   listCurrentChatMessages,
   resetCurrentChatMemoryForTests,
   switchToChat,
+  updateMessageInCurrentChat,
 } from './currentChatMemory';

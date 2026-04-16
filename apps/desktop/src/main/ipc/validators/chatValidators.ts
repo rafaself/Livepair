@@ -7,6 +7,7 @@ import {
   type CreateLiveSessionRequest,
   type EndLiveSessionRequest,
   type RehydrationPacketContextState,
+  type UpdateChatMessageRequest,
   type UpdateLiveSessionRequest,
   type UpdateLiveSessionResumptionRequest,
   type UpdateLiveSessionSnapshotRequest,
@@ -194,6 +195,18 @@ export function isAppendChatMessageRequest(value: unknown): value is AppendChatM
     && (value['role'] === 'user' || value['role'] === 'assistant')
     && isNonEmptyString(value['contentText'])
     && (typeof value['answerMetadata'] === 'undefined' || isAnswerMetadata(value['answerMetadata']))
+  );
+}
+
+export function isUpdateChatMessageRequest(value: unknown): value is UpdateChatMessageRequest {
+  if (!isPlainRecord(value) || !hasOnlyAllowedKeys(value, ['id', 'chatId', 'contentText'])) {
+    return false;
+  }
+
+  return (
+    isChatId(value['id'])
+    && isChatId(value['chatId'])
+    && isNonEmptyString(value['contentText'])
   );
 }
 

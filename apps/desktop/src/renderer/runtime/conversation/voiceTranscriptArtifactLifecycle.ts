@@ -205,9 +205,11 @@ export function updateSettledVoiceUserTranscriptArtifact(
       content: content.trim(),
       ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
     });
+
+    return artifact.attachedTurnId;
   }
 
-  return artifact.id;
+  return null;
 }
 
 export function upsertCurrentVoiceAssistantTranscriptArtifact(

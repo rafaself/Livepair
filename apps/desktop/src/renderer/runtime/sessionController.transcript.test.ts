@@ -290,6 +290,134 @@ describe('createDesktopSessionController – transcript', () => {
     ]);
   });
 
+  it('updates the settled user transcript and persisted message in place for same-utterance corrections', async () => {
+    const persistedMessages: Array<{
+      id: string;
+      chatId: string;
+      role: 'user' | 'assistant';
+      contentText: string;
+      createdAt: string;
+      sequence: number;
+    }> = [];
+    window.bridge.listChatMessages = vi.fn().mockImplementation(async () => [...persistedMessages]);
+    window.bridge.appendChatMessage = vi.fn().mockImplementation(
+      async ({
+        chatId,
+        role,
+        contentText,
+      }: {
+        chatId: string;
+        role: 'user' | 'assistant';
+        contentText: string;
+      }) => {
+        const nextRecord = {
+          id: `${role}-message-${persistedMessages.length + 1}`,
+          chatId,
+          role,
+          contentText,
+          createdAt: `2026-03-12T09:0${persistedMessages.length + 1}:00.000Z`,
+          sequence: persistedMessages.length + 1,
+        };
+        persistedMessages.push(nextRecord);
+        return nextRecord;
+      },
+    );
+    window.bridge.updateChatMessage = vi.fn().mockImplementation(
+      async ({
+        id,
+        chatId,
+        contentText,
+      }: {
+        id: string;
+        chatId: string;
+        contentText: string;
+      }) => {
+        const current = persistedMessages.find((message) => message.id === id);
+
+        if (!current) {
+          throw new Error(`Missing persisted message: ${id}`);
+        }
+
+        const updated = {
+          ...current,
+          chatId,
+          contentText,
+        };
+        persistedMessages.splice(persistedMessages.indexOf(current), 1, updated);
+        return updated;
+      },
+    );
+    const { controller, voiceTransport } = buildVoiceController();
+
+    await controller.startSession({ mode: 'speech' });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Hello there again', isFinal: true });
+    voiceTransport.emit({ type: 'turn-complete' });
+
+    await vi.waitFor(() => {
+      expect(window.bridge.appendChatMessage).toHaveBeenCalledWith({
+        chatId: 'chat-1',
+        role: 'user',
+        contentText: 'Hello there again',
+      });
+    });
+
+    voiceTransport.emit({ type: 'input-transcript', text: 'Hello there', isFinal: true });
+
+    await vi.waitFor(() => {
+      expect(window.bridge.updateChatMessage).toHaveBeenCalledWith({
+        id: 'user-message-1',
+        chatId: 'chat-1',
+        contentText: 'Hello there',
+      });
+    });
+
+    expect(window.bridge.appendChatMessage).toHaveBeenCalledTimes(1);
+    expect(persistedMessages).toEqual([
+      expect.objectContaining({
+        id: 'user-message-1',
+        role: 'user',
+        contentText: 'Hello there',
+      }),
+    ]);
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Hello there',
+        source: 'voice',
+        transcriptFinal: true,
+        persistedMessageId: 'user-message-1',
+      }),
+    ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'Hello there',
+        source: 'voice',
+        state: 'complete',
+        transcriptFinal: true,
+        attachedTurnId: 'user-turn-1',
+      }),
+    ]);
+
+    voiceTransport.emit({ type: 'output-transcript', text: 'Reply after correction' });
+
+    expect(visibleTimeline()).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        content: 'Hello there',
+        state: 'complete',
+      }),
+      expect.objectContaining({
+        id: 'assistant-transcript-2',
+        content: 'Reply after correction',
+        state: 'streaming',
+      }),
+    ]);
+  });
+
   it('preserves the full finalized user utterance when Gemini sends successive input transcript windows', async () => {
     const { controller, voiceTransport } = buildVoiceController();
 

@@ -89,7 +89,7 @@ describe('registerChatIpcHandlers', () => {
 
     registerChatIpcHandlers({});
 
-    expect(mockHandle).toHaveBeenCalledTimes(12);
+    expect(mockHandle).toHaveBeenCalledTimes(13);
     expect(mockHandle).toHaveBeenNthCalledWith(1, IPC_CHANNELS.createChat, expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(2, IPC_CHANNELS.getChat, expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
@@ -120,21 +120,26 @@ describe('registerChatIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       9,
-      IPC_CHANNELS.createLiveSession,
+      IPC_CHANNELS.updateChatMessage,
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       10,
-      IPC_CHANNELS.listLiveSessions,
+      IPC_CHANNELS.createLiveSession,
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       11,
-      IPC_CHANNELS.updateLiveSession,
+      IPC_CHANNELS.listLiveSessions,
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       12,
+      IPC_CHANNELS.updateLiveSession,
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      13,
       IPC_CHANNELS.endLiveSession,
       expect.any(Function),
     );
@@ -163,6 +168,9 @@ describe('registerChatIpcHandlers', () => {
     const appendMessageHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.appendChatMessage,
     )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
+    const updateMessageHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.updateChatMessage,
+    )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
     const createLiveSessionHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.createLiveSession,
     )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
@@ -188,6 +196,9 @@ describe('registerChatIpcHandlers', () => {
     await expect(
       appendMessageHandler({}, { chatId: CHAT_ID, role: 'system', contentText: 'bad' }),
     ).rejects.toThrow('Invalid append chat message payload');
+    await expect(
+      updateMessageHandler({}, { id: MESSAGE_ID, chatId: CHAT_ID, contentText: '   ' }),
+    ).rejects.toThrow('Invalid update chat message payload');
     await expect(createLiveSessionHandler({}, { chatId: '' })).rejects.toThrow(
       'Invalid create live session payload',
     );
@@ -317,6 +328,15 @@ describe('registerChatIpcHandlers', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        json: vi.fn(async () =>
+          createChatMessageRecord({
+            contentText: 'Stored corrected',
+          }),
+        ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         status: 201,
         json: vi.fn(async () => createLiveSessionRecord()),
       })
@@ -394,6 +414,9 @@ describe('registerChatIpcHandlers', () => {
     const appendMessageHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.appendChatMessage,
     )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
+    const updateMessageHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === IPC_CHANNELS.updateChatMessage,
+    )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
     const createLiveSessionHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === IPC_CHANNELS.createLiveSession,
     )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
@@ -430,6 +453,17 @@ describe('registerChatIpcHandlers', () => {
       createChatMessageRecord({
         role: 'assistant',
         contentText: 'Stored',
+      }),
+    );
+    await expect(
+      updateMessageHandler({}, {
+        id: MESSAGE_ID,
+        chatId: CHAT_ID,
+        contentText: 'Stored corrected',
+      }),
+    ).resolves.toEqual(
+      createChatMessageRecord({
+        contentText: 'Stored corrected',
       }),
     );
     await expect(createLiveSessionHandler({}, { chatId: CHAT_ID, voice: 'Puck' })).resolves.toEqual(
@@ -574,6 +608,22 @@ describe('registerChatIpcHandlers', () => {
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       9,
+      `http://localhost:3000/chat-memory/chats/${CHAT_ID}/messages/${MESSAGE_ID}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+        body: JSON.stringify({
+          id: MESSAGE_ID,
+          chatId: CHAT_ID,
+          contentText: 'Stored corrected',
+        }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      10,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
       {
         method: 'POST',
@@ -585,7 +635,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      10,
+      11,
       `http://localhost:3000/chat-memory/chats/${CHAT_ID}/live-sessions`,
       {
         headers: {
@@ -594,7 +644,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      11,
+      12,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/resumption`,
       {
         method: 'PATCH',
@@ -614,7 +664,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      12,
+      13,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/snapshot`,
       {
         method: 'PATCH',
@@ -638,7 +688,7 @@ describe('registerChatIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      13,
+      14,
       `http://localhost:3000/chat-memory/live-sessions/${LIVE_SESSION_ID}/end`,
       {
         method: 'POST',

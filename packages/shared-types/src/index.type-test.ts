@@ -42,6 +42,7 @@ import type {
   ProjectKnowledgeSourceReference,
   ProjectKnowledgeSupportingExcerpt,
   RehydrationPacket,
+  UpdateChatMessageRequest,
   UpdateLiveSessionRequest,
 } from './index';
 import {
@@ -627,6 +628,16 @@ type _AppendChatMessageRequestShape = Assert<
         reason?: string;
         thinkingText?: string;
       };
+    }
+  >
+>;
+type _UpdateChatMessageRequestShape = Assert<
+  IsExact<
+    UpdateChatMessageRequest,
+    {
+      id: string;
+      chatId: string;
+      contentText: string;
     }
   >
 >;

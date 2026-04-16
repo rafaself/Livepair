@@ -31,6 +31,7 @@ function buildBaseMockDesktopBridge() {
     listChatMessages: vi.fn(),
     getChatSummary: vi.fn(),
     appendChatMessage: vi.fn(),
+    updateChatMessage: vi.fn(),
     createLiveSession: vi.fn(),
     listLiveSessions: vi.fn(),
     updateLiveSession: vi.fn(),

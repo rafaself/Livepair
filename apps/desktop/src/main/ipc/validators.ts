@@ -4,6 +4,7 @@ export {
   isCreateChatRequest,
   isCreateLiveSessionRequest,
   isEndLiveSessionRequest,
+  isUpdateChatMessageRequest,
   isUpdateLiveSessionRequest,
 } from './validators/chatValidators';
 export { toOverlayRectangles } from './validators/overlayValidators';

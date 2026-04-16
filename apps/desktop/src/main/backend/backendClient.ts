@@ -19,6 +19,7 @@ import type {
   ProjectKnowledgeSourceReference,
   ProjectKnowledgeSupportingExcerpt,
   RehydrationPacketContextState,
+  UpdateChatMessageRequest,
   UpdateLiveSessionRequest,
 } from '@livepair/shared-types';
 import { ASSISTANT_VOICES, SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
@@ -567,6 +568,7 @@ export type BackendClient = {
   ) => Promise<ChatMessageRecord[]>;
   getChatSummary: (chatId: ChatId) => Promise<DurableChatSummaryRecord | null>;
   appendChatMessage: (req: AppendChatMessageRequest) => Promise<ChatMessageRecord>;
+  updateChatMessage: (req: UpdateChatMessageRequest) => Promise<ChatMessageRecord>;
   createLiveSession: (req: CreateLiveSessionRequest) => Promise<LiveSessionRecord>;
   listLiveSessions: (
     chatId: ChatId,
@@ -850,6 +852,22 @@ export function createBackendClient({
         path: `/chat-memory/chats/${req.chatId}/messages`,
         protectedRoute: true,
         statusLabel: 'Append chat message failed',
+      });
+    },
+
+    async updateChatMessage(
+      req: UpdateChatMessageRequest,
+    ): Promise<ChatMessageRecord> {
+      return requestJson({
+        init: {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req),
+        },
+        parse: (value) => parseChatMessageRecord(value),
+        path: `/chat-memory/chats/${req.chatId}/messages/${req.id}`,
+        protectedRoute: true,
+        statusLabel: 'Update chat message failed',
       });
     },
 

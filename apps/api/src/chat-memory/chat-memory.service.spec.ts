@@ -23,6 +23,40 @@ describe('ChatMemoryService', () => {
     expect(repository.listLiveSessions).toHaveBeenCalledWith('chat-1', { limit: 1 });
   });
 
+  it('forwards message updates to the repository', async () => {
+    const repository = {
+      updateMessage: jest.fn(async () => ({
+        id: 'message-1',
+        chatId: 'chat-1',
+        role: 'user',
+        contentText: 'Corrected transcript',
+        createdAt: '2026-03-12T09:01:00.000Z',
+        sequence: 1,
+      })),
+    };
+
+    const service = new ChatMemoryService(repository as never);
+
+    await expect(service.updateMessage({
+      id: 'message-1',
+      chatId: 'chat-1',
+      contentText: 'Corrected transcript',
+    })).resolves.toEqual({
+      id: 'message-1',
+      chatId: 'chat-1',
+      role: 'user',
+      contentText: 'Corrected transcript',
+      createdAt: '2026-03-12T09:01:00.000Z',
+      sequence: 1,
+    });
+
+    expect(repository.updateMessage).toHaveBeenCalledWith({
+      id: 'message-1',
+      chatId: 'chat-1',
+      contentText: 'Corrected transcript',
+    });
+  });
+
   it('upserts a durable summary when ending a live session advances coverage', async () => {
     const transactionalRepository = {
       endLiveSession: jest.fn(async () => ({

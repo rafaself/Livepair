@@ -86,6 +86,12 @@ export interface AppendChatMessageRequest {
   answerMetadata?: AnswerMetadata;
 }
 
+export interface UpdateChatMessageRequest {
+  id: string;
+  chatId: ChatId;
+  contentText: string;
+}
+
 export interface ChatMemoryListOptions {
   limit?: number;
 }

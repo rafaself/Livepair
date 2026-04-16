@@ -329,13 +329,18 @@ export function handleTransportTurnEvent(
     case 'input-transcript':
       recordTranscriptArrival(context, 'input');
       const now = new Date().toISOString();
-      ops.recordSessionEvent({ type: 'turn.user.speech.detected' });
+      const transcriptUpdate = ops.applyVoiceTranscriptUpdate('user', event.text, event.isFinal);
+      if (
+        transcriptUpdate.classification !== 'settled-replay'
+        && transcriptUpdate.classification !== 'settled-correction'
+      ) {
+        ops.recordSessionEvent({ type: 'turn.user.speech.detected' });
+      }
       ops.recordSessionEvent({
         type: 'transcript.user.updated',
         text: event.text,
         isFinal: event.isFinal === true,
       });
-      ops.applyVoiceTranscriptUpdate('user', event.text, event.isFinal);
       ops.updateVoiceLiveSignalDiagnostics({
         inputTranscriptCount: context.store.voiceLiveSignalDiagnostics.inputTranscriptCount + 1,
         lastInputTranscriptAt: now,

@@ -1,5 +1,8 @@
 import type { useSessionStore } from '../../store/sessionStore';
-import { appendMessageToCurrentChat } from '../../chatMemory/currentChatMemory';
+import {
+  appendMessageToCurrentChat,
+  updateMessageInCurrentChat,
+} from '../../chatMemory/currentChatMemory';
 
 type SessionStoreApi = Pick<typeof useSessionStore, 'getState'>;
 
@@ -15,8 +18,7 @@ export async function persistConversationTurn(
     !turn ||
     turn.content.trim().length === 0 ||
     turn.state === 'streaming' ||
-    turn.state === 'error' ||
-    turn.persistedMessageId
+    turn.state === 'error'
   ) {
     return;
   }
@@ -34,6 +36,14 @@ export async function persistConversationTurn(
   }
 
   const persistTask = (async () => {
+    if (turn.persistedMessageId) {
+      await updateMessageInCurrentChat({
+        id: turn.persistedMessageId,
+        contentText: turn.content,
+      });
+      return;
+    }
+
     const record = await appendMessageToCurrentChat({
       role,
       contentText: turn.content,

@@ -154,7 +154,11 @@ function createMockOps() {
     attachCurrentAssistantTurn: vi.fn(),
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
-    applyVoiceTranscriptUpdate: vi.fn(),
+    applyVoiceTranscriptUpdate: vi.fn(() => ({
+      role: 'user' as const,
+      classification: 'same-turn-update' as const,
+      didUpdate: true,
+    })),
     appendAssistantDraftTextDelta: vi.fn(),
     setAssistantAnswerMetadata: vi.fn(),
     completeAssistantDraft: vi.fn(),

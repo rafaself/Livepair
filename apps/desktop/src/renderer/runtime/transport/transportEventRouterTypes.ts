@@ -14,6 +14,7 @@ import type {
   VoiceSessionDurabilityState,
   VoiceSessionResumptionState,
   VoiceSessionStatus,
+  VoiceTranscriptUpdateResult,
   VoiceToolCall,
 } from '../voice/voice.types';
 import type { LiveRuntimeDiagnosticEvent } from '../session/liveRuntimeObservability';
@@ -60,7 +61,11 @@ export type TransportEventRouterOps = {
   attachCurrentAssistantTurn: (turnId: string | null) => void;
   enqueueVoiceToolCalls: (calls: VoiceToolCall[]) => void;
   handleVoiceInterruption: () => void;
-  applyVoiceTranscriptUpdate: (role: 'user' | 'assistant', text: string, isFinal?: boolean) => void;
+  applyVoiceTranscriptUpdate: (
+    role: 'user' | 'assistant',
+    text: string,
+    isFinal?: boolean,
+  ) => VoiceTranscriptUpdateResult;
   appendAssistantDraftTextDelta: (text: string) => void;
   setAssistantAnswerMetadata: (answerMetadata: AnswerMetadata) => void;
   completeAssistantDraft: () => void;

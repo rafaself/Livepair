@@ -23,6 +23,7 @@ export const bridge: DesktopBridge = {
       : ipcRenderer.invoke(IPC_CHANNELS.listChatMessages, chatId, options),
   getChatSummary: (chatId) => ipcRenderer.invoke(IPC_CHANNELS.getChatSummary, chatId),
   appendChatMessage: (req) => ipcRenderer.invoke(IPC_CHANNELS.appendChatMessage, req),
+  updateChatMessage: (req) => ipcRenderer.invoke(IPC_CHANNELS.updateChatMessage, req),
   createLiveSession: (req) => ipcRenderer.invoke(IPC_CHANNELS.createLiveSession, req),
   listLiveSessions: (chatId, options) =>
     typeof options === 'undefined'

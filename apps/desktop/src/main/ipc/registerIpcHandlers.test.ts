@@ -157,7 +157,7 @@ describe('registerIpcHandlers', () => {
       settingsService: createSettingsServiceDouble(),
     });
 
-    expect(mockHandle).toHaveBeenCalledTimes(26);
+    expect(mockHandle).toHaveBeenCalledTimes(27);
     expect(mockHandle).toHaveBeenNthCalledWith(1, 'app:quit', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(2, 'health:check', expect.any(Function));
     expect(mockHandle).toHaveBeenNthCalledWith(
@@ -217,66 +217,71 @@ describe('registerIpcHandlers', () => {
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       14,
-      'liveSession:create',
+      'chatMemory:updateMessage',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       15,
-      'liveSession:listByChat',
+      'liveSession:create',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       16,
-      'liveSession:update',
+      'liveSession:listByChat',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       17,
-      'liveSession:end',
+      'liveSession:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       18,
-      'settings:get',
+      'liveSession:end',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       19,
-      'settings:update',
+      'settings:get',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       20,
-      'overlay:setHitRegions',
+      'settings:update',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       21,
-      'overlay:setPointerPassthrough',
+      'overlay:setHitRegions',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       22,
-      'screenCapture:getAccessStatus',
+      'overlay:setPointerPassthrough',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       23,
-      'screenCapture:listSources',
+      'screenCapture:getAccessStatus',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       24,
-      'screenCapture:selectSource',
+      'screenCapture:listSources',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       25,
-      'screenFrameDump:startSession',
+      'screenCapture:selectSource',
       expect.any(Function),
     );
     expect(mockHandle).toHaveBeenNthCalledWith(
       26,
+      'screenFrameDump:startSession',
+      expect.any(Function),
+    );
+    expect(mockHandle).toHaveBeenNthCalledWith(
+      27,
       'screenFrameDump:saveFrame',
       expect.any(Function),
     );
@@ -530,6 +535,15 @@ describe('registerIpcHandlers', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        json: vi.fn(async () =>
+          createChatMessageRecord({
+            contentText: 'Stored corrected',
+          }),
+        ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         status: 201,
         json: vi.fn(async () => createLiveSessionRecord()),
       })
@@ -576,6 +590,9 @@ describe('registerIpcHandlers', () => {
     const appendMessageHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'chatMemory:appendMessage',
     )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
+    const updateMessageHandler = mockHandle.mock.calls.find(
+      ([channel]) => channel === 'chatMemory:updateMessage',
+    )?.[1] as (_event: unknown, req: unknown) => Promise<ChatMessageRecord>;
     const createLiveSessionHandler = mockHandle.mock.calls.find(
       ([channel]) => channel === 'liveSession:create',
     )?.[1] as (_event: unknown, req: unknown) => Promise<LiveSessionRecord>;
@@ -598,6 +615,9 @@ describe('registerIpcHandlers', () => {
     await expect(
       appendMessageHandler({}, { chatId: 'chat-1', role: 'system', contentText: 'bad' }),
     ).rejects.toThrow('Invalid append chat message payload');
+    await expect(
+      updateMessageHandler({}, { id: 'message-1', chatId: 'chat-1', contentText: '   ' }),
+    ).rejects.toThrow('Invalid update chat message payload');
     await expect(createLiveSessionHandler({}, { chatId: '', voice: 'Puck' })).rejects.toThrow(
       'Invalid create live session payload',
     );
@@ -626,6 +646,17 @@ describe('registerIpcHandlers', () => {
       createChatMessageRecord({
         role: 'assistant',
         contentText: 'Stored',
+      }),
+    );
+    await expect(
+      updateMessageHandler({}, {
+        id: 'message-1',
+        chatId: 'chat-1',
+        contentText: 'Stored corrected',
+      }),
+    ).resolves.toEqual(
+      createChatMessageRecord({
+        contentText: 'Stored corrected',
       }),
     );
     await expect(createLiveSessionHandler({}, { chatId: 'chat-1', voice: 'Puck' })).resolves.toEqual(
@@ -712,6 +743,22 @@ describe('registerIpcHandlers', () => {
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       7,
+      'http://localhost:3000/chat-memory/chats/chat-1/messages/message-1',
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        },
+        body: JSON.stringify({
+          id: 'message-1',
+          chatId: 'chat-1',
+          contentText: 'Stored corrected',
+        }),
+      },
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      8,
       'http://localhost:3000/chat-memory/chats/chat-1/live-sessions',
       {
         method: 'POST',
@@ -723,7 +770,7 @@ describe('registerIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      8,
+      9,
       'http://localhost:3000/chat-memory/chats/chat-1/live-sessions',
       {
         headers: {
@@ -732,7 +779,7 @@ describe('registerIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      9,
+      10,
       'http://localhost:3000/chat-memory/live-sessions/live-session-1/resumption',
       {
         method: 'PATCH',
@@ -752,7 +799,7 @@ describe('registerIpcHandlers', () => {
       },
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      10,
+      11,
       'http://localhost:3000/chat-memory/live-sessions/live-session-1/end',
       {
         method: 'POST',

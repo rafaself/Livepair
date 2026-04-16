@@ -283,6 +283,126 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
     );
   });
 
+  it('updates persisted messages through the HTTP surface without changing message identity', async () => {
+    const chat = await fetch(`${baseUrl}/chat-memory/chats/current`, {
+      method: 'PUT',
+    }).then((response) => readJson<ChatRecord>(response));
+    const createdMessage = await fetch(`${baseUrl}/chat-memory/chats/${chat.id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chatId: chat.id,
+        role: 'user',
+        contentText: 'Original transcript',
+      }),
+    }).then((response) => readJson<ChatMessageRecord>(response));
+
+    const updateResponse = await fetch(
+      `${baseUrl}/chat-memory/chats/${chat.id}/messages/${createdMessage.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: createdMessage.id,
+          chatId: chat.id,
+          contentText: 'Corrected transcript',
+        }),
+      },
+    );
+
+    expect(updateResponse.status).toBe(200);
+    await expect(readJson<ChatMessageRecord>(updateResponse)).resolves.toEqual({
+      ...createdMessage,
+      contentText: 'Corrected transcript',
+    });
+
+    const messagesResponse = await fetch(`${baseUrl}/chat-memory/chats/${chat.id}/messages`);
+    expect(messagesResponse.status).toBe(200);
+    await expect(readJson<ChatMessageRecord[]>(messagesResponse)).resolves.toEqual([
+      {
+        ...createdMessage,
+        contentText: 'Corrected transcript',
+      },
+    ]);
+  });
+
+  it('rejects invalid and mismatched update-message payloads', async () => {
+    const chat = await fetch(`${baseUrl}/chat-memory/chats/current`, {
+      method: 'PUT',
+    }).then((response) => readJson<ChatRecord>(response));
+    const createdMessage = await fetch(`${baseUrl}/chat-memory/chats/${chat.id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chatId: chat.id,
+        role: 'user',
+        contentText: 'Original transcript',
+      }),
+    }).then((response) => readJson<ChatMessageRecord>(response));
+
+    const invalidPayloadResponse = await fetch(
+      `${baseUrl}/chat-memory/chats/${chat.id}/messages/${createdMessage.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: createdMessage.id,
+          chatId: chat.id,
+          contentText: '   ',
+        }),
+      },
+    );
+    expect(invalidPayloadResponse.status).toBe(400);
+
+    const mismatchedIdResponse = await fetch(
+      `${baseUrl}/chat-memory/chats/${chat.id}/messages/${createdMessage.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: randomUUID(),
+          chatId: chat.id,
+          contentText: 'Corrected transcript',
+        }),
+      },
+    );
+    expect(mismatchedIdResponse.status).toBe(400);
+  });
+
+  it('returns 404 when updating a missing persisted message', async () => {
+    const chat = await fetch(`${baseUrl}/chat-memory/chats/current`, {
+      method: 'PUT',
+    }).then((response) => readJson<ChatRecord>(response));
+    const missingMessageId = randomUUID();
+
+    const updateResponse = await fetch(
+      `${baseUrl}/chat-memory/chats/${chat.id}/messages/${missingMessageId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: missingMessageId,
+          chatId: chat.id,
+          contentText: 'Corrected transcript',
+        }),
+      },
+    );
+
+    expect(updateResponse.status).toBe(404);
+  });
+
   it('supports bounded latest-item reads for messages and live sessions', async () => {
     const chat = await fetch(`${baseUrl}/chat-memory/chats/current`, {
       method: 'PUT',

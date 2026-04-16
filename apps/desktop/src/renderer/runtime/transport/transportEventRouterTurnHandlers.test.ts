@@ -38,7 +38,11 @@ function createMockContext() {
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
     recordSessionEvent: vi.fn(),
-    applyVoiceTranscriptUpdate: vi.fn(),
+    applyVoiceTranscriptUpdate: vi.fn(() => ({
+      role: 'user' as const,
+      classification: 'same-turn-update' as const,
+      didUpdate: true,
+    })),
     appendAssistantDraftTextDelta: vi.fn(),
     completeAssistantDraft: vi.fn(),
     interruptAssistantDraft: vi.fn(),

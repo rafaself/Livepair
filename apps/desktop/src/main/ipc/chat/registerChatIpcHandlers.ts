@@ -10,6 +10,7 @@ import {
   isCreateChatRequest,
   isCreateLiveSessionRequest,
   isEndLiveSessionRequest,
+  isUpdateChatMessageRequest,
   isUpdateLiveSessionRequest,
 } from '../validators/chatValidators';
 
@@ -42,6 +43,7 @@ type ChatBackendClient = Pick<
   | 'listChatMessages'
   | 'listChats'
   | 'listLiveSessions'
+  | 'updateChatMessage'
   | 'updateLiveSession'
 >;
 
@@ -107,6 +109,14 @@ export function registerChatIpcHandlers(
     }
 
     return backendClient.appendChatMessage(req);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.updateChatMessage, async (_event, req: unknown) => {
+    if (!isUpdateChatMessageRequest(req)) {
+      throw new Error('Invalid update chat message payload');
+    }
+
+    return backendClient.updateChatMessage(req);
   });
 
   ipcMain.handle(IPC_CHANNELS.createLiveSession, async (_event, req: unknown) => {

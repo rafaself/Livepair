@@ -20,6 +20,7 @@ export function createSessionConversationSupport(
   };
   const voiceTranscript = createVoiceTranscriptController(store, conversationCtx, {
     onConversationTurnSettled: persistSettledConversationTurn,
+    onConversationTurnUpdated: persistSettledConversationTurn,
     ...(observability?.emitDiagnostic
       ? { emitDiagnostic: observability.emitDiagnostic }
       : {}),
