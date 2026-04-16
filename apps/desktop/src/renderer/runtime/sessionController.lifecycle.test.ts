@@ -3,6 +3,7 @@ import type { RuntimeLogger } from './core/session.types';
 import { MAX_REHYDRATION_RECENT_TURNS } from '../chatMemory/rehydrationPacket';
 import { createDesktopSessionController } from './sessionController';
 import { selectAssistantRuntimeState, selectIsConversationEmpty } from './selectors';
+import { invalidateCurrentLiveSessionResumption } from '../liveSessions/currentLiveSession';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { resetDesktopStoresWithDefaults } from '../test/store';
@@ -387,6 +388,70 @@ describe('createDesktopSessionController – lifecycle', () => {
     },
   );
 
+  it('uses the updated voice on the next fresh speech start after the active session is invalidated', async () => {
+    const firstTransport = createVoiceTransportHarness();
+    const secondTransport = createVoiceTransportHarness();
+    const voiceCapture = createVoiceCaptureHarness();
+    const requestSessionToken = vi.fn().mockResolvedValue({
+      token: 'auth_tokens/test-token',
+      expireTime: '2099-03-09T12:30:00.000Z',
+      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+    });
+    window.bridge.updateSettings = vi.fn(async (patch) => ({
+      ...useSettingsStore.getState().settings,
+      ...patch,
+    }));
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken,
+      createTransport: vi
+        .fn()
+        .mockReturnValueOnce(firstTransport.transport)
+        .mockReturnValueOnce(secondTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    expect(requestSessionToken).toHaveBeenNthCalledWith(1, {
+      voiceSessionPolicy: expect.objectContaining({
+        voice: 'Puck',
+      }),
+    });
+
+    await useSettingsStore.getState().updateSetting('voice', 'Kore');
+    await invalidateCurrentLiveSessionResumption(
+      'Voice setting changed; start a new session to apply it.',
+    );
+
+    expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+      id: 'live-session-1',
+      kind: 'resumption',
+      restorable: false,
+      invalidatedAt: expect.any(String),
+      invalidationReason: 'Voice setting changed; start a new session to apply it.',
+    });
+    expect(useSessionStore.getState().voiceSessionStatus).toBe('active');
+
+    await controller.endSession();
+    await controller.startSession({ mode: 'speech' });
+
+    expect(requestSessionToken).toHaveBeenNthCalledWith(2, {
+      voiceSessionPolicy: expect.objectContaining({
+        voice: 'Kore',
+      }),
+    });
+    expect(window.bridge.createLiveSession).toHaveBeenNthCalledWith(2, {
+      chatId: 'chat-1',
+      startedAt: expect.any(String),
+      voice: 'Kore',
+    });
+  });
+
   it('normalizes malformed persisted Gemini preferences before a new session starts', async () => {
     const sdkHarness = createSdkHarness();
     const voiceCapture = createVoiceCaptureHarness();
@@ -690,6 +755,13 @@ describe('createDesktopSessionController – lifecycle', () => {
     failedResumeTransport.setConnectError(new Error('resume rejected'));
     const freshTransport = createVoiceTransportHarness();
     const voiceCapture = createVoiceCaptureHarness();
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        voice: 'Aoede',
+      },
+      isReady: true,
+    });
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
@@ -737,7 +809,7 @@ describe('createDesktopSessionController – lifecycle', () => {
     expect(window.bridge.createLiveSession).toHaveBeenCalledWith({
       chatId: 'chat-1',
       startedAt: expect.any(String),
-      voice: 'Kore',
+      voice: 'Aoede',
     });
     expect(freshTransport.connect).toHaveBeenCalledWith({
       token: {

@@ -374,7 +374,7 @@ describe('useAssistantPanelSettingsController', () => {
     });
   });
 
-  it('keeps active speech-session resumption intact when only the voice changes', async () => {
+  it('invalidates active speech-session resumption when only the voice changes', async () => {
     await seedActiveSpeechSession();
     render(<HookHarness />);
 
@@ -384,10 +384,19 @@ describe('useAssistantPanelSettingsController', () => {
       expect(window.bridge.updateSettings).toHaveBeenCalledWith({
         voice: 'Kore',
       });
-      expect(window.bridge.updateLiveSession).not.toHaveBeenCalled();
+      expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+        id: 'live-session-current',
+        kind: 'resumption',
+        restorable: false,
+        invalidatedAt: expect.any(String),
+        invalidationReason:
+          'Voice setting changed; start a new session to apply it.',
+      });
       expect(screen.getByLabelText('voice-setting')).toHaveTextContent('Kore');
-      expect(screen.getByLabelText('voice-session-resumable')).toHaveTextContent('true');
-      expect(screen.getByLabelText('voice-session-resumption-detail')).toHaveTextContent('none');
+      expect(screen.getByLabelText('voice-session-resumable')).toHaveTextContent('false');
+      expect(screen.getByLabelText('voice-session-resumption-detail')).toHaveTextContent(
+        'Voice setting changed; start a new session to apply it.',
+      );
     });
   });
 
@@ -449,6 +458,39 @@ describe('useAssistantPanelSettingsController', () => {
       expect(screen.getByLabelText('system-instruction')).toHaveTextContent(
         DEFAULT_DESKTOP_SETTINGS.systemInstruction,
       );
+    });
+  });
+
+  it('invalidates active speech-session resumption when restoring only the default voice', async () => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        voice: 'Aoede',
+      },
+      isReady: true,
+    });
+    await seedActiveSpeechSession();
+    render(<HookHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'restore voice defaults' }));
+
+    await waitFor(() => {
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({
+        voice: DEFAULT_DESKTOP_SETTINGS.voice,
+        systemInstruction: DEFAULT_DESKTOP_SETTINGS.systemInstruction,
+      });
+      expect(window.bridge.updateLiveSession).toHaveBeenCalledWith({
+        id: 'live-session-current',
+        kind: 'resumption',
+        restorable: false,
+        invalidatedAt: expect.any(String),
+        invalidationReason:
+          'Voice setting changed; start a new session to apply it.',
+      });
+      expect(screen.getByLabelText('voice-setting')).toHaveTextContent(
+        DEFAULT_DESKTOP_SETTINGS.voice,
+      );
+      expect(screen.getByLabelText('voice-session-resumable')).toHaveTextContent('false');
     });
   });
 });

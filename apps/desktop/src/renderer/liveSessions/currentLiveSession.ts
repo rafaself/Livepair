@@ -10,7 +10,6 @@ import type { ActiveChatQueryBridge } from '../chatMemory/queries';
 import {
   createPersistedLiveSession,
   endPersistedLiveSession,
-  getLatestPersistedLiveSession,
   listPersistedLiveSessions,
   type LiveSessionsBridge,
   updatePersistedLiveSession,
@@ -53,10 +52,9 @@ export async function startCurrentLiveSession(
   }
 
   const chat = await getCurrentChat(bridge);
-  const latestLiveSession = await getLatestPersistedLiveSession(chat.id, bridge);
   const liveSession = await createPersistedLiveSession({
     chatId: chat.id,
-    voice: latestLiveSession?.voice ?? options.voicePreference,
+    voice: options.voicePreference,
     startedAt: new Date().toISOString(),
   }, bridge);
 
@@ -66,15 +64,13 @@ export async function startCurrentLiveSession(
 
 export async function resolveCurrentChatLiveSessionVoice(
   voicePreference: AssistantVoice,
-  bridge: CurrentLiveSessionBridge = window.bridge,
+  _bridge: CurrentLiveSessionBridge = window.bridge,
 ): Promise<AssistantVoice> {
   if (activeLiveSession?.voice) {
     return activeLiveSession.voice;
   }
 
-  const chat = await getCurrentChat(bridge);
-  const latestLiveSession = await getLatestPersistedLiveSession(chat.id, bridge);
-  return latestLiveSession?.voice ?? voicePreference;
+  return voicePreference;
 }
 
 export async function restoreCurrentLiveSession(

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   invalidateCurrentLiveSessionResumption,
   resetCurrentLiveSessionForTests,
+  resolveCurrentChatLiveSessionVoice,
   restoreCurrentLiveSession,
   startCurrentLiveSession,
 } from './currentLiveSession';
@@ -73,10 +74,36 @@ describe('currentLiveSession restore metadata', () => {
 
     expect(bridge.createLiveSession).toHaveBeenCalledWith({
       chatId: 'chat-history-1',
-      voice: 'Kore',
+      voice: 'Aoede',
       startedAt: expect.any(String),
     });
     expect(bridge.getOrCreateCurrentChat).not.toHaveBeenCalled();
+  });
+
+  it('uses the selected voice preference for a fresh session even when the chat has older ended sessions', async () => {
+    const bridge = {
+      getOrCreateCurrentChat: vi.fn().mockResolvedValue({
+        id: 'chat-1',
+      }),
+      listLiveSessions: vi.fn().mockResolvedValue([
+        {
+          id: 'live-session-history',
+          chatId: 'chat-1',
+          startedAt: '2026-03-10T09:20:00.000Z',
+          endedAt: '2026-03-10T09:25:00.000Z',
+          status: 'ended',
+          endedReason: 'user-ended',
+          voice: 'Kore',
+          resumptionHandle: null,
+          lastResumptionUpdateAt: '2026-03-10T09:25:00.000Z',
+          restorable: false,
+          invalidatedAt: '2026-03-10T09:25:00.000Z',
+          invalidationReason: 'user-ended',
+        },
+      ]),
+    } as unknown as typeof window.bridge;
+
+    await expect(resolveCurrentChatLiveSessionVoice('Aoede', bridge)).resolves.toBe('Aoede');
   });
 
   it('restores only an explicitly restorable persisted Live session', async () => {

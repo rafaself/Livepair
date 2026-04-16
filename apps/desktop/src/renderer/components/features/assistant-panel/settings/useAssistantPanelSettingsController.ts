@@ -27,6 +27,8 @@ const UNAVAILABLE_OUTPUT_OPTION: readonly SelectOptionItem[] = [
 const UNSELECTED_SCREEN_CAPTURE_SOURCE_VALUE = '';
 const GROUNDING_CHANGE_DETAIL =
   'Grounding setting changed; start a new session to apply it.';
+const VOICE_CHANGE_DETAIL =
+  'Voice setting changed; start a new session to apply it.';
 const ASSISTANT_INSTRUCTIONS_CHANGE_DETAIL =
   'Assistant instructions changed; start a new session to apply them.';
 
@@ -96,6 +98,23 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
       lastDetail: detail,
     });
     await invalidateCurrentLiveSessionResumption(detail);
+  };
+  const invalidateFutureSessionConfigChange = async (
+    nextSettings: Pick<typeof settings, 'voice' | 'systemInstruction'>,
+  ): Promise<void> => {
+    const voiceChanged = nextSettings.voice !== settings.voice;
+    const systemInstructionChanged =
+      nextSettings.systemInstruction !== settings.systemInstruction;
+
+    if (!voiceChanged && !systemInstructionChanged) {
+      return;
+    }
+
+    await invalidateActiveSpeechSessionResumption(
+      systemInstructionChanged
+        ? ASSISTANT_INSTRUCTIONS_CHANGE_DETAIL
+        : VOICE_CHANGE_DETAIL,
+    );
   };
   const screenCaptureSourceOptions = useMemo(
     () =>
@@ -197,6 +216,12 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
       }
 
       void updateSetting('voice', voice)
+        .then(async (nextSettings) => {
+          await invalidateFutureSessionConfigChange({
+            voice: nextSettings.voice,
+            systemInstruction: nextSettings.systemInstruction,
+          });
+        })
         .catch((error: unknown) => {
           setLastRuntimeError(
             error instanceof Error && error.message.length > 0
@@ -208,11 +233,10 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
     setSystemInstruction: (systemInstruction) => {
       void updateSetting('systemInstruction', systemInstruction)
         .then(async (nextSettings) => {
-          if (nextSettings.systemInstruction === settings.systemInstruction) {
-            return;
-          }
-
-          await invalidateActiveSpeechSessionResumption(ASSISTANT_INSTRUCTIONS_CHANGE_DETAIL);
+          await invalidateFutureSessionConfigChange({
+            voice: nextSettings.voice,
+            systemInstruction: nextSettings.systemInstruction,
+          });
         })
         .catch((error: unknown) => {
           setLastRuntimeError(
@@ -235,16 +259,10 @@ export function useAssistantPanelSettingsController(): AssistantPanelSettingsCon
         systemInstruction: DEFAULT_DESKTOP_SETTINGS.systemInstruction,
       })
         .then(async (nextSettings) => {
-          if (
-            nextSettings.voice === settings.voice
-            && nextSettings.systemInstruction === settings.systemInstruction
-          ) {
-            return;
-          }
-
-          if (nextSettings.systemInstruction !== settings.systemInstruction) {
-            await invalidateActiveSpeechSessionResumption(ASSISTANT_INSTRUCTIONS_CHANGE_DETAIL);
-          }
+          await invalidateFutureSessionConfigChange({
+            voice: nextSettings.voice,
+            systemInstruction: nextSettings.systemInstruction,
+          });
         })
         .catch((error: unknown) => {
           setLastRuntimeError(
