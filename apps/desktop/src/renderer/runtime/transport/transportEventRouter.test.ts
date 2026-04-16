@@ -809,6 +809,46 @@ describe('createTransportEventRouter', () => {
       });
       expect(ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('user', 'hello', true);
     });
+
+    it('keeps transcript observation but does not re-emit user speech detected for a settled replay', () => {
+      const ops = createMockOps();
+      ops.applyVoiceTranscriptUpdate.mockReturnValue({
+        classification: 'settled-replay',
+      });
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'input-transcript', text: 'same phrase', isFinal: false } as never);
+
+      expect(ops.recordSessionEvent).not.toHaveBeenCalledWith({
+        type: 'turn.user.speech.detected',
+      });
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'transcript.user.updated',
+        text: 'same phrase',
+        isFinal: false,
+      });
+      expect(ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('user', 'same phrase', false);
+    });
+
+    it('keeps transcript observation but does not re-emit user speech detected for a settled correction', () => {
+      const ops = createMockOps();
+      ops.applyVoiceTranscriptUpdate.mockReturnValue({
+        classification: 'settled-correction',
+      });
+      const { handleTransportEvent } = createTransportEventRouter(ops as never);
+
+      handleTransportEvent({ type: 'input-transcript', text: 'same phrase corrected', isFinal: true } as never);
+
+      expect(ops.recordSessionEvent).not.toHaveBeenCalledWith({
+        type: 'turn.user.speech.detected',
+      });
+      expect(ops.recordSessionEvent).toHaveBeenCalledWith({
+        type: 'transcript.user.updated',
+        text: 'same phrase corrected',
+        isFinal: true,
+      });
+      expect(ops.applyVoiceTranscriptUpdate).toHaveBeenCalledWith('user', 'same phrase corrected', true);
+    });
   });
 
   describe('output-transcript', () => {

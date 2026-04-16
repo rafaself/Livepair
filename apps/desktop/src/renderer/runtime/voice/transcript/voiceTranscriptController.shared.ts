@@ -1,10 +1,12 @@
 import type {
   CurrentVoiceTranscript,
+  VoiceTranscriptUpdateResult,
   VoiceTranscriptEntry,
 } from '../voice.types';
 
 export type {
   CurrentVoiceTranscript,
+  VoiceTranscriptUpdateResult,
   VoiceTranscriptEntry,
 };
 

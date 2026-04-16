@@ -162,6 +162,7 @@ export function finalizeCurrentVoiceUserTranscriptArtifact(
       attachedTurnId,
     });
     ctx.currentVoiceUserArtifactId = null;
+    ctx.lastSettledUserArtifactId = artifact.id;
     return artifact.id;
   }
 
@@ -170,6 +171,42 @@ export function finalizeCurrentVoiceUserTranscriptArtifact(
     statusLabel: undefined,
   });
   ctx.currentVoiceUserArtifactId = null;
+  ctx.lastSettledUserArtifactId = artifact.id;
+  return artifact.id;
+}
+
+export function updateSettledVoiceUserTranscriptArtifact(
+  ctx: ConversationContext,
+  content: string,
+  transcriptFinal?: boolean,
+): string | null {
+  const artifactId = ctx.lastSettledUserArtifactId;
+
+  if (!artifactId) {
+    return null;
+  }
+
+  const artifact = getTranscriptArtifact(ctx, artifactId);
+
+  if (!artifact) {
+    ctx.lastSettledUserArtifactId = null;
+    return null;
+  }
+
+  updateTranscriptArtifact(ctx, artifact.id, {
+    content,
+    state: 'complete',
+    statusLabel: undefined,
+    ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
+  });
+
+  if (artifact.attachedTurnId) {
+    ctx.store.getState().updateConversationTurn(artifact.attachedTurnId, {
+      content: content.trim(),
+      ...(transcriptFinal !== undefined ? { transcriptFinal } : {}),
+    });
+  }
+
   return artifact.id;
 }
 

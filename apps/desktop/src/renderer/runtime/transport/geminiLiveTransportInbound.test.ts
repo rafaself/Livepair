@@ -276,7 +276,7 @@ describe('handleGeminiLiveSdkMessage', () => {
     });
   });
 
-  it('clears transient text-response tracking and short-circuits later handling when Gemini interrupts the turn', () => {
+  it('forwards transcript updates before the interruption event when Gemini interrupts the turn', () => {
     const harness = createHarness();
     harness.state.hasPendingTextResponse = true;
 
@@ -305,6 +305,8 @@ describe('handleGeminiLiveSdkMessage', () => {
 
     expect(harness.events).toEqual([
       { type: 'text-delta', text: ' delta' },
+      { type: 'input-transcript', text: 'user transcript' },
+      { type: 'output-transcript', text: 'assistant transcript' },
       { type: 'interrupted' },
     ]);
     expect(harness.state.hasPendingTextResponse).toBe(false);

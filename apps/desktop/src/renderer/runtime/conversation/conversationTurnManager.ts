@@ -47,4 +47,5 @@ export {
   interruptCurrentVoiceAssistantTranscriptArtifact,
   upsertCurrentVoiceAssistantTranscriptArtifact,
   upsertCurrentVoiceUserTranscriptArtifact,
+  updateSettledVoiceUserTranscriptArtifact,
 } from './voiceTranscriptArtifactLifecycle';

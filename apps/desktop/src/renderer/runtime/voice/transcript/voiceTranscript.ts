@@ -3,6 +3,11 @@ type NormalizeTranscriptTextOptions = {
   isFinal?: boolean | undefined;
 };
 
+export type SettledUserTranscriptUpdateClassification =
+  | 'settled-replay'
+  | 'settled-correction'
+  | 'new-turn';
+
 const COMMON_SHORT_WORDS = new Set([
   'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'da', 'de', 'do', 'e', 'em', 'eu', 'for',
   'go', 'he', 'i', 'if', 'in', 'is', 'it', 'me', 'my', 'no', 'o', 'of', 'on', 'or', 'os',
@@ -100,6 +105,41 @@ function shouldTreatAsUserCorrection(
 
 function appendSeparatedTranscriptChunk(previous: string, incoming: string): string {
   return `${previous.trimEnd()} ${incoming.trimStart()}`;
+}
+
+export function classifySettledUserTranscriptUpdate(
+  previous: string,
+  incoming: string,
+  { isFinal = false }: Pick<NormalizeTranscriptTextOptions, 'isFinal'> = {},
+): SettledUserTranscriptUpdateClassification {
+  const previousTrimmed = previous.trim();
+  const incomingTrimmed = incoming.trim();
+
+  if (incomingTrimmed.length === 0 || incomingTrimmed === previousTrimmed) {
+    return 'settled-replay';
+  }
+
+  const normalized = normalizeTranscriptText(previous, incoming, {
+    role: 'user',
+    isFinal,
+  });
+
+  if (normalized.trim() === previousTrimmed) {
+    return 'settled-replay';
+  }
+
+  const sharedPrefixLength = findSharedPrefixLength(previous, incoming);
+  const overlap = findTranscriptOverlap(previous, incoming);
+  const sameUtterance =
+    shouldTreatAsUserCorrection(previous, incoming, sharedPrefixLength)
+    || overlap > 0
+    || canAppendTranscriptChunk(previous, incoming)
+    || (endsWithWordCharacter(previous) && startsWithApostropheSuffix(incoming))
+    || shouldAttachUserWordContinuation(previous, incoming)
+    || previous.includes(normalized)
+    || normalized.includes(previous);
+
+  return sameUtterance ? 'settled-correction' : 'new-turn';
 }
 
 /**

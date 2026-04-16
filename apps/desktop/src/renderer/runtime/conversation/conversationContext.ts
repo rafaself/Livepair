@@ -31,6 +31,7 @@ export interface ConversationContext {
   hasQueuedMixedModeAssistantReply: boolean;
   currentVoiceTurnId: string | null;
   currentVoiceTurnState: VoiceTurnFenceState;
+  lastSettledUserArtifactId: string | null;
   lastSettledAssistantArtifactId: string | null;
   currentVoiceAssistantArtifactId: string | null;
   currentVoiceUserArtifactId: string | null;
@@ -50,6 +51,7 @@ export function createConversationContext(store: SessionStoreApi): ConversationC
     hasQueuedMixedModeAssistantReply: false,
     currentVoiceTurnId: null,
     currentVoiceTurnState: 'idle',
+    lastSettledUserArtifactId: null,
     lastSettledAssistantArtifactId: null,
     currentVoiceAssistantArtifactId: null,
     currentVoiceUserArtifactId: null,
@@ -84,6 +86,7 @@ export function clearCurrentVoiceTurns(ctx: ConversationContext): void {
   ctx.hasQueuedMixedModeAssistantReply = false;
   ctx.currentVoiceTurnId = null;
   ctx.currentVoiceTurnState = 'idle';
+  ctx.lastSettledUserArtifactId = null;
   ctx.lastSettledAssistantArtifactId = null;
   ctx.currentVoiceAssistantArtifactId = null;
   ctx.currentVoiceUserArtifactId = null;
@@ -101,6 +104,7 @@ export function beginVoiceTurnFence(ctx: ConversationContext): string {
 
   ctx.currentVoiceTurnId = `voice-turn-${++ctx.nextVoiceTurnId}`;
   ctx.currentVoiceTurnState = 'open';
+  ctx.lastSettledUserArtifactId = null;
   ctx.lastSettledAssistantArtifactId = null;
   ctx.currentVoiceAssistantArtifactId = null;
   ctx.currentVoiceUserArtifactId = null;

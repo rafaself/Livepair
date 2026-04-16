@@ -304,6 +304,42 @@ describe('createVoiceTranscriptController', () => {
     ]);
   });
 
+  it('updates the settled user turn in place when Gemini sends a same-utterance correction', () => {
+    const conversationCtx = createConversationContext(useSessionStore);
+    const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);
+
+    ctrl.applyTranscriptUpdate('user', 'Hello there again', true);
+    ctrl.finalizeCurrentVoiceTurns('completed');
+
+    ctrl.applyTranscriptUpdate('user', 'Hello there', true);
+
+    expect(useSessionStore.getState().currentVoiceTranscript.user).toEqual({
+      text: 'Hello there',
+      isFinal: true,
+    });
+    expect(useSessionStore.getState().conversationTurns).toEqual([
+      expect.objectContaining({
+        id: 'user-turn-1',
+        role: 'user',
+        content: 'Hello there',
+        state: 'complete',
+        source: 'voice',
+        transcriptFinal: true,
+      }),
+    ]);
+    expect(useSessionStore.getState().transcriptArtifacts).toEqual([
+      expect.objectContaining({
+        id: 'user-transcript-1',
+        role: 'user',
+        content: 'Hello there',
+        state: 'complete',
+        source: 'voice',
+        attachedTurnId: 'user-turn-1',
+        transcriptFinal: true,
+      }),
+    ]);
+  });
+
   it('routes a mixed-mode typed follow-up reply onto a fresh assistant transcript artifact below the typed user turn', () => {
     const conversationCtx = createConversationContext(useSessionStore);
     const ctrl = createVoiceTranscriptController(useSessionStore, conversationCtx);

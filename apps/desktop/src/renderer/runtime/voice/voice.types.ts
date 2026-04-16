@@ -74,6 +74,24 @@ export type CurrentVoiceTranscript = {
   assistant: VoiceTranscriptEntry;
 };
 
+export type UserVoiceTranscriptUpdateClassification =
+  | 'new-turn'
+  | 'same-turn-update'
+  | 'settled-replay'
+  | 'settled-correction';
+
+export type VoiceTranscriptUpdateResult =
+  | {
+      role: 'user';
+      classification: UserVoiceTranscriptUpdateClassification;
+      didUpdate: boolean;
+    }
+  | {
+      role: 'assistant';
+      classification: 'assistant-update';
+      didUpdate: boolean;
+    };
+
 export type VoiceSessionResumptionStatus =
   | 'idle'
   | 'connected'
