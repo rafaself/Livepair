@@ -1,6 +1,9 @@
 import { MessageSquareText, Palette, PanelRight, Timer } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
-import { MAX_SYSTEM_INSTRUCTION_LENGTH, type DesktopVoice } from '../../../../shared';
+import {
+  getMaxUserSystemInstructionLength,
+  type DesktopVoice,
+} from '../../../../shared';
 import type { AssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
 import { useAssistantPanelSettingsController } from './settings/useAssistantPanelSettingsController';
 import { FieldList } from '../../composite';
@@ -81,6 +84,9 @@ export function AssistantPanelPreferencesView({
     setInstructionsDraft(systemInstruction);
   }, [systemInstruction]);
 
+  const instructionsMaxLength = getMaxUserSystemInstructionLength({
+    groundingEnabled,
+  });
   const instructionsCharacterCount = instructionsDraft.length;
 
   return (
@@ -238,12 +244,12 @@ export function AssistantPanelPreferencesView({
               autoCapitalize="off"
               autoCorrect="off"
               className="assistant-panel__settings-textarea"
-              maxLength={MAX_SYSTEM_INSTRUCTION_LENGTH}
+              maxLength={instructionsMaxLength}
               spellCheck={false}
               value={instructionsDraft}
               onChange={(event) => {
                 setInstructionsDraft(
-                  event.currentTarget.value.slice(0, MAX_SYSTEM_INSTRUCTION_LENGTH),
+                  event.currentTarget.value.slice(0, instructionsMaxLength),
                 );
               }}
               onBlur={() => {
@@ -258,7 +264,7 @@ export function AssistantPanelPreferencesView({
                   aria-label="Instructions character count"
                   className="assistant-panel__settings-counter"
                 >
-                  {instructionsCharacterCount}/{MAX_SYSTEM_INSTRUCTION_LENGTH}
+                  {instructionsCharacterCount}/{instructionsMaxLength}
                 </output>
               </div>
             </div>

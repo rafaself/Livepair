@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_DESKTOP_SETTINGS,
   DEFAULT_SYSTEM_INSTRUCTION,
+  getMaxUserSystemInstructionLength,
   MAX_SYSTEM_INSTRUCTION_LENGTH,
 } from '../../shared/settings';
 import { DesktopSettingsRepository } from './settingsRepository';
@@ -57,6 +58,9 @@ describe('DesktopSettingsRepository', () => {
 
   it('merges partial updates, normalizes values, and persists them to disk', async () => {
     const repository = new DesktopSettingsRepository(settingsFilePath);
+    const ungroundedBudget = getMaxUserSystemInstructionLength({
+      groundingEnabled: false,
+    });
     const overlongInstruction = `  ${'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 15)}  `;
 
     await expect(
@@ -71,7 +75,7 @@ describe('DesktopSettingsRepository', () => {
       themePreference: 'dark',
       groundingEnabled: false,
       voice: 'Kore',
-      systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
+      systemInstruction: 'x'.repeat(ungroundedBudget),
     });
 
     const reloadedRepository = new DesktopSettingsRepository(settingsFilePath);
@@ -80,7 +84,7 @@ describe('DesktopSettingsRepository', () => {
       themePreference: 'dark',
       groundingEnabled: false,
       voice: 'Kore',
-      systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
+      systemInstruction: 'x'.repeat(ungroundedBudget),
     });
 
     await expect(readFile(settingsFilePath, 'utf8')).resolves.toBe(
@@ -92,13 +96,38 @@ describe('DesktopSettingsRepository', () => {
               themePreference: 'dark',
               groundingEnabled: false,
               voice: 'Kore',
-              systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
+              systemInstruction: 'x'.repeat(ungroundedBudget),
             },
         },
         null,
         2,
       ),
     );
+  });
+
+  it('re-normalizes instructions when grounding shrinks the available budget', async () => {
+    const repository = new DesktopSettingsRepository(settingsFilePath);
+    const ungroundedBudget = getMaxUserSystemInstructionLength({
+      groundingEnabled: false,
+    });
+    const groundedBudget = getMaxUserSystemInstructionLength({
+      groundingEnabled: true,
+    });
+
+    await repository.updateSettings({
+      groundingEnabled: false,
+      systemInstruction: 'z'.repeat(ungroundedBudget),
+    });
+
+    await expect(
+      repository.updateSettings({
+        groundingEnabled: true,
+      }),
+    ).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
+      systemInstruction: 'z'.repeat(groundedBudget),
+    });
   });
 
   it('fills missing new preferences and falls back invalid persisted preference values', async () => {

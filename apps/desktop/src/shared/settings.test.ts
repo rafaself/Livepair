@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_DESKTOP_SETTINGS,
   DEFAULT_SYSTEM_INSTRUCTION,
+  getMaxUserSystemInstructionLength,
   MAX_SYSTEM_INSTRUCTION_LENGTH,
   normalizeDesktopSettings,
   normalizeDesktopSettingsPatch,
@@ -95,14 +96,32 @@ describe('voice and system instruction settings', () => {
   });
 
   it('trims and caps persisted instructions to the product max length', () => {
+    const groundedBudget = getMaxUserSystemInstructionLength({
+      groundingEnabled: true,
+    });
+    const ungroundedBudget = getMaxUserSystemInstructionLength({
+      groundingEnabled: false,
+    });
     const overlongInstruction = `  ${'a'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 25)}  `;
 
     expect(
       normalizeDesktopSettings({
+        groundingEnabled: true,
         systemInstruction: overlongInstruction,
       }),
     ).toMatchObject({
-      systemInstruction: 'a'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
+      groundingEnabled: true,
+      systemInstruction: 'a'.repeat(groundedBudget),
+    });
+
+    expect(
+      normalizeDesktopSettings({
+        groundingEnabled: false,
+        systemInstruction: overlongInstruction,
+      }),
+    ).toMatchObject({
+      groundingEnabled: false,
+      systemInstruction: 'a'.repeat(ungroundedBudget),
     });
   });
 
@@ -241,7 +260,43 @@ describe('normalizeDesktopSettingsPatch', () => {
         systemInstruction: `  ${'b'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 10)}  `,
       }),
     ).toEqual({
-      systemInstruction: 'b'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
+      systemInstruction: 'b'.repeat(
+        getMaxUserSystemInstructionLength({ groundingEnabled: false }),
+      ),
+    });
+  });
+
+  it('clamps instruction patches against the effective grounding mode after merging', () => {
+    const groundedBudget = getMaxUserSystemInstructionLength({
+      groundingEnabled: true,
+    });
+    const groundedSettings = {
+      ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
+    };
+
+    expect(
+      normalizeDesktopSettingsPatch(
+        {
+          groundingEnabled: true,
+          systemInstruction: `  ${'c'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 10)}  `,
+        },
+        DEFAULT_DESKTOP_SETTINGS,
+      ),
+    ).toEqual({
+      groundingEnabled: true,
+      systemInstruction: 'c'.repeat(groundedBudget),
+    });
+
+    expect(
+      normalizeDesktopSettingsPatch(
+        {
+          systemInstruction: `  ${'d'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 10)}  `,
+        },
+        groundedSettings,
+      ),
+    ).toEqual({
+      systemInstruction: 'd'.repeat(groundedBudget),
     });
   });
 

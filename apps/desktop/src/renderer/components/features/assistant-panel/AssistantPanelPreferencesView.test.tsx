@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_DESKTOP_SETTINGS,
   DEFAULT_SYSTEM_INSTRUCTION,
+  getMaxUserSystemInstructionLength,
 } from '../../../../shared';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { resetDesktopStores } from '../../../test/store';
@@ -25,6 +26,13 @@ function renderPreferences(settings = DEFAULT_DESKTOP_SETTINGS) {
 }
 
 describe('AssistantPanelPreferencesView', () => {
+  const groundedInstructionBudget = getMaxUserSystemInstructionLength({
+    groundingEnabled: true,
+  });
+  const ungroundedInstructionBudget = getMaxUserSystemInstructionLength({
+    groundingEnabled: false,
+  });
+
   beforeEach(() => {
     resetDesktopStores();
     window.bridge.updateSettings = vi.fn(async (patch) => ({
@@ -90,11 +98,23 @@ describe('AssistantPanelPreferencesView', () => {
     expect(
       screen.getByText('Agent/system instructions used for future live sessions.'),
     ).toBeVisible();
-    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent('19/1200');
+    expect(screen.getByRole('textbox', { name: 'Instructions' })).toHaveAttribute(
+      'maxlength',
+      String(groundedInstructionBudget),
+    );
+    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent(
+      `19/${groundedInstructionBudget}`,
+    );
   });
 
   it('persists grounding changes through the settings bridge', async () => {
     renderPreferences();
+    const instructions = screen.getByRole('textbox', { name: 'Instructions' });
+
+    expect(instructions).toHaveAttribute('maxlength', String(ungroundedInstructionBudget));
+    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent(
+      `${DEFAULT_SYSTEM_INSTRUCTION.length}/${ungroundedInstructionBudget}`,
+    );
 
     await act(async () => {
       fireEvent.click(screen.getByRole('switch', { name: 'Grounding' }));
@@ -104,6 +124,10 @@ describe('AssistantPanelPreferencesView', () => {
       expect(window.bridge.updateSettings).toHaveBeenCalledWith({ groundingEnabled: true });
     });
     expect(screen.getByRole('switch', { name: 'Grounding' })).toHaveAttribute('aria-checked', 'true');
+    expect(instructions).toHaveAttribute('maxlength', String(groundedInstructionBudget));
+    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent(
+      `${DEFAULT_SYSTEM_INSTRUCTION.length}/${groundedInstructionBudget}`,
+    );
   });
 
   it('persists voice changes through the settings bridge', async () => {
@@ -133,7 +157,9 @@ describe('AssistantPanelPreferencesView', () => {
     fireEvent.change(instructions, { target: { value: 'abcd' } });
 
     expect(instructions).toHaveValue('abcd');
-    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent('4/1200');
+    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent(
+      `4/${ungroundedInstructionBudget}`,
+    );
     expect(window.bridge.updateSettings).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -167,20 +193,26 @@ describe('AssistantPanelPreferencesView', () => {
     });
     expect(instructions).toHaveValue(DEFAULT_SYSTEM_INSTRUCTION);
     expect(screen.getByLabelText('Instructions character count')).toHaveTextContent(
-      `${DEFAULT_SYSTEM_INSTRUCTION.length}/1200`,
+      `${DEFAULT_SYSTEM_INSTRUCTION.length}/${ungroundedInstructionBudget}`,
     );
   });
 
-  it('enforces the 1200 character limit in the UI', async () => {
-    renderPreferences();
+  it('enforces the dynamic instruction budget in the UI', async () => {
+    renderPreferences({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
+    });
 
     const instructions = screen.getByRole('textbox', { name: 'Instructions' });
-    const oversizedValue = 'x'.repeat(1300);
+    const oversizedValue = 'x'.repeat(groundedInstructionBudget + 100);
 
     fireEvent.change(instructions, { target: { value: oversizedValue } });
 
-    expect(instructions).toHaveValue('x'.repeat(1200));
-    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent('1200/1200');
+    expect(instructions).toHaveValue('x'.repeat(groundedInstructionBudget));
+    expect(instructions).toHaveAttribute('maxlength', String(groundedInstructionBudget));
+    expect(screen.getByLabelText('Instructions character count')).toHaveTextContent(
+      `${groundedInstructionBudget}/${groundedInstructionBudget}`,
+    );
 
     await act(async () => {
       fireEvent.blur(instructions);
@@ -188,7 +220,7 @@ describe('AssistantPanelPreferencesView', () => {
 
     await waitFor(() => {
       expect(window.bridge.updateSettings).toHaveBeenCalledWith({
-        systemInstruction: 'x'.repeat(1200),
+        systemInstruction: 'x'.repeat(groundedInstructionBudget),
       });
     });
   });

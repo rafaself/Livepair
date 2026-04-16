@@ -10,6 +10,7 @@ import {
   isLiveMediaResolution,
   LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION as SHARED_LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION,
   LIVE_GROUNDING_POLICY_INSTRUCTION as SHARED_LIVE_GROUNDING_POLICY_INSTRUCTION,
+  LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION as SHARED_LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION,
   type LiveMediaResolution,
   resolveAssistantVoicePreference,
   resolveSystemInstructionPreference,
@@ -26,6 +27,8 @@ export const LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION =
   SHARED_LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION;
 export const LIVE_GROUNDING_POLICY_INSTRUCTION =
   SHARED_LIVE_GROUNDING_POLICY_INSTRUCTION;
+export const LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION =
+  SHARED_LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION;
 
 export type LiveApiVersion = 'v1alpha' | 'v1beta';
 export type LiveResponseModality = 'TEXT' | 'AUDIO';
@@ -383,10 +386,14 @@ export function buildGeminiLiveVoiceSessionTokenPolicy(
     mediaResolutionOverride?: LiveMediaResolution | undefined;
   } = {},
 ): CreateEphemeralTokenVoiceSessionPolicy {
+  const groundingEnabled = options.groundingEnabled ?? true;
+
   return {
     voice: resolveAssistantVoicePreference(options.voice),
-    systemInstruction: resolveSystemInstructionPreference(options.systemInstruction),
-    groundingEnabled: options.groundingEnabled ?? true,
+    systemInstruction: resolveSystemInstructionPreference(options.systemInstruction, {
+      groundingEnabled,
+    }),
+    groundingEnabled,
     mediaResolution: options.mediaResolutionOverride ?? config.mediaResolution,
     contextCompressionEnabled: config.contextCompressionEnabled,
   };

@@ -112,6 +112,7 @@ export const DEFAULT_ASSISTANT_VOICE: AssistantVoice = ASSISTANT_VOICES[0];
 export const DEFAULT_SYSTEM_INSTRUCTION =
   'You are Livepair, a realtime multimodal desktop assistant.';
 export const MAX_SYSTEM_INSTRUCTION_LENGTH = 1200;
+export const LIVE_SYSTEM_INSTRUCTION_SEPARATOR = '\n\n';
 export const SESSION_ID_MAX_LENGTH = 128;
 // Permit URL-safe identifier characters: alphanumerics plus dash and underscore.
 export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
@@ -183,10 +184,12 @@ export type GeminiLiveToolConfig =
       googleSearch: Record<string, never>;
     };
 
+export const LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION =
+  'For current assistant mode or voice-session runtime status, use get_current_mode or get_voice_session_status instead of guessing local state.';
 export const LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION =
-  'If you cannot verify a factual claim from provided context or tool output, say the answer is not verified.';
+  'Without grounding, answer factual questions only from provided context or explicit tool output. If you cannot verify a factual claim, say the answer is not verified.';
 export const LIVE_GROUNDING_POLICY_INSTRUCTION =
-  'Use provided context, built-in Google Search grounding, and explicit tool output as the source of truth for factual claims. For project-specific factual questions about this codebase, architecture, implementation details, or internal docs, call search_project_knowledge. For public or current facts that may have changed, rely on Google Search grounding instead of model memory. For runtime state, user/device/session facts, and actions, use explicit local state or tools rather than web grounding. Do not use search_project_knowledge for public web facts, direct runtime state, brainstorming, or stylistic editing. If grounding or tool evidence is weak or ambiguous, say the answer is not verified. Keep non-factual replies natural and avoid reading out source lists unless the user asks.';
+  'Use provided context, Google Search grounding, and explicit tool output as the source of truth for factual claims. For project-specific facts about this codebase, architecture, implementation details, or internal docs, call search_project_knowledge. For current or public facts that may have changed, rely on Google Search grounding instead of model memory. Do not use search_project_knowledge for public web facts, direct runtime state, brainstorming, or stylistic editing. If grounding or tool evidence is weak or ambiguous, say the answer is not verified. Keep non-factual replies natural and avoid reading out source lists unless the user asks.';
 
 export interface CreateEphemeralTokenVoiceSessionPolicy {
   voice?: AssistantVoice;
@@ -234,16 +237,53 @@ export function isLiveMediaResolution(value: unknown): value is LiveMediaResolut
   return typeof value === 'string' && LIVE_MEDIA_RESOLUTIONS.some((resolution) => resolution === value);
 }
 
-export function normalizeSystemInstructionText(value: string): string {
-  const normalized = value.trim().slice(0, MAX_SYSTEM_INSTRUCTION_LENGTH);
+export function getLiveSystemInstructionPolicySuffix(
+  options: {
+    groundingEnabled?: boolean;
+  } = {},
+): string {
+  if (options.groundingEnabled === false) {
+    return `${LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION} ${LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION}`;
+  }
 
-  return normalized.length > 0 ? normalized : DEFAULT_SYSTEM_INSTRUCTION;
+  return `${LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION} ${LIVE_GROUNDING_POLICY_INSTRUCTION}`;
 }
 
-export function resolveSystemInstructionPreference(value: unknown): string {
+export function getMaxUserSystemInstructionLength(
+  options: {
+    groundingEnabled?: boolean;
+  } = {},
+): number {
+  const reservedLength =
+    LIVE_SYSTEM_INSTRUCTION_SEPARATOR.length
+    + getLiveSystemInstructionPolicySuffix(options).length;
+
+  return Math.max(0, MAX_SYSTEM_INSTRUCTION_LENGTH - reservedLength);
+}
+
+export function normalizeSystemInstructionText(
+  value: string,
+  options: {
+    groundingEnabled?: boolean;
+  } = {},
+): string {
+  const maxUserInstructionLength = getMaxUserSystemInstructionLength(options);
+  const normalized = value.trim().slice(0, maxUserInstructionLength);
+
+  return normalized.length > 0
+    ? normalized
+    : DEFAULT_SYSTEM_INSTRUCTION.slice(0, maxUserInstructionLength);
+}
+
+export function resolveSystemInstructionPreference(
+  value: unknown,
+  options: {
+    groundingEnabled?: boolean;
+  } = {},
+): string {
   return typeof value === 'string'
-    ? normalizeSystemInstructionText(value)
-    : DEFAULT_SYSTEM_INSTRUCTION;
+    ? normalizeSystemInstructionText(value, options)
+    : normalizeSystemInstructionText(DEFAULT_SYSTEM_INSTRUCTION, options);
 }
 
 export function composeLiveSystemInstruction(
@@ -252,11 +292,10 @@ export function composeLiveSystemInstruction(
     groundingEnabled?: boolean;
   } = {},
 ): string {
-  if (options.groundingEnabled === false) {
-    return `${systemInstruction}\n\n${LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION}`;
-  }
+  const normalizedSystemInstruction = normalizeSystemInstructionText(systemInstruction, options);
+  const policySuffix = getLiveSystemInstructionPolicySuffix(options);
 
-  return `${systemInstruction}\n\n${LIVE_GROUNDING_POLICY_INSTRUCTION}`;
+  return `${normalizedSystemInstruction}${LIVE_SYSTEM_INSTRUCTION_SEPARATOR}${policySuffix}`;
 }
 
 export function getVoiceToolDeclarations(
@@ -363,7 +402,9 @@ export function buildGeminiLiveVoiceSessionPolicyConfig(
     : 'MEDIA_RESOLUTION_MEDIUM';
   const voiceName = resolveAssistantVoicePreference(policy.voice);
   const systemInstruction = composeLiveSystemInstruction(
-    resolveSystemInstructionPreference(policy.systemInstruction),
+    typeof policy.systemInstruction === 'string'
+      ? policy.systemInstruction
+      : DEFAULT_SYSTEM_INSTRUCTION,
     { groundingEnabled },
   );
 

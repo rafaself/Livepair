@@ -3,6 +3,7 @@ import {
   buildGeminiLiveConnectCapabilityConfig,
   buildGeminiLiveVoiceSessionPolicyConfig,
   GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
+  MAX_SYSTEM_INSTRUCTION_LENGTH,
 } from '@livepair/shared-types';
 import { GEMINI_LIVE_AUTH_TOKEN_FIELD_MASK } from './gemini-auth-token.client';
 // Prevent the root env loader from re-reading .env on each jest.resetModules()
@@ -128,6 +129,38 @@ describe('SessionService', () => {
       }),
     );
   });
+
+  it.each([
+    { groundingEnabled: true, expectedSearchRouting: true },
+    { groundingEnabled: false, expectedSearchRouting: false },
+  ])(
+    'keeps the final token systemInstruction within budget when groundingEnabled=$groundingEnabled',
+    async ({ groundingEnabled, expectedSearchRouting }) => {
+      const { service, createToken } = await createSessionService();
+
+      await service.createEphemeralToken({
+        voiceSessionPolicy: {
+          groundingEnabled,
+          systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 200),
+        },
+      });
+
+      const tokenRequest = createToken.mock.calls[0]?.[0];
+      expect(tokenRequest).toBeDefined();
+
+      const systemInstruction = tokenRequest?.liveConnectConstraints.config.systemInstruction;
+
+      expect(systemInstruction).toBeDefined();
+      expect(systemInstruction).toHaveLength(MAX_SYSTEM_INSTRUCTION_LENGTH);
+      if (expectedSearchRouting) {
+        expect(systemInstruction).toContain('search_project_knowledge');
+        expect(systemInstruction).toContain('Google Search');
+      } else {
+        expect(systemInstruction).not.toContain('search_project_knowledge');
+        expect(systemInstruction).not.toContain('Google Search');
+      }
+    },
+  );
 
   it('logs the issued constrained capability profile in a compact structured diagnostic', async () => {
     const { service } = await createSessionService();

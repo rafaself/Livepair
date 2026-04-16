@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_DESKTOP_SETTINGS,
   DEFAULT_SYSTEM_INSTRUCTION,
+  getMaxUserSystemInstructionLength,
   MAX_SYSTEM_INSTRUCTION_LENGTH,
 } from '../../shared/settings';
 import { resetDesktopStores } from '../test/store';
@@ -135,21 +136,43 @@ describe('settingsStore', () => {
     });
   });
 
-  it('normalizes overlong instruction updates returned by the bridge', async () => {
+  it('clamps persisted instructions against the effective grounding mode during hydration', async () => {
+    const groundedBudget = getMaxUserSystemInstructionLength({
+      groundingEnabled: true,
+    });
+    window.bridge.getSettings = vi.fn().mockResolvedValue({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
+      systemInstruction: `  ${'y'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 20)}  `,
+    });
+
+    await expect(useSettingsStore.getState().hydrate()).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
+      systemInstruction: 'y'.repeat(groundedBudget),
+    });
+  });
+
+  it('re-normalizes overlong instructions when grounding changes in bridge updates', async () => {
+    const groundedBudget = getMaxUserSystemInstructionLength({
+      groundingEnabled: true,
+    });
     window.bridge.updateSettings = vi.fn().mockResolvedValue({
       ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
       voice: 'Kore',
       systemInstruction: `  ${'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 20)}  `,
     });
 
     await expect(
       useSettingsStore.getState().updateSettings({
-        systemInstruction: '  draft instruction  ',
+        groundingEnabled: true,
       }),
     ).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
       voice: 'Kore',
-      systemInstruction: 'x'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH),
+      systemInstruction: 'x'.repeat(groundedBudget),
     });
   });
 });

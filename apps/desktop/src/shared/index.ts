@@ -26,6 +26,7 @@ export {
 export {
   DEFAULT_DESKTOP_SETTINGS,
   DEFAULT_SYSTEM_INSTRUCTION,
+  getMaxUserSystemInstructionLength,
   MAX_SYSTEM_INSTRUCTION_LENGTH,
   normalizeDesktopSettings,
   normalizeDesktopSettingsPatch,

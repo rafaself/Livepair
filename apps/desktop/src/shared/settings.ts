@@ -1,6 +1,7 @@
 import {
   DEFAULT_ASSISTANT_VOICE,
   DEFAULT_SYSTEM_INSTRUCTION,
+  getMaxUserSystemInstructionLength,
   isAssistantVoice,
   MAX_SYSTEM_INSTRUCTION_LENGTH,
   resolveAssistantVoicePreference,
@@ -10,6 +11,7 @@ import {
 
 export {
   DEFAULT_SYSTEM_INSTRUCTION,
+  getMaxUserSystemInstructionLength,
   MAX_SYSTEM_INSTRUCTION_LENGTH,
   resolveSystemInstructionPreference,
 };
@@ -81,6 +83,10 @@ function normalizeChatTimestampVisibility(value: unknown): ChatTimestampVisibili
   return value === 'hidden' || value === 'visible' ? value : null;
 }
 
+function normalizeGroundingEnabled(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
+}
+
 export function resolveDesktopVoicePreference(value: unknown): DesktopVoice {
   return resolveAssistantVoicePreference(value);
 }
@@ -127,9 +133,16 @@ export function normalizeDesktopSettings(
   const chatTimestampVisibility = normalizeChatTimestampVisibility(
     settings.chatTimestampVisibility ?? DEFAULT_DESKTOP_SETTINGS.chatTimestampVisibility,
   );
-  const groundingEnabled = settings.groundingEnabled ?? DEFAULT_DESKTOP_SETTINGS.groundingEnabled;
+  const groundingEnabled = normalizeGroundingEnabled(
+    settings.groundingEnabled ?? DEFAULT_DESKTOP_SETTINGS.groundingEnabled,
+  );
+  if (groundingEnabled === null) {
+    return null;
+  }
   const voice = resolveDesktopVoicePreference(settings.voice);
-  const systemInstruction = resolveSystemInstructionPreference(settings.systemInstruction);
+  const systemInstruction = resolveSystemInstructionPreference(settings.systemInstruction, {
+    groundingEnabled,
+  });
 
   if (
     themePreference === null ||
@@ -142,8 +155,7 @@ export function normalizeDesktopSettings(
     typeof isPanelPinned !== 'boolean' ||
     screenContextMode === null ||
     continuousScreenQuality === null ||
-    chatTimestampVisibility === null ||
-    typeof groundingEnabled !== 'boolean'
+    chatTimestampVisibility === null
   ) {
     return null;
   }
@@ -168,8 +180,10 @@ export function normalizeDesktopSettings(
 
 export function normalizeDesktopSettingsPatch(
   patch: DesktopSettingsPatch,
+  currentSettings: Pick<DesktopSettings, 'groundingEnabled'> = DEFAULT_DESKTOP_SETTINGS,
 ): DesktopSettingsPatch | null {
   const normalizedPatch: DesktopSettingsPatch = {};
+  let effectiveGroundingEnabled = currentSettings.groundingEnabled;
 
   if ('themePreference' in patch) {
     const themePreference = normalizeThemePreference(patch.themePreference);
@@ -256,10 +270,12 @@ export function normalizeDesktopSettingsPatch(
   }
 
   if ('groundingEnabled' in patch) {
-    if (typeof patch.groundingEnabled !== 'boolean') {
+    const groundingEnabled = normalizeGroundingEnabled(patch.groundingEnabled);
+    if (groundingEnabled === null) {
       return null;
     }
-    normalizedPatch.groundingEnabled = patch.groundingEnabled;
+    normalizedPatch.groundingEnabled = groundingEnabled;
+    effectiveGroundingEnabled = groundingEnabled;
   }
 
   if ('voice' in patch) {
@@ -275,6 +291,9 @@ export function normalizeDesktopSettingsPatch(
     }
     normalizedPatch.systemInstruction = resolveSystemInstructionPreference(
       patch.systemInstruction,
+      {
+        groundingEnabled: effectiveGroundingEnabled,
+      },
     );
   }
 

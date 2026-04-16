@@ -49,12 +49,15 @@ import {
   ASSISTANT_VOICES,
   DEFAULT_ASSISTANT_VOICE,
   DEFAULT_SYSTEM_INSTRUCTION,
+  LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION,
   LIVE_MEDIA_RESOLUTIONS,
   MAX_SYSTEM_INSTRUCTION_LENGTH,
   buildGeminiLiveVoiceSessionPolicyConfig,
   buildGeminiLiveConnectCapabilityConfig,
   buildGeminiLiveVoiceModeConfig,
   buildGeminiLiveVoiceSessionCapabilities,
+  getLiveSystemInstructionPolicySuffix,
+  getMaxUserSystemInstructionLength,
   GEMINI_LIVE_CONSTRAINED_VOICE_CAPABILITIES,
   GEMINI_LIVE_CONSTRAINED_EFFECTIVE_VOICE_SESSION_CAPABILITIES,
   SESSION_TOKEN_AUTH_HEADER_NAME,
@@ -103,6 +106,9 @@ type _DefaultSystemInstructionShape = Assert<
 >;
 type _MaxSystemInstructionLengthShape = Assert<
   IsExact<typeof MAX_SYSTEM_INSTRUCTION_LENGTH, 1200>
+>;
+type _LiveLocalRuntimePolicyInstructionShape = Assert<
+  typeof LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION extends string ? true : false
 >;
 type _LiveMediaResolutionShape = Assert<
   IsExact<LiveMediaResolution, 'MEDIA_RESOLUTION_LOW' | 'MEDIA_RESOLUTION_MEDIUM' | 'MEDIA_RESOLUTION_HIGH'>
@@ -218,6 +224,12 @@ type _BuildGeminiLiveVoiceSessionCapabilitiesReturn = Assert<
     ReturnType<typeof buildGeminiLiveVoiceSessionCapabilities>,
     GeminiLiveVoiceSessionCapabilities
   >
+>;
+type _GetLiveSystemInstructionPolicySuffixReturn = Assert<
+  IsExact<ReturnType<typeof getLiveSystemInstructionPolicySuffix>, string>
+>;
+type _GetMaxUserSystemInstructionLengthReturn = Assert<
+  IsExact<ReturnType<typeof getMaxUserSystemInstructionLength>, number>
 >;
 type _BuildGeminiLiveConnectCapabilityConfigReturn = Assert<
   IsExact<

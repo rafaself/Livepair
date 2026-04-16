@@ -8,6 +8,7 @@ import type { LiveConnectMode } from '../core/session.types';
 import {
   LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION,
   LIVE_GROUNDING_POLICY_INSTRUCTION,
+  LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION,
   LIVE_ADAPTER_KEY,
   LIVE_PROVIDER,
   buildGeminiLiveConnectConfig,
@@ -21,6 +22,7 @@ import {
 } from './liveConfig';
 import {
   DEFAULT_SYSTEM_INSTRUCTION,
+  getMaxUserSystemInstructionLength,
   MAX_SYSTEM_INSTRUCTION_LENGTH,
 } from '../../../shared';
 import { continuousScreenQualityToMediaResolution } from './continuousScreenQuality';
@@ -391,14 +393,15 @@ describe('liveConfig', () => {
 
   it('trims and caps instructions before they reach Live config', () => {
     const config = parseLiveConfig(createRawLiveConfig());
+    const groundedBudget = getMaxUserSystemInstructionLength();
     const overlongInstruction = `  ${'c'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH + 20)}  `;
 
-    expect(
-      buildGeminiLiveConnectConfig(config, 'voice', {
-        voice: 'Kore',
-        systemInstruction: overlongInstruction,
-      }),
-    ).toMatchObject({
+    const connectConfig = buildGeminiLiveConnectConfig(config, 'voice', {
+      voice: 'Kore',
+      systemInstruction: overlongInstruction,
+    });
+
+    expect(connectConfig).toMatchObject({
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: {
@@ -406,28 +409,40 @@ describe('liveConfig', () => {
           },
         },
       },
-      systemInstruction: composeLiveSystemInstruction('c'.repeat(MAX_SYSTEM_INSTRUCTION_LENGTH)),
+      systemInstruction: composeLiveSystemInstruction('c'.repeat(groundedBudget)),
     });
+    expect(connectConfig.systemInstruction).toHaveLength(MAX_SYSTEM_INSTRUCTION_LENGTH);
   });
 
-  it('appends the compact grounding policy to voice-mode system instructions', () => {
-    expect(composeLiveSystemInstruction('Stay concise.')).toBe(
-      `Stay concise.\n\n${LIVE_GROUNDING_POLICY_INSTRUCTION}`,
-    );
-    expect(LIVE_GROUNDING_POLICY_INSTRUCTION).not.toContain('specs');
+  it('keeps local runtime guidance and grounded factual policy in voice-mode system instructions', () => {
+    const result = composeLiveSystemInstruction('Stay concise.');
+
+    expect(result).toContain('Stay concise.');
+    expect(result).toContain(LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION);
+    expect(result).toContain(LIVE_GROUNDING_POLICY_INSTRUCTION);
+    expect(result).toContain('search_project_knowledge');
+    expect(result).toContain('Google Search');
+    expect(result.length).toBeLessThanOrEqual(MAX_SYSTEM_INSTRUCTION_LENGTH);
+    expect(LIVE_GROUNDING_POLICY_INSTRUCTION).not.toContain('user/device/session facts');
   });
 
   it('keeps grounding-routing out of system instruction when grounding is disabled', () => {
-    expect(composeLiveSystemInstruction('Stay concise.', { groundingEnabled: false })).toBe(
-      `Stay concise.\n\n${LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION}`,
-    );
+    const result = composeLiveSystemInstruction('Stay concise.', { groundingEnabled: false });
+
+    expect(result).toContain('Stay concise.');
+    expect(result).toContain(LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION);
+    expect(result).toContain(LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION);
+    expect(result).not.toContain('search_project_knowledge');
+    expect(result).not.toContain('Google Search');
+    expect(result.length).toBeLessThanOrEqual(MAX_SYSTEM_INSTRUCTION_LENGTH);
   });
 
   it('preserves factual caution in system instruction even when grounding is disabled', () => {
     const result = composeLiveSystemInstruction('Stay concise.', { groundingEnabled: false });
+    expect(result).toContain(LIVE_LOCAL_RUNTIME_POLICY_INSTRUCTION);
     expect(result).toContain(LIVE_BASE_FACTUAL_CAUTION_INSTRUCTION);
     expect(result).not.toContain('search_project_knowledge');
-    expect(result).not.toContain('Google Search grounding');
+    expect(result).not.toContain('Google Search');
   });
 
   it('keeps built-in Google Search grounding off the text connect path', () => {

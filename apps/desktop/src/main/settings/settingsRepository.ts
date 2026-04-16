@@ -34,12 +34,12 @@ export class DesktopSettingsRepository {
 
   async updateSettings(patch: DesktopSettingsPatch): Promise<DesktopSettings> {
     return this.runExclusive(async () => {
-      const normalizedPatch = normalizeDesktopSettingsPatch(patch);
+      const storedSettings = await this.readStoredSettings();
+      const normalizedPatch = normalizeDesktopSettingsPatch(patch, storedSettings.settings);
       if (normalizedPatch === null) {
         throw new Error('Invalid desktop settings');
       }
 
-      const storedSettings = await this.readStoredSettings();
       const nextSettings = normalizeDesktopSettings({
         ...storedSettings.settings,
         ...normalizedPatch,
