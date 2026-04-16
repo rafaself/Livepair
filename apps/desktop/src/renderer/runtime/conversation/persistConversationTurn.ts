@@ -54,15 +54,44 @@ export async function persistConversationTurn(
       return;
     }
 
-    const latestTurn = store.getState().conversationTurns.find((entry) => entry.id === turnId);
+    let latestTurn = store.getState().conversationTurns.find((entry) => entry.id === turnId);
 
-    if (!latestTurn || latestTurn.persistedMessageId) {
+    if (!latestTurn) {
       return;
     }
 
-    store.getState().updateConversationTurn(turnId, {
-      persistedMessageId: record.id,
-    });
+    if (!latestTurn.persistedMessageId) {
+      store.getState().updateConversationTurn(turnId, {
+        persistedMessageId: record.id,
+      });
+      latestTurn = store.getState().conversationTurns.find((entry) => entry.id === turnId);
+    }
+
+    let persistedRecord = record;
+
+    while (latestTurn) {
+      const latestContentText = latestTurn.content.trim();
+      const persistedMessageId = latestTurn.persistedMessageId ?? persistedRecord.id;
+
+      if (
+        latestContentText.length === 0
+        || latestContentText === persistedRecord.contentText
+      ) {
+        return;
+      }
+
+      const updatedRecord = await updateMessageInCurrentChat({
+        id: persistedMessageId,
+        contentText: latestContentText,
+      });
+
+      if (!updatedRecord) {
+        return;
+      }
+
+      persistedRecord = updatedRecord;
+      latestTurn = store.getState().conversationTurns.find((entry) => entry.id === turnId);
+    }
   })();
 
   pendingPersistByEntryId.set(turnId, persistTask);

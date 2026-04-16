@@ -121,6 +121,67 @@ describe('persistConversationTurn', () => {
     });
   });
 
+  it('reconciles a turn correction that arrives while the first append is still in flight', async () => {
+    let resolveAppend: ((value: ChatMessageRecord) => void) | undefined;
+
+    window.bridge.appendChatMessage = vi.fn(
+      async () =>
+        new Promise<ChatMessageRecord>((resolve) => {
+          resolveAppend = resolve;
+        }),
+    ) as typeof window.bridge.appendChatMessage;
+
+    useSessionStore.getState().appendConversationTurn({
+      id: 'user-turn-1',
+      role: 'user',
+      content: 'Original spoken request',
+      timestamp: '9:00 AM',
+      state: 'complete',
+      source: 'voice',
+    });
+
+    const firstPersist = persistConversationTurn(useSessionStore, 'user-turn-1');
+
+    await vi.waitFor(() => {
+      expect(window.bridge.appendChatMessage).toHaveBeenCalledWith({
+        chatId: 'chat-1',
+        role: 'user',
+        contentText: 'Original spoken request',
+      });
+    });
+
+    useSessionStore.getState().updateConversationTurn('user-turn-1', {
+      content: 'Corrected spoken request',
+    });
+
+    const secondPersist = persistConversationTurn(useSessionStore, 'user-turn-1');
+
+    resolveAppend?.({
+      id: 'user-message-1',
+      chatId: 'chat-1',
+      role: 'user',
+      contentText: 'Original spoken request',
+      createdAt: '2026-03-12T09:00:00.000Z',
+      sequence: 1,
+    });
+
+    await firstPersist;
+    await secondPersist;
+
+    expect(window.bridge.appendChatMessage).toHaveBeenCalledTimes(1);
+    expect(window.bridge.updateChatMessage).toHaveBeenCalledWith({
+      id: 'user-message-1',
+      chatId: 'chat-1',
+      contentText: 'Corrected spoken request',
+    });
+    expect(useSessionStore.getState().conversationTurns[0]).toEqual(
+      expect.objectContaining({
+        persistedMessageId: 'user-message-1',
+        content: 'Corrected spoken request',
+      }),
+    );
+  });
+
   it('deduplicates concurrent persistence for the same turn', async () => {
     let resolveAppend: ((value: ChatMessageRecord) => void) | undefined;
 

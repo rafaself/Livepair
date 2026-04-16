@@ -70,7 +70,33 @@ export class ChatMemoryService {
   }
 
   updateMessage(request: UpdateChatMessageRequest): Promise<ChatMessageRecord> {
-    return this.run(() => this.repository.updateMessage(request));
+    return this.run(() =>
+      this.repository.withTransaction(async (transactionalRepository) => {
+        const updatedMessage = await transactionalRepository.updateMessage(request);
+        const existingSummary = await transactionalRepository.getChatSummary(
+          updatedMessage.chatId,
+        );
+
+        if (
+          existingSummary !== null
+          && updatedMessage.sequence <= existingSummary.coveredThroughSequence
+        ) {
+          const nextSummary = buildDurableChatSummary({
+            chatId: updatedMessage.chatId,
+            messages: await transactionalRepository.listMessages(updatedMessage.chatId, {
+              limit: DURABLE_CHAT_SUMMARY_MAX_TURNS,
+            }),
+            updatedAt: new Date().toISOString(),
+          });
+
+          if (nextSummary !== null) {
+            await transactionalRepository.upsertChatSummary(nextSummary);
+          }
+        }
+
+        return updatedMessage;
+      }),
+    );
   }
 
   createLiveSession(request: CreateLiveSessionRequest): Promise<LiveSessionRecord> {
