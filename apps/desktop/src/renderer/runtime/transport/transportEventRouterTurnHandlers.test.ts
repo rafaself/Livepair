@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultVoiceLiveSignalDiagnostics } from '../core/defaults';
 import { handleTransportTurnEvent } from './transportEventRouterTurnHandlers';
+import type { VoiceTranscriptUpdateResult } from '../voice/voice.types';
 
 function createMockContext() {
   const store = {
@@ -38,11 +39,13 @@ function createMockContext() {
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
     recordSessionEvent: vi.fn(),
-    applyVoiceTranscriptUpdate: vi.fn(() => ({
-      role: 'user' as const,
-      classification: 'same-turn-update' as const,
-      didUpdate: true,
-    })),
+    applyVoiceTranscriptUpdate: vi
+      .fn<(role: 'user' | 'assistant', text: string, isFinal?: boolean) => VoiceTranscriptUpdateResult>()
+      .mockReturnValue({
+        role: 'user',
+        classification: 'same-turn-update',
+        didUpdate: true,
+      }),
     appendAssistantDraftTextDelta: vi.fn(),
     completeAssistantDraft: vi.fn(),
     interruptAssistantDraft: vi.fn(),

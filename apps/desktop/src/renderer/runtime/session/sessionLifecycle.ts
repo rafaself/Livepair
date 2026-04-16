@@ -42,9 +42,11 @@ type SessionControllerLifecycleArgs = {
   currentGroundingEnabled: () => boolean;
   setActiveVoiceSessionGroundingEnabled: (enabled: boolean | null) => void;
   selectedOutputDeviceId: () => string;
+  resetVoiceResumeSessionLimits: () => void;
   resetVoiceSessionResumption: () => void;
   resetVoiceSessionDurability: () => void;
   resetVoiceToolState: () => void;
+  resetVoiceToolSessionLimits: () => void;
   ensureCurrentChatForSpeechStart: () => Promise<void>;
   requestVoiceSessionToken: (operationId: number) => Promise<CreateEphemeralTokenResponse | null>;
   buildRehydrationPacketFromCurrentChat: () => Promise<RehydrationPacket>;
@@ -90,9 +92,11 @@ export function createSessionControllerLifecycle({
   currentGroundingEnabled,
   setActiveVoiceSessionGroundingEnabled,
   selectedOutputDeviceId,
+  resetVoiceResumeSessionLimits,
   resetVoiceSessionResumption,
   resetVoiceSessionDurability,
   resetVoiceToolState,
+  resetVoiceToolSessionLimits,
   ensureCurrentChatForSpeechStart,
   requestVoiceSessionToken,
   buildRehydrationPacketFromCurrentChat,
@@ -199,8 +203,10 @@ export function createSessionControllerLifecycle({
     setActiveVoiceSessionGroundingEnabled(currentGroundingEnabled());
     const effectiveVoiceSessionCapabilities = getEffectiveVoiceSessionCapabilities(getLiveConfig());
     store.getState().setEffectiveVoiceSessionCapabilities(effectiveVoiceSessionCapabilities);
+    resetVoiceResumeSessionLimits();
     resetVoiceSessionResumption();
     resetVoiceSessionDurability();
+    resetVoiceToolSessionLimits();
     resetVoiceToolState();
     recordSessionEvent({
       type: 'session.start.requested',

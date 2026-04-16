@@ -5,7 +5,7 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { HttpMetricsMiddleware } from './http-metrics.middleware';
-import { LiveTelemetryAuthGuard } from './live-telemetry-auth.guard';
+import { InstallSecretAuthGuard } from './install-secret-auth.guard';
 import { LiveTelemetryService } from './live-telemetry.service';
 import { ObservabilityController } from './observability.controller';
 import { ObservabilityService } from './observability.service';
@@ -15,10 +15,10 @@ import { ObservabilityService } from './observability.service';
   providers: [
     ObservabilityService,
     HttpMetricsMiddleware,
-    LiveTelemetryAuthGuard,
+    InstallSecretAuthGuard,
     LiveTelemetryService,
   ],
-  exports: [ObservabilityService],
+  exports: [InstallSecretAuthGuard, ObservabilityService],
 })
 export class ObservabilityModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

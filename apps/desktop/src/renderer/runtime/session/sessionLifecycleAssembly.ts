@@ -217,9 +217,11 @@ export function createSessionLifecycleAssembly({
       dependencies.store.getState().setActiveVoiceSessionGroundingEnabled(enabled);
     },
     selectedOutputDeviceId,
+    resetVoiceResumeSessionLimits: () => undefined,
     resetVoiceSessionResumption: () => runtimeRef.current!.resetVoiceSessionResumption(),
     resetVoiceSessionDurability: () => runtimeRef.current!.resetVoiceSessionDurability(),
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
+    resetVoiceToolSessionLimits: () => undefined,
     ensureCurrentChatForSpeechStart: async () => {
       await getCurrentChat();
     },

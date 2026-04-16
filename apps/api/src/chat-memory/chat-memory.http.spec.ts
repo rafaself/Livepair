@@ -78,8 +78,8 @@ describe('Chat memory HTTP auth', () => {
   });
 
   afterEach(() => {
-    consoleWarnSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
+    consoleWarnSpy?.mockRestore();
+    consoleErrorSpy?.mockRestore();
   });
 
   it('rejects missing chat-memory credentials with 401', async () => {

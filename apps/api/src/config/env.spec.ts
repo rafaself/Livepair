@@ -37,12 +37,12 @@ describe('env config', () => {
 
       expect(readApiRuntimeEnv()).toEqual({
         port: 3000,
-        host: '0.0.0.0',
+        host: '127.0.0.1',
         nodeEnv: 'development',
         disableHttpListen: false,
         corsAllowedOrigins: [],
         geminiApiKey: '',
-        sessionTokenAuthSecret: 'livepair-local-session-token-secret',
+        sessionTokenAuthSecret: '',
         sessionTokenLiveModel: 'models/gemini-2.5-flash-native-audio-preview-12-2025',
         databaseUrl: 'postgres://livepair:livepair@127.0.0.1:5432/livepair',
         ephemeralTokenTtlSeconds: 60,
@@ -51,6 +51,9 @@ describe('env config', () => {
         projectKnowledgeSearchModel: 'models/gemini-2.5-flash',
         projectKnowledgeFileSearchStore: '',
         projectKnowledgeFileSearchStoreDisplayName: 'livepair-project-knowledge',
+        projectKnowledgePrewarmEnabled: false,
+        projectKnowledgeRateLimitMaxRequests: 10,
+        projectKnowledgeRateLimitWindowMs: 60_000,
       });
     } finally {
       delete process.env['DOTENV_CONFIG_PATH'];
@@ -71,6 +74,9 @@ describe('env config', () => {
     process.env['PROJECT_KNOWLEDGE_SEARCH_MODEL'] = 'models/gemini-2.5-flash-lite';
     process.env['PROJECT_KNOWLEDGE_FILE_SEARCH_STORE'] = 'fileSearchStores/livepair';
     process.env['PROJECT_KNOWLEDGE_FILE_SEARCH_STORE_DISPLAY_NAME'] = 'custom-store';
+    process.env['PROJECT_KNOWLEDGE_PREWARM_ENABLED'] = 'true';
+    process.env['PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS'] = '12';
+    process.env['PROJECT_KNOWLEDGE_RATE_LIMIT_WINDOW_MS'] = '45000';
     process.env['DISABLE_HTTP_LISTEN'] = 'true';
     process.env['CORS_ALLOWED_ORIGINS'] = [
       ' https://livepair.dev ',
@@ -98,6 +104,9 @@ describe('env config', () => {
         projectKnowledgeSearchModel: 'models/gemini-2.5-flash-lite',
         projectKnowledgeFileSearchStore: 'fileSearchStores/livepair',
         projectKnowledgeFileSearchStoreDisplayName: 'custom-store',
+        projectKnowledgePrewarmEnabled: true,
+        projectKnowledgeRateLimitMaxRequests: 12,
+        projectKnowledgeRateLimitWindowMs: 45_000,
       });
     } finally {
       delete process.env['DOTENV_CONFIG_PATH'];
@@ -133,6 +142,9 @@ describe('env config', () => {
         'EPHEMERAL_TOKEN_TTL_SECONDS=75',
         'SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS=9',
         'SESSION_TOKEN_RATE_LIMIT_WINDOW_MS=120000',
+        'PROJECT_KNOWLEDGE_PREWARM_ENABLED=true',
+        'PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS=15',
+        'PROJECT_KNOWLEDGE_RATE_LIMIT_WINDOW_MS=45000',
         'DISABLE_HTTP_LISTEN=false',
         'CORS_ALLOWED_ORIGINS=https://app.livepair.dev,http://localhost:5173',
       ].join('\n'),
@@ -159,6 +171,9 @@ describe('env config', () => {
         projectKnowledgeSearchModel: 'models/gemini-2.5-flash',
         projectKnowledgeFileSearchStore: '',
         projectKnowledgeFileSearchStoreDisplayName: 'livepair-project-knowledge',
+        projectKnowledgePrewarmEnabled: true,
+        projectKnowledgeRateLimitMaxRequests: 15,
+        projectKnowledgeRateLimitWindowMs: 45_000,
       });
     } finally {
       delete process.env['DOTENV_CONFIG_PATH'];
@@ -210,6 +225,20 @@ describe('env config', () => {
     }
   });
 
+  it('fails when project knowledge rate limit config is invalid', async () => {
+    process.env['SESSION_TOKEN_AUTH_SECRET'] = 'desktop-secret';
+    process.env['PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS'] = '0';
+    process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
+
+    try {
+      await expect(import('./env')).rejects.toThrow(
+        'Environment variable PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS must be a positive integer',
+      );
+    } finally {
+      delete process.env['DOTENV_CONFIG_PATH'];
+    }
+  });
+
   it('fails validation when CORS_ALLOWED_ORIGINS contains invalid entries', async () => {
     process.env['CORS_ALLOWED_ORIGINS'] = 'file:///tmp/app';
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
@@ -223,18 +252,16 @@ describe('env config', () => {
     }
   });
 
-  it('fails validation when the production auth secret uses the local default', async () => {
+  it('passes validation with an explicit production auth secret', async () => {
     process.env['NODE_ENV'] = 'production';
     process.env['GEMINI_API_KEY'] = 'gemini-key';
-    process.env['SESSION_TOKEN_AUTH_SECRET'] = 'livepair-local-session-token-secret';
+    process.env['SESSION_TOKEN_AUTH_SECRET'] = 'explicit-production-secret';
     process.env['DOTENV_CONFIG_PATH'] = join(tmpdir(), 'livepair-missing.env');
 
     try {
       const { validateApiRuntimeEnv } = await import('./env');
 
-      expect(() => validateApiRuntimeEnv()).toThrow(
-        'Environment variable SESSION_TOKEN_AUTH_SECRET must not use the local default value in production',
-      );
+      expect(() => validateApiRuntimeEnv()).not.toThrow();
     } finally {
       delete process.env['DOTENV_CONFIG_PATH'];
     }

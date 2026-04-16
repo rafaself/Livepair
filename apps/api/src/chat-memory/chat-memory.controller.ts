@@ -31,15 +31,15 @@ import { EndLiveSessionDto } from './dto/end-live-session.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { UpdateLiveSessionResumptionDto } from './dto/update-live-session-resumption.dto';
 import { UpdateLiveSessionSnapshotDto } from './dto/update-live-session-snapshot.dto';
-import { ChatMemoryAuthGuard } from './chat-memory-auth.guard';
 import { ChatMemoryService } from './chat-memory.service';
+import { InstallSecretAuthGuard } from '../observability/install-secret-auth.guard';
 
 type ResponseLike = {
   status(code: number): void;
 };
 
 @Controller('chat-memory')
-@UseGuards(ChatMemoryAuthGuard)
+@UseGuards(InstallSecretAuthGuard)
 export class ChatMemoryController {
   constructor(private readonly chatMemoryService: ChatMemoryService) {}
 

@@ -1,8 +1,7 @@
 import './loadRootEnv';
 
 const DEFAULT_PORT = 3000;
-const DEFAULT_HOST = '0.0.0.0';
-const DEFAULT_SESSION_TOKEN_AUTH_SECRET = 'livepair-local-session-token-secret';
+const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_SESSION_TOKEN_LIVE_MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
 const DEFAULT_DATABASE_URL = 'postgres://livepair:livepair@127.0.0.1:5432/livepair';
 const DEFAULT_EPHEMERAL_TOKEN_TTL_SECONDS = 60;
@@ -10,6 +9,9 @@ const DEFAULT_SESSION_TOKEN_RATE_LIMIT_MAX_REQUESTS = 5;
 const DEFAULT_SESSION_TOKEN_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_PROJECT_KNOWLEDGE_SEARCH_MODEL = 'models/gemini-2.5-flash';
 const DEFAULT_PROJECT_KNOWLEDGE_FILE_SEARCH_STORE_DISPLAY_NAME = 'livepair-project-knowledge';
+const DEFAULT_PROJECT_KNOWLEDGE_PREWARM_ENABLED = false;
+const DEFAULT_PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS = 10;
+const DEFAULT_PROJECT_KNOWLEDGE_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_DISABLE_HTTP_LISTEN = false;
 const DEFAULT_NODE_ENV = 'development';
 
@@ -29,6 +31,9 @@ export type ApiRuntimeEnv = {
   projectKnowledgeSearchModel: string;
   projectKnowledgeFileSearchStore: string;
   projectKnowledgeFileSearchStoreDisplayName: string;
+  projectKnowledgePrewarmEnabled: boolean;
+  projectKnowledgeRateLimitMaxRequests: number;
+  projectKnowledgeRateLimitWindowMs: number;
 };
 
 function hasNonEmptyValue(value: string | undefined): boolean {
@@ -170,11 +175,7 @@ function buildApiRuntimeEnv(runtimeEnv: NodeJS.ProcessEnv = process.env): ApiRun
     ),
     corsAllowedOrigins: parseAllowedOrigins(runtimeEnv['CORS_ALLOWED_ORIGINS']),
     geminiApiKey: runtimeEnv['GEMINI_API_KEY']?.trim() ?? '',
-    sessionTokenAuthSecret: readTrimmedString(
-      runtimeEnv['SESSION_TOKEN_AUTH_SECRET'],
-      DEFAULT_SESSION_TOKEN_AUTH_SECRET,
-      'SESSION_TOKEN_AUTH_SECRET',
-    ),
+    sessionTokenAuthSecret: runtimeEnv['SESSION_TOKEN_AUTH_SECRET']?.trim() ?? '',
     sessionTokenLiveModel: validateSessionTokenLiveModel(
       readTrimmedString(
         runtimeEnv['SESSION_TOKEN_LIVE_MODEL'],
@@ -213,6 +214,21 @@ function buildApiRuntimeEnv(runtimeEnv: NodeJS.ProcessEnv = process.env): ApiRun
       DEFAULT_PROJECT_KNOWLEDGE_FILE_SEARCH_STORE_DISPLAY_NAME,
       'PROJECT_KNOWLEDGE_FILE_SEARCH_STORE_DISPLAY_NAME',
     ),
+    projectKnowledgePrewarmEnabled: parseBoolean(
+      runtimeEnv['PROJECT_KNOWLEDGE_PREWARM_ENABLED'],
+      DEFAULT_PROJECT_KNOWLEDGE_PREWARM_ENABLED,
+      'PROJECT_KNOWLEDGE_PREWARM_ENABLED',
+    ),
+    projectKnowledgeRateLimitMaxRequests: parsePositiveInteger(
+      runtimeEnv['PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS'],
+      DEFAULT_PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS,
+      'PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS',
+    ),
+    projectKnowledgeRateLimitWindowMs: parsePositiveInteger(
+      runtimeEnv['PROJECT_KNOWLEDGE_RATE_LIMIT_WINDOW_MS'],
+      DEFAULT_PROJECT_KNOWLEDGE_RATE_LIMIT_WINDOW_MS,
+      'PROJECT_KNOWLEDGE_RATE_LIMIT_WINDOW_MS',
+    ),
   };
 }
 
@@ -224,22 +240,10 @@ export const env = buildApiRuntimeEnv();
 
 export function validateApiRuntimeEnv(requiredEnv: NodeJS.ProcessEnv = process.env): void {
   requireNonEmptyString(requiredEnv['GEMINI_API_KEY'], 'GEMINI_API_KEY');
-  const sessionTokenAuthSecret = requireNonEmptyString(
+  requireNonEmptyString(
     requiredEnv['SESSION_TOKEN_AUTH_SECRET'],
     'SESSION_TOKEN_AUTH_SECRET',
   );
-  const nodeEnv = hasNonEmptyValue(requiredEnv['NODE_ENV'])
-    ? requiredEnv['NODE_ENV']!.trim()
-    : DEFAULT_NODE_ENV;
-
-  if (
-    nodeEnv === 'production'
-    && sessionTokenAuthSecret === DEFAULT_SESSION_TOKEN_AUTH_SECRET
-  ) {
-    throw new Error(
-      'Environment variable SESSION_TOKEN_AUTH_SECRET must not use the local default value in production',
-    );
-  }
 
   buildApiRuntimeEnv(requiredEnv);
 }

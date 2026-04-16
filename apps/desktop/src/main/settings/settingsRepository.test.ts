@@ -121,7 +121,7 @@ describe('DesktopSettingsRepository', () => {
 
     await expect(new DesktopSettingsRepository(legacySettingsPath).getSettings()).resolves.toEqual({
       ...DEFAULT_DESKTOP_SETTINGS,
-      groundingEnabled: true,
+      groundingEnabled: false,
       voice: 'Puck',
       systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
     });

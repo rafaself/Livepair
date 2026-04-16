@@ -33,7 +33,11 @@ export class ProjectKnowledgeService implements OnModuleInit {
   }
 
   async prewarmCorpus(): Promise<void> {
-    if (!env.geminiApiKey.trim() || !env.projectKnowledgeSearchModel.trim()) {
+    if (
+      !env.projectKnowledgePrewarmEnabled
+      || !env.geminiApiKey.trim()
+      || !env.projectKnowledgeSearchModel.trim()
+    ) {
       return;
     }
 

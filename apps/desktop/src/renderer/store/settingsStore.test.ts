@@ -112,7 +112,10 @@ describe('settingsStore', () => {
     });
     await expect(
       useSettingsStore.getState().updateSetting('groundingEnabled', true),
-    ).resolves.toEqual(DEFAULT_DESKTOP_SETTINGS);
+    ).resolves.toEqual({
+      ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
+    });
 
     expect(window.bridge.updateSettings).toHaveBeenCalledWith({ groundingEnabled: true });
     expect(useSettingsStore.getState().settings.groundingEnabled).toBe(true);

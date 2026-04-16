@@ -10,7 +10,7 @@ import type {
 import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 import type { AddressInfo } from 'net';
 import { randomUUID } from 'node:crypto';
-import { DatabaseService } from '../database/database.service';
+import type { DatabaseService } from '../database/database.service';
 import { describeWithDatabase, truncateChatMemoryTables } from './testing/database-test-utils';
 
 const CHAT_MEMORY_AUTH_SECRET = 'desktop-secret';
@@ -40,11 +40,15 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
   let databaseService: DatabaseService;
 
   beforeAll(async () => {
+    jest.resetModules();
     process.env = {
       ...originalEnv,
       SESSION_TOKEN_AUTH_SECRET: CHAT_MEMORY_AUTH_SECRET,
     };
-    const { AppModule } = await import('../app.module');
+    const [{ AppModule }, { DatabaseService: DatabaseServiceToken }] = await Promise.all([
+      import('../app.module'),
+      import('../database/database.service'),
+    ]);
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -55,7 +59,7 @@ describeWithDatabase('ChatMemory HTTP integration', () => {
 
     const address = app.getHttpServer().address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
-    databaseService = app.get(DatabaseService);
+    databaseService = app.get(DatabaseServiceToken);
     global.fetch = ((
       input: string | URL | Request,
       init?: RequestInit,

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ChatMessageRecord,
   ChatRecord,
@@ -13,6 +13,8 @@ const CHAT_ID = '11111111-1111-1111-1111-111111111111';
 const MISSING_CHAT_ID = '22222222-2222-2222-2222-222222222222';
 const MESSAGE_ID = '33333333-3333-3333-3333-333333333333';
 const LIVE_SESSION_ID = '44444444-4444-4444-4444-444444444444';
+const DESKTOP_SESSION_TOKEN_AUTH_SECRET = 'livepair-local-session-token-secret';
+const originalSessionTokenAuthSecret = process.env['SESSION_TOKEN_AUTH_SECRET'];
 const mockHandle = vi.fn();
 
 vi.mock('electron', () => ({
@@ -82,6 +84,16 @@ describe('registerChatIpcHandlers', () => {
   beforeEach(() => {
     vi.resetModules();
     mockHandle.mockReset();
+    process.env['SESSION_TOKEN_AUTH_SECRET'] = DESKTOP_SESSION_TOKEN_AUTH_SECRET;
+  });
+
+  afterEach(() => {
+    if (typeof originalSessionTokenAuthSecret === 'undefined') {
+      delete process.env['SESSION_TOKEN_AUTH_SECRET'];
+      return;
+    }
+
+    process.env['SESSION_TOKEN_AUTH_SECRET'] = originalSessionTokenAuthSecret;
   });
 
   it('registers chat and live session IPC channels', async () => {

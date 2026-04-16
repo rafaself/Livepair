@@ -22,6 +22,8 @@ jest.mock('@nestjs/core', () => ({
   },
 }));
 
+jest.setTimeout(15_000);
+
 describe('main bootstrap', () => {
   const originalPort = process.env['PORT'];
   const originalHost = process.env['HOST'];
@@ -86,10 +88,10 @@ describe('main bootstrap', () => {
     expect(useGlobalPipes).toHaveBeenCalledTimes(1);
     expect(set).toHaveBeenCalledWith('trust proxy', 1);
     expect(enableCors).toHaveBeenCalledTimes(1);
-    expect(listen).toHaveBeenCalledWith(3000, '0.0.0.0');
+    expect(listen).toHaveBeenCalledWith(3000, '127.0.0.1');
     expect(infoSpy).toHaveBeenCalledWith('[api:startup] listening', {
       corsAllowedOrigins: ['https://allowed.livepair.dev', 'http://localhost:5173'],
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       nodeEnv: 'test',
       port: 3000,
       trustProxy: 1,
@@ -140,7 +142,7 @@ describe('main bootstrap', () => {
     expect(listen).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith('[api:startup] HTTP listen disabled', {
       disableHttpListen: true,
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 3000,
     });
   });

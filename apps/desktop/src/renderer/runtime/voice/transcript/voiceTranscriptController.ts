@@ -43,7 +43,11 @@ export function createVoiceTranscriptController(
     ensureAssistantTurn: turnState.ensureAssistantTurn,
     queueMixedModeAssistantReply: turnState.queueMixedModeAssistantReply,
     hasSettledTurnFence: turnState.hasSettledTurnFence,
-    onConversationTurnUpdated: options.onConversationTurnUpdated,
+    ...(options.onConversationTurnUpdated
+      ? {
+          onConversationTurnUpdated: options.onConversationTurnUpdated,
+        }
+      : {}),
     ...(options.emitDiagnostic || options.logRuntimeDiagnostic
       ? {
           emitDiagnostic: options.emitDiagnostic,
@@ -57,7 +61,11 @@ export function createVoiceTranscriptController(
     clearTranscript,
     currentAssistantArtifact: turnState.currentAssistantArtifact,
     currentUserArtifact: turnState.currentUserArtifact,
-    onConversationTurnSettled: options.onConversationTurnSettled,
+    ...(options.onConversationTurnSettled
+      ? {
+          onConversationTurnSettled: options.onConversationTurnSettled,
+        }
+      : {}),
   });
 
   return {

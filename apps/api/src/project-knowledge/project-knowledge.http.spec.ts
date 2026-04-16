@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
+import { SESSION_TOKEN_AUTH_HEADER_NAME } from '@livepair/shared-types';
 import type { AddressInfo } from 'net';
 import type { ProjectKnowledgeSearchResult } from '@livepair/shared-types';
 
@@ -53,26 +54,31 @@ async function createProjectKnowledgeApp() {
 
 describe('Project knowledge HTTP', () => {
   const originalEnv = process.env;
+  const PROJECT_KNOWLEDGE_AUTH_SECRET = 'project-knowledge-secret';
   let app: INestApplication | undefined;
   let harness: Awaited<ReturnType<typeof createProjectKnowledgeApp>> | undefined;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     jest.resetModules();
     process.env = {
       ...originalEnv,
       GEMINI_API_KEY: 'gemini-key',
+      SESSION_TOKEN_AUTH_SECRET: PROJECT_KNOWLEDGE_AUTH_SECRET,
+      PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS: '2',
+      PROJECT_KNOWLEDGE_RATE_LIMIT_WINDOW_MS: '60000',
     };
     harness = await createProjectKnowledgeApp();
     app = harness.app;
   });
 
-  afterAll(async () => {
-    process.env = originalEnv;
-
+  afterEach(async () => {
     if (app) {
       await app.close();
       app = undefined;
     }
+
+    harness = undefined;
+    process.env = originalEnv;
   });
 
   it('returns the structured retrieval result from the service', async () => {
@@ -84,6 +90,7 @@ describe('Project knowledge HTTP', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: PROJECT_KNOWLEDGE_AUTH_SECRET,
       },
       body: JSON.stringify({
         query: 'How do live sessions connect?',
@@ -114,6 +121,43 @@ describe('Project knowledge HTTP', () => {
     });
   });
 
+  it('rejects searches without the install auth header', async () => {
+    if (!harness) {
+      throw new Error('Project knowledge test harness was not initialized');
+    }
+
+    const response = await fetch(`${harness.baseUrl}/project-knowledge/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: 'How do live sessions connect?',
+      }),
+    });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects searches with an invalid install auth header', async () => {
+    if (!harness) {
+      throw new Error('Project knowledge test harness was not initialized');
+    }
+
+    const response = await fetch(`${harness.baseUrl}/project-knowledge/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'wrong-secret',
+      },
+      body: JSON.stringify({
+        query: 'How do live sessions connect?',
+      }),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
   it('rejects blank queries at the DTO boundary', async () => {
     if (!harness) {
       throw new Error('Project knowledge test harness was not initialized');
@@ -123,6 +167,7 @@ describe('Project knowledge HTTP', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: PROJECT_KNOWLEDGE_AUTH_SECRET,
       },
       body: JSON.stringify({
         query: '   ',
@@ -135,5 +180,40 @@ describe('Project knowledge HTTP', () => {
       message: ['query must contain non-whitespace characters'],
       error: 'Bad Request',
     });
+  });
+
+  it('rate limits burst project-knowledge searches', async () => {
+    if (!harness) {
+      throw new Error('Project knowledge test harness was not initialized');
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      [SESSION_TOKEN_AUTH_HEADER_NAME]: PROJECT_KNOWLEDGE_AUTH_SECRET,
+    };
+    const body = JSON.stringify({
+      query: 'How do live sessions connect?',
+    });
+
+    const firstResponse = await fetch(`${harness.baseUrl}/project-knowledge/search`, {
+      method: 'POST',
+      headers,
+      body,
+    });
+    const secondResponse = await fetch(`${harness.baseUrl}/project-knowledge/search`, {
+      method: 'POST',
+      headers,
+      body,
+    });
+    const thirdResponse = await fetch(`${harness.baseUrl}/project-knowledge/search`, {
+      method: 'POST',
+      headers,
+      body,
+    });
+
+    expect(firstResponse.status).toBe(201);
+    expect(secondResponse.status).toBe(201);
+    expect(thirdResponse.status).toBe(429);
+    expect(harness.searchProjectKnowledge).toHaveBeenCalledTimes(2);
   });
 });

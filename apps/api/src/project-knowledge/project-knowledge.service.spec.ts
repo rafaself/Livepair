@@ -19,7 +19,7 @@ describe('ProjectKnowledgeService', () => {
     process.env = originalEnv;
   });
 
-  it('prewarmCorpus starts corpus sync eagerly when config is ready', async () => {
+  it('prewarmCorpus skips sync by default until explicitly enabled', async () => {
     const { ProjectKnowledgeService } = await import('./project-knowledge.service');
 
     const corpusService = {
@@ -44,7 +44,39 @@ describe('ProjectKnowledgeService', () => {
     const service = new ProjectKnowledgeService(client as never, corpusService as never);
     await service.prewarmCorpus();
 
-    // Prewarm resolves the store and lists existing documents.
+    expect(corpusService.listDocuments).not.toHaveBeenCalled();
+    expect(client.listFileSearchStores).not.toHaveBeenCalled();
+    expect(client.listDocuments).not.toHaveBeenCalled();
+    expect(client.generateGroundedAnswer).not.toHaveBeenCalled();
+  });
+
+  it('prewarmCorpus starts corpus sync eagerly when explicitly enabled', async () => {
+    process.env['PROJECT_KNOWLEDGE_PREWARM_ENABLED'] = 'true';
+
+    const { ProjectKnowledgeService } = await import('./project-knowledge.service');
+
+    const corpusService = {
+      listDocuments: jest.fn(async () => []),
+    };
+    const client = {
+      listFileSearchStores: jest.fn(async () => [
+        {
+          name: 'fileSearchStores/livepair-store',
+          displayName: 'livepair-project-knowledge',
+        },
+      ]),
+      createFileSearchStore: jest.fn(),
+      listDocuments: jest.fn(async () => []),
+      uploadFile: jest.fn(),
+      importFile: jest.fn(),
+      deleteFile: jest.fn(),
+      deleteDocument: jest.fn(),
+      generateGroundedAnswer: jest.fn(),
+    };
+
+    const service = new ProjectKnowledgeService(client as never, corpusService as never);
+    await service.prewarmCorpus();
+
     expect(client.listFileSearchStores).toHaveBeenCalledTimes(1);
     expect(client.listDocuments).toHaveBeenCalledTimes(1);
     expect(client.generateGroundedAnswer).not.toHaveBeenCalled();

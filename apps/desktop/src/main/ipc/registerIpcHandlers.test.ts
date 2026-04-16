@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrowserWindow } from 'electron';
 import type {
   ChatMessageRecord,
@@ -23,6 +23,8 @@ const mockGetPrimaryDisplay = vi.fn(() => ({
   workArea: { x: 0, y: 23, width: 2560, height: 1417 },
   scaleFactor: 2,
 }));
+const DESKTOP_SESSION_TOKEN_AUTH_SECRET = 'livepair-local-session-token-secret';
+const originalSessionTokenAuthSecret = process.env['SESSION_TOKEN_AUTH_SECRET'];
 
 vi.mock('electron', () => ({
   app: { quit: mockQuit },
@@ -146,6 +148,16 @@ describe('registerIpcHandlers', () => {
     mockGetSources.mockReset();
     mockGetMediaAccessStatus.mockReset();
     mockGetPrimaryDisplay.mockClear();
+    process.env['SESSION_TOKEN_AUTH_SECRET'] = DESKTOP_SESSION_TOKEN_AUTH_SECRET;
+  });
+
+  afterEach(() => {
+    if (typeof originalSessionTokenAuthSecret === 'undefined') {
+      delete process.env['SESSION_TOKEN_AUTH_SECRET'];
+      return;
+    }
+
+    process.env['SESSION_TOKEN_AUTH_SECRET'] = originalSessionTokenAuthSecret;
   });
 
   it('registers the expected IPC channels', async () => {
@@ -463,7 +475,10 @@ describe('registerIpcHandlers', () => {
       'http://localhost:3000/project-knowledge/search',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-livepair-session-token-secret': 'livepair-local-session-token-secret',
+        },
         body: JSON.stringify({ query: 'How do I verify the desktop package?' }),
       },
     );

@@ -3,6 +3,7 @@ import { createTransportEventRouter } from './transportEventRouter';
 import { configureRuntimeDebugMode } from '../core/debugMode';
 import { useUiStore } from '../../store/uiStore';
 import { resetDesktopStores } from '../../test/store';
+import type { VoiceTranscriptUpdateResult } from '../voice/voice.types';
 
 function createVoiceSessionLatencyState() {
   return {
@@ -154,11 +155,13 @@ function createMockOps() {
     attachCurrentAssistantTurn: vi.fn(),
     enqueueVoiceToolCalls: vi.fn(),
     handleVoiceInterruption: vi.fn(),
-    applyVoiceTranscriptUpdate: vi.fn(() => ({
-      role: 'user' as const,
-      classification: 'same-turn-update' as const,
-      didUpdate: true,
-    })),
+    applyVoiceTranscriptUpdate: vi
+      .fn<(role: 'user' | 'assistant', text: string, isFinal?: boolean) => VoiceTranscriptUpdateResult>()
+      .mockReturnValue({
+        role: 'user',
+        classification: 'same-turn-update',
+        didUpdate: true,
+      }),
     appendAssistantDraftTextDelta: vi.fn(),
     setAssistantAnswerMetadata: vi.fn(),
     completeAssistantDraft: vi.fn(),
@@ -817,7 +820,9 @@ describe('createTransportEventRouter', () => {
     it('keeps transcript observation but does not re-emit user speech detected for a settled replay', () => {
       const ops = createMockOps();
       ops.applyVoiceTranscriptUpdate.mockReturnValue({
+        role: 'user',
         classification: 'settled-replay',
+        didUpdate: false,
       });
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
 
@@ -837,7 +842,9 @@ describe('createTransportEventRouter', () => {
     it('keeps transcript observation but does not re-emit user speech detected for a settled correction', () => {
       const ops = createMockOps();
       ops.applyVoiceTranscriptUpdate.mockReturnValue({
+        role: 'user',
         classification: 'settled-correction',
+        didUpdate: true,
       });
       const { handleTransportEvent } = createTransportEventRouter(ops as never);
 

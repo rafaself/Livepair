@@ -288,6 +288,13 @@ describe('useAssistantPanelSettingsController', () => {
   });
 
   it('routes settings mutations through the stores and exposes debug mode toggles', async () => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        groundingEnabled: true,
+      },
+      isReady: true,
+    });
     render(<HookHarness />);
 
     expect(screen.getByLabelText('debug-mode')).toHaveTextContent('false');

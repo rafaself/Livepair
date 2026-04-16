@@ -17,6 +17,10 @@ import { createVoiceResumeFallbackController } from './voiceResumeFallback';
 import { teardownVoiceSessionForResume } from './voiceResumeTeardown';
 import type { LiveRuntimeDiagnosticEvent } from '../../session/liveRuntimeObservability';
 
+const MAX_AUTOMATIC_RECOVERY_ATTEMPTS_PER_SESSION = 3;
+const AUTOMATIC_RECOVERY_LIMIT_DETAIL =
+  'Automatic Live session recovery stopped after 3 reconnect attempts. Start a new Live session to continue.';
+
 export type VoiceResumeControllerOps = {
   store: SessionStoreApi;
   transportAdapter?: LiveTransportAdapter;
@@ -83,6 +87,7 @@ function recordRecoveryTransition(
 }
 
 export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
+  let automaticRecoveryAttempts = 0;
   const reportDiagnostic = (event: LiveRuntimeDiagnosticEvent): void => {
     if (ops.emitDiagnostic) {
       ops.emitDiagnostic(event);
@@ -119,6 +124,29 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
       });
       return;
     }
+
+    if (automaticRecoveryAttempts >= MAX_AUTOMATIC_RECOVERY_ATTEMPTS_PER_SESSION) {
+      reportDiagnostic({
+        scope: 'voice-session',
+        name: 'automatic recovery cap reached',
+        level: 'error',
+        detail: AUTOMATIC_RECOVERY_LIMIT_DETAIL,
+        data: {
+          attemptedDetail: detail,
+          attemptCount: automaticRecoveryAttempts,
+        },
+      });
+      recordRecoveryTransition(ops, 'resume-aborted', AUTOMATIC_RECOVERY_LIMIT_DETAIL);
+      ops.setVoiceSessionResumption({
+        status: 'resumeFailed',
+        lastDetail: AUTOMATIC_RECOVERY_LIMIT_DETAIL,
+      });
+      ops.setVoiceResumptionInFlight(false);
+      ops.setVoiceErrorState(AUTOMATIC_RECOVERY_LIMIT_DETAIL);
+      return;
+    }
+
+    automaticRecoveryAttempts += 1;
 
     const resumeHandle = store.voiceSessionResumption.latestHandle;
     let tokenToUse: CreateEphemeralTokenResponse | null = ops.getToken();
@@ -348,5 +376,10 @@ export function createVoiceResumeController(ops: VoiceResumeControllerOps) {
     }
   };
 
-  return { resume };
+  return {
+    resume,
+    resetSessionLimits: () => {
+      automaticRecoveryAttempts = 0;
+    },
+  };
 }

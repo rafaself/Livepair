@@ -278,6 +278,34 @@ describe('createVoiceResumeController', () => {
     expect(ops.setVoiceErrorState).not.toHaveBeenCalled();
   });
 
+  it('stops automatic recovery after three reconnect attempts in the same live session', async () => {
+    const ops = createMockOps();
+    ops.beginSessionOperation
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(2)
+      .mockReturnValueOnce(3)
+      .mockReturnValueOnce(4);
+    const { resume } = createVoiceResumeController(ops as never);
+
+    await resume('server draining #1');
+    await resume('server draining #2');
+    await resume('server draining #3');
+    await resume('server draining #4');
+
+    expect(ops.createTransport).toHaveBeenCalledTimes(3);
+    expect(ops.fallbackToNewSession).toHaveBeenCalledTimes(0);
+    expect(ops.setVoiceSessionResumption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'resumeFailed',
+        lastDetail:
+          'Automatic Live session recovery stopped after 3 reconnect attempts. Start a new Live session to continue.',
+      }),
+    );
+    expect(ops.setVoiceErrorState).toHaveBeenCalledWith(
+      'Automatic Live session recovery stopped after 3 reconnect attempts. Start a new Live session to continue.',
+    );
+  });
+
   it('sets error state when fallback also fails after resume connect throws', async () => {
     const ops = createMockOps();
     ops._transport.connect.mockRejectedValue(new Error('resume rejected'));

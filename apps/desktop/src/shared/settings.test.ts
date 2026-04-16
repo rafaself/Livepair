@@ -56,8 +56,9 @@ describe('normalizeDesktopSettings', () => {
 describe('voice and system instruction settings', () => {
   it('defaults to the documented voice and product instruction', () => {
     expect(DEFAULT_DESKTOP_SETTINGS).not.toHaveProperty('preferredMode');
+    expect(DEFAULT_DESKTOP_SETTINGS.speechSilenceTimeout).toBe('3m');
     expect(DEFAULT_DESKTOP_SETTINGS.voice).toBe('Puck');
-    expect(DEFAULT_DESKTOP_SETTINGS.groundingEnabled).toBe(true);
+    expect(DEFAULT_DESKTOP_SETTINGS.groundingEnabled).toBe(false);
     expect(DEFAULT_DESKTOP_SETTINGS.systemInstruction).toBe(
       'You are Livepair, a realtime multimodal desktop assistant.',
     );

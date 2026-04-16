@@ -29,17 +29,27 @@ cp infra/postgres/.env.example infra/postgres/.env
 
 ### 3) Set required environment values
 
-In `apps/api/.env`, set your Gemini API key:
+In `apps/api/.env`, set your Gemini API key and choose an install-scoped shared secret:
 
 ```bash
 GEMINI_API_KEY=your-gemini-api-key
+SESSION_TOKEN_AUTH_SECRET=replace-with-a-random-shared-secret
 ```
 
 Keep these values aligned:
 
 - `SESSION_TOKEN_AUTH_SECRET` must match in `apps/api/.env` and `apps/desktop/.env`
+- Local API binds to `127.0.0.1` by default. Set `HOST=0.0.0.0` only when you explicitly want remote exposure.
 - `SESSION_TOKEN_LIVE_MODEL` in the API should match `VITE_LIVE_MODEL` in the desktop app
 - `VITE_LIVE_API_VERSION` should remain `v1alpha` for the current speech flow
+
+Secure local defaults for this no-login install model:
+
+- `POST /session/token`, `/chat-memory/*`, `POST /observability/live-telemetry`, `POST /project-knowledge/search`, and `GET /metrics` all require `x-livepair-session-token-secret`
+- `GET /health` stays open for local smoke checks
+- project knowledge prewarm is disabled by default with `PROJECT_KNOWLEDGE_PREWARM_ENABLED=false`
+- project knowledge search is rate limited by default with `PROJECT_KNOWLEDGE_RATE_LIMIT_MAX_REQUESTS=10` and `PROJECT_KNOWLEDGE_RATE_LIMIT_WINDOW_MS=60000`
+- new desktop installs start with grounding off and a `3m` speech silence timeout to reduce surprise spend
 
 ### 4) Start local PostgreSQL
 
@@ -72,6 +82,13 @@ Useful checks:
 ```bash
 make smoke-check
 curl http://127.0.0.1:3000/health
+```
+
+If you need to query a protected backend route locally, send the shared secret explicitly:
+
+```bash
+curl -H "x-livepair-session-token-secret: $SESSION_TOKEN_AUTH_SECRET" \
+  http://127.0.0.1:3000/metrics
 ```
 
 ### 7) Build Ubuntu desktop artifacts
@@ -114,6 +131,7 @@ Livepair gives users a desktop assistant that can listen, respond, and use scree
 - Accepts voice plus typed follow-up turns inside the same active Live session
 - Shows transcript and conversation state in the desktop UI
 - Persists chats, messages, summaries, and live-session metadata through backend chat-memory APIs
+- Uses install-scoped backend protection plus hard runtime limits to avoid accidental credit consumption from abandoned or looping sessions
 
 ## Why it matters
 
@@ -130,6 +148,7 @@ Livepair gives users a desktop assistant that can listen, respond, and use scree
 - **Interruption support:** local barge-in handling stops playback quickly when the user speaks
 - **Durable memory:** the backend stores chats, messages, summaries, and live-session records in Postgres
 - **Session continuity:** the desktop supports token refresh and session resumption flows
+- **Spend controls:** project knowledge is opt-in per install, startup prewarm is off, `search_project_knowledge` is capped at 3 successful calls per live session, and automatic recovery is capped at 3 attempts per live session
 
 ## Preview
 

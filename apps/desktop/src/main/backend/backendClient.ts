@@ -30,8 +30,6 @@ type BackendClientOptions = {
   getBackendUrl?: () => Promise<string> | string;
 };
 
-const DEFAULT_SESSION_TOKEN_AUTH_SECRET = 'livepair-local-session-token-secret';
-
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -66,13 +64,13 @@ function isExpiredTimestamp(value: string, now = Date.now()): boolean {
 }
 
 function readSessionTokenAuthSecret(): string | null {
-  const value = process.env['SESSION_TOKEN_AUTH_SECRET'] ?? DEFAULT_SESSION_TOKEN_AUTH_SECRET;
+  const value = process.env['SESSION_TOKEN_AUTH_SECRET'];
 
   if (typeof value !== 'string' || value.trim().length === 0) {
     return null;
   }
 
-  return value;
+  return value.trim();
 }
 
 function headersToRecord(headers?: RequestInit['headers']): Record<string, string> {
@@ -94,10 +92,15 @@ function headersToRecord(headers?: RequestInit['headers']): Record<string, strin
   }, {});
 }
 
-function withSharedSecretHeaders(headers?: RequestInit['headers']): Record<string, string> {
+function withProtectedRouteHeaders(
+  path: string,
+  headers?: RequestInit['headers'],
+): Record<string, string> {
   const sessionTokenAuthSecret = readSessionTokenAuthSecret();
   if (!sessionTokenAuthSecret) {
-    return headersToRecord(headers);
+    throw new Error(
+      `Missing required SESSION_TOKEN_AUTH_SECRET for protected backend route ${path}`,
+    );
   }
 
   return {
@@ -617,7 +620,7 @@ export function createBackendClient({
     const requestInit = protectedRoute
       ? {
           ...init,
-          headers: withSharedSecretHeaders(init?.headers),
+          headers: withProtectedRouteHeaders(path, init?.headers),
         }
       : init;
     const response = typeof requestInit === 'undefined'
@@ -653,7 +656,7 @@ export function createBackendClient({
     const requestInit = protectedRoute
       ? {
           ...init,
-          headers: withSharedSecretHeaders(init?.headers),
+          headers: withProtectedRouteHeaders(path, init?.headers),
         }
       : init;
     const response = typeof requestInit === 'undefined'
@@ -701,14 +704,10 @@ export function createBackendClient({
         hasSessionId,
       });
 
-      const sessionTokenAuthSecret = readSessionTokenAuthSecret();
       const res = await fetchImpl(url, {
         method: 'POST',
-        headers: withSharedSecretHeaders({
+        headers: withProtectedRouteHeaders('/session/token', {
           'Content-Type': 'application/json',
-          ...(sessionTokenAuthSecret
-            ? { [SESSION_TOKEN_AUTH_HEADER_NAME]: sessionTokenAuthSecret }
-            : {}),
         }),
         body: JSON.stringify(req),
       });
@@ -744,6 +743,7 @@ export function createBackendClient({
         },
         parse: parseProjectKnowledgeSearchResult,
         path: '/project-knowledge/search',
+        protectedRoute: true,
         statusLabel: 'Project knowledge search failed',
       });
     },

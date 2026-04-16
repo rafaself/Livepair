@@ -75,7 +75,6 @@ export function SpeechActivityIndicator({
     >
       {Array.from({ length: BAR_COUNT }).map((_, index) => (
         <span
-          // eslint-disable-next-line react/no-array-index-key
           key={index}
           ref={(el) => {
             barRefs.current[index] = el;

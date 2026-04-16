@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   AppendChatMessageRequest,
   ChatMessageRecord,
@@ -23,6 +23,7 @@ const CHAT_ID = '11111111-1111-1111-1111-111111111111';
 const MISSING_CHAT_ID = '22222222-2222-2222-2222-222222222222';
 const MESSAGE_ID = '33333333-3333-3333-3333-333333333333';
 const LIVE_SESSION_ID = '44444444-4444-4444-4444-444444444444';
+const DESKTOP_SESSION_TOKEN_AUTH_SECRET = 'livepair-local-session-token-secret';
 function createChatRecord(overrides: Partial<ChatRecord> = {}): ChatRecord {
   return {
     id: CHAT_ID,
@@ -112,6 +113,7 @@ describe('backendClient', () => {
   const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
   const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
   const originalBackendUrl = process.env['BACKEND_URL'];
+  const originalSessionTokenAuthSecret = process.env['SESSION_TOKEN_AUTH_SECRET'];
 
   beforeEach(() => {
     getBackendUrl.mockClear();
@@ -123,6 +125,16 @@ describe('backendClient', () => {
     } else {
       process.env['BACKEND_URL'] = originalBackendUrl;
     }
+    process.env['SESSION_TOKEN_AUTH_SECRET'] = DESKTOP_SESSION_TOKEN_AUTH_SECRET;
+  });
+
+  afterEach(() => {
+    if (typeof originalSessionTokenAuthSecret === 'undefined') {
+      delete process.env['SESSION_TOKEN_AUTH_SECRET'];
+      return;
+    }
+
+    process.env['SESSION_TOKEN_AUTH_SECRET'] = originalSessionTokenAuthSecret;
   });
 
   it('checks backend health through the configured backend URL', async () => {
@@ -203,7 +215,7 @@ describe('backendClient', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: DESKTOP_SESSION_TOKEN_AUTH_SECRET,
       },
       body: JSON.stringify(req),
     });
@@ -258,39 +270,15 @@ describe('backendClient', () => {
     }
   });
 
-  it('uses the local default token credential header when no env override is set', async () => {
-    const response: CreateEphemeralTokenResponse = {
-      token: 'ephemeral-token',
-      expireTime: '2099-03-09T12:30:00.000Z',
-      newSessionExpireTime: '2099-03-09T12:01:30.000Z',
-    };
-    const originalSecret = process.env['SESSION_TOKEN_AUTH_SECRET'];
+  it('fails fast when the session token route is protected but the install secret is missing', async () => {
     delete process.env['SESSION_TOKEN_AUTH_SECRET'];
-    fetchImpl.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: vi.fn(async () => response),
-    });
 
-    try {
-      const client = createBackendClient({ fetchImpl, getBackendUrl });
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
 
-      await expect(client.requestSessionToken({})).resolves.toEqual(response);
-      expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/session/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
-        },
-        body: JSON.stringify({}),
-      });
-    } finally {
-      if (typeof originalSecret === 'undefined') {
-        delete process.env['SESSION_TOKEN_AUTH_SECRET'];
-      } else {
-        process.env['SESSION_TOKEN_AUTH_SECRET'] = originalSecret;
-      }
-    }
+    await expect(client.requestSessionToken({})).rejects.toThrow(
+      'Missing required SESSION_TOKEN_AUTH_SECRET for protected backend route /session/token',
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('rejects malformed token responses before bootstrap uses them', async () => {
@@ -358,7 +346,7 @@ describe('backendClient', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'livepair-local-session-token-secret',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: DESKTOP_SESSION_TOKEN_AUTH_SECRET,
       },
       body: JSON.stringify({ events: telemetryEvents }),
     });
@@ -399,9 +387,24 @@ describe('backendClient', () => {
     ).resolves.toEqual(createProjectKnowledgeSearchResult());
     expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/project-knowledge/search', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: DESKTOP_SESSION_TOKEN_AUTH_SECRET,
+      },
       body: JSON.stringify({ query: 'How do I verify the desktop package?' }),
     });
+  });
+
+  it('fails fast when the project-knowledge route is protected but the install secret is missing', async () => {
+    delete process.env['SESSION_TOKEN_AUTH_SECRET'];
+    const client = createBackendClient({ fetchImpl, getBackendUrl });
+
+    await expect(
+      client.searchProjectKnowledge({ query: 'How do I verify the desktop package?' }),
+    ).rejects.toThrow(
+      'Missing required SESSION_TOKEN_AUTH_SECRET for protected backend route /project-knowledge/search',
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('rejects malformed project knowledge responses from successful requests', async () => {

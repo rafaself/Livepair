@@ -41,6 +41,7 @@ describe('AssistantPanelPreferencesView', () => {
   it('renders persisted voice and instructions values with tooltips and a counter', async () => {
     renderPreferences({
       ...DEFAULT_DESKTOP_SETTINGS,
+      groundingEnabled: true,
       voice: 'Kore',
       systemInstruction: 'Keep answers short.',
     });
@@ -100,9 +101,9 @@ describe('AssistantPanelPreferencesView', () => {
     });
 
     await waitFor(() => {
-      expect(window.bridge.updateSettings).toHaveBeenCalledWith({ groundingEnabled: false });
+      expect(window.bridge.updateSettings).toHaveBeenCalledWith({ groundingEnabled: true });
     });
-    expect(screen.getByRole('switch', { name: 'Grounding' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('switch', { name: 'Grounding' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('persists voice changes through the settings bridge', async () => {

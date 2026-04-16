@@ -42,7 +42,7 @@ export type DesktopSettingsPatch = Partial<DesktopSettings>;
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   themePreference: 'system',
-  speechSilenceTimeout: 'never',
+  speechSilenceTimeout: '3m',
   selectedInputDeviceId: 'default',
   selectedOutputDeviceId: 'default',
   voiceEchoCancellationEnabled: true,
@@ -52,7 +52,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   screenContextMode: 'unconfigured',
   continuousScreenQuality: 'medium',
   chatTimestampVisibility: 'hidden',
-  groundingEnabled: true,
+  groundingEnabled: false,
   voice: DEFAULT_ASSISTANT_VOICE,
   systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
 };

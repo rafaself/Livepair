@@ -31,6 +31,13 @@ describe('createDesktopSessionController – speech lifecycle', () => {
 
   it('moves the speech lifecycle through user speaking, assistant speaking, interruption, recovery, and listening', async () => {
     vi.useFakeTimers();
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        speechSilenceTimeout: 'never',
+      },
+      isReady: true,
+    });
 
     const voiceCapture = createVoiceCaptureHarness();
     const voiceTransport = createVoiceTransportHarness();
@@ -210,6 +217,41 @@ describe('createDesktopSessionController – speech lifecycle', () => {
 
     await controller.startSession({ mode: 'speech' });
     await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(voiceCapture.stop).toHaveBeenCalledTimes(1);
+    expect(voiceTransport.disconnect).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().speechLifecycle.status).toBe('off');
+    expect(useSessionStore.getState().currentMode).toBe('inactive');
+
+    vi.useRealTimers();
+  });
+
+  it('uses the new default 3m silence timeout for abandoned speech sessions', async () => {
+    vi.useFakeTimers();
+    const voiceCapture = createVoiceCaptureHarness();
+    const voiceTransport = createVoiceTransportHarness();
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+      createVoiceCapture: voiceCapture.createVoiceCapture,
+      settingsStore: useSettingsStore,
+    });
+
+    await controller.startSession({ mode: 'speech' });
+    await vi.advanceTimersByTimeAsync(179_000);
+
+    expect(useSessionStore.getState().currentMode).toBe('speech');
+
+    await vi.advanceTimersByTimeAsync(1_000);
 
     expect(voiceCapture.stop).toHaveBeenCalledTimes(1);
     expect(voiceTransport.disconnect).toHaveBeenCalledTimes(1);

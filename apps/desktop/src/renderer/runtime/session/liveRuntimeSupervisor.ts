@@ -106,7 +106,11 @@ export function createLiveRuntimeSupervisor({
     });
   };
 
-  const { handleTransportEvent, requestVoiceSessionToken } = createSessionTransportAssembly({
+  const {
+    handleTransportEvent,
+    requestVoiceSessionToken,
+    resetVoiceResumeSessionLimits,
+  } = createSessionTransportAssembly({
     dependencies,
     conversationCtx,
     mutableRuntime,
@@ -234,9 +238,11 @@ export function createLiveRuntimeSupervisor({
       dependencies.store.getState().setActiveVoiceSessionGroundingEnabled(enabled);
     },
     selectedOutputDeviceId,
+    resetVoiceResumeSessionLimits,
     resetVoiceSessionResumption: () => runtimeRef.current!.resetVoiceSessionResumption(),
     resetVoiceSessionDurability: () => runtimeRef.current!.resetVoiceSessionDurability(),
     resetVoiceToolState: () => runtimeRef.current!.resetVoiceToolState(),
+    resetVoiceToolSessionLimits: () => voiceToolCtrl.resetSessionLimits(),
     ensureCurrentChatForSpeechStart: async () => {
       await getCurrentChat();
     },

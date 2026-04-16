@@ -188,7 +188,10 @@ describe('sessionController entry', () => {
 
     resetDesktopStoresWithDefaults();
     useSettingsStore.setState({
-      settings: DEFAULT_DESKTOP_SETTINGS,
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        groundingEnabled: true,
+      },
       isReady: true,
     });
 

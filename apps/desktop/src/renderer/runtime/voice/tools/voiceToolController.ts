@@ -9,8 +9,11 @@ import type {
 import type { DesktopSession } from '../../transport/transport.types';
 import type {
   VoiceToolCall,
+  VoiceToolResponse,
   VoiceToolState,
 } from '../voice.types';
+
+const MAX_PROJECT_KNOWLEDGE_EXECUTIONS_PER_SESSION = 3;
 
 type VoiceToolStoreApi = {
   getState: () => {
@@ -29,6 +32,7 @@ export type VoiceToolController = {
   setState: (patch: Partial<VoiceToolState>) => void;
   reset: () => void;
   resetChain: () => void;
+  resetSessionLimits: () => void;
 };
 
 export function createVoiceToolController(
@@ -43,6 +47,7 @@ export function createVoiceToolController(
 ): VoiceToolController {
   let voiceToolChain = Promise.resolve();
   let executionVersion = 0;
+  let successfulProjectKnowledgeExecutions = 0;
   const getExecutionOptions = maybeOnAnswerMetadata
     ? getExecutionOptionsOrOnAnswerMetadata as (() => { groundingEnabled?: boolean }) | undefined
     : undefined;
@@ -75,6 +80,19 @@ export function createVoiceToolController(
     store.getState().setVoiceToolState(createDefaultVoiceToolState());
   };
 
+  const createSessionLimitResponse = (call: VoiceToolCall): VoiceToolResponse => ({
+    id: call.id,
+    name: call.name,
+    response: {
+      ok: false as const,
+      error: {
+        code: 'project_knowledge_limit_reached',
+        message:
+          `Tool "search_project_knowledge" reached the per-session limit of ${MAX_PROJECT_KNOWLEDGE_EXECUTIONS_PER_SESSION} successful calls`,
+      },
+    },
+  });
+
   const handleVoiceToolCalls = async (
     calls: VoiceToolCall[],
     version: number,
@@ -88,7 +106,7 @@ export function createVoiceToolController(
       return;
     }
 
-    const responses = [];
+    const responses: VoiceToolResponse[] = [];
     let lastError: string | null = null;
 
     for (const call of calls) {
@@ -110,18 +128,26 @@ export function createVoiceToolController(
       });
       setDebugEvent('voice.tool.executing', `${call.id}:${call.name}`);
 
-      const response = await executeLocalVoiceTool(
-        call,
-        getSnapshot(),
-        dependencies,
-        getExecutionOptions?.(),
-      );
+      const response: VoiceToolResponse =
+        call.name === 'search_project_knowledge'
+        && successfulProjectKnowledgeExecutions >= MAX_PROJECT_KNOWLEDGE_EXECUTIONS_PER_SESSION
+          ? createSessionLimitResponse(call)
+          : await executeLocalVoiceTool(
+              call,
+              getSnapshot(),
+              dependencies,
+              getExecutionOptions?.(),
+            );
 
       if (!isActiveExecution(version, transport)) {
         return;
       }
 
       responses.push(response);
+
+      if (call.name === 'search_project_knowledge' && response.response['ok'] === true) {
+        successfulProjectKnowledgeExecutions += 1;
+      }
 
       const reportedAnswerMetadata = response.response['answerMetadata'];
 
@@ -218,5 +244,8 @@ export function createVoiceToolController(
     setState,
     reset,
     resetChain: () => { cancel('tool execution reset'); },
+    resetSessionLimits: () => {
+      successfulProjectKnowledgeExecutions = 0;
+    },
   };
 }

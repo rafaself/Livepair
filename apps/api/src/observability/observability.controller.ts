@@ -8,7 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ReportLiveTelemetryDto } from './dto/report-live-telemetry.dto';
-import { LiveTelemetryAuthGuard } from './live-telemetry-auth.guard';
+import { InstallSecretAuthGuard } from './install-secret-auth.guard';
 import { LiveTelemetryService } from './live-telemetry.service';
 import { ObservabilityService } from './observability.service';
 
@@ -24,6 +24,7 @@ export class ObservabilityController {
   ) {}
 
   @Get('metrics')
+  @UseGuards(InstallSecretAuthGuard)
   async getMetrics(@Res({ passthrough: true }) response: ResponseLike): Promise<string> {
     response.setHeader('Content-Type', this.observabilityService.contentType);
     return this.observabilityService.getMetrics();
@@ -31,7 +32,7 @@ export class ObservabilityController {
 
   @Post('observability/live-telemetry')
   @HttpCode(202)
-  @UseGuards(LiveTelemetryAuthGuard)
+  @UseGuards(InstallSecretAuthGuard)
   reportLiveTelemetry(@Body() dto: ReportLiveTelemetryDto): void {
     this.liveTelemetryService.acceptBatch(dto.events);
   }

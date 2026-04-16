@@ -8,7 +8,6 @@ import { ObservabilityModule } from '../observability/observability.module';
 import { SessionController } from './session.controller';
 import { GeminiAuthTokenClient } from './gemini-auth-token.client';
 import { SessionService } from './session.service';
-import { SessionTokenAuthGuard } from './session-token-auth.guard';
 import { SessionTokenCacheControlMiddleware } from './session-token-cache-control.middleware';
 import { SessionTokenRateLimitGuard } from './session-token-rate-limit.guard';
 
@@ -18,7 +17,6 @@ import { SessionTokenRateLimitGuard } from './session-token-rate-limit.guard';
   providers: [
     GeminiAuthTokenClient,
     SessionService,
-    SessionTokenAuthGuard,
     SessionTokenCacheControlMiddleware,
     SessionTokenRateLimitGuard,
   ],

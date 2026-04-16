@@ -76,7 +76,11 @@ describe('Observability HTTP integration', () => {
   });
 
   it('serves Prometheus text exposition from GET /metrics', async () => {
-    const response = await fetch(`${baseUrl}/metrics`);
+    const response = await fetch(`${baseUrl}/metrics`, {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'observability-secret',
+      },
+    });
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/plain');
@@ -86,6 +90,22 @@ describe('Observability HTTP integration', () => {
     expect(body).toContain('# TYPE');
     expect(body).toContain('process_cpu_user_seconds_total');
     expect(body).toContain('process_start_time_seconds');
+  });
+
+  it('rejects metrics requests without the install auth header', async () => {
+    const response = await fetch(`${baseUrl}/metrics`);
+
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects metrics requests with an invalid install auth header', async () => {
+    const response = await fetch(`${baseUrl}/metrics`, {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'wrong-secret',
+      },
+    });
+
+    expect(response.status).toBe(403);
   });
 
   it('records request totals, duration, and errors for existing routes', async () => {
@@ -104,7 +124,11 @@ describe('Observability HTTP integration', () => {
 
     await fetch(`${baseUrl}/missing-route`);
 
-    const metricsResponse = await fetch(`${baseUrl}/metrics`);
+    const metricsResponse = await fetch(`${baseUrl}/metrics`, {
+      headers: {
+        [SESSION_TOKEN_AUTH_HEADER_NAME]: 'observability-secret',
+      },
+    });
     const metrics = await metricsResponse.text();
 
     expect(metrics).toMatch(

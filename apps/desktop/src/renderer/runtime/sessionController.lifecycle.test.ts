@@ -193,6 +193,13 @@ describe('createDesktopSessionController – lifecycle', () => {
       expireTime: '2099-03-09T12:30:00.000Z',
       newSessionExpireTime: '2099-03-09T12:01:30.000Z',
     });
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        groundingEnabled: true,
+      },
+      isReady: true,
+    });
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),

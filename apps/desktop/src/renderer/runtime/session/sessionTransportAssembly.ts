@@ -88,6 +88,7 @@ export function createSessionTransportAssembly({
   requestVoiceSessionToken: (
     operationId: number,
   ) => Promise<CreateEphemeralTokenResponse | null>;
+  resetVoiceResumeSessionLimits: () => void;
 } {
   const transportActivation = createSessionTransportActivation({
     cleanupTransport: () => runtimeRef.current!.cleanupTransport(),
@@ -395,5 +396,6 @@ export function createSessionTransportAssembly({
   return {
     handleTransportEvent,
     requestVoiceSessionToken,
+    resetVoiceResumeSessionLimits: () => voiceResumeCtrl.resetSessionLimits(),
   };
 }

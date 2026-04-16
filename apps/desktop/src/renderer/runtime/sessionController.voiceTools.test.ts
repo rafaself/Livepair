@@ -3,6 +3,7 @@ import { createDesktopSessionController } from './sessionController';
 import { useSessionStore } from '../store/sessionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { resetDesktopStoresWithDefaults } from '../test/store';
+import { DEFAULT_DESKTOP_SETTINGS } from '../../shared/settings';
 import * as voiceToolsModule from './voice/tools/voiceTools';
 import {
   createVoiceTransportHarness,
@@ -145,6 +146,13 @@ describe('createDesktopSessionController – voice tools', () => {
       retrievalStatus: 'grounded' as const,
     }));
     window.bridge.searchProjectKnowledge = searchProjectKnowledge;
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        groundingEnabled: true,
+      },
+      isReady: true,
+    });
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
@@ -216,6 +224,13 @@ describe('createDesktopSessionController – voice tools', () => {
       retrievalStatus: 'grounded' as const,
     }));
     window.bridge.searchProjectKnowledge = searchProjectKnowledge;
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        groundingEnabled: true,
+      },
+      isReady: true,
+    });
     const controller = createDesktopSessionController({
       logger: {
         onSessionEvent: vi.fn(),
@@ -273,6 +288,73 @@ describe('createDesktopSessionController – voice tools', () => {
               confidence: 'high',
               citations: [{ label: 'README.md' }],
               reason: 'Derived from successful search_project_knowledge retrieval output.',
+            },
+          },
+        },
+      ]);
+    });
+  });
+
+  it('caps successful project-knowledge tool executions at three per live session', async () => {
+    const voiceTransport = createVoiceTransportHarness();
+    const searchProjectKnowledge = vi.fn(async () => ({
+      summaryAnswer: 'Desktop verification uses pnpm verify:desktop.',
+      supportingExcerpts: [],
+      sources: [{ id: 'doc-1', title: 'README.md', path: 'README.md' }],
+      confidence: 'high' as const,
+      retrievalStatus: 'grounded' as const,
+    }));
+    window.bridge.searchProjectKnowledge = searchProjectKnowledge;
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        groundingEnabled: true,
+      },
+      isReady: true,
+    });
+    const controller = createDesktopSessionController({
+      logger: {
+        onSessionEvent: vi.fn(),
+        onTransportEvent: vi.fn(),
+      },
+      checkBackendHealth: vi.fn(),
+      requestSessionToken: vi.fn().mockResolvedValue({
+        token: 'auth_tokens/test-token',
+        expireTime: '2099-03-09T12:30:00.000Z',
+        newSessionExpireTime: '2099-03-09T12:01:30.000Z',
+      }),
+      createTransport: vi.fn(() => voiceTransport.transport),
+    });
+
+    await controller.startSession({ mode: 'speech' });
+
+    for (const attempt of [1, 2, 3, 4]) {
+      voiceTransport.emit({
+        type: 'tool-call',
+        calls: [
+          {
+            id: `call-project-cap-${attempt}`,
+            name: 'search_project_knowledge',
+            arguments: {
+              query: `How do I verify the desktop package? ${attempt}`,
+            },
+          },
+        ],
+      });
+    }
+
+    await vi.waitFor(() => {
+      expect(searchProjectKnowledge).toHaveBeenCalledTimes(3);
+      expect(voiceTransport.sendToolResponses).toHaveBeenLastCalledWith([
+        {
+          id: 'call-project-cap-4',
+          name: 'search_project_knowledge',
+          response: {
+            ok: false,
+            error: {
+              code: 'project_knowledge_limit_reached',
+              message:
+                'Tool "search_project_knowledge" reached the per-session limit of 3 successful calls',
             },
           },
         },
